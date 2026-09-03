@@ -368,7 +368,9 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 				{
 					if(numDownloadAttempts <= numRetriesAllowed)
 					{ //Attempt retry for partial downloads, which have a higher chance to succeed
-						if (httpRetVal == CURLE_COULDNT_CONNECT || IsCurlTimeoutFailure (httpRetVal) || httpRetVal == CURLE_SEND_ERROR || httpRetVal == CURLE_RECV_ERROR)
+						if (httpRetVal == CURLE_COULDNT_CONNECT || IsCurlTimeoutFailure (httpRetVal) ||
+							httpRetVal == CURLE_SEND_ERROR || httpRetVal == CURLE_RECV_ERROR ||
+							httpRetVal == CURLE_COULDNT_RESOLVE_HOST)
 						{
 							AAMPLOG_WARN("Download failed due to curl error %d numDownloadAttempts %d numRetriesAllowed %d", httpRetVal, numDownloadAttempts, numRetriesAllowed);
 							loopAgain = true;
@@ -625,6 +627,14 @@ void AampCurlDownloader::updateCurlParams()
 		CURL_EASY_SETOPT_LONG(mCurl, CURLOPT_SSL_VERIFYPEER, 1L);
 	}
 	CURL_EASY_SETOPT_LONG(mCurl, CURLOPT_SSLVERSION, mDnldCfg->lSupportedTLSVersion);
+
+#if defined(CURL_HTTP_VERSION_3ONLY) || defined(AAMP_HTTP3_SUPPORTED)
+	if(mDnldCfg->bEnableHTTP3)
+	{
+		CURL_EASY_SETOPT_LONG(mCurl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_3ONLY);
+		AAMPLOG_INFO("HTTP/3 (QUIC) enabled for manifest download");
+	}
+#endif
 
 	if (mDnldCfg->sCustomHeaders.size() > 0)
 	{

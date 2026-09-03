@@ -793,11 +793,17 @@ uint64_t StreamAbstractionAAMP_MPD::FindPositionInTimeline(class MediaStreamCont
 		* and a manifest update after segment 1 has been sent. Ensure one cycle of the for loop so
 		* timeLineIndex gets incremented.
 		* Without this we get a segment dropped and another repeated in server side ads
+		* Also check that this is not a special case (only 1 segment in timeline) as given below
+		* which causes AAMP to land in a non-existent timeline when it forces one cycle of for loop.
+		* <SegmentTimeline>
+		*  <S d="109568" t="0"/>
+		* </SegmentTimeline>
 		*/
 
 		bool isFirstSegment = pMediaStreamContext->lastSegmentTime == 0 && startTime == 0
 									&& pMediaStreamContext->lastSegmentDuration != 0
-									&& repeatCount == 0 && pMediaStreamContext->timeLineIndex == 0;
+									&& repeatCount == 0 && pMediaStreamContext->timeLineIndex == 0
+									&& timelines.size() != 1;
 
 #if defined(DEBUG_TIMELINE) || defined(AAMP_SIMULATOR_BUILD)
 		AAMPLOG_INFO("Type[%d] nextStartTime=%" PRIu64 " startTime=%" PRIu64 " repeatCount=%u", pMediaStreamContext->type,
@@ -4707,7 +4713,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::IndexNewMPDDocument(bool updateTrackIn
 			//Periods could be added or removed, So select period based on periodID
 			//If period ID not found in MPD that means it got culled, in that case select
 			// first period
-			AAMPLOG_INFO("Updating period index after mpd refresh");
+			AAMPLOG_INFO("Updating period index after mpd refresh, current periodId %s", mBasePeriodId.c_str());
 			vector<IPeriod *> periods = mpd->GetPeriods();
 			int iter = (int)periods.size() - 1;
 			mCurrentPeriodIdx = 0;
@@ -4750,7 +4756,8 @@ AAMPStatusType StreamAbstractionAAMP_MPD::IndexNewMPDDocument(bool updateTrackIn
 		// Update Track Information based on flag
 		if (updateTrackInfo)
 		{
-			AAMPLOG_INFO("MPD has %d periods current period index %u", mNumberOfPeriods, mCurrentPeriodIdx);
+			IPeriod *currentPeriod = availablePeriods.at(mCurrentPeriodIdx);
+			AAMPLOG_INFO("MPD has %d periods current period index %u periodId %s", mNumberOfPeriods, mCurrentPeriodIdx, currentPeriod->GetId().c_str());
 			if(mIsLiveStream)
 			{
 				// IsLive = 1 , resetTimeLineIndex = 1
@@ -4854,11 +4861,13 @@ AAMPStatusType StreamAbstractionAAMP_MPD::FetchDashManifest()
 		{
 			aamp->profiler.ProfileError(PROFILE_BUCKET_MANIFEST, http_error);
 			aamp->profiler.ProfileEnd(PROFILE_BUCKET_MANIFEST);
-			if (this->mpd != NULL && ( ( IsCurlTimeoutFailure( http_error ) ) || CURLE_COULDNT_CONNECT == http_error))
+			if (this->mpd != NULL &&
+				((IsCurlTimeoutFailure(http_error)) ||
+				 (CURLE_COULDNT_CONNECT == http_error)))
 			{
 				//Skip this for first ever update mpd request
 				mNetworkDownDetected = true;
-				AAMPLOG_WARN("StreamAbstractionAAMP_MPD: Ignore curl timeout");
+				AAMPLOG_WARN("StreamAbstractionAAMP_MPD: Ignore transient curl failure");
 				ret = AAMPStatusType::eAAMPSTATUS_OK;
 			}
 			else if (http_error == 512 )
@@ -4880,7 +4889,6 @@ AAMPStatusType StreamAbstractionAAMP_MPD::FetchDashManifest()
 				}
 				if(aamp->mFogDownloadFailReason.find("PROFILE_NONE") != std::string::npos)
 				{
-
 					aamp->mFogDownloadFailReason.clear();
 					AAMPLOG_ERR("StreamAbstractionAAMP_MPD: No playable profiles found");
 					ret = AAMPStatusType::eAAMPSTATUS_MANIFEST_CONTENT_ERROR;
@@ -4889,14 +4897,11 @@ AAMPStatusType StreamAbstractionAAMP_MPD::FetchDashManifest()
 			//When Fog is having tsb write error , then it will respond back with 302 with direct CDN url,In this case alone TSB should be disabled
 			else if (aamp->mFogTSBEnabled && http_error == 302)
 			{
-					aamp->mFogTSBEnabled = false;
+				aamp->mFogTSBEnabled = false;
 			}
-
 			else
 			{
 				aamp->UpdateDuration(0);
-				aamp->SetFlushFdsNeededInCurlStore(true);
-
 				switch( http_error )
 				{
 					case eCURL_TIMEOUT_DNS:
@@ -4921,7 +4926,6 @@ AAMPStatusType StreamAbstractionAAMP_MPD::FetchDashManifest()
 		{
 			aamp->UpdateDuration(0);
 			AAMPLOG_ERR("StreamAbstractionAAMP_MPD: manifest download failed");
-			aamp->SetFlushFdsNeededInCurlStore(true);
 			ret = AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR;
 		}
 	}
@@ -5050,60 +5054,44 @@ void StreamAbstractionAAMP_MPD::MPDUpdateCallbackExec()
 	}
 	else
 	{
-		// Failure from the manifest download during refresh --- fire , what to do ??
-		// Check if the App only insisted to stop the download resulting in partial failure ?
-		int http_error	=	tmpManifestDnldRespPtr->mMPDDownloadResponse->iHttpRetValue;
-
+		// Failure from the manifest download during refresh
+		// 1. Check if its due to app-induced stop
+		// 2. Log a FOG reason if available
+		// 3. Move on with the old manifest. The error might recover on next try.
+		// 4. Ultimately when buffer runs dry and manifest is not updated, send appropriate error event to app
+		int http_error = tmpManifestDnldRespPtr->mMPDDownloadResponse->iHttpRetValue;
 		if (aamp->DownloadsAreEnabled())
 		{
 			// if already mpd is available
-			if (this->mpd != NULL
-				&& ( IsCurlTimeoutFailure(http_error) || CURLE_COULDNT_CONNECT == http_error))
+			if (this->mpd != NULL &&
+				(IsCurlTimeoutFailure(http_error) ||
+				 CURLE_COULDNT_CONNECT == http_error))
 			{
 				//Skip this for first ever update mpd request
 				mNetworkDownDetected = true;
-				AAMPLOG_WARN("Ignore curl timeout");
+				AAMPLOG_WARN("Ignore transient curl failure");
 			}
-			else
+			else if (http_error == 512 &&
+					tmpManifestDnldRespPtr->mMPDDownloadResponse->mResponseHeader.size() &&
+					aamp->mFogTSBEnabled)
 			{
-				if (http_error == 512 )
+				for (const std::string& header : tmpManifestDnldRespPtr->mMPDDownloadResponse->mResponseHeader)
 				{
-					if(tmpManifestDnldRespPtr->mMPDDownloadResponse->mResponseHeader.size() && aamp->mFogTSBEnabled)
+					if(STARTS_WITH_IGNORE_CASE(header.c_str(),FOG_REASON_STRING))
 					{
-						for ( std::string header : tmpManifestDnldRespPtr->mMPDDownloadResponse->mResponseHeader )
-						{
-							if(STARTS_WITH_IGNORE_CASE(header.c_str(),FOG_REASON_STRING))
-							{
-								aamp->mFogDownloadFailReason.clear();
-								aamp->mFogDownloadFailReason  =         header.substr(std::string(FOG_REASON_STRING).length());
-								AAMPLOG_WARN("Received FOG-Reason header: %s",aamp->mFogDownloadFailReason.c_str());
-								aamp->SendAnomalyEvent(ANOMALY_WARNING, "FOG-Reason:%s", aamp->mFogDownloadFailReason.c_str());
-								break;
-							}
-						}
+						aamp->mFogDownloadFailReason.clear();
+						aamp->mFogDownloadFailReason  =         header.substr(std::string(FOG_REASON_STRING).length());
+						AAMPLOG_WARN("Received FOG-Reason header: %s",aamp->mFogDownloadFailReason.c_str());
+						aamp->SendAnomalyEvent(ANOMALY_WARNING, "FOG-Reason:%s", aamp->mFogDownloadFailReason.c_str());
+						break;
 					}
 				}
-				else if(tmpManifestDnldRespPtr->mMPDStatus == eAAMPSTATUS_MANIFEST_PARSE_ERROR)
-				{
-					aamp->SendErrorEvent(AAMP_TUNE_INVALID_MANIFEST_FAILURE); //corrupt or invalid manifest
-					AAMPLOG_ERR("Invalid manifest, parse failed");
-				}
-				else if(tmpManifestDnldRespPtr->mMPDStatus == eAAMPSTATUS_MANIFEST_CONTENT_ERROR)
-				{
-					//Unknown Manifest content
-					aamp->SendErrorEvent(AAMP_TUNE_INIT_FAILED_MANIFEST_CONTENT_ERROR);
-					AAMPLOG_ERR("Unknown manifest content");
-				}
-				else
-				{
-					aamp->SendDownloadErrorEvent(AAMP_TUNE_MANIFEST_REQ_FAILED, http_error);
-					AAMPLOG_ERR("manifest download failed");
-				}
 			}
+			AAMPLOG_ERR("manifest download failed [status:%d][http:%d], re-using old manifest", tmpManifestDnldRespPtr->mMPDStatus, http_error);
 		}
-		else // if downloads disabled
+		else
 		{
-			AAMPLOG_ERR("manifest download failed");
+			AAMPLOG_ERR("manifest download failed, due to downloads being disabled, re-using old manifest");
 		}
 	}
 	// Inform fetch loop to proceed with the new manifest
@@ -7842,6 +7830,42 @@ std::string StreamAbstractionAAMP_MPD::GetCurrentMimeType(AampMediaType mediaTyp
 		AAMPLOG_DEBUG( "%s", mimeType.c_str() );
 	}
 	return mimeType;
+}
+
+/**
+ * @brief GetCurrentCodec
+ * @param mediaType type of media
+ * @retval codec string declared by the current representation, falling back to the adaptation
+ *         set when the representation does not declare one. Empty when neither does.
+ */
+std::string StreamAbstractionAAMP_MPD::GetCurrentCodec(AampMediaType mediaType)
+{
+	std::string codec;
+	if( mediaType < mNumberOfTracks )
+	{
+		auto pMediaStreamContext = mMediaStreamContext[mediaType];
+		if( pMediaStreamContext )
+		{
+			if( pMediaStreamContext->representation )
+			{
+				const auto& repCodecs = pMediaStreamContext->representation->GetCodecs();
+				if( !repCodecs.empty() )
+				{
+					codec = repCodecs[0];
+				}
+			}
+			if( codec.empty() && pMediaStreamContext->adaptationSet )
+			{
+				const auto& adapCodecs = pMediaStreamContext->adaptationSet->GetCodecs();
+				if( !adapCodecs.empty() )
+				{
+					codec = adapCodecs[0];
+				}
+			}
+		}
+	}
+	AAMPLOG_DEBUG( "type %d codec '%s'", mediaType, codec.c_str() );
+	return codec;
 }
 
 /**
@@ -11612,13 +11636,6 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 		{
 			sink->ClearProtectionEvent();
 		}
-		if (clearChannelData)
-		{
-			if(ISCONFIGSET(eAAMPConfig_UseSecManager) || ISCONFIGSET(eAAMPConfig_UseFireboltSDK))
-			{
-				aamp->mDRMLicenseManager->notifyCleanup();
-			}
-		}
 	}
 
 	if (!aamp->DownloadsAreEnabled())
@@ -11662,16 +11679,36 @@ StreamOutputFormat GetSubtitleFormat(std::string mimeType)
  */
 void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &subtitleOutputFormat)
 {
-	StreamOutputFormat format = FORMAT_ISO_BMFF; // Default format
+	StreamOutputFormat videoFormat = FORMAT_ISO_BMFF; // Default format
+	StreamOutputFormat audioFormat = FORMAT_ISO_BMFF;
 	if (ISCONFIGSET(eAAMPConfig_UseMp4Demux))
 	{
-		// Mp4Demuxer will set the format later once the init fragment is parsed
-		// format is only used for video and audio formats. Subtitle should be unaffected
-		format = FORMAT_UNKNOWN;
+		// AampMp4Demuxer consumes the container and feeds elementary streams, so the sink needs
+		// the codec format rather than FORMAT_ISO_BMFF. Predict it from the manifest so the appsrc
+		// is created with the correct caps and gstreamer autoplugs its decoder chain once, during
+		// preroll - the same sequence the qtdemux path gets for free.
+		//
+		// Reporting FORMAT_UNKNOWN instead means the appsrc is created with no caps at all, and
+		// the real caps only arrive from SetStreamCaps() after the init segment is parsed, on an
+		// already-running pipeline. That forces gstreamer to re-link downstream while the first
+		// data push is already in flight, and when the autoplug loses that race the push lands on
+		// an unlinked pad and the pipeline dies with "not-linked (-1)". See VPAAMP-1039.
+		//
+		// FORMAT_UNKNOWN is still the fallback whenever the codec cannot be predicted, which
+		// keeps the previous behaviour for anything this cannot cover:
+		//  - codecs AampMp4Demuxer does not recognise (see the maps in AampUtils.cpp)
+		//  - DRM protected assets, whose final caps are application/x-cenc, a different media
+		//    type that cannot be derived from the codec string alone
+		videoFormat = audioFormat = FORMAT_UNKNOWN;
+		if (!hasDrm)
+		{
+			videoFormat = GetMp4DemuxVideoFormatForCodec(GetCurrentCodec(eMEDIATYPE_VIDEO).c_str());
+			audioFormat = GetMp4DemuxAudioFormatForCodec(GetCurrentCodec(eMEDIATYPE_AUDIO).c_str());
+		}
 	}
 	if(mMediaStreamContext[eMEDIATYPE_VIDEO] && mMediaStreamContext[eMEDIATYPE_VIDEO]->enabled )
 	{
-		primaryOutputFormat = format;
+		primaryOutputFormat = videoFormat;
 	}
 	else
 	{
@@ -11679,7 +11716,7 @@ void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutpu
 	}
 	if(mMediaStreamContext[eMEDIATYPE_AUDIO] && mMediaStreamContext[eMEDIATYPE_AUDIO]->enabled )
 	{
-		audioOutputFormat = format;
+		audioOutputFormat = audioFormat;
 	}
 	else
 	{

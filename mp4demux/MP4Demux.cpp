@@ -95,7 +95,9 @@ constexpr CodecMapping gCodecMappings[] = {
 	{ MultiChar_Constant("hvcC"), GST_FORMAT_VIDEO_ES_HEVC },
 	{ MultiChar_Constant("esds"), GST_FORMAT_AUDIO_ES_AAC_RAW },
 	{ MultiChar_Constant("dec3"), GST_FORMAT_AUDIO_ES_EC3 },
-	{ MultiChar_Constant("dac4"), GST_FORMAT_AUDIO_ES_AC4 } // AC-4 decoder config box
+	{ MultiChar_Constant("dac4"), GST_FORMAT_AUDIO_ES_AC4 }, // AC-4 decoder config box
+	{ MultiChar_Constant("stpp"), GST_FORMAT_SUBTITLE_TTML }, // TTML in MP4
+	{ MultiChar_Constant("wvtt"), GST_FORMAT_SUBTITLE_WEBVTT } // WebVTT in MP4
 };
 
 /**
@@ -160,14 +162,14 @@ Mp4Demux::Mp4Demux() :
 	mMediaTypeName("unknown"),
 	ivSize(),
 	cryptByteBlock(), skipByteBlock(),
-	constantIvSize(), constantIv(), timeScale(),
+	constantIvSize(), constantIv(), timeScale(), fallbackTimeScale(),
 	samples(), defaultKid(), gotAuxiliaryInformationOffset(),
 	auxiliaryInformationOffset(), schemeType(CIPHER_TYPE_NONE),
 	originalMediaType(), cencAuxInfoSizes(), protectionData(),
 	moofPtr(),
 	ptr(), endPtr(nullptr),
 	version(), flags(), baseMediaDecodeTime(),
-	trackId(), baseDataOffset(),
+	trackId(), handlerType(), baseDataOffset(),
 	mdatStart(nullptr), mdatEnd(nullptr),
 	defaultSampleDescriptionIndex(), defaultSampleDuration(), defaultSampleSize(),
 	defaultSampleFlags(),
@@ -443,6 +445,10 @@ void Mp4Demux::ParseTrackEncryptionBox()
  */
 void Mp4Demux::ParseProtectionSystemSpecificHeaderBox(const uint8_t *next)
 {
+	// consumers (e.g. Rialto's parsePssh) re-parse the raw pssh box
+	// themselves, so remember where the full box body (version/flags onward)
+	// starts to allow reconstructing a standard-form box below
+	const uint8_t *fullBoxBodyStart = ptr;
 	ReadHeader();
 	// Must have at least systemID (16)
 	if (ptr + PSSH_SYSTEM_ID_SIZE > next)
@@ -480,8 +486,19 @@ void Mp4Demux::ParseProtectionSystemSpecificHeaderBox(const uint8_t *next)
 	uint32_t dataSize = ReadU32();
 	if (ptr + dataSize > next)
 		throw Mp4ParseException(MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH, "pssh: data OOB");
-	psshData.pssh.assign(ptr, ptr + dataSize);
 	SkipBytes(dataSize);
+	// Reconstruct a standard-form pssh box (8-byte size+type header followed
+	// by the full box body) since downstream DRM code (e.g. Rialto's
+	// parsePssh) re-parses this as a self-contained ISO BMFF box.
+	const size_t bodyLen = static_cast<size_t>(ptr - fullBoxBodyStart);
+	const uint32_t boxSize = static_cast<uint32_t>(8 + bodyLen);
+	psshData.pssh.reserve(boxSize);
+	psshData.pssh.push_back(static_cast<uint8_t>(boxSize >> 24));
+	psshData.pssh.push_back(static_cast<uint8_t>(boxSize >> 16));
+	psshData.pssh.push_back(static_cast<uint8_t>(boxSize >> 8));
+	psshData.pssh.push_back(static_cast<uint8_t>(boxSize));
+	psshData.pssh.insert(psshData.pssh.end(), {'p', 's', 's', 'h'});
+	psshData.pssh.insert(psshData.pssh.end(), fullBoxBodyStart, ptr);
 }
 
 /**
@@ -733,6 +750,22 @@ void Mp4Demux::ParseTrackRun()
 	{
 		firstSampleFlags = ReadU32();
 	}
+	if (timeScale == 0)
+	{
+		// No mvhd/mdhd was parsed for this track (e.g. stream has no init
+		// segment for this track), so sample times/durations would divide
+		// by zero and yield NaN/Inf. Fall back to the manifest-declared
+		// timescale if one was supplied; otherwise sample times are set to 0.
+		if (fallbackTimeScale == 0)
+		{
+			MP4_LOG_WARN("trun: timeScale is 0 (no mdhd/mvhd parsed, no manifest fallback); sample pts/dts/duration will be set to 0");
+		}
+		else
+		{
+			MP4_LOG_WARN("trun: timeScale is 0 (no mdhd/mvhd parsed); falling back to manifest timescale %u", fallbackTimeScale);
+		}
+	}
+	const uint32_t effectiveTimeScale = (timeScale != 0) ? timeScale : fallbackTimeScale;
 	uint64_t dts = baseMediaDecodeTime;
 	for (auto i = 0u; i < sampleCount; i++)
 	{
@@ -770,9 +803,9 @@ void Mp4Demux::ParseTrackRun()
 		pendingSample.dataPtr  = dataPtr;
 		pendingSample.sampleLen = sampleLen;
 		pendingSample.sampleIdx = samples.size() - 1;
-		pendingSample.mDts      = dts / (double)timeScale;
-		pendingSample.mPts      = (dts + sampleCompositionTimeOffset) / (double)timeScale;
-		pendingSample.mDuration = sampleDuration / (double)timeScale;
+		pendingSample.mDts      = (effectiveTimeScale != 0) ? (dts / (double)effectiveTimeScale) : 0.0;
+		pendingSample.mPts      = (effectiveTimeScale != 0) ? ((dts + sampleCompositionTimeOffset) / (double)effectiveTimeScale) : 0.0;
+		pendingSample.mDuration = (effectiveTimeScale != 0) ? (sampleDuration / (double)effectiveTimeScale) : 0.0;
 		pendingSample.mIsKeyFrame = isKeyFrame;
 		mSampleInfo.emplace_back(pendingSample);
 		dataPtr += sampleLen;
@@ -964,6 +997,20 @@ void Mp4Demux::ParseMediaHeader()
 }
 
 /**
+ * @brief Parse handler reference box (HDLR)
+ * Extracts handler_type (e.g. 'vide', 'soun', 'meta', 'text') so the
+ * current track's media type is available for diagnostic logging.
+ * Caller is responsible for skipping to the next box afterwards, since
+ * the trailing name string is not needed.
+ */
+void Mp4Demux::ParseHandlerReference()
+{
+	ReadHeader();
+	SkipBytes(4); // pre_defined
+	handlerType = ReadU32();
+}
+
+/**
  * @brief Parse track extends box (TREX)
  * Extracts default sample properties for the track:
  * - Track ID
@@ -984,7 +1031,16 @@ void Mp4Demux::ParseTrackExtendsBox()
 /**
  * @brief Parse sample description box (STSD)
  * Extracts the number of sample descriptions and processes them.
- * Currently only supports a single sample description.
+ * A track may legitimately carry more than one sample entry - e.g. CMAF
+ * content packaged with a protected entry (encv/enca) plus a clear
+ * fallback entry (avc1/mp4a) to support switching between encrypted and
+ * clear content via sample_description_index (clear-lead / ad-insertion).
+ * AAMP does not currently select entries per fragment, so all entries are
+ * parsed via the normal box dispatch and the last one parsed wins for
+ * codec/video/audio info. This is safe for mIsEncrypted specifically,
+ * since a 'tenc' box under any entry sets handledEncryptedSamples, and
+ * Mp4Demux::Parse() forces mIsEncrypted back to true afterwards even if
+ * the last-parsed entry itself was the clear variant.
  *
  * @param next Pointer to next box
  */
@@ -992,8 +1048,14 @@ void Mp4Demux::ParseSampleDescriptionBox(const uint8_t *next)
 {
 	ReadHeader();
 	uint32_t count = ReadU32();
-	if (count != 1) {
-		throw Mp4ParseException(MP4_PARSE_ERROR_UNSUPPORTED_SAMPLE_ENTRY_COUNT, "stsd: count != 1");
+	if (count == 0) {
+		MP4_LOG_ERR("stsd: invalid entry_count %u for trackId %u, handlerType '%s'",
+			count, trackId, FourCCToString(handlerType).c_str());
+		throw Mp4ParseException(MP4_PARSE_ERROR_INVALID_ENTRY_COUNT, "stsd: count == 0");
+	}
+	if (count > 1) {
+		MP4_LOG_WARN("stsd: entry_count %u for trackId %u, handlerType '%s' (multiple sample entries, likely clear/encrypted variants)",
+			count, trackId, FourCCToString(handlerType).c_str());
 	}
 	// Parse contained sample entries/config boxes
 	DemuxHelper(next);
@@ -1026,6 +1088,16 @@ void Mp4Demux::ParseStreamFormatBox(uint32_t type, const uint8_t *next)
 		case MultiChar_Constant("enca"):
 			mMediaTypeName = "audio";
 			ParseAudioInformation();
+			break;
+		case MultiChar_Constant("stpp"): // TTML subtitle in MP4
+		case MultiChar_Constant("wvtt"): // WebVTT subtitle in MP4
+			mMediaTypeName = "subtitle";
+			// Subtitle sample entries carry no codec-config child box
+			// (unlike hev1→hvcC or avc1→avcC). Set the codec format
+			// directly from the sample entry FourCC so that
+			// GetCodecInfo() returns a valid format and
+			// AampMp4Demuxer::sendSegment() can call SetStreamCaps().
+			codecInfo.mCodecFormat = GetGstStreamOutputFormatFromFourCC(type);
 			break;
 		default:
 			mMediaTypeName = "unknown";
@@ -1399,6 +1471,8 @@ void Mp4Demux::DemuxHelper(const uint8_t *fin)
 			case MultiChar_Constant("ac-4"):
 			case MultiChar_Constant("enca"):
 			case MultiChar_Constant("encv"):
+			case MultiChar_Constant("stpp"): // TTML subtitle
+			case MultiChar_Constant("wvtt"): // WebVTT subtitle
 				ParseStreamFormatBox(type, next);
 				break;
 			case MultiChar_Constant("hvcC"):
@@ -1490,10 +1564,13 @@ void Mp4Demux::DemuxHelper(const uint8_t *fin)
 			case MultiChar_Constant("meta"): // Metadata container (QTFF or ISO BMFF variant)
 				ParseMetaBox(next);
 				break;
+			case MultiChar_Constant("hdlr"): // Handler Reference (handler, name)
+				ParseHandlerReference();
+				ptr = next;
+				break;
 			case MultiChar_Constant("mehd"): // Movie Extends Header
 			case MultiChar_Constant("mfhd"): // Movie Fragment Header
 			case MultiChar_Constant("ftyp"): // FileType (major_brand, minor_version, compatible_brands)
-			case MultiChar_Constant("hdlr"): // Handler Reference (handler, name)
 			case MultiChar_Constant("ilst"): // Apple metadata item list (child of meta)
 			case MultiChar_Constant("keys"): // Apple metadata key declarations (child of meta)
 			case MultiChar_Constant("vmhd"): // Video Media Header (graphics_mode, op_color)
@@ -1657,6 +1734,15 @@ Mp4ParseError Mp4Demux::GetLastError() const
 uint32_t Mp4Demux::GetTimeScale() const
 {
 	return timeScale;
+}
+
+/**
+ * @brief Set the manifest-declared fallback timescale
+ * @see MP4Demux.h
+ */
+void Mp4Demux::SetFallbackTimeScale(uint32_t ts)
+{
+	fallbackTimeScale = ts;
 }
 
 /**

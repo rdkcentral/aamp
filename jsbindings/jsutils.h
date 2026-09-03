@@ -26,6 +26,7 @@
 
 #include "main_aamp.h"
 #include "AampUtils.h"
+
 #include <JavaScriptCore/JavaScript.h>
 #include <stdio.h>
 #include <string.h>
@@ -123,6 +124,13 @@ std::vector<std::string> aamp_StringArrayToCStringArray(JSContextRef context, JS
 JSValueRef aamp_GetException(JSContextRef context, ErrorCode error, const char *additionalInfo);
 
 /**
+ * @fn aamp_getEventTypeFromName
+ * @param[in] szName JS event name
+ * @retval AAMPEventType of corresponding AAMP event
+ */
+AAMPEventType aamp_getEventTypeFromName(const char* szName);
+
+/**
  * @fn aamp_dispatchEventToJS
  * @param[in] context JS execution context
  * @param[in] callback function to which event has to be dispatched as an arg
@@ -164,17 +172,9 @@ JSObjectRef aamp_CreateTimedMetadataJSObject(JSContextRef context, long long tim
  */
 JSObjectRef aamp_CreateBodyResponseJSObject(JSContextRef context, const char *pBodyResponse);
 
-/**
- * @brief Print logs to console / log file
- * TODO: deprecate jsBindingLogprintf, and leverage common logprintf directly
- */
+
 void jsBindingLogprintf(int playerId, const char* functionName, int line, int logLevel, const char *format, ...)  __attribute__ ((format (printf, 5, 6)));
 
-/**
- * @brief Map zoom mode string to VideoZoomMode enum
- * @param zoomStr Zoom mode string
- * @retval VideoZoomMode enum value
- */
 VideoZoomMode MapZoomMode( const char *zoomStr );
 
 #endif /* __AAMP_JSUTILS_H__ */

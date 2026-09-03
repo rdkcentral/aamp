@@ -723,11 +723,11 @@ public:
 	std::vector<BitsPerSecond> GetVideoBitrates(void);
 
 	/**
-		 *   @fn GetManifest
-		 *
-		 *   @return available manifest
-		 */
-		std::string GetManifest(void);
+	 *   @fn GetManifest
+	 *
+	 *   @return available manifest
+	 */
+	std::string GetManifest(void);
 
 	/**
 	 *   @fn GetAudioBitrates

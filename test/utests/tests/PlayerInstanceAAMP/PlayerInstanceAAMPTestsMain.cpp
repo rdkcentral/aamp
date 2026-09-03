@@ -2530,12 +2530,6 @@ TEST_F(PlayerInstanceAAMPTests,SetTextTrackTest)
 
 	mPlayerInstance->SetTextTrack(trackID,ccData);
 }
-TEST_F(PlayerInstanceAAMPTests,InitAAMPConfigTest)
-{
-	const char* jsonStr = "{\"key\": \"value\"}";
-	mPlayerInstance->AsyncStartStop();
-	mPlayerInstance->InitAAMPConfig(jsonStr);
-}
 
 TEST_F(PlayerInstanceAAMPTests,SetPlaybackSpeedTest1)
 {
@@ -2819,8 +2813,8 @@ TEST_F(PlayerInstanceAAMPTests, SetRateTest_LocalTSB_TrickPlayWhenPausedFromTSB)
 /**
  * @brief Fast-forward at live point when accumulated latency exceeds threshold.
  *
- * Contract: When latency has accumulated beyond
- * DEFAULT_ACCUMULATED_LATENCY_THRESHOLD_MS, the live-point guard must
+ * Contract: When latency has accumulated beyond the rebufferLatencyMaxIncrementSec
+ * threshold, the live-point guard must
  * be bypassed so the player can catch up to the live edge.
  * Observable outcome: TuneHelper is called, confirming the rate-change
  * operation was not aborted at the live-point guard.

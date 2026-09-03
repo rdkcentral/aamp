@@ -751,27 +751,30 @@ public:
 	void SetBufferingState(bool buffering);
 
 	/**
-	 * @fn mediaType2Bucket
-	 *
 	 * @param[in] mediaType - Media filetype
 	 * @return Profiler bucket type
 	 */
 	ProfilerBucketType mediaType2Bucket(AampMediaType mediaType);
 
-       /**
-         * @brief to set the vod-tune-event according to the player
-         *
-         * @param[in] tuneEventType
-         * @return void
-         */
+	/**
+	 * @brief To set the vod-tune-event according to the player
+	 *
+	 * @param[in] tuneEventType
+	 * @return void
+	 */
 	void SetTuneEventConfig( TunedEventConfig tuneEventType);
+
+	/**
+	 * @brief Get the value of tune event config
+	 *
+	 * @param[in] isLive - true for live, false for VOD
+	 * @return current tune event config
+	 */
 	TunedEventConfig GetTuneEventConfig(bool isLive);
 
-        /**
-         * @fn UpdatePreferredAudioList
-         *
-         * @return void
-         */
+	/**
+	 * @fn UpdatePreferredAudioList
+	 */
 	void UpdatePreferredAudioList();
 
 	/**
@@ -1585,6 +1588,16 @@ public:
 	void SendBufferChangeEvent(bool bufferingStart=false);
 
 	/**
+	 * @fn HandleManifestRefreshFailureOnBuffering
+	 * @brief When buffering starts, checks whether the buffer drained because manifest
+	 *        refresh was already failing. If so, sends the appropriate error event
+	 *        (manifest request failed or invalid manifest) and returns true so the
+	 *        caller can skip the normal BufferingChanged event.
+	 * @return true if a fatal manifest error event was sent; false otherwise.
+	 */
+	bool HandleManifestRefreshFailureOnBuffering();
+
+	/**
 	 * @fn SendTuneMetricsEvent
 	 * @brief Send tune metrics event to registered listeners
 	 * @return void
@@ -1883,9 +1896,10 @@ public:
 	 *   @param[in]  sample - Media sample; ownership is transferred (consumed).
 	 *                        Callers must pass via std::move() and must not
 	 *                        access the sample after this call returns.
+	 *   @param[in]  morePending - True if more samples are available to inject after this one (default: false).
 	 *   @return void
 	 */
-	void SendStreamTransfer(AampMediaType mediaType, AampMediaSample&& sample);
+	void SendStreamTransfer(AampMediaType mediaType, AampMediaSample&& sample, bool morePending = false);
 
 	/**
 	 * @fn IsLive
@@ -3662,9 +3676,10 @@ public:
 	 * @fn NotifyBufferLevelToLatencyMonitor
 	 * @brief Forward the current buffer level to the latency monitor so it
 	 *        can track buffer health and apply threshold restoration steps.
+	 * @param[in] mediaType  Track type (eMEDIATYPE_VIDEO or eMEDIATYPE_AUDIO).
 	 * @param[in] bufferMs  Current buffered duration in milliseconds.
 	 */
-	void NotifyBufferLevelToLatencyMonitor(double bufferMs);
+	void NotifyBufferLevelToLatencyMonitor(AampMediaType mediaType, double bufferMs);
 
 	/**
 	 *     @fn SetCurrentLatency
@@ -4058,11 +4073,34 @@ public:
 	void SetStreamCaps(AampMediaType type, MediaCodecInfo&& codecInfo);
 
 	/**
+	 * @fn QueueProtectionEvent
+	 * @brief Forward in-band PSSH data (parsed from an MP4 container) to the stream sink
+	 *
+	 * @param[in] type - Media type
+	 * @param[in] protectionEvents - Protection system data (systemID + pssh blob) extracted from the MP4 container
+	 */
+	void QueueProtectionEvent(AampMediaType type, const std::vector<MediaProtectionInfo>& protectionEvents);
+
+	/**
 	 * @fn GetBufferedDurationSecs
 	 * @brief Get the buffered duration in seconds
 	 * @return Buffered duration in seconds
 	 */
 	double GetBufferedDurationSecs();
+
+	/**
+	 * @fn GetVideoBufferedDurationSecs
+	 * @brief Get video buffered duration in seconds
+	 * @return Video buffered duration in seconds
+	 */
+	double GetVideoBufferedDurationSecs();
+
+	/**
+	 * @fn GetAudioBufferedDurationSecs
+	 * @brief Get audio buffered duration in seconds
+	 * @return Audio buffered duration in seconds
+	 */
+	double GetAudioBufferedDurationSecs();
 
 	/**
 	 * @brief Enable or disable rate correction in latency monitor

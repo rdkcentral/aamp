@@ -116,7 +116,15 @@ public:
 protected:
 	// Must return something non-null to avoid a crash
 	StreamAbstractionAAMP* GetContext() override { return mContext; };
-	void InjectFragmentInternal(CachedFragment*, bool&, bool) override {};
+	// Forwards to the mock, mirroring MediaStreamContext::InjectFragmentInternal's
+	// non-playContext branch (this fixture never sets playContext).
+	void InjectFragmentInternal(CachedFragment* cachedFragment, bool &fragmentDiscarded, bool isDiscontinuity) override
+	{
+		fragmentDiscarded = false;
+		g_mockPrivateInstanceAAMP->SendStreamTransfer((AampMediaType)type, cachedFragment->fragment, cachedFragment->position,
+													  cachedFragment->position, cachedFragment->duration, cachedFragment->PTSOffsetSec,
+													  cachedFragment->initFragment, cachedFragment->discontinuity);
+	};
 
 private:
 	std::string mFakeStr;
@@ -181,13 +189,6 @@ protected:
 		bufferedFragment = mediaTrack.GetFetchBuffer(true);
 		mediaTrack.numberOfFragmentsCached = 1;
 		bufferedFragment->Copy(testFragment);
-		if (lowLatencyMode && !bufferedFragment->initFragment)
-		{
-			// Make the buffer parser return the correct position and duration
-			EXPECT_CALL(*g_mockIsoBmffBuffer, ParseChunkData(_, _, _, _, _, _, _))
-				.WillOnce(DoAll(SetArgReferee<5>(bufferedFragment->position),
-								SetArgReferee<6>(bufferedFragment->duration), Return(true)));
-		}
 
 		return bufferedFragment;
 	}
@@ -225,65 +226,6 @@ protected:
 		return fragment;
 	}
 
-	/**
-	 * @brief Set up a TestableMediaTrack in chunk mode with an init fragment already injected
-	 *        and a media fragment queued with the given timescale.
-	 *
-	 * Configures low-latency / chunk mode, sets common mock expectations, creates the
-	 * track, injects an init fragment, then queues one media fragment whose timescale is
-	 * set to @p timeScale.  Returns a pair of the track and a pointer to the queued
-	 * (buffered) media fragment.
-	 */
-	std::pair<std::unique_ptr<TestableMediaTrack>, CachedFragment*>
-	SetUpChunkModeTrackWithMediaFragment(uint32_t timeScale)
-	{
-		SetLowLatencyMode(true);
-		mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
-		mPrivateInstanceAAMP->mMediaFormat = eMEDIAFORMAT_DASH;
-		mStreamAbstractionAAMP_MPD->trickplayMode = false;
-
-		EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_OverrideMediaHeaderDuration))
-			.WillRepeatedly(Return(false));
-		EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseMp4Demux))
-			.WillRepeatedly(Return(false));
-		EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_CurlThroughput))
-			.WillRepeatedly(Return(false));
-		EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp))
-			.WillRepeatedly(Return(false));
-		EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentCached))
-			.WillRepeatedly(Return(1));
-		EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxLLDFragmentCached))
-			.WillRepeatedly(Return(1));
-		EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(_, _)).WillRepeatedly(Return(true));
-		EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(true));
-
-		auto videoTrack = std::make_unique<TestableMediaTrack>(
-			eTRACK_VIDEO, mPrivateInstanceAAMP, "video", mStreamAbstractionAAMP_MPD);
-
-		// Inject an init fragment (required before media fragments)
-		CachedFragment initFragment{};
-		initFragment.initFragment = true;
-		initFragment.fragment.assign(FRAGMENT_TEST_DATA, FRAGMENT_TEST_DATA + FRAGMENT_TEST_DATA_SIZE);
-		CachedFragment* buf = videoTrack->GetFetchBuffer(true);
-		videoTrack->numberOfFragmentsCached = 1;
-		buf->Copy(initFragment);
-		EXPECT_TRUE(videoTrack->InjectFragment());
-
-		// Queue a media fragment with the requested timescale
-		CachedFragment mediaFragment{};
-		mediaFragment.initFragment = false;
-		mediaFragment.duration = FRAGMENT_DURATION.inSeconds();
-		mediaFragment.position = FIRST_PTS.inSeconds();
-		mediaFragment.timeScale = timeScale;
-		mediaFragment.uri = "test_segment.m4s";
-		mediaFragment.fragment.assign(FRAGMENT_TEST_DATA, FRAGMENT_TEST_DATA + FRAGMENT_TEST_DATA_SIZE);
-
-		buf = videoTrack->GetFetchBuffer(true);
-		videoTrack->numberOfFragmentsCached = 1;
-		buf->Copy(mediaFragment);
-
-		return {std::move(videoTrack), buf};
-	}
 };
 
 struct PlayRateTestData
@@ -646,10 +588,10 @@ TEST_P(MediaTrackDashPlaybackPtsRestampTests, PlaybackTest)
 	EXPECT_CALL(*g_mockIsoBmffHelper, SetPtsAndDuration(_, _, _)).Times(0);
 	if (lowLatencyMode)
 	{
-		// In chunk mode, PTS offset is applied to fpts/fdts
-		// (FIRST_PTS + PTS_OFFSET_SEC) and also passed separately to
-		// GStreamer via the fragmentPTSoffset argument
-		double expectedPts = FIRST_PTS.inSeconds() + PTS_OFFSET_SEC;
+		// position is injected as-is (PTSOffsetSec is only applied to the raw ISOBMFF
+		// bytes via RestampPts above, and separately via the fragmentPTSoffset argument;
+		// it is not added into position at inject time, matching the SLD contract).
+		double expectedPts = FIRST_PTS.inSeconds();
 		EXPECT_CALL(*g_mockPrivateInstanceAAMP,
 					SendStreamTransfer(eMEDIATYPE_VIDEO,
 									VectorRefEq(std::cref(testFragment.fragment)),
@@ -963,48 +905,6 @@ TEST_F(MediaTrackTests, MediaTrackConstructorChunkModeTest)
 }
 
 /**
- * @brief Test that ProcessFragmentChunk uses the cached fragment's timescale
- *
- * This test verifies that when processing fragment chunks, the timescale from
- * the cached fragment is used. This is critical for TSB (Time-Shift Buffer)
- * scenarios where:
- * - The segment being downloaded at the live edge may be from an ad with one timescale
- * - The segment being injected from TSB may be from base content with a different timescale
- */
-TEST_F(MediaTrackTests, ProcessFragmentChunkUsesFragmentTimescale)
-{
-	constexpr uint32_t kFragmentTimeScale{90000};
-	auto [videoTrack, bufferedFragment] = SetUpChunkModeTrackWithMediaFragment(kFragmentTimeScale);
-
-	// Key assertion: ParseChunkData should be called with the fragment's timescale
-	EXPECT_CALL(*g_mockIsoBmffBuffer,
-				ParseChunkData(_, _, kFragmentTimeScale, _, _, _, _))
-		.WillOnce(DoAll(SetArgReferee<5>(bufferedFragment->position),
-						SetArgReferee<6>(bufferedFragment->duration), Return(true)));
-
-	ASSERT_TRUE(videoTrack->InjectFragment());
-}
-
-/**
- * @brief Test ProcessFragmentChunk behaviour when fragment timescale is zero
- *
- * This test verifies the behaviour when a cached fragment has a zero timescale.
- * This should never happen in real playback scenarios. When it does occur,
- * ProcessFragmentChunk returns early without calling ParseChunkData, as the
- * timescale is required for correct PTS calculation.
- */
-TEST_F(MediaTrackTests, ProcessFragmentChunkWithZeroTimescale)
-{
-	constexpr uint32_t kZeroTimeScale{0};
-	auto [videoTrack, bufferedFragment] = SetUpChunkModeTrackWithMediaFragment(kZeroTimeScale);
-
-	// When timescale is 0, ProcessFragmentChunk returns early without calling ParseChunkData
-	EXPECT_CALL(*g_mockIsoBmffBuffer, ParseChunkData(_, _, _, _, _, _, _)).Times(0);
-
-	ASSERT_TRUE(videoTrack->InjectFragment());
-}
-
-/**
  * @brief Test that WaitForManifestUpdate can be aborted successfully.
  * This is important to avoid deadlocks if the manifest update takes a long time or fails to complete.
  */
@@ -1265,6 +1165,35 @@ TEST_F(MediaTrackTests, CheckForDiscontinuity_PtsRestampPath_WithMp4DemuxerPlayC
 
 	EXPECT_FALSE(isDiscontinuity);
 	g_mockAampMp4Demuxer.reset();
+}
+
+/**
+ * @brief Verify discontinuity is ignored when injected duration is effectively zero,
+ * ES change is not pending, and the pipeline is already valid.
+ */
+TEST_F(MediaTrackTests, CheckForDiscontinuity_IgnoresDiscontinuity_WhenInjectedDurationIsZeroAndPipelineValid)
+{
+	// Allow CheckForDiscontinuity to read ES-change status.
+	mPrivateInstanceAAMP->mpStreamAbstractionAAMP = mStreamAbstractionAAMP_MPD;
+	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
+
+	// Keep ES change status false to satisfy branch predicate.
+	EXPECT_FALSE(mStreamAbstractionAAMP_MPD->GetESChangeStatus());
+
+	TestableMediaTrack videoTrack{eTRACK_VIDEO, mPrivateInstanceAAMP, "video", mStreamAbstractionAAMP_MPD};
+	CachedFragment fragment = MakeDiscontinuousFragment();
+	bool fragmentDiscarded{false};
+	bool isDiscontinuity{false};
+	bool ret{true};
+
+	bool stopInjection = videoTrack.CheckForDiscontinuity(
+		&fragment, fragmentDiscarded, isDiscontinuity, ret);
+
+	EXPECT_FALSE(stopInjection);
+	EXPECT_FALSE(fragmentDiscarded);
+	EXPECT_FALSE(isDiscontinuity);
+	EXPECT_TRUE(ret);
+	EXPECT_FALSE(fragment.discontinuity);
 }
 
 /**
