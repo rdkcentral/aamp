@@ -376,9 +376,10 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false, "curlThroughput", eAAMPConfig_CurlThroughput, false },
 	{false, "useFireboltSDK", eAAMPConfig_UseFireboltSDK, false},
 	{true, "enableChunkInjection", eAAMPConfig_EnableChunkInjection, true},
-	{false, "debugChunkTransfer", eAAMPConfig_DebugChunkTransfer, false},
+	{false, "debugChunkTransfer", eAAMPConfig_DebugChunkTransfer, false}, // This does not work in http/3 mode.
 	{true, "utcSyncOnStartup", eAAMPConfig_UTCSyncOnStartup, true},
 	{false, "disableWebVTT", eAAMPConfig_DisableWebVTT, false},
+	{false, "enableHTTP3", eAAMPConfig_EnableHTTP3, false},
 	{false, "enablePTSReStampLogging", eAAMPConfig_EnablePTSReStampLogging, false},
 	{false, "netTraceCsvDump", eAAMPConfig_NetTraceCsvDump, false},
 	{false, "logFilename", eAAMPConfig_LogFilename, false},
@@ -575,22 +576,23 @@ public:
 		return rc;
 	}
 
-	void Process( AampConfig *aampConfig, ConfigPriority owner, const std::string &key, const std::string &value )
+	bool Process( AampConfig *aampConfig, ConfigPriority owner, const std::string &key, const std::string &value )
 	{ // used while parsing aamp.cfg text
+		bool ret = false;
 		const char *value_cstr = value.c_str();
 		auto iter = lookupBool.find(key);
 		if( iter != lookupBool.end())
 		{
 			auto cfg = iter->second;
-			AAMPLOG_MIL("Parsed value for dev cfg property %s - %s", key.c_str(), value_cstr );
+			AAMPLOG_MIL("Parsed value for dev config %s - %s", key.c_str(), value_cstr );
 			if( value.empty() )
 			{
 				bool currentValue = aampConfig->GetConfigValue(cfg.configEnum);
-				aampConfig->SetConfigValue( owner, cfg.configEnum, !currentValue );
+				ret = aampConfig->SetConfigValue( owner, cfg.configEnum, !currentValue );
 			}
 			else
 			{
-				aampConfig->SetConfigValue( owner, cfg.configEnum, ConfigStringValueToBool(value_cstr) );
+				ret = aampConfig->SetConfigValue( owner, cfg.configEnum, ConfigStringValueToBool(value_cstr) );
 			}
 		}
 		else
@@ -600,7 +602,7 @@ public:
 			{
 				auto cfg = iter->second;
 				int conv = atoi( value_cstr );
-				aampConfig->SetConfigValue(owner,cfg.configEnum,conv);
+				ret = aampConfig->SetConfigValue(owner,cfg.configEnum,conv);
 			}
 			else
 			{
@@ -609,7 +611,7 @@ public:
 				{
 					auto cfg = iter->second;
 					double conv = atof( value_cstr );
-					aampConfig->SetConfigValue(owner,cfg.configEnum,conv);
+					ret = aampConfig->SetConfigValue(owner,cfg.configEnum,conv);
 				}
 				else
 				{
@@ -619,17 +621,18 @@ public:
 						auto cfg = iter->second;
 						if(value.size())
 						{
-							aampConfig->SetConfigValue(owner,cfg.configEnum,value);
+							ret = aampConfig->SetConfigValue(owner,cfg.configEnum,value);
 						}
 					}
 				}
 			}
 		}
+		return ret;
 	}
 
-	void Process( AampConfig *aampConfig, struct customJson &custom )
+	bool Process( AampConfig *aampConfig, struct customJson &custom )
 	{ // called from AampConfig::CustomSearch
-		Process( aampConfig, customOwner, custom.config, custom.configValue );
+		return Process( aampConfig, customOwner, custom.config, custom.configValue );
 	}
 
 	void Process( AampConfig *aampConfig, cJSON *customVal, customJson &customValues, std::vector<struct customJson> &vCustom )
@@ -719,24 +722,18 @@ public:
 
 	}
 
-	void Process( AampConfig *aampConfig, ConfigPriority owner, cJSON *searchObj )
+	bool Process( AampConfig *aampConfig, ConfigPriority owner, cJSON *searchObj )
 	{ // called from AampConfig::ProcessConfigJson
+		bool ret = false;
 		auto it = lookupBool.find(searchObj->string);
 		if( it != lookupBool.end() )
 		{
 			auto cfg = it->second;
 			auto cfgEnum = cfg.configEnum;
 			std::string keyname = it->first;
-			if(cJSON_IsTrue(searchObj))
-			{
-				aampConfig->SetConfigValue(owner,cfgEnum,true);
-				AAMPLOG_MIL("Parsed value for property %s - true",keyname.c_str());
-			}
-			else
-			{
-				aampConfig->SetConfigValue(owner,cfgEnum,false);
-				AAMPLOG_MIL("Parsed value for property %s - false",keyname.c_str());
-			}
+			bool value = cJSON_IsTrue(searchObj);
+			AAMPLOG_MIL("Parsed value for config %s - %s", keyname.c_str(), value ? "true" : "false");
+			ret = aampConfig->SetConfigValue(owner, cfgEnum, value);
 		}
 		else
 		{
@@ -748,8 +745,8 @@ public:
 				auto cfg = it->second;
 				auto cfgEnum = cfg.configEnum;
 				std::string keyname = it->first;
-				aampConfig->SetConfigValue(owner,cfgEnum,conv);
-				AAMPLOG_MIL("Parsed value for property %s - %d",keyname.c_str(),conv);
+				AAMPLOG_MIL("Parsed value for config %s - %d", keyname.c_str(), conv);
+				ret = aampConfig->SetConfigValue(owner, cfgEnum, conv);
 			}
 			else
 			{
@@ -757,12 +754,11 @@ public:
 				if( it != lookupFloat.end() )
 				{
 					auto conv = (double)searchObj->valuedouble;
-					//cJSON_GetNumberValue(searchObj)
 					auto cfg = it->second;
 					auto cfgEnum = cfg.configEnum;
 					std::string keyname = it->first;
-					aampConfig->SetConfigValue(owner,cfgEnum,conv);
-					AAMPLOG_MIL("Parsed value for property %s - %f",keyname.c_str(),conv);
+					AAMPLOG_MIL("Parsed value for config %s - %f", keyname.c_str(), conv);
+					ret = aampConfig->SetConfigValue(owner, cfgEnum, conv);
 				}
 				else
 				{
@@ -774,12 +770,13 @@ public:
 						auto cfg = it->second;
 						auto cfgEnum = cfg.configEnum;
 						std::string keyname = it->first;
-						aampConfig->SetConfigValue(owner,cfgEnum,conv);
-						AAMPLOG_MIL("Parsed value for property %s - %s",keyname.c_str(),conv.c_str() );
+						AAMPLOG_MIL("Parsed value for config %s - %s", keyname.c_str(), conv.c_str());
+						ret = aampConfig->SetConfigValue(owner, cfgEnum, conv);
 					}
 				}
 			}
 		}
+		return ret;
 	}
 
 	ConfigLookup(): lookupBool(), lookupInt(), lookupFloat(), lookupString()
@@ -1033,8 +1030,9 @@ const char * AampConfig::GetChannelLicenseOverride(const std::string manifestUrl
     return NULL;
 }
 
-void AampConfig::SetConfigValue(ConfigPriority newowner, AAMPConfigSettingBool cfg ,const bool &value)
+bool AampConfig::SetConfigValue(ConfigPriority newowner, AAMPConfigSettingBool cfg, const bool &value)
 {
+	bool ret = false;
 	const char * cfgName = GetConfigName(cfg);
 	ConfigValueBool &setting = configValueBool[cfg];
 	if(setting.owner <= newowner )
@@ -1046,16 +1044,19 @@ void AampConfig::SetConfigValue(ConfigPriority newowner, AAMPConfigSettingBool c
 		}
 		setting.value = value;
 		setting.owner = newowner;
-		AAMPLOG_MIL("%s New Owner[%d]",cfgName,newowner);
+		AAMPLOG_MIL("Config[%s] updated owner[%d] updated value[%s]", cfgName, newowner, value ? "true" : "false");
+		ret = true;
 	}
 	else
 	{
-		AAMPLOG_WARN("%s Owner[%d] not allowed to Set ,current Owner[%d]",cfgName,newowner,setting.owner);
+		AAMPLOG_WARN("Config[%s] cannot be set by owner[%d]: current owner[%d] has higher priority", cfgName, newowner, setting.owner);
 	}
+	return ret;
 }
 
-void AampConfig::SetConfigValue(ConfigPriority newowner, AAMPConfigSettingInt cfg ,const int &value)
+bool AampConfig::SetConfigValue(ConfigPriority newowner, AAMPConfigSettingInt cfg, const int &value)
 {
+	bool ret = false;
 	auto cfgInfo = mConfigLookupTableInt[cfg];
 	ConfigValueInt &setting = configValueInt[cfg];
 	auto range = mConfigValueValidRange[cfgInfo.validRange];
@@ -1072,16 +1073,19 @@ void AampConfig::SetConfigValue(ConfigPriority newowner, AAMPConfigSettingInt cf
 		}
 		setting.value = value;
 		setting.owner = newowner;
-		AAMPLOG_MIL("%s New Owner[%d]", cfgInfo.cmdString, newowner);
+		AAMPLOG_MIL("Config[%s] updated owner[%d] updated value[%d]", cfgInfo.cmdString, newowner, value);
+		ret = true;
 	}
 	else
 	{
-		AAMPLOG_WARN("%s Owner[%d] not allowed to Set ,current Owner[%d]", cfgInfo.cmdString, newowner, setting.owner);
+		AAMPLOG_WARN("Config[%s] cannot be set by owner[%d]: current owner[%d] has higher priority", cfgInfo.cmdString, newowner, setting.owner);
 	}
+	return ret;
 }
 
-void AampConfig::SetConfigValue(ConfigPriority newowner, AAMPConfigSettingFloat cfg ,const double &value)
+bool AampConfig::SetConfigValue(ConfigPriority newowner, AAMPConfigSettingFloat cfg, const double &value)
 {
+	bool ret = false;
 	auto cfgInfo = mConfigLookupTableFloat[cfg];
 	ConfigValueFloat &setting = configValueFloat[cfg];
 	auto range = mConfigValueValidRange[cfgInfo.validRange];
@@ -1098,16 +1102,19 @@ void AampConfig::SetConfigValue(ConfigPriority newowner, AAMPConfigSettingFloat 
 		}
 		setting.value = value;
 		setting.owner = newowner;
-		AAMPLOG_MIL("%s New Owner[%d]",cfgInfo.cmdString,newowner);
+		AAMPLOG_MIL("Config[%s] updated owner[%d] updated value[%f]", cfgInfo.cmdString, newowner, value);
+		ret = true;
 	}
 	else
 	{
-		AAMPLOG_WARN("%s Owner[%d] not allowed to Set ,current Owner[%d]", cfgInfo.cmdString, newowner, setting.owner);
+		AAMPLOG_WARN("Config[%s] cannot be set by owner[%d]: current owner[%d] has higher priority", cfgInfo.cmdString, newowner, setting.owner);
 	}
+	return ret;
 }
 
-void AampConfig::SetConfigValue(ConfigPriority newowner, AAMPConfigSettingString cfg ,const std::string &value)
+bool AampConfig::SetConfigValue(ConfigPriority newowner, AAMPConfigSettingString cfg, const std::string &value)
 {
+	bool ret = false;
 	const char * cfgName = GetConfigName(cfg);
 	ConfigValueString &setting = configValueString[cfg];
 	if(setting.owner <= newowner )
@@ -1119,12 +1126,14 @@ void AampConfig::SetConfigValue(ConfigPriority newowner, AAMPConfigSettingString
 		}
 		setting.value = value;
 		setting.owner = newowner;
-		AAMPLOG_MIL("%s New Owner[%d]",cfgName,newowner);
+		AAMPLOG_MIL("Config[%s] updated owner[%d] updated value[%s]", cfgName, newowner, value.c_str());
+		ret = true;
 	}
 	else
 	{
-		AAMPLOG_WARN("%s Owner[%d] not allowed to Set ,current Owner[%d]", cfgName, newowner, setting.owner);
+		AAMPLOG_WARN("Config[%s] cannot be set by owner[%d]: current owner[%d] has higher priority", cfgName, newowner, setting.owner);
 	}
+	return ret;
 }
 
 /**
@@ -1181,11 +1190,18 @@ bool AampConfig::ProcessConfigJson(const cJSON *cfgdata, ConfigPriority owner )
 		cJSON *drmConfig = cJSON_GetObjectItem(cfgdata,"drmConfig");
 		if(drmConfig)
 		{
-			AAMPLOG_MIL("Parsed value for property DrmConfig");
+			AAMPLOG_MIL("Parsed value for config DrmConfig");
 			cJSON *subitem = drmConfig->child;
 			DRMSystems drmType = eDRM_PlayReady;
 			while( subitem )
 			{
+				// Check if valuestring is not NULL before creating std::string
+				if(subitem->valuestring == NULL)
+				{
+					AAMPLOG_WARN("DRM config value is not a string for key: %s", subitem->string ? subitem->string : "unknown");
+					subitem = subitem->next;
+					continue;
+				}
 				std::string conv = std::string(subitem->valuestring);
 				if(strcasecmp("com.microsoft.playready",subitem->string)==0)
 				{
@@ -1423,8 +1439,9 @@ bool AampConfig::GetAampConfigJSONStr(std::string &str) const
  *
  * @return true if config process success
  */
-void AampConfig::ProcessConfigText(std::string &cfg, ConfigPriority owner )
+bool AampConfig::ProcessConfigText(std::string &cfg, ConfigPriority owner )
 {
+	bool ret = false;
 	if( !cfg.empty() )
 	{
 		char c = cfg[0];
@@ -1460,6 +1477,7 @@ void AampConfig::ProcessConfigText(std::string &cfg, ConfigPriority owner )
 					}
 				}
 				mChannelOverrideMap.push_back(std::move(channelInfo));
+				ret = true;
 			}
 		}
 		else
@@ -1489,9 +1507,10 @@ void AampConfig::ProcessConfigText(std::string &cfg, ConfigPriority owner )
 				key = cfg.substr(0);
 			}
 
-			mConfigLookup.Process( this, owner, key, value );
+			ret = mConfigLookup.Process( this, owner, key, value );
 		}
 	}
+	return ret;
 }
 
 /**
@@ -1649,13 +1668,11 @@ void AampConfig::ReadAampCfgFromEnv()
 		std::stringstream ss (strEnvConfig);
 		std::string item;
 
-		while (getline (ss, item, ',')) { // split on comma and get as line
+		while (getline (ss, item, ','))
+		{ // split on comma and get as line
 			if (item.length() > 0)
 			{
 				ProcessConfigText(item,AAMP_DEV_CFG_SETTING);
-			}
-			else
-			{
 			}
 		}
 	}
@@ -1926,27 +1943,27 @@ void AampConfig::DoCustomSetting(ConfigPriority owner)
 	if(IsConfigSet(eAAMPConfig_StereoOnly))
 	{
 		// If Stereo Only flag is set , it will override all other sub setting with audio
-		SetConfigValue(owner,eAAMPConfig_DisableEC3,true);
-		SetConfigValue(owner,eAAMPConfig_DisableATMOS,true);
-		SetConfigValue(owner,eAAMPConfig_DisableAC4,true);
-		SetConfigValue(owner,eAAMPConfig_DisableAC3,true);
+		SetConfigValue(owner, eAAMPConfig_DisableEC3, true);
+		SetConfigValue(owner, eAAMPConfig_DisableATMOS, true);
+		SetConfigValue(owner, eAAMPConfig_DisableAC4, true);
+		SetConfigValue(owner, eAAMPConfig_DisableAC3, true);
 	}
 	if(IsConfigSet(eAAMPConfig_ABRBufferCheckEnabled) && (GetConfigOwner(eAAMPConfig_ABRBufferCheckEnabled) == AAMP_APPLICATION_SETTING))
 	{
-		SetConfigValue(AAMP_APPLICATION_SETTING,eAAMPConfig_NewDiscontinuity,true);
-		SetConfigValue(AAMP_APPLICATION_SETTING,eAAMPConfig_HLSAVTrackSyncUsingStartTime,true);
+		SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_NewDiscontinuity, true);
+		SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_HLSAVTrackSyncUsingStartTime, true);
 
 	}
 	if((!IsConfigSet(eAAMPConfig_EnableRectPropertyCfg)) && (GetConfigOwner(eAAMPConfig_EnableRectPropertyCfg) == AAMP_APPLICATION_SETTING))
 	{
 		if(!IsConfigSet(eAAMPConfig_UseWesterosSink))
 		{
-			SetConfigValue(AAMP_APPLICATION_SETTING,eAAMPConfig_EnableRectPropertyCfg,true);
+			SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_EnableRectPropertyCfg, true);
 		}
 	}
 	if(IsConfigSet(eAAMPConfig_NewDiscontinuity) && (GetConfigOwner(eAAMPConfig_NewDiscontinuity) == AAMP_APPLICATION_SETTING))
 	{
-		SetConfigValue(AAMP_APPLICATION_SETTING,eAAMPConfig_HLSAVTrackSyncUsingStartTime,true);
+		SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_HLSAVTrackSyncUsingStartTime, true);
 	}
 	if(GetConfigOwner(eAAMPConfig_AuthToken) == AAMP_APPLICATION_SETTING)
 	{
@@ -1957,7 +1974,7 @@ void AampConfig::DoCustomSetting(ConfigPriority owner)
 		tempvalue = configValueString[eAAMPConfig_AuthToken].lastvalue;
 
 		sessionToken = GetConfigValue(eAAMPConfig_AuthToken);
-		SetConfigValue(AAMP_TUNE_SETTING,eAAMPConfig_AuthToken,sessionToken);
+		SetConfigValue(AAMP_TUNE_SETTING, eAAMPConfig_AuthToken, sessionToken);
 		configValueString[eAAMPConfig_AuthToken].lastowner = std::move(tempowner);
 		configValueString[eAAMPConfig_AuthToken].lastvalue = std::move(tempvalue);
 

@@ -177,6 +177,9 @@ typedef enum
 	AAMP_TUNE_GST_PIPELINE_ERROR, /**< Playback failed due to an error in the GStreamer pipeline */
 	AAMP_TUNE_FAILED_PTS_ERROR,  /**< Playback failed due to PTS error */
 
+	//Mp4 demuxer error
+	AAMP_TUNE_MP4_DEMUX_ERROR, /**< Playback failed due to a corrupt or invalid MP4 fragment detected by the demuxer */
+
 	//Playback failure
 	AAMP_TUNE_PLAYBACK_STALLED, /**< Playback was stalled due to valid fragments not available in playlist */
 	
@@ -776,6 +779,7 @@ class ProgressEvent: public AAMPEventObject
 	double mAudioBufferedDurationMs; /**< current duration of buffered audio ready to playback */
 	std::string mSEITimecode;   	/**< SEI Timecode information */
 	double mLiveLatency;		/**< Live latency */
+	double mTargetLatency;		/**< Current latency monitor target (ms); 0 when monitor inactive */
 	BitsPerSecond mProfileBandwidth;     /**<Profile Bandwidth */
 	BitsPerSecond mNetworkBandwidth;     /**<Network Bandwidth */
 	double mCurrentPlayRate; /**<CurrentPlaybackRate */
@@ -798,12 +802,13 @@ public:
 	 * @param[in]  audioBufferedDuration - audio buffered duration in milliseconds
 	 * @param[in]  seiTimecode      - Time code
 	 * @param[in]  liveLatency      - Live latency
+	 * @param[in]  targetLatency    - Current latency monitor target (ms); 0 when monitor inactive
 	 * @param[in]  profileBandwidth - profile Bandwidth
 	 * @param[in]  networkBandwidth - network Bandwidth
 	 * @param[in]  currentPlayRate - currentPlayRate
 
 	 */
-	ProgressEvent(double duration, double position, double start, double end, float speed, long long pts, double videoBufferedDuration, double audioBufferedDuration, std::string seiTimecode, double liveLatency, BitsPerSecond profileBandwidth, BitsPerSecond networkBandwidth, double currentPlayRate, std::string sid);
+	ProgressEvent(double duration, double position, double start, double end, float speed, long long pts, double videoBufferedDuration, double audioBufferedDuration, std::string seiTimecode, double liveLatency, double targetLatency, BitsPerSecond profileBandwidth, BitsPerSecond networkBandwidth, double currentPlayRate, std::string sid);
 
 	/**
 	 * @brief ProgressEvent Destructor
@@ -864,6 +869,11 @@ public:
 	double getLiveLatency() const;
 
 	/**
+	 * @fn getTargetLatency
+	 */
+	double getTargetLatency() const;
+
+	/**
 	 * @fn getProfileBandwidth
 	 */
 	BitsPerSecond getProfileBandwidth() const;
@@ -877,8 +887,6 @@ public:
 	 * @fn getCurrentPlayRate
 	 */
 	double getCurrentPlayRate() const;
-
-
 };
 
 /**

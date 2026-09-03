@@ -114,13 +114,39 @@ function aampcli_install_build_darwin_fn()
     elif [[ "$ARCH" == "arm64" ]]; then
         PKG_CONFIG="${PKG_CONFIG}:/opt/homebrew/lib/pkgconfig"
     fi
+    # openssl@3 is a keg-only Homebrew formula: its pkgconfig is NOT linked into
+    # /opt/homebrew/lib/pkgconfig.  Add its prefix explicitly so cmake always
+    # finds the current installed version (avoids stale Cellar-path cache issues
+    # after "brew upgrade openssl@3").
+    local _ssl_brew_prefix
+    _ssl_brew_prefix=$(brew --prefix openssl@3 2>/dev/null) || true
+    if [[ -n "${_ssl_brew_prefix}" && -d "${_ssl_brew_prefix}/lib/pkgconfig" ]]; then
+        PKG_CONFIG="${PKG_CONFIG}:${_ssl_brew_prefix}/lib/pkgconfig"
+    fi
     # MacOS provides a curl installation, but we'd like a newer version where was it installed?
     PKG_CONFIG_CURL=$(install_pkgs_pkgconfig_darwin_fn curl)
     if [ -n "${PKG_CONFIG_CURL}" ] ; then
         PKG_CONFIG="${PKG_CONFIG_CURL}:${PKG_CONFIG}"
     fi
 
-    cd build && PKG_CONFIG_PATH=${PKG_CONFIG}:${PKG_CONFIG_PATH} cmake \
+    cd build || { echo "Failed to change to build directory: ${AAMP_DIR}/build"; return 1; }
+    # Detect a stale cmake cache caused by a Homebrew OpenSSL upgrade.
+    # pkg_check_modules(OPENSSL) caches the resolved Cellar path.  After
+    # "brew upgrade openssl@3 && brew cleanup" that directory may be
+    # missing headers.  Clear the cache so cmake re-runs pkg_check_modules
+    # with the PKG_CONFIG_PATH set below, picking up the new version.
+    if [[ -f "CMakeCache.txt" ]]; then
+        local _cached_ssl_inc
+        _cached_ssl_inc=$(grep "^OPENSSL_INCLUDE_DIRS:INTERNAL=" CMakeCache.txt | cut -d= -f2) || true
+        if [[ -n "${_cached_ssl_inc}" && ! -f "${_cached_ssl_inc}/openssl/sha.h" ]]; then
+            echo "WARNING: Cached OpenSSL include path is stale:"
+            echo "         ${_cached_ssl_inc}/openssl/sha.h not found."
+            echo "         This typically means 'brew upgrade openssl@3' ran since the last"
+            echo "         cmake configure. Removing CMakeCache.txt so OpenSSL is re-detected."
+            rm -f CMakeCache.txt
+        fi
+    fi
+    PKG_CONFIG_PATH=${PKG_CONFIG}:${PKG_CONFIG_PATH} cmake \
         -DCMAKE_BUILD_TYPE=Debug \
         -DCOVERAGE_ENABLED=${OPTION_COVERAGE} \
         -DUTEST_ENABLED=ON \

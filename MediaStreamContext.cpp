@@ -34,8 +34,6 @@
  */
 void MediaStreamContext::InjectFragmentInternal(CachedFragment* cachedFragment, bool &fragmentDiscarded,bool isDiscontinuity)
 {
-	assert(!aamp->GetLLDashChunkMode());
-
 	if(ISCONFIGSET(eAAMPConfig_SuppressDecode))
 	{
 		fragmentDiscarded = false;
@@ -219,45 +217,51 @@ bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, const uint
 		}
 		PopulateCommonMetadata(cachedFragment, std::move(remoteUrl), actualType, 0, false, false);
 		TransferFragmentBuffer(cachedFragment, ptr, nullptr, size, true);
-		cachedFragment->absPosition = 0;
 		cachedFragment->downloadStartTime = dnldStartTime;
 
-		cachedFragment->timeScale = fragmentDescriptor.TimeScale;
-		if (mActiveDownloadInfo)
+		cachedFragment->absPosition = mActiveDownloadInfo->absolutePosition;
+		cachedFragment->timeScale = mActiveDownloadInfo->timeScale;
+		cachedFragment->duration = (double)durationInTicks / (double)cachedFragment->timeScale;
+		// Position of this chunk, before chunkDurationSec advances past it - required by the
+		// SLD restamping path (RestampPts/TrickModePtsRestamp), which chunk mode now also uses.
+		cachedFragment->position = mActiveDownloadInfo->pts + mActiveDownloadInfo->chunkDurationSec;
+		if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp))
 		{
-			cachedFragment->absPosition = mActiveDownloadInfo->absolutePosition;
-			cachedFragment->timeScale = mActiveDownloadInfo->timeScale;
-			cachedFragment->duration = (double)durationInTicks / (double)cachedFragment->timeScale;
-			mActiveDownloadInfo->chunkDurationSec += cachedFragment->duration;
-			// Only update when absPosition is set to avoid messing up the values.
-			if (cachedFragment->absPosition > 0)
+			cachedFragment->position += mActiveDownloadInfo->ptsOffset.inSeconds();
+		}
+		mActiveDownloadInfo->chunkDurationSec += cachedFragment->duration;
+		// Only update when absPosition is set to avoid messing up the values.
+		if (cachedFragment->absPosition > 0)
+		{
+			AAMPLOG_DEBUG("[%s] Updating last downloaded position[chunkDuration:%f]. Previous: %f, New: %f",
+				name, mActiveDownloadInfo->chunkDurationSec, lastDownloadedPosition.load(),
+				cachedFragment->absPosition + mActiveDownloadInfo->chunkDurationSec);
+			lastDownloadedPosition.store(cachedFragment->absPosition + mActiveDownloadInfo->chunkDurationSec);
+			if (eTRACK_VIDEO == type)
 			{
-				AAMPLOG_DEBUG("[%s] Updating last downloaded position[chunkDuration:%f]. Previous: %f, New: %f",
-					name, mActiveDownloadInfo->chunkDurationSec, lastDownloadedPosition.load(),
-					cachedFragment->absPosition + mActiveDownloadInfo->chunkDurationSec);
-				lastDownloadedPosition.store(cachedFragment->absPosition + mActiveDownloadInfo->chunkDurationSec);
-				if (eTRACK_VIDEO == type)
+				// Notify the underflow monitor for LL-DASH chunks.
+				// Paused-state gating to 0.0f is handled inside
+				// NotifyVideoFragmentToUnderflowMonitor under its mutex.
+				GetContext()->NotifyVideoFragmentToUnderflowMonitor(
+					cachedFragment->absPosition + mActiveDownloadInfo->chunkDurationSec,
+					aamp->rate);
+				const double videoBufferMs = GetContext()->GetBufferedVideoDurationSec() * 1000.0;
+				if (videoBufferMs >= 0.0)
 				{
-					// Notify the underflow monitor for LL-DASH chunks.
-					GetContext()->NotifyVideoFragmentToUnderflowMonitor(
-						cachedFragment->absPosition + mActiveDownloadInfo->chunkDurationSec,
-						aamp->rate);
-					// Notify the latency monitor so it can wake its worker early on
-					// danger-buffer onset rather than waiting for the next scheduled poll.
-					{
-						const double bufferMs = aamp->GetBufferedDurationSecs() * 1000.0;
-						if (bufferMs >= 0.0)
-						{
-							GetContext()->NotifyBufferLevelToLatencyMonitor(bufferMs);
-						}
-					}
+					GetContext()->NotifyBufferLevelToLatencyMonitor(eMEDIATYPE_VIDEO, videoBufferMs);
+				}
+			}
+			else if (eTRACK_AUDIO == type)
+			{
+				const double audioBufferMs = GetContext()->GetBufferedAudioDurationSec() * 1000.0;
+				if (audioBufferMs >= 0.0)
+				{
+					GetContext()->NotifyBufferLevelToLatencyMonitor(eMEDIATYPE_AUDIO, audioBufferMs);
 				}
 			}
 		}
-		/* The value of PTSOffsetSec in the context can get updated at the start of a period before
-		 * the last segment from the previous period has been injected, hence we copy it
-		 */
-		cachedFragment->PTSOffsetSec = GetContext()->mPTSOffset.inSeconds();
+		// Use the PTS offset captured in the active download info to avoid a race with manifest-driven updates to mPTSOffset.
+		cachedFragment->PTSOffsetSec = mActiveDownloadInfo->ptsOffset.inSeconds();
 
 		AAMPLOG_TRACE("[%s] cachedFragment %p ptr %p", name, cachedFragment, cachedFragment->fragment.data());
 		UpdateTSAfterFetch();
@@ -268,18 +272,6 @@ bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, const uint
 		ret = false;
 	}
 	return ret;
-}
-
-/**
- *  @brief Unified fragment caching implementation
- *  @note Phase 2: Stub implementation - will be fully implemented in Phase 3
- */
-bool MediaStreamContext::CacheFragmentData(const FragmentCacheDescriptor& desc)
-{
-	// Phase 2 stub: Not yet implemented
-	// This will be implemented in Phase 3 with unified logic
-	AAMPLOG_WARN("[%s] CacheFragmentData() called but not yet implemented (Phase 2 stub)", name);
-	return false;
 }
 
 /**
@@ -751,17 +743,23 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 		// reset count on video fragment success
 		context->mRampDownCount = 0;
 		// Notify the underflow monitor — re-arms the drain deadline.
+		// Paused-state gating to 0.0f is handled inside
+		// NotifyVideoFragmentToUnderflowMonitor under its mutex.
 		context->NotifyVideoFragmentToUnderflowMonitor(
 			dlInfo->absolutePosition + dlInfo->fragmentDurationSec,
 			aamp->rate);
-		// Notify the latency monitor so it can wake its worker early on
-		// danger-buffer onset rather than waiting for the next scheduled poll.
+		const double videoBufferMs = aamp->GetVideoBufferedDurationSecs() * 1000.0;
+		if (videoBufferMs >= 0.0)
 		{
-			const double bufferMs = aamp->GetBufferedDurationSecs() * 1000.0;
-			if (bufferMs >= 0.0)
-			{
-				context->NotifyBufferLevelToLatencyMonitor(bufferMs);
-			}
+			context->NotifyBufferLevelToLatencyMonitor(eMEDIATYPE_VIDEO, videoBufferMs);
+		}
+	}
+	else if ((eTRACK_AUDIO == type) && (!dlInfo->isInitSegment))
+	{
+		const double audioBufferMs = aamp->GetAudioBufferedDurationSecs() * 1000.0;
+		if (audioBufferMs >= 0.0)
+		{
+			context->NotifyBufferLevelToLatencyMonitor(eMEDIATYPE_AUDIO, audioBufferMs);
 		}
 	}
 
@@ -936,7 +934,6 @@ void MediaStreamContext::OnFragmentDownloadFailed(DownloadInfoPtr dlInfo)
 					{
 						AAMPLOG_ERR("%s Not able to download fragments; reached failure threshold sending tune failed event", name);
 						abortWaitForVideoPTS();
-						aamp->SetFlushFdsNeededInCurlStore(true);
 						aamp->SendDownloadErrorEvent(AAMP_TUNE_FRAGMENT_DOWNLOAD_FAILURE, httpErrorCode);
 					}
 				}
@@ -945,8 +942,6 @@ void MediaStreamContext::OnFragmentDownloadFailed(DownloadInfoPtr dlInfo)
 					// When rampdown limit is not specified, init segment will be ramped down, this will
 					AAMPLOG_ERR("%s Not able to download init fragments; reached failure threshold sending tune failed event", name);
 					abortWaitForVideoPTS();
-					aamp->SetFlushFdsNeededInCurlStore(true);
-
 					aamp->SendDownloadErrorEvent(AAMP_TUNE_INIT_FRAGMENT_DOWNLOAD_FAILURE, httpErrorCode);
 				}
 			}
@@ -980,7 +975,6 @@ void MediaStreamContext::OnFragmentDownloadFailed(DownloadInfoPtr dlInfo)
 					// Already at lowest profile, send error event for init fragment.
 					AAMPLOG_ERR("Not able to download init fragments; reached failure threshold sending tune failed event");
 					abortWaitForVideoPTS();
-					aamp->SetFlushFdsNeededInCurlStore(true);
 					aamp->SendDownloadErrorEvent(AAMP_TUNE_INIT_FRAGMENT_DOWNLOAD_FAILURE, httpErrorCode);
 				}
 				else
@@ -1014,7 +1008,6 @@ void MediaStreamContext::OnFragmentDownloadFailed(DownloadInfoPtr dlInfo)
 				if (!dlInfo->isPlayingAd && httpErrorCode != 502)
 				{
 					abortWaitForVideoPTS();
-					aamp->SetFlushFdsNeededInCurlStore(true);
 					aamp->SendDownloadErrorEvent(AAMP_TUNE_INIT_FRAGMENT_DOWNLOAD_FAILURE, httpErrorCode);
 				}
 			}

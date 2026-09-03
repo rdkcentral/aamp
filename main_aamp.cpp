@@ -41,6 +41,7 @@
 #include <termios.h>
 #include <errno.h>
 #include <regex>
+#include <cctype>
 
 AampConfig *gpGlobalConfig=NULL;
 
@@ -98,6 +99,40 @@ void doFakeTune()
 #endif
 
 /**
+ * @brief Helper function to determine if input looks like JSON and attempt parsing
+ * 
+ * @param[in] input - Input string to check and parse
+ * @return cJSON* - Parsed JSON object/array if successful, NULL otherwise
+ * 
+ * @note Only attempts JSON parsing if input starts with '{' or '[' after trimming whitespace.
+ *       This prevents bare JSON primitives (numbers, strings, booleans) from being parsed as JSON.
+ */
+static cJSON* TryParseAsJson(const char* input)
+{
+	if (!input || input[0] == '\0')
+	{
+		return NULL;
+	}
+
+	// Skip leading whitespace to check first meaningful character
+	// Include all standard whitespace characters: space, tab, newline, carriage return, form feed, vertical tab
+	const char *trimmed = input;
+	while (*trimmed && std::isspace(static_cast<unsigned char>(*trimmed)))
+	{
+		trimmed++;
+	}
+
+	// Only try JSON parsing if it looks like a JSON object or array
+	// This prevents bare numbers, strings, booleans from being parsed as JSON
+	if (trimmed[0] == '{' || trimmed[0] == '[')
+	{
+		return cJSON_Parse(input);
+	}
+
+	return NULL;
+}
+
+/**
  *  @brief PlayerInstanceAAMP Constructor.
  */
 PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
@@ -108,6 +143,8 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 	// tune only . After that every tune will use the same config parameters
 	if(gpGlobalConfig == NULL)
 	{
+		
+
 		curl_global_init(CURL_GLOBAL_DEFAULT);
 		auto vers = curl_version_info(CURLVERSION_NOW);
 		printf( "curl version: %s\n", vers->version );
@@ -146,6 +183,16 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 	pExternalsInterface->SetDoFakeTuneCallBack(doFakeTune);
 	pExternalsInterface->SetPowerEvent(powerEvt);
 	pExternalsInterface->Initialize();
+
+#ifdef SUPPORT_JS_EVENTS
+#ifdef AAMP_WPEWEBKIT_JSBINDINGS //aamp_LoadJS defined in libaampjsbindings.so
+	const char* szJSLib = "libaampjsbindings.so";
+#else
+	const char* szJSLib = "libaamp.so";
+#endif
+	mJSBinding_DL = dlopen(szJSLib, RTLD_GLOBAL | RTLD_LAZY);
+	AAMPLOG_WARN("[AAMP_JS] dlopen(\"%s\")=%p", szJSLib, mJSBinding_DL);
+#endif
 
 #ifdef AAMP_BUILD_INFO
 		std::string tmpstr = MACRO_TO_STRING(AAMP_BUILD_INFO);
@@ -242,6 +289,13 @@ PlayerInstanceAAMP::~PlayerInstanceAAMP()
 	{
 		PlayerCCManager::DestroyInstance();
 	}
+#ifdef SUPPORT_JS_EVENTS
+	if (mJSBinding_DL && isLastPlayerInstance)
+	{
+		AAMPLOG_WARN("[AAMP_JS] dlclose(%p)", mJSBinding_DL);
+		dlclose(mJSBinding_DL);
+	}
+#endif
 	if (isLastPlayerInstance)
 	{
 		ContentSecurityManager::DestroyInstance();
@@ -963,6 +1017,14 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 						retValue = sink->Pause(true, false);
 					}
 					aamp->mSinkPaused = true;
+					// Notify the underflow monitor that the pipeline is now intentionally
+					// paused by the user. This disarms the deadline so that fragments
+					// downloaded while paused (e.g. during seek-while-paused) do not
+					// trigger a false underflow via NotifyVideoFragment.
+					if (aamp->mpStreamAbstractionAAMP && retValue)
+					{
+						aamp->mpStreamAbstractionAAMP->NotifyPipelinePausedToUnderflowMonitor();
+					}
 				}
 			}
 			else
@@ -999,8 +1061,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 				// prevents a stale normal-play deadline from firing and declaring a
 				// false underflow during the gap between the rate change and the first
 				// trickplay fragment arriving (AAMP-TSB-5016, AAMP-CDAI-8003).
-				if (ISCONFIGSET(eAAMPConfig_EnableAampUnderflowMonitor) &&
-					aamp->mpStreamAbstractionAAMP)
+				if(aamp->mpStreamAbstractionAAMP)
 				{
 					aamp->mpStreamAbstractionAAMP->NotifyRateChangeToUnderflowMonitor(rate);
 				}
@@ -1661,8 +1722,7 @@ void PlayerInstanceAAMP::SetSubscribedTags(std::vector<std::string> subscribedTa
 		UsingPlayerId playerId(aamp->mPlayerId);
 		aamp->subscribedTags = subscribedTags;
 
-		for (int i=0; i < aamp->subscribedTags.size(); i++)
-		{
+		for (int i=0; i < aamp->subscribedTags.size(); i++) {
 			AAMPLOG_WARN("    subscribedTags[%d] = '%s'", i, subscribedTags.at(i).data());
 		}
 	}
@@ -1683,6 +1743,43 @@ void PlayerInstanceAAMP::SubscribeResponseHeaders(std::vector<std::string> respo
 		}
 	}
 }
+
+#ifdef SUPPORT_JS_EVENTS
+
+/**
+ *  @brief Load AAMP JS object in the specified JS context.
+ */
+void PlayerInstanceAAMP::LoadJS(void* context)
+{
+	AAMPLOG_WARN("[AAMP_JS] (%p)", context);
+	if (mJSBinding_DL) {
+		void(*loadJS)(void*, void*);
+		const char* szLoadJS = "aamp_LoadJS";
+		loadJS = (void(*)(void*, void*))dlsym(mJSBinding_DL, szLoadJS);
+		if (loadJS) {
+			AAMPLOG_WARN("[AAMP_JS]  dlsym(%p, \"%s\")=%p", mJSBinding_DL, szLoadJS, loadJS);
+			loadJS(context, this);
+		}
+	}
+}
+
+/**
+ *  @brief Unload AAMP JS object in the specified JS context.
+ */
+void PlayerInstanceAAMP::UnloadJS(void* context)
+{
+	AAMPLOG_WARN("[AAMP_JS] (%p)", context);
+	if (mJSBinding_DL) {
+		void(*unloadJS)(void*);
+		const char* szUnloadJS = "aamp_UnloadJS";
+		unloadJS = (void(*)(void*))dlsym(mJSBinding_DL, szUnloadJS);
+		if (unloadJS) {
+			AAMPLOG_WARN("[AAMP_JS] dlsym(%p, \"%s\")=%p", mJSBinding_DL, szUnloadJS, unloadJS);
+			unloadJS(context);
+		}
+	}
+}
+#endif
 
 /**
  *  @brief Support multiple listeners for multiple event type
@@ -1743,9 +1840,10 @@ bool PlayerInstanceAAMP::IsLive()
  */
 
 bool PlayerInstanceAAMP::IsJsInfoLoggingEnabled(void)
-{
-	return ISCONFIGSET(eAAMPConfig_JsInfoLogging);
-}
+
+ {
+	 return  ISCONFIGSET(eAAMPConfig_JsInfoLogging);
+ }
 
 /**
  *  @brief Get current audio language.
@@ -3230,20 +3328,54 @@ void PlayerInstanceAAMP::SetRepairIframes(bool configState)
 }
 
 /**
- *  @brief InitAAMPConfig - Initialize the media player session with json config
+ * @brief InitAAMPConfig - Initialize the media player session with configuration
+ * 
+ * @param[in] jsonStr - Configuration string (JSON format or "key=value" format)
+ * 
+ * @return true if configuration was processed successfully, false otherwise
+ * 
+ * @note Automatically detects JSON vs simple config string format:
+ *       - JSON object/array: {"networkTimeout": 10.0} or [...]
+ *       - Config string: "networkTimeout=10.0" or "abr=true"
+ *       - Bare values (numbers, strings) are treated as config strings
+ * 
+ * Detection logic:
+ *   - Strings starting with '{' or '[' are parsed as JSON
+ *   - All other strings are processed as config strings
+ * 
+ * Examples:
+ *   player->InitAAMPConfig("{\"networkTimeout\": 10.0}");  // JSON format
+ *   player->InitAAMPConfig("networkTimeout=10.0");         // Config string format
+ *   player->InitAAMPConfig("abr=true");                    // Boolean config
+ *   player->InitAAMPConfig("userAgent=CustomAgent/1.0");   // String config
+ *   player->InitAAMPConfig("12345");                       // Treated as config string, not JSON
  */
 bool PlayerInstanceAAMP::InitAAMPConfig(const char *jsonStr)
 {
 	bool retVal = false;
 	cJSON *cfgdata = NULL;
-	if(jsonStr)
+
+	if(jsonStr && jsonStr[0] != '\0')
 	{
-		cfgdata = cJSON_Parse(jsonStr);
+		// Try parsing as JSON (only if it looks like JSON object/array)
+		cfgdata = TryParseAsJson(jsonStr);
+
 		if(cfgdata != NULL)
 		{
-			retVal = mConfig.ProcessConfigJson(cfgdata,AAMP_APPLICATION_SETTING);
+			// Valid JSON object/array - process as JSON
+			AAMPLOG_TRACE("Processing configuration as JSON");
+			retVal = mConfig.ProcessConfigJson(cfgdata, AAMP_APPLICATION_SETTING);
+		}
+		else
+		{
+			// Not JSON object/array - process as config string
+			AAMPLOG_TRACE("Processing configuration as config string: %s", jsonStr);
+			std::string cfg(jsonStr);
+			retVal = mConfig.ProcessConfigText(cfg, AAMP_APPLICATION_SETTING);
 		}
 	}
+
+	// Common post-processing for both paths
 	mConfig.DoCustomSetting(AAMP_APPLICATION_SETTING);
 	if(GETCONFIGOWNER(eAAMPConfig_AsyncTune) == AAMP_APPLICATION_SETTING)
 	{
