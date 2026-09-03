@@ -44,6 +44,7 @@
 #include <chrono>
 #include <condition_variable>
 #include <cstdio>
+#include <cstdint>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -59,9 +60,34 @@ namespace firebolt::rialto
 // ===========================================================================
 // Logging helper
 // ===========================================================================
+static std::string LogPreamble(const char *function, int line)
+{
+	const auto now = std::chrono::system_clock::now().time_since_epoch();
+	const auto milliseconds = std::chrono::duration_cast<
+		std::chrono::milliseconds>(now).count();
+	const char *format = "%lld.%03lld: [RialtoSim][%s][%d]";
+
+	auto size = std::snprintf(nullptr,0, format,
+		static_cast<long long>(milliseconds / 1000),
+		static_cast<long long>(milliseconds % 1000),
+		function,
+		line);
+	if (size <= 0)
+ 	{
+ 		return "Unknown error";
+ 	}
+	std::string preamble(size+1, '\0');
+	std::sprintf(&preamble[0], format,
+		static_cast<long long>(milliseconds / 1000),
+		static_cast<long long>(milliseconds % 1000),
+		function,
+		line);
+	preamble.pop_back(); //Remove the c string termination char. Not needed for std::string
+	return preamble;
+}
 
 #define RIALTO_SIM_LOG(fmt, ...) \
-	fprintf(stderr, "[RialtoSim] " fmt "\n", ##__VA_ARGS__)
+	fprintf(stderr, "%s" fmt "\n",LogPreamble(__func__, __LINE__).c_str(), ##__VA_ARGS__)
 
 // Minimum amount of media data (per non-subtitle track) that must be
 // injected — or an EOS received — before the pipeline transitions to
@@ -112,6 +138,7 @@ public:
 		, m_stopRequested(false)
 		, m_eosSourceCount(0)
 		, m_eosNotified(false)
+		, m_eosDrainGeneration(0)
 		, m_playbackRateEnabled(false)
 	{
 		const char *envRate = std::getenv("RIALTO_SIM_ENABLE_PLAYBACK_RATE");
@@ -443,80 +470,37 @@ public:
 			if (allNonSubtitleSourcesEos &&
 				!m_eosNotified.exchange(true, std::memory_order_relaxed))
 			{
-				// Snapshot the maximum injected content duration across
-				// non-subtitle sources.  A real renderer must play out all
-				// buffered frames before signalling END_OF_STREAM, so the
-				// drain wait must cover at least this many nanoseconds of
-				// elapsed wall time from play-start.  On fast networks AAMP
-				// can inject a 60 s clip well under 60 s of wall time,
-				// leaving up to kBufferHighWaterNs of content buffered-ahead
-				// when EOS arrives; without this guard the fixed 6 s floor
-				// is already satisfied and END_OF_STREAM fires immediately
-				// — premature relative to the clip end.
-				int64_t maxInjectedNs = 0;
+				// Snapshot the maximum *unplayed backlog* (injected minus
+				// already-played, per bufferedAheadNsLocked()) across
+				// non-subtitle sources.  A real renderer must play out
+				// buffered-but-not-yet-rendered frames before signalling
+				// END_OF_STREAM, so the drain wait must cover at least this
+				// many nanoseconds of elapsed wall time.
+				int64_t maxBufferedAheadNs = 0;
 				{
 					std::lock_guard<std::mutex> lock(m_trackMutex);
-					for (const auto &entry : m_injectedDurationNs)
+					for (const auto &[srcId, injectedNs] : m_injectedDurationNs)
 					{
-						auto typeIt = m_sourceTypes.find(entry.first);
+						auto typeIt = m_sourceTypes.find(srcId);
 						if (typeIt != m_sourceTypes.end() &&
-							typeIt->second != MediaSourceType::SUBTITLE &&
-							entry.second > maxInjectedNs)
+							typeIt->second != MediaSourceType::SUBTITLE)
 						{
-							maxInjectedNs = entry.second;
+							int64_t bufferedNs = bufferedAheadNsLocked(srcId);
+							if (!m_playing.load(std::memory_order_relaxed))
+							{
+								// bufferedAheadNsLocked() reports 0 while not PLAYING; for
+								// EOS drain timing, fall back to injected duration so we
+								// don’t under-wait when EOS is reached while paused/preroll.
+								bufferedNs = injectedNs;
+							}
+							maxBufferedAheadNs = std::max(maxBufferedAheadNs, bufferedNs);
 						}
 					}
 				}
 				// All non-subtitle sources EOS'd — delay END_OF_STREAM
 				// to model the real pipeline's drain time (renderer must
 				// play out buffered frames before signalling EOS).
-				std::thread([this, maxInjectedNs]() {
-					using namespace std::chrono;
-					constexpr int64_t kMinDrainNs = 6000000000LL; // 6 s
-					// Wait until wall time from play-start covers whichever
-					// is larger: the fixed 6 s floor or the full injected
-					// content duration.  The latter dominates whenever AAMP
-					// injects faster than real-time (fast network/CDN),
-					// ensuring END_OF_STREAM is never signalled before the
-					// simulated renderer would have finished playing all
-					// buffered frames.
-					int64_t waitUntilNs = std::max(kMinDrainNs, maxInjectedNs);
-					auto elapsed = steady_clock::now() - m_playStartTime;
-					auto elapsedNs =
-						duration_cast<nanoseconds>(elapsed).count();
-					if (elapsedNs < waitUntilNs)
-					{
-						auto remainingNs = waitUntilNs - elapsedNs;
-						RIALTO_SIM_LOG("draining: waiting %ld ms before END_OF_STREAM",
-							remainingNs / 1000000L);
-						std::this_thread::sleep_for(nanoseconds(remainingNs));
-					}
-					if (m_stopRequested.load(std::memory_order_relaxed))
-					{
-						return;
-					}
-					// Re-validate EOS after draining: new media may have
-					// arrived during the drain window (e.g. trickplay
-					// injection resuming), which clears the EOS tracking.
-					// Firing END_OF_STREAM in that case would signal a
-					// spurious/premature EOS to the player.
-					{
-						std::lock_guard<std::mutex> lock(m_trackMutex);
-						if (!m_eosNotified.load(std::memory_order_relaxed) ||
-							!allNonSubtitleSourcesEosLocked())
-						{
-							RIALTO_SIM_LOG(
-								"END_OF_STREAM cancelled: new media arrived during drain");
-							return;
-						}
-					}
-					if (auto client = m_client.lock())
-					{
-						RIALTO_SIM_LOG("END_OF_STREAM (after drain)");
-						client->notifyPlaybackState(
-							firebolt::rialto::PlaybackState::END_OF_STREAM);
-					}
-				}).detach();
+				startEosDrain(maxBufferedAheadNs);
 			}
 		}
 		return true;
@@ -776,6 +760,90 @@ private:
 		return buffered > 0 ? buffered : 0;
 	}
 
+	void startEosDrain(int64_t maxBufferedAheadNs)
+	{
+		RIALTO_SIM_LOG("maxBufferedAheadNs %lld", static_cast<long long>(maxBufferedAheadNs));
+		// A flush()/setPosition() clears m_eosNotified, so EOS can be reached
+		// again and this can be called more than once.  Move-assigning onto a
+		// still-joinable std::thread calls std::terminate, so retire the
+		// previous drain first: bumping the generation makes it exit its wait
+		// loop promptly, then join it.
+		const uint64_t drainGeneration =
+			m_eosDrainGeneration.fetch_add(1, std::memory_order_relaxed) + 1;
+		if (m_eosThread.joinable())
+		{
+			RIALTO_SIM_LOG("joining");
+			m_eosThread.join();
+		}
+		m_eosThread = std::thread([this, maxBufferedAheadNs, drainGeneration]()
+								  {
+			using namespace std::chrono;
+			constexpr int64_t kMinDrainNs = 6000000000LL; // 6 s
+			// Gate on the user's play/pause intent (m_playRequested), not
+			// m_playing: flush() clears m_playing on every internal
+			// seek/trickplay cycle even though playback was never
+			// actually paused, which would otherwise stall this
+			// drain (and END_OF_STREAM) indefinitely during ff/rew.
+			const int64_t waitUntilNs = std::max(kMinDrainNs, maxBufferedAheadNs);
+			int64_t drainedWhilePlayingNs = 0;
+			auto lastTick = steady_clock::now();
+			for (;;)
+			{
+				if (m_stopRequested.load(std::memory_order_relaxed))
+				{
+					RIALTO_SIM_LOG("startEosDrain m_stopRequested");
+					return;
+				}
+				if (m_eosDrainGeneration.load(std::memory_order_relaxed) !=
+					drainGeneration)
+				{
+					RIALTO_SIM_LOG("startEosDrain superseded");
+					return;
+				}
+
+				auto now = steady_clock::now();
+				auto deltaNs = duration_cast<nanoseconds>(now - lastTick).count();
+				lastTick = now;
+
+				if (!m_playRequested.load(std::memory_order_relaxed))
+				{
+					std::this_thread::sleep_for(milliseconds(50));
+					continue;
+				}
+
+				drainedWhilePlayingNs += deltaNs;
+				if (drainedWhilePlayingNs >= waitUntilNs)
+				{
+					break;
+				}
+
+				const int64_t remainingNs = waitUntilNs - drainedWhilePlayingNs;
+				const int64_t sleepNs = std::min<int64_t>(remainingNs, 200000000LL);
+				std::this_thread::sleep_for(nanoseconds(sleepNs));
+			}
+
+			// Re-validate EOS after draining: new media may have arrived
+			// during the drain window, which clears the EOS tracking.
+			{
+				std::lock_guard<std::mutex> lock(m_trackMutex);
+				if (m_eosDrainGeneration.load(std::memory_order_relaxed) !=
+						drainGeneration ||
+					!m_eosNotified.load(std::memory_order_relaxed) ||
+					!allNonSubtitleSourcesEosLocked())
+				{
+					RIALTO_SIM_LOG("startEosDrain END_OF_STREAM cancelled: new media arrived during drain");
+					return;
+				}
+			}
+			if (auto client = m_client.lock())
+			{
+				RIALTO_SIM_LOG("startEosDrain END_OF_STREAM (after drain)");
+				client->notifyPlaybackState(firebolt::rialto::PlaybackState::END_OF_STREAM);
+			}
+			RIALTO_SIM_LOG("startEosDrain end of thread");
+		});
+	}
+
 	void startNeedDataPump()
 	{
 		auto client = m_client.lock();
@@ -805,9 +873,13 @@ private:
 	void scheduleNextNeedData(int32_t sourceId)
 	{
 		const uint64_t expectedGeneration = m_generation.load(std::memory_order_relaxed);
-		std::thread([this, sourceId, expectedGeneration]() {
-			// Pace data requests to model per-track buffer backpressure: wait
-			// until this source's buffered (injected-but-not-played) media
+		RIALTO_SIM_LOG("sourceId %d ", sourceId);
+		if (m_needDataThread.find(sourceId) != m_needDataThread.end() && m_needDataThread[sourceId].joinable())
+		{
+			m_needDataThread[sourceId].join();
+		}
+		m_needDataThread[sourceId] = std::thread([this, sourceId, expectedGeneration]() {
+			// Wait until this source's buffered (injected-but-not-played) media
 			// drops below the high-water mark before asking it for more.
 			// This keeps injection at ~real time instead of draining AAMP's
 			// local TSB as fast as fragments can be produced, and — since
@@ -817,6 +889,7 @@ private:
 			{
 				if (m_stopRequested.load(std::memory_order_relaxed))
 				{
+					RIALTO_SIM_LOG("scheduleNextNeedData: aborting sourceId=%d - stop requested", sourceId);
 					return;
 				}
 				if (m_generation.load(std::memory_order_relaxed) != expectedGeneration)
@@ -872,7 +945,8 @@ private:
 					sourceId, reqId);
 				client->notifyNeedMediaData(sourceId, kNeedDataFrameCount, reqId, nullptr);
 			}
-		}).detach();
+		RIALTO_SIM_LOG("scheduleNextNeedData end of thread for sourceId=%d", sourceId);
+		});
 	}
 
 	void accumulateInjectedDuration(int32_t sourceId, int64_t durationNs)
@@ -1040,6 +1114,17 @@ private:
 		{
 			m_positionThread.join();
 		}
+		if (m_eosThread.joinable())
+		{
+			m_eosThread.join();
+		}
+		for (auto &pair : m_needDataThread)
+		{
+			if (pair.second.joinable())
+			{
+				pair.second.join();
+			}
+		}
 	}
 
 	std::weak_ptr<IMediaPipelineClient> m_client;
@@ -1061,7 +1146,11 @@ private:
 	std::atomic<bool> m_stopRequested;
 	std::atomic<int> m_eosSourceCount;
 	std::atomic<bool> m_eosNotified;
+	// Incremented each time a new EOS drain supersedes a previous one.
+	std::atomic<uint64_t> m_eosDrainGeneration;
 	std::thread m_positionThread;
+	std::thread m_eosThread;
+	std::map<int32_t, std::thread> m_needDataThread;
 	bool m_playbackRateEnabled;
 	mutable std::mutex m_trackMutex;
 	std::map<int32_t, MediaSourceType> m_sourceTypes;
