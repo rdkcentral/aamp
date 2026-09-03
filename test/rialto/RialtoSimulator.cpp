@@ -873,8 +873,12 @@ private:
 	void scheduleNextNeedData(int32_t sourceId)
 	{
 		const uint64_t expectedGeneration = m_generation.load(std::memory_order_relaxed);
-		RIALTO_SIM_LOG("scheduleNextNeedData:");
-		std::thread([this, sourceId, expectedGeneration]() {
+		RIALTO_SIM_LOG("sourceId %d ", sourceId);
+		if (m_needDataThread.find(sourceId) != m_needDataThread.end() && m_needDataThread[sourceId].joinable())
+		{
+			m_needDataThread[sourceId].join();
+		}
+		m_needDataThread[sourceId] = std::thread([this, sourceId, expectedGeneration]() {
 			// Wait until this source's buffered (injected-but-not-played) media
 			// drops below the high-water mark before asking it for more.
 			// This keeps injection at ~real time instead of draining AAMP's
@@ -885,6 +889,7 @@ private:
 			{
 				if (m_stopRequested.load(std::memory_order_relaxed))
 				{
+					RIALTO_SIM_LOG("scheduleNextNeedData: aborting sourceId=%d - stop requested", sourceId);
 					return;
 				}
 				if (m_generation.load(std::memory_order_relaxed) != expectedGeneration)
@@ -940,7 +945,8 @@ private:
 					sourceId, reqId);
 				client->notifyNeedMediaData(sourceId, kNeedDataFrameCount, reqId, nullptr);
 			}
-		}).detach();
+		RIALTO_SIM_LOG("scheduleNextNeedData end of thread for sourceId=%d", sourceId);
+		});
 	}
 
 	void accumulateInjectedDuration(int32_t sourceId, int64_t durationNs)
@@ -1112,6 +1118,13 @@ private:
 		{
 			m_eosThread.join();
 		}
+		for (auto &pair : m_needDataThread)
+		{
+			if (pair.second.joinable())
+			{
+				pair.second.join();
+			}
+		}
 	}
 
 	std::weak_ptr<IMediaPipelineClient> m_client;
@@ -1137,6 +1150,7 @@ private:
 	std::atomic<uint64_t> m_eosDrainGeneration;
 	std::thread m_positionThread;
 	std::thread m_eosThread;
+	std::map<int32_t, std::thread> m_needDataThread;
 	bool m_playbackRateEnabled;
 	mutable std::mutex m_trackMutex;
 	std::map<int32_t, MediaSourceType> m_sourceTypes;
