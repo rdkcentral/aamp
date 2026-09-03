@@ -71,7 +71,7 @@ private:
 	int pes_header_ext_len = 0;
 	int pes_header_ext_read = 0;
 	std::vector<uint8_t> pes_header{};
-	
+
 	/* All public methods should be locked using this mutex as
 	 * member data is highly coupled (especially in processdata()).
 	 * Concurrent access to member data is highly likely to corrupt or return corrupt data.
@@ -82,6 +82,9 @@ private:
 	std::vector<uint8_t> es{};
 	double position = 0.0;
 	double duration = 0.0;
+	std::vector<uint8_t> pending_es{};
+	SegmentInfo_t pending_info{};
+	double total_sample_duration = 0.0;
 	uint33_t base_pts{};
 	bool rollover_pts = false;
 	uint33_t current_pts{};
@@ -106,15 +109,25 @@ private:
 	bool CheckForSteadyState();
 
 	/**
-	 * @brief Updates internal PTS, DTS and duration and fills a @a SegmentInfo_t with the updated values
+	 * @brief Updates internal PTS, DTS and fills a @a SegmentInfo_t with the updated values
 	 * @return SegmentInfo_t containing current's segment PTS, DTS and duration
 	 */
 	SegmentInfo_t UpdateSegmentInfo() const;
 
 	/**
-	 * @brief Sends elementary stream with proper PTS
+	 * @brief Emits a single access unit via the processor or SendStreamCopy.
+	 * @param[in] info Timing information for the sample.
+	 * @param[in,out] payload Elementary stream bytes (moved when a processor
+	 *        is supplied); cleared on return.
+	 * @param[in] processor Optional processor.
 	 */
-	void send();
+	void emitSample(const SegmentInfo_t &info, std::vector<uint8_t> &payload, const MediaProcessor::process_fcn_t &processor);
+
+	/**
+	 * @brief Emits the buffered sample, when other samples from segment have been processed.
+	 * @param[in] processor Optional processor.
+	 */
+	void emitLastSample(const MediaProcessor::process_fcn_t &processor);
 
 	/**
 	 * @brief reset demux state
@@ -141,8 +154,11 @@ public:
 		// falsely detecting a 33-bit wrap when there is a large PTS jump
 		// caused by the discontinuity / restamp boundary.
 		suppress_rollover_detection = true;
+		// Flush any sample still held for look-ahead from the previous epoch
+		// so it is not measured against the new (discontinuous) timeline.
+		emitLastSample(nullptr);
 	}
-	
+
 	/**
 	 * @brief Demuxer Constructor
 	 * @param[in] aamp pointer to PrivateInstanceAAMP object associated with demux
@@ -227,9 +243,9 @@ public:
 	void processPacket(const unsigned char * packetStart, bool &basePtsUpdated, bool &ptsError, bool &isPacketIgnored, bool applyOffset, MediaProcessor::process_fcn_t processor);
 
 	/**
-	 * @brief 
-	 * 
-	 * @param processor 
+	 * @brief
+	 *
+	 * @param processor
 	 */
 	void send(MediaProcessor::process_fcn_t processor)
 	{
@@ -256,12 +272,18 @@ public:
 	{
 		std::lock_guard<std::mutex> lock{mMutex};
 
+		bool sent = false;
 		if (!es.empty())
 		{
-			sendInternal(std::move(processor));
-			return true;
+			sendInternal(processor);
+			sent = true;
 		}
-		return false;
+		if (!pending_es.empty())
+		{
+			emitLastSample(processor);
+			sent = true;
+		}
+		return sent;
 	}
 
 	/**
@@ -273,7 +295,7 @@ public:
 	{
 
 		std::lock_guard<std::mutex> lock{mMutex};
-		return !es.empty();
+		return !es.empty() || !pending_es.empty();
 	}
 
 	/**
@@ -284,7 +306,7 @@ public:
 	{
 
 		std::lock_guard<std::mutex> lock{mMutex};
-		return es.size();
+		return es.size() + pending_es.size();
 	}
 
 };

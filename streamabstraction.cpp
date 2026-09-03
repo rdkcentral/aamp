@@ -32,7 +32,6 @@
  *                             `fragmentIdxTo*`, the fetch/inject CVs).
  *   2. `mTrackParamsMutex`  — protects track lifetime counters
  *                             (`totalFetchedDuration`, `totalInjectedDuration`,
- *                             `totalInjectedChunksDuration`,
  *                             `totalFragmentsDownloaded`).
  *
  * `mTrackParamsMutex` is leaf-level: never take any other MediaTrack mutex
@@ -393,10 +392,7 @@ void MediaTrack::UpdateTSAfterInject()
 {
 	std::lock_guard<std::mutex> guard(mutex);
 	//Free cached fragment slot
-	prevDownloadStartTime = mCachedFragment[fragmentIdxToInject].downloadStartTime;
 	aamp_utils::ClearAndRelease(mCachedFragment[fragmentIdxToInject].fragment);
-
-	aamp_utils::ClearAndRelease(parsedBufferChunk);
 
 	// Advance inject index with ring wrap
 	fragmentIdxToInject = (fragmentIdxToInject + 1) % mCachedFragmentSize;
@@ -409,43 +405,6 @@ void MediaTrack::UpdateTSAfterInject()
 				  name, fragmentIdxToInject, numberOfFragmentsCached);
 
 	fragmentInjected.notify_one();
-}
-
-/**
- * @fn InjectFragmentChunkInternal
- *
- * @param[in] mediaType - Media type of the fragment
- * @param[in] buffer - contains fragment to be processed and injected
- * @param[in] fpts - fragment PTS
- * @param[in] fdts - fragment DTS
- * @param[in] fDuration - fragment duration
- * @param[in] fragmentPTSOffset - PTS offset to be applied
- * @param[in] init - true if fragment is init fragment
- * @param[in] discontinuity - true if there is a discontinuity, false otherwise
- * @return void
- */
-void MediaTrack::InjectFragmentChunkInternal(AampMediaType mediaType, std::vector<uint8_t>& buffer, double fpts, double fdts, double fDuration, double fragmentPTSOffset, bool init, bool discontinuity)
-{
-	if (playContext)
-	{
-		MediaProcessor::process_fcn_t processor = [this](AampMediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
-		{
-			// No-op processor for chunk injection
-		};
-		AAMPLOG_INFO("Type[%d] position: %f duration: %f PTSOffsetSec: %f initFragment: %d size: %zu",
-			type, fpts, fDuration, fragmentPTSOffset, init, buffer.size());
-		bool ptsError = false;
-		if (!playContext->sendSegment(std::move(buffer), fpts, fDuration, fragmentPTSOffset, discontinuity, init, std::move(processor), ptsError))
-		{
-			AAMPLOG_INFO("Type[%d] Fragment discarded", mediaType);
-		}
-	}
-	else
-	{
-		aamp->ProcessID3Metadata(buffer, mediaType);
-		AAMPLOG_DEBUG("Type[%d] fpts: %f fDuration: %f init: %d", type, fpts, fDuration, init);
-		aamp->SendStreamTransfer(mediaType, buffer, fpts, fdts, fDuration, fragmentPTSOffset, init, discontinuity);
-	}
 }
 
 /**
@@ -937,190 +896,6 @@ bool MediaTrack::CheckForDiscontinuity(CachedFragment* cachedFragment, bool& fra
 	return (stopInjection);
 }
 
-/**
- *  @brief Process next cached fragment chunk
- */
-bool MediaTrack::ProcessFragmentChunk()
-{
-	class StreamAbstractionAAMP* pContext = GetContext();
-	//Get Cache buffer
-	CachedFragment* cachedFragment = &this->mCachedFragment[fragmentIdxToInject];
-	if(cachedFragment != NULL && cachedFragment->fragment.capacity() == 0)
-	{
-		if(!SignalIfEOSReached())
-		{
-			AAMPLOG_TRACE("[%s] Ignore NULL Chunk - cachedFragment->fragment.len %zu", name, cachedFragment->fragment.size());
-		}
-		return false;
-	}
-	if(cachedFragment->initFragment)
-	{
-		if ((pContext) && ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && (!ISCONFIGSET(eAAMPConfig_UseMp4Demux)))
-		{
-			if (pContext->trickplayMode)
-			{
-				// If in trick mode, do trick mode PTS restamp
-				TrickModePtsRestamp(cachedFragment);
-			}
-			else
-			{
-				ClearMediaHeaderDuration(cachedFragment);
-			}
-		}
-		else if (pContext && ISCONFIGSET(eAAMPConfig_OverrideMediaHeaderDuration))
-		{
-			if (!pContext->trickplayMode)
-			{
-				ClearMediaHeaderDuration(cachedFragment);
-			}
-		}
-		if (mSubtitleParser && type == eTRACK_SUBTITLE)
-		{
-			mSubtitleParser->processData(reinterpret_cast<const char*>(cachedFragment->fragment.data()), cachedFragment->fragment.size(), cachedFragment->position, cachedFragment->duration);
-		}
-		if (type != eTRACK_SUBTITLE || (aamp->IsGstreamerSubsEnabled()))
-		{
-			AAMPLOG_INFO("Injecting init chunk for %s",name);
-
-			InjectFragmentChunkInternal((AampMediaType)type, cachedFragment->fragment, cachedFragment->position, cachedFragment->position, cachedFragment->duration, cachedFragment->PTSOffsetSec, cachedFragment->initFragment, cachedFragment->discontinuity);
-			if (eTRACK_VIDEO == type && pContext && pContext->GetProfileCount())
-			{
-				pContext->NotifyBitRateUpdate(cachedFragment->profileIndex, cachedFragment->cacheFragStreamInfo, cachedFragment->position);
-			}
-		}
-		cachedFragment->initFragment = false;
-		return true;
-	}
-	if((cachedFragment->downloadStartTime != prevDownloadStartTime) && (!unparsedBufferChunk.empty()))
-	{
-		AAMPLOG_WARN("[%s] clean up curl chunk buffer, since  prevDownloadStartTime[%" PRIu64 "] != currentdownloadtime[%" PRIu64 "]", name,prevDownloadStartTime,cachedFragment->downloadStartTime);
-		aamp_utils::ClearAndRelease(unparsedBufferChunk);
-	}
-	size_t requiredLength = cachedFragment->fragment.size() + unparsedBufferChunk.size();
-	AAMPLOG_DEBUG("[%s] cachedFragment->fragment.len [%zu] to unparsedBufferChunk.len [%zu] Required Len [%zu]", name, cachedFragment->fragment.size(), unparsedBufferChunk.size(), requiredLength);
-
-	//Append Cache buffer to unparsed buffer for processing
-	unparsedBufferChunk.insert(unparsedBufferChunk.end(),
-			cachedFragment->fragment.data(),
-			cachedFragment->fragment.data() + cachedFragment->fragment.size());
-
-	//Parse Chunk Data
-	IsoBmffBuffer isobuf;                   /**< Fragment Chunk buffer box parser*/
-	uint8_t *unParsedBuffer = unparsedBufferChunk.data();
-	size_t parsedBufferSize = 0, unParsedBufferSize = 0;
-	unParsedBufferSize = parsedBufferSize = unparsedBufferChunk.size();
-	isobuf.setBuffer(unparsedBufferChunk);
-	AAMPLOG_TRACE("[%s] Unparsed Buffer Size: %zu", name,unparsedBufferChunk.size() );
-
-	bool bParse = false;
-	try
-	{
-		bParse = isobuf.parseBuffer();
-	}
-	catch( std::bad_alloc& ba)
-	{
-		AAMPLOG_ERR("Bad allocation: %s", ba.what() );
-	}
-	catch( std::exception &e)
-	{
-		AAMPLOG_ERR("Unhandled exception: %s", e.what() );
-	}
-	catch( ... )
-	{
-		AAMPLOG_ERR("Unknown exception");
-	}
-	if(!bParse)
-	{
-		AAMPLOG_INFO("[%s] No Box available in cache chunk: fragmentIdxToInject %d", name, fragmentIdxToInject);
-		return true;
-	}
-	//Print box details
-	//isobuf.printBoxes();
-
-	// Use the timescale stored in the cached fragment, which represents the timescale
-	// of the segment being injected. This is critical when using TSB, as the segment
-	// being downloaded at the live edge may have a different timescale (e.g., an ad)
-	// than the segment being injected from TSB (e.g., base content).
-	uint32_t timeScale = cachedFragment->timeScale;
-	if(!timeScale)
-	{
-		AAMPLOG_ERR("[%s] Cached fragment timescale is 0, fragment URI: %s", name, cachedFragment->uri.c_str());
-		// Return true so the chunk will be removed from the cached fragment chunk buffer
-		return true;
-	}
-	double fpts = 0.0, fduration = 0.0;
-	bool ret = isobuf.ParseChunkData(name, unParsedBuffer, timeScale, parsedBufferSize, unParsedBufferSize, fpts, fduration);
-	if(!ret) /**  Nothing to parse */
-	{
-		if( noMDATCount > MAX_MDAT_NOT_FOUND_COUNT )
-		{
-			AAMPLOG_INFO("[%s] noMDATCount=%d ChunkIndex=%d totchunklen=%zu", name,noMDATCount, fragmentIdxToInject,unParsedBufferSize);
-			noMDATCount=0;
-		}
-		noMDATCount++;
-		return true;
-	}
-	noMDATCount = 0;
-	if(parsedBufferSize)
-	{
-		//Prepare parsed buffer
-		parsedBufferChunk.insert(parsedBufferChunk.end(),
-				unparsedBufferChunk.data(),
-				unparsedBufferChunk.data() + parsedBufferSize);
-		if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && (!ISCONFIGSET(eAAMPConfig_UseMp4Demux)))
-		{
-			if (pContext && pContext->trickplayMode)
-			{
-				AAMPLOG_INFO("%s LLD chunk fpts = %f, absPosition = %f", name, fpts, cachedFragment->absPosition);
-				fpts = cachedFragment->absPosition;
-				TrickModePtsRestamp(parsedBufferChunk,fpts,fduration,cachedFragment->initFragment,cachedFragment->discontinuity);
-			}
-			else
-			{
-				int64_t ptsOffset = cachedFragment->PTSOffsetSec * cachedFragment->timeScale;
-				(void)mIsoBmffHelper->RestampPts(parsedBufferChunk, ptsOffset, cachedFragment->uri,
-												name, cachedFragment->timeScale);
-				fpts += cachedFragment->PTSOffsetSec;
-			}
-		}
-
-		if (mSubtitleParser && type == eTRACK_SUBTITLE)
-		{
-			mSubtitleParser->processData(reinterpret_cast<const char*>(parsedBufferChunk.data()), parsedBufferChunk.size(), fpts, fduration);
-		}
-		if (type != eTRACK_SUBTITLE || (aamp->IsGstreamerSubsEnabled()))
-		{
-			if( ISCONFIGSET(eAAMPConfig_CurlThroughput) )
-			{
-				AAMPLOG_MIL( "curl-inject type=%d", type );
-			}
-			AAMPLOG_INFO("Injecting chunk for %s br=%" BITSPERSECOND_FORMAT ",chunksize=%zu fpts=%f fduration=%f", name, bandwidthBitsPerSecond, parsedBufferChunk.size(), fpts, fduration);
-			InjectFragmentChunkInternal((AampMediaType)type, parsedBufferChunk, fpts, fpts, fduration, cachedFragment->PTSOffsetSec);
-			{
-				std::lock_guard<std::mutex> trackLock(mTrackParamsMutex);
-				totalInjectedChunksDuration += fduration;
-			}
-		}
-	}
-	// Move unparsed data sections to beginning
-	//Available size remains same
-	//This buffer should be released on Track cleanup
-	if(unParsedBufferSize)
-	{
-		AAMPLOG_TRACE("[%s] unparsed[%p] unparsed_size[%zu]", name, static_cast<const void*>(unParsedBuffer), unParsedBufferSize);
-		// unParsedBuffer was advanced by ParseChunkData past the parsed data
-		std::vector<uint8_t> remaining(unParsedBuffer, unParsedBuffer + unParsedBufferSize);
-		unparsedBufferChunk = std::move(remaining);
-	}
-	else
-	{
-		AAMPLOG_TRACE("[%s] Set Unparsed Buffer chunk Empty...", name);
-		aamp_utils::ClearAndRelease(unparsedBufferChunk);
-	}
-	aamp_utils::ClearAndRelease(parsedBufferChunk);
-	return true;
-}
-
 void StreamAbstractionAAMP::ResetTrickModePtsRestamping(void)
 {
 	for (int i = 0; i < AAMP_TRACK_COUNT; i++)
@@ -1252,159 +1027,144 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 	class StreamAbstractionAAMP* pContext = GetContext();
 	// This will change for trickplay if restamping is enabled (cachedFragment->duration is changed according to abs rate)
 	double inFragmentDuration = cachedFragment->duration;
-	if (aamp->GetLLDashChunkMode())
+	// Restamp 2.0 only for DASH streams
+	/*
+	* Ignore restamping for mp4demux here(both Trickplay and normal playback) as the restamping will be done in the mp4demux
+	* after parsing the segment before sending to gstreamer.
+	*/
+	const bool trickplay = (pContext && pContext->trickplayMode);
+	/*
+	* Subtitle is the exception to the mp4demux rule above. InitializeMediaProcessor leaves
+	* playContext null for the subtitle track when useMp4Demux is set (see the "Using Mp4Demux"
+	* branch), so subtitle segments never reach AampMp4Demuxer and nothing else restamps them:
+	* cues would stay on the CDN timeline while video and audio are restamped, drifting apart
+	* in ad-insertion and TSB playback. Restamp subtitle here instead.
+	*
+	* Trickplay is excluded deliberately. The subtitle layer is hidden during FF/REW, and
+	* TrickModePtsRestamp() drives per-track trickmode state that the subtitle track should
+	* not enter. So under mp4demux this block handles subtitle during normal play only;
+	* without mp4demux the behaviour for every track is unchanged.
+	*
+	* The useMp4Demux check stays inline below rather than being hoisted into a local, so it
+	* is still only evaluated after the EnablePTSReStamp and DASH checks pass, exactly as
+	* before. Reading it unconditionally would add a config lookup to every fragment
+	* injection on every path.
+	*/
+	if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && (eMEDIAFORMAT_DASH == aamp->mMediaFormat) &&
+		(!ISCONFIGSET(eAAMPConfig_UseMp4Demux) || ((eTRACK_SUBTITLE == type) && !trickplay)))
 	{
-		AAMPLOG_TRACE("[%s] Processing the chunk ==> fragmentIdxToInject = %d numberOfFragmentsCached %d", name, fragmentIdxToInject, numberOfFragmentsCached);
-		bool bIgnore = ProcessFragmentChunk();
-		if(bIgnore)
+		if (trickplay)
 		{
-			AAMPLOG_TRACE("[%s] Updating the chunk inject ==> fragmentIdxToInject = %d numberOfFragmentsCached %d", name, fragmentIdxToInject, numberOfFragmentsCached);
-			UpdateTSAfterInject();
-			AAMPLOG_TRACE("[%s] Updated the chunk inject ==> fragmentIdxToInject = %d numberOfFragmentsCached %d", name, fragmentIdxToInject, numberOfFragmentsCached);
-		}
-	}
-	else
-	{
-		// Restamp 2.0 only for DASH streams
-		/*
-		* Ignore restamping for mp4demux here(both Trickplay and normal playback) as the restamping will be done in the mp4demux
-		* after parsing the segment before sending to gstreamer.
-		*/
-		const bool trickplay = (pContext && pContext->trickplayMode);
-		/*
-		* Subtitle is the exception to the mp4demux rule above. InitializeMediaProcessor leaves
-		* playContext null for the subtitle track when useMp4Demux is set (see the "Using Mp4Demux"
-		* branch), so subtitle segments never reach AampMp4Demuxer and nothing else restamps them:
-		* cues would stay on the CDN timeline while video and audio are restamped, drifting apart
-		* in ad-insertion and TSB playback. Restamp subtitle here instead.
-		*
-		* Trickplay is excluded deliberately. The subtitle layer is hidden during FF/REW, and
-		* TrickModePtsRestamp() drives per-track trickmode state that the subtitle track should
-		* not enter. So under mp4demux this block handles subtitle during normal play only;
-		* without mp4demux the behaviour for every track is unchanged.
-		*
-		* The useMp4Demux check stays inline below rather than being hoisted into a local, so it
-		* is still only evaluated after the EnablePTSReStamp and DASH checks pass, exactly as
-		* before. Reading it unconditionally would add a config lookup to every fragment
-		* injection on every path.
-		*/
-		if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && (eMEDIAFORMAT_DASH == aamp->mMediaFormat) &&
-			(!ISCONFIGSET(eAAMPConfig_UseMp4Demux) || ((eTRACK_SUBTITLE == type) && !trickplay)))
-		{
-			if (trickplay)
-			{
-				TrickModePtsRestamp(cachedFragment);
-			}
-			else
-			{
-				if (!cachedFragment->initFragment)
-				{
-					// We could skip RestampPts when PTSOffsetSec==0 but the RestampPts log line
-					// would then be missing and it is important for l2 tests
-					int64_t ptsOffset = cachedFragment->PTSOffsetSec * cachedFragment->timeScale;
-
-					(void)mIsoBmffHelper->RestampPts(cachedFragment->fragment, ptsOffset,
-													cachedFragment->uri, name,
-													cachedFragment->timeScale);
-				}
-				else
-				{
-					ClearMediaHeaderDuration(cachedFragment);
-				}
-			}
-		}
-		else if (ISCONFIGSET(eAAMPConfig_OverrideMediaHeaderDuration) &&
-			(eMEDIAFORMAT_DASH == aamp->mMediaFormat))
-		{
-			// Only for DASH streams
-			ClearMediaHeaderDuration(cachedFragment);
-		}
-		if ((mSubtitleParser || (aamp->IsGstreamerSubsEnabled())) && type == eTRACK_SUBTITLE)
-		{
-			auto ptr = reinterpret_cast<const char*>(cachedFragment->fragment.data());
-			auto len = cachedFragment->fragment.size();
-			if( ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp) )
-			{
-				while( aamp->mDownloadsEnabled )
-				{
-					if( pContext->mPtsOffsetMap.count(cachedFragment->discontinuityIndex)==0 )
-					{
-						AAMPLOG_WARN( "blocking subtitle track injection waiting for pts_offset[%" PRIu64 "]", cachedFragment->discontinuityIndex );
-						pContext->aamp->interruptibleMsSleep(1000);
-					}
-					else
-					{
-						// Video and subtitle segments from the same discontinuity share the same
-						// firstPts (same CDN stream). Apply ptsOffset[N] directly — no normalisation.
-						cachedFragment->PTSOffsetSec = pContext->mPtsOffsetMap[cachedFragment->discontinuityIndex];
-						if(mSubtitleParser)
-						{
-							// DASH-style PTS-offset propagation: rather than rewriting MPEGTS in
-							// the VTT header (RestampSubtitle), push the per-fragment pts offset
-							// down into the subtec parser and forward the buffer unchanged. The
-							// subtec channel applies the offset to media_PTS so cue display time
-							// aligns with the restamped video PTS.
-							mSubtitleParser->setPtsOffset(cachedFragment->PTSOffsetSec);
-							mSubtitleParser->processData(ptr, len, cachedFragment->position, cachedFragment->duration);
-						}
-						break;
-					}
-				}
-			}
-			else if(mSubtitleParser)
-			{ // no restamping
-				mSubtitleParser->processData( ptr, len, cachedFragment->position, cachedFragment->duration);
-			}
-		}
-		if (type != eTRACK_SUBTITLE || (aamp->IsGstreamerSubsEnabled()))
-		{
-			if(AAMP_NORMAL_PLAY_RATE==aamp->rate)
-			{
-				InjectFragmentInternal(cachedFragment, fragmentDiscarded, isDiscontinuity);
-			}
-			else
-			{
-				InjectFragmentInternal(cachedFragment, fragmentDiscarded, cachedFragment->discontinuity);
-			}
-		}
-		class StreamAbstractionAAMP* pContext = GetContext();
-		if (eTRACK_VIDEO == type && pContext && pContext->GetProfileCount())
-		{
-			pContext->NotifyBitRateUpdate(cachedFragment->profileIndex, cachedFragment->cacheFragStreamInfo, cachedFragment->position);
-		}
-		AAMPLOG_DEBUG("%s - injected cached fragment at pos %f dur %f", name, cachedFragment->position, cachedFragment->duration);
-		if (!fragmentDiscarded)
-		{
-			std::lock_guard<std::mutex> lock(mTrackParamsMutex);
-			totalInjectedDuration += cachedFragment->duration;
-			lastInjectedPosition = cachedFragment->absPosition;
-			lastInjectedDuration = cachedFragment->absPosition + cachedFragment->duration;
-			mSegInjectFailCount = 0;
+			TrickModePtsRestamp(cachedFragment);
 		}
 		else
 		{
-			AAMPLOG_WARN("[%s] - Not updating totalInjectedDuration since fragment is Discarded", name);
-			mSegInjectFailCount++;
-			int SegInjectFailCount = GETCONFIGVALUE(eAAMPConfig_SegmentInjectThreshold);
-			if(SegInjectFailCount <= mSegInjectFailCount)
+			if (!cachedFragment->initFragment)
 			{
-				ret	= false;
-				AAMPLOG_ERR("[%s] Reached max inject failure count: %d, stopping playback", name, SegInjectFailCount);
-				aamp->SendErrorEvent(AAMP_TUNE_FAILED_PTS_ERROR);
+				// We could skip RestampPts when PTSOffsetSec==0 but the RestampPts log line
+				// would then be missing and it is important for l2 tests
+				int64_t ptsOffset = cachedFragment->PTSOffsetSec * cachedFragment->timeScale;
+
+				(void)mIsoBmffHelper->RestampPts(cachedFragment->fragment, ptsOffset,
+												cachedFragment->uri, name,
+												cachedFragment->timeScale);
+			}
+			else
+			{
+				ClearMediaHeaderDuration(cachedFragment);
 			}
 		}
-
-		// Release the memory and Update the inject
-		UpdateTSAfterInject();
-		// Plain SLD DASH (not LLD chunk mode, not AAMP TSB) routes through the chunk
-		// cache but still needs time-based buffer accounting, as it did before.
-		if (!aamp->GetLLDashChunkMode() && !aamp->IsLocalAAMPTsb())
+	}
+	else if (ISCONFIGSET(eAAMPConfig_OverrideMediaHeaderDuration) &&
+		(eMEDIAFORMAT_DASH == aamp->mMediaFormat))
+	{
+		// Only for DASH streams
+		ClearMediaHeaderDuration(cachedFragment);
+	}
+	if ((mSubtitleParser || (aamp->IsGstreamerSubsEnabled())) && type == eTRACK_SUBTITLE)
+	{
+		auto ptr = reinterpret_cast<const char*>(cachedFragment->fragment.data());
+		auto len = cachedFragment->fragment.size();
+		if( ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp) )
 		{
-			auto timeBasedBufferManager = GetTimeBasedBufferManager();
-			if (timeBasedBufferManager)
+			while( aamp->mDownloadsEnabled )
 			{
-				timeBasedBufferManager->ConsumeBuffer(inFragmentDuration);
+				if( pContext->mPtsOffsetMap.count(cachedFragment->discontinuityIndex)==0 )
+				{
+					AAMPLOG_WARN( "blocking subtitle track injection waiting for pts_offset[%" PRIu64 "]", cachedFragment->discontinuityIndex );
+					pContext->aamp->interruptibleMsSleep(1000);
+				}
+				else
+				{
+					// Video and subtitle segments from the same discontinuity share the same
+					// firstPts (same CDN stream). Apply ptsOffset[N] directly — no normalisation.
+					cachedFragment->PTSOffsetSec = pContext->mPtsOffsetMap[cachedFragment->discontinuityIndex];
+					if(mSubtitleParser)
+					{
+						// DASH-style PTS-offset propagation: rather than rewriting MPEGTS in
+						// the VTT header (RestampSubtitle), push the per-fragment pts offset
+						// down into the subtec parser and forward the buffer unchanged. The
+						// subtec channel applies the offset to media_PTS so cue display time
+						// aligns with the restamped video PTS.
+						mSubtitleParser->setPtsOffset(cachedFragment->PTSOffsetSec);
+						mSubtitleParser->processData(ptr, len, cachedFragment->position, cachedFragment->duration);
+					}
+					break;
+				}
 			}
+		}
+		else if(mSubtitleParser)
+		{ // no restamping
+			mSubtitleParser->processData( ptr, len, cachedFragment->position, cachedFragment->duration);
+		}
+	}
+		if (type != eTRACK_SUBTITLE || (aamp->IsGstreamerSubsEnabled()))
+	{
+		if(AAMP_NORMAL_PLAY_RATE==aamp->rate)
+		{
+			InjectFragmentInternal(cachedFragment, fragmentDiscarded, isDiscontinuity);
+		}
+		else
+		{
+			InjectFragmentInternal(cachedFragment, fragmentDiscarded, cachedFragment->discontinuity);
+		}
+	}
+	if (eTRACK_VIDEO == type && pContext && pContext->GetProfileCount())
+	{
+		pContext->NotifyBitRateUpdate(cachedFragment->profileIndex, cachedFragment->cacheFragStreamInfo, cachedFragment->position);
+	}
+	AAMPLOG_DEBUG("%s - injected cached fragment at pos %f dur %f", name, cachedFragment->position, cachedFragment->duration);
+	if (!fragmentDiscarded)
+	{
+		std::lock_guard<std::mutex> lock(mTrackParamsMutex);
+		totalInjectedDuration += cachedFragment->duration;
+		lastInjectedPosition = cachedFragment->absPosition;
+		lastInjectedDuration = cachedFragment->absPosition + cachedFragment->duration;
+		mSegInjectFailCount = 0;
+	}
+	else
+	{
+		AAMPLOG_WARN("[%s] - Not updating totalInjectedDuration since fragment is Discarded", name);
+		mSegInjectFailCount++;
+		int SegInjectFailCount = GETCONFIGVALUE(eAAMPConfig_SegmentInjectThreshold);
+		if(SegInjectFailCount <= mSegInjectFailCount)
+		{
+			ret	= false;
+			AAMPLOG_ERR("[%s] Reached max inject failure count: %d, stopping playback", name, SegInjectFailCount);
+			aamp->SendErrorEvent(AAMP_TUNE_FAILED_PTS_ERROR);
+		}
+	}
+
+	// Release the memory and Update the inject
+	UpdateTSAfterInject();
+	// Plain SLD DASH (not LLD chunk mode, not AAMP TSB) routes through the chunk
+	// cache but still needs time-based buffer accounting, as it did before.
+	if (!aamp->GetLLDashChunkMode() && !aamp->IsLocalAAMPTsb())
+	{
+		auto timeBasedBufferManager = GetTimeBasedBufferManager();
+		if (timeBasedBufferManager)
+		{
+			timeBasedBufferManager->ConsumeBuffer(inFragmentDuration);
 		}
 	}
 }
@@ -1639,7 +1399,6 @@ void MediaTrack::RunInjectLoop()
 	{
 		std::lock_guard<std::mutex> lock(mTrackParamsMutex);
 		totalInjectedDuration = 0;
-		totalInjectedChunksDuration = 0;
 		lastInjectedPosition = 0;
 		lastInjectedDuration = 0;
 	}
@@ -1842,20 +1601,16 @@ void MediaTrack::FlushFragments()
 	{
 		mCachedFragment[i].Clear();
 	}
-	aamp_utils::ClearAndRelease(unparsedBufferChunk);
-	aamp_utils::ClearAndRelease(parsedBufferChunk);
 	fragmentIdxToInject = 0;
 	fragmentIdxToFetch = 0;
 	std::lock_guard<std::mutex> guard(mutex);
 	numberOfFragmentsCached = 0;
 
 	// All fragment-injected/fetched duration counters live under mTrackParamsMutex.
-	// Always reset totalInjectedChunksDuration here (LLD chunk-mode peer of
-	// totalInjectedDuration); the audio/subtitle-only counters below are reset
-	// only when the track is not in the middle of a seamless switch.
+	// The audio/subtitle-only counters below are reset only when the track is
+	// not in the middle of a seamless switch.
 	{
 		std::lock_guard<std::mutex> trackLock(mTrackParamsMutex);
-		totalInjectedChunksDuration = 0;
 
 		// For audio/subtitle tracks that are not mid-switch, reset the
 		// business-logic lifetime counters so post-flush callers (GetBufferStatus,
@@ -1893,7 +1648,7 @@ void MediaTrack::OffsetTrackParams(double deltaFetchedDuration, double deltaInje
 MediaTrack::MediaTrack(TrackType type, PrivateInstanceAAMP* aamp, const char* name) :
 		eosReached(false), enabled(false), numberOfFragmentsCached(0), fragmentIdxToInject(0),
 		fragmentIdxToFetch(0), abort(false), fragmentInjectorThreadID(), bufferMonitorThreadID(), subtitleClockThreadID(), totalFragmentsDownloaded(0),
-		UpdateSubtitleClockTaskStarted(false), bufferMonitorThreadDisabled(false), totalInjectedDuration(0), totalInjectedChunksDuration(0), currentInitialCacheDurationSeconds(0),
+		UpdateSubtitleClockTaskStarted(false), bufferMonitorThreadDisabled(false), totalInjectedDuration(0), currentInitialCacheDurationSeconds(0),
 		sinkBufferIsFull(false), cachingCompleted(false), fragmentDurationSeconds(0),  segDLFailCount(0),segDrmDecryptFailCount(0),mSegInjectFailCount(0),
 		bufferStatus(BUFFER_STATUS_GREEN), prevBufferStatus(BUFFER_STATUS_GREEN),
 		bandwidthBitsPerSecond(0), totalFetchedDuration(0),
@@ -1901,10 +1656,10 @@ MediaTrack::MediaTrack(TrackType type, PrivateInstanceAAMP* aamp, const char* na
 		mutex(), abortInject(false),
 		mSubtitleParser(), refreshSubtitles(false), refreshAudio(false),
 		mCachedFragment{}, fragmentFetched(), fragmentInjected(), maxLLDCachedFragmentsPerTrack(0),
-		noMDATCount(0), loadNewAudio(false), audioFragmentCached(), audioMutex(), loadNewSubtitle(false), subtitleFragmentCached(), subtitleMutex(),
+		loadNewAudio(false), audioFragmentCached(), audioMutex(), loadNewSubtitle(false), subtitleFragmentCached(), subtitleMutex(),
 		abortPlaylistDownloader(true), plDownloadWait()
 		,dwnldMutex(), playlistDownloaderThread(NULL), mManifestUpdateCounter(0)
-		,mManifestUpdateWait(),prevDownloadStartTime(-1)
+		,mManifestUpdateWait()
 		,playContext(nullptr), seamlessAudioSwitchInProgress(false), lastInjectedPosition(0), lastInjectedDuration(0), seamlessSubtitleSwitchInProgress(false)
 		,mIsLocalTSBInjection(false), mCachedFragmentSize(0)
 		,mIsoBmffHelper(std::make_shared<IsoBmffHelper>())
@@ -3033,7 +2788,6 @@ void StreamAbstractionAAMP::CheckForPlaybackStall(bool fragmentParsed)
 				if (CheckIfPlayerRunningDry())
 				{
 					AAMPLOG_WARN("StreamAbstractionAAMP: Stall detected!. Time elapsed since fragment parsed(%f), caches are all empty!", timeElapsedSinceLastFragment);
-					aamp->SetFlushFdsNeededInCurlStore(true);
 					aamp->SendStalledErrorEvent();
 				}
 			}
@@ -4652,12 +4406,7 @@ int MediaTrack::WaitTimeBasedOnBufferAvailable()
 double MediaTrack::GetTotalInjectedDuration()
 {
 	std::lock_guard<std::mutex> lock(mTrackParamsMutex);
-	double ret = totalInjectedDuration;
-	if (aamp->GetLLDashChunkMode())
-	{
-		ret = totalInjectedChunksDuration;
-	}
-	return ret;
+	return totalInjectedDuration;
 }
 
 /**
