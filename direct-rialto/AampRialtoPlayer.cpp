@@ -2818,9 +2818,14 @@ void AampRialtoPlayer::OnPlaybackError(
 				/*isRetryEnabled=*/true);
 			break;
 		case firebolt::rialto::PlaybackError::OUTPUT_PROTECTION:
-			m_notifiable->NotifyPlaybackError(
-				AAMP_TUNE_HDCP_COMPLIANCE_ERROR, errorDesc,
-				/*isRetryEnabled=*/false);
+			// Non-fatal per Rialto's own PlaybackErrorCallback contract.
+			// This fires once, exactly at HDCP recovery; escalating it to
+			// SendErrorEvent() puts AAMP into eSTATE_ERROR and calls
+			// DisableDownloads(), which halts fetch/injection session-wide
+			// right as playback is recovering, with no automatic way back.
+			// Log only, do not escalate.
+			AAMPLOG_WARN("%s - non-fatal, not escalating to tune failure",
+				errorDesc.c_str());
 			break;
 		case firebolt::rialto::PlaybackError::UNKNOWN:
 		default:
