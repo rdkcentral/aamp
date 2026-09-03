@@ -63,6 +63,8 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) :
 	mCdaiObject(NULL),
 	mBufUnderFlowStatus(false),
 	mVideoBasePTS(0),
+	mAsyncTuneEnabled(false),
+	mAsyncTaskAbortEnabled(false),
 	mIsIframeTrackPresent(false),
 	mManifestTimeoutMs(-1),
 	mNetworkTimeoutMs(-1),

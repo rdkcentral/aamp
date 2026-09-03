@@ -497,7 +497,7 @@ bool IsCurlTimeoutFailure( int httpResponseCode );
  * At each point we see (line number, time since previous checkpoint), ...
  * fn
  * {
- *    timingExecutionStore timingData(__LINE__);
+ *    TimingExecutionStore timingData(__LINE__);
  * 	     code section 1
  *    timingData.storeTimingPoint(__LINE__);
  *       code section 2
@@ -512,11 +512,11 @@ bool IsCurlTimeoutFailure( int httpResponseCode );
  * }
  */
 
-class timingExecutionStore
+class TimingExecutionStore
 {
 	public:
-		timingExecutionStore() = delete;
-		timingExecutionStore(const unsigned int lineVal)
+		TimingExecutionStore() = delete;
+		TimingExecutionStore(const unsigned int lineVal)
 		{
 			storeTimingPoint(lineVal);	// store an initial timing point where this object is constructed
 		}

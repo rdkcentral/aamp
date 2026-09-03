@@ -687,7 +687,7 @@ public:
 	/**
 	 * @brief set a flag to request early abort during an async tune
 	 *
-	 * @fn IsTuneAsyncTaskAbortEnable
+	 * @fn SetEarlyAbortRequestFlag
 	 * @return True if async tune is enabled and early-abort is enabled
 	 */
 	void SetEarlyAbortRequestFlag(bool enableAbort);
