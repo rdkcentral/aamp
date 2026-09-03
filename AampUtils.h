@@ -36,6 +36,7 @@
 #include <sstream>
 #include <curl/curl.h>
 #include <chrono>
+#include <vector>
 #include "TsbApi.h"
 #include "AampCurlDownloader.h"
 #include "AampLogManager.h"
@@ -546,7 +547,7 @@ class TimingExecutionStore
 		*   @param functionName function name to pre-pend the output with, so that it's identified in the logs
 		*   @param debugMarker any string to pre-pend the output with, so that it's identified in the logs (optional)
 		*/
-		void printTimingPointsAsWarning(const unsigned int lineVal, const std::string functionName, const std::string debugMarker="")
+		void printTimingPointsAsWarning(const unsigned int lineVal, const std::string &functionName, const std::string &debugMarker="")
 		{
 			AAMPLOG_WARN("%s",formatTimingPoints(lineVal, functionName, debugMarker).c_str());
 		};
@@ -558,7 +559,7 @@ class TimingExecutionStore
 		*   @param functionName function name to pre-pend the output with, so that it's identified in the logs
 		*   @param debugMarker any string to pre-pend the output with, so that it's identified in the logs (optional)
 		*/
-		void printTimingPointsAsInfo(const unsigned int lineVal, const std::string functionName, const std::string debugMarker="")
+		void printTimingPointsAsInfo(const unsigned int lineVal, const std::string &functionName, const std::string &debugMarker="")
 		{
 			AAMPLOG_INFO("%s",formatTimingPoints(lineVal, functionName, debugMarker).c_str());
 		};
@@ -570,7 +571,7 @@ class TimingExecutionStore
 		*   @param functionName function name to pre-pend the output with, so that it's identified in the logs
 		*   @param debugMarker any string to pre-pend the output with, so that it's identified in the logs (optional)
 		*/
-		void printTimingPointsAsDebug(const unsigned int lineVal, const std::string functionName, const std::string debugMarker="")
+		void printTimingPointsAsDebug(const unsigned int lineVal, const std::string &functionName, const std::string &debugMarker="")
 		{
 			AAMPLOG_DEBUG("%s",formatTimingPoints(lineVal, functionName, debugMarker).c_str());
 		};
@@ -578,12 +579,12 @@ class TimingExecutionStore
 		std::vector<long long> timeVals;	/**< time at given checkpoints  */
 		std::vector<unsigned int> lineVals;	/**< line number for a given checkpoint  */
 
-		std::string formatTimingPoints(const unsigned int lineVal, const std::string functionName, const std::string debugMarker)
+		std::string formatTimingPoints(const unsigned int lineVal, const std::string &functionName, const std::string &debugMarker)
 		{
 			storeTimingPoint(lineVal);	// store a final checkpoint before we output results
 			std::string timingData= "[" + functionName + "]" + debugMarker + " Total : ";
 			timingData.append( std::to_string(timeVals.back() - timeVals.front()) + "ms; Delta (to line, time ms): ");
-			for (int checkPoint=1 ; checkPoint<lineVals.size() ; checkPoint++)
+			for (auto checkPoint=1 ; checkPoint<lineVals.size() ; checkPoint++)
 			{
 				timingData.append("(" + std::to_string(lineVals[checkPoint]) + "," + std::to_string(timeVals[checkPoint]-timeVals[checkPoint-1]) + ")");
 				if (checkPoint<lineVals.size()-1)

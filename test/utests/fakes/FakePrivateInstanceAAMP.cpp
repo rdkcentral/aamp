@@ -52,6 +52,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) :
 	mPersistedProfileIndex(0),
 	mContentType(ContentType_UNKNOWN),
 	mManifestUrl(""),
+	initialManifestFetchInProgress(false),
 	mServiceZone(),
 	mVssVirtualStreamId(),
 	preferredLanguagesList(),

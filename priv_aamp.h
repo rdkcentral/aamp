@@ -688,7 +688,7 @@ public:
 	 * @brief set a flag to request early abort during an async tune
 	 *
 	 * @fn SetEarlyAbortRequestFlag
-	 * @return True if async tune is enabled and early-abort is enabled
+	 * @param[in] enableAbort - True to signal that a stop is progress to a tune allowing early abort; false if not
 	 */
 	void SetEarlyAbortRequestFlag(bool enableAbort);
 
@@ -968,6 +968,7 @@ public:
 	// To store Set Cookie: headers and X-Reason headers in HTTP Response
 	httpRespHeaderData httpRespHeaders[eCURLINSTANCE_MAX];
 	//std::string cookieHeaders[MAX_CURL_INSTANCE_COUNT]; //To store Set-Cookie: headers in HTTP response
+	std::atomic<bool> initialManifestFetchInProgress;	/**< flag indicating that the initial manifest download is in progress during stream abstraction Init() for a tune type that allows early abort */
 	std::string  mManifestUrl;
 	std::string mTunedManifestUrl;
 	std::string mTsbSessionRequestUrl;

@@ -369,7 +369,7 @@ void PlayerInstanceAAMP::Stop(bool sendStateChangeEvent, bool forceCleanup)
 
 		// If we are already tuning in another async task thread then take any additional steps possible to terminate the tune early
 		// 1. Terminate any manifest fetch in progress
-		if (aamp && aamp->mpStreamAbstractionAAMP && aamp->mpStreamAbstractionAAMP->initialManifestFetchInProgress)
+		if (aamp && aamp->initialManifestFetchInProgress)
 		{
 				AampMPDDownloader *dnldInstance = aamp->GetMPDDownloader();
 				if (dnldInstance)
