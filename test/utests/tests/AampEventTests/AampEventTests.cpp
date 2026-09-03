@@ -165,6 +165,7 @@ protected:
             800.0,    // audio buffered duration
             "00:00:00:00",  // sei timecode
             5.0,      // live latency
+            3.0,      // target latency
             500,   // profile bandwidth
             1000,  // network bandwidth
             2,      //currentPlayRate
@@ -191,6 +192,7 @@ TEST_F(ProgressEventTest, GetFunctionsTest) {
     EXPECT_DOUBLE_EQ(progressEvent->getAudioBufferedDuration(), 800.0);
     EXPECT_STREQ(progressEvent->getSEITimeCode(), "00:00:00:00");
     EXPECT_DOUBLE_EQ(progressEvent->getLiveLatency(), 5.0);
+    EXPECT_DOUBLE_EQ(progressEvent->getTargetLatency(), 3.0);
     EXPECT_EQ(progressEvent->getProfileBandwidth(), 500);
     EXPECT_EQ(progressEvent->getNetworkBandwidth(), 1000);
     EXPECT_EQ(progressEvent->getCurrentPlayRate(), 2);
