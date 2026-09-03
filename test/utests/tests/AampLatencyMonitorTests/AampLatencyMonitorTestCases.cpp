@@ -78,14 +78,20 @@ static LatencyConfig MakeFastConfig(
 	double bufToEnable    = DEFAULT_BUFFER_LEVEL_TO_ENABLE_LATENCY_SEC * 1000, // 0.0s
 	double rebufStepMs    = 0.0,   // latency increment per rebuffering event
 	double rebufMaxIncrMs = 0.0,   // max total accumulated increment (0 = uncapped)
-	double dangerBufferMs = 0.0,   // min buffer (ms) that must hold for latencyStableSec
+	double dangerBufferMs = 0.0,   // low-buffer threshold that triggers latency increase
+	double restorationBufferMs = -1.0, // min buffer (ms) required for restoration window
 	double latencyStableSec = 0.0) // stable buffer duration (s) before one restoration step
 {
+	if (restorationBufferMs < 0.0)
+	{
+		restorationBufferMs = dangerBufferMs;
+	}
+
 	// monitorDelayMs = 0, monitorIntervalMs = 5 ms — fast for tests.
 	return LatencyConfig{normalRate, minRate, maxRate,
 		minLatMs, targetLatMs, maxLatMs,
 		0, 5, bufToEnable, rebufStepMs, rebufMaxIncrMs,
-		dangerBufferMs, latencyStableSec};
+		dangerBufferMs, restorationBufferMs, latencyStableSec};
 }
 
 // ---------------------------------------------------------------------------
@@ -944,7 +950,7 @@ TEST_F(AampLatencyMonitorTest, Restoration_OneStep_ReducesAccumulatedByStep)
 		DEFAULT_NORMAL_RATE_CORRECTION_SPEED, DEFAULT_MIN_RATE_CORRECTION_SPEED, DEFAULT_MAX_RATE_CORRECTION_SPEED,
 		DEFAULT_MIN_LATENCY_MS, DEFAULT_TARGET_LATENCY_MS, DEFAULT_MAX_LATENCY_MS,
 		/*bufToEnable=*/0.0, kStep, /*rebufMaxIncrMs=*/8000.0,
-		/*dangerBufferMs=*/1000.0, /*latencyStableSec=*/0.5));
+		/*dangerBufferMs=*/1000.0, /*restorationBufferMs=*/-1.0, /*latencyStableSec=*/0.5));
 	ASSERT_TRUE(WaitForRunning());
 
 	// Wake Run() and wait for the shift.
@@ -955,6 +961,106 @@ TEST_F(AampLatencyMonitorTest, Restoration_OneStep_ReducesAccumulatedByStep)
 	// monitorIntervalMs = 5ms; after ~500ms of polls the window elapses and restore fires.
 	bufSecs.store(5.0); // 5000ms >= dangerBufferMs 1000ms
 	ASSERT_TRUE(WaitForMinLatency(DEFAULT_MIN_LATENCY_MS, 2000)); // allow ~1.5s for restoration
+
+	auto [minMs, targetMs, maxMs] = mMonitor->GetCurrentThresholds();
+	EXPECT_DOUBLE_EQ(minMs,    DEFAULT_MIN_LATENCY_MS);
+	EXPECT_DOUBLE_EQ(targetMs, DEFAULT_TARGET_LATENCY_MS);
+	EXPECT_DOUBLE_EQ(maxMs,    DEFAULT_MAX_LATENCY_MS);
+}
+
+/**
+ * @test Restoration_BufferBetweenThresholds_DoesNotTrigger
+ * @brief After a danger episode, a buffer that recovers above dangerBufferMs
+ *        but stays below restorationBufferMs must not restore latency
+ *        thresholds even if it lasts longer than latencyStableSec.
+ */
+TEST_F(AampLatencyMonitorTest, Restoration_BufferBetweenThresholds_DoesNotTrigger)
+{
+	constexpr double kStep = 1000.0;
+	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kTargetLatencyMs));
+
+	std::atomic<double> bufSecs{0.5};
+	ON_CALL(*mMockAamp, GetBufferedDurationSecs()).WillByDefault([&bufSecs](){ return bufSecs.load(); });
+
+	mMonitor->Start(MakeFastConfig(
+		DEFAULT_NORMAL_RATE_CORRECTION_SPEED,
+		DEFAULT_MIN_RATE_CORRECTION_SPEED,
+		DEFAULT_MAX_RATE_CORRECTION_SPEED,
+		DEFAULT_MIN_LATENCY_MS,
+		DEFAULT_TARGET_LATENCY_MS,
+		DEFAULT_MAX_LATENCY_MS,
+		/*bufToEnable=*/0.0,
+		/*rebufStepMs=*/kStep,
+		/*rebufMaxIncrMs=*/8000.0,
+		/*dangerBufferMs=*/1000.0,
+		/*restorationBufferMs=*/2000.0,
+		/*latencyStableSec=*/0.1));
+	ASSERT_TRUE(WaitForRunning());
+
+	mMonitor->OnBufferLevelUpdate(500.0);
+	ASSERT_TRUE(WaitForMinLatency(DEFAULT_MIN_LATENCY_MS + kStep, 500));
+
+	// Healthy enough to end the danger episode, but not healthy enough to start
+	// or sustain the restoration window.
+	bufSecs.store(1.5);
+	mMonitor->OnBufferLevelUpdate(1500.0);
+	EXPECT_FALSE(WaitForMinLatency(DEFAULT_MIN_LATENCY_MS, 300));
+
+	auto [minMs, targetMs, maxMs] = mMonitor->GetCurrentThresholds();
+	EXPECT_DOUBLE_EQ(minMs,    DEFAULT_MIN_LATENCY_MS    + kStep);
+	EXPECT_DOUBLE_EQ(targetMs, DEFAULT_TARGET_LATENCY_MS + kStep);
+	EXPECT_DOUBLE_EQ(maxMs,    DEFAULT_MAX_LATENCY_MS    + kStep);
+}
+
+/**
+ * @test Restoration_BufferDropBelowRestorationThreshold_ResetsTimer
+ * @brief The restoration timer must restart if buffer falls below
+ *        restorationBufferMs, even when it stays above dangerBufferMs.
+ */
+TEST_F(AampLatencyMonitorTest, Restoration_BufferDropBelowRestorationThreshold_ResetsTimer)
+{
+	constexpr double kStep = 1000.0;
+	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kTargetLatencyMs));
+
+	std::atomic<double> bufSecs{0.5};
+	ON_CALL(*mMockAamp, GetBufferedDurationSecs()).WillByDefault([&bufSecs](){ return bufSecs.load(); });
+
+	mMonitor->Start(MakeFastConfig(
+		DEFAULT_NORMAL_RATE_CORRECTION_SPEED,
+		DEFAULT_MIN_RATE_CORRECTION_SPEED,
+		DEFAULT_MAX_RATE_CORRECTION_SPEED,
+		DEFAULT_MIN_LATENCY_MS,
+		DEFAULT_TARGET_LATENCY_MS,
+		DEFAULT_MAX_LATENCY_MS,
+		/*bufToEnable=*/0.0,
+		/*rebufStepMs=*/kStep,
+		/*rebufMaxIncrMs=*/8000.0,
+		/*dangerBufferMs=*/1000.0,
+		/*restorationBufferMs=*/2000.0,
+		/*latencyStableSec=*/0.2));
+	ASSERT_TRUE(WaitForRunning());
+
+	mMonitor->OnBufferLevelUpdate(500.0);
+	ASSERT_TRUE(WaitForMinLatency(DEFAULT_MIN_LATENCY_MS + kStep, 500));
+
+	// First healthy streak begins.
+	bufSecs.store(3.0);
+	mMonitor->OnBufferLevelUpdate(3000.0);
+	std::this_thread::sleep_for(std::chrono::milliseconds(120));
+
+	// Drop below restorationBufferMs but stay above dangerBufferMs; this must
+	// reset the timer rather than restore.
+	bufSecs.store(1.5);
+	std::this_thread::sleep_for(std::chrono::milliseconds(120));
+
+	auto [midMinMs, midTargetMs, midMaxMs] = mMonitor->GetCurrentThresholds();
+	EXPECT_DOUBLE_EQ(midMinMs,    DEFAULT_MIN_LATENCY_MS    + kStep);
+	EXPECT_DOUBLE_EQ(midTargetMs, DEFAULT_TARGET_LATENCY_MS + kStep);
+	EXPECT_DOUBLE_EQ(midMaxMs,    DEFAULT_MAX_LATENCY_MS    + kStep);
+
+	// A new full restoration window above restorationBufferMs is now required.
+	bufSecs.store(3.0);
+	ASSERT_TRUE(WaitForMinLatency(DEFAULT_MIN_LATENCY_MS, 1000));
 
 	auto [minMs, targetMs, maxMs] = mMonitor->GetCurrentThresholds();
 	EXPECT_DOUBLE_EQ(minMs,    DEFAULT_MIN_LATENCY_MS);
@@ -980,7 +1086,7 @@ TEST_F(AampLatencyMonitorTest, Restoration_StepLargerThanAccumulated_ClampsToBas
 		DEFAULT_NORMAL_RATE_CORRECTION_SPEED, DEFAULT_MIN_RATE_CORRECTION_SPEED, DEFAULT_MAX_RATE_CORRECTION_SPEED,
 		DEFAULT_MIN_LATENCY_MS, DEFAULT_TARGET_LATENCY_MS, DEFAULT_MAX_LATENCY_MS,
 		/*bufToEnable=*/0.0, /*rebufStepMs=*/1000.0, /*rebufMaxIncrMs=*/8000.0,
-		/*dangerBufferMs=*/1000.0, /*latencyStableSec=*/0.5));
+		/*dangerBufferMs=*/1000.0, /*restorationBufferMs=*/-1.0, /*latencyStableSec=*/0.5));
 	ASSERT_TRUE(WaitForRunning());
 
 	// Shift: accumulated = 1000ms.
@@ -1016,7 +1122,7 @@ TEST_F(AampLatencyMonitorTest, Restoration_MultipleSteps_ThresholdsReturnToBase)
 	mMonitor->Start(MakeFastConfig(
 		DEFAULT_NORMAL_RATE_CORRECTION_SPEED, DEFAULT_MIN_RATE_CORRECTION_SPEED, DEFAULT_MAX_RATE_CORRECTION_SPEED,
 		DEFAULT_MIN_LATENCY_MS, DEFAULT_TARGET_LATENCY_MS, DEFAULT_MAX_LATENCY_MS,
-		/*bufToEnable=*/0.0, kStep, kMaxIncr, /*dangerBufferMs=*/1000.0, /*latencyStableSec=*/0.05));
+		/*bufToEnable=*/0.0, kStep, kMaxIncr, /*dangerBufferMs=*/1000.0, /*restorationBufferMs=*/-1.0, /*latencyStableSec=*/0.05));
 	ASSERT_TRUE(WaitForRunning());
 
 	// Accumulate maximum shift via 3 distinct episodes.
