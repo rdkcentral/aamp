@@ -3392,7 +3392,12 @@ AAMPStatusType StreamAbstractionAAMP_MPD::GetMPDFromManifest( ManifestDownloadRe
 	{
 		this->mpd	=	tmpMPD;
 		// Parse for generic parameters
-		mMPDParseHelper	=	mpdDnldResp->GetMPDParseHelper();
+		auto mpdParseHelper = mpdDnldResp->GetMPDParseHelper();
+		if (!init && mMPDParseHelper && mpdParseHelper && mpdParseHelper->GetAvailabilityStartTime() == 0)
+		{
+			mpdParseHelper->SetTimelineAvailabilityStartTime(mMPDParseHelper->GetTimelineAvailabilityStartTime());
+		}
+		mMPDParseHelper = mpdParseHelper;
 
 		// this flag for current state of manifest ( Linear to VOD can happen)
 		if((mMPDParseHelper->IsLiveManifest() != mIsLiveManifest) && !init )
@@ -10291,11 +10296,19 @@ void StreamAbstractionAAMP_MPD::DetectDiscontinuityAndFetchInit(bool periodChang
 					usingPTO = true;
 				}
 
+				// Hot→Cold CDVR: Cold manifest has no AST so segment times are relative; suppress false discontinuity.
+				if (!mIsLiveManifest && mIsLiveStream && mMPDParseHelper->GetAvailabilityStartTime() == 0 && nextSegmentTime != segmentStartTime)
+				{
+					AAMPLOG_WARN("StreamAbstractionAAMP_MPD: Suppressing spurious discontinuity on Hot→Cold CDVR "
+					             "manifest transition (nextSegTime=%" PRIu64 " segStartTime=%" PRIu64 ")",
+					             nextSegmentTime, segmentStartTime);
+					aamp->SetIsPeriodChangeMarked(false);
+				}
 				/* Process the discontinuity,
 				* 1. If the next segment time is not matching with the next period segment start time.
 				* 2. To reconfigure the pipeline, if there is a change in the Audio Codec even if there is no change in segment start time in multi period content.
 				*/
-				if ((segmentTemplates.GetSegmentTimeline() != NULL && nextSegmentTime != segmentStartTime) || GetESChangeStatus() || ISCONFIGSET(eAAMPConfig_ForceMultiPeriodDiscontinuity))
+				else if ((segmentTemplates.GetSegmentTimeline() != NULL && nextSegmentTime != segmentStartTime) || GetESChangeStatus() || ISCONFIGSET(eAAMPConfig_ForceMultiPeriodDiscontinuity))
 				{
 					AAMPLOG_WARN("StreamAbstractionAAMP_MPD: discontinuity detected nextSegmentTime %" PRIu64 " FirstSegmentStartTime %" PRIu64 " ", nextSegmentTime, segmentStartTime);
 					discontinuity = true;
@@ -10372,6 +10385,11 @@ double StreamAbstractionAAMP_MPD::GetCurrentAdStartTimeSeconds() const
 		mCdaiObject->mCurAdIdx >= static_cast<int>(mCdaiObject->mCurAds->size()) ||
 		mCdaiObject->mCurPlayingBreakId.empty())
 	{
+		AAMPLOG_INFO("ismCdaiObject= %s, mAdState= %d, mCurAdIdx= %d, mCurPlayingBreakId= %s", 
+			mCdaiObject ? "true" : "false",
+			mCdaiObject ? static_cast<int>(mCdaiObject->mAdState) : -1,
+			mCdaiObject ? mCdaiObject->mCurAdIdx : -1,
+			mCdaiObject && !mCdaiObject->mCurPlayingBreakId.empty() ? mCdaiObject->mCurPlayingBreakId.c_str() : "empty");
 		return -1.0;
 	}
 
@@ -10396,10 +10414,18 @@ double StreamAbstractionAAMP_MPD::GetCurrentAdStartTimeSeconds() const
 
 void StreamAbstractionAAMP_MPD::UpdateStartTimeOfFirstPTS()
 {
-	double startTime = (mMPDParseHelper->GetPeriodStartTime(mCurrentPeriodIdx, mLastPlaylistDownloadTimeMs) - mAvailabilityStartTime);
+	AAMPLOG_WARN(
+    "Period state: currentPeriodIdx=%d basePeriodId=%s "
+    "periodStartTime=%f startTimeOfFirstPTS=%f",
+    mCurrentPeriodIdx,
+    mBasePeriodId.c_str(),
+    mPeriodStartTime,
+    mStartTimeOfFirstPTS / 1000.0);
+	double periodStartSec = mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentTime;
+	double startTime = periodStartSec - mAvailabilityStartTime;
 	if (startTime != 0)
 	{
-		mStartTimeOfFirstPTS = mMPDParseHelper->GetPeriodStartTime(mCurrentPeriodIdx, mLastPlaylistDownloadTimeMs) * 1000.0;
+		mStartTimeOfFirstPTS = periodStartSec * 1000.0;
 		AAMPLOG_INFO("UpdateStartTimeOfFirstPTS: mStartTimeOfFirstPTS=%.0f ms : PeriodStartTime=%f", mStartTimeOfFirstPTS, startTime);
 		double adStartTimeSec = GetCurrentAdStartTimeSeconds();
 		if (adStartTimeSec >= 0)
@@ -13096,6 +13122,21 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 
 						mBasePeriodId =	mCdaiObject->mAdBreaks[mCdaiObject->mCurPlayingBreakId].endPeriodId;
 						mCdaiObject->mContentSeekOffset = (double)(mCdaiObject->mAdBreaks[mCdaiObject->mCurPlayingBreakId].endPeriodOffset)/ 1000;
+						const int resumePeriodIndex  = mMPDParseHelper->getPeriodIdx(mBasePeriodId);
+						if (resumePeriodIndex  >= 0 && mCdaiObject->mContentSeekOffset >=
+							mMPDParseHelper->GetPeriodDuration(resumePeriodIndex , mLastPlaylistDownloadTimeMs,
+								ShouldCheckOnlyIframeAdaptation(), aamp->IsUninterruptedTSB()) / 1000.0)
+						{
+							if (resumePeriodIndex  + 1 < mNumberOfPeriods)
+							{
+								mBasePeriodId = mpd->GetPeriods().at(resumePeriodIndex  + 1)->GetId();
+								mCdaiObject->mContentSeekOffset = 0;
+							}
+							else
+							{
+								mPostRollAdPlaybackDone = true;
+							}
+						}
 					}
 					else
 					{

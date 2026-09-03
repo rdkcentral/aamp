@@ -3633,6 +3633,13 @@ bool PrivateInstanceAAMP::ProcessPendingDiscontinuity()
 				startTimeofFirstSample = mpStreamAbstractionAAMP->GetStartTimeOfFirstPTS() / 1000;
 				if(startTimeofFirstSample > 0)
 				{
+					AAMPLOG_WARN(
+						"PrivateInstanceAAMP: Discontinuity position override: seekBase=%f "
+						"firstSample=%f injectedDuration=%f effectiveInjectedPosition=%f",
+						seek_pos_seconds,
+						startTimeofFirstSample,
+						mpStreamAbstractionAAMP->GetLastInjectedFragmentPosition(),
+						seek_pos_seconds + mpStreamAbstractionAAMP->GetLastInjectedFragmentPosition());
 					AAMPLOG_WARN("PrivateInstanceAAMP: Position is updated to start time of discontinuity : %lf", startTimeofFirstSample);
 					seek_pos_seconds = startTimeofFirstSample;
 				}
@@ -8255,7 +8262,14 @@ long long PrivateInstanceAAMP::GetPositionMs()
 	double seek_pos_seconds_copy = seek_pos_seconds;
 	if(prevPositionInfo.isPositionValid(seek_pos_seconds_copy))
 	{
-		return (prevFirstPeriodStartTime + prevPositionInfo.getPosition());
+		const long long previousPosition = prevPositionInfo.getPosition();
+		if (prevFirstPeriodStartTime > 0 && previousPosition < prevFirstPeriodStartTime)
+		{
+			AAMPLOG_WARN("prevFirstPeriodStartTime = %lld, relative previousPosition = %lld, seek_pos_seconds = %f", prevFirstPeriodStartTime, previousPosition, seek_pos_seconds_copy);
+			return prevFirstPeriodStartTime + previousPosition;
+		}
+		AAMPLOG_WARN("previousPosition = %lld is already absolute, seek_pos_seconds = %f", previousPosition, seek_pos_seconds_copy);
+		return previousPosition;
 	}
 	else
 	{
@@ -8264,6 +8278,7 @@ long long PrivateInstanceAAMP::GetPositionMs()
 			//previous position values calculated using different values of seek_pos_seconds are considered invalid.
 			AAMPLOG_WARN("prev-pos-ms (%lld) is invalid. seek_pos_seconds = %f, seek_pos_seconds when prev-pos-ms was stored = %f.",prevPositionInfo.getPosition(), seek_pos_seconds_copy, prevPositionInfo.getSeekPositionSec());
 		}
+		AAMPLOG_WARN("GetPositionMilliseconds = %lld", GetPositionMilliseconds());
 		return GetPositionMilliseconds();
 	}
 }

@@ -248,6 +248,8 @@ public :
  	* 	@retval double . AvailabilityStartTime
 	*/
 	double GetAvailabilityStartTime() { return mAvailabilityStartTime;}
+	double GetTimelineAvailabilityStartTime() { return mTimelineAvailabilityStartTime;}
+	void SetTimelineAvailabilityStartTime(double availabilityStartTime) { mTimelineAvailabilityStartTime = availabilityStartTime; }
 	/**
 	*
 	*   @fn GetPublishTime
@@ -533,6 +535,7 @@ private:
 	uint64_t mMinUpdateDurationMs;
 	/* storage for Availability Start Time */
 	double mAvailabilityStartTime;
+	double mTimelineAvailabilityStartTime;
 	/* storage for Publish Time in seconds*/
 	double mPublishTime;
 	/* storage for Segment Duration in seconds */
