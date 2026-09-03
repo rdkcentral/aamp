@@ -82,9 +82,6 @@ private:
 	std::vector<uint8_t> es{};
 	double position = 0.0;
 	double duration = 0.0;
-	/* The first access unit of an epoch is buffered here until the next
-	 * access unit arrives, so its true duration can be measured from the
-	 * DTS delta before it is emitted. */
 	std::vector<uint8_t> pending_es{};
 	SegmentInfo_t pending_info{};
 	double total_sample_duration = 0.0;
@@ -112,7 +109,7 @@ private:
 	bool CheckForSteadyState();
 
 	/**
-	 * @brief Updates internal PTS, DTS and duration and fills a @a SegmentInfo_t with the updated values
+	 * @brief Updates internal PTS, DTS and fills a @a SegmentInfo_t with the updated values
 	 * @return SegmentInfo_t containing current's segment PTS, DTS and duration
 	 */
 	SegmentInfo_t UpdateSegmentInfo() const;
