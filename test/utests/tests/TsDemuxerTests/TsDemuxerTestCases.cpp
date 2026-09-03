@@ -189,7 +189,7 @@ protected:
 	/**
 	 * @brief Feed one TS packet through the demuxer with a processor
 	 *        callback.  ES flushed at a PAYLOAD_UNIT_START boundary (the
-	 *        previous access unit) is routed through @a processor, so
+	 *        previous access unit) is routed through processor, so
 	 *        look-ahead emissions triggered by the incoming packet are
 	 *        observable.
 	 */
