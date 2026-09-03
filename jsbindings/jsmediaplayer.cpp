@@ -3937,6 +3937,7 @@ static JSClassRef AAMPMediaPlayer_object_ref() {
 JSObjectRef AAMPMediaPlayer_JS_class_constructor(JSContextRef ctx, JSObjectRef constructor, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
 {
 	LOG_TRACE("Enter");
+	LOG_WARN_EX("[TEST] Number of active jsmediaplayer instances: %zu", AAMPMediaPlayer_JS::_jsMediaPlayerInstances.size());
 
 	std::string appName;
 	if (argumentCount > 0)
@@ -3979,6 +3980,7 @@ JSObjectRef AAMPMediaPlayer_JS_class_constructor(JSContextRef ctx, JSObjectRef c
 	{
 		std::lock_guard<std::mutex> guard(jsMediaPlayerCacheMutex);
 		AAMPMediaPlayer_JS::_jsMediaPlayerInstances.push_back(privObj);
+		LOG_WARN_EX("Added new jsmediaplayer instance: %p", privObj);
 	}
 
 	// Add a dummy event listener without any function callback.
@@ -4030,7 +4032,7 @@ static JSClassDefinition AAMPMediaPlayer_JS_class_def {
  */
 void ClearAAMPPlayerInstances(void)
 {
-	LOG_WARN_EX("Number of active jsmediaplayer instances: %zu", AAMPMediaPlayer_JS::_jsMediaPlayerInstances.size());
+	LOG_WARN_EX("[TEST] Number of active jsmediaplayer instances: %zu", AAMPMediaPlayer_JS::_jsMediaPlayerInstances.size());
 	while(AAMPMediaPlayer_JS::_jsMediaPlayerInstances.size() > 0)
 	{
 		AAMPMediaPlayer_JS *obj = AAMPMediaPlayer_JS::_jsMediaPlayerInstances.back();
@@ -4283,6 +4285,7 @@ void AAMPPlayer_LoadJS(void* context)
 {
 	LOG_TRACE("Enter");
    	LOG_WARN_EX("context = %p", context);
+	LOG_WARN_EX("[TEST] Number of active jsmediaplayer instances: %zu", AAMPMediaPlayer_JS::_jsMediaPlayerInstances.size());
 	JSGlobalContextRef jsContext = (JSGlobalContextRef)context;
 
 	JSObjectRef globalObj = JSContextGetGlobalObject(jsContext);
