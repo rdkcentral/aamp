@@ -11057,6 +11057,8 @@ void  StreamAbstractionAAMP_MPD::ResumeSubtitleAfterSeek(bool mute, char *data)
  */
 StreamAbstractionAAMP_MPD::~StreamAbstractionAAMP_MPD()
 {
+	aamp->initialManifestFetchInProgress=false;
+	
 	// Unregister the MPD download callback BEFORE deleting tracks.
 	// This ensures the notifier thread cannot fire MPDUpdateCallbackExec()
 
