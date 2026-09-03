@@ -82,7 +82,7 @@ static std::string LogPreamble(const char *function, int line)
 		static_cast<long long>(milliseconds % 1000),
 		function,
 		line);
-	preamble.pop_back();
+	preamble.pop_back(); //Remove the c string termination char. Not needed for std::string
 	return preamble;
 }
 
@@ -762,7 +762,7 @@ private:
 
 	void startEosDrain(int64_t maxBufferedAheadNs)
 	{
-		RIALTO_SIM_LOG("startEosDrain %lld", static_cast<long long>(maxBufferedAheadNs));
+		RIALTO_SIM_LOG("maxBufferedAheadNs %lld", static_cast<long long>(maxBufferedAheadNs));
 		// A flush()/setPosition() clears m_eosNotified, so EOS can be reached
 		// again and this can be called more than once.  Move-assigning onto a
 		// still-joinable std::thread calls std::terminate, so retire the
@@ -772,7 +772,7 @@ private:
 			m_eosDrainGeneration.fetch_add(1, std::memory_order_relaxed) + 1;
 		if (m_eosThread.joinable())
 		{
-			RIALTO_SIM_LOG("startEosDrain joining");
+			RIALTO_SIM_LOG("joining");
 			m_eosThread.join();
 		}
 		m_eosThread = std::thread([this, maxBufferedAheadNs, drainGeneration]()
@@ -831,15 +831,17 @@ private:
 					!m_eosNotified.load(std::memory_order_relaxed) ||
 					!allNonSubtitleSourcesEosLocked())
 				{
-					RIALTO_SIM_LOG("END_OF_STREAM cancelled: new media arrived during drain");
+					RIALTO_SIM_LOG("startEosDrain END_OF_STREAM cancelled: new media arrived during drain");
 					return;
 				}
 			}
 			if (auto client = m_client.lock())
 			{
-				RIALTO_SIM_LOG("END_OF_STREAM (after drain)");
+				RIALTO_SIM_LOG("startEosDrain END_OF_STREAM (after drain)");
 				client->notifyPlaybackState(firebolt::rialto::PlaybackState::END_OF_STREAM);
-			} });
+			}
+			RIALTO_SIM_LOG("startEosDrain end of thread");
+		});
 	}
 
 	void startNeedDataPump()
