@@ -1835,7 +1835,6 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	, mDiscoCompleteLock()
 	, mIsPeriodChangeMarked(false)
 	, m_lastSubClockSyncTime()
-	, mIsLoggingNeeded(false)
 	, mLiveEdgeDeltaFromCurrentTime(0.0)
 	, mTrickModePositionEOS(0.0)
 	, mTSBSessionManager(NULL)
@@ -2611,24 +2610,6 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 			}
 
 
-			if(mAampLLDashServiceData.lowLatencyMode && mConfig->GetConfigOwner(eAAMPConfig_InfoLogging) == AAMP_DEFAULT_SETTING)
-			{
-				int abrMinBuffer = AAMP_BUFFER_MONITOR_GREEN_THRESHOLD_LLD;
-				bool bufferBelowMin = videoBufferedDuration < (abrMinBuffer * 1000);
-
-				if (bufferBelowMin && !mIsLoggingNeeded)
-				{
-					mIsLoggingNeeded = true;
-					AampLogManager::setLogLevel(eLOGLEVEL_INFO);
-					SETCONFIGVALUE_PRIV(AAMP_STREAM_SETTING, eAAMPConfig_ProgressLogging, true);
-				}
-				else if (!bufferBelowMin && mIsLoggingNeeded)
-				{
-					mIsLoggingNeeded = false;
-					AampLogManager::setLogLevel(eLOGLEVEL_WARN);
-					SETCONFIGVALUE_PRIV(AAMP_STREAM_SETTING, eAAMPConfig_ProgressLogging, false);
-				}
-			}
 			if (ISCONFIGSET_PRIV(eAAMPConfig_ProgressLogging))
 			{
 				static int tick;
@@ -4076,8 +4057,8 @@ void PrivateInstanceAAMP::LogTuneComplete(void)
 			}
 		}
 		SendAnomalyEvent(eMsgType, "Tune attempt#%d. %s:%s URL:%s", mTuneAttempts,playbackType.c_str(),getStreamTypeString().c_str(),GetTunedManifestUrl());
+		flushFlightDataRecorder(eLOGLEVEL_MIL, "TUNE_COMPLETE");
 	}
-	AampLogManager::setLogLevel(eLOGLEVEL_WARN);
 }
 
 /**
@@ -5977,18 +5958,6 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		mFirstVideoFrameDisplayedEnabled = true;
 	}
 
-	if((eTUNETYPE_SEEK == tuneType) || (eTUNETYPE_NEW_SEEK == tuneType))
-	{
-		/** Enabled rate Correction by default, seek case and live added later point  **/
-		//Logging should be deactivated if the buffer exceeds the minimum buffer size or if seeking occurs
-		if(mIsLoggingNeeded && mConfig->GetConfigOwner(eAAMPConfig_InfoLogging) == AAMP_DEFAULT_SETTING)
-		{
-			AampLogManager::setLogLevel((eLOGLEVEL_WARN));
-			SETCONFIGVALUE_PRIV(AAMP_STREAM_SETTING, eAAMPConfig_ProgressLogging, false);
-			mIsLoggingNeeded = false;
-		}
-	}
-
 	if (tuneType == eTUNETYPE_SEEK || tuneType == eTUNETYPE_SEEKTOLIVE || tuneType == eTUNETYPE_SEEKTOEND)
 	{
 		mSeekOperationInProgress = true;
@@ -6644,7 +6613,6 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	}
 	mEventManager->SetPlayerState(eSTATE_IDLE);
 	mConfig->CustomSearch(mainManifestUrl,mPlayerId,mAppName);
-	AampLogManager::setLogLevel(eLOGLEVEL_INFO);
 	SetSessionId(std::move(sid));
 	mProvidedManifestFile.clear();
 	if(manifestData != NULL)
@@ -6730,10 +6698,6 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	// TODO When faketune code is added later , push the faketune status here
 	mEventManager->SetAsyncTuneState(mAsyncTuneEnabled);
 	mIsFakeTune = strcasestr(mainManifestUrl, "fakeTune=true");
-	if(mIsFakeTune)
-	{
-		AampLogManager::setLogLevel(eLOGLEVEL_ERROR);
-	}
 	mEventManager->SetFakeTuneFlag(mIsFakeTune);
 
 	mManifestUrl = mainManifestUrl; // TBR
