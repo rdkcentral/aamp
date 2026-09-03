@@ -3731,12 +3731,12 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 	{
 		if (aamp->IsAsyncTuneAbortSupported())
 		{
-			initialManifestFetchInProgress=true;	// Signal to any stop process that a manifest download can be aborted
+			aamp->initialManifestFetchInProgress=true;	// Signal to any stop process that a manifest download can be aborted
 		}
 		// This may get terminated by Release from Stop(), returning eAAMPSTATUS_MANIFEST_DOWNLOAD_ABORTED
 		// Note: if we abort then any fog tsb will not get deleted in SendErrorEvent (which is not called). We will do this in PrivateInstanceAAMP::Stop
 		ret = FetchDashManifest();
-		initialManifestFetchInProgress=false;
+		aamp->initialManifestFetchInProgress=false;
 
 		if (ret != eAAMPSTATUS_OK)
 		{
@@ -11207,6 +11207,12 @@ void StreamAbstractionAAMP_MPD::Start(void)
  */
 void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 {
+
+	if(aamp->initialManifestFetchInProgress)
+	{
+		AAMPLOG_WARN("Clearing initialManifestFetchInProgress flag since we are stopping stream abstraction");
+	}
+	aamp->initialManifestFetchInProgress = false;
 
 	if (!aamp->IsLocalAAMPTsb() || aamp->mAampTsbLanguageChangeInProgress)
 	{

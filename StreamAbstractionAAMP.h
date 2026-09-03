@@ -1439,7 +1439,6 @@ public:
 	std::unique_ptr<SubtitleParser> RegisterSubtitleParser_CB(std::string mimeType, bool isExpectedMimeType = true);
 
 	bool trickplayMode;                     /**< trick play flag to be updated by subclasses*/
-	std::atomic<bool> initialManifestFetchInProgress;	/**< flag indicating that the initial manifest download is in progress during stream abstraction Init() for a tune type that allows early abort */
 	int currentProfileIndex;                /**< current Video profile index of the track*/
 	int currentAudioProfileIndex;           /**< current Audio profile index of the track*/
 	int currentTextTrackProfileIndex;       /**< current SubTitle profile index of the track*/
