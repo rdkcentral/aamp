@@ -249,4 +249,4 @@ For issues or questions:
 - ERROR-only trigger
 - Core AAMP integration
 - Configuration support
-- Lock-free circular buffer
+- Mutex-protected circular buffer
