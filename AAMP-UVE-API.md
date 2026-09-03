@@ -128,6 +128,8 @@ Click [here](#setup-reference-player) for Reference player setup for RDK
 - [Client DAI](#client-dai-feature-support)
 - [ATSC Support](#atsc---unified-video-engine-features)
 - [TSB (Time Shift Buffer)](#tsb-feature)
+- [Low Latency DASH (LLD)](#low-latency-dash-lld-feature)
+- [Live Latency](#live-latency-feature)
 - [Thumbnails & Watermarking](#thumbnails)
 - [Captions](#captions-support)
 
@@ -150,11 +152,7 @@ Configuration options are passed to AAMP using the UVE `initConfig()` method. Th
 | cdvrLiveOffset | Number | 30 | Live offset time in seconds for CDVR. AAMP starts live playback this much time before the live point for in-progress CDVR. |
 | customHeader | String | - | Custom header data to append to HTTP requests. |
 | contentProtectionDataUpdateTimeout | Number | 5000 | Timeout for Content Protection Data Update on Dynamic Key Rotation (milliseconds). Player waits for [setContentProtectionDataConfig](#setcontentprotectiondataconfig_json-string) API update within the timeout interval. On timeout, uses last configured values. Also refer API [setContentProtectionDataUpdateTimeout](#setcontentprotectiondataupdatetimeout_timeout). |
-| disableLowLatencyABR | Boolean | true | Enable Low Latency ABR handling. |
 | disablePlaylistIndexEvent | Boolean | true | Enable/disable generation of playlist indexed event by AAMP on tune/trickplay/seek. |
-| downloadBufferChunks | Number | 20 | Low Latency fragment chunk cache length. |
-| enableLowLatencyCorrection | Boolean | true | Enable latency correction. If disabled, latency may gradually drift from the live edge, especially under poor network conditions. |
-| enableLowLatencyDash | Boolean | true | Enable Low Latency DASH playback mode. Allows media chunks to be injected earlier (even before full fragment download completes), allowing player to start and stay closer to live edge. |
 | enableSubscribedTags | Boolean | true | Enable/disable subscribed tags. |
 | enableVideoEndEvent | Boolean | true | Enable/disable Video End event generation. |
 | enableVideoRectangle | Boolean | true | Enable/disable setting of rectangle property for sink element. |
@@ -164,26 +162,15 @@ Configuration options are passed to AAMP using the UVE `initConfig()` method. Th
 | iframeDefaultBitrate | Number | 0 | Default bitrate for iframe track selection for non-4K assets (0 = auto). |
 | iframeDefaultBitrate4K | Number | 0 | Default bitrate for iframe track selection for 4K assets (0 = auto). |
 | initRampdownLimit | Number | 0 | Maximum number of rampdown/retries for initial playlist retrieval at tune/seek time. |
-| latencyMonitorDelayMs | Number | 5000 | Delay in milliseconds before starting latency monitoring after tune completion. |
-| latencyMonitorIntervalMs | Number | 1000 | Time between latency checks in milliseconds. Changing the value will only affect monitoring and corrective actions (how frequently latency is sampled and rate corrections are attempted). |
-| latencyDangerBufferSec | Float | 1.0 | Buffer level (seconds) below which latency thresholds are dynamically increased to accommodate the low-buffer condition. Once the buffer recovers above this level and remains healthy for `latencyStableDurationSec`, the thresholds are gradually restored toward their configured defaults. Zero disables the adaptive threshold feature entirely. |
-| latencyStableDurationSec | Float | 300.0 | Duration (seconds) of consecutive healthy buffer (above `latencyDangerBufferSec`) required before one restoration step is applied to the latency thresholds. Zero disables dynamic restoration entirely. |
 | licenseAnonymousRequest | Boolean | false | Enable/disable acquiring of license without token. |
 | licenseKeyAcquireWaitTime | Number | 5000 | License key acquire wait time (milliseconds). |
 | licenseRetryWaitTime | Number | 500 | License retry wait interval (milliseconds). |
 | licenseServerUrl | String | - | URL to be used for license requests for encrypted(PR/WV) assets. |
 | linearTrickPlayFps | Number | 8 | Specify the framerate for Linear trickplay. |
-| lowLatencyMinValue | Number | 5 | Minimum acceptable latency (seconds). Avoids getting too close to live edge, preventing buffering. If latency drops below this, playback slows down to increase delay and avoid buffer underrun. |
 | lowLatencyTargetValue | Number | 6 | Target latency for playback (seconds). If reduced, playback will be closer to live edge, but with increased chance of buffering. |
 | lowLatencyMaxValue | Number | 7 | Maximum acceptable latency (seconds). Ensures playback does not fall too far behind live stream. If latency exceeds this, playback speeds up to catch up with live edge. |
-| lowLatencyMinBuffer | Float | 2 | Minimum buffer level the player should maintain for low latency buffering (seconds). |
-| lowLatencyTargetBuffer | Float | 4 | Target buffer size for low latency mode (seconds). Balances latency and stability by keeping a healthy buffer. |
 | maxABRBufferRampup | Number | 15 | Maximum ABR Buffer for Rampup in secs. |
-| maxLatencyCorrectionPlaybackRate | Float | 1.03 | Maximum playback speed for latency correction. When the player detects that it’s too far from the live edge (or fall behind target latency), it can speeds up playback slightly to catch up with the live edge without noticeable fast-forward effect. |
 | minABRBufferRampdown | Number | 10 | Minimum ABR Buffer for Rampdown in secs. |
-| minLatencyCorrectionPlaybackRate | Float | 0.97 | Minimum playback speed for latency correction. When the player detects that it’s too close to the live edge (or ahead of target latency), it can slow down playback slightly to increase latency without causing noticeable slow motion. |
-| normalLatencyCorrectionPlaybackRate | Float | 1.0 | Normal playback speed when latency is within acceptable range. Maintains standard playback when no correction is needed. |
-| rebufferLatencyMaxIncrementSec | Float | 8.0 | Maximum total accumulated increment (seconds) that can be added to latency thresholds across all rebuffering events. Caps the upward drift of `lowLatencyMinValue`, `lowLatencyTargetValue`, and `lowLatencyMaxValue`. Zero means no cap. |
 | rebufferLatencyStepSec | Float | 1.0 | Step size (seconds) added to all three latency thresholds (`lowLatencyMinValue`, `lowLatencyTargetValue`, `lowLatencyMaxValue`) each time the buffer drops below `latencyDangerBufferSec`. Allows the player to tolerate higher latency during poor network conditions. Zero disables the adaptive threshold feature entirely. |
 | playreadyOutputProtection | Boolean | false | Enable/disable HDCP output protection for DASH-PlayReady playback. |
 | preferredDrm | Number | 2 | Preferred DRM for playback. Refer Preferred DRM table below for available values. 0 - No DRM, 1 - Widevine, 2 - PlayReady (Default), 3 - Consec, 4 - AdobeAccess, 5 - Vanilla AES, 6 - ClearKey |
@@ -207,8 +194,6 @@ Configuration options are passed to AAMP using the UVE `initConfig()` method. Th
 | persistBitrateOverSeek | Boolean | false | Enable player to persist video profile bitrate during Seek/Trickplay/Audio switching operation. By default player picks initialBitrate configured. |
 | useAverageBandwidth | Boolean | false | Enable using AVERAGE-BANDWIDTH instead of BANDWIDTH in HLS stream variants for ABR switching. |
 | Offset | Number | 0 | Play position offset to start playback (seconds). Same as seek() method to resume at a position. |
-| liveOffset | Number | 15 | Override the default/stream-defined distance from live point for live stream playback (seconds). |
-| liveOffset4K | Number | 15 | Override the default/stream-defined distance from live point for 4K live stream playback (seconds). |
 | networkTimeout | Number | 10 | Network request timeout for fragment/playlist/manifest downloads (seconds). |
 | manifestTimeout | Number | 10 | Manifest download timeout; overrides networkTimeout if both present. Applied to main manifest in HLS and DASH manifest download (seconds). |
 | playlistTimeout | Number | 10 | HLS playlist download timeout; overrides networkTimeout if both present. Available starting with version 1.0 (seconds). |
@@ -265,7 +250,6 @@ Configuration options are passed to AAMP using the UVE `initConfig()` method. Th
 | preferredTextLabel | String | - | Label of desired text track in the available text tracks list. |
 | nativeCCRendering | Boolean | false | Use native closed caption support in AAMP. Available in version 2.6. |
 | enableLiveLatencyCorrection | Boolean | false | Enable correction of playback delay during regular live streaming (non-LLD). Keeps the video close to real-time by adjusting playback speed if it drifts behind. |
-| liveOffsetDriftCorrectionInterval | Number | 1 | The allowed delta from live offset configured (seconds). |
 | sendLicenseResponseHeaders | Boolean | false | Enable headers in DRM metadata event after license request. |
 | enableCMCD | Boolean | true | Enable/disable CMCD (Common Media Client Data) metrics reporting from player. |
 | userAgent | String | - | The User-Agent request header for HTTP requests. |
@@ -3266,6 +3250,190 @@ A subset of UVE APIs and Events are available when using UVE JS APIs for ATSC pl
 | ---- | ---- | ---- | ---- |
 | preferredAudioLanguage | String | en | ISO-639 audio language preference; for more than one language, provide comma delimited list from highest to lowest priority: ‘<HIGHEST>,<...>,<LOWEST>’ |
 | nativeCCRendering | Boolean | False | Use native Closed Caption support in AAMP |
+
+<div style="page-break-after: always;"></div>
+
+## Low Latency DASH (LLD) Feature
+
+LL-DASH is a playback mode in AAMP that downloads and processes media incrementally in chunks. By using MPD low-latency signaling together with chunk-boundary detection, it allows playback to remain closer to the live edge than standard DASH. In the current implementation, the default LL-DASH latency target is about 6 seconds, with configurable thresholds ranging from 3 to 9 seconds.
+
+AAMP enables LL-DASH when enableLowLatencyDash is enabled and the DASH manifest includes low-latency signaling through availabilityTimeOffset. If available, the manifest’s ServiceDescription element is then used to refine latency and playback-rate settings.
+
+### How LLD Works
+
+1. The DASH server publishes segments as a series of smaller chunks (using chunked transfer encoding or partial segment availability).
+2. AAMP detects the LLD service description in the manifest and enters LLD mode.
+3. The player starts downloading and injecting chunks into the pipeline as soon as they arrive, before the full segment is complete.
+4. A latency correction loop monitors the live edge distance and adjusts playback speed slightly (0.97x–1.03x) to keep latency within the target window.
+5. ABR decisions are made per-chunk rather than per-segment, enabling faster bitrate adaptation.
+
+### Configuration
+
+All LLD configuration properties are grouped below by function.
+
+#### Core Enable / Disable
+
+| Property | Type | Default | Description | Visibility |
+| -------- | ---- | ------- | ----------- | -------------- |
+| enableLowLatencyDash | Boolean | true | Enable Low Latency DASH playback mode. Allows media chunks to be injected earlier (even before full fragment download completes), allowing player to start and stay closer to live edge. | Public |
+| enableLowLatencyCorrection | Boolean | true | Enable latency correction. If disabled, latency may gradually drift from the live edge, especially under poor network conditions. | Public |
+| disableLowLatencyABR | Boolean | false | Disable the LLD-specific ABR behavior. When set to false, player can use low-latency ABR handling during LLD playback. | Internal Use Only |
+| ignoreAppLiveOffset | Boolean | false | When true, LLD setup ignores the live offset supplied by the application. When false, an application live offset can prevent LLD if it is greater than the allowed LLD latency. | Internal Use Only |
+| forceLLDFlow | Boolean | false | When true, AAMP uses the LLD playback path even when the DASH stream is not identified as LLD. When false, AAMP uses LLD only when the manifest signals LLD support. | Internal Use Only |
+
+#### Latency Thresholds
+
+These values define the three-zone latency window. AAMP monitors live edge distance and adjusts playback speed based on which zone it is in.
+
+```
+|--- Too fast (slow down) ---|-------- Normal zone ---------|--- Too slow (speed up) --->
+0       lowLatencyMinValue       lowLatencyTargetValue       lowLatencyMaxValue
+                                 (hysteresis/return point)
+```
+
+| Property | Type | Default | Description | Visibility |
+| -------- | ---- | ------- | ----------- | -------------- |
+| lowLatencyMinValue | Number | 5 | If latency drops below this (seconds), playback slows to 0.97x until latency recovers to lowLatencyTargetValue. | Public |
+| lowLatencyTargetValue | Number | 6 | The latency value (seconds) at which an active rate correction stops and playback returns to 1x. | Public |
+| lowLatencyMaxValue | Number | 7 | If latency exceeds this (seconds) and buffer is at or above lowLatencyTargetBuffer, playback speeds up to 1.03x until latency drops to lowLatencyTargetValue. | Public |
+
+#### Buffer Thresholds
+
+These values define the low-latency buffer window used during LLD playback.
+
+| Property | Type | Default | Description | Visibility |
+| -------- | ---- | ------- | ----------- | -------------- |
+| lowLatencyMinBuffer | Float | 2.0 | The lowest safe buffer level (seconds) for LLD playback. If buffer falls to this point, the player focuses on refilling buffer first, which helps avoid stalling/freezes. | Internal Use Only |
+| lowLatencyTargetBuffer | Float | 4.0 | Preferred buffer level (seconds) in LLD. Player tries to keep buffer around this value for stable low-latency playback. | Internal Use Only |
+| rebufferLatencyStepSec | Float | 1.0 | After a rebuffer, AAMP increases the LLD latency limits by this many seconds. A larger value gives more latency tolerance after rebuffering; 0 disables this increase. | Internal Use Only |
+
+#### Chunk Cache Controls
+
+These values control how many partial low-latency chunks can be kept in the per-track LLD fragment cache.
+
+| Property | Type | Default | Description | Visibility |
+| -------- | ---- | ------- | ----------- | -------------- |
+| downloadBufferChunks | Number | 20 | Maximum number of low-latency fragment chunks cached per track during LLD playback. | Internal Use Only |
+
+#### Chunk Delivery/Injection Controls
+
+Configures whether AAMP can process and send partially downloaded low-latency media chunks to the playback pipeline.
+
+| Property | Type | Default | Description | Visibility |
+| -------- | ---- | ------- | ----------- | -------------- |
+| enableChunkInjection | Boolean | true | When true, AAMP can send downloaded media chunks to the pipeline before the complete segment is available. When false, chunk injection is disabled. | Operator/RFC |
+
+#### Latency Correction Activation
+
+Configures when AAMP is allowed to start adjusting playback speed based on the available buffer level.
+
+| Property | Type | Default | Description | Visibility |
+| -------- | ---- | ------- | ----------- | -------------- |
+| bufferLevelToEnableLatencySec | Number | 0 | Rate correction is skipped while the available buffer is below this value. Increasing it makes AAMP wait for more buffer before changing playback speed; 0 allows correction at any buffer level. | Internal Use Only |
+
+#### Example Configuration
+
+```js
+player.initConfig({
+    enableLowLatencyDash: true,
+    enableLowLatencyCorrection: true,
+    lowLatencyMinValue: 5,
+    lowLatencyTargetValue: 6,
+    lowLatencyMaxValue: 7
+});
+player.load("https://cdn.example.com/lld-stream/manifest.mpd");
+```
+
+### API Methods
+
+The standard UVE playback APIs work with LLD streams. The following are particularly relevant:
+
+##### load
+- Start playback of an LLD DASH stream. AAMP auto-detects LL-DASH from low-latency MPD signaling such as availabilityTimeOffset.
+- Example: `player.load("https://cdn.example.com/lld/manifest.mpd");`
+
+##### seek( offset )
+- Seek to a time position within the LLD stream.
+- Seeking to `-1` returns playback to the live edge.
+- See [seek()](#seek-offset) for full details.
+
+##### getCurrentPosition()
+- Returns the current playback position in seconds.
+- For LL-DASH streams, current latency is better read from the liveLatency field in playbackProgressUpdate.
+- See [getCurrentPosition()](#getcurrentposition) for full details.
+
+### Events
+
+The following events are particularly relevant for LLD playback:
+
+##### playbackProgressUpdate
+- Fired at the configured `progressReportingInterval`.
+- The `liveLatency` field reports current live latency in milliseconds.
+- The `currentPlayRate` field reflects the currently applied playback rate, including any active latency correction.
+- See [playbackProgressUpdate](#playbackprogressupdate) for full event payload details.
+
+##### enteringLive
+- Fired when the player reaches the live point of a live stream during or after a seek/trickplay operation.
+- See [enteringLive](#enteringlive) for full event details.
+
+- See [Live Latency Feature](#live-latency-feature) for behavior and configuration in regular (non-LLD) live playback.
+
+<div style="page-break-after: always;"></div>
+
+## Live Latency Feature
+
+Live latency control for regular live playback (non-LLD) helps keep playback close to real time when drift happens due to network or buffering variations.
+
+### How Live Latency Correction Works
+
+1. Application enables live latency correction in init config.
+2. AAMP continuously compares current live playback distance with configured live offset.
+3. If drift goes beyond the allowed threshold, AAMP applies small playback-rate adjustments to move back toward target live position.
+4. When drift is within threshold, playback remains at normal speed.
+
+### Configuration
+
+| Property | Type | Default | Description | Visibility |
+| -------- | ---- | ------- | ----------- | -------------- |
+| enableLiveLatencyCorrection | Boolean | false | Enable correction of playback delay during regular live streaming (non-LLD). Keeps video close to real-time by adjusting playback speed when latency drifts. | Public |
+| liveOffset | Number | 15 | Target delay (seconds) from the live edge for regular live streams. Player starts and aims to stay about this far behind live. | Public |
+| liveOffset4K | Number | 15 | Target delay (seconds) from the live edge for 4K live streams. Same behavior as liveOffset, but applied to 4K playback. | Public |
+| liveOffsetDriftCorrectionInterval | Number | 1 | Allowed drift delta (seconds) from configured live offset before correction is applied. Lower values trigger correction sooner. | Internal Use Only |
+| cdvrLiveOffset | Number | 30 | Sets the delay (seconds) behind the live edge for CDVR playback. A larger value starts CDVR playback farther behind live. | Public |
+
+#### Monitoring Controls
+
+| Property | Type | Default | Description | Visibility |
+| -------- | ---- | ------- | ----------- | -------------- |
+| latencyMonitorDelayMs | Number | 5000 | Delay in milliseconds before starting latency monitoring after tune completion. | Internal Use Only |
+| latencyMonitorIntervalMs | Number | 1000 | Time between latency checks in milliseconds. Affects how frequently latency is sampled and corrective actions are attempted. | Internal Use Only |
+
+#### Playback-Rate Controls
+
+| Property | Type | Default | Description | Visibility |
+| -------- | ---- | ------- | ----------- | -------------- |
+| maxLatencyCorrectionPlaybackRate | Float | 1.03 | Maximum playback speed used by latency correction when playback falls behind target latency, allowing gradual catch-up to live edge without a noticeable fast-forward effect. | Internal Use Only |
+| minLatencyCorrectionPlaybackRate | Float | 0.97 | Minimum playback speed used by latency correction when playback is too close to live edge or ahead of target latency, allowing controlled latency recovery without noticeable slow motion. | Internal Use Only |
+| normalLatencyCorrectionPlaybackRate | Float | 1.0 | Normal playback speed used when latency remains within the acceptable range and no correction is needed. | Internal Use Only |
+
+#### Adaptive Threshold Controls
+
+| Property | Type | Default | Description | Visibility |
+| -------- | ---- | ------- | ----------- | -------------- |
+| latencyDangerBufferSec | Float | 1.0 | Buffer level (seconds) below which latency thresholds are dynamically increased to accommodate low-buffer conditions. Zero disables the adaptive threshold feature entirely. | Internal Use Only |
+| latencyStableDurationSec | Float | 300.0 | Duration (seconds) of healthy buffer (above latencyDangerBufferSec) required before one restoration step is applied to latency thresholds. Zero disables dynamic restoration entirely. | Internal Use Only |
+| rebufferLatencyMaxIncrementSec | Float | 8.0 | Maximum total accumulated increment (seconds) that can be added to latency thresholds across rebuffer events. Caps upward drift of lowLatencyMinValue, lowLatencyTargetValue, and lowLatencyMaxValue. Zero means no cap. | Internal Use Only |
+
+#### Example Configuration
+
+```js
+player.initConfig({
+    liveOffset: 15,
+    cdvrLiveOffset: 30,
+    enableLiveLatencyCorrection: true
+});
+player.load("https://cdn.example.com/live/manifest.mpd");
+```
 
 <div style="page-break-after: always;"></div>
 

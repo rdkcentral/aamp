@@ -293,6 +293,12 @@ playlistTimeout			Playlist download time out in sec. Default: 10s
 bufferLevelToEnableLatencySec 		Buffer level to enable latency correction in seconds. Default: 0.0s
 rebufferLatencyStepSec			Step value for latency increase when rebuffering occurs. Default: 1.0s
 rebufferLatencyMaxIncrementSec			Max latency increment allowed due to rebuffering. Default: 6.0s
+latencyDangerBufferSec      Buffer level (seconds) below which latency thresholds are dynamically increased to accommodate the low-buffer condition. Default: 1.0
+latencyStableDurationSec        Duration (seconds) of consecutive healthy buffer (above `latencyDangerBufferSec`) required before one restoration step is applied to the latency thresholds. Default: 300.0
+lowLatencyMinBuffer     Minimum buffer level the player should maintain for low latency buffering (seconds). Default: 2
+lowLatencyTargetBuffer      Target buffer size for low latency mode (seconds). Balances latency and stability by keeping a healthy buffer. Default: 4
+minLatencyCorrectionPlaybackRate        Minimum playback speed for latency correction. Default: 0.97
+normalLatencyCorrectionPlaybackRate     Normal playback speed when latency is within acceptable range. Maintains standard playback when no correction is needed. Default: 1.0
 
 *File Harvest Config :
     By default aamp will dump all the type of data, set 0 for disabling harvest
