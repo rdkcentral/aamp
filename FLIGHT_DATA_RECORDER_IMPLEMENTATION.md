@@ -12,7 +12,7 @@ July 16, 2026
 - Header file defining the `AampFlightDataRecorder` class
 - Defines `FDRLogEntry` struct for storing log entries
 - Singleton pattern for global FDR instance
-- Lock-free circular buffer design using atomic operations
+- Mutex-protected circular buffer (serialized AddEntry/eviction/flush)
 
 ### 2. AampFlightDataRecorder.cpp
 - Implementation of the FDR class
