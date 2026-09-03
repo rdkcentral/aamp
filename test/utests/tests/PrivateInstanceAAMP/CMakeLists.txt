@@ -52,7 +52,8 @@ set(TEST_SOURCES PauseAtTests.cpp
                  SubtitleMuteTests.cpp
                  ClosedCaptionTests.cpp
                  PrivateInstanceAAMPTests.cpp
-                 LocalTSBTests.cpp)
+                 LocalTSBTests.cpp
+                 )
 
 set(AAMP_SOURCES ${AAMP_ROOT}/priv_aamp.cpp
                  ${AAMP_ROOT}/CachedFragment.cpp)

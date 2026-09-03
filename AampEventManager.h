@@ -55,6 +55,7 @@ class AampEventManager
 {
 
 private:
+
 	bool mIsFakeTune;			 		  /**< Flag indicating if fake tune enabled or not  */
 	bool mAsyncTuneEnabled;			   		  /**< Flag indicating if Async tune enabled or not  */
 	AAMPPlayerState mPlayerState;	    		  	  /**< Player state flag , updated only at start and Release */
