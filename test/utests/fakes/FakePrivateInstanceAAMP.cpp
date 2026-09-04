@@ -418,47 +418,31 @@ void PrivateInstanceAAMP::SetEarlyAbortRequestFlag(bool enableAbort)
 	mAsyncTaskAbortEnabled=enableAbort;
 }
 
+bool PrivateInstanceAAMP::IsAsyncTuneSupportedForType(MediaFormat format, ContentType type) const
+{
+	return (eMEDIAFORMAT_DASH == format) &&
+	       (ContentType_LINEAR == type)  &&
+	       mAsyncTuneEnabled;
+}
+
 bool PrivateInstanceAAMP::IsAsyncTuneAbortSupported()
 {
-	if ( (eMEDIAFORMAT_DASH == mMediaFormat)  &&
-		 (ContentType_LINEAR == mContentType) &&
-		  (mAsyncTuneEnabled) )
-	{
-		return true;
-	}
-	else
-	{
-		return false;
-	}
+	return IsAsyncTuneSupportedForType(mMediaFormat, mContentType);
 }
 
 bool PrivateInstanceAAMP::IsAsyncTuneAbortRequired()
 {
-	if ( (IsAsyncTuneAbortSupported()) &&
-		 (mAsyncTaskAbortEnabled.load()) )
-	{
-		return true;
-	}
-	else
-	{
-		return false;
-	}
+	return mAsyncTaskAbortEnabled.load() && IsAsyncTuneAbortSupported();
 }
 
 bool PrivateInstanceAAMP::IsAsyncTuneAbortRequired(const char* manifestUrl, const char* contentTypeString)
 {
-	// Note: This must equate to isAsyncTuneAbortSupported for tune type
-	if ( (manifestUrl && (eMEDIAFORMAT_DASH == GetMediaFormatType(manifestUrl)))       &&
-		 (contentTypeString && !strncmp(contentTypeString,"LINEAR_TV", 9))             &&
-		 (mAsyncTuneEnabled)                                                           &&
-		 (mAsyncTaskAbortEnabled.load()) )
-	{
-		return true;
-	}
-	else
-	{
+	if (!mAsyncTaskAbortEnabled.load())
 		return false;
-	}
+	MediaFormat format = manifestUrl ? GetMediaFormatType(manifestUrl) : eMEDIAFORMAT_UNKNOWN;
+	ContentType type = (contentTypeString && !strncmp(contentTypeString, "LINEAR_TV", 9))
+	                 ? ContentType_LINEAR : ContentType_UNKNOWN;
+	return IsAsyncTuneSupportedForType(format, type);
 }
 
 void PrivateInstanceAAMP::SetVideoMute(bool muted)

@@ -693,25 +693,31 @@ public:
 	void SetEarlyAbortRequestFlag(bool enableAbort);
 
 	/**
-	 * @brief Determine whether the tune type allows us to terminate an async tune task early
+	 * @brief Determine whether the tune type allows us to terminate an async tune task early.
+	 *        Uses stored mMediaFormat / mContentType (i.e. the currently active tune).
 	 *
-	 * @return bool  true if this is a suitable tune for aborting early
+	 * @return bool  true if async abort is supported for the current media format and content type
 	 */
 	bool IsAsyncTuneAbortSupported();
 
 	/**
-	 * @brief Determine whether we can terminate an async tune task early
+	 * @brief Determine whether we can terminate the current async tune task early.
+	 *        Checks abort support (stored type) AND the abort-request flag.
 	 *
-	 * @return bool true if async tasks is enabled, SetEarlyAbortRequestFlag has been called and this is a suitable tune
+	 * @return bool true if SetEarlyAbortRequestFlag(true) has been called and the active
+	 *              tune type supports early abort
 	 */
 	bool IsAsyncTuneAbortRequired();
 
 	/**
-	 * @brief Determine whether we can terminate an async tune task early
+	 * @brief Determine whether an incoming tune (identified by URL and content-type string)
+	 *        should be aborted because a Stop is in progress.  Derives format/type from the
+	 *        supplied parameters so it can be called before the new tune updates stored state.
 	 *
-	 * @param[in] manifestUrl - main manifest url
-	 * @param[in] contentTypeString - content type
-	 * @return bool  true if async tasks is enabled, SetEarlyAbortRequestFlag has been called and this is a suitable tune
+	 * @param[in] manifestUrl       - manifest URL of the incoming tune
+	 * @param[in] contentTypeString - content-type string of the incoming tune (e.g. "LINEAR_TV")
+	 * @return bool  true if SetEarlyAbortRequestFlag(true) has been called and the incoming
+	 *               tune type supports early abort
 	 */
 	bool IsAsyncTuneAbortRequired(const char* manifestUrl, const char* contentTypeString);
 	/**
@@ -4433,6 +4439,18 @@ protected:
 	std::string mTuneTimeMetricData{}; /**< JSON string containing data for tune time metrics */
 
 private:
+	/**
+	 * @brief Single source of truth for which format/content-type combinations support
+	 *        early async-tune abort.  Both IsAsyncTuneAbortSupported() and the
+	 *        manifest-URL overload of IsAsyncTuneAbortRequired() delegate here so that
+	 *        the criteria stay in sync automatically.
+	 *
+	 * @param[in] format  - media format to evaluate
+	 * @param[in] type    - content type to evaluate
+	 * @return bool true if async abort is supported for the given format/type
+	 */
+	bool IsAsyncTuneSupportedForType(MediaFormat format, ContentType type) const;
+
 	/**
 	 * @brief Play from the start of the TSB
 	 */

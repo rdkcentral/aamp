@@ -540,7 +540,7 @@ void PlayerInstanceAAMP::TuneInternal(const char *mainManifestUrl,
 		}
 		else
 		{
-			AAMPLOG_INFO("Player is in state '%s'. Do not stop before tune", stateName(state));
+			AAMPLOG_INFO("Player is in state '%s'. Do not stop before tune", AAMPPlayerStateName(state));
 		}
 
 		if ( !aamp->IsAsyncTuneAbortRequired(mainManifestUrl, contentType) )
