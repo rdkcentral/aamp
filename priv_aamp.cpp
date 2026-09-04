@@ -1669,7 +1669,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	mState(eSTATE_RELEASED), mMediaFormat(eMEDIAFORMAT_HLS), mPersistedProfileIndex(0),
 	mDiscontinuityTuneOperationInProgress(false), mContentType(ContentType_UNKNOWN), mTunedEventPending(false),
 	mSeekOperationInProgress(false), mTrickplayInProgress(false), mPendingAsyncEvents(), mCustomHeaders(),
-	mManifestUrl(""), initialManifestFetchInProgress(false), mTunedManifestUrl(""), mOrigManifestUrl(), mServiceZone(), mVssVirtualStreamId(),
+	initialManifestFetchInProgress(false), mManifestUrl(""), mTunedManifestUrl(""), mOrigManifestUrl(), mServiceZone(), mVssVirtualStreamId(),
 	mCurrentLanguageIndex(0),
 	preferredLanguagesString(), preferredLanguagesList(), preferredLabelList(),mhAbrManager(),
 	mVideoEnd(NULL),
@@ -6087,6 +6087,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	}
 
 	TeardownStream(newTune|| (eTUNETYPE_RETUNE == tuneType));
+
 	if(SocUtils::ResetNewSegmentEvent())
 	{
 		// Send new SEGMENT event only on all trickplay and trickplay -> play, not on pause -> play / seek while paused
@@ -6314,7 +6315,6 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		retVal = eAAMPSTATUS_GENERIC_ERROR;
 	}
 
-
 	// Validate tune type
 	// (need to find a better way to do this)
 	if (tuneType == eTUNETYPE_NEW_NORMAL) // either no offset (mIsDefaultOffset = true) or -1 was specified
@@ -6411,8 +6411,6 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 
 		int volume = audio_volume;
 		double updatedSeekPosition = mpStreamAbstractionAAMP->GetStreamPosition();
-
-
 		if(mMediaFormat != eMEDIAFORMAT_DASH)
 		{
 			/* For non-DASH formats, the stream position returned by the StreamAbstraction object is relative to the
@@ -6457,7 +6455,6 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			mFirstVideoFrameDisplayedEnabled = true;
 			mFragmentCachingRequired = true;
 		}
-
 
 		AAMPLOG_INFO("TuneHelper - seek_pos: %f", seek_pos_seconds);
 		UpdatePTSOffsetFromTune(seek_pos_seconds, true);
@@ -6583,7 +6580,6 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 				}
 			}
 		}
-
 
 		if (tuneType == eTUNETYPE_SEEK || tuneType == eTUNETYPE_SEEKTOLIVE || tuneType == eTUNETYPE_SEEKTOEND)
 		{
@@ -8830,7 +8826,7 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 		mLastStopDurationMs,
 		(unsigned int)(streamLockStopTime - streamLockStartTime),
 		(unsigned int)(licenseAcquisitionLockStopTime - licenseAcquisitionLockStartTime),
-		(unsigned int)(tearDownEndTime - tearDownStartTime)	);
+		(unsigned int)(tearDownEndTime - tearDownStartTime));
 	profiler.mStopDurationMs = mLastStopDurationMs;
 
 }

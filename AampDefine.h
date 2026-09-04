@@ -327,7 +327,7 @@ enum AAMPStatusType
 /**
  * @brief AAMP Function return descriptions - must match the above block
  */
-static const char* const [[maybe_unused]] AAMPStatusStrings[] =
+inline constexpr const char* [[maybe_unused]] AAMPStatusStrings[] =
 {
 	"eAAMPSTATUS_OK",
 	"eAAMPSTATUS_FAKE_TUNE_COMPLETE",
@@ -349,7 +349,7 @@ static const char* const [[maybe_unused]] AAMPStatusStrings[] =
 /**
  * @brief lambda to return a string for a status name
  */
-const auto inline statusName = [](AAMPStatusType s) -> const char* {
+inline constexpr auto statusName = [](AAMPStatusType s) -> const char* {
 	return (s >= 0 && s < (int)(sizeof(AAMPStatusStrings)/sizeof(AAMPStatusStrings[0])))
 		? AAMPStatusStrings[s] : "UNKNOWN";
 };
