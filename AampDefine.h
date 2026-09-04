@@ -327,7 +327,7 @@ enum AAMPStatusType
 /**
  * @brief AAMP Function return descriptions - must match the above block
  */
-inline constexpr const char* [[maybe_unused]] AAMPStatusStrings[] =
+[[maybe_unused]] inline constexpr const char* AAMPStatusStrings[] =
 {
 	"eAAMPSTATUS_OK",
 	"eAAMPSTATUS_FAKE_TUNE_COMPLETE",
