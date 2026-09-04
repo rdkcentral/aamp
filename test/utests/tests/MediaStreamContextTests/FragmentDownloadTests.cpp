@@ -435,7 +435,7 @@ TEST_F(FragmentDownloadTests, DownloadFragment_ValidDownloadInfo)
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(true));
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _)).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _)).WillOnce(Return(true));
 
 	EXPECT_NO_THROW({
 		bool result = mMediaStreamContext->DownloadFragment(dlInfo);
@@ -476,7 +476,7 @@ TEST_F(FragmentDownloadTests, DownloadFragment_LLD_TrackDownloadsDisabled_DoesNo
 		.WillRepeatedly(Return(false));
 
 	// Verify no caching/download is attempted.
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _))
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _))
 		.Times(0);
 
 	// Force the low-latency wait loop to execute once and then stop:
@@ -523,7 +523,7 @@ TEST_F(FragmentDownloadTests, DownloadFragment_CacheFull_DoesNotCache)
 		.WillRepeatedly(Return(maxCache));
 
 	// Verify no caching/download is attempted because cache is full.
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _))
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _))
 		.Times(0);
 
 	// Allow the initial entry check to proceed, then disable downloads to
@@ -578,7 +578,7 @@ TEST_F(FragmentDownloadTests, DownloadFragment_LLD_LocalTSBInjection_Caches)
 		.WillRepeatedly(Return(true));
 
 	// Expect exactly one successful "download".
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _))
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _))
 		.WillOnce(Return(true));
 
 	// Build a minimal valid download request.
@@ -623,7 +623,7 @@ TEST_F(FragmentDownloadTests, DownloadFragment_NotBlocked_CachesExpected)
 		.WillRepeatedly(Return(false));
 
 	// Expect one successful "download" per call.
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _))
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _))
 		.Times(numCalls)
 		.WillRepeatedly(Return(true));
 

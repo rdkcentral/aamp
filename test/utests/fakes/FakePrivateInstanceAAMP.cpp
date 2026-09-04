@@ -811,7 +811,7 @@ void PrivateInstanceAAMP::CurlInit(AampCurlInstance startIdx, unsigned int insta
 bool PrivateInstanceAAMP::GetFile(std::string remoteUrl, AampMediaType mediaType, std::vector<uint8_t> &buffer, std::string& effectiveUrl,
                 int& http_error, double *downloadTime, const char *range, unsigned int curlInstance,
                 bool resetBuffer, BitsPerSecond *bitrate, int * fogError,
-                double fragmentDurationSeconds, ProfilerBucketType bucketType, int maxInitDownloadTimeMS)
+                double fragmentDurationSeconds, ProfilerBucketType bucketType, int maxInitDownloadTimeMS, bool synthesizeIframeAbort)
 {
 	bool rv = false;
 
@@ -820,7 +820,7 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl, AampMediaType mediaType
 		rv = g_mockPrivateInstanceAAMP->GetFile(remoteUrl, mediaType, buffer, effectiveUrl,
 				 								http_error, downloadTime, range, curlInstance,
 												resetBuffer, bitrate, fogError,
-												fragmentDurationSeconds, bucketType, maxInitDownloadTimeMS);
+												fragmentDurationSeconds, bucketType, maxInitDownloadTimeMS, synthesizeIframeAbort);
 	}
 	else
 	{

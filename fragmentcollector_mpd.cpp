@@ -7651,6 +7651,19 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 							}
 							break;
 						}
+						else if (aamp->IsVODIframeSynthesisEnabled())
+						{
+							/* VOD synthesis mode: record the first usable non-iframe video adaptation.
+							   A real iframe track discovered later in the loop will still take
+							   precedence via the break above. */
+							int reprIdx = GetDesiredVideoCodecIndex(adaptationSet);
+							if (reprIdx != -1 && selAdaptationSetIndex < 0)
+							{
+								selAdaptationSetIndex = iAdaptationSet;
+								AAMPLOG_INFO("StreamAbstractionAAMP_MPD: VOD iframe synthesis - video"
+										 " adaptation [%d] recorded as trickplay source", iAdaptationSet);
+							}
+						}
 					}
 				}
 			}// next iAdaptationSet
@@ -7679,6 +7692,22 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 
 				mNumberOfTracks++;
 			}
+			else if (trickplayMode && aamp->IsVODIframeSynthesisEnabled()
+					 && !pMediaStreamContext->enabled
+					 && (selAdaptationSetIndex >= 0)
+					 && (i == eMEDIATYPE_VIDEO))
+			{
+				/* VOD iframe synthesis: enable the video track for trickplay, mirroring
+				   the iframe-track path but using the regular video adaptation.
+				   Audio is intentionally excluded (mNumberOfTracks stays at 1). */
+				pMediaStreamContext->enabled = true;
+				pMediaStreamContext->adaptationSetIdx = selAdaptationSetIndex;
+				pMediaStreamContext->representationIndex = -1; // ABR will select profile
+				pMediaStreamContext->profileChanged = true;
+				mNumberOfTracks = 1; // video-only track during trickplay synthesis
+				AAMPLOG_WARN("StreamAbstractionAAMP_MPD: VOD iframe synthesis - video-only"
+						 " trickplay track enabled (adaptation [%d])", selAdaptationSetIndex);
+			}
 			else if (encryptedIframeTrackPresent) //Process content protection for encrypted Iframe
 			{
 				QueueContentProtection(period, pMediaStreamContext->adaptationSetIdx, (AampMediaType)i);
@@ -7696,6 +7725,13 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 			if( aamp->IsLocalAAMPTsbFromConfig() && aamp->IsIframeExtractionEnabled())
 			{
 				/** Fake the iframe track if AAMP TSB and i-frame extraction are enabled */
+				isIframeAdaptationAvailable = true;
+			}
+			else if (trickplayMode && aamp->IsVODIframeSynthesisEnabled() && pMediaStreamContext->enabled)
+			{
+				/** Fake iframe track availability when VOD synthesis is active.
+				    This sets mIsIframeTrackPresent = true and fires
+				    SendSupportedSpeedsChangedEvent so the player advertises trickplay speeds. */
 				isIframeAdaptationAvailable = true;
 			}
 
@@ -15097,6 +15133,12 @@ bool StreamAbstractionAAMP_MPD::UseIframeTrack(void)
 	{
 		useIframe = false;
 	}
+	else if (aamp->IsVODIframeSynthesisEnabled())
+	{
+		/* VOD iframe synthesis: download regular video segments and synthesize
+		   I-frame via ConvertToKeyFrame(). No dedicated iframe track is used. */
+		useIframe = false;
+	}
 	return useIframe;
 }
 
@@ -15201,6 +15243,12 @@ bool StreamAbstractionAAMP_MPD::ShouldCheckOnlyIframeAdaptation() const
 	// so check all adaptations regardless of playback rate.
 	if (aamp->IsLocalAAMPTsb())
 	{
+		checkOnlyIframeAdaptation = false;
+	}
+	else if (aamp->IsVODIframeSynthesisEnabled())
+	{
+		/* Synthesis mode: select regular video adaptation even during trickplay;
+		   ConvertToKeyFrame() will strip it to an I-frame after download. */
 		checkOnlyIframeAdaptation = false;
 	}
 
