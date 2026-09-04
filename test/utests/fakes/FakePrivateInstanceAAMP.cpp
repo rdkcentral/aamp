@@ -1527,6 +1527,18 @@ void PrivateInstanceAAMP::ResumeTrackDownloads(AampMediaType)
 {
 }
 
+void PrivateInstanceAAMP::ForceResumeTrackBufferControl(AampMediaType type)
+{
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		g_mockPrivateInstanceAAMP->ForceResumeTrackBufferControl(type);
+	}
+}
+
+void PrivateInstanceAAMP::ResetNewSegmentEventSent()
+{
+}
+
 void PrivateInstanceAAMP::SetDiscontinuityParam()
 {
 }

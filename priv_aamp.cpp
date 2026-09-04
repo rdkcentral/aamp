@@ -2594,13 +2594,7 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 			bps = mpStreamAbstractionAAMP->GetVideoBitrate();
 		}
 
-		double targetLatencyMs = 0.0;
-		if (mLatencyMonitor && mLatencyMonitor->IsRunning())
-		{
-			targetLatencyMs = std::get<1>(mLatencyMonitor->GetCurrentThresholds());
-		}
-
-		ProgressEventPtr evt = std::make_shared<ProgressEvent>(duration, reportFormattedCurrPos, start, end, speed, videoPTS, videoBufferedDuration, audioBufferedDuration, seiTimecode.c_str(), latency, targetLatencyMs, bps, networkBandwidth, currentRate, GetSessionId());
+		ProgressEventPtr evt = std::make_shared<ProgressEvent>(duration, reportFormattedCurrPos, start, end, speed, videoPTS, videoBufferedDuration, audioBufferedDuration, seiTimecode.c_str(), latency, bps, networkBandwidth, currentRate, GetSessionId());
 
 		if (trickStartUTCMS >= 0 && (bProcessEvent || mFirstProgress))
 		{
@@ -2635,7 +2629,7 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 				int divisor = GETCONFIGVALUE_PRIV(eAAMPConfig_ProgressLoggingDivisor);
 				if( divisor==0 || (tick++ % divisor) == 0 )
 				{
-					AAMPLOG_MIL("aamp pos: [%ld..%ld..%ld..%lld..%.2f..%.2f..%.2f..%s..%" BITSPERSECOND_FORMAT "..%" BITSPERSECOND_FORMAT "..%.2f..%.2f]",
+					AAMPLOG_MIL("aamp pos: [%ld..%ld..%ld..%lld..%.2f..%.2f..%.2f..%s..%" BITSPERSECOND_FORMAT "..%" BITSPERSECOND_FORMAT "..%.2f]",
 						(long)(start / 1000),
 						(long)(reportFormattedCurrPos / 1000),
 						(long)(end / 1000),
@@ -2646,8 +2640,7 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 						seiTimecode.c_str(),
 						bps,
 						networkBandwidth,
-						currentRate,
-						(double)(targetLatencyMs / 1000.0));
+						currentRate);
 				}
 			}
 
@@ -4199,6 +4192,27 @@ void PrivateInstanceAAMP::ResumeTrackDownloads(AampMediaType type)
 }
 
 /**
+ * @brief Force-resume buffer control and track downloads for a media type.
+ */
+void PrivateInstanceAAMP::ForceResumeTrackBufferControl(AampMediaType type)
+{
+	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+	if (sink)
+	{
+		sink->ForceResumeBufferControl(type);
+	}
+	ResumeTrackDownloads(type);
+}
+
+void PrivateInstanceAAMP::ResetNewSegmentEventSent()
+{
+	if(SocUtils::ResetNewSegmentEvent())
+	{
+		for (int i = 0; i < AAMP_TRACK_COUNT; i++) mbNewSegmentEvtSent[i] = false;
+	}
+}
+
+/**
  *  @brief Block the injector thread until gstreamer needs buffer/more data.
  */
 void PrivateInstanceAAMP::BlockUntilGstreamerWantsData(void(*cb)(void), int periodMs, int track)
@@ -4209,7 +4223,7 @@ void PrivateInstanceAAMP::BlockUntilGstreamerWantsData(void(*cb)(void), int peri
 	{
 		if (!mDownloadsEnabled || mTrackInjectionBlocked[track])
 		{
-			AAMPLOG_WARN("PrivateInstanceAAMP: track:%d interrupted. mDownloadsEnabled:%d mTrackInjectionBlocked:%d", track, mDownloadsEnabled, mTrackInjectionBlocked[track]);
+			AAMPLOG_WARN("PrivateInstanceAAMP: track:%d interrupted after %dms. mDownloadsEnabled:%d mTrackInjectionBlocked:%d", track, elapsedMs, mDownloadsEnabled, mTrackInjectionBlocked[track]);
 			break;
 		}
 		if (cb && periodMs)
@@ -4219,9 +4233,14 @@ void PrivateInstanceAAMP::BlockUntilGstreamerWantsData(void(*cb)(void), int peri
 				cb();
 				elapsedMs -= periodMs;
 			}
-			elapsedMs += 10;
 		}
+		elapsedMs += 10;
 		interruptibleMsSleep(10);
+	}
+	if (elapsedMs > 1000)
+	{
+		AAMPLOG_WARN("track:%d was blocked for %dms before resuming (mbDownloadsBlocked:%d mbTrackDownloadsBlocked:%d)",
+			track, elapsedMs, (int)mbDownloadsBlocked, (int)mbTrackDownloadsBlocked[track]);
 	}
 	AAMPLOG_DEBUG("PrivateInstanceAAMP::Exit. type = %d",  track);
 }

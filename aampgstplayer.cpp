@@ -1098,6 +1098,18 @@ void AAMPGstPlayer::ResetFirstFrame(void)
 }
 
 /**
+ * @brief Force buffer control to resume for a given track.
+ */
+void AAMPGstPlayer::ForceResumeBufferControl(AampMediaType type)
+{
+	if (privateContext)
+	{
+		AAMPLOG_WARN("[type=%d] ForceResumeBufferControl: invoking needData on buffer control", type);
+		privateContext->mBufferControl[type].needData(this, type);
+	}
+}
+
+/**
  * @brief Set video mute
  */
 void AAMPGstPlayer::SetVideoMute(bool muted)
@@ -1137,6 +1149,8 @@ void AAMPGstPlayer::Flush(double position, int rate, bool shouldTearDown)
 			//reset buffer control states prior to gstreamer flush so that the first needs_data event is caught
 			privateContext->mBufferControl[i].flush();
 		}
+		// A flush invalidates the active GStreamer segment.
+		aamp->ResetNewSegmentEventSent();
 	}
 }
 
