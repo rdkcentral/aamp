@@ -424,7 +424,7 @@ private:
 	std::mutex mMPDNotifierMtx;
 	std::condition_variable mMPDNotifierCondVar;
 
-	bool mReleaseCalled;
+	std::atomic<bool> mReleaseCalled;
 	bool mCheckedLLDData;
 	std::string mAppName;
 	ManifestUpdateCallbackFunc mManifestUpdateCb;
