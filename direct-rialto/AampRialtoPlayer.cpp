@@ -1880,6 +1880,32 @@ void AampRialtoPlayer::SetSubtitleMute(bool muted)
 	auto *subtitleSource = m_sources[eMEDIATYPE_SUBTITLE].get();
 	if (m_pipeline && subtitleSource && subtitleSource->isAttached())
 	{
+		if (!muted)
+		{
+			// Refresh the text track render clock before making the sink visible.
+			int64_t posNs = 0;
+			if (m_pipeline->getPosition(posNs))
+			{
+				if (!m_pipeline->setSourcePosition(
+					subtitleSource->sourceId(), posNs,
+					/*resetTime=*/false))
+				{
+					AAMPLOG_WARN("setSourcePosition failed for subtitle "
+						"sourceId=%d on unmute",
+						subtitleSource->sourceId());
+				}
+				else
+				{
+					AAMPLOG_INFO("unmute: updated subtitle position to "
+						"%" PRId64 " ns", posNs);
+				}
+			}
+			else
+			{
+				AAMPLOG_WARN("getPosition failed on subtitle unmute - "
+					"text track may render against a stale position");
+			}
+		}
 		m_pipeline->setMute(subtitleSource->sourceId(), muted);
 	}
 	AAMPLOG_INFO("EXIT");
