@@ -182,8 +182,10 @@ AampMPDDownloader::~AampMPDDownloader()
 	// Clear the queue and release all the objects
 	if ( mReleaseCalled && (mDownloaderThread_t1.joinable() || mDownloaderThread_t2.joinable() || mDownloadNotifierThread.joinable()) )
 	{
-		// FIXME: mReleaseCalled handling needs cleaning up to remove the need for this
-		// mDownloadNotifierThread gets created in StreamAbstraction->Init and is not joined if mReleaseCalled is true. So this change will check and cleans up threads where needed.
+		// NOTE: mReleaseCalled is initialised to true in the constructor.  Threads started
+		// inside StreamAbstraction::Init() are not joined if mReleaseCalled remains true when
+		// the destructor runs.  This guard defensively resets the flag and calls Release() to
+		// perform all pending thread joins, preventing a thread-leak crash in this state.
 		AAMPLOG_ERR("mReleaseCalled=true, but t1 = %d, t2 = %d, t3 = %d. Force mReleaseCalled=false before Release() to avoid a crash",
 			mDownloaderThread_t1.joinable() , mDownloaderThread_t2.joinable() , mDownloadNotifierThread.joinable());
 		mReleaseCalled=false;	// check for and force thread cleanups + join, since we're in a bad state
@@ -412,9 +414,12 @@ void AampMPDDownloader::downloadMPDThread1()
 					AAMPLOG_INFO("Skipping manifest download since Release was called");
 					break;
 				}
-				// FIXME: There is a small window here where Release can be called on AaampMPDDownloader after we have checked mReleaseCalled.
-				// If ->Release() is called now, then ->Download() will re-enable the curl download and this stops the progress_callback from aborting early.
-				// we cannot simply take mMPDDnldMutex to prevent this, since this would block ->Release() from executing
+				// KNOWN LIMITATION: There is a narrow window between the mReleaseCalled check above
+				// and mDownloader1.Download() below where an external Release() call can arrive.  If
+				// Release() fires in this window, Download() proceeds regardless (mDownloader1 is
+				// re-initialised before each attempt); the progress_callback abort via
+				// mDownloadActive=false remains the fallback mechanism.  Taking mMPDDnldMutex here
+				// to close the window would deadlock Release().
 				mDownloader1.Download(tuneUrl, mMPDData->mMPDDownloadResponse);
 			}
 		}

@@ -170,9 +170,17 @@ void AampScheduler::ExecuteAsyncTask()
 void AampScheduler::RemoveAllTasks()
 {
 	std::lock_guard<std::mutex>lock(mQMutex);
-	if(!mLockOut)
+	if (!mLockOut)
 	{
 		AAMPLOG_WARN("The scheduler is active.  An active task may continue to execute after this function exits.  Call SuspendScheduler() prior to this function to prevent this.");
+	}
+	else if (!mExLock.owns_lock())
+	{
+		// mLockOut was set by DisableScheduleTask() rather than SuspendScheduler(), so
+		// the execution lock is NOT held.  Any currently-executing task may still be
+		// running; callers must signal it to terminate independently (e.g. via
+		// SetEarlyAbortRequestFlag) before relying on this queue drain taking effect.
+		AAMPLOG_INFO("RemoveAllTasks: queue drained without execution lock; any in-flight task may still be running.");
 	}
 	if (!mTaskQueue.empty())
 	{
@@ -190,9 +198,12 @@ void AampScheduler::StopScheduler()
 	// Clean up things in queue
 	mSchedulerRunning = false;
 
-	//allow StopScheduler() to be called without warning from a nonsuspended state and
-	//not cause an error in ResumeScheduler() below due to trying to unlock an unlocked lock
-	if(!mLockOut)
+	// Acquire the execution lock if it is not already held.  We check mExLock.owns_lock()
+	// rather than !mLockOut because DisableScheduleTask() sets mLockOut=true WITHOUT
+	// acquiring mExLock.  Using !mLockOut would incorrectly skip SuspendScheduler() in
+	// that case, causing the ResumeScheduler() call below to attempt unlocking a lock
+	// that was never acquired (std::system_error: unique_lock::unlock: not locked).
+	if (!mExLock.owns_lock())
 	{
 		SuspendScheduler();
 	}

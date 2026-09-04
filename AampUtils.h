@@ -487,6 +487,7 @@ CurlTimeoutFailureReason GetCurlTimeoutFailureReason(CURL* curl);
 
 bool IsCurlTimeoutFailure( int httpResponseCode );
 
+#ifdef AAMP_DEBUG_TIMING
 /**
  * @brief Class for tracing timing deltas between checkpoints through a method,
  *  allowing trace of where delays are taking place.
@@ -594,5 +595,6 @@ class TimingExecutionStore
 			return timingData;
 		};
 };
+#endif // AAMP_DEBUG_TIMING
 
 #endif  /* __AAMP_UTILS_H__ */
