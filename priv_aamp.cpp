@@ -10844,6 +10844,29 @@ bool PrivateInstanceAAMP::ReconfigureForElementaryStreamUpdate()
 	{
 		if(!ISCONFIGSET_PRIV(eAAMPConfig_ReconfigPipelineOnDiscontinuity))
 		{
+			/*
+			 * With useMp4Demux + enablePTSReStamp the PipelineFlushStatus flag must not
+			 * be reported as a codec change.  PipelineFlushStatus is set when a period's
+			 * presentation time offset exceeds its segment start time; with mp4demux that
+			 * offset is absorbed by AampMp4Demuxer's restamp layer and requires no GStreamer
+			 * pipeline flush.  Reporting it as codecChange=true causes CheckDiscontinuity to
+			 * take the EOS path, which leaves the pipeline permanently in PAUSED because the
+			 * next period's EOS signals arrive into an already-paused pipeline that can never
+			 * drain them and emit GST_MESSAGE_EOS (VPAAMP-1046).
+			 *
+			 * ESChangeStatus (genuine audio decoder element change) is still reported — that
+			 * case may require a pipeline reconfigure even on the mp4demux path.
+			 */
+			if (ISCONFIGSET_PRIV(eAAMPConfig_UseMp4Demux) && ISCONFIGSET_PRIV(eAAMPConfig_EnablePTSReStamp))
+			{
+				// PipelineFlushStatus is consumed here (it was the reason this branch was
+				// taken); clear it now so it cannot leak into a subsequent discontinuity
+				// and make the next period boundary look like a pipeline flush.
+				// The normal reset happens in ProcessPendingDiscontinuity() at line ~3698,
+				// but that code is bypassed when we return early on this path.
+				mpStreamAbstractionAAMP->ReSetPipelineFlushStatus();
+				return mpStreamAbstractionAAMP->GetESChangeStatus();
+			}
 			return (mpStreamAbstractionAAMP->GetESChangeStatus() || mpStreamAbstractionAAMP->GetPipelineFlushStatus());
 		}
 		else
