@@ -386,22 +386,22 @@ void PlayerInstanceAAMP::Stop(bool sendStateChangeEvent, bool forceCleanup)
 		// Signal that the player is now in stopping state to any tune. This may trigger an early end to any async tune
 		aamp->SetEarlyAbortRequestFlag(true);
 
-		// If we are already tuning in another async task thread then take any additional steps possible to terminate the tune early
-		// 1. Terminate any manifest fetch in progress
-		if (aamp && aamp->initialManifestFetchInProgress)
+		// Signal the MPD downloader to abort any in-progress manifest download.
+		// Release() is idempotent (guarded internally by mReleaseCalled) so it is safe
+		// to call unconditionally.  Checking initialManifestFetchInProgress first would
+		// introduce a check-then-act race: the tune thread could set that flag after we
+		// read it as false but before SuspendScheduler() blocks, leaving the download
+		// running uninterrupted and reintroducing the VIPA timeout.
+		if (aamp->IsAsyncTuneAbortSupported())
 		{
-				AampMPDDownloader *dnldInstance = aamp->GetMPDDownloader();
-				if (dnldInstance)
-				{
-						AAMPLOG_INFO("An interruptable manifest download is in progress so signal it to abort");
-						auto manifestAbortStartTime = NOW_STEADY_TS_MS;
-						dnldInstance->Release();
-						AAMPLOG_MIL("Manifest abort took %u ms", (unsigned)(NOW_STEADY_TS_MS - manifestAbortStartTime));
-				}
-				else
-				{
-						AAMPLOG_WARN("Could not get a handle to dnldInstance to force a manifest abort");
-				}
+			AampMPDDownloader *dnldInstance = aamp->GetMPDDownloader();
+			if (dnldInstance)
+			{
+				AAMPLOG_INFO("Signalling MPD downloader to abort any in-progress manifest download");
+				auto manifestAbortStartTime = NOW_STEADY_TS_MS;
+				dnldInstance->Release();
+				AAMPLOG_MIL("MPD downloader Release() took %u ms", (unsigned)(NOW_STEADY_TS_MS - manifestAbortStartTime));
+			}
 		}
 
 		// now suspend the scheduler; this will block until any existing tune task exits
