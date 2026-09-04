@@ -28,6 +28,7 @@
 #include "MockAampMPDParseHelper.h"
 #include "MockAampConfig.h"
 #include "MockMediaStreamContext.h"
+#include "AampDRMLicManager.h"
 
 using ::testing::_;
 using ::testing::NiceMock;
@@ -72,6 +73,12 @@ public:
 	void TestCacheEncryptedHeader(int trackIdx, const std::string& headerUrl)
 	{
 		CacheEncryptedHeader(trackIdx, headerUrl);
+	}
+
+	// Expose protected IsVideoDRMLicenseRequired for testing
+	bool TestIsVideoDRMLicenseRequired()
+	{
+		return IsVideoDRMLicenseRequired();
 	}
 };
 
@@ -634,3 +641,58 @@ TEST_F(StreamAbstractionAAMP_MPD_Test,
 	// mActiveDownloadInfo must be released after the call regardless of download result.
 	EXPECT_EQ(ctx->mActiveDownloadInfo, nullptr);
 }
+
+/**
+ * @brief Test IsVideoDRMLicenseRequired when no DRM manager is present
+ * @details Verify that the method returns false when mDRMLicenseManager is nullptr
+ */
+TEST_F(StreamAbstractionAAMP_MPD_Test, IsVideoDRMLicenseRequired_NoDrmManager_ReturnsFalse)
+{
+	// Ensure DRM manager is not set
+	mPrivateInstanceAAMP->mDRMLicenseManager = nullptr;
+
+	// Should return false when DRM infrastructure is not available
+	bool result = mMpdStream->TestIsVideoDRMLicenseRequired();
+	EXPECT_FALSE(result);
+}
+
+/**
+ * @brief Test IsVideoDRMLicenseRequired when no MPD is available
+ * @details Verify that the method returns false when mpd is nullptr
+ */
+TEST_F(StreamAbstractionAAMP_MPD_Test, IsVideoDRMLicenseRequired_NoMPD_ReturnsFalse)
+{
+	// Setup DRM infrastructure with smart pointers for automatic cleanup
+	auto licManager = std::make_unique<AampDRMLicenseManager>(1, mPrivateInstanceAAMP);
+	mPrivateInstanceAAMP->mDRMLicenseManager = licManager.get();
+
+	// mpd is nullptr by default in test setup
+	// Should return false when MPD is not available
+	bool result = mMpdStream->TestIsVideoDRMLicenseRequired();
+	EXPECT_FALSE(result);
+
+	// Cleanup
+	mPrivateInstanceAAMP->mDRMLicenseManager = nullptr;
+}
+
+/**
+ * @brief Test IsVideoDRMLicenseRequired when MPDParseHelper is not available
+ * @details Verify that the method returns false when mMPDParseHelper is nullptr
+ */
+TEST_F(StreamAbstractionAAMP_MPD_Test, IsVideoDRMLicenseRequired_NoMPDParseHelper_ReturnsFalse)
+{
+	// Setup DRM infrastructure with smart pointers for automatic cleanup
+	auto licManager = std::make_unique<AampDRMLicenseManager>(1, mPrivateInstanceAAMP);
+	mPrivateInstanceAAMP->mDRMLicenseManager = licManager.get();
+
+	// Set MPDParseHelper to nullptr
+	mMpdStream->SetMPDParseHelper(nullptr);
+
+	// Should return false when MPDParseHelper is not available
+	bool result = mMpdStream->TestIsVideoDRMLicenseRequired();
+	EXPECT_FALSE(result);
+
+	// Cleanup
+	mPrivateInstanceAAMP->mDRMLicenseManager = nullptr;
+}
+

@@ -3983,6 +3983,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 				aamp->SendErrorEvent(AAMP_TUNE_INVALID_MANIFEST_FAILURE);
 				return ret;
 			}
+
 			if (aamp->mIsVSS)
 			{
 				std::string vssVirtualStreamId = GetVssVirtualStreamID();
@@ -4246,6 +4247,46 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 						duration = (mMPDParseHelper->GetPeriodDuration(mCurrentPeriodIdx,mLastPlaylistDownloadTimeMs,ShouldCheckOnlyIframeAdaptation(),aamp->IsUninterruptedTSB())) / 1000;
 						currentPeriodStart = ((double)durationMs / 1000) - duration;
 						offsetFromStart = duration - aamp->mLiveOffset;
+
+						// LL-DASH DRM pre-compensation for new encrypted live tune.
+						// Apply exactly at the primary live-adjust offset derivation so
+						// SkipFragments/SeekInPeriod start closer to live edge.
+						if (mLowLatencyMode && newTune)
+						{
+							// Derive the relative live position from the absolute MPD period end.
+							// The live time and period end are in the same UTC time domain;
+							// compensate local time when a server UTC delta is available.
+							double liveTime = static_cast<double>(NOW_SYSTEM_TS_MS) / 1000.0;
+							double periodEndTime = mMPDParseHelper->GetPeriodEndTime(
+								mCurrentPeriodIdx,
+								mLastPlaylistDownloadTimeMs,
+								ShouldCheckOnlyIframeAdaptation(),
+								aamp->IsUninterruptedTSB());
+							offsetFromStart = duration + (liveTime - aamp->mLiveOffset - periodEndTime);
+							AAMPLOG_INFO("StreamAbstractionAAMP_MPD:[LL-DASH] liveTime %.3f liveOffset %.3f "
+							            "periodEndTime %.3f duration %.3f offsetFromStart %.3f",
+							            liveTime, aamp->mLiveOffset, periodEndTime, duration, offsetFromStart);
+
+							double drmLatencyEstimate = GETCONFIGVALUE(eAAMPConfig_LLDrmLatencyEstimateSec);
+							if (drmLatencyEstimate > 0.0 && IsVideoDRMLicenseRequired())
+							{
+								offsetFromStart += drmLatencyEstimate;
+								if (offsetFromStart > duration)
+								{
+									AAMPLOG_WARN("StreamAbstractionAAMP_MPD:[LL-DASH] DRM pre-compensation "
+									             "clamped to period end: offsetFromStart %.2f "
+									             "(period duration %.2f, estimate %.2fs)",
+									             offsetFromStart, duration, drmLatencyEstimate);
+									offsetFromStart = duration;
+								}
+								else
+								{
+									AAMPLOG_MIL("StreamAbstractionAAMP_MPD:[LL-DASH] offsetFromStart "
+									            "advanced to %.2f (+%.2fs DRM pre-compensation)",
+									            offsetFromStart, drmLatencyEstimate);
+								}
+							}
+						}
 						while(offsetFromStart < 0 && mCurrentPeriodIdx > 0)
 						{
 							AAMPLOG_INFO("Adjusting to live offset offsetFromStart %f, mCurrentPeriodIdx %d", offsetFromStart, mCurrentPeriodIdx);
@@ -13995,6 +14036,63 @@ IProducerReferenceTime *StreamAbstractionAAMP_MPD::GetProducerReferenceTimeForAd
 		AAMPLOG_WARN("adaptationSet  is null");  //CID:85233 - Null Returns
 	}
 	return pRT;
+}
+
+/**
+ * @brief Returns true if an encrypted video adaptation set requires DRM licence
+ *        acquisition because its key has not already been processed.
+ */
+bool StreamAbstractionAAMP_MPD::IsVideoDRMLicenseRequired()
+{
+	bool licenseRequired = false;
+	const bool drmStateAvailable =
+		mpd != nullptr &&
+		mMPDParseHelper != nullptr &&
+		aamp != nullptr &&
+		aamp->mDRMLicenseManager != nullptr;
+
+	/* Only inspect the manifest when all DRM state required for the check exists. */
+	if (drmStateAvailable)
+	{
+		for (const auto* period : mpd->GetPeriods())
+		{
+			if (period == nullptr || licenseRequired)
+			{
+				continue;
+			}
+
+			for (const auto* adaptationSet : period->GetAdaptationSets())
+			{
+				/* Clear and non-video adaptation sets do not need a video DRM license. */
+				if (adaptationSet == nullptr ||
+					!mMPDParseHelper->IsContentType(adaptationSet, eMEDIATYPE_VIDEO) ||
+					mMPDParseHelper->GetContentProtection(adaptationSet).empty())
+				{
+					continue;
+				}
+
+				/* Build the helper used to identify the key for this protected video. */
+				DrmHelperPtr drmHelper = CreateDrmHelper(adaptationSet, eMEDIATYPE_VIDEO);
+				if (drmHelper == nullptr)
+				{
+					continue;
+				}
+
+				std::vector<uint8_t> keyId;
+				drmHelper->getKey(keyId);
+				if (keyId.empty())
+				{
+					continue;
+				}
+
+				/* A license is required only when the DRM session has not processed the key. */
+				bool keyStatus = false;
+				licenseRequired = !aamp->mDRMLicenseManager->IsKeyIdProcessed(keyId, keyStatus);
+			}
+		}
+	}
+
+	return licenseRequired;
 }
 
 /**
