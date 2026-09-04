@@ -184,8 +184,7 @@ typedef enum
 	eSTATE_BLOCKED      = 14  /**< AV muted due to parental control */
 } AAMPPlayerState;
 
-
-static const char* const kStateNames[] = {
+inline constexpr const char* kStateNames[] = {
 	"IDLE", "INITIALIZING", "INITIALIZED", "PREPARING", "PREPARED",
 	"BUFFERING", "PAUSED", "SEEKING", "PLAYING", "STOPPING",
 	"STOPPED", "COMPLETE", "ERROR", "RELEASED", "BLOCKED"
@@ -194,7 +193,7 @@ static const char* const kStateNames[] = {
 /**
  * @brief lambda to return a string for a state name
  */
-const auto stateName = [](AAMPPlayerState s) -> const char* {
+inline constexpr auto stateName = [](AAMPPlayerState s) -> const char* {
 	return (s >= 0 && s < (int)(sizeof(kStateNames)/sizeof(kStateNames[0])))
 		? kStateNames[s] : "UNKNOWN";
 };

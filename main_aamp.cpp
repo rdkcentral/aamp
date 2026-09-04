@@ -404,7 +404,6 @@ void PlayerInstanceAAMP::TuneInternal(const char *mainManifestUrl,
 	if(aamp){
 		UsingPlayerId playerId(aamp->mPlayerId);
 
-		// TODO: Check for url override here also?
 		if ( aamp->IsAsyncTuneAbortRequired(mainManifestUrl, contentType) )
 		{
 				AAMPLOG_INFO("Aborting tune early");

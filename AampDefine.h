@@ -334,7 +334,7 @@ static const char* const [[maybe_unused]] AAMPStatusStrings[] =
 /**
  * @brief lambda to return a string for a status name
  */
-const auto inline statusName = [](AAMPStatusType s) -> const char* {
+inline constexpr auto statusName = [](AAMPStatusType s) -> const char* {
 	return (s >= 0 && s < (int)(sizeof(AAMPStatusStrings)/sizeof(AAMPStatusStrings[0])))
 		? AAMPStatusStrings[s] : "UNKNOWN";
 };
