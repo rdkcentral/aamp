@@ -4510,7 +4510,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 					}
 					else if (netTracerEnabled) {
 						aamptrace::NetTrace::SetPathsWithPid(
-							"/tmp/aamp_net_requests.csv", "/tmp/aamp_net_bursts.csv");
+							"/opt/logs/aamp_net_requests.csv", "/opt/logs/aamp_net_bursts.csv");
 						paths_set.store(true, std::memory_order_release);
 					}
 					// Neither condition: retry next download until config is true
@@ -8677,11 +8677,13 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 	mProgressReportOffset = -1;
 	mProgressReportAvailabilityOffset = -1;
 	rate = 1;
-	// Generate persona JSON from accumulated NetTrace data before going idle
+	// Generate persona JSON from accumulated NetTrace data before going idle.
+	// Write alongside the NetTrace CSV files in /opt/logs (PID suffix added by
+	// GeneratePersonaJson), rather than the header default of /tmp.
 	if (GETCONFIGVALUE_PRIV(eAAMPConfig_NetTraceCsvDump))
 	{
 		aamptrace::NetPersonaFitter::GetInstance().GeneratePersonaJson(
-			aamptrace::NetPersonaFitter::kDefaultBasePath);
+			"/opt/logs/aamp_net_persona.json");
 	}
 	// Set state to IDLE irrespective of sending state change event or not
 	SetState(eSTATE_IDLE, sendStateChangeEvent);
