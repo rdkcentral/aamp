@@ -79,7 +79,6 @@ const std::vector<TimedMetadata> & PlayerInstanceAAMP::GetTimedMetadata( void ) 
 	void PlayerInstanceAAMP::SetPreferredDRM(DRMSystems drmType) {  }
 	void PlayerInstanceAAMP::SetStereoOnlyPlayback(bool bValue) {  }
 	void PlayerInstanceAAMP::SetBulkTimedMetaReport(bool bValue) {  }
-	void PlayerInstanceAAMP::SetBulkTimedMetaReportLive(bool bValue) {  }
 	void PlayerInstanceAAMP::SetRetuneForUnpairedDiscontinuity(bool bValue) {  }
 	void PlayerInstanceAAMP::SetRetuneForGSTInternalError(bool bValue) {  }
 	void PlayerInstanceAAMP::SetAnonymousRequest(bool isAnonymous) {  }

@@ -3268,9 +3268,9 @@ void StreamAbstractionAAMP_MPD::ProcessMetadataFromManifest( ManifestDownloadRes
 	if (tmpMPD)
 	{
 		Node *root			=	mpdDnldResp->mRootNode;
-		//If bulk metadata is enabled for live, all metadata should be reported as bulkmetadata event
+		//If bulk metadata is enabled, all metadata should be reported as bulkmetadata event
 		//and player should not send the same  events again.
-		bool bMetadata		=	ISCONFIGSET(eAAMPConfig_BulkTimedMetaReport) || ISCONFIGSET(eAAMPConfig_BulkTimedMetaReportLive);
+		bool bMetadata		=	ISCONFIGSET(eAAMPConfig_BulkTimedMetaReport);
 		FindTimedMetadata((dash::mpd::MPD *)tmpMPD, root, init, bMetadata);
 		if(!init)
 		{
@@ -5367,7 +5367,7 @@ void StreamAbstractionAAMP_MPD::FindTimedMetadata(MPD* mpd, Node* root, bool ini
 							if((name == "EventStream") && ("" != prdId) && !mCdaiObject->isPeriodExist(prdId))
 							{
 								bool processEventsInPeriod = ((!init || (1 < periodCnt && 0 == period->GetAdaptationSets().size())) //Take last & empty period at the MPD init AND all new periods in the MPD refresh. (No empty periods will come the middle)
-												  || (!mIsLiveManifest && init) || (mIsLiveManifest && ISCONFIGSET(eAAMPConfig_BulkTimedMetaReportLive) ));
+												  || (!mIsLiveManifest && init) || (mIsLiveManifest && ISCONFIGSET(eAAMPConfig_BulkTimedMetaReport) ));
 
 								bool modifySCTEProcessing = ISCONFIGSET(eAAMPConfig_EnableSCTE35PresentationTime);
 								if (modifySCTEProcessing)

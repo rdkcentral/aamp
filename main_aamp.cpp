@@ -2455,14 +2455,6 @@ void PlayerInstanceAAMP::SetBulkTimedMetaReport(bool bValue)
 }
 
 /**
- *  @brief Set the flag if live playback needs bulk timed metadata.
- */
-void PlayerInstanceAAMP::SetBulkTimedMetaReportLive(bool bValue)
-{
-	SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_BulkTimedMetaReportLive,bValue);
-}
-
-/**
  *  @brief Set unpaired discontinuity retune flag
  */
 void PlayerInstanceAAMP::SetRetuneForUnpairedDiscontinuity(bool bValue)

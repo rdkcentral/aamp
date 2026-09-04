@@ -517,13 +517,6 @@ public:
 	 *   @return void
 	 */
 	void SetBulkTimedMetaReport(bool bValue);
-	/**
-	 *   @fn SetBulkTimedMetaReport for live
-	 *   @param[in] bValue - if true Bulk event reporting enabled for live
-	 *
-	 *   @return void
-	 */
-	void SetBulkTimedMetaReportLive(bool bValue);
 
 	/**
 	 *   @fn SetRetuneForUnpairedDiscontinuity

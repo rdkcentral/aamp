@@ -570,7 +570,6 @@ player->InitAAMPConfig("{\"networkTimeout\": 10.0, \"abr\": true}");
 |----------------|-------------|---------|
 | `SetStereoOnlyPlayback(bool)` | `stereoOnly` | `player->InitAAMPConfig("stereoOnly=true");` |
 | `SetBulkTimedMetaReport(bool)` | `bulkTimedMetadata` | `player->InitAAMPConfig("bulkTimedMetadata=false");` |
-| `SetBulkTimedMetaReportLive(bool)` | `bulkTimedMetadataLive` | `player->InitAAMPConfig("bulkTimedMetadataLive=true");` |
 | `SetRetuneForUnpairedDiscontinuity(bool)` | `useRetuneForUnpairedDiscontinuity` | `player->InitAAMPConfig("useRetuneForUnpairedDiscontinuity=false");` |
 | `SetRetuneForGSTInternalError(bool)` | `useRetuneForGstInternalError` | `player->InitAAMPConfig("useRetuneForGstInternalError=true");` |
 | `SetAnonymousRequest(bool)` | `licenseAnonymousRequest` | `player->InitAAMPConfig("licenseAnonymousRequest=true");` |

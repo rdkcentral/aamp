@@ -151,7 +151,6 @@ typedef enum
 	eAAMPConfig_ABRBufferCheckEnabled,					/**< Flag to enable/disable buffer based ABR handling*/
 	eAAMPConfig_NewDiscontinuity,						/**< Flag to enable/disable new discontinuity handling with PDT*/
 	eAAMPConfig_BulkTimedMetaReport, 					/**< Enabled Bulk event reporting for TimedMetadata*/
-	eAAMPConfig_BulkTimedMetaReportLive,					/**< Enabled Bulk TimedMetadata event reporting for live stream */
 	eAAMPConfig_AvgBWForABR,						/**< Enables usage of AverageBandwidth if available for ABR */
 	eAAMPConfig_NativeCCRendering,					/**< Controls whether AAMP manages CC visibility/styles
 														directly via PlayerCCManager (true), or defers to an
