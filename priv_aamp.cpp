@@ -7999,6 +7999,11 @@ void PrivateInstanceAAMP::SetVideoRectangle(int x, int y, int w, int h)
 						{
 							sink->SetVideoRectangle(x, y, w, h);
 						}
+						if(ISCONFIGSET_PRIV(eAAMPConfig_UseSecManager) || ISCONFIGSET_PRIV(eAAMPConfig_UseFireboltSDK))
+						{
+							AAMPLOG_WARN("calling setVideoWindowSize from cached rect w:%d x h:%d", mVideoRect.width, mVideoRect.height);
+							mDRMLicenseManager->setVideoWindowSize(mVideoRect.width, mVideoRect.height);
+						}
 					}
 					else
 					{
@@ -10036,9 +10041,15 @@ void PrivateInstanceAAMP::NotifyFirstBufferProcessed(const std::string& videoRec
 		mDRMLicenseManager->setVideoMute(IsLive(), GetCurrentLatencyMs(), IsAtLivePoint(), GetLiveOffsetMs(), video_muted.load(), streamPositionMs);
 		mDRMLicenseManager->setPlaybackSpeedState(IsLive(), GetCurrentLatencyMs(), IsAtLivePoint(), GetLiveOffsetMs(),rate, streamPositionMs, true);
 		int x = 0,y = 0,w = 0,h = 0;
+		
 		if (!videoRectangle.empty())
 		{
 			sscanf(videoRectangle.c_str(),"%d,%d,%d,%d",&x,&y,&w,&h);
+		}
+		if (w == 0 && h == 0)
+		{
+			w = mVideoRect.width;
+			h = mVideoRect.height;
 		}
 		AAMPLOG_WARN("calling setVideoWindowSize  w:%d x h:%d ",w,h);
 		mDRMLicenseManager->setVideoWindowSize(w,h);
