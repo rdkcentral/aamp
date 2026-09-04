@@ -5597,61 +5597,48 @@ void PrivateInstanceAAMP::SetEarlyAbortRequestFlag(bool enableAbort)
 }
 
 /**
- * @brief Determine whether we can terminate an async tune task early
- *
- * @return bool  true if this is a suitable tune for aborting early
+ * @brief Single source of truth for which format/content-type combinations support
+ *        early async-tune abort.  Both IsAsyncTuneAbortSupported() and the
+ *        manifest-URL overload of IsAsyncTuneAbortRequired() delegate here so that
+ *        the criteria stay in sync automatically.
+ */
+bool PrivateInstanceAAMP::IsAsyncTuneSupportedForType(MediaFormat format, ContentType type) const
+{
+	return (eMEDIAFORMAT_DASH == format) &&
+	       (ContentType_LINEAR == type)  &&
+	       mAsyncTuneEnabled;
+}
+
+/**
+ * @brief Determine whether the current tune type supports early async-tune abort.
+ *        Uses stored mMediaFormat / mContentType (active tune).
  */
 bool PrivateInstanceAAMP::IsAsyncTuneAbortSupported()
 {
-	if ( (eMEDIAFORMAT_DASH == mMediaFormat)  &&
-		 (ContentType_LINEAR == mContentType) &&
-		  (mAsyncTuneEnabled) )
-	{
-		return true;
-	}
-	else
-	{
-		return false;
-	}
+	return IsAsyncTuneSupportedForType(mMediaFormat, mContentType);
 }
 
 /**
- * @brief Determine whether we can terminate an async tune task early
- *
- * @return bool  true if async tasks are enabled, SetEarlyAbortRequestFlag has been called and this is a suitable tune
+ * @brief Determine whether the current async tune task should be aborted early.
  */
 bool PrivateInstanceAAMP::IsAsyncTuneAbortRequired()
 {
-	if ( (IsAsyncTuneAbortSupported()) &&
-		 (mAsyncTaskAbortEnabled.load()) )
-	{
-		return true;
-	}
-	else
-	{
-		return false;
-	}
+	return mAsyncTaskAbortEnabled.load() && IsAsyncTuneAbortSupported();
 }
 
 /**
- * @brief Determine whether we can terminate an async tune task early
- *
- * @return bool  true if async tasks is enabled, SetEarlyAbortRequestFlag has been called and this is a suitable tune
+ * @brief Determine whether an incoming tune (identified by URL and content-type string)
+ *        should be aborted because a Stop is in progress.
  */
 bool PrivateInstanceAAMP::IsAsyncTuneAbortRequired(const char* manifestUrl, const char* contentTypeString)
 {
-	// Note: This must equate to IsAsyncTuneAbortSupported for tune type
-	if ( (manifestUrl && (eMEDIAFORMAT_DASH == GetMediaFormatType(manifestUrl)))       &&
-		 (contentTypeString && !strncmp(contentTypeString,"LINEAR_TV", 9))             &&
-		 (mAsyncTuneEnabled)                                                           &&
-		 (mAsyncTaskAbortEnabled.load()) )
-	{
-		return true;
-	}
-	else
-	{
+	if (!mAsyncTaskAbortEnabled.load())
 		return false;
-	}
+	MediaFormat format = manifestUrl ? GetMediaFormatType(manifestUrl) : eMEDIAFORMAT_UNKNOWN;
+	// Map the content-type string to enum — the only type that supports abort is LINEAR_TV.
+	ContentType type = (contentTypeString && !strncmp(contentTypeString, "LINEAR_TV", 9))
+	                 ? ContentType_LINEAR : ContentType_UNKNOWN;
+	return IsAsyncTuneSupportedForType(format, type);
 }
 
 /**
@@ -9372,7 +9359,7 @@ void PrivateInstanceAAMP::SetState(AAMPPlayerState state, bool sendStateChangeEv
 	{
 		return;
 	}
-	AAMPLOG_MIL("Player state changed: %s -> %s", stateName(oldState), stateName(state));
+	AAMPLOG_MIL("Player state changed: %s -> %s", AAMPPlayerStateName(oldState), AAMPPlayerStateName(state));
 
 	// Handle SEEKED event based on the actual previous state
 	// Only the thread that performed this specific transition will send the event
