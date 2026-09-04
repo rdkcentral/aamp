@@ -2536,11 +2536,36 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 			}
 			else
 			{
-				// For HLS Live, calculate latency based on live edge; round to nearest ms
-				latency = static_cast<long>(std::lround(end - reportFormattedCurrPos));
-				if(latency < 0)
-				{ // this should never happen!
-					AAMPLOG_ERR("HLS negative live latency = %ldms, end = %lfms, reportFormattedCurrPos = %lfms", latency, end, reportFormattedCurrPos);
+				bool hlsPdtLatencyEnabled =
+					ISCONFIGSET_PRIV(eAAMPConfig_EnableHLSPDTLatency);
+				if (hlsPdtLatencyEnabled && mProgramDateTime > 0.0)
+				{
+					// Convert current playback position to absolute UTC using the playlist
+					// start PDT, then derive live latency from current wall-clock time.
+					const double playbackUtcMs = (mProgramDateTime * 1000.0) +
+						(reportFormattedCurrPos - start);
+					long hlsPdtLatencyMs = static_cast<long>(std::llround(
+						aamp_GetCurrentTimeMS() - playbackUtcMs));
+					if (hlsPdtLatencyMs > 0)
+					{
+						latency = hlsPdtLatencyMs;
+					}
+					else
+					{
+						AAMPLOG_ERR("HLS negative live latency (PDT) = %ldms, mProgramDateTime = %lf, reportFormattedCurrPos = %lfms, start = %lfms", hlsPdtLatencyMs, mProgramDateTime, reportFormattedCurrPos, start);
+					}
+				}
+
+				if (latency == 0)
+				{
+					AAMPLOG_DEBUG("HLS live latency using live-edge latency. HLS PDT latency config %d, mProgramDateTime %lf", hlsPdtLatencyEnabled, mProgramDateTime);
+
+					// Fallback: calculate HLS live latency based on live edge.
+					latency = static_cast<long>(std::lround(end - reportFormattedCurrPos));
+					if(latency < 0)
+					{ // this should never happen!
+						AAMPLOG_ERR("HLS negative live latency = %ldms, end = %lfms, reportFormattedCurrPos = %lfms", latency, end, reportFormattedCurrPos);
+					}
 				}
 			}
 			SetCurrentLatencyMs(latency);
