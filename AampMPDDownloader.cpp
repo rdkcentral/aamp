@@ -169,7 +169,8 @@ AampMPDDownloader::AampMPDDownloader() :  mMPDBufferQ(),mMPDBufferSize(1),mMPDBu
 	mMPDDnldDataMtx(),mMPDDnldDataCondVar(),
 	mLLDashData(),mCurrentposDeltaToManifestEnd(-1),mPublishTime(0),mMinimalRefreshRetryCount(0),
 	mMPDNotifyPending(false),mPreProcessErrorCode(CURLE_OPERATION_TIMEDOUT),
-	mManifestRefreshErrorCode(0),mManifestRefreshErrorType(AAMPStatusType::eAAMPSTATUS_OK)
+	mManifestRefreshErrorCode(0),mManifestRefreshErrorType(AAMPStatusType::eAAMPSTATUS_OK),
+	mManifestRefreshRetryFailureCount(0),mManifestRefreshRetryFailureThreshold(2)
 {
 }
 
@@ -308,6 +309,7 @@ void AampMPDDownloader::Release()
 		mMinimalRefreshRetryCount = 0; //Reset the refresh interval retry counter
 		mManifestRefreshErrorType.store(AAMPStatusType::eAAMPSTATUS_OK);
 		mManifestRefreshErrorCode.store(0);
+		mManifestRefreshRetryFailureCount.store(0);
 		AAMPLOG_INFO("Release Called in MPD Downloader - Exit %ld %ld", mMPDData.use_count(),mMPDDnldCfg.use_count());
 	}
 }
@@ -499,8 +501,32 @@ void AampMPDDownloader::downloadMPDThread1()
 			{
 				errorCode = mMPDData->mMPDDownloadResponse->iHttpRetValue;
 			}
-			mManifestRefreshErrorType.store(mMPDData->mMPDStatus);
-			mManifestRefreshErrorCode.store(errorCode);
+			ManifestRefreshStatus retryStatus(mMPDData->mMPDStatus, errorCode);
+
+			if (retryStatus.type == AAMPStatusType::eAAMPSTATUS_OK)
+			{
+				mManifestRefreshRetryFailureCount.store(0);
+				mManifestRefreshErrorType.store(AAMPStatusType::eAAMPSTATUS_OK);
+				mManifestRefreshErrorCode.store(0);
+			}
+			else
+			{
+				AAMPStatusType previousErrorType = mManifestRefreshErrorType.load();
+				int previousErrorCode = mManifestRefreshErrorCode.load();
+				bool sameAsPreviousFailure =
+					(previousErrorType == retryStatus.type) &&
+						(previousErrorCode == retryStatus.errorCode);
+				if (sameAsPreviousFailure)
+				{
+					mManifestRefreshRetryFailureCount.fetch_add(1);
+				}
+				else
+				{
+					mManifestRefreshRetryFailureCount.store(1);
+				}
+				mManifestRefreshErrorType.store(retryStatus.type);
+				mManifestRefreshErrorCode.store(retryStatus.errorCode);
+			}
 		}
 
 		if(doPush)
@@ -1156,6 +1182,10 @@ void AampMPDDownloader::RegisterCallback(ManifestUpdateCallbackFunc fnPtr, void 
 
 ManifestRefreshStatus AampMPDDownloader::GetManifestRefreshStatus() const
 {
+	if (mManifestRefreshRetryFailureCount.load() < mManifestRefreshRetryFailureThreshold)
+	{
+		return ManifestRefreshStatus();
+	}
 	return ManifestRefreshStatus(
 		mManifestRefreshErrorType.load(),
 		mManifestRefreshErrorCode.load());
