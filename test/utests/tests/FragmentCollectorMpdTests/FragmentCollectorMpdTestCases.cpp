@@ -65,6 +65,16 @@ public:
 		this->mMPDParseHelper = mpdParseHelperPtr;
 	}
 
+	double TestGetCulledSeconds(std::vector<PeriodInfo> &periodDetails)
+	{
+		return GetCulledSeconds(periodDetails);
+	}
+
+	void SetCurrentPeriod(IPeriod *period)
+	{
+		mCurrentPeriod = period;
+	}
+
 	// Expose public methods for testing
 	using StreamAbstractionAAMP_MPD::ShouldCheckOnlyIframeAdaptation;
 	using StreamAbstractionAAMP_MPD::IsEmptyPeriod;
@@ -538,6 +548,46 @@ TEST_F(StreamAbstractionAAMP_MPD_Test, IsEmptyPeriod_AlternatingResults_Propagat
 	EXPECT_CALL(*g_mockAampMPDParseHelper, IsEmptyPeriod(3, false))
 		.WillOnce(Return(false));
 	EXPECT_FALSE(mMpdStream->IsEmptyPeriod(3));
+}
+
+/**
+ * @brief Verify a culled period resumes video downloads blocked by buffer control.
+ */
+TEST_F(StreamAbstractionAAMP_MPD_Test,
+	GetCulledSeconds_PositiveCullWhileVideoBlocked_ForcesBufferControlResume)
+{
+	auto* period = reinterpret_cast<IPeriod*>(mMpdStream);
+	auto* adaptationSet = reinterpret_cast<const IAdaptationSet*>(mMpdStream);
+	auto* mediaStreamContext = new MediaStreamContext(
+		eTRACK_VIDEO, nullptr, mPrivateInstanceAAMP,
+		GetMediaTypeName(eMEDIATYPE_VIDEO));
+	mediaStreamContext->adaptationSet = adaptationSet;
+	mMpdStream->SetMediaStreamContext(eMEDIATYPE_VIDEO, mediaStreamContext);
+	mMpdStream->SetCurrentPeriod(period);
+
+	PeriodInfo previousPeriod;
+	previousPeriod.periodId = "period-0";
+	previousPeriod.startTime = 0;
+	previousPeriod.timeScale = 1000;
+	mPrivateInstanceAAMP->mMPDPeriodsInfo = {previousPeriod};
+
+	PeriodInfo currentPeriod = previousPeriod;
+	currentPeriod.startTime = 5000;
+	std::vector<PeriodInfo> currentPeriodDetails {currentPeriod};
+
+	EXPECT_CALL(*g_mockAampMPDParseHelper, aamp_HasSegmentTemplate(period))
+		.WillOnce(Return(true));
+	EXPECT_CALL(*g_mockAampMPDParseHelper, aamp_HasSegmentTime(period))
+		.WillOnce(Return(true));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+		TrackDownloadsAreEnabled(eMEDIATYPE_VIDEO))
+		.WillOnce(Return(false));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+		ForceResumeTrackBufferControl(eMEDIATYPE_VIDEO))
+		.Times(1);
+
+	EXPECT_DOUBLE_EQ(
+		mMpdStream->TestGetCulledSeconds(currentPeriodDetails), 5.0);
 }
 
 /**

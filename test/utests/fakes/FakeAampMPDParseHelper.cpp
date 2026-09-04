@@ -252,11 +252,21 @@ double AampMPDParseHelper::GetPeriodNewContentDurationMs(IPeriod * period, uint6
 
 bool AampMPDParseHelper::aamp_HasSegmentTime(IPeriod *period)
 {
+	if (g_mockAampMPDParseHelper)
+	{
+		return g_mockAampMPDParseHelper->aamp_HasSegmentTime(period);
+	}
+
 	return false;
 }
 
 bool AampMPDParseHelper::aamp_HasSegmentTemplate(IPeriod *period)
 {
+	if (g_mockAampMPDParseHelper)
+	{
+		return g_mockAampMPDParseHelper->aamp_HasSegmentTemplate(period);
+	}
+
 	return false;
 }
 

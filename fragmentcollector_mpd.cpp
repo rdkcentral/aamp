@@ -8739,6 +8739,14 @@ double StreamAbstractionAAMP_MPD::GetCulledSeconds(std::vector<PeriodInfo> &curr
 									 prevPeriodInfo.periodId.c_str(), (prevPeriodInfo.duration / 1000));
 					}
 				}
+
+				// Resume video if blocked by enoughData when the period it was on is culled.
+				if (culled > 0 && !aamp->TrackDownloadsAreEnabled(eMEDIATYPE_VIDEO))
+				{
+					AAMPLOG_WARN("Period culled (%.2fs) while video downloads blocked; forcing buffer control resume", culled);
+					aamp->ForceResumeTrackBufferControl(eMEDIATYPE_VIDEO);
+				}
+
 				aamp->mMPDPeriodsInfo = currMPDPeriodDetails;
 			}
 			else
@@ -8801,6 +8809,14 @@ double StreamAbstractionAAMP_MPD::GetCulledSeconds(std::vector<PeriodInfo> &curr
 						mPrevStartTimeSeconds = newStartSegment;
 					}
 				}
+
+				// Resume video if blocked by enoughData when the period it was on is culled.
+				if (culled > 0 && !aamp->TrackDownloadsAreEnabled(eMEDIATYPE_VIDEO))
+				{
+					AAMPLOG_WARN("Period culled (%.2fs) while video downloads blocked; forcing buffer control resume", culled);
+					aamp->ForceResumeTrackBufferControl(eMEDIATYPE_VIDEO);
+				}
+
 				aamp->mMPDPeriodsInfo = currMPDPeriodDetails;
 			}
 		}

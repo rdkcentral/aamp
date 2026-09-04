@@ -215,6 +215,11 @@ public:
 		 */
 	void ResetFirstFrame(void) override;
 	/**
+		 * @fn ForceResumeBufferControl
+		 * @param[in] type media type to resume
+		 */
+	void ForceResumeBufferControl(AampMediaType type) override;
+	/**
 		 * @fn SetVideoMute
 		 * @param[in] muted true to mute video otherwise false
 		 */

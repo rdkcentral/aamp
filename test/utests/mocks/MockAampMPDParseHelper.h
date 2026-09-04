@@ -31,6 +31,8 @@ public:
 	MOCK_METHOD(double, GetPeriodDuration, (int periodIndex, uint64_t mLastPlaylistDownloadTimeMs, bool checkIFrame, bool IsUninterruptedTSB));
 	MOCK_METHOD(void, GetStartAndDurationFromTimeline, (IPeriod * period, int representationIdx, int adaptationSetIdx, AampTime &scaledStartTime, AampTime &duration));
 	MOCK_METHOD(bool, IsEmptyPeriod, (int iPeriodIndex, bool checkIframe));
+	MOCK_METHOD(bool, aamp_HasSegmentTime, (IPeriod * period));
+	MOCK_METHOD(bool, aamp_HasSegmentTemplate, (IPeriod * period));
 };
 
 extern std::shared_ptr<MockAampMPDParseHelper> g_mockAampMPDParseHelper;
