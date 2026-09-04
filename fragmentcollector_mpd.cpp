@@ -7039,8 +7039,17 @@ void StreamAbstractionAAMP_MPD::SelectAudioTrack(std::vector<AudioTrackInfo> &aT
 	if (aamp->previousAudioType != selectedCodecType)
 	{
 		AAMPLOG_MIL("StreamAbstractionAAMP_MPD: AudioType Changed %d -> %d", aamp->previousAudioType, selectedCodecType);
+		AudioType oldType = aamp->previousAudioType;
 		aamp->previousAudioType = selectedCodecType;
-		SetESChangeStatus();
+		// Atmos <-> DD+ is a JOC flag change within the same E-AC-3 bitstream;
+		// the decoder needs no reconfiguration, so don't signal an ES change.
+		bool isEc3JocOnlyChange =
+			(oldType == eAUDIO_ATMOS || oldType == eAUDIO_DDPLUS) &&
+			(selectedCodecType == eAUDIO_ATMOS || selectedCodecType == eAUDIO_DDPLUS);
+		if (!isEc3JocOnlyChange)
+		{
+			SetESChangeStatus();
+		}
 	}
 }
 
