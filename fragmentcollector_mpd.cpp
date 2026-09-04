@@ -3884,6 +3884,13 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 	AAMPStatusType retval = eAAMPSTATUS_OK;
 	float currentRate = aamp->rate;
 	aamp->CurlInit(eCURLINSTANCE_VIDEO, DEFAULT_CURL_INSTANCE_COUNT, aamp->GetNetworkProxy());
+	// Capture CDAI ad-state before ResetState() wipes it.  Used to gate the
+	// accumulated-PTS seeding block below so that error-handling retunes that
+	// occur mid-period while the player is OUTSIDE an adbreak don't consume a
+	// stale accumulator value from the previous period boundary.
+	AdState adStateBeforeReset = (mCdaiObject != nullptr)
+	                                 ? mCdaiObject->mAdState
+	                                 : AdState::OUTSIDE_ADBREAK;
 	mCdaiObject->ResetState();
 	aamp->SetLLDashChunkMode(false); //Reset ChunkMode
 	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(aamp);
@@ -4627,6 +4634,26 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 		// all segments including the init segments for the GST buffer that goes with the init
 		mPTSOffset = 0.0;
 		mNextPts = 0.0;
+
+		// For CDAI retuning with mp4demux + PTS-restamp, seed mNextPts so that the
+		// restamped PTS timeline of the new stream continues seamlessly from where the
+		// previous stream left off (e.g. back-to-back ad breaks).
+		//
+		// By the time we reach this point, SeekInPeriod() has already positioned all
+		// MediaStreamContexts at the first fragment to be fetched.  If the CDAI placed
+		// us part-way into an ad (fragmentDescriptor.Time > 0), we subtract that offset
+		// so that UpdatePtsOffset() produces the correct mPTSOffset:
+		//
+		//   mPTSOffset = mNextPts - timelineStart
+		//              = (accumulated - seekOffset) - 0
+		//   after_sec  = DTS_first_fragment + mPTSOffset
+		//              ≈ seekOffset + (accumulated - seekOffset) = accumulated  ✓
+		//
+		// Only seed when coming from an in-adbreak state; generic error-handling
+		// retunes that fire while the player is OUTSIDE an adbreak must not consume
+		// the accumulator, since it would hold a stale end-of-previous-period value.
+		SeedMNextPtsFromCdaiAccumulator(adStateBeforeReset);
+
 		UpdatePtsOffset(true);
 		FetchAndInjectInitFragments();
 	}
@@ -9793,6 +9820,17 @@ void StreamAbstractionAAMP_MPD::UpdatePtsOffset(bool isNewPeriod)
 	}
 
 	mNextPts = duration + timelineStart;
+
+	// Keep a running record of the expected presentation time at the end of the current
+	// period.  This is used to seed the PTS offset of a replacement stream that is
+	// created by a CDAI retune (e.g. back-to-back ad breaks), so that the restamped
+	// PTS timeline is continuous across the retune boundary.
+	if (ISCONFIGSET(eAAMPConfig_UseMp4Demux) &&
+	    ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) &&
+	    ISCONFIGSET(eAAMPConfig_EnableClientDai))
+	{
+		aamp->mMp4DemuxAccumulatedPts = (mNextPts + mPTSOffset).inSeconds();
+	}
 }
 
 void StreamAbstractionAAMP_MPD::RestorePtsOffsetCalculation(void)
@@ -9830,6 +9868,68 @@ void StreamAbstractionAAMP_MPD::AdjustPtsOffsetAfterAdCancellation(void)
 	AAMPLOG_INFO("Idx %d Id %s Adjusting mNextPts from %f to %f",
 				 mCurrentPeriodIdx, mCurrentPeriod->GetId().c_str(), mNextPts.inSeconds(), (mNextPts.inSeconds() + duration.inSeconds()));
 	mNextPts += duration;
+}
+
+/**
+ * @fn SeedMNextPtsFromCdaiAccumulator
+ *
+ * @brief On a CDAI period-boundary retune, seeds mNextPts from
+ *        mMp4DemuxAccumulatedPts so the restamped PTS timeline of the new
+ *        stream continues seamlessly from where the previous stream left off.
+ *
+ *        The method is a no-op when:
+ *          - Any of the three required config gates is off
+ *            (UseMp4Demux, EnablePTSReStamp, EnableClientDai)
+ *          - The accumulator is zero (no period boundary was recorded)
+ *          - adStateBeforeReset is OUTSIDE_ADBREAK or OUTSIDE_ADBREAK_WAIT4ADS,
+ *            meaning this is an error-handling retune from a source period, not
+ *            a CDAI period-boundary retune; the accumulator is stale in that
+ *            case and must not be consumed.
+ *
+ *        When it does fire the accumulator is cleared so that a subsequent
+ *        non-CDAI Init() call does not re-use it.
+ *
+ * @param[in] adStateBeforeReset  The mCdaiObject->mAdState value captured
+ *                                before Init() called mCdaiObject->ResetState().
+ */
+void StreamAbstractionAAMP_MPD::SeedMNextPtsFromCdaiAccumulator(AdState adStateBeforeReset)
+{
+	if (!ISCONFIGSET(eAAMPConfig_UseMp4Demux) ||
+	    !ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) ||
+	    !ISCONFIGSET(eAAMPConfig_EnableClientDai) ||
+	    !(aamp->mMp4DemuxAccumulatedPts > 0.0) ||
+	    adStateBeforeReset == AdState::OUTSIDE_ADBREAK ||
+	    adStateBeforeReset == AdState::OUTSIDE_ADBREAK_WAIT4ADS)
+	{
+		return;
+	}
+
+	// Compute a per-track seek offset (the start position of the first fragment
+	// to be fetched in the new stream, in seconds).  Take the maximum of audio
+	// and video to guarantee that neither track's first restamped PTS lands
+	// before the accumulated value.
+	double audioOffset = 0.0;
+	double videoOffset = 0.0;
+	const MediaStreamContext *audioCtx = mMediaStreamContext[eMEDIATYPE_AUDIO];
+	const MediaStreamContext *videoCtx = mMediaStreamContext[eMEDIATYPE_VIDEO];
+	if (audioCtx && audioCtx->fragmentDescriptor.TimeScale > 0)
+	{
+		audioOffset = static_cast<double>(audioCtx->fragmentDescriptor.Time) /
+		              static_cast<double>(audioCtx->fragmentDescriptor.TimeScale);
+	}
+	if (videoCtx && videoCtx->fragmentDescriptor.TimeScale > 0)
+	{
+		videoOffset = static_cast<double>(videoCtx->fragmentDescriptor.Time) /
+		              static_cast<double>(videoCtx->fragmentDescriptor.TimeScale);
+	}
+	double seekOffset = std::max(audioOffset, videoOffset);
+
+	mNextPts = aamp->mMp4DemuxAccumulatedPts - seekOffset;
+	AAMPLOG_INFO("CDAI retune: seeding mNextPts=%.3f (accumulated=%.3f seekOffset=%.3f"
+	             " audioOffset=%.3f videoOffset=%.3f)",
+	             mNextPts.inSeconds(), aamp->mMp4DemuxAccumulatedPts,
+	             seekOffset, audioOffset, videoOffset);
+	aamp->mMp4DemuxAccumulatedPts = 0.0;
 }
 
 /**

@@ -1853,6 +1853,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	, mLastSleThumbnailInfo()
 	, mLatencyMonitor(std::make_unique<AampLatencyMonitor>(this))
 	, mTuneTimeMetricData()
+	, mMp4DemuxAccumulatedPts(0.0)
 {
 	AAMPLOG_MIL("Create Private Player %d", mPlayerId);
 	mAampCacheHandler = new AampCacheHandler(mPlayerId);
@@ -6018,6 +6019,9 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		mEncryptedPeriodFound = false;
 		mPipelineIsClear = false;
 		AAMPLOG_INFO ("Resetting mClearPipeline & mEncryptedPeriodFound");
+		// For non-retune transitions (fresh tune, user seek) the accumulated PTS
+		// from a previous CDAI stream is not meaningful for the new position.
+		mMp4DemuxAccumulatedPts = 0.0;
 	}
 
 	TeardownStream(newTune|| (eTUNETYPE_RETUNE == tuneType));
@@ -10844,6 +10848,23 @@ bool PrivateInstanceAAMP::ReconfigureForElementaryStreamUpdate()
 	{
 		if(!ISCONFIGSET_PRIV(eAAMPConfig_ReconfigPipelineOnDiscontinuity))
 		{
+			/*
+			 * With useMp4Demux + enablePTSReStamp the PipelineFlushStatus flag must not
+			 * be reported as a codec change.  PipelineFlushStatus is set when a period's
+			 * presentation time offset exceeds its segment start time; with mp4demux that
+			 * offset is absorbed by AampMp4Demuxer's restamp layer and requires no GStreamer
+			 * pipeline flush.  Reporting it as codecChange=true causes CheckDiscontinuity to
+			 * take the EOS path, which leaves the pipeline permanently in PAUSED because the
+			 * next period's EOS signals arrive into an already-paused pipeline that can never
+			 * drain them and emit GST_MESSAGE_EOS (VPAAMP-1046).
+			 *
+			 * ESChangeStatus (genuine audio decoder element change) is still reported — that
+			 * case may require a pipeline reconfigure even on the mp4demux path.
+			 */
+			if (ISCONFIGSET_PRIV(eAAMPConfig_UseMp4Demux) && ISCONFIGSET_PRIV(eAAMPConfig_EnablePTSReStamp))
+			{
+				return mpStreamAbstractionAAMP->GetESChangeStatus();
+			}
 			return (mpStreamAbstractionAAMP->GetESChangeStatus() || mpStreamAbstractionAAMP->GetPipelineFlushStatus());
 		}
 		else

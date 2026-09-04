@@ -603,6 +603,19 @@ protected:
 	void RestorePtsOffsetCalculation(void);
 
 	/**
+	 * @fn SeedMNextPtsFromCdaiAccumulator
+	 *
+	 * @brief Seeds mNextPts from mMp4DemuxAccumulatedPts on a CDAI
+	 *        period-boundary retune so the restamped PTS timeline continues
+	 *        seamlessly.  No-op when configs are off, the accumulator is
+	 *        zero, or the player was outside an adbreak before the retune.
+	 *
+	 * @param[in] adStateBeforeReset  The CDAI ad-state captured before
+	 *                                mCdaiObject->ResetState() was called.
+	 */
+	void SeedMNextPtsFromCdaiAccumulator(AdState adStateBeforeReset);
+
+	/**
 	 * @fn AdjustPtsOffsetAfterAdCancellation
 	 *
 	 * @brief Adjust the PTS offset calculation,
