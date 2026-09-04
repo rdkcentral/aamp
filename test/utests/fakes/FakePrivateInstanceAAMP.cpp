@@ -51,6 +51,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) :
 	mMediaFormat(eMEDIAFORMAT_HLS),
 	mPersistedProfileIndex(0),
 	mContentType(ContentType_UNKNOWN),
+	initialManifestFetchInProgress(false),
 	mManifestUrl(""),
 	mServiceZone(),
 	mVssVirtualStreamId(),
@@ -63,6 +64,8 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) :
 	mCdaiObject(NULL),
 	mBufUnderFlowStatus(false),
 	mVideoBasePTS(0),
+	mAsyncTuneEnabled(false),
+	mAsyncTaskAbortEnabled(false),
 	mIsIframeTrackPresent(false),
 	mManifestTimeoutMs(-1),
 	mNetworkTimeoutMs(-1),
@@ -408,6 +411,54 @@ void PrivateInstanceAAMP::SetVideoRectangle(int x, int y, int w, int h)
 
 void PrivateInstanceAAMP::SetVideoZoom(VideoZoomMode zoom)
 {
+}
+
+void PrivateInstanceAAMP::SetEarlyAbortRequestFlag(bool enableAbort)
+{
+	mAsyncTaskAbortEnabled=enableAbort;
+}
+
+bool PrivateInstanceAAMP::IsAsyncTuneAbortSupported()
+{
+	if ( (eMEDIAFORMAT_DASH == mMediaFormat)  &&
+		 (ContentType_LINEAR == mContentType) &&
+		  (mAsyncTuneEnabled) )
+	{
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}
+
+bool PrivateInstanceAAMP::IsAsyncTuneAbortRequired()
+{
+	if ( (IsAsyncTuneAbortSupported()) &&
+		 (mAsyncTaskAbortEnabled.load()) )
+	{
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}
+
+bool PrivateInstanceAAMP::IsAsyncTuneAbortRequired(const char* manifestUrl, const char* contentTypeString)
+{
+	// Note: This must equate to isAsyncTuneAbortSupported for tune type
+	if ( (manifestUrl && (eMEDIAFORMAT_DASH == GetMediaFormatType(manifestUrl)))       &&
+		 (contentTypeString && !strncmp(contentTypeString,"LINEAR_TV", 9))             &&
+		 (mAsyncTuneEnabled)                                                           &&
+		 (mAsyncTaskAbortEnabled.load()) )
+	{
+		return true;
+	}
+	else
+	{
+		return false;
+	}
 }
 
 void PrivateInstanceAAMP::SetVideoMute(bool muted)

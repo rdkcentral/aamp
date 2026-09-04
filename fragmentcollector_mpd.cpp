@@ -3919,7 +3919,40 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 		aamp->SetCurlTimeout(aamp->mNetworkTimeoutMs, (AampCurlInstance)i);
 	}
 
-	AAMPStatusType ret = FetchDashManifest();
+	AAMPStatusType ret= eAAMPSTATUS_OK;
+	AAMPPlayerState state = aamp->GetState();
+	if (aamp->IsAsyncTuneAbortRequired())
+	{
+		AAMPLOG_WARN("Manifest download will be skipped since we are already stopping");
+		ret = eAAMPSTATUS_MANIFEST_DOWNLOAD_ABORTED;
+	}
+	else
+	{
+		if (aamp->IsAsyncTuneAbortSupported())
+		{
+			aamp->initialManifestFetchInProgress=true;	// Signal to any stop process that a manifest download can be aborted
+		}
+		// This may get terminated by Release from Stop(), returning eAAMPSTATUS_MANIFEST_DOWNLOAD_ABORTED
+		// Note: if we abort then any fog tsb will not get deleted in SendErrorEvent (which is not called). We will do this in PrivateInstanceAAMP::Stop
+		ret = FetchDashManifest();
+		aamp->initialManifestFetchInProgress=false;
+
+		if (ret != eAAMPSTATUS_OK)
+		{
+			AAMPLOG_WARN("Manifest download failed or was aborted, code = %s", statusName(ret));
+		}
+		else
+		{
+			// If stop was called too late to abort in the progress callback then abort now
+			state = aamp->GetState();
+			if (aamp->IsAsyncTuneAbortRequired())
+			{
+				ret = eAAMPSTATUS_MANIFEST_DOWNLOAD_ABORTED;
+				AAMPLOG_WARN("A stop has been requested during completed manifest download, so abort");
+			}
+		}
+	}
+
 	if (ret == eAAMPSTATUS_OK)
 	{
 		std::string manifestUrl = aamp->GetManifestUrl();
@@ -4558,6 +4591,10 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 	{
 		retval = eAAMPSTATUS_MANIFEST_CONTENT_ERROR;
 	}
+	else if(ret == eAAMPSTATUS_MANIFEST_DOWNLOAD_ABORTED)
+	{
+		retval = eAAMPSTATUS_MANIFEST_DOWNLOAD_ABORTED;
+	}
 	else
 	{
 		AAMPLOG_ERR("StreamAbstractionAAMP_MPD: corrupt/invalid manifest");
@@ -4856,6 +4893,13 @@ AAMPStatusType StreamAbstractionAAMP_MPD::FetchDashManifest()
 			manifestUrl = aamp->mManifestUrl = mManifestDnldRespPtr->mMPDDownloadResponse->sEffectiveUrl;
 			aamp->profiler.ProfileEnd(PROFILE_BUCKET_MANIFEST);
 			mNetworkDownDetected = false;
+		}
+		else if ( CURLE_ABORTED_BY_CALLBACK == mManifestDnldRespPtr->mMPDDownloadResponse->iHttpRetValue && aamp->IsAsyncTuneAbortRequired() )
+		{
+			AAMPLOG_DEBUG("Do not send a manifest error during stop abort, http error=%d", http_error);
+			aamp->profiler.ProfileError(PROFILE_BUCKET_MANIFEST, http_error); // this will be tagged with CURLE_ABORTED_BY_CALLBACK in tune metrics
+			aamp->profiler.ProfileEnd(PROFILE_BUCKET_MANIFEST);
+			ret = AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ABORTED;
 		}
 		else if (aamp->DownloadsAreEnabled())
 		{
@@ -11391,6 +11435,8 @@ void  StreamAbstractionAAMP_MPD::ResumeSubtitleAfterSeek(bool mute, char *data)
  */
 StreamAbstractionAAMP_MPD::~StreamAbstractionAAMP_MPD()
 {
+	aamp->initialManifestFetchInProgress=false;
+	
 	// Unregister the MPD download callback BEFORE deleting tracks.
 	// This ensures the notifier thread cannot fire MPDUpdateCallbackExec()
 
@@ -11534,6 +11580,12 @@ void StreamAbstractionAAMP_MPD::Start(void)
  */
 void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 {
+
+	if(aamp->initialManifestFetchInProgress)
+	{
+		AAMPLOG_WARN("Clearing initialManifestFetchInProgress flag since we are stopping stream abstraction");
+	}
+	aamp->initialManifestFetchInProgress = false;
 
 	if (!aamp->IsLocalAAMPTsb() || aamp->mAampTsbLanguageChangeInProgress)
 	{

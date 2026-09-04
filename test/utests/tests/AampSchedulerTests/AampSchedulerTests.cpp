@@ -317,3 +317,83 @@ TEST_F(AampSchedulerTestsFixture, ScheduleTaskTest_MaxTaskIdWrapAround)
 	EXPECT_EQ(taskId1, AAMP_SCHEDULER_ID_MAX_VALUE - 1);
 	EXPECT_EQ(taskId2, AAMP_SCHEDULER_ID_DEFAULT);
 }
+
+/**
+ * @test AampSchedulerTestsFixture_DisableScheduleTask_RejectsNewTasks
+ * @brief Verifies that DisableScheduleTask() sets the lockout flag so that
+ *        ScheduleTask() returns AAMP_TASK_ID_INVALID and leaves the queue empty.
+ *        Covers the Stop/Tune concurrency path where the scheduler must refuse
+ *        new work during teardown.
+ */
+TEST_F(AampSchedulerTestsFixture, DisableScheduleTask_RejectsNewTasks)
+{
+	// Arrange: scheduler is logically running; disable task queuing
+	mSchedulerRunning = true;
+	DisableScheduleTask();
+
+	AsyncTaskObj obj([](void*) {}, nullptr, "BlockedTask", AAMP_TASK_ID_INVALID);
+
+	// Act: attempt to schedule while locked out
+	int taskId = ScheduleTask(obj);
+
+	// Assert: task must be rejected and queue must remain empty
+	EXPECT_EQ(taskId, AAMP_TASK_ID_INVALID);
+	EXPECT_TRUE(mTaskQueue.empty());
+
+	// Cleanup: DisableScheduleTask does not lock mExLock; restore mLockOut to false
+	// so that StopScheduler() can call SuspendScheduler()+ResumeScheduler() safely
+	// in the destructor.
+	EnableScheduleTask();
+}
+
+/**
+ * @test AampSchedulerTestsFixture_EnableScheduleTask_AfterDisable_AcceptsNewTasks
+ * @brief Verifies that EnableScheduleTask() clears the lockout flag set by
+ *        DisableScheduleTask(), restoring normal task acceptance.
+ */
+TEST_F(AampSchedulerTestsFixture, EnableScheduleTask_AfterDisable_AcceptsNewTasks)
+{
+	// Arrange: scheduler is logically running; disable then re-enable queuing
+	mSchedulerRunning = true;
+	DisableScheduleTask();
+	EnableScheduleTask();
+
+	AsyncTaskObj obj([](void*) {}, nullptr, "ReenabledTask", AAMP_TASK_ID_INVALID);
+
+	// Act: schedule a task after the lockout is lifted
+	int taskId = ScheduleTask(obj);
+
+	// Assert: task must be accepted with a valid ID and appear in the queue
+	EXPECT_NE(taskId, AAMP_TASK_ID_INVALID);
+	EXPECT_EQ(mTaskQueue.size(), static_cast<size_t>(1));
+	EXPECT_EQ(mTaskQueue.front().mId, taskId);
+}
+
+/**
+ * @test AampSchedulerTestsFixture_ResumeScheduler_AfterSuspend_AcceptsNewTasks
+ * @brief Verifies that ResumeScheduler() clears the lockout (and releases the
+ *        execution lock) set by SuspendScheduler(), restoring normal task
+ *        acceptance.  This mirrors the Stop() sequence:
+ *        SuspendScheduler() → RemoveAllTasks() → ResumeScheduler().
+ */
+TEST_F(AampSchedulerTestsFixture, ResumeScheduler_AfterSuspend_AcceptsNewTasks)
+{
+	// Arrange: scheduler is logically running; suspend it (Stop/Tune path)
+	mSchedulerRunning = true;
+	SuspendScheduler();
+
+	// Confirm the lockout is in effect
+	AsyncTaskObj blocked([](void*) {}, nullptr, "BlockedTask", AAMP_TASK_ID_INVALID);
+	EXPECT_EQ(ScheduleTask(blocked), AAMP_TASK_ID_INVALID);
+
+	// Act: resume the scheduler (releases execution lock + clears mLockOut)
+	ResumeScheduler();
+
+	AsyncTaskObj obj([](void*) {}, nullptr, "RestoredTask", AAMP_TASK_ID_INVALID);
+	int taskId = ScheduleTask(obj);
+
+	// Assert: task must be accepted after resume
+	EXPECT_NE(taskId, AAMP_TASK_ID_INVALID);
+	EXPECT_EQ(mTaskQueue.size(), static_cast<size_t>(1));
+	EXPECT_EQ(mTaskQueue.front().mId, taskId);
+}
