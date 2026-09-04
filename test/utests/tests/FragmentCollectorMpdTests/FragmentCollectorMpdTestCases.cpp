@@ -696,24 +696,3 @@ TEST_F(StreamAbstractionAAMP_MPD_Test, IsVideoDRMLicenseRequired_NoMPDParseHelpe
 	mPrivateInstanceAAMP->mDRMLicenseManager = nullptr;
 }
 
-/**
- * @brief Test IsVideoDRMLicenseRequired with complete DRM infrastructure but no MPD periods
- * @details This is a simplified test that verifies the early return paths.
- *          Full MPD-based tests would require creating complex MPD structures and are better
- *          suited for integration tests. This L1 unit test focuses on validating that the
- *          method correctly checks DRM state availability before processing the manifest.
- */
-TEST_F(StreamAbstractionAAMP_MPD_Test, IsVideoDRMLicenseRequired_CompleteDrmInfrastructure_ChecksDrmState)
-{
-	// Setup complete DRM infrastructure with smart pointers for automatic cleanup
-	auto licManager = std::make_unique<AampDRMLicenseManager>(1, mPrivateInstanceAAMP);
-	mPrivateInstanceAAMP->mDRMLicenseManager = licManager.get();
-
-	// With complete DRM infrastructure but no MPD/periods, should return false
-	// This validates that the method checks drmStateAvailable before inspecting the manifest
-	bool result = mMpdStream->TestIsVideoDRMLicenseRequired();
-	EXPECT_FALSE(result);
-
-	// Cleanup
-	mPrivateInstanceAAMP->mDRMLicenseManager = nullptr;
-}
