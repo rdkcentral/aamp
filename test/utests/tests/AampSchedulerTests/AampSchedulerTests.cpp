@@ -397,3 +397,31 @@ TEST_F(AampSchedulerTestsFixture, ResumeScheduler_AfterSuspend_AcceptsNewTasks)
 	EXPECT_EQ(mTaskQueue.size(), static_cast<size_t>(1));
 	EXPECT_EQ(mTaskQueue.front().mId, taskId);
 }
+
+/**
+ * @test AampSchedulerTestsFixture_StopScheduler_AfterDisableScheduleTask_DoesNotCrash
+ * @brief Regression test for the DisableScheduleTask + StopScheduler destructor trap.
+ *
+ * DisableScheduleTask() sets mLockOut=true WITHOUT acquiring mExLock.
+ * Before the fix, StopScheduler() used !mLockOut to decide whether to call
+ * SuspendScheduler(); seeing mLockOut=true it skipped SuspendScheduler() and
+ * then called ResumeScheduler() which tried to unlock mExLock even though it
+ * was never locked, throwing std::system_error (unique_lock::unlock: not locked).
+ *
+ * After the fix StopScheduler() checks mExLock.owns_lock() directly, so it
+ * correctly calls SuspendScheduler() (acquiring mExLock) before ResumeScheduler().
+ */
+TEST_F(AampSchedulerTestsFixture, StopScheduler_AfterDisableScheduleTask_DoesNotCrash)
+{
+	// Arrange: scheduler logically running, then disable task queuing without
+	// acquiring the execution lock (simulates the Stop() preamble).
+	mSchedulerRunning = true;
+	DisableScheduleTask();
+
+	// Act + Assert: StopScheduler() must not throw or crash.
+	EXPECT_NO_THROW(StopScheduler());
+
+	// Restart so the fixture TearDown (AampScheduler destructor) is in a
+	// consistent state; StopScheduler() leaves mSchedulerRunning=false and
+	// the thread unjoined if it was never started, which is fine here.
+}

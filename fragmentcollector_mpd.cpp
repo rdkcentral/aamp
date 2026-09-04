@@ -4896,7 +4896,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::FetchDashManifest()
 		}
 		else if ( CURLE_ABORTED_BY_CALLBACK == mManifestDnldRespPtr->mMPDDownloadResponse->iHttpRetValue && aamp->IsAsyncTuneAbortRequired() )
 		{
-			AAMPLOG_DEBUG("Do not send a manifest error during stop abort, http error=%d", http_error);
+			AAMPLOG_MIL("Manifest download successfully aborted during Stop (http_error=%d)", http_error);
 			aamp->profiler.ProfileError(PROFILE_BUCKET_MANIFEST, http_error); // this will be tagged with CURLE_ABORTED_BY_CALLBACK in tune metrics
 			aamp->profiler.ProfileEnd(PROFILE_BUCKET_MANIFEST);
 			ret = AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ABORTED;
