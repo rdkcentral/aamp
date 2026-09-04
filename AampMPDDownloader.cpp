@@ -180,6 +180,14 @@ AampMPDDownloader::AampMPDDownloader() :  mMPDBufferQ(),mMPDBufferSize(1),mMPDBu
 AampMPDDownloader::~AampMPDDownloader()
 {
 	// Clear the queue and release all the objects
+	if ( mReleaseCalled && (mDownloaderThread_t1.joinable() || mDownloaderThread_t2.joinable() || mDownloadNotifierThread.joinable()) )
+	{
+		// FIXME: mReleaseCalled handling needs cleaning up to remove the need for this
+		// mDownloadNotifierThread gets created in StreamAbstraction->Init and is not joined if mReleaseCalled is true. So this change will check and cleans up threads where needed.
+		AAMPLOG_ERR("mReleaseCalled=true, but t1 = %d, t2 = %d, t3 = %d. Force mReleaseCalled=false before Release() to avoid a crash",
+			mDownloaderThread_t1.joinable() , mDownloaderThread_t2.joinable() , mDownloadNotifierThread.joinable());
+		mReleaseCalled=false;	// check for and force thread cleanups + join, since we're in a bad state
+	}
 	Release();
 	// reset the pointers , its shared pointer, it will released automatically
 	mMPDData = nullptr;
@@ -399,6 +407,14 @@ void AampMPDDownloader::downloadMPDThread1()
 			}
 			else
 			{
+				if(mReleaseCalled)
+				{
+					AAMPLOG_INFO("Skipping manifest download since Release was called");
+					break;
+				}
+				// FIXME: There is a small window here where Release can be called on AaampMPDDownloader after we have checked mReleaseCalled.
+				// If ->Release() is called now, then ->Download() will re-enable the curl download and this stops the progress_callback from aborting early.
+				// we cannot simply take mMPDDnldMutex to prevent this, since this would block ->Release() from executing
 				mDownloader1.Download(tuneUrl, mMPDData->mMPDDownloadResponse);
 			}
 		}
