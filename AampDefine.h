@@ -85,7 +85,7 @@
 #define DEFAULT_DISCONTINUITY_TIMEOUT 3000          		/**< Default discontinuity timeout after cache is empty in MS */
 #define CURL_FRAGMENT_DL_TIMEOUT 10L    			/**< Curl timeout for fragment download */
 #define DEFAULT_STALL_ERROR_CODE (7600)             		/**< Default stall error code: 7600 */
-#define DEFAULT_STALL_DETECTION_TIMEOUT (10000)     		/**< Stall detection timeout: 10000 millisec */
+#define DEFAULT_STALL_DETECTION_TIMEOUT (20000)     		/**< Stall detection timeout: 10000 millisec */
 #define DEFAULT_MINIMUM_INIT_CACHE_SECONDS  0        		/**< Default initial cache size of playback */
 #define DEFAULT_MAXIMUM_PLAYBACK_BUFFER_SECONDS 30   		/**< Default maximum playback buffer size */
 #define DEFAULT_TIMEOUT_FOR_SOURCE_SETUP (1000) 		/**< Default timeout value in milliseconds */
