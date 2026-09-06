@@ -5289,7 +5289,9 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			std::shared_ptr<ManifestDownloadConfig> inpData = prepareManifestDownloadConfig();
 			if(!inpData->mPreProcessedManifest.empty())
 			{
-				mMPDDownloaderInstance->Initialize(std::move(inpData), mAppName, std::bind(&PrivateInstanceAAMP::SendManifestPreProcessEvent, this));
+				mMPDDownloaderInstance->Initialize(std::move(inpData), mAppName, [this]() -> std::pair<std::string,int> {
+					return SendManifestPreProcessEvent();
+				});
 			}
 			else
 			{
@@ -13992,7 +13994,7 @@ AampTSBSessionManager *PrivateInstanceAAMP::GetTSBSessionManager()
 	return NULL;
 }
 
-std::string PrivateInstanceAAMP::SendManifestPreProcessEvent()
+std::pair<std::string,int> PrivateInstanceAAMP::SendManifestPreProcessEvent()
 {
 	std::string  bRetManifestData;
 	std::lock_guard<std::mutex> guard(mPreProcessLock);
@@ -14006,7 +14008,7 @@ std::string PrivateInstanceAAMP::SendManifestPreProcessEvent()
 		AAMPLOG_WARN("PreProcessed Manifest not available send Need Manifest data event to application");
 		SendEvent(std::make_shared<AAMPEventObject>(AAMP_EVENT_NEED_MANIFEST_DATA, GetSessionId()),AAMP_EVENT_ASYNC_MODE);
 	}
-	return bRetManifestData;
+	return { bRetManifestData, CURLE_OPERATION_TIMEDOUT };
 }
 
 void PrivateInstanceAAMP::updateManifest(const char *manifestData)
