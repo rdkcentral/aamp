@@ -34,8 +34,6 @@
  */
 void MediaStreamContext::InjectFragmentInternal(CachedFragment* cachedFragment, bool &fragmentDiscarded,bool isDiscontinuity)
 {
-	assert(!aamp->GetLLDashChunkMode());
-
 	if(ISCONFIGSET(eAAMPConfig_SuppressDecode))
 	{
 		fragmentDiscarded = false;
@@ -224,6 +222,13 @@ bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, const uint
 		cachedFragment->absPosition = mActiveDownloadInfo->absolutePosition;
 		cachedFragment->timeScale = mActiveDownloadInfo->timeScale;
 		cachedFragment->duration = (double)durationInTicks / (double)cachedFragment->timeScale;
+		// Position of this chunk, before chunkDurationSec advances past it - required by the
+		// SLD restamping path (RestampPts/TrickModePtsRestamp), which chunk mode now also uses.
+		cachedFragment->position = mActiveDownloadInfo->pts + mActiveDownloadInfo->chunkDurationSec;
+		if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp))
+		{
+			cachedFragment->position += mActiveDownloadInfo->ptsOffset.inSeconds();
+		}
 		mActiveDownloadInfo->chunkDurationSec += cachedFragment->duration;
 		// Only update when absPosition is set to avoid messing up the values.
 		if (cachedFragment->absPosition > 0)
@@ -267,18 +272,6 @@ bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, const uint
 		ret = false;
 	}
 	return ret;
-}
-
-/**
- *  @brief Unified fragment caching implementation
- *  @note Phase 2: Stub implementation - will be fully implemented in Phase 3
- */
-bool MediaStreamContext::CacheFragmentData(const FragmentCacheDescriptor& desc)
-{
-	// Phase 2 stub: Not yet implemented
-	// This will be implemented in Phase 3 with unified logic
-	AAMPLOG_WARN("[%s] CacheFragmentData() called but not yet implemented (Phase 2 stub)", name);
-	return false;
 }
 
 /**
@@ -941,7 +934,6 @@ void MediaStreamContext::OnFragmentDownloadFailed(DownloadInfoPtr dlInfo)
 					{
 						AAMPLOG_ERR("%s Not able to download fragments; reached failure threshold sending tune failed event", name);
 						abortWaitForVideoPTS();
-						aamp->SetFlushFdsNeededInCurlStore(true);
 						aamp->SendDownloadErrorEvent(AAMP_TUNE_FRAGMENT_DOWNLOAD_FAILURE, httpErrorCode);
 					}
 				}
@@ -950,8 +942,6 @@ void MediaStreamContext::OnFragmentDownloadFailed(DownloadInfoPtr dlInfo)
 					// When rampdown limit is not specified, init segment will be ramped down, this will
 					AAMPLOG_ERR("%s Not able to download init fragments; reached failure threshold sending tune failed event", name);
 					abortWaitForVideoPTS();
-					aamp->SetFlushFdsNeededInCurlStore(true);
-
 					aamp->SendDownloadErrorEvent(AAMP_TUNE_INIT_FRAGMENT_DOWNLOAD_FAILURE, httpErrorCode);
 				}
 			}
@@ -985,7 +975,6 @@ void MediaStreamContext::OnFragmentDownloadFailed(DownloadInfoPtr dlInfo)
 					// Already at lowest profile, send error event for init fragment.
 					AAMPLOG_ERR("Not able to download init fragments; reached failure threshold sending tune failed event");
 					abortWaitForVideoPTS();
-					aamp->SetFlushFdsNeededInCurlStore(true);
 					aamp->SendDownloadErrorEvent(AAMP_TUNE_INIT_FRAGMENT_DOWNLOAD_FAILURE, httpErrorCode);
 				}
 				else
@@ -1019,7 +1008,6 @@ void MediaStreamContext::OnFragmentDownloadFailed(DownloadInfoPtr dlInfo)
 				if (!dlInfo->isPlayingAd && httpErrorCode != 502)
 				{
 					abortWaitForVideoPTS();
-					aamp->SetFlushFdsNeededInCurlStore(true);
 					aamp->SendDownloadErrorEvent(AAMP_TUNE_INIT_FRAGMENT_DOWNLOAD_FAILURE, httpErrorCode);
 				}
 			}

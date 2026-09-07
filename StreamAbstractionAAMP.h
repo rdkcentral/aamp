@@ -313,13 +313,6 @@ public:
 	bool InjectFragment();
 
 	/**
-	 * @fn ProcessFragmentChunk
-	 * @brief Process next cached fragment chunk
-	 * @retval true if chunk should be removed from the cached fragment chunk buffer, false otherwise
-	 */
-	bool ProcessFragmentChunk();
-
-	/**
 	 * @fn CheckForDiscontinuity
 	 *
 	 * @return true/false
@@ -493,13 +486,6 @@ public:
 	 * @return Total duration in seconds
 	 */
 	double GetTotalFetchedDuration();
-
-	/**
-	 * @brief Get total duration of injected fragment chunks (LLD chunk mode)
-	 *
-	 * @return Total duration in seconds
-	 */
-	double GetTotalInjectedChunksDuration() { return totalInjectedChunksDuration; }
 
 	/**
 	 * @brief Check if discontinuity is being processed
@@ -713,22 +699,6 @@ protected:
 	 */
 	virtual void InjectFragmentInternal(CachedFragment* cachedFragment, bool &fragmentDiscarded,bool isDiscontinuity=false) = 0;
 
-	/**
-	 * @fn InjectFragmentChunkInternal
-	 *
-	 * @param[in] mediaType - Media type of the fragment
-	 * @param[in] buffer - contains fragment to be processed and injected
-	 * @param[in] fpts - fragment PTS
-	 * @param[in] fdts - fragment DTS
-	 * @param[in] fDuration - fragment duration
-	 * @param[in] fragmentPTSOffset - PTS offset to be applied
-	 * @param[in] init - true if fragment is init fragment
-	 * @param[in] discontinuity - true if there is a discontinuity, false otherwise
-	 * @return void
-	 */
-	void InjectFragmentChunkInternal(AampMediaType mediaType, std::vector<uint8_t>& buffer, double fpts, double fdts, double fDuration, double fragmentPTSOffset, bool init=false, bool discontinuity=false);
-
-
 	static int GetDeferTimeMs(long maxTimeSeconds);
 
 
@@ -807,7 +777,6 @@ public:
 	bool refreshAudio;                  /** Switch audio track in the FetcherLoop */
 	int maxLLDCachedFragmentsPerTrack;
 	std::condition_variable fragmentFetched;/**< Signaled after a fragment is fetched*/
-	int noMDATCount;                    /**< MDAT Chunk Not Found count continuously while chunk buffer processing*/
 	double m_totalDurationForPtsRestamping;
 	std::shared_ptr<MediaProcessor> playContext;		/**< state for s/w demuxer / pts/pcr restamper module */
 	bool seamlessAudioSwitchInProgress; /**< Flag to indicate seamless audio track switch in progress */
@@ -821,8 +790,6 @@ protected:
 	 *  The active window is `mCachedFragmentSize` (set via SetCachedFragmentSize()),
 	 *  which never exceeds MAX_CACHED_FRAGMENTS_PER_TRACK. */
 	std::array<CachedFragment, MAX_CACHED_FRAGMENTS_PER_TRACK> mCachedFragment{};
-	std::vector<uint8_t> unparsedBufferChunk{}; /**< Unparsed buffer chunk for ISOBMFF chunk processing */
-	std::vector<uint8_t> parsedBufferChunk{};   /**< Parsed buffer chunk for ISOBMFF chunk processing */
 	bool abort;                         /**< Abort all operations if flag is set*/
 	std::mutex mutex;                   /**< protection of track variables accessed from multiple threads */
 	bool ptsError;                      /**< flag to indicate if last injected fragment has ptsError */
@@ -855,7 +822,6 @@ private:
 	bool UpdateSubtitleClockTaskStarted;    /**< Subtitle clock synchronization thread started, or not */
 	bool bufferMonitorThreadDisabled;    	/**< Buffer Monitor thread Disabled or not */
 	double totalInjectedDuration;       	/**< Total fragment injected duration*/
-	double totalInjectedChunksDuration;  	/**< Total fragment injected chunk duration*/
 	int currentInitialCacheDurationSeconds; /**< Current cached fragments duration before playing*/
 	bool sinkBufferIsFull;                	/**< True if sink buffer is full and do not want new fragments*/
 	bool cachingCompleted;              	/**< Fragment caching completed or not*/
@@ -864,7 +830,6 @@ private:
 	bool discontinuityProcessed;
 	BufferHealthStatus bufferStatus;     /**< Buffer status of the track*/
 	BufferHealthStatus prevBufferStatus; /**< Previous buffer status of the track*/
-	uint64_t prevDownloadStartTime;		/**< Previous file download Start time*/
 
 	std::thread *playlistDownloaderThread;	/**< PlaylistDownloadThread of track*/
 	bool abortPlaylistDownloader;			/**< Flag used to abort playlist downloader*/

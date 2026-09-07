@@ -161,7 +161,7 @@ float SpeedChangedEvent::getRate() const
 
  *
  */
-ProgressEvent::ProgressEvent(double duration, double position, double start, double end, float speed, long long pts, double videoBufferedDuration, double audioBufferedDuration, std::string seiTimecode, double liveLatency, BitsPerSecond profileBandwidth, BitsPerSecond networkBandwidth, double currentPlayRate,
+ProgressEvent::ProgressEvent(double duration, double position, double start, double end, float speed, long long pts, double videoBufferedDuration, double audioBufferedDuration, std::string seiTimecode, double liveLatency, double targetLatency, BitsPerSecond profileBandwidth, BitsPerSecond networkBandwidth, double currentPlayRate,
 	std::string sid):
 		AAMPEventObject(AAMP_EVENT_PROGRESS, std::move(sid)), mDuration(duration),
 		mPosition(position), mStart(start),
@@ -170,6 +170,7 @@ ProgressEvent::ProgressEvent(double duration, double position, double start, dou
 		mAudioBufferedDurationMs(audioBufferedDuration),
 		mSEITimecode(std::move(seiTimecode)),
 		mLiveLatency(liveLatency),
+		mTargetLatency(targetLatency),
 		mProfileBandwidth(profileBandwidth),
 		mNetworkBandwidth(networkBandwidth),
 		mCurrentPlayRate(currentPlayRate)
@@ -278,6 +279,16 @@ double ProgressEvent::getLiveLatency() const
 }
 
 /**
+ * @brief Get Target Latency
+ *
+ * @return Target Latency
+ */
+double ProgressEvent::getTargetLatency() const
+{
+	return mTargetLatency;
+}
+
+/**
  * @brief Get Profile Bandwidth
  *
  * @return Profile Bandwidth
@@ -306,7 +317,6 @@ double ProgressEvent::getCurrentPlayRate() const
 {
 	return mCurrentPlayRate;
 }
-
 
 /**
  * @brief CCHandleEvent Constructor

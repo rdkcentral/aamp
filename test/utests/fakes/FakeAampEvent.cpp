@@ -276,7 +276,7 @@ bool BufferingChangedEvent::buffering() const
 	return false;
 }
 
-ProgressEvent::ProgressEvent(double duration, double position, double start, double end, float speed, long long pts, double videoBufferedDuration, double audioBufferedDuration, std::string seiTimecode,double liveLatency, long profileBandwidth, long networkBandwidth, double currentPlayRate, std::string sid):
+ProgressEvent::ProgressEvent(double duration, double position, double start, double end, float speed, long long pts, double videoBufferedDuration, double audioBufferedDuration, std::string seiTimecode, double liveLatency, double targetLatency, long profileBandwidth, long networkBandwidth, double currentPlayRate, std::string sid):
 		AAMPEventObject(AAMP_EVENT_PROGRESS, std::move(sid))
 {
 }
@@ -284,6 +284,7 @@ ProgressEvent::ProgressEvent(double duration, double position, double start, dou
 double ProgressEvent::getDuration(void) const{ return 0.0; }
 double ProgressEvent::getPosition(void) const{ return 0.0; }
 double ProgressEvent::getLiveLatency(void) const{ return 0.0; }
+double ProgressEvent::getTargetLatency(void) const{ return 0.0; }
 const char* ProgressEvent::getSEITimeCode(void) const{ return NULL; }
 double ProgressEvent::getCurrentPlayRate(void) const{ return 0.0; }
 double ProgressEvent::getVideoBufferedDuration(void) const{ return 0.0; }

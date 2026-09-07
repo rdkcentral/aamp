@@ -230,7 +230,6 @@ static_assert(DEFAULT_CACHED_FRAGMENTS_PER_TRACK <= MAX_CACHED_FRAGMENTS_PER_TRA
 #define DEFAULT_ABR_ELAPSED_MILLIS_FOR_ESTIMATE		100					/**< Duration(ms) to check Chunk Speed */
 #define AAMP_LLDABR_MIN_BUFFER_VALUE			0.5f                  /** 0.5 sec */
 #define DEFAULT_ABR_BYTES_TRANSFERRED_FOR_ESTIMATE	(512 * 1024)				/**< 512K */
-#define MAX_MDAT_NOT_FOUND_COUNT			500					/**< Max MDAT not found count*/
 #define DEFAULT_CONTENT_PROTECTION_DATA_UPDATE_TIMEOUT	5000					/**< Default Timeout for Content Protection Data Update on Dynamic Key Rotation */
 
 // Player configuration for Fog download
