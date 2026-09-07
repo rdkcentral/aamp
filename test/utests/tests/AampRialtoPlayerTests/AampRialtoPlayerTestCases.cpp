@@ -4048,12 +4048,14 @@ TEST_F(AampRialtoPlayerTest,
 }
 
 TEST_F(AampRialtoPlayerTest,
-	OnPlaybackError_OutputProtection_SuppressedAsNonFatal)
+	OnPlaybackError_OutputProtection_SchedulesRetune)
 {
 	Configure();
 
 	EXPECT_CALL(m_mockNotifiable, NotifyPlaybackError(_, _, _))
 		.Times(0);
+	EXPECT_CALL(m_mockNotifiable, NotifyOutputProtectionRecovered())
+		.Times(1);
 
 	PostPlaybackError(/*sourceId=*/0,
 		firebolt::rialto::PlaybackError::OUTPUT_PROTECTION);

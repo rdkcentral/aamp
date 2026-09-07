@@ -297,6 +297,24 @@ TEST_F(PrivateInstanceAAMPNotifiableTest,
 }
 
 // ===========================================================================
+// NotifyOutputProtectionRecovered
+// ===========================================================================
+
+TEST_F(PrivateInstanceAAMPNotifiableTest,
+	NotifyOutputProtectionRecovered_SchedulesTaskThatMutesAndRetunes)
+{
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+		ScheduleAsyncTask(_, _, std::string("NotifyOutputProtectionRecovered")))
+		.WillOnce([](IdleTask task, void *arg, std::string) -> int {
+			task(arg);
+			return 1;
+		});
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetVideoMute(true));
+
+	m_notifiable->NotifyOutputProtectionRecovered();
+}
+
+// ===========================================================================
 // SendMonitorAvEvent
 // ===========================================================================
 

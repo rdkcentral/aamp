@@ -198,6 +198,17 @@ public:
 		const std::string &description,
 		bool isRetryEnabled) = 0;
 
+	/**
+	 * @brief Notify that HDCP output protection has just recovered (the CDM
+	 *        key just returned to a usable state after a prior restriction).
+	 *
+	 * Mirrors AAMPGstPlayer's HandleBusMessage() MESSAGE_APPLICATION
+	 * "HDCPProtectionFailure" handling: mutes video and schedules an
+	 * internal retune to resynchronize playback. Video-only, since HDCP
+	 * output protection only ever gates the video key in practice.
+	 */
+	virtual void NotifyOutputProtectionRecovered() = 0;
+
 	// -----------------------------------------------------------------------
 	// Discontinuity
 	// -----------------------------------------------------------------------

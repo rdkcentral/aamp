@@ -86,6 +86,7 @@ public:
 		AAMPTuneFailure failure,
 		const std::string &description,
 		bool isRetryEnabled) override;
+	void NotifyOutputProtectionRecovered() override;
 	void CompleteDiscontinuityDataDeliverForPTSRestamp(
 		AampMediaType type) override;
 	void NotifyPipelinePausedToUnderflowMonitor() override;

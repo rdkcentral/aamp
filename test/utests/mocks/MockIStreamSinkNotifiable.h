@@ -58,6 +58,8 @@ public:
 		(AAMPTuneFailure failure, const std::string &description,
 		 bool isRetryEnabled), (override));
 
+	MOCK_METHOD(void, NotifyOutputProtectionRecovered, (), (override));
+
 	MOCK_METHOD(void, CompleteDiscontinuityDataDeliverForPTSRestamp,
 		(AampMediaType type), (override));
 

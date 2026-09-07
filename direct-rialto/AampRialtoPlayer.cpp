@@ -2770,13 +2770,14 @@ void AampRialtoPlayer::OnPlaybackError(
 			break;
 		case firebolt::rialto::PlaybackError::OUTPUT_PROTECTION:
 			// Non-fatal per Rialto's own PlaybackErrorCallback contract.
-			// This fires once, exactly at HDCP recovery; escalating it to
-			// SendErrorEvent() puts AAMP into eSTATE_ERROR and calls
-			// DisableDownloads(), which halts fetch/injection session-wide
-			// right as playback is recovering, with no automatic way back.
-			// Log only, do not escalate.
-			AAMPLOG_WARN("%s - non-fatal, not escalating to tune failure",
+			// This fires once, exactly at HDCP recovery. Schedule a retune
+			// to resynchronize A/V and recover cleanly, mirroring
+			// AAMPGstPlayer's HandleBusMessage() HDCPProtectionFailure path -
+			// do not escalate to SendErrorEvent(), which would put AAMP into
+			// eSTATE_ERROR right as playback is recovering.
+			AAMPLOG_WARN("%s - scheduling retune for HDCP recovery",
 				errorDesc.c_str());
+			m_notifiable->NotifyOutputProtectionRecovered();
 			break;
 		case firebolt::rialto::PlaybackError::UNKNOWN:
 		default:

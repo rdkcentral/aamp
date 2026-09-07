@@ -278,6 +278,17 @@ void PrivateInstanceAAMPNotifiable::NotifyPlaybackError(
 	}
 }
 
+void PrivateInstanceAAMPNotifiable::NotifyOutputProtectionRecovered()
+{
+	AAMPLOG_TRACE("NotifyOutputProtectionRecovered");
+	m_aamp->ScheduleAsyncTask([](void *p) -> int {
+		auto *aamp = static_cast<PrivateInstanceAAMP *>(p);
+		aamp->SetVideoMute(true);
+		aamp->ScheduleRetune(eGST_ERROR_OUTPUT_PROTECTION_ERROR, eMEDIATYPE_VIDEO);
+		return 0;
+	}, m_aamp, "NotifyOutputProtectionRecovered");
+}
+
 // CompleteDiscontinuityDataDeliverForPTSRestamp() and
 // NotifyPipelinePausedToUnderflowMonitor() are called synchronously, unlike
 // the notifications above.  Those are deferred via ScheduleAsyncTask because
