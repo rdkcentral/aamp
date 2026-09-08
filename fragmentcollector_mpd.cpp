@@ -6934,7 +6934,14 @@ void StreamAbstractionAAMP_MPD::SelectSubtitleTrack(bool newTune, std::vector<Te
 		if (-1 != selAdaptationSetIndex)
 			tTrackIdx = std::to_string(selAdaptationSetIndex) + "-" + std::to_string(selRepresentationIndex);
 
+#if 1//anj
+		if (!ISCONFIGSET(eAAMPConfig_useDirectRialto))
+		{
+			aamp->StopTrackDownloads(eMEDIATYPE_SUBTITLE);
+		}
+#else
 		aamp->StopTrackDownloads(eMEDIATYPE_SUBTITLE);
+#endif//anj
 	}
 	if ((AAMP_NORMAL_PLAY_RATE == mPlayRate) && (pMediaStreamContext->enabled == false) && (selAdaptationSetIndex >= 0))
 	{
