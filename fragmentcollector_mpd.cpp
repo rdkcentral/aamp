@@ -3921,6 +3921,10 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 
 	AAMPStatusType ret= eAAMPSTATUS_OK;
 	AAMPPlayerState state = aamp->GetState();
+	if (aamp->IsAsyncTuneAbortSupported())
+	{
+		aamp->initialManifestFetchInProgress=true;	// Signal to any stop process that a manifest download can be aborted
+	}
 	if (aamp->IsAsyncTuneAbortRequired())
 	{
 		AAMPLOG_WARN("Manifest download will be skipped since we are already stopping");
@@ -3928,28 +3932,24 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 	}
 	else
 	{
-		if (aamp->IsAsyncTuneAbortSupported())
-		{
-			aamp->initialManifestFetchInProgress=true;	// Signal to any stop process that a manifest download can be aborted
-		}
 		// This may get terminated by Release from Stop(), returning eAAMPSTATUS_MANIFEST_DOWNLOAD_ABORTED
 		// Note: if we abort then any fog tsb will not get deleted in SendErrorEvent (which is not called). We will do this in PrivateInstanceAAMP::Stop
 		ret = FetchDashManifest();
 		aamp->initialManifestFetchInProgress=false;
+	}
 
-		if (ret != eAAMPSTATUS_OK)
+	if (ret != eAAMPSTATUS_OK)
+	{
+		AAMPLOG_WARN("Manifest download failed or was aborted, code = %s", statusName(ret));
+	}
+	else
+	{
+		// If stop was called too late to abort in the progress callback then abort now
+		state = aamp->GetState();
+		if (aamp->IsAsyncTuneAbortRequired())
 		{
-			AAMPLOG_WARN("Manifest download failed or was aborted, code = %s", statusName(ret));
-		}
-		else
-		{
-			// If stop was called too late to abort in the progress callback then abort now
-			state = aamp->GetState();
-			if (aamp->IsAsyncTuneAbortRequired())
-			{
-				ret = eAAMPSTATUS_MANIFEST_DOWNLOAD_ABORTED;
-				AAMPLOG_WARN("A stop has been requested during completed manifest download, so abort");
-			}
+			ret = eAAMPSTATUS_MANIFEST_DOWNLOAD_ABORTED;
+			AAMPLOG_WARN("A stop has been requested during completed manifest download, so abort");
 		}
 	}
 
