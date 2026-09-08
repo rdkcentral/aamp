@@ -155,14 +155,9 @@ INSTALL_STATUS_ARR+=("install_build_googletest check passed.")
 install_build_libdash_fn "${OPTION_CLEAN}" 
 INSTALL_STATUS_ARR+=("install_build_libdash check passed.")
 
-# Build middleware interface (only if external is selected)
-if [ "${OPTION_PLAYER_INTERFACE_SOURCE}" = "external" ] ; then
-    export MIDDLEWARE_PLAYER_INTERFACE_COMMIT_ID="${OPTION_MIDDLEWARE_PLAYER_INTERFACE_COMMIT_ID}"
-    install_build_middleware_interface_fn "${OPTION_CLEAN}"
-    INSTALL_STATUS_ARR+=("install_build_middleware_interface_fn check passed.")
-else
-    INSTALL_STATUS_ARR+=("install_build_middleware_interface_fn check SKIPPED (using internal).")
-fi
+# Build middleware interface (external middleware-player-interface)
+install_build_middleware_interface_fn "${OPTION_CLEAN}"
+INSTALL_STATUS_ARR+=("install_build_middleware_interface_fn check passed.")
 
 # Build subtec
 #

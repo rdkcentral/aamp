@@ -24,7 +24,7 @@
 
 #include "MockTsbMetaDataManager.h"
 
-MockAampTsbMetaDataManager* g_mockAampTsbMetaDataManager = nullptr;
+std::shared_ptr<MockAampTsbMetaDataManager> g_mockAampTsbMetaDataManager{};
 
 // Add constructor and destructor implementations
 AampTsbMetaDataManager::AampTsbMetaDataManager()

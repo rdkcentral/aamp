@@ -26,16 +26,7 @@ function install_dir_fn()
       if [ -d "../aamp" ]; then
         ABS_PATH="$(cd "../aamp" && pwd -P)"
         echo ""
-        while true; do
-          read -p '[!Alert!] Install script identified that the aamp folder already exists @ ../aamp.
-          Press Y, if you want to use same aamp folder (../aamp) for your simulator build.
-          Press N, If you want to use separate build folder for aamp simulator. Press (Y/N)'  yn
-          case $yn in
-             [Yy]* ) AAMP_DIR=$ABS_PATH; echo "using following aamp build directory $AAMP_DIR"; break;;
-             [Nn]* ) echo "using following aamp build directory $PWD/$AAMP_DIR"; break ;;
-                 * ) echo "Please answer yes or no.";;
-          esac
-        done
+        AAMP_DIR=$ABS_PATH;
       fi
   else
     echo "Using aamp build directory under $OPTION_BUILD_DIR";

@@ -51,22 +51,14 @@ pkg_check_modules(OPENSSL REQUIRED openssl)
 pkg_check_modules(LIBCJSON REQUIRED libcjson)
 pkg_check_modules(UUID REQUIRED uuid)
 
-# CMAKE_EXTERNAL_PLAYER_INTERFACE_DEPENDENCIES is set when the distro "build_external_player_interface" 
-# option is enabled in the Yocto recipe. This flag determines whether middleware-player-interface 
-# components should be sourced from external repositories or built from the local aamp repository.
-if(CMAKE_EXTERNAL_PLAYER_INTERFACE_DEPENDENCIES)
-	pkg_check_modules(BASECONVERSION REQUIRED libbaseconversion)
-	pkg_check_modules(PLAYERLOGMANAGER REQUIRED libplayerlogmanager)
-	pkg_check_modules(PLAYERFBINTERFACE REQUIRED libplayerfbinterface)
-	pkg_check_modules(PLAYERGSTINTERFACE REQUIRED libplayergstinterface)
-	pkg_check_modules(SUBTEC REQUIRED libsubtec)
-endif()	
-
-if(CMAKE_PREINIT_DECODER)
-       message("CMAKE_PREINIT_DECODER Set")
-       set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DUSE_PREINIT_DECODING=1")
-       set(LIBAAMPJSBINDINGS_DEFINES "${LIBAAMPJSBINDINGS_DEFINES} -DUSE_PREINIT_DECODING=1")
-endif()
+# External middleware-player-interface dependencies (required)
+# Components are sourced from the external middleware-player-interface repository.
+# See: https://github.com/rdkcentral/middleware-player-interface
+pkg_check_modules(BASECONVERSION REQUIRED libbaseconversion)
+pkg_check_modules(PLAYERLOGMANAGER REQUIRED libplayerlogmanager)
+pkg_check_modules(PLAYERFBINTERFACE REQUIRED libplayerfbinterface)
+pkg_check_modules(PLAYERGSTINTERFACE REQUIRED libplayergstinterface)
+pkg_check_modules(SUBTEC REQUIRED libsubtec)
 
 if(APPLE)
 	# libcurl < 8.5 exhibits memory leaks. On Ubuntu 22.04 can't update beyond 7.81.0-1ubuntu1.16 without building from source
@@ -77,7 +69,9 @@ endif()
 
 # Platform specific settings
 if(APPLE)
-	set(CMAKE_OSX_DEPLOYMENT_TARGET "15.6")
+	if(NOT DEFINED CMAKE_OSX_DEPLOYMENT_TARGET)
+		set(CMAKE_OSX_DEPLOYMENT_TARGET "26.0")
+	endif()
 	set(CMAKE_C_COMPILER "/usr/bin/cc")
 	set(CMAKE_CXX_COMPILER "/usr/bin/c++")
 
@@ -86,11 +80,13 @@ if(APPLE)
 	set(CMAKE_SKIP_BUILD_RPATH FALSE)
 
 	list(APPEND CMAKE_BUILD_RPATH "${CMAKE_SOURCE_DIR}/.libs/lib")
+	list(APPEND CMAKE_BUILD_RPATH "/Library/Frameworks")
 
 	# when building, don't use the install RPATH already
 	# (but later on when installing)
 	set(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
 	set(CMAKE_INSTALL_RPATH "${CMAKE_SOURCE_DIR}/.libs/lib")
+	list(APPEND CMAKE_INSTALL_RPATH "/Library/Frameworks")
 
 	# add the automatically determined parts of the RPATH
 	# which point to directories outside the build tree to the install RPATH
@@ -134,14 +130,16 @@ if(CMAKE_PLATFORM_UBUNTU OR CMAKE_SYSTEM_NAME STREQUAL Darwin)
 		set(AAMP_CLI_LD_FLAGS "${AAMP_CLI_LD_FLAGS} ${GSTREAMERVIDEO_LINK_LIBRARIES}")
 		string(STRIP "${AAMP_CLI_LD_FLAGS}" AAMP_CLI_LD_FLAGS)
 		message("AAMP_CLI_LD_FLAGS: ${AAMP_CLI_LD_FLAGS}")
-		# Use pkg-config library directories for dependencies
-		link_directories(${OPENSSL_LIBRARY_DIRS})
-		link_directories(${GSTREAMER_LIBRARY_DIRS})
-		link_directories(${GSTREAMERVIDEO_LIBRARY_DIRS})
-		link_directories(${GSTREAMERBASE_LIBRARY_DIRS})
 		pkg_check_modules(GLIB REQUIRED glib-2.0)
 		include_directories(${GLIB_INCLUDE_DIRS})
-		link_directories(${GLIB_LIBRARY_DIRS})
+		# Note: link_directories() is intentionally omitted here for OpenSSL and
+		# GStreamer. The Xcode generator appends $(CONFIGURATION) (e.g. "Debug") to
+		# every path passed via link_directories(), producing spurious "search path
+		# not found" warnings for paths like .../lib/Debug that don't exist under
+		# Homebrew prefixes. OpenSSL and GStreamer are linked via their
+		# *_LINK_LIBRARIES variables (full absolute paths) so the directory hint is
+		# not needed. Other dependencies (e.g. LIBXML2) still use short library
+		# names and rely on the system linker search path.
 		set(GL_DEPENDS
 			"-framework OpenGL"
 			"-framework GLUT"
@@ -207,51 +205,38 @@ set(LIBAAMP_DEPENDS
 	${LIBDASH_LINK_LIBRARIES}
 	${LIBXML2_LIBRARIES}
 	${CMAKE_THREAD_LIBS_INIT}
-	${OPENSSL_LIBRARIES}
+	${OPENSSL_LINK_LIBRARIES}
 	${GL_DEPENDS}
 	${AAMP_CLI_LD_FLAGS}
-	-ldl
 )
+# -ldl is part of libSystem on Darwin and linked automatically; adding it
+# explicitly duplicates what transitive dependencies already bring in.
+if(NOT CMAKE_SYSTEM_NAME STREQUAL Darwin)
+	list(APPEND LIBAAMP_DEPENDS -ldl)
+endif()
 
-if(CMAKE_EXTERNAL_PLAYER_INTERFACE_DEPENDENCIES)
-
-	list(APPEND LIBAAMP_DEPENDS 
+list(APPEND LIBAAMP_DEPENDS 
 	${PLAYERFBINTERFACE_LINK_LIBRARIES} 
 	${BASECONVERSION_LINK_LIBRARIES} 
 	${PLAYERLOGMANAGER_LINK_LIBRARIES} 
 	${PLAYERGSTINTERFACE_LINK_LIBRARIES} 
 	${SUBTEC_LINK_LIBRARIES} )
 
-	# TDB needs to bring back for UT. 
-	#include(test/mocks/mocks.cmake NO_POLICY_SCOPE)
+# TDB needs to bring back for UT. 
+#include(test/mocks/mocks.cmake NO_POLICY_SCOPE)
 
-	# External player interface include directories
-	include_directories(
-		${PLAYERFBINTERFACE_INCLUDE_DIRS}
-		${BASECONVERSION_INCLUDE_DIRS}
-		${PLAYERLOGMANAGER_INCLUDE_DIRS}
-		${PLAYERGSTINTERFACE_INCLUDE_DIRS}
-		${SUBTEC_INCLUDE_DIRS}
-	)
-else()
-	# TDB needs to bring back for UT. 
-	#include(test/mocks/mocks.cmake NO_POLICY_SCOPE)
-	# Adding subdirectories for internal libraries
-	include_directories(
-		${CMAKE_CURRENT_SOURCE_DIR}/middleware
-		${CMAKE_CURRENT_SOURCE_DIR}/middleware/drm
-		${CMAKE_CURRENT_SOURCE_DIR}/middleware/drm/helper
-		${CMAKE_CURRENT_SOURCE_DIR}/middleware/externals
-		${CMAKE_CURRENT_SOURCE_DIR}/middleware/externals/contentsecuritymanager
-		${CMAKE_CURRENT_SOURCE_DIR}/middleware/playerLogManager
-		${CMAKE_CURRENT_SOURCE_DIR}/middleware/drm/aes
-	)
-	add_subdirectory(middleware)
-endif()
+# External player interface include directories
+include_directories(
+	${PLAYERFBINTERFACE_INCLUDE_DIRS}
+	${BASECONVERSION_INCLUDE_DIRS}
+	${PLAYERLOGMANAGER_INCLUDE_DIRS}
+	${PLAYERGSTINTERFACE_INCLUDE_DIRS}
+	${SUBTEC_INCLUDE_DIRS}
+)
 
 add_subdirectory(test/rialtoPOC)
 
-if (CMAKE_INBUILT_AAMP_DEPENDENCIES)
+#if (CMAKE_INBUILT_AAMP_DEPENDENCIES)
 	message("Building aamp support libraries")
 	include_directories(support/aampmetrics)
 
@@ -259,7 +244,7 @@ if (CMAKE_INBUILT_AAMP_DEPENDENCIES)
 	add_subdirectory(support/aampabr)
 	add_subdirectory(support/aampmetrics)
 	set(LIBAAMP_DEPENDS ${LIBAAMP_DEPENDS} metrics)
-endif()
+#endif()
 
 message("Adding tsb folder")
 add_subdirectory(tsb)
@@ -515,6 +500,7 @@ set(LIBAAMP_SOURCES
 	AampMPDDownloader.cpp AampMPDDownloader.h
 	AampMPDParseHelper.cpp AampMPDParseHelper.h
 	AampMPDUtils.cpp AampMPDUtils.h
+	AampVodStitcher.cpp AampVodStitcher.h
 	ElementaryProcessor.cpp ElementaryProcessor.h
 	AampStreamSinkManager.cpp AampStreamSinkManager.h
 	MetadataProcessor.cpp MetadataProcessor.hpp
@@ -592,11 +578,7 @@ set(COMMON_COMPILE_FLAGS "${LIBAAMP_DEFINES} ${OS_CXX_FLAGS}")
 
 set(LIBAAMP_SOURCES "${LIBAAMP_SOURCES}" "${LIBAAMP_MOCK_SOURCES}")
 add_library(aamp SHARED ${LIBAAMP_SOURCES})
-if(CMAKE_EXTERNAL_PLAYER_INTERFACE_DEPENDENCIES)
-	target_link_libraries(aamp tsb ${LIBAAMP_DEPENDS} ${LIBAAMP_MOCK_DEPENDS})
-else()
-	target_link_libraries(aamp tsb playergstinterface playerfbinterface ${LIBAAMP_DEPENDS} ${LIBAAMP_MOCK_DEPENDS})
-endif()
+target_link_libraries(aamp tsb ${LIBAAMP_DEPENDS} ${LIBAAMP_MOCK_DEPENDS})
 set_target_properties(aamp PROPERTIES COMPILE_FLAGS "${COMMON_COMPILE_FLAGS}")
 set_target_properties(aamp PROPERTIES PUBLIC_HEADER "main_aamp.h")
 set_target_properties(aamp PROPERTIES PRIVATE_HEADER "priv_aamp.h")
@@ -618,12 +600,8 @@ set(AAMP_CLI_SOURCES
 	test/aampcli/AampcliPrintf.cpp
 )
 add_executable(aamp-cli ${AAMP_CLI_SOURCES})
-if(CMAKE_EXTERNAL_PLAYER_INTERFACE_DEPENDENCIES)
-	# Note: Most libraries are already included via the aamp library dependency
-	target_link_libraries(aamp-cli aamp tsb ${AAMP_CLI_LD_FLAGS} "-lreadline")
-else()
-	target_link_libraries(aamp-cli aamp tsb playergstinterface playerfbinterface ${AAMP_CLI_LD_FLAGS} "-lreadline")
-endif()
+# Note: Most libraries are already included via the aamp library dependency
+target_link_libraries(aamp-cli aamp tsb ${AAMP_CLI_LD_FLAGS} "-lreadline")
 #aamp-cli is not an ideal standalone app. It uses private aamp instance for debugging purposes
 
 set_target_properties(aamp-cli PROPERTIES COMPILE_FLAGS "${COMMON_COMPILE_FLAGS}")

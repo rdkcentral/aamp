@@ -325,17 +325,50 @@ public:
 	 * @fn GetTuneMetricInfoasJson
 	 *
 	 * @param[in] tuneMetricsData - tuneend metric data
-	 * @param[in] licenseAcqNWTime - license Acq Network Time
 	 * @param[in] playerPreBuffered - prebuffered mode
 	 * @param[in] durationSeconds - Asset duration in seconds
 	 * @param[in] interfaceWifi - Connection is wifi or not - wifi(1) ethernet(0)
 	 * @param[in] failureReason - Failure Reason
 	 * @param[in] appName - App name
-	 * @return string
+	 * @return JSON-formatted string (unformatted/compact) containing tune-time
+	 *         metrics, with the following keys:
+	 *           "pre" - player-mode prefix (FG/BG)
+	 *           "ver" - tune-time schema version (AAMP_TUNETIME_VERSION)
+	 *           "bld" - AAMP build version string
+	 *           "tbu" - tune start base UTC timestamp (ms)
+	 *           "mms"/"mmt"/"mme" - manifest fetch start/duration/error-count
+	 *           "vps"/"vpt"/"vpe" - video playlist fetch start/duration/error-count
+	 *           "aps"/"apt"/"ape" - audio playlist fetch start/duration/error-count
+	 *           "vis"/"vit"/"vie" - video init fragment start/duration/error-count
+	 *           "ais"/"ait"/"aie" - audio init fragment start/duration/error-count
+	 *           "vfs"/"vft"/"vfe"/"vfb" - video fragment start/duration/error-count/bandwidth (bps)
+	 *           "afs"/"aft"/"afe"/"afb" - audio fragment start/duration/error-count/bandwidth (bps)
+	 *           "las"/"lat" - licence acquisition total start/duration
+	 *           "lpr"/"lnw"/"lps" - licence pre-processing/network/post-processing durations
+	 *           "dfe" - DRM error code
+	 *           "vdd"/"add" - video/audio decrypt durations
+	 *           "gps" - time to first buffer (ms, adjusted for pre-buffered mode)
+	 *           "gff" - time to first frame (ms, adjusted for pre-buffered mode)
+	 *           "gdt" - gap between last decrypt finish and first frame (ms)
+	 *           "cnt" - content type (ContentType enum value)
+	 *           "stt" - stream type
+	 *           "ftt" - first-tune flag (bool)
+	 *           "pbm" - player-pre-buffered mode flag
+	 *           "tpb" - pre-buffered timestamp (ms, 0 if not pre-buffered)
+	 *           "dus" - asset duration (seconds)
+	 *           "ifw" - interface type: wifi(1) / ethernet(0)
+	 *           "tat" - total tune attempt count
+	 *           "tst" - tune success flag
+	 *           "frs" - failure reason string
+	 *           "app" - application name
+	 *           "tsb" - FOG TSB enabled flag
+	 *           "tot" - total tune time (ms)
+	 *           "pst" - stop duration (ms)
+	 *         Returns an empty string if JSON object creation fails.
 	 */
 	std::string GetTuneTimeMetricAsJson(TuneEndMetrics tuneMetricsData, const char *tuneTimeStrPrefix,
-				unsigned int licenseAcqNWTime, bool playerPreBuffered,
-				unsigned int durationSeconds, bool interfaceWifi, std::string failureReason, std::string appName);
+				bool playerPreBuffered, unsigned int durationSeconds, bool interfaceWifi,
+				std::string failureReason, std::string appName);
 
 	/**
 	 * @fn TuneBegin

@@ -31,7 +31,7 @@ using namespace std;
 #define TRACE_FUNC() ((void)0)
 #endif
 
-MockGLib *g_mockGLib = nullptr;
+std::shared_ptr<MockGLib> g_mockGLib{};
 
 void g_object_set(gpointer object, const gchar *first_property_name, ...)
 {

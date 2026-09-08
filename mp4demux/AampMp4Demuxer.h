@@ -72,7 +72,7 @@ public:
 	 * @return true if fragment was sent, false otherwise
 	 */
 	bool sendSegment(std::vector<uint8_t>&& buffer, double position, double duration, double fragmentPTSoffset, bool discontinuous,
-						bool isInit, process_fcn_t processor, bool &ptsError) override;
+					bool isInit, process_fcn_t processor, bool &ptsError) override;
 
 	/**
 	 * @brief Set playback rate
@@ -81,7 +81,7 @@ public:
 	 * @param[in] mode - playback mode
 	 * @return void
 	 */
-	void setRate(double rate, PlayMode mode) override { };
+	void setRate(double rate, PlayMode mode) override;
 
 	/**
 	 * @brief Enable or disable throttle
@@ -97,21 +97,21 @@ public:
 	 * @param[in] frameRate - rate per second
 	 * @return void
 	 */
-	void setFrameRateForTM (int frameRate) override { }
+	void setFrameRateForTM (int frameRate) override;
 
 	/**
 	 * @brief Abort all operations
 	 *
 	 * @return void
 	 */
-	void abort() override { }
+	void abort() override;
 
 	/**
 	 * @brief Reset all variables
 	 *
 	 * @return void
 	 */
-	void reset() override { }
+	void reset() override;
 
 	/**
 	 * @brief Function to abort wait for injecting the segment
@@ -137,12 +137,54 @@ public:
 	bool getPTSRestampStatus() const override;
 
 private:
+	enum class Mp4TrickPhase
+	{
+		FIRST_SAMPLE,  ///< Initial/reset state: timestamps the first keyframe and seeds mRestampedPts = 0
+		DISCONTINUITY, ///< First keyframe after a discontinuity: reuse last known duration, PTS already pre-advanced
+		STEADY         ///< Steady state: computes PTS delta from previous sample
+	};
+
+	/**
+	 * @brief Apply trickmode PTS restamping to a sample
+	 * @param[in,out] sample - Sample to restamp
+	 * @param[in] duration - Fragment duration
+	 * @param[in] discontinuous - True if this sample begins a discontinuous segment
+	 */
+	void TrickmodePtsRestamp(AampMediaSample& sample, double duration, bool discontinuous);
+
+	/**
+	 * @brief Handle trickmode discontinuity by pre-advancing state machine
+	 * @note Called when a discontinuous init segment arrives to prevent large PTS
+	 *       deltas from being computed when the next data segment is processed.
+	 *       Transitions state from STEADY → DISCONTINUITY if discontinuous=true.
+	 */
+	void HandleTrickModeDiscontinuity();
+
+	/**
+	 * @brief Reset only trickmode state variables.
+	 * Called internally whenever trickmode state must be cleared (e.g. on
+	 * transition back to normal play). Intentionally separate from the public
+	 * reset() API so future additions to reset() do not affect this path.
+	 */
+	void resetTrickMode();
+
 	std::unique_ptr<Mp4Demux> mMp4Demux;
 	PrivateInstanceAAMP* mAamp;
 	AampMediaType mMediaType;
 	bool mEnablePtsRestamp; // Flag to enable PTS restamping
 	// A separate flag to enable logging for PTS restamping for better control.
 	bool mEnablePtsRestampLogging {false}; // Flag to enable logging for PTS restamping
+	
+	// Trickmode state variables
+	int mTrickPlayFPS {0};					/**< Trickplay frames per second */
+	double mRate {1.0};						/**< Current playback rate */
+	bool mIsTrickMode {false};				/**< True if in trickmode (rate != 1.0) */
+	double mLastSamplePts {0.0};			/**< PTS of the previous sample, used in trick modes */
+	double mRestampedPts {0.0};				/**< Restamped PTS of the sample, used in trick modes */
+		
+	Mp4TrickPhase mTrickPhase {Mp4TrickPhase::FIRST_SAMPLE}; /**< Current trick mode state */
+	double mLastTrickRate {0.0};     /**< Last used trickplay rate for state reset */
+	double mRestampedDuration {0.0}; /**< Last restamped duration (seconds); reused across discontinuities */
 };
 
 #endif /* __AAMPMP4DEMUXER_H__ */

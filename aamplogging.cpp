@@ -110,6 +110,7 @@ void logprintf(AAMP_LogLevel logLevelIndex, const char* file, const char* func, 
 		snprintf(timestamp, sizeof(timestamp), AAMPCLI_TIMESTAMP_PREFIX_FORMAT, (unsigned int)t.tv_sec, (unsigned int)t.tv_usec / 1000 );
 	}
 	
+	char format_buffer[512];
 	char *format_ptr = NULL;
 	int format_bytes = 0;
 	for( int pass=0; pass<2; pass++ )
@@ -146,7 +147,11 @@ void logprintf(AAMP_LogLevel logLevelIndex, const char* file, const char* func, 
 		if( pass==0 )
 		{
 			format_bytes++; // include nul terminator
-			format_ptr = (char *)alloca(format_bytes); // allocate on stack
+			if (format_bytes > (int)sizeof(format_buffer))
+			{
+				format_bytes = sizeof(format_buffer);
+			}
+			format_ptr = format_buffer;
 		}
 		else
 		{

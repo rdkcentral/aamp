@@ -127,7 +127,7 @@ TEST_F(IsoBmffBoxTests, sencTests)
 	// Compare against a pre-generated buffer
 }
 
-TEST_F(IsoBmffBoxTests, saizTests)
+TEST_F(IsoBmffBoxTests, Saiz_Truncate_SingleSample_NoChange)
 {
 	memcpy(buffer, saizSingleSample, sizeof(saizSingleSample));
 	auto ptr{buffer};
@@ -138,11 +138,78 @@ TEST_F(IsoBmffBoxTests, saizTests)
 
 	saiz->truncate();
 
-	// First data set has only one sample, so truncate does nothing.
+	// A single sample means there is nothing to truncate.
+	EXPECT_EQ(0, memcmp(buffer, saizSingleSample_expected, sizeof(saizSingleSample_expected)));
 
-	// Need a data set with > 1 samples
+	delete saiz;
+}
 
-	// Compare against a pre-generated buffer
+TEST_F(IsoBmffBoxTests, Saiz_Truncate_TablePresent_InsertsSkipBox)
+{
+	// Table-present layout (default_sample_info_size == 0) with enough room to insert skip.
+	memcpy(buffer, saizTablePresent, sizeof(saizTablePresent));
+	auto ptr{buffer};
+	auto seizSize = READ_U32(ptr);
+	EXPECT_TRUE((IS_TYPE(ptr, Box::SAIZ)));
+	ptr += SIZEOF_TAG;
+	auto saiz = SaizBox::constructSaizBox(seizSize, ptr);
+
+	saiz->truncate();
+
+	EXPECT_EQ(0, memcmp(buffer, saizTablePresent_expected, sizeof(saizTablePresent_expected)));
+
+	delete saiz;
+}
+
+TEST_F(IsoBmffBoxTests, Saiz_Truncate_DefaultSampleInfoSize_SizeUnchanged)
+{
+	// For default sample info size, sample_count should change but box size must remain unchanged.
+	memcpy(buffer, saizDefaultInfo, sizeof(saizDefaultInfo));
+	auto ptr{buffer};
+	auto seizSize = READ_U32(ptr);
+	EXPECT_TRUE((IS_TYPE(ptr, Box::SAIZ)));
+	ptr += SIZEOF_TAG;
+	auto saiz = SaizBox::constructSaizBox(seizSize, ptr);
+
+	saiz->truncate();
+
+	EXPECT_EQ(0, memcmp(buffer, saizDefaultInfo_expected, sizeof(saizDefaultInfo_expected)));
+
+	delete saiz;
+}
+
+TEST_F(IsoBmffBoxTests, Saiz_Truncate_DefaultSampleInfoSizeZeroSamples_NoChange)
+{
+	// Guard against sample_count underflow; sample_count==0 should remain unchanged.
+	memcpy(buffer, saizDefaultInfoZeroSamples, sizeof(saizDefaultInfoZeroSamples));
+	auto ptr{buffer};
+	auto seizSize = READ_U32(ptr);
+	EXPECT_TRUE((IS_TYPE(ptr, Box::SAIZ)));
+	ptr += SIZEOF_TAG;
+	auto saiz = SaizBox::constructSaizBox(seizSize, ptr);
+
+	saiz->truncate();
+
+	EXPECT_EQ(0, memcmp(buffer, saizDefaultInfoZeroSamples, sizeof(saizDefaultInfoZeroSamples)));
+
+	delete saiz;
+}
+
+TEST_F(IsoBmffBoxTests, Saiz_Construct_EmptyTableZeroSamples_NoReadPastBox)
+{
+	// Empty per-sample table must not read past the box when default_sample_info_size is zero.
+	memcpy(buffer, saizEmptyTableZeroSamples, sizeof(saizEmptyTableZeroSamples));
+	auto ptr{buffer};
+	auto seizSize = READ_U32(ptr);
+	EXPECT_TRUE((IS_TYPE(ptr, Box::SAIZ)));
+	ptr += SIZEOF_TAG;
+	auto saiz = SaizBox::constructSaizBox(seizSize, ptr);
+
+	EXPECT_EQ(saiz->getFirstSampleInfoSize(), 0u);
+	saiz->truncate();
+	EXPECT_EQ(0, memcmp(buffer, saizEmptyTableZeroSamples, sizeof(saizEmptyTableZeroSamples)));
+
+	delete saiz;
 }
 
 TEST_F(IsoBmffBoxTests, trunTests)
@@ -216,8 +283,59 @@ TEST_F(IsoBmffBoxTests, rewriteAsSkipTest)
 	EXPECT_EQ(buffer[5], 'k');
 	EXPECT_EQ(buffer[6], 'i');
 	EXPECT_EQ(buffer[7], 'p');
+}
 
-	delete testBox;
+TEST_F(IsoBmffBoxTests, malformedEmsgVersion0MissingFixedFields)
+{
+	uint8_t malformedEmsg[] = {
+		0x00, 0x00, 0x00, 0x0c,
+		'e', 'm', 's', 'g',
+		0x00, 0x00, 0x00, 0x00
+	};
+
+	auto box = Box::constructBox(malformedEmsg,
+		static_cast<uint32_t>(sizeof(malformedEmsg)), false, -1);
+	auto emsg = dynamic_cast<EmsgBox *>(box.get());
+
+	ASSERT_NE(emsg, nullptr);
+	EXPECT_EQ(emsg->getTimeScale(), 0u);
+	EXPECT_EQ(emsg->getEventDuration(), 0u);
+	EXPECT_EQ(emsg->getId(), 0u);
+	EXPECT_EQ(emsg->getPresentationTime(), 0u);
+	EXPECT_EQ(emsg->getMessageLen(), 0u);
+}
+
+TEST_F(IsoBmffBoxTests, malformedContainerChildSizeTooSmallStopsNestedParse)
+{
+	uint8_t malformedMoof[] = {
+		0x00, 0x00, 0x00, 0x10,
+		'm', 'o', 'o', 'f',
+		0x00, 0x00, 0x00, 0x04,
+		't', 'f', 'd', 't'
+	};
+
+	auto box = Box::constructBox(malformedMoof,
+		static_cast<uint32_t>(sizeof(malformedMoof)), false, -1);
+	auto container = dynamic_cast<GenericContainerBox *>(box.get());
+
+	ASSERT_NE(container, nullptr);
+	ASSERT_NE(container->getChildren(), nullptr);
+	EXPECT_TRUE(container->getChildren()->empty());
+}
+
+TEST_F(IsoBmffBoxTests, unknownWellSizedBoxWithNonPrintableTypeIsSanitized)
+{
+	uint8_t unknownBox[] = {
+		0x00, 0x00, 0x00, 0x08,
+		0x01, 0x00, 0x7f, 0xff
+	};
+
+	auto box = Box::constructBox(unknownBox,
+		static_cast<uint32_t>(sizeof(unknownBox)), false, -1);
+
+	ASSERT_NE(box, nullptr);
+	EXPECT_EQ(box->getSize(), 8u);
+	EXPECT_STREQ(box->getType(), "....");
 }
 
 class IsoBmffTfdtBoxVersionTests : public IsoBmffBoxTests,

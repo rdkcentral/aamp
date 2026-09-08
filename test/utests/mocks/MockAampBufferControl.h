@@ -21,6 +21,7 @@
 #define AAMP_MOCK_AAMP_BUFFER_CONTROLL_H
 
 #include <gmock/gmock.h>
+#include <memory>
 #include "AampBufferControl.h"
 
 class MockAampBufferControl : public AampBufferControl::BufferControlExternalData
@@ -35,6 +36,6 @@ public:
     MOCK_METHOD(bool,  isBufferFull, (const AampMediaType mediaType));
 };
 
-extern MockAampBufferControl *g_mockAampBufferControl;
+extern std::shared_ptr<MockAampBufferControl> g_mockAampBufferControl;
 
 #endif /* AAMP_MOCK_AAMP_BUFFER_CONTROLL_H */

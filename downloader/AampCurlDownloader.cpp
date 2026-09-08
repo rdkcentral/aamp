@@ -196,8 +196,6 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 				// In production (no persona loaded) this is the only overhead: one
 				// acquire-load (~1 ns) with no mutex, no clock call, nothing else.
 				const bool personaActive = AampNetworkPersona::Instance().IsLoaded();
-				AAMPLOG_WARN("AampCurlDownloader::Download personaActive=%d url=%s", personaActive ? 1 : 0, urlStr.c_str());
-
 				// Wall-clock start captured only when throttling is active, so
 				// production builds pay zero cost for the timeout-budget tracking.
 				const long long loopIterStartMs = personaActive ? NOW_STEADY_TS_MS : 0LL;
@@ -356,7 +354,7 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 								mDownloadResponse->iHttpRetValue >= 500 ))
 						{
 							AAMPLOG_WARN("Download failed due to Server error http-%d numDownloadAttempts %d numRetriesAllowed %d",mDownloadResponse->iHttpRetValue,numDownloadAttempts,numRetriesAllowed);
-							int retryDelayMs = (mDownloadResponse->iHttpRetValue == 502) ? MIN_DELAY_BETWEEN_MANIFEST_UPDATE_FOR_502_MS : mDnldCfg->iDownloadRetryWaitMs;
+							int retryDelayMs = mDnldCfg ? ((mDownloadResponse->iHttpRetValue == 502) ? mDnldCfg->iDownload502RetryWaitMs : mDnldCfg->iDownloadRetryWaitMs) : 0;
 							std::this_thread::sleep_for(std::chrono::milliseconds(retryDelayMs));
 							loopAgain = true; //retry on manifest download failure
 							// In the unlikely event that we get http failure status and also a http body then the
@@ -370,9 +368,9 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 				{
 					if(numDownloadAttempts <= numRetriesAllowed)
 					{ //Attempt retry for partial downloads, which have a higher chance to succeed
-						if (httpRetVal == CURLE_COULDNT_CONNECT || IsCurlTimeoutFailure (httpRetVal) || httpRetVal == CURLE_SEND_ERROR)
+						if (httpRetVal == CURLE_COULDNT_CONNECT || IsCurlTimeoutFailure (httpRetVal) || httpRetVal == CURLE_SEND_ERROR || httpRetVal == CURLE_RECV_ERROR)
 						{
-							AAMPLOG_WARN("Download failed due to curl error %d numDownloadAttempts %d numRetriesAllowed %d",httpRetVal,numDownloadAttempts,numRetriesAllowed);
+							AAMPLOG_WARN("Download failed due to curl error %d numDownloadAttempts %d numRetriesAllowed %d", httpRetVal, numDownloadAttempts, numRetriesAllowed);
 							loopAgain = true;
 						}
 					}

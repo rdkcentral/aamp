@@ -27,7 +27,7 @@
 #include <cstdarg>
 
 
-MockCurl *g_mockCurl = nullptr;
+std::shared_ptr<MockCurl> g_mockCurl{};
 
 
 void curl_easy_cleanup(CURL *curl)
@@ -177,9 +177,63 @@ void curl_free(void *ptr)
     }
 }
 
-CURLSHcode curl_share_cleanup(CURLSH *)
+CURLSH *curl_share_init(void)
 {
-    return CURLSHE_OK;
+    CURLSH *sh = nullptr;
+    if (g_mockCurl != nullptr)
+    {
+        sh = g_mockCurl->curl_share_init();
+    }
+    return sh;
+}
+
+CURLSHcode curl_share_setopt(CURLSH *sh, CURLSHoption option, ...)
+{
+    CURLSHcode rc = CURLSHE_OK;
+    if (g_mockCurl != nullptr)
+    {
+        va_list arg;
+        va_start(arg, option);
+        switch (option)
+        {
+            case CURLSHOPT_USERDATA:
+            {
+                void *ptr = va_arg(arg, void *);
+                rc = g_mockCurl->curl_share_setopt_ptr(sh, option, ptr);
+                break;
+            }
+            case CURLSHOPT_LOCKFUNC:
+            {
+                curl_lock_function fn = va_arg(arg, curl_lock_function);
+                rc = g_mockCurl->curl_share_setopt_func_lock(sh, option, fn);
+                break;
+            }
+            case CURLSHOPT_UNLOCKFUNC:
+            {
+                curl_unlock_function fn = va_arg(arg, curl_unlock_function);
+                rc = g_mockCurl->curl_share_setopt_func_unlock(sh, option, fn);
+                break;
+            }
+            default:
+            {
+                long val = va_arg(arg, long);
+                rc = g_mockCurl->curl_share_setopt_long(sh, option, val);
+                break;
+            }
+        }
+        va_end(arg);
+    }
+    return rc;
+}
+
+CURLSHcode curl_share_cleanup(CURLSH *sh)
+{
+    CURLSHcode rc = CURLSHE_OK;
+    if (g_mockCurl != nullptr)
+    {
+        rc = g_mockCurl->curl_share_cleanup(sh);
+    }
+    return rc;
 }
 
 struct curl_slist *curl_slist_append(struct curl_slist *,

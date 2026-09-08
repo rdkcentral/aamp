@@ -181,13 +181,68 @@ TEST_F(IsoBmffBufferTests, parseBufferTwiceTest)
 	}
 	mIsoBmffBuffer->setBuffer(vInitSeg.data(), size);
 	mIsoBmffBuffer->parseBuffer();
-	std::vector<Box*> *boxes = mIsoBmffBuffer->getParsedBoxes();
+	const std::vector<std::unique_ptr<Box>> *boxes = mIsoBmffBuffer->getParsedBoxes();
 	std::size_t numBoxesAfter1parse = boxes->size();
 	// The boxes in the buffer must be destroyed before parseBuffer can be called a second time
 	mIsoBmffBuffer->destroyBoxes();
 	mIsoBmffBuffer->parseBuffer();
 	std::size_t numBoxesAfter2parse = boxes->size();
 	EXPECT_EQ(numBoxesAfter1parse, numBoxesAfter2parse);
+}
+
+TEST_F(IsoBmffBufferTests, readOnlyBufferDisallowsMutation)
+{
+	std::string file_path = std::string(TESTS_DIR) + "/" + "initSegmentTests/vInit.mp4";
+	auto result = readFile(file_path.c_str());
+	ASSERT_FALSE(result.first.empty()) << "Failed to load test data: " << file_path;
+	std::vector<uint8_t> vInitSeg;
+	if (!result.first.empty())
+	{
+		vInitSeg = result.first;
+	}
+
+	mIsoBmffBuffer->setBuffer(static_cast<const std::vector<uint8_t>&>(vInitSeg));
+	ASSERT_TRUE(mIsoBmffBuffer->parseBuffer());
+
+	EXPECT_FALSE(mIsoBmffBuffer->setTrickmodeTimescale(1000));
+	EXPECT_FALSE(mIsoBmffBuffer->setMediaHeaderDuration(0));
+}
+
+TEST_F(IsoBmffBufferTests, malformedSmallTopLevelBoxSizeReturnsFalse)
+{
+	std::vector<uint8_t> malformedSegment {
+		0x00, 0x00, 0x00, 0x04,
+		'm', 'o', 'o', 'f'
+	};
+
+	mIsoBmffBuffer->setBuffer(malformedSegment.data(), malformedSegment.size());
+	EXPECT_FALSE(mIsoBmffBuffer->parseBuffer());
+	EXPECT_EQ(mIsoBmffBuffer->getParsedBoxesSize(), 0u);
+}
+
+TEST_F(IsoBmffBufferTests, readOnlyBufferDisallowsRestampPtsMutation)
+{
+	uint64_t firstPtsBefore = 0;
+	uint64_t firstPtsAfter = 0;
+	std::string file_path = std::string(TESTS_DIR) + "/" + "mp4SegmentTests/vFragment.mp4";
+	auto result = readFile(file_path.c_str());
+	ASSERT_FALSE(result.first.empty()) << "Failed to load test data: " << file_path;
+	std::vector<uint8_t> segment;
+	if (!result.first.empty())
+	{
+		segment = result.first;
+	}
+
+	mIsoBmffBuffer->setBuffer(static_cast<const std::vector<uint8_t>&>(segment));
+	ASSERT_TRUE(mIsoBmffBuffer->parseBuffer());
+	ASSERT_TRUE(mIsoBmffBuffer->getFirstPTS(firstPtsBefore));
+
+	mIsoBmffBuffer->restampPts(1000);
+	mIsoBmffBuffer->destroyBoxes();
+	ASSERT_TRUE(mIsoBmffBuffer->parseBuffer());
+	ASSERT_TRUE(mIsoBmffBuffer->getFirstPTS(firstPtsAfter));
+
+	EXPECT_EQ(firstPtsAfter, firstPtsBefore);
 }
 
 /**

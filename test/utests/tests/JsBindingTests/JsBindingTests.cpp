@@ -30,9 +30,11 @@
 #include <gmock/gmock.h>
 #include "MockJavaScriptCore.h"
 
+#include <memory>
+
 using ::testing::_;
 
-MockJavaScriptCore *g_mockJavaScriptCore;
+std::shared_ptr<MockJavaScriptCore> g_mockJavaScriptCore;
 
 class JsBindingTests : public ::testing::Test
 {
@@ -42,12 +44,12 @@ protected:
 	void SetUp() override
 	{
 		playerInstanceAAMP = new PlayerInstanceAAMP();
-		g_mockJavaScriptCore = new MockJavaScriptCore();
+		g_mockJavaScriptCore = std::make_shared<MockJavaScriptCore>();
 	}
 
 	void TearDown() override
 	{
-		g_mockJavaScriptCore = nullptr;
+		g_mockJavaScriptCore.reset();
 		delete playerInstanceAAMP;
 	}
 public:

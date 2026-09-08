@@ -21,6 +21,7 @@
 #define AAMP_MOCK_MEDIA_TRACK_H
 
 #include <gmock/gmock.h>
+#include <memory>
 #include "StreamAbstractionAAMP.h"
 
 class MockMediaTrack : public MediaTrack
@@ -34,6 +35,8 @@ public:
 	MOCK_METHOD(void, UpdateTSAfterFetch, ());
 	MOCK_METHOD(void, SetLocalTSBInjection, (bool value));
 	MOCK_METHOD(bool, IsLocalTSBInjection, ());
+	MOCK_METHOD(bool, IsFragmentCacheFull, ());
+	MOCK_METHOD(bool, WaitForFreeFragmentAvailable, (int timeoutMs));
 	MOCK_METHOD(bool, Enabled, ());
 	MOCK_METHOD(void, ProcessPlaylist, (std::vector<uint8_t>& newPlaylist, int http_error), (override));
 	MOCK_METHOD(std::string&, GetPlaylistUrl, (), (override));
@@ -48,12 +51,13 @@ public:
 	MOCK_METHOD(void, setDiscontinuityState, (bool isDiscontinuity), (override));
 	MOCK_METHOD(void, abortWaitForVideoPTS, (), (override));
 	MOCK_METHOD(double, GetBufferedDuration, (), (override));
+	MOCK_METHOD(double, GetLastDownloadedPosition, (), (override));
 	MOCK_METHOD(class StreamAbstractionAAMP*, GetContext, (), (override));
 	MOCK_METHOD(void, InjectFragmentInternal, (CachedFragment* cachedFragment, bool &fragmentDiscarded,bool isDiscontinuity), (override));
 	MOCK_METHOD(double, GetTotalInjectedDuration, (), (override));
 	MOCK_METHOD(void, ResetTrickModePtsRestamping, (), (override));
 };
 
-extern MockMediaTrack *g_mockMediaTrack;
+extern std::shared_ptr<MockMediaTrack> g_mockMediaTrack;
 
 #endif /* AAMP_MOCK_MEDIA_TRACK_H */

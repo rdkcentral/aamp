@@ -31,7 +31,7 @@
 #include "MockCJsonManager.h"
 
 // External declaration of global mock pointer
-extern MockCJsonManager *g_mockCJsonManager;
+extern std::shared_ptr<MockCJsonManager> g_mockCJsonManager;
 
 using ::testing::_;
 using ::testing::Return;
@@ -59,15 +59,15 @@ protected:
 		mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
 
 		// Create mocks (StreamAbstractionAAMP requires PrivateInstanceAAMP*)
-		g_mockStreamAbstractionAAMP = new MockStreamAbstractionAAMP(mPrivateInstanceAAMP);
-		g_mockAampGstPlayer = new MockAAMPGstPlayer(mPrivateInstanceAAMP);
-		g_mockAampStreamSinkManager = new MockAampStreamSinkManager();
+		g_mockStreamAbstractionAAMP = std::make_shared<MockStreamAbstractionAAMP>(mPrivateInstanceAAMP);
+		g_mockAampGstPlayer = std::make_shared<MockAAMPGstPlayer>(mPrivateInstanceAAMP);
+		g_mockAampStreamSinkManager = std::make_shared<MockAampStreamSinkManager>();
 
 		// Set the stream abstraction in the PrivateInstanceAAMP object
-		mPrivateInstanceAAMP->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+		mPrivateInstanceAAMP->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
 
 		// Create and set up cJSON mock manager
-		g_mockCJsonManager = new MockCJsonManager();
+		g_mockCJsonManager = std::make_shared<MockCJsonManager>();
 
 		// Setup the mock data
 		setupMockTextTracks();
@@ -84,21 +84,17 @@ protected:
 		delete mPrivateInstanceAAMP;
 		mPrivateInstanceAAMP = nullptr;
 
-		delete g_mockStreamAbstractionAAMP;
-		g_mockStreamAbstractionAAMP = nullptr;
+		g_mockStreamAbstractionAAMP.reset();
 
-		delete g_mockAampGstPlayer;
-		g_mockAampGstPlayer = nullptr;
+		g_mockAampGstPlayer.reset();
 
 		delete gpGlobalConfig;
 		gpGlobalConfig = nullptr;
 
-		delete g_mockAampStreamSinkManager;
-		g_mockAampStreamSinkManager = nullptr;
+		g_mockAampStreamSinkManager.reset();
 
 		// Clean up cJSON mock
-		delete g_mockCJsonManager;
-		g_mockCJsonManager = nullptr;
+		g_mockCJsonManager.reset();
 
 		mockTextTracks.clear();
 	}

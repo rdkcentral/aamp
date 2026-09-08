@@ -9,13 +9,21 @@ They apply to all code suggestions, documentation, tests, diagrams, and refactor
 # ==============================
 
 ## 1. Code Formatting
-- Indentation uses hard tabs (4-space width).
+- Indentation uses hard tabs (tab width 4, indent width 4).
 - Maximum line length target is 80 characters.
 - Add spaces around operators and after commas.
+- Use Allman brace style (opening brace on its own line) where applicable.
+- Follow `clang-format` alignment where the repository already documents formatting.
 
 ## 2. Testing
-- All public functions require unit tests.
-- Use Google Test/Google Mock.
+- New or modified public behaviour should be tested **proportionate to
+  risk and complexity**, not by a rigid rule that every public function
+  must have a dedicated unit test.
+- Prioritise tests for non-obvious contracts, error paths, historically
+  regression-prone code, and the playback / buffering / ABR / DRM hot paths.
+- Do not chase a numeric coverage target. Tests written only to raise
+  coverage tend to be brittle and implementation-coupled.
+- Use Google Test / Google Mock.
 - Review **`instructions/testing.instructions.md`** before creating any tests.
 - All tests must run via the CI pipeline.
 
@@ -52,6 +60,13 @@ Copilot must still follow these steps:
 ## 4. Code Reviews
 - All changes must go through pull requests.
 - Feedback must be constructive and based on these guidelines.
+- Review comments should be **concrete, actionable, and tied to changed
+  code**. Do not raise drive-by Core-Guidelines or modernization comments
+  on untouched surrounding code unless the user explicitly asks for a
+  broader review.
+- Generation guidance (write modern C++17, prefer smart pointers, etc.)
+  applies when creating or editing code. When reviewing, apply it to the
+  diff, not to the rest of the file.
 
 ## 5. Performance Considerations
 - Optimize only when profiling indicates a need.
@@ -67,18 +82,25 @@ Copilot must still follow these steps:
 ## Prompt Feedback (Compact)
 - Always assess prompt quality for every prompt and emit scores unless the scoring thresholds for suppression are met.
 - When feedback is not suppressed, use the following format:
-- Format: `Scores: Completeness X/10, Assumptions X/10, Clarity X/10 | Critique: <brief> | Improve: <specific edit>`.
-- Scoring: Completeness and Clarity are higher-is-better; Assumptions is lower-is-better.
+- Format: `Scores: Completeness X/10, Assumptions X/10, Clarity X/10, CostRisk X/10 | Critique: <brief> | Improve: <specific edit>`.
+- Scoring: Completeness, Clarity, and Assumptions are higher-is-better; CostRisk is lower-is-better.
+- **Assumptions** is higher-is-better: a high score means little or no
+  inference is required, and a low score means many assumptions are needed.
+- **CostRisk** estimates likely token usage and repository traversal behaviour.
+  - Score higher when the prompt involves: large logs, many files, broad repository
+    requests, unrestricted agent instructions, repeated context, or exploratory prompting.
+  - Score lower when the prompt is narrowly scoped, attaches minimal context,
+    and targets a specific outcome.
 - Strict rubric for underspecified prompts:
   - If the prompt is extremely vague (for example: "build something"), score it harshly.
-  - For these prompts, use: Completeness 0-3/10, Clarity 0-3/10, Assumptions 7-10/10.
+  - For these prompts, use: Completeness 0-3/10, Clarity 0-3/10, Assumptions 0-3/10.
   - If target, scope, constraints, or success criteria are omitted,
-    cap Completeness and Clarity at 7/10 and set Assumptions to at least 3/10.
+    cap Completeness, Clarity, and Assumptions at 7/10.
 - Keep it short and specific; avoid generic advice.
 - Never suppress scored feedback for underspecified prompts (including
   prompts that fall under the strict rubric above).
-- Suppress displayed feedback when Completeness >= 8, Assumptions <= 2,
-  and Clarity >= 8,
+- Suppress displayed feedback when Completeness >= 8, Assumptions >= 8,
+  Clarity >= 8, and CostRisk <= 3,
   unless the user explicitly asks to apply feedback to the current prompt.
 - Determine suppression from the current user prompt only; retrospective analysis of earlier prompts should be provided only when explicitly requested.
 - Prefer high-compliance guidance: suggest exact wording that reduces
@@ -101,8 +123,13 @@ Language-specific patterns live in `.github/instructions/`.
    This is a streaming video player. Low latency, correct buffering, and real-time behavior are critical.
 
 3. **Modernization Goal**  
-   New code should be modern C++ (RAII, smart pointers, interfaces).  
-   Legacy code should be gently refactored toward modern patterns.
+   The existing AAMP codebase is predominantly C++11.  
+   **All new production code and L1 test code must target C++17**, using
+   modern C++ idioms (RAII, smart pointers, STL containers, interfaces).
+   Legacy code should be modernized only as part of a directly related
+   change — do not perform opportunistic repository-wide rewrites.
+   C++20-only features (`std::span`, concepts, ranges, `std::format`,
+   coroutines) are **not currently permitted** in active code.
 
 4. **Testing First**  
    Always reference `instructions/testing.instructions.md` before writing tests.
@@ -146,7 +173,7 @@ Language-specific patterns live in `.github/instructions/`.
 # ==============================
 #  DOCUMENTATION & DIAGRAMS
 # ==============================
-- Use Doxygen-style comments for all APIs.
+- Follow the commenting and documentation rules defined in `instructions/cpp.instructions.md` (section 3).
 - Generate diagrams with PlantUML.
 - See `instructions/diagrams.instructions.md` for details.
 
@@ -272,6 +299,32 @@ The `.github/instructions/` directory contains deeper rules:
 - `js.instructions.md`  
 
 Copilot must reference these files when generating language-specific code.
+
+### Pull Request Review Behaviour
+
+When performing pull request reviews, also apply:
+
+- `.github/instructions/copilot-review-behaviour.instructions.md`
+
+This file defines:
+- review scope;
+- proportionality expectations;
+- false-positive avoidance;
+- review comment quality requirements;
+- restrictions on speculative or overly large suggestions.
+
+## ABR compliance
+
+When generating, editing, or reviewing code under `abr/`, apply the normative rules in `instructions/abr.instructions.md`. That file is the authoritative spec for buffer semantics, profile selection, bail behavior, latency control, and targetLatency adjustment.
+
+For structured reviews, use the reusable prompt files:
+- `/abr-compliance-review` — full spec-driven audit
+- `/abr-pr-review` — focused diff review
+- `/abr-log-validate` — runtime log/trace validation
+- `/abr-function-check` — single-function compliance check
+- `/abr-instrumentation-plan` — design assertions and log events for auditability
+
+---
 
 ## AAMP log debugging
 

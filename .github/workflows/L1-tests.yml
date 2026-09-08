@@ -2,7 +2,10 @@ name: L1 tests
 
 on:
   pull_request:
-    branches: [ develop, dev_sprint_25_2 ]
+    branches:
+      - develop
+      - dev_sprint_25_2
+      - 'support/**'
 
 jobs:
   execute-unit-tests-on-pr:
@@ -15,7 +18,15 @@ jobs:
       # Checkout the aamp repository
       - name: Checkout aamp code
         uses: actions/checkout@v3
-      
+
+      # Must run before subsequent steps that invoke git in the workspace (e.g. dorny/test-reporter)
+      - name: Mark workspace as safe for git
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Clone Middleware repo
+        run: |
+          git clone -b develop https://github.com/rdkcentral/middleware-player-interface
       # Run L1 tests
       - name: Run unit tests
         working-directory: ./test/utests
@@ -30,11 +41,6 @@ jobs:
         working-directory: ./test/utests
         run: |
           python3 parse_gtest_log.py utest_run.log
-      
-      # Needed to avoid git safe directory issues in GH Actions container    
-      - name: Mark workspace as safe for git
-        run: |
-          git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
       # Publish AAMP test results
       - name: Publish AAMP L1 test results
@@ -57,33 +63,3 @@ jobs:
       - name: Show failure details (if any)
         if: failure()
         run: tail -n 50 test/utests/build/ctest-results.xml || true
-        
-      # Run Middleware L1 unit tests
-      - name: Run Middleware L1 unit tests
-        working-directory: ./middleware/test/utests
-        shell: bash
-        run: |
-          set -euo pipefail
-          CXXFLAGS="-std=c++17" CFLAGS="-std=c17" ./run.sh 2>&1 | tee utest_run.log
-          
-      # Publish Middleware test results
-      - name: Publish Middleware L1 test results
-        if: always()
-        uses: dorny/test-reporter@v1
-        with:
-          name: Middleware Unit Test Results
-          path: middleware/test/utests/build/ctest-results.xml
-          reporter: java-junit
-          
-      # Upload artifact (middleware/test/utests/build/ctest-results.xml)
-      - name: Upload test result file (middleware/test/utests)
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: ctest-results-middleware-utests-${{ github.run_id }}
-          path: middleware/test/utests/build/ctest-results.xml
-      
-      # Show middleware failure details (if any)
-      - name: Show failure details (if any)
-        if: failure()
-        run: tail -n 50 middleware/test/utests/build/ctest-results.xml || true

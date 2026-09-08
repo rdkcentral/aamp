@@ -21,6 +21,7 @@
 #define AAMP_MOCK_AAMP_PRIV_AAMP_H
 
 #include <gmock/gmock.h>
+#include <memory>
 #include "priv_aamp.h"
 
 class MockPrivateInstanceAAMP
@@ -64,6 +65,7 @@ public:
 	MOCK_METHOD(void, NotifyFirstVideoFrameDisplayed, ());
 	MOCK_METHOD(void, FoundEventBreak, (const std::string &adBreakId, uint64_t startMS, EventBreakInfo brInfo));
 	MOCK_METHOD(void, SaveNewTimedMetadata, (long long timeMS, const char* id, double durationMS));
+	MOCK_METHOD(void, SaveTimedMetadata, (long long timeMS, const char* szName, const char* id, double durationMS));
 	MOCK_METHOD(bool, DownloadsAreEnabled, ());
 	MOCK_METHOD(void, SendAdResolvedEvent, (const std::string &adId, bool status, uint64_t startMS, uint64_t durationMs, AAMPCDAIError errorCode));
 	MOCK_METHOD(uint32_t, GetAudTimeScale, ());
@@ -92,7 +94,7 @@ public:
 	MOCK_METHOD(bool, GetLLDashChunkMode, ());
 	MOCK_METHOD(void, SetLLDashChunkMode, (bool enable));
 	MOCK_METHOD(void, NotifySpeedChanged, (float rate, bool changeState));
-	MOCK_METHOD(bool, PausePipeline, (bool pause, bool forceStopGstreamerPreBuffering));
+	MOCK_METHOD(bool, PausePipeline, (bool pause, bool forceStopPreBuffering));
 	MOCK_METHOD(void, SetVideoMute, (bool muted));
 	MOCK_METHOD(void, SetCCStatusSetByApp, ());
 	MOCK_METHOD(bool, IsAtLivePoint, ());
@@ -101,12 +103,15 @@ public:
 	MOCK_METHOD(long, GetCurrentLatencyMs, ());
 	MOCK_METHOD(double, GetBufferedDurationSecs, ());
 	MOCK_METHOD(bool, IsAdPlaying, ());
+	MOCK_METHOD(bool, IsLatencyExceedingTrickplayThreshold, (), (const));
+	MOCK_METHOD(void, EnableLatencyMonitor, (bool enabled));
+	MOCK_METHOD(bool, IsLatencyMonitorEnabled, (), (const));
 	MOCK_METHOD(void, UpdateVideoEndMetrics, (double adjustedRate));
 	MOCK_METHOD(void, NotifyReservationComplete, (const std::string& reservationId));
 	MOCK_METHOD(void, LoadIDX, (ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl, std::vector<uint8_t>& fragment, unsigned int curlInstance, const char *range, int& http_code, double *downloadTime, AampMediaType mediaType, int *fogError));
 	MOCK_METHOD(void, UpdateUseSinglePipeline, ());
 };
 
-extern MockPrivateInstanceAAMP *g_mockPrivateInstanceAAMP;
+extern std::shared_ptr<MockPrivateInstanceAAMP> g_mockPrivateInstanceAAMP;
 
 #endif /* AAMP_MOCK_AAMP_PRIV_AAMP_H */

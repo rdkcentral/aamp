@@ -63,9 +63,9 @@ class IsoBmffProcessorBaseTests : public ::testing::Test
 		void SetUp() override
 		{
 			mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
-			g_mockPrivateInstanceAAMP = new MockPrivateInstanceAAMP();
-			g_mockAampConfig = new MockAampConfig();
-			g_mockIsoBmffBuffer = new MockIsoBmffBuffer();
+			g_mockPrivateInstanceAAMP = std::make_shared<MockPrivateInstanceAAMP>();
+			g_mockAampConfig = std::make_shared<MockAampConfig>();
+			g_mockIsoBmffBuffer = std::make_shared<MockIsoBmffBuffer>();
 			EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp)).WillRepeatedly(Return(IsPTSReStampEnabled()));
 			EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetMediaFormatTypeEnum()).WillRepeatedly(Return(eMEDIAFORMAT_HLS_MP4));
 			EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_FragmentDownloadFailThreshold)).WillRepeatedly(Return(10));
@@ -91,12 +91,9 @@ class IsoBmffProcessorBaseTests : public ::testing::Test
 			gpGlobalConfig = nullptr;
 			delete mPrivateInstanceAAMP;
 			mPrivateInstanceAAMP = nullptr;
-			delete g_mockPrivateInstanceAAMP;
-			g_mockPrivateInstanceAAMP = nullptr;
-			delete g_mockIsoBmffBuffer;
-			g_mockIsoBmffBuffer = nullptr;
-			delete g_mockAampConfig;
-			g_mockAampConfig = nullptr;
+			g_mockPrivateInstanceAAMP.reset();
+			g_mockIsoBmffBuffer.reset();
+			g_mockAampConfig.reset();
 		}
 };
 class IsoBmffProcessorTests : public IsoBmffProcessorBaseTests

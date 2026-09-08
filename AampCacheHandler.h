@@ -206,7 +206,7 @@ public:
 		// High hit early exit scenario
 		if (cache.find(url) != cache.end())
 		{
-			AAMPLOG_ERR("%s %s already cached", GetMediaTypeName(mediaType), url.c_str());
+			AAMPLOG_INFO("%s %s already cached", GetMediaTypeName(mediaType), url.c_str());
 			return;
 		}
 

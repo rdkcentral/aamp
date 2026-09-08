@@ -21,7 +21,7 @@
 #include "MockAampStreamSinkManager.h"
 #include "priv_aamp.h"
 
-MockAampStreamSinkManager *g_mockAampStreamSinkManager = nullptr;
+std::shared_ptr<MockAampStreamSinkManager> g_mockAampStreamSinkManager{};
 
 
 AampStreamSinkManager::AampStreamSinkManager()

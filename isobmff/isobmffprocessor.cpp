@@ -540,7 +540,7 @@ void IsoBmffProcessor::restampPTSAndSendSegment(std::vector<uint8_t>& fragBuffer
 		size_t index = 0;
 		uint64_t durationFromFragment =0;
 		Box *pBox =  buffer.getBox(Box::MOOF, index);
-		if (NULL != pBox)
+		if (nullptr != pBox)
 		{
 			buffer.getSampleDuration(pBox,durationFromFragment);
 			AAMPLOG_TRACE("IsoBmffProcessor %s duration= %" PRIu64 " ", IsoBmffProcessorTypeName[type],durationFromFragment);

@@ -28,7 +28,6 @@ set(EXEC_NAME AampDrmLegacy)
 
 # Include common test directories
 include(${CMAKE_CURRENT_LIST_DIR}/../CommonTestIncludes.cmake)
-include_directories(${AAMP_ROOT}/middleware/test/utests/mocks)
 include_directories(${AAMP_ROOT}/test/utests/drm)
 include_directories(${AAMP_ROOT}/test/utests/mocks)
 include_directories(${UUID_INCLUDE_DIRS})

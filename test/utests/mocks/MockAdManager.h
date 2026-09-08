@@ -21,6 +21,7 @@
 #define AAMP_MOCK_AD_MANAGER_H
 
 #include <gmock/gmock.h>
+#include <memory>
 #include "admanager_mpd.h"
 
 class MockPrivateCDAIObjectMPD
@@ -34,6 +35,6 @@ public:
     MOCK_METHOD(void, NotifyReservationComplete, (const std::string& reservationId));
 };
 
-extern MockPrivateCDAIObjectMPD *g_MockPrivateCDAIObjectMPD;
+extern std::shared_ptr<MockPrivateCDAIObjectMPD> g_MockPrivateCDAIObjectMPD;
 
 #endif /* AAMP_MOCK_AD_MANAGER_H */

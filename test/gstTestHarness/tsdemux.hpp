@@ -422,7 +422,7 @@ private:
 	
 	void parseOptionalPesHeader( void )
 	{
-		TsPart part;
+		TsPart part{};  // zero-initialise: pts=0.0, dts=0.0 when PTS flag absent
 		part.start = bytes_written;
 		
 		int marker_bits = readBits(2);

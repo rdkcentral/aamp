@@ -20,6 +20,7 @@
 #define AAMP_MOCK_PLAYER_CC_MANAGER_H
 
 #include <gmock/gmock.h>
+#include <memory>
 #include "PlayerCCManager.h"
 
 class MockPlayerCCManager

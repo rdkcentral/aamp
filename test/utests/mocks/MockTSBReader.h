@@ -19,6 +19,7 @@
 #ifndef AAMP_MOCK_TSB_READER_H
 #define AAMP_MOCK_TSB_READER_H
 #include <gmock/gmock.h>
+#include <memory>
 #include "AampTsbReader.h"
 using namespace TSB;
 class MockTSBReader

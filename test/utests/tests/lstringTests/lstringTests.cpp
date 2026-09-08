@@ -108,7 +108,10 @@ TEST(LStringAtofTest, OnlyDecimalPoint)
 
 TEST(LStringAtofTest, MultipleDecimalPoints)
 {
-	EXPECT_DOUBLE_EQ(lstring("12.34.56",8).atof(),0.0);
+	// New atof() uses best-effort parsing: stops at second '.', returns the
+	// partial value accumulated so far rather than failing the entire conversion.
+	// "12.34.56" parses "12.34", stops at the second '.', returns 12.34.
+	EXPECT_NEAR(lstring("12.34.56",8).atof(),12.34,1e-12);
 	EXPECT_NEAR(lstring("12.34.56",5).atof(),12.34,1e-12);
 }
 
@@ -230,4 +233,206 @@ TEST(lstring, test1)
 	}
 }
 
+// ===========================================================================
+// equalsCString tests
+// Covers the bug where attrName="KEYFORMATVERSIONS=" and cstring="KEYFORMAT"
+// caused an OOB read past cstring's null terminator in the old equal() impl.
+// ===========================================================================
 
+TEST(LStringEqualsCString, ExactMatch)
+{
+	// lstring content equals cstring exactly
+	EXPECT_TRUE(  lstring("KEYFORMAT", 9).equalsCString("KEYFORMAT") );
+	EXPECT_TRUE(  lstring("METHOD",    6).equalsCString("METHOD")    );
+	EXPECT_TRUE(  lstring("",          0).equalsCString("")           );
+}
+
+TEST(LStringEqualsCString, LstringLongerThanCstring)
+{
+	// Regression: attrName="KEYFORMATVERSIONS=" (18 chars), cstring="KEYFORMAT" (9 chars).
+	// Old code read past the null terminator of "KEYFORMAT" — must return false, not crash.
+	EXPECT_FALSE( lstring("KEYFORMATVERSIONS=", 18).equalsCString("KEYFORMAT") );
+	EXPECT_FALSE( lstring("BANDWIDTH=1000",     14).equalsCString("BANDWIDTH")  );
+}
+
+TEST(LStringEqualsCString, LstringShorterThanCstring)
+{
+	// lstring is a prefix of cstring — must return false
+	EXPECT_FALSE( lstring("KEY", 3).equalsCString("KEYFORMAT") );
+	EXPECT_FALSE( lstring("",    0).equalsCString("KEYFORMAT") );
+}
+
+TEST(LStringEqualsCString, ContentMismatch)
+{
+	// Same length, different content
+	EXPECT_FALSE( lstring("METHODS", 7).equalsCString("METHODX") );
+	EXPECT_FALSE( lstring("aac",     3).equalsCString("mp4")      );
+}
+
+TEST(LStringEqualsCString, SingleCharacter)
+{
+	EXPECT_TRUE(  lstring("X", 1).equalsCString("X") );
+	EXPECT_FALSE( lstring("X", 1).equalsCString("Y") );
+	EXPECT_FALSE( lstring("X", 1).equalsCString("XY") );
+	EXPECT_FALSE( lstring("XY", 2).equalsCString("X") );
+}
+
+TEST(LStringEqualsCString, EmptyLstring)
+{
+	EXPECT_TRUE(  lstring("", 0).equalsCString("") );
+	EXPECT_FALSE( lstring("", 0).equalsCString("A") );
+}
+
+TEST(LStringEqualsCString, EmptyCstring)
+{
+	// Non-empty lstring vs empty cstring — must return false
+	EXPECT_FALSE( lstring("A", 1).equalsCString("") );
+}
+
+// ===========================================================================
+// isSameView tests
+// isSameView() is a pointer-identity check, NOT a content-equality check.
+// ===========================================================================
+
+TEST(LStringIsSameView, IdenticalView)
+{
+	const char buf[] = "hello";
+	lstring a(buf, 5);
+	lstring b(buf, 5);
+	// Same pointer and same length — must be true
+	EXPECT_TRUE( a.isSameView(b) );
+}
+
+TEST(LStringIsSameView, SameContentDifferentBuffer)
+{
+	const char buf1[] = "hello";
+	const char buf2[] = "hello";
+	lstring a(buf1, 5);
+	lstring b(buf2, 5);
+	// Content identical but different backing pointers — must be false
+	// (isSameView is intentionally pointer-identity only)
+	EXPECT_FALSE( a.isSameView(b) );
+}
+
+TEST(LStringIsSameView, DifferentLength)
+{
+	const char buf[] = "hello";
+	lstring a(buf, 5);
+	lstring b(buf, 3);
+	EXPECT_FALSE( a.isSameView(b) );
+}
+
+TEST(LStringIsSameView, EmptyVsEmpty)
+{
+	lstring a, b;
+	// Both NULL ptr, len 0 — same view
+	EXPECT_TRUE( a.isSameView(b) );
+}
+
+// ===========================================================================
+// SubStringMatch tests
+// Old code read past the end of the lstring when cstring was longer than len.
+// ===========================================================================
+
+TEST(LStringSubStringMatch, ExactMatch)
+{
+	EXPECT_TRUE( lstring("KEYFORMAT", 9).SubStringMatch("KEYFORMAT") );
+}
+
+TEST(LStringSubStringMatch, CstringIsPrefix)
+{
+	// cstring shorter than lstring — should match (lstring starts with cstring)
+	EXPECT_TRUE( lstring("KEYFORMATVERSIONS", 17).SubStringMatch("KEYFORMAT") );
+}
+
+TEST(LStringSubStringMatch, CstringLongerThanLstring)
+{
+	// Old code would walk past the end of the lstring buffer here.
+	EXPECT_FALSE( lstring("KEY", 3).SubStringMatch("KEYFORMAT") );
+}
+
+TEST(LStringSubStringMatch, EmptyCstring)
+{
+	// Empty needle always matches
+	EXPECT_TRUE( lstring("anything", 8).SubStringMatch("") );
+	EXPECT_TRUE( lstring("", 0).SubStringMatch("") );
+}
+
+TEST(LStringSubStringMatch, EmptyLstring)
+{
+	EXPECT_FALSE( lstring("", 0).SubStringMatch("A") );
+}
+
+// ===========================================================================
+// removePrefix(const char*) tests
+// Old code walked past the end of the lstring when prefix was longer than len.
+// ===========================================================================
+
+TEST(LStringRemovePrefixStr, MatchAndRemove)
+{
+	lstring s("KEYFORMAT=identity", 18);
+	EXPECT_TRUE( s.removePrefix("KEYFORMAT=") );
+	EXPECT_EQ( s.tostring(), "identity" );
+}
+
+TEST(LStringRemovePrefixStr, PrefixLongerThanLstring)
+{
+	// Old code would walk past the end of the lstring buffer here.
+	lstring s("KEY", 3);
+	EXPECT_FALSE( s.removePrefix("KEYFORMAT") );
+	// View must be unchanged on failure
+	EXPECT_EQ( s.tostring(), "KEY" );
+}
+
+TEST(LStringRemovePrefixStr, NoMatch)
+{
+	lstring s("METHOD=AES-128", 14);
+	EXPECT_FALSE( s.removePrefix("KEYFORMAT") );
+	EXPECT_EQ( s.tostring(), "METHOD=AES-128" );
+}
+
+TEST(LStringRemovePrefixStr, EmptyPrefix)
+{
+	lstring s("hello", 5);
+	EXPECT_TRUE( s.removePrefix("") );
+	EXPECT_EQ( s.tostring(), "hello" );
+}
+
+// ===========================================================================
+// substr tests
+// Old code had no bounds check; negative or out-of-range offsets caused UB.
+// ===========================================================================
+
+TEST(LStringSubstr, NormalCase)
+{
+	lstring s("KEYFORMATVERSIONS=1", 19);
+	lstring sub = s.substr(9);
+	EXPECT_EQ( sub.tostring(), "VERSIONS=1" );
+}
+
+TEST(LStringSubstr, OffsetZero)
+{
+	lstring s("hello", 5);
+	EXPECT_EQ( s.substr(0).tostring(), "hello" );
+}
+
+TEST(LStringSubstr, OffsetEqualsLength)
+{
+	// Offset == len: should return empty, not UB
+	lstring s("hello", 5);
+	EXPECT_TRUE( s.substr(5).empty() );
+}
+
+TEST(LStringSubstr, OffsetBeyondLength)
+{
+	// Out-of-range: should return empty, not UB
+	lstring s("hello", 5);
+	EXPECT_TRUE( s.substr(99).empty() );
+}
+
+TEST(LStringSubstr, NegativeOffset)
+{
+	// Negative offset: should return empty, not UB
+	lstring s("hello", 5);
+	EXPECT_TRUE( s.substr(-1).empty() );
+}

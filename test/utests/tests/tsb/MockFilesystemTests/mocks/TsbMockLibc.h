@@ -21,6 +21,7 @@
 #define __TSB_MOCK_LIBC__
 
 #include <gmock/gmock.h>
+#include <memory>
 
 // Included for open() and flock() flags
 #include <fcntl.h>
@@ -34,6 +35,6 @@ public:
 	MOCK_METHOD(int, flock, (int, int));
 };
 
-extern TsbMockLibc* g_mockLibc;
+extern std::shared_ptr<TsbMockLibc> g_mockLibc;
 
 #endif // __TSB_MOCK_LIBC__

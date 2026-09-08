@@ -21,6 +21,7 @@
 #define MOCK_AAMP_TSB_AD_PLACEMENT_METADATA_H
 
 #include <gmock/gmock.h>
+#include <memory>
 #include "AampTsbAdPlacementMetaData.h"
 
 /**
@@ -44,6 +45,6 @@ public:
 	MOCK_METHOD(void, SendEvent, (PrivateInstanceAAMP*), (const, override));
 };
 
-extern MockAampTsbAdPlacementMetaData* g_mockAampTsbAdPlacementMetaData;
+extern std::shared_ptr<MockAampTsbAdPlacementMetaData> g_mockAampTsbAdPlacementMetaData;
 
 #endif // MOCK_AAMP_TSB_AD_PLACEMENT_METADATA_H

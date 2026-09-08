@@ -42,29 +42,26 @@ protected:
             gpGlobalConfig =  new AampConfig();
         }
 
-        g_mockAampConfig = new MockAampConfig();
-        g_mockAampScheduler = new MockAampScheduler();
-        g_mockPrivateInstanceAAMP = new MockPrivateInstanceAAMP();
+        g_mockAampConfig = std::make_shared<MockAampConfig>();
+        g_mockAampScheduler = std::make_shared<MockAampScheduler>();
+        g_mockPrivateInstanceAAMP = std::make_shared<MockPrivateInstanceAAMP>();
         mConfig = new AampConfig();
         mplayer = new TestablePlayerInstanceAAMP();
 
 		// FIXME: below violates aamp member being private
-        g_mockStreamAbstractionAAMP = new MockStreamAbstractionAAMP(mplayer->GetPrivAamp());
-        mplayer->GetPrivAamp()->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+        g_mockStreamAbstractionAAMP = std::make_shared<MockStreamAbstractionAAMP>(mplayer->GetPrivAamp());
+        mplayer->GetPrivAamp()->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
     }
 
     void TearDown() override
     {
-        delete g_mockPrivateInstanceAAMP;
-        g_mockPrivateInstanceAAMP = nullptr;
+        g_mockPrivateInstanceAAMP.reset();
 
-        delete g_mockAampScheduler;
-        g_mockAampScheduler = nullptr;
+        g_mockAampScheduler.reset();
 
-        delete g_mockAampConfig;
-        g_mockAampConfig = nullptr;
+        g_mockAampConfig.reset();
 
-        delete g_mockStreamAbstractionAAMP;
+        g_mockStreamAbstractionAAMP.reset();
         g_mockStreamAbstractionAAMP =nullptr;
 
         delete mConfig;

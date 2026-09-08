@@ -26,7 +26,7 @@
 #include "MockMp4Demux.h"
 
 // Global mock instance used by the testable AampMp4Demuxer
-MockMp4Demux *g_mockMp4Demux = nullptr;
+std::shared_ptr<MockMp4Demux> g_mockMp4Demux{};
 
 /**
  * @brief Fake MP4Demux constructor

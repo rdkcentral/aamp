@@ -20,6 +20,7 @@
 #define AAMP_MOCK_TSB_DATAMANAGER_H
 
 #include <gmock/gmock.h>
+#include <memory>
 #include "AampTsbDataManager.h"
 
 using namespace TSB;
@@ -32,7 +33,7 @@ public:
 	MOCK_METHOD(TsbFragmentDataPtr, GetLastFragment, ());
 	MOCK_METHOD(TsbFragmentDataPtr, GetNearestFragment, (double position));
 };
-extern MockTSBDataManager *g_mockTSBDataManager;
+extern std::shared_ptr<MockTSBDataManager> g_mockTSBDataManager;
 #endif /* AAMP_MOCK_TSB_DATAMANAGER_H */
 
 

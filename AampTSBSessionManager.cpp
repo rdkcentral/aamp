@@ -1082,27 +1082,6 @@ bool AampTSBSessionManager::PushNextTsbFragment(MediaStreamContext *pMediaStream
 }
 
 /**
- * @brief GetManifestEndDelta - Get manifest delta with live downloader end
- *
- * @return void
- */
-double AampTSBSessionManager::GetManifestEndDelta()
-{
-	double manifestEndDelta = 0.0;
-	LockReadMutex();
-	if(mStoreEndPosition > 0.0 && mAamp->mAbsoluteEndPosition > 0.0  )
-	{
-		manifestEndDelta = mStoreEndPosition - mAamp->mAbsoluteEndPosition > 0.0;
-	}
-	else
-	{
-		AAMPLOG_WARN("TSB Session manager progress has not yet updated!!! returning..  %.02lf", manifestEndDelta);
-	}
-	UnlockReadMutex();
-
-	return manifestEndDelta;
-}
-/**
  * @brief UpdateProgress - Progress updates
  *
  * @param[in] manifestDuration - current manifest duration

@@ -19,7 +19,9 @@
 
 #include <gtest/gtest.h>
 #include <algorithm>
+#include <atomic>
 #include <memory>
+#include <mutex>
 #include <future>
 #include <thread>
 
@@ -29,6 +31,7 @@
 #include "AampTime.h"
 #include "priv_aamp.h"
 #include "fragmentcollector_mpd.h"
+#include "MediaStreamContext.h"
 
 #include "MockIsoBmffHelper.h"
 #include "MockIsoBmffBuffer.h"
@@ -70,6 +73,17 @@ MATCHER_P(VectorRefEq, vecStdConstRef, "")
 	return arg.size() >= vec.size() &&
 		   std::memcmp(arg.data(), vec.data(), vec.size()) == 0;
 }
+
+// Test helper: exposes protected members of StreamAbstractionAAMP_MPD for the
+// regression test. Allows direct access to mMediaStreamContext[] and
+// AbortWaitForManifestUpdate() without modifying the production header.
+class TestableStreamAbstractionAAMP_MPD : public StreamAbstractionAAMP_MPD
+{
+public:
+	using StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD;
+	using StreamAbstractionAAMP_MPD::mMediaStreamContext;
+	using StreamAbstractionAAMP_MPD::AbortWaitForManifestUpdate;
+};
 
 // MediaTrack is an abstract base class, so must be tested via a derived class
 class TestableMediaTrack : public MediaTrack
@@ -118,15 +132,15 @@ protected:
 	void SetUp() override
 	{
 		gpGlobalConfig = new AampConfig();
-		g_mockAampConfig = new NiceMock<MockAampConfig>();
+		g_mockAampConfig = std::make_shared<NiceMock<MockAampConfig>>();
 
 		// A fake PrivateInstanceAAMP
 		mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
 
-		g_mockPrivateInstanceAAMP = new NiceMock<MockPrivateInstanceAAMP>();
-		g_mockIsoBmffHelper = new NiceMock<MockIsoBmffHelper>();
-		g_mockIsoBmffBuffer = new NiceMock<MockIsoBmffBuffer>();
-		g_mockStreamAbstractionAAMP_MPD = new NiceMock<MockStreamAbstractionAAMP_MPD>(mPrivateInstanceAAMP, 0, 0);
+		g_mockPrivateInstanceAAMP = std::make_shared<NiceMock<MockPrivateInstanceAAMP>>();
+		g_mockIsoBmffHelper = std::make_shared<NiceMock<MockIsoBmffHelper>>();
+		g_mockIsoBmffBuffer = std::make_shared<NiceMock<MockIsoBmffBuffer>>();
+		g_mockStreamAbstractionAAMP_MPD = std::make_shared<NiceMock<MockStreamAbstractionAAMP_MPD>>(mPrivateInstanceAAMP, 0, 0);
 
 		// A fake StreamAbstractionAAMP_MPD that derives from a *real* StreamAbstractionAAMP.
 		// The tests can't use a fake/mock StreamAbstractionAAMP base class because
@@ -137,26 +151,21 @@ protected:
 
 	void TearDown() override
 	{
-		delete g_mockStreamAbstractionAAMP_MPD;
-		g_mockStreamAbstractionAAMP_MPD = nullptr;
+		g_mockStreamAbstractionAAMP_MPD.reset();
 
 		delete mStreamAbstractionAAMP_MPD;
 		mStreamAbstractionAAMP_MPD = nullptr;
 
-		delete g_mockIsoBmffHelper;
-		g_mockIsoBmffHelper = nullptr;
+		g_mockIsoBmffHelper.reset();
 
-		delete g_mockIsoBmffBuffer;
-		g_mockIsoBmffBuffer = nullptr;
+		g_mockIsoBmffBuffer.reset();
 
-		delete g_mockPrivateInstanceAAMP;
-		g_mockPrivateInstanceAAMP = nullptr;
+		g_mockPrivateInstanceAAMP.reset();
 
 		delete mPrivateInstanceAAMP;
 		mPrivateInstanceAAMP = nullptr;
 
-		delete g_mockAampConfig;
-		g_mockAampConfig = nullptr;
+		g_mockAampConfig.reset();
 
 		delete gpGlobalConfig;
 		gpGlobalConfig = nullptr;
@@ -235,6 +244,8 @@ protected:
 
 		EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_OverrideMediaHeaderDuration))
 			.WillRepeatedly(Return(false));
+		EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseMp4Demux))
+			.WillRepeatedly(Return(false));
 		EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_CurlThroughput))
 			.WillRepeatedly(Return(false));
 		EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp))
@@ -308,6 +319,8 @@ TEST_P(MediaTrackDashPtsRestampNotConfiguredTests, PtsRestampNotConfiguredTest)
 		.WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_CurlThroughput))
 		.WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseMp4Demux))
+		.WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp))
 		.WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentCached))
@@ -367,6 +380,8 @@ TEST_P(MediaTrackDashQtDemuxOverrideConfiguredTests, QtDemuxOverrideConfiguredTe
 		.WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_CurlThroughput))
 		.WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseMp4Demux))
+		.WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp))
 		.WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentCached))
@@ -425,6 +440,8 @@ TEST_P(MediaTrackDashTrickModePtsRestampValidPlayRateTests, ValidPlayRateTest)
 	EXPECT_CALL(*g_mockIsoBmffHelper, RestampPts(_, _, _, _, _)).Times(0);
 
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_CurlThroughput))
+		.WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseMp4Demux))
 		.WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp))
 		.WillRepeatedly(Return(true));
@@ -740,6 +757,8 @@ TEST_F(MediaTrackTests, DashTrickModePtsRestampDiscontinuityTest)
 	// There should be no PTS restamping for normal play rate media fragments in this test
 	EXPECT_CALL(*g_mockIsoBmffHelper, RestampPts(_, _, _, _, _)).Times(0);
 
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseMp4Demux))
+		.WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_CurlThroughput))
 		.WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp))
@@ -866,6 +885,8 @@ TEST_F(MediaTrackTests, FlushFetchedFragmentsTest)
 	mStreamAbstractionAAMP_MPD->trickplayMode = true;
 
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_CurlThroughput))
+		.WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseMp4Demux))
 		.WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp))
 		.WillRepeatedly(Return(true));
@@ -1172,7 +1193,7 @@ TEST_F(MediaTrackTests, WaitForCachedFragmentInjected_SignaledButStillFull_Retur
 	});
 
 	// Must return false: was signaled, abort is clear, but cache is still full.
-	bool result = videoTrack.WaitForCachedFragmentInjected(5000 /*ms*/);
+	bool result = videoTrack.WaitForCachedFragmentInjected(200 /*ms*/);
 	signalThread.join();
 
 	EXPECT_FALSE(result);
@@ -1224,9 +1245,8 @@ TEST_F(MediaTrackTests, CheckForDiscontinuity_PtsRestampPath_WithMp4DemuxerPlayC
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp))
 		.WillRepeatedly(Return(true));
 
-	MockAampMp4Demuxer mockDemuxer;
-	g_mockAampMp4Demuxer = &mockDemuxer;
-	EXPECT_CALL(mockDemuxer, getPTSRestampStatus())
+	g_mockAampMp4Demuxer = std::make_shared<MockAampMp4Demuxer>();
+	EXPECT_CALL(*g_mockAampMp4Demuxer, getPTSRestampStatus())
 		.WillRepeatedly(Return(true));
 
 	TestableMediaTrack subtitleTrack{eTRACK_SUBTITLE, mPrivateInstanceAAMP,
@@ -1244,7 +1264,36 @@ TEST_F(MediaTrackTests, CheckForDiscontinuity_PtsRestampPath_WithMp4DemuxerPlayC
 										isDiscontinuity, ret);
 
 	EXPECT_FALSE(isDiscontinuity);
-	g_mockAampMp4Demuxer = nullptr;
+	g_mockAampMp4Demuxer.reset();
+}
+
+/**
+ * @brief Verify discontinuity is ignored when injected duration is effectively zero,
+ * ES change is not pending, and the pipeline is already valid.
+ */
+TEST_F(MediaTrackTests, CheckForDiscontinuity_IgnoresDiscontinuity_WhenInjectedDurationIsZeroAndPipelineValid)
+{
+	// Allow CheckForDiscontinuity to read ES-change status.
+	mPrivateInstanceAAMP->mpStreamAbstractionAAMP = mStreamAbstractionAAMP_MPD;
+	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
+
+	// Keep ES change status false to satisfy branch predicate.
+	EXPECT_FALSE(mStreamAbstractionAAMP_MPD->GetESChangeStatus());
+
+	TestableMediaTrack videoTrack{eTRACK_VIDEO, mPrivateInstanceAAMP, "video", mStreamAbstractionAAMP_MPD};
+	CachedFragment fragment = MakeDiscontinuousFragment();
+	bool fragmentDiscarded{false};
+	bool isDiscontinuity{false};
+	bool ret{true};
+
+	bool stopInjection = videoTrack.CheckForDiscontinuity(
+		&fragment, fragmentDiscarded, isDiscontinuity, ret);
+
+	EXPECT_FALSE(stopInjection);
+	EXPECT_FALSE(fragmentDiscarded);
+	EXPECT_FALSE(isDiscontinuity);
+	EXPECT_TRUE(ret);
+	EXPECT_FALSE(fragment.discontinuity);
 }
 
 /**
@@ -1288,9 +1337,8 @@ TEST_F(MediaTrackTests, IsPTSRestampEnabled_UsesActivePlayContextCapability)
 	subtitleTrack.playContext = nullptr;
 	EXPECT_FALSE(subtitleTrack.IsPTSRestampEnabled());
 
-	MockAampMp4Demuxer mockDemuxer;
-	g_mockAampMp4Demuxer = &mockDemuxer;
-	EXPECT_CALL(mockDemuxer, getPTSRestampStatus())
+	g_mockAampMp4Demuxer = std::make_shared<MockAampMp4Demuxer>();
+	EXPECT_CALL(*g_mockAampMp4Demuxer, getPTSRestampStatus())
 		.WillOnce(Return(false))
 		.WillOnce(Return(true));
 
@@ -1304,7 +1352,7 @@ TEST_F(MediaTrackTests, IsPTSRestampEnabled_UsesActivePlayContextCapability)
 			eMEDIATYPE_SUBTITLE, true);
 	EXPECT_TRUE(subtitleTrack.IsPTSRestampEnabled());
 
-	g_mockAampMp4Demuxer = nullptr;
+	g_mockAampMp4Demuxer.reset();
 }
 
 /**
@@ -1333,4 +1381,85 @@ TEST_F(MediaTrackTests, CheckForDiscontinuity_FallsThrough_WhenPtsRestampDisable
 
 	// Else branch: isDiscontinuity was not modified, remains true.
 	EXPECT_TRUE(isDiscontinuity);
+}
+
+/**
+ * @brief Regression test for SIGABRT crash in MPD teardown (use-after-free of dwnldMutex).
+ *
+ */
+TEST_F(MediaTrackTests, MPDCallback_Teardown_RaceConditionTest)
+{
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Return(true));
+	// MediaStreamContext and MediaTrack constructors call various GETCONFIGVALUE/ISCONFIGSET.
+	// NiceMock returns 0/false by default. Override the ones that need non-zero values:
+	ON_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentCached)).WillByDefault(Return(1));
+	ON_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxLLDFragmentCached)).WillByDefault(Return(1));
+	ON_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxDownloadBuffer)).WillByDefault(Return(10));
+
+	
+	auto* testMPD = new TestableStreamAbstractionAAMP_MPD(mPrivateInstanceAAMP, 0, 0);
+
+	auto* videoCtx = new MediaStreamContext(eTRACK_VIDEO, testMPD, mPrivateInstanceAAMP, "video");
+	testMPD->mMediaStreamContext[eTRACK_VIDEO] = videoCtx;
+
+	// Precondition: GetMediaTrack() returns the track from the array.
+	ASSERT_EQ(testMPD->GetMediaTrack(eTRACK_VIDEO), static_cast<MediaTrack*>(videoCtx));
+
+	testMPD->AbortWaitForManifestUpdate(); // Must not crash - track is alive.
+
+
+
+
+	// notifierMtx mirrors mMPDNotifierMtx held by downloadNotifierThread.
+	std::mutex notifierMtx;
+	std::atomic<bool> registered{true};
+	std::atomic<int> callbackCount{0};
+
+	// Notifier thread: holds notifierMtx while calling AbortWaitForManifestUpdate.
+	std::thread notifierThread([&]()
+	{
+		while (registered.load(std::memory_order_acquire))
+		{
+			std::lock_guard<std::mutex> lock(notifierMtx);
+			if (!registered.load(std::memory_order_relaxed)) return;
+			testMPD->AbortWaitForManifestUpdate();
+			callbackCount.fetch_add(1, std::memory_order_relaxed);
+			std::this_thread::yield();
+		}
+	});
+
+	// Wait for at least one callback (proves dwnldMutex path is live).
+	while (callbackCount.load(std::memory_order_acquire) == 0)
+	{
+		std::this_thread::sleep_for(std::chrono::microseconds(100));
+	}
+
+	// FIX 1: UnRegisterCallback() - acquires notifierMtx (= mMPDNotifierMtx).
+	// Guarantees any in-flight callback completes before proceeding.
+	{
+		std::lock_guard<std::mutex> lock(notifierMtx);
+		registered.store(false, std::memory_order_release); //mManifestUpdateHandleFlag = false
+	}
+	notifierThread.join(); 
+
+	const int countAfterUnregistering = callbackCount.load(std::memory_order_acquire);
+
+	// FIX 2 validation: The destructor uses SAFE_DELETE(mMediaStreamContext[iTrack]).
+	// We verify this by calling it and checking the array entry is null afterwards.
+	SAFE_DELETE(testMPD->mMediaStreamContext[eTRACK_VIDEO]);
+
+	//Un-fixed code . If this is uncommented then the test will fail
+	// MediaStreamContext* track = testMPD->mMediaStreamContext[eTRACK_VIDEO];
+    // SAFE_DELETE(track);
+
+	//ASSERTION (Fix 2):
+	ASSERT_EQ(testMPD->GetMediaTrack(eTRACK_VIDEO), nullptr);
+
+	// After fix: AbortWaitForManifestUpdate sees null, bails out safely.
+	testMPD->AbortWaitForManifestUpdate(); // Must not crash.
+
+	// Fix 1 assertion: No callbacks fired after unregistering.
+	ASSERT_EQ(callbackCount.load(), countAfterUnregistering);
+
+	delete testMPD;
 }

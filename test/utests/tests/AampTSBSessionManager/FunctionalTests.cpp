@@ -80,7 +80,7 @@ protected:
 		{
 			gpGlobalConfig = new AampConfig();
 		}
-		g_mockAampConfig = new NiceMock<MockAampConfig>();
+		g_mockAampConfig = std::make_shared<NiceMock<MockAampConfig>>();
 		// Set TSB log level to TRACE
 		EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_TsbLogLevel))
 			.WillOnce(Return(static_cast<int>(TSB::LogLevel::TRACE)));
@@ -89,11 +89,11 @@ protected:
 		mAampTSBSessionManager = new AampTSBSessionManager(aamp);
 		TSB::Store::Config config;
 		mTSBStore = std::make_shared<TSB::Store>(config, AampLogManager::aampLogger, aamp->mPlayerId, TSB::LogLevel::TRACE);
-		g_mockTSBStore = new MockTSBStore();
-		g_mockMediaStreamContext = new StrictMock<MockMediaStreamContext>();
-		g_mockPrivateInstanceAAMP = new StrictMock<MockPrivateInstanceAAMP>();
-		g_mockAampUtils = new NiceMock<MockAampUtils>();
-		g_mockAampTsbMetaDataManager = new StrictMock<MockAampTsbMetaDataManager>();
+		g_mockTSBStore = std::make_shared<MockTSBStore>();
+		g_mockMediaStreamContext = std::make_shared<StrictMock<MockMediaStreamContext>>();
+		g_mockPrivateInstanceAAMP = std::make_shared<StrictMock<MockPrivateInstanceAAMP>>();
+		g_mockAampUtils = std::make_shared<NiceMock<MockAampUtils>>();
+		g_mockAampTsbMetaDataManager = std::make_shared<StrictMock<MockAampTsbMetaDataManager>>();
 
 		EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBStore(_,_,_)).WillRepeatedly(Return(mTSBStore));
 		mAampTSBSessionManager->SetTsbLength(5);
@@ -120,28 +120,22 @@ protected:
 
 	void TearDown() override
 	{
-		delete g_mockAampTsbMetaDataManager;
-		g_mockAampTsbMetaDataManager = nullptr;
+		g_mockAampTsbMetaDataManager.reset();
 
-		delete g_mockAampUtils;
-		g_mockAampUtils = nullptr;
+		g_mockAampUtils.reset();
 
-		delete g_mockPrivateInstanceAAMP;
-		g_mockPrivateInstanceAAMP = nullptr;
+		g_mockPrivateInstanceAAMP.reset();
 
 		delete mAampTSBSessionManager;
 		mAampTSBSessionManager = nullptr;
 
 		mTSBStore = nullptr;
 
-		delete g_mockTSBStore;
-		g_mockTSBStore = nullptr;
+		g_mockTSBStore.reset();
 
-		delete g_mockMediaStreamContext;
-		g_mockMediaStreamContext = nullptr;
+		g_mockMediaStreamContext.reset();
 
-		delete g_mockAampConfig;
-		g_mockAampConfig = nullptr;
+		g_mockAampConfig.reset();
 
 		delete aamp;
 		aamp = nullptr;

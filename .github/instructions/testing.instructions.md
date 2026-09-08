@@ -19,7 +19,24 @@ For C++ L1 unit test specifics, see the dedicated instruction files:
 
 ## General Testing Principles
 
-- All public functions require unit tests.
-- Aim for minimum 90% code coverage.
-- Test all code paths: success, error, edge cases, boundary conditions.
+- New or modified public behaviour should have tests **proportionate
+  to risk and complexity** — not by a blanket rule that every public function
+  must have a dedicated unit test.
+- Prioritise tests for code paths that are:
+  - on the playback / buffering / ABR / DRM hot path,
+  - historically a source of regressions,
+  - difficult to validate at integration level,
+  - or implementing a non-obvious contract.
+- Trivial getters, thin pass-throughs, and pure forwarding wrappers do not
+  require dedicated unit tests.
+- Do not chase a numeric coverage target. Coverage is a *diagnostic*, not a
+  goal. Tests written only to raise a coverage percentage tend to be
+  brittle, implementation-coupled, and actively harmful.
+- Test the **observable behaviour and contract** of the code under test,
+  including success, error, edge, and boundary conditions that are
+  reachable and meaningful.
+- For L1 tests specifically, the oracle-design and anti-brittleness rules
+  in `l1-oracle-design.instructions.md` and
+  `l1-validity-review.instructions.md` take precedence over any generic
+  coverage guidance.
 - All tests must run via the CI pipeline.

@@ -167,7 +167,7 @@ AampMPDDownloader::AampMPDDownloader() :  mMPDBufferQ(),mMPDBufferSize(1),mMPDBu
 	mManifestUpdateCb(NULL),mManifestUpdateCbArg(NULL),mDownloadNotifierThread(),mCachedMPDData(nullptr),
 	mCheckedLLDData(false),mMPDNotifierMtx(),mMPDNotifierCondVar(),mManifestRefreshCount(0),mIsLowLatency(false),
 	mMPDDnldDataMtx(),mMPDDnldDataCondVar()
-	,mLLDashData(),mCurrentposDeltaToManifestEnd(-1),mPublishTime(0),mMinimalRefreshRetryCount(0),mMPDNotifyPending(false)
+	,mLLDashData(),mCurrentposDeltaToManifestEnd(-1),mPublishTime(0),mMinimalRefreshRetryCount(0),mMPDNotifyPending(false),mPreProcessErrorCode(CURLE_OPERATION_TIMEDOUT)
 {
 }
 
@@ -189,7 +189,7 @@ AampMPDDownloader::~AampMPDDownloader()
 *   @fn Initialize
 *   @brief Initialize with MPD Download Input
 */
-void AampMPDDownloader::Initialize(ManifestDownloadConfigPtr mpdDnldCfg, std::string appName,std::function<std::string()> mpdPreProcessFuncptr)
+void AampMPDDownloader::Initialize(ManifestDownloadConfigPtr mpdDnldCfg, std::string appName,std::function<std::pair<std::string,int>()> mpdPreProcessFuncptr)
 {
 	if(mpdDnldCfg == nullptr)
 	{
@@ -347,6 +347,7 @@ void AampMPDDownloader::downloadMPDThread1()
 	bool refreshNeeded = false;
 	std::string tuneUrl = mMPDDnldCfg->mTuneUrl;
 	bool firstDownload	=	true;
+	bool downloadFailed = false; // set when a refresh attempt fails; cleared on recovery to log the transition
 	ManifestDownloadResponsePtr cachedBackupData = nullptr;
 	do
 	{
@@ -383,7 +384,7 @@ void AampMPDDownloader::downloadMPDThread1()
 		{
 			if( NULL != mMpdPreProcessFuncptr)
 			{
-				std::string updatedManifest = mMpdPreProcessFuncptr();
+				auto [updatedManifest, httpCode] = mMpdPreProcessFuncptr();
 				if(!updatedManifest.empty())
 				{
 					mMPDData->mMPDDownloadResponse->replaceDownloadData(updatedManifest);
@@ -391,7 +392,7 @@ void AampMPDDownloader::downloadMPDThread1()
 				}
 				else
 				{
-					mMPDData->mMPDDownloadResponse->iHttpRetValue = CURLE_OPERATION_TIMEDOUT;
+					mMPDData->mMPDDownloadResponse->iHttpRetValue = httpCode;
 				}
 			}
 			else
@@ -421,6 +422,12 @@ void AampMPDDownloader::downloadMPDThread1()
 
 				// Update the effective url , so that next refresh uses the effective url
 				tuneUrl = mMPDData->mMPDDownloadResponse->sEffectiveUrl;
+
+				if(downloadFailed)
+				{
+					AAMPLOG_WARN("Manifest refresh recovered after previous download failure.");
+					downloadFailed = false;
+				}
 
 				// first time download complete . Do what need to be done . ....
 				if(firstDownload && mMPDData->mIsLiveManifest)
@@ -516,13 +523,26 @@ void AampMPDDownloader::downloadMPDThread1()
 			refreshNeeded = waitForRefreshInterval(waitMs);
 		}
 
-		//Timeout case during live refresh
+		//Timeout/connect failure during live refresh
 		if(!firstDownload && (IsCurlTimeoutFailure(mMPDData->mMPDDownloadResponse->iHttpRetValue) || CURLE_COULDNT_CONNECT == mMPDData->mMPDDownloadResponse->iHttpRetValue))
 		{
 			AAMPLOG_WARN("Refresh after 500ms to handle a manifest timeout error.");
 			//Forcefully go with 500 ms refresh after a download failure
 			mRefreshInterval = MIN_DELAY_BETWEEN_PLAYLIST_UPDATE_MS;
+			downloadFailed = true;
 			refreshNeeded = waitForRefreshInterval(mRefreshInterval);
+		}
+		else if(!firstDownload && !IS_HTTP_SUCCESS(mMPDData->mMPDDownloadResponse->iHttpRetValue) && !mReleaseCalled)
+		{
+			// Other download failures (e.g. curl 56 CURLE_RECV_ERROR, transient HTTP errors)
+			// during an established live session: keep the refresh loop alive so the next
+			// manifest fetch is attempted rather than killing the downloader thread.
+			// Use 500ms fast-retry (same as timeout/COULDNT_CONNECT) to minimise buffer impact
+			// on LLD streams; mRefreshInterval is not permanently overwritten.
+			uint32_t fastRetry = MIN_DELAY_BETWEEN_PLAYLIST_UPDATE_MS;
+			AAMPLOG_WARN("Manifest download error [%d], will retry after %ums.", mMPDData->mMPDDownloadResponse->iHttpRetValue, fastRetry);
+			downloadFailed = true;
+			refreshNeeded = waitForRefreshInterval(fastRetry);
 		}
 
 	}while(refreshNeeded && !mReleaseCalled);

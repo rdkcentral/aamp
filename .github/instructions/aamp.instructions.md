@@ -18,7 +18,7 @@ AAMP (Advanced Adaptive Media Player) is a high-performance, embedded systems-fo
 
 ## 2. Core Technologies
 
--   **Language:** C++11 is the primary language; there is a small amount of C++17, but the majority is built as C++11. While the goal is modern C++, the codebase contains significant legacy C-style code (e.g., `memcpy`, raw pointers). Refactoring this to use modern C++ features (smart pointers, STL containers, RAII) is an ongoing task.
+-   **Language:** The existing AAMP codebase is predominantly C++11, but new code must target C++17. While the goal is modern C++, the codebase contains significant legacy C-style code (e.g., `memcpy`, raw pointers). Refactoring this to use modern C++ features (smart pointers, STL containers, RAII) is an ongoing task.
 -   **Media Framework:** GStreamer is used for the underlying media pipeline, including demuxing, decoding, and rendering. AAMP interacts with GStreamer to manage the flow of media data.
 -   **Build System:** CMake is the primary build system. All source files, dependencies, and build targets are defined in `CMakeLists.txt` files.
 -   **Testing:** Google Test & Google Mock are the frameworks used for unit and functional testing.
@@ -82,3 +82,41 @@ AAMP maintains a comprehensive testing suite located in the `test/` directory. A
 -   **Mocks and Fakes**: The codebase makes extensive use of mocks and fakes to achieve component isolation.
     -   `test/utests/mocks/`: Contains mock objects generated using Google Mock (`MOCK_METHOD`). These are used to verify interactions between the class under test and its dependencies.
     -   `test/utests/fakes/`: Contains fake implementations of classes. These provide a more lightweight, functional stub than a full mock and are used when the dependency's behavior is simple to simulate or when a mock is overly complex. This is a very common and important pattern in the codebase.
+
+## 6. AAMP File Naming Conventions
+
+- Class files should use an `Aamp` prefix where applicable (e.g., `AampConfig.cpp`, `AampScheduler.h`).
+- File names must match the primary class implementation they contain.
+- Use CamelCase for file names.
+- Avoid underscores in new AAMP class file names.
+
+## 7. Include Guard Convention
+
+Use `#pragma once` as the preferred include guard for new header files. If traditional include guards are required, follow the pattern:
+
+```cpp
+#ifndef AAMP_CLASSNAME_H
+#define AAMP_CLASSNAME_H
+
+// ... header content ...
+
+#endif /* AAMP_CLASSNAME_H */
+```
+
+## 8. AAMP Logging Guidance
+
+Prefer AAMP logging macros over `logprintf` for all new code. The supported macros and their intended usage:
+
+| Macro | Level | Usage |
+|-------|-------|-------|
+| `AAMPLOG_TRACE` | Trace | Development and triage-level detail; verbose output for deep debugging. |
+| `AAMPLOG_INFO` | Info | Informative and debug messages; especially useful during tune operations. |
+| `AAMPLOG_MIL` | Milestone | Important operational messages that should always appear in logs (e.g., tune milestones). Prefer over `AAMPLOG_WARN` for non-warning messages that must be visible by default. |
+| `AAMPLOG_WARN` | Warn | Recoverable warnings; do not use for general-importance messages — use `AAMPLOG_MIL` instead. |
+| `AAMPLOG_ERR` | Error | Severe or unexpected conditions that warrant investigation. |
+
+### Logging Best Practices
+- Use the appropriate log level for the message severity.
+- Include relevant context in log messages (function name, identifiers, values).
+- Avoid excessive logging in hot paths (e.g., per-fragment processing); prefer `AAMPLOG_TRACE` for these.
+- Use correct printf format specifiers (see `cpp.instructions.md` for reference).

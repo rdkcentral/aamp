@@ -206,11 +206,11 @@ protected:
         {
             gpGlobalConfig =  new AampConfig();
         }
-        g_mockAampConfig = new MockAampConfig();
+        g_mockAampConfig = std::make_shared<MockAampConfig>();
 
         mTSProcessor = new TestTSProcessor(mPrivateInstanceAAMP, eStreamOp_DEMUX_AUDIO);
 
-        g_mockPrivateInstanceAAMP = new MockPrivateInstanceAAMP();
+        g_mockPrivateInstanceAAMP = std::make_shared<MockPrivateInstanceAAMP>();
     }
 
     void TearDown() override
@@ -218,14 +218,12 @@ protected:
         delete gpGlobalConfig;
         gpGlobalConfig = nullptr;
 
-        delete g_mockAampConfig;
-        g_mockAampConfig = nullptr;
+        g_mockAampConfig.reset();
 
         delete mTSProcessor;
         mTSProcessor = nullptr;
 
-        delete g_mockPrivateInstanceAAMP;
-        g_mockPrivateInstanceAAMP = nullptr;
+        g_mockPrivateInstanceAAMP.reset();
     }
     TestTSProcessor *mTSProcessor;
 };

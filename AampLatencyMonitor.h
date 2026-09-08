@@ -186,6 +186,12 @@ public:
 	void EnableRateCorrection(bool enabled);
 
 	/**
+	 * @brief Returns true if rate correction is currently enabled.
+	 * Thread-safe (atomic load).
+	 */
+	bool IsRateCorrectionEnabled() const { return mCorrectionEnabled.load(); }
+
+	/**
 	 * @brief Returns the playback rate most recently applied by this monitor.
 	 *
 	 * Thread-safe (atomic load).
@@ -209,6 +215,14 @@ public:
 	 * Thread-safe (reads under mThresholdMutex).
 	 */
 	std::tuple<double, double, double> GetCurrentThresholds() const;
+
+	/**
+	 * @brief Return the total latency increment (ms) accumulated from
+	 * low-buffer rebuffering events since the last Start() or reset.
+	 *
+	 * Thread-safe (reads under mThresholdMutex).
+	 */
+	double GetAccumulatedLatencyIncrementMs() const;
 
 	/**
 	 * @brief Notify the monitor of the current buffer level.

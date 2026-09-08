@@ -47,6 +47,7 @@ RUN bash -c '\
   else echo "ERROR: Unsupported platform: $OSTYPE" && exit 1; fi && \
   export OPTION_UBUNTU_SANITIZER="false" && \
   mkdir -p "$LOCAL_DEPS_BUILD_DIR" && \
+  cp -r OSX "$(dirname "$LOCAL_DEPS_BUILD_DIR")/" && \
   source scripts/tools.sh && \
   source scripts/install_clone.sh && \
   source scripts/install_dir.sh && \

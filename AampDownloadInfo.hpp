@@ -31,6 +31,7 @@
 #include <cstdint>
 #include <curl/curl.h>
 #include "AampConstants.h"
+#include "AampDefine.h"
 #include "AampCurlDefine.h"
 #include "AampMediaType.h"
 #include "AampUtils.h"

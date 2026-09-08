@@ -74,7 +74,7 @@ protected:
 
         mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
 
-        g_mockAampConfig = new MockAampConfig();
+        g_mockAampConfig = std::make_shared<MockAampConfig>();
 
         mStreamAbstractionAAMP_HLS = new StreamAbstractionAAMP_HLS(mPrivateInstanceAAMP, 0, 0.0);
 
@@ -96,8 +96,7 @@ protected:
         delete gpGlobalConfig;
         gpGlobalConfig = nullptr;
 
-        delete g_mockAampConfig;
-        g_mockAampConfig = nullptr;
+        g_mockAampConfig.reset();
     }
 
 public:

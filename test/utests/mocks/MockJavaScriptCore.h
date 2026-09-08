@@ -21,6 +21,7 @@
 #define AAMP_MOCK_JAVASCRIPT_CORE_H
 
 #include <gmock/gmock.h>
+#include <memory>
 #include <JavaScriptCore/JavaScript.h>
 
 class MockJavaScriptCore
@@ -68,6 +69,6 @@ public:
 
 };
 
-extern MockJavaScriptCore *g_mockJavaScriptCore;
+extern std::shared_ptr<MockJavaScriptCore> g_mockJavaScriptCore;
 
 #endif /* AAMP_MOCK_JAVASCRIPT_CORE_H */

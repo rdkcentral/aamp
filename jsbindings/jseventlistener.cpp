@@ -1705,6 +1705,41 @@ public:
 
 /// -----------------------------------------------------------------------------------------
 
+class AAMP_Listener_VodAdBreakOpportunity : public AAMP_JSEventListener
+{
+public:
+	AAMP_Listener_VodAdBreakOpportunity(PrivAAMPStruct_JS *obj, AAMPEventType type, JSObjectRef jsCallback)
+		: AAMP_JSEventListener(obj, type, jsCallback)
+	{
+	}
+
+	void SetEventProperties(const AAMPEventPtr& evt, JSObjectRef jsEventObj)
+	{
+		VodAdBreakOpportunityEventPtr e = std::dynamic_pointer_cast<VodAdBreakOpportunityEvent>(evt);
+		if (!e) return;
+
+		JSStringRef prop;
+
+		prop = JSStringCreateWithUTF8CString("breakId");
+		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, aamp_CStringToJSValue(p_obj->_ctx, e->getBreakId().c_str()), kJSPropertyAttributeReadOnly, NULL);
+		JSStringRelease(prop);
+
+		prop = JSStringCreateWithUTF8CString("insertionPointSec");
+		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, e->getInsertionPointSec()), kJSPropertyAttributeReadOnly, NULL);
+		JSStringRelease(prop);
+
+		prop = JSStringCreateWithUTF8CString("breakDurationSec");
+		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, e->getBreakDurationSec()), kJSPropertyAttributeReadOnly, NULL);
+		JSStringRelease(prop);
+
+		prop = JSStringCreateWithUTF8CString("breakType");
+		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, aamp_CStringToJSValue(p_obj->_ctx, e->getBreakType().c_str()), kJSPropertyAttributeReadOnly, NULL);
+		JSStringRelease(prop);
+	}
+};
+
+/// -----------------------------------------------------------------------------------------
+
 class AAMP_Listener_DefaultEvent : public AAMP_JSEventListener
 {
 public:
@@ -1934,6 +1969,9 @@ void AAMP_JSEventListener::AddEventListener(PrivAAMPStruct_JS* obj, AAMPEventTyp
 			break;
 		case AAMP_EVENT_MONITORAV_STATUS:
 			pListener = std::make_shared<AAMP_Listener_MonitorAVStatus>(obj, type, jsCallback);
+			break;
+		case AAMP_EVENT_VOD_ADBREAK_OPPORTUNITY:
+			pListener = std::make_shared<AAMP_Listener_VodAdBreakOpportunity>(obj, type, jsCallback);
 			break;
 		// Following events are not having payload and hence falls under default case
 		// AAMP_EVENT_EOS, AAMP_EVENT_TUNED, AAMP_EVENT_ENTERING_LIVE,

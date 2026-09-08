@@ -26,7 +26,7 @@
 #include "AampTsbDataManager.h"
 #include "MockTSBDataManager.h"
 
-MockTSBDataManager *g_mockTSBDataManager = nullptr;
+std::shared_ptr<MockTSBDataManager> g_mockTSBDataManager{};
 
 std::shared_ptr<TsbFragmentData> AampTsbDataManager::GetFragment(double position, bool &eos)
 {

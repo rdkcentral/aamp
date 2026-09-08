@@ -17,8 +17,8 @@
 
 include(GoogleTest)
 
-pkg_check_modules(GMOCK REQUIRED gmock)
-pkg_check_modules(GTEST REQUIRED gtest)
+# Note: GTEST and GMOCK are configured in parent CMakeLists.txt to use FetchContent googletest
+# Do not call pkg_check_modules here as it will override the parent settings
 pkg_check_modules(GLIB REQUIRED glib-2.0)
 
 set(AAMP_ROOT "../../../../")

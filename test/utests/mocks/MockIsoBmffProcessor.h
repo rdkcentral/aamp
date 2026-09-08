@@ -21,6 +21,7 @@
 #define AAMP_MOCK_ISOBMFF_PROCESSOR_H
 
 #include <gmock/gmock.h>
+#include <memory>
 #include "isobmff/isobmffprocessor.h"
 
 class MockIsoBmffProcessor
@@ -30,6 +31,6 @@ public:
 	MOCK_METHOD(bool, getPTSRestampStatus, (), (const));
 };
 
-extern MockIsoBmffProcessor *g_mockIsoBmffProcessor;
+extern std::shared_ptr<MockIsoBmffProcessor> g_mockIsoBmffProcessor;
 
 #endif /* AAMP_MOCK_ISOBMFF_PROCESSOR_H */

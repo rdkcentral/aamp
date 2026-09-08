@@ -1674,3 +1674,74 @@ TEST_F(FunctionalTests, Multiperiod_StartTimeLive4)
 	EXPECT_EQ(periodIdx, 2);
 	EXPECT_NEAR(periodDuration2, 212107, 1);
 }
+
+/**
+ * @brief Verify GetPeriodDurationFromStart() behavior with static multi-period MPD
+ *
+ * Behavioral contract under test:
+ * - For non-last periods in static MPD: duration = start(n+1) - start(n)
+ * - For the last period in static MPD: returns 0 when no explicit duration or next period exists
+ *
+ * Test scenario:
+ * - Static MPD with two periods (p0: 0s-40s, p1: 40s-onwards)
+ * - Period p0 has 20 segments of 2s each (explicit timeline)
+ * - Period p1 has 10 segments of 2s each (explicit timeline)
+ * - Neither period has an explicit duration attribute
+ *
+ * Expected behavior:
+ * - GetPeriodDurationFromStart(0) returns 40000ms (calculated from next period start)
+ * - GetPeriodDurationFromStart(1) returns 0ms (last period, no next period start)
+ */
+TEST_F(FunctionalTests, Multiperiod_StartTimeStatic_LastPeriodReturnsZero)
+{
+	dash::mpd::IMPD *mpd;
+	static const char *manifest =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="static" minBufferTime="PT1.500S" maxSegmentDuration="PT2S">
+<Period id="p0" start="PT0S">
+	<AdaptationSet contentType="video" segmentAlignment="true" startWithSAP="1">
+		<SegmentTemplate initialization="v_init.mp4" media="v_$Number$.m4s" startNumber="1" timescale="1000">
+			<SegmentTimeline>
+				<S t="0" d="2000" r="19"/>
+			</SegmentTimeline>
+		</SegmentTemplate>
+		<Representation id="v0" mimeType="video/mp4" codecs="avc1.640028" width="640" height="360" frameRate="25" bandwidth="1000000" />
+	</AdaptationSet>
+</Period>
+<Period id="p1" start="PT40S">
+	<AdaptationSet contentType="video" segmentAlignment="true" startWithSAP="1">
+		<SegmentTemplate initialization="v_init.mp4" media="v_$Number$.m4s" startNumber="1" timescale="1000">
+			<SegmentTimeline>
+				<S t="40000" d="2000" r="9"/>
+			</SegmentTimeline>
+		</SegmentTemplate>
+		<Representation id="v1" mimeType="video/mp4" codecs="avc1.640028" width="640" height="360" frameRate="25" bandwidth="1000000" />
+	</AdaptationSet>
+</Period>
+</MPD>
+)";
+
+	mManifest = manifest;
+	ManifestDownloadResponsePtr respData = GetManifestForMPDDownloader();
+	mpd = respData->mMPDInstance.get();
+	ParseHelper->Initialize(mpd);
+
+	// Validate manifest structure
+	ASSERT_NE(mpd, nullptr);
+	ASSERT_EQ(mpd->GetPeriods().size(), 2);
+	EXPECT_EQ(ParseHelper->IsLiveManifest(), false);
+
+	// Test first period (p0): should calculate duration from next period's start time
+	// Duration = start(p1) - start(p0) = 40s - 0s = 40000ms
+	int firstPeriodIdx = 0;
+	double firstPeriodDurationMs = ParseHelper->GetPeriodDurationFromStart(firstPeriodIdx);
+	EXPECT_EQ(firstPeriodIdx, 1);  // Index advances to next period
+	EXPECT_DOUBLE_EQ(firstPeriodDurationMs, 40000.0);
+
+	// Test second period (p1): last period with no next period start
+	// Should return 0 since no next period exists to calculate duration
+	int secondPeriodIdx = 1;
+	double secondPeriodDurationMs = ParseHelper->GetPeriodDurationFromStart(secondPeriodIdx);
+	EXPECT_EQ(secondPeriodIdx, 1);  // Index stays at last period
+	EXPECT_DOUBLE_EQ(secondPeriodDurationMs, 0.0);
+}

@@ -20,7 +20,7 @@
 #include "AampTrackWorker.hpp"
 #include "MockAampTrackWorker.h"
 
-MockAampTrackWorker *g_mockAampTrackWorker = nullptr;
+std::shared_ptr<MockAampTrackWorker> g_mockAampTrackWorker{};
 
 namespace aamp
 {

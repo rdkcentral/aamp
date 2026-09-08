@@ -42,15 +42,14 @@ class AampLogManagerTest : public Test
 protected:
 	void SetUp() override
 	{
-		g_mockSdJournal = new NiceMock<MockSdJournal>();
+		g_mockSdJournal = std::make_shared<NiceMock<MockSdJournal>>();
 		AampLogManager::lockLogLevel(false);
 		AampLogManager::setLogLevel(eLOGLEVEL_WARN);
 	}
 
 	void TearDown() override
 	{
-		delete g_mockSdJournal;
-		g_mockSdJournal = nullptr;
+		g_mockSdJournal.reset();
 	}
 };
 

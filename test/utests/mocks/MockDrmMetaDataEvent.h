@@ -41,6 +41,7 @@ public:
 
 	MOCK_METHOD(void, setFailure, (AAMPTuneFailure), ());
 	MOCK_METHOD(AAMPTuneFailure, getFailure, (), (const));
+	MOCK_METHOD(void, setNetworkMetricData, (const std::string &), ());
 
 	// Additional commonly-used setters/getters added to avoid future compile issues
 	MOCK_METHOD(void, setResponseCode, (int), ());

@@ -21,6 +21,7 @@
 #define AAMP_MOCK_AAMP_CONFIG_H
 
 #include <gmock/gmock.h>
+#include <memory>
 #include "AampConfig.h"
 
 class MockAampConfig
@@ -49,6 +50,6 @@ public:
 
 };
 
-extern MockAampConfig *g_mockAampConfig;
+extern std::shared_ptr<MockAampConfig> g_mockAampConfig;
 
 #endif /* AAMP_MOCK_AAMP_CONFIG_H */

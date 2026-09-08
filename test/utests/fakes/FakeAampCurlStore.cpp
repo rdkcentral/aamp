@@ -20,7 +20,7 @@
 #include "AampCurlStore.h"
 #include "MockAampCurlStore.h"
 
-MockAampCurlStore *g_mockAampCurlStore = nullptr;
+std::shared_ptr<MockAampCurlStore> g_mockAampCurlStore{};
 
 CurlStore::CurlStore(PrivateInstanceAAMP *pAamp)
 {

@@ -21,6 +21,7 @@
 #define MOCK_AAMP_TSB_METADATA_H
 
 #include <gmock/gmock.h>
+#include <memory>
 #include "AampTsbMetaData.h"
 
 /**
@@ -40,6 +41,6 @@ public:
 	MOCK_METHOD(void, SetOrderAdded, (uint32_t), (override));
 };
 
-extern MockAampTsbMetaData* g_mockAampTsbMetaData;
+extern std::shared_ptr<MockAampTsbMetaData> g_mockAampTsbMetaData;
 
 #endif // MOCK_AAMP_TSB_METADATA_H

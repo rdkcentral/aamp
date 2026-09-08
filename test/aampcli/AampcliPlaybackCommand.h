@@ -74,6 +74,8 @@ private:
 	void HandleCommandAuto( const char *cmd );
 	void HandleCommandFog( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp );
 	void HandleCommandAdvert( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp );
+	void HandleCommandRegisterVodAdBreak( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp );
+	void HandleCommandCancelVodAdBreak( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp );
 	void HandleCommandScte35( const char *cmd );
 	void HandleCommandSessionId( const char *cmd );
 	void HandleCommandSeek( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp );

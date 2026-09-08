@@ -22,6 +22,7 @@
 
 #include <gmock/gmock.h>
 #include <ios>
+#include <memory>
 
 class TsbMockIfstream
 {
@@ -32,6 +33,6 @@ public:
 	MOCK_METHOD(void, close, ());
 };
 
-extern TsbMockIfstream* g_mockIfstream;
+extern std::shared_ptr<TsbMockIfstream> g_mockIfstream;
 
 #endif // __TSB_MOCK_IFSTREAM__

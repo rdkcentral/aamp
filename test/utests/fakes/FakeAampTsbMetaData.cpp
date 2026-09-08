@@ -19,7 +19,7 @@
 
 #include "MockAampTsbMetaData.h"
 
-MockAampTsbMetaData* g_mockAampTsbMetaData = nullptr;
+std::shared_ptr<MockAampTsbMetaData> g_mockAampTsbMetaData{};
 
 // Constructor for AampTsbMetaData
 AampTsbMetaData::AampTsbMetaData(const AampTime& position)

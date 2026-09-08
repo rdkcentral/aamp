@@ -495,6 +495,28 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 						break;
 					}
 
+				case 58:
+					{
+						std::string reservationId;
+						AAMPCLI_PRINTF("[AAMPCLI] Matched Command NotifyReservationComplete - %s\n", cmd);
+						std::istringstream iss(cmd);
+						std::vector<std::string> tokens;
+						std::string token;
+						while (iss >> token) {
+							tokens.push_back(token);
+						}
+						if (tokens.size() == 3) {
+							reservationId = tokens[2];
+							playerInstanceAamp->NotifyReservationComplete(reservationId);
+						}
+						else
+						{
+							AAMPCLI_PRINTF("[AAMPCLI] ERROR: Mismatch in arguments\n");
+							AAMPCLI_PRINTF("[AAMPCLI] Expected: set %s <reservationId>\n", command);
+						}
+						break;
+					}
+
 				case 25:
 					{
 						char networkProxy[128];
@@ -1354,6 +1376,7 @@ void Set::registerSetCommands()
 	addCommand(55,"dynamicDrm"," <x> ","set Dynamic DRM config in Json format x=Timeout value for response message ");
 	addCommand(56,"liveOffset4K"," <x> ","Set Live offset 4K stream(int x=offset)");
 	addCommand(57,"subtecSimulator"," <x> ","Set the SubTec simulator (1 to start the simulator, 0 to stop it)");
+	addCommand(58,"notifyReservationComplete"," <x>","Notify ad reservation completion (string x=reservationId/adBreakId)");
 	commands.push_back("help");
 }
 

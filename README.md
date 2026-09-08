@@ -177,7 +177,7 @@ disableLowLatencyABR		Enable/Disable Low Latency ABR. Default: true
 enableLowLatencyCorrection	Enable/Disable Low Latency Correction. Default: false
 enableFogConfig			Enable/Disable setting player configurations to Fog. Default: true
 suppressDecode			Enable/Disable setting to suppress decode of content for playback, only Downloader test. Default: false
-gstSubtecEnabled		Enable/Disable subtec via gstreamer plugins (plugins in middleware/gst-plugins repo)
+gstSubtecEnabled		Enable/Disable subtec via gstreamer plugins (plugins in middleware-player-interface/gst-plugins repo)
 sendLicenseResponseHeaders	Enable/Disable Sending License response header as a part of DRMMetadata event(Non SecClient/SecManager DRM license).
 useTCPServerSink		Enable "tcpserverSink" in conjunction with playbin. For use in automated testing when there is no window for video output
 sendUserAgentInLicense		Enable/disable sending user agent in the DRM license request header. Default: disabled.
@@ -216,9 +216,6 @@ preferredDrm			Preferred DRM for playback
 					4 - AdobeAccess
 					5 - Vanilla AES
 					6 - ClearKey
-ceaFormat			Preferred CEA option for CC. Default stream based . Override value 
-					0 - CEA 608
-					1 - CEA 708
 maxPlaylistCacheSize            Max Size of Cache to store the VOD Manifest/playlist . Size in KBytes. Default: 3072.
 initRampdownLimit		Maximum number of rampdown/retries for initial playlist retrieval at tune/seek time. Default: 0 (disabled).
 downloadBuffer                  Fragment cache length: Default 3 fragments

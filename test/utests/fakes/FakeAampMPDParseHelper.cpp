@@ -27,7 +27,7 @@
 #include "AampLogManager.h"
 #include "MockAampMPDParseHelper.h"
 
-MockAampMPDParseHelper *g_mockAampMPDParseHelper;
+std::shared_ptr<MockAampMPDParseHelper> g_mockAampMPDParseHelper{};
 /**
  *   @fn AampMPDParseHelper
  *   @brief Default Constructor

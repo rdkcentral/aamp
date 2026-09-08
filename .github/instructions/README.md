@@ -1,35 +1,56 @@
 # Copilot Instructions
 
-This directory contains specialized GitHub Copilot instructions organized by topic and language.
+This directory contains specialized GitHub Copilot instruction files,
+organized by topic and language. Each file activates automatically via
+its `applyTo` glob; load others manually when relevant.
 
-## Structure
+## Files
 
-- **`aamp.instructions.md`** - Descriptive context of the AAMP project's current architecture, key components, and existing patterns (the "AS-IS" state).
-- **`cpp.instructions.md`** - Comprehensive C++ guidelines focused on modern C++ and embedded systems
-- **`legacy-cpp-patterns.instructions.md`** - Specific guidance for modernizing complex legacy C++ code
-- **`testing.instructions.md`** - Unit testing patterns for all languages
+### Architecture & language
+- **`abr.instructions.md`** — Normative functional spec for ABR and latency-control logic.
+  Activates on `abr/**`. Use with the `/abr-*` prompt files for structured reviews.
+- **`aamp.instructions.md`** — AAMP architecture and current ("AS-IS")
+  conventions. Activates on AAMP C/C++ sources.
+- **`cpp.instructions.md`** — C++17 coding standards, documentation,
+  memory and error-handling patterns. Canonical home for general C++
+  rules.
+- **`legacy-cpp-patterns.instructions.md`** — Modernization guidance for
+  legacy C++ code that is being touched as part of the current task.
+- **`js.instructions.md`** — JavaScript / TypeScript guidance for
+  AAMP-adjacent tooling and UI code.
+
+### Testing
+- **`testing.instructions.md`** — General, language-agnostic testing
+  philosophy (risk-based, not coverage-driven).
+- **`l1-build-run.instructions.md`** — Mandatory build/run workflow for
+  AAMP L1 unit tests under `test/utests/`.
+- **`l1-structure.instructions.md`** — L1 directory layout, naming, and
+  CMake patterns.
+- **`l1-fakes-mocks.instructions.md`** — AAMP fake/mock architecture and
+  anti-patterns. Canonical home for fake/mock rules.
+- **`l1-oracle-design.instructions.md`** — How to derive a behavioural
+  oracle for an L1 test when no formal spec exists.
+- **`l1-validity-review.instructions.md`** — Review checklist and
+  verdict language for L1 tests.
 
 ## Usage
 
-### For C++ Development (Primary Focus)
-Include these files in your Copilot context when working on C++ code:
-1.  `aamp.instructions.md` - The "AS-IS" context of the codebase.
-2.  `cpp.instructions.md` - Modern C++ patterns and best practices.
-3.  `legacy-cpp-patterns.instructions.md` - When dealing with existing complex code.
-4.  `testing.instructions.md` - When writing unit tests.
+### C++ development
+The C++ files activate on `**/*.{cpp,h,hpp,cxx,hxx}`. For most edits
+this is all you need. When refactoring legacy code, also keep
+`legacy-cpp-patterns.instructions.md` in mind.
 
-## Benefits of This Structure
+### L1 unit test work
+All five `l1-*.instructions.md` files activate on `test/utests/**`. For
+non-trivial L1 work, the `@l1-test-engineer` agent enforces the full
+workflow automatically.
 
-1.  **Separation of Concerns** - `aamp.instructions.md` describes the "AS-IS" state, while other files describe the "SHOULD-BE" target.
-2.  **Focused Context** - Only load relevant guidelines for your current work.
-3.  **Reduced Cognitive Load** - Copilot gets cleaner, more targeted instructions.
-4.  **Language-Specific Optimization** - Each file is optimized for its target language.
-5.  **Maintainability** - Easier to update specific language guidelines.
-6.  **Team Collaboration** - Different team members can maintain different files.
-
-## Migration from Single File
-
-The original `copilot-instructions.md` file has been updated to reflect the new instructions. This new structure provides:
-- Better organization for the complex C++ codebase
-- Specific guidance for legacy code modernization
-- Clear separation between primary (C++) and secondary (Python/JS) language concerns
+## Conventions
+- Canonical-home rule: each policy lives in one file. Other files refer
+  to it by name rather than duplicating wording. If you find the same
+  rule restated in two files with different wording, prefer keeping the
+  one in the more specialized file and reduce the other to a brief
+  cross-reference.
+- Do not introduce C++20 language or library features in active code
+  (see `cpp.instructions.md`).
+- Do not broaden `applyTo` globs without justification.

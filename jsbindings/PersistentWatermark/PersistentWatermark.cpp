@@ -260,7 +260,7 @@ static JSClassRef PersistentWatermark_object_ref() {
 static JSObjectRef PersistentWatermark_JS_class_constructor(JSContextRef ctx, JSObjectRef constructor, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
 {
 	LOG_TRACE("Enter");
-	static JSObjectRef newObj = JSObjectMake(ctx, PersistentWatermark_object_ref(), NULL);
+	JSObjectRef newObj = JSObjectMake(ctx, PersistentWatermark_object_ref(), NULL);
 	LOG_TRACE("Exit");
 	return newObj;
 }
@@ -301,6 +301,8 @@ void PersistentWatermark_LoadJS(void* context)
 	JSObjectSetProperty(jsContext, globalObj, namestr, PersistentWatermarkClassObj, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete, NULL);
 	JSClassRelease(PersistentWatermarkClass);
 	JSStringRelease(namestr);
+
+	JSValueUnprotect(jsContext, PersistentWatermarkClassObj);
 	LOG_WARN_EX("PersistentWatermark:done with registering persistent watermark class version %s", PERSISTENT_WATERMARK_VERSION);
 	LOG_TRACE("Exit");
 };

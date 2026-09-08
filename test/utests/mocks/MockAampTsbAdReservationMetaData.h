@@ -21,6 +21,7 @@
 #define MOCK_AAMP_TSB_AD_RESERVATION_METADATA_H
 
 #include <gmock/gmock.h>
+#include <memory>
 #include "AampTsbAdReservationMetaData.h"
 
 /**
@@ -44,6 +45,6 @@ public:
 	MOCK_METHOD(void, SendEvent, (PrivateInstanceAAMP*), (const, override));
 };
 
-extern MockAampTsbAdReservationMetaData* g_mockAampTsbAdReservationMetaData;
+extern std::shared_ptr<MockAampTsbAdReservationMetaData> g_mockAampTsbAdReservationMetaData;
 
 #endif // MOCK_AAMP_TSB_AD_RESERVATION_METADATA_H

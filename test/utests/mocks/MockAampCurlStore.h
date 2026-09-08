@@ -20,6 +20,7 @@
 #define MOCK_AAMP_CURL_STORE_H
 
 #include <gmock/gmock.h>
+#include <memory>
 #include "AampCurlStore.h"
 
 class MockAampCurlStore
@@ -28,6 +29,6 @@ public:
 	MOCK_METHOD(int, GetCurlResponseCode, ( CURL *handle ));
 };
 
-extern MockAampCurlStore *g_mockAampCurlStore;
+extern std::shared_ptr<MockAampCurlStore> g_mockAampCurlStore;
 
 #endif // MOCK_AAMP_CURL_STORE_H

@@ -199,15 +199,6 @@ public:
 	void UpdateProgress(double manifestDuration, double manifestCulledSecondsFromStart);
 
 	/**
-	 * @brief GetManifestEndDelta - Get manifest delta with live downloader end
-	 *
-	 * @param[in] manifestDuration - current manifest duration
-	 * @param[in] manifestCulledSecondsFromStart - Culled duration of manifest
-	 * @return double diff with manifest end
-	 */
-	double GetManifestEndDelta();
-
-	/**
 	 * @brief LockReadMutex - Protect read operations
 	 */
 	void LockReadMutex() { mReadMutex.lock(); }

@@ -37,15 +37,14 @@ protected:
     {
         mSet = new Set();
 
-        g_mockPlayerInstanceAAMP = new MockPlayerInstanceAAMP();
+        g_mockPlayerInstanceAAMP = std::make_shared<MockPlayerInstanceAAMP>();
 
         mSet->registerSetCommands();
     }
     
     void TearDown() override 
     {
-        delete g_mockPlayerInstanceAAMP;
-        g_mockPlayerInstanceAAMP = nullptr;
+        g_mockPlayerInstanceAAMP.reset();
 
         delete mSet;
         mSet =nullptr;
@@ -60,13 +59,13 @@ TEST_F(ExecuteTests, Set_CCStyle_NumberedOptions)
     char cmd3[] = "set ccStyle 3";
     
     EXPECT_CALL(*g_mockPlayerInstanceAAMP, SetTextStyle(CC_OPTION_1)).Times(1);
-    mSet->execute(cmd1, g_mockPlayerInstanceAAMP);
+    mSet->execute(cmd1, g_mockPlayerInstanceAAMP.get());
 
     EXPECT_CALL(*g_mockPlayerInstanceAAMP, SetTextStyle(CC_OPTION_2)).Times(1);
-    mSet->execute(cmd2, g_mockPlayerInstanceAAMP);
+    mSet->execute(cmd2, g_mockPlayerInstanceAAMP.get());
 
     EXPECT_CALL(*g_mockPlayerInstanceAAMP, SetTextStyle(CC_OPTION_3)).Times(1);
-    mSet->execute(cmd3, g_mockPlayerInstanceAAMP);
+    mSet->execute(cmd3, g_mockPlayerInstanceAAMP.get());
 }
 
 // Test calling "set 45" (ccStyle) with an valid default option
@@ -75,7 +74,7 @@ TEST_F(ExecuteTests, Set_45_NumberedOptions)
     char cmd1[] = "set 45 1";
     
     EXPECT_CALL(*g_mockPlayerInstanceAAMP, SetTextStyle(CC_OPTION_1)).Times(1);
-    mSet->execute(cmd1, g_mockPlayerInstanceAAMP);
+    mSet->execute(cmd1, g_mockPlayerInstanceAAMP.get());
 }
 
 // Test calling "set ssStyle" with no parameter
@@ -84,7 +83,7 @@ TEST_F(ExecuteTests, Set_CCStyle_NoParameter)
     char cmd[] = "set ccStyle ";
 
     EXPECT_CALL(*g_mockPlayerInstanceAAMP, SetTextStyle(_)).Times(0);
-    mSet->execute(cmd, g_mockPlayerInstanceAAMP);
+    mSet->execute(cmd, g_mockPlayerInstanceAAMP.get());
 }
 
 // Test calling "set ssStyle" with an invalid default option
@@ -94,10 +93,10 @@ TEST_F(ExecuteTests, Set_CCStyle_InvalidNumberedOption)
     char cmd4[] = "set ccStyle 4";
 
     EXPECT_CALL(*g_mockPlayerInstanceAAMP, SetTextStyle(_)).Times(0);
-    mSet->execute(cmd0, g_mockPlayerInstanceAAMP);
+    mSet->execute(cmd0, g_mockPlayerInstanceAAMP.get());
 
     EXPECT_CALL(*g_mockPlayerInstanceAAMP, SetTextStyle(_)).Times(0);
-    mSet->execute(cmd4, g_mockPlayerInstanceAAMP);
+    mSet->execute(cmd4, g_mockPlayerInstanceAAMP.get());
 }
 
 // Test calling "set ssStyle" with a valid json file
@@ -120,7 +119,7 @@ TEST_F(ExecuteTests, Set_CCStyle_File)
     of.close();
 
     EXPECT_CALL(*g_mockPlayerInstanceAAMP, SetTextStyle(json)).Times(1);
-    mSet->execute(cmd, g_mockPlayerInstanceAAMP);
+    mSet->execute(cmd, g_mockPlayerInstanceAAMP.get());
 
     // Remove json file
     ASSERT_FALSE(std::remove(json_file));
@@ -147,7 +146,7 @@ TEST_F(ExecuteTests, Set_CCStyle_FileStartingWithNumber)
     of.close();
 
     EXPECT_CALL(*g_mockPlayerInstanceAAMP, SetTextStyle(json)).Times(1);
-    mSet->execute(cmd, g_mockPlayerInstanceAAMP);
+    mSet->execute(cmd, g_mockPlayerInstanceAAMP.get());
 
     // Remove json file
     ASSERT_FALSE(std::remove(json_file));
@@ -159,7 +158,7 @@ TEST_F(ExecuteTests, Set_CCStyle_MissingFile)
     char cmd[] = "set ccStyle MissingFile";
 
     EXPECT_CALL(*g_mockPlayerInstanceAAMP, SetTextStyle(_)).Times(0);
-    mSet->execute(cmd, g_mockPlayerInstanceAAMP);
+    mSet->execute(cmd, g_mockPlayerInstanceAAMP.get());
 }
 
 // Test calling "set ssStyle" with a file that exceeds the file path buffer
@@ -176,6 +175,6 @@ TEST_F(ExecuteTests, Set_CCStyle_FilenameExceedsMaxLength)
     cmd[i] = 0;
 
     EXPECT_CALL(*g_mockPlayerInstanceAAMP, SetTextStyle(_)).Times(0);
-    mSet->execute(cmd, g_mockPlayerInstanceAAMP);
+    mSet->execute(cmd, g_mockPlayerInstanceAAMP.get());
 }
 

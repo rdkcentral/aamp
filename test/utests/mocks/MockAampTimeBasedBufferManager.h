@@ -21,6 +21,7 @@
 #define AAMP_MOCK_TIME_BASED_BUFFER_MANAGER_H
 
 #include <gmock/gmock.h>
+#include <memory>
 
 namespace aamp
 {
@@ -34,6 +35,6 @@ namespace aamp
 	};
 }
 
-extern aamp::MockAampTimeBasedBufferManager *g_mockAampTimeBasedBufferManager;
+extern std::shared_ptr<aamp::MockAampTimeBasedBufferManager> g_mockAampTimeBasedBufferManager;
 
 #endif /* AAMP_MOCK_TIME_BASED_BUFFER_MANAGER_H */

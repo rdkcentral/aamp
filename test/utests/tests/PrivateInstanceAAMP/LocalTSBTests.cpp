@@ -50,12 +50,12 @@ protected:
 
 		mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
 
-		g_mockAampConfig = new NiceMock<MockAampConfig>();
+		g_mockAampConfig = std::make_shared<NiceMock<MockAampConfig>>();
 
-		g_mockTSBSessionManager = new MockTSBSessionManager(mPrivateInstanceAAMP);
+		g_mockTSBSessionManager = std::make_shared<MockTSBSessionManager>(mPrivateInstanceAAMP);
 
-        g_mockAampGstPlayer = new MockAAMPGstPlayer( mPrivateInstanceAAMP);
-        g_mockStreamAbstractionAAMP_MPD = new NiceMock<MockStreamAbstractionAAMP_MPD>(mPrivateInstanceAAMP, 0, 0);
+        g_mockAampGstPlayer = std::make_shared<MockAAMPGstPlayer>( mPrivateInstanceAAMP);
+        g_mockStreamAbstractionAAMP_MPD = std::make_shared<NiceMock<MockStreamAbstractionAAMP_MPD>>(mPrivateInstanceAAMP, 0, 0);
 
         //mPrivateInstanceAAMP->mStreamSink = g_mockAampGstPlayer; //TODO fix
     }
@@ -65,20 +65,16 @@ protected:
 		delete mPrivateInstanceAAMP;
 		mPrivateInstanceAAMP = nullptr;
 
-		delete g_mockStreamAbstractionAAMP_MPD;
-		g_mockStreamAbstractionAAMP_MPD = nullptr;
+		g_mockStreamAbstractionAAMP_MPD.reset();
 
-		delete g_mockTSBSessionManager;
-		g_mockTSBSessionManager = nullptr;
+		g_mockTSBSessionManager.reset();
 
-		delete g_mockAampGstPlayer;
-		g_mockAampGstPlayer = nullptr;
+		g_mockAampGstPlayer.reset();
 
 		delete gpGlobalConfig;
 		gpGlobalConfig = nullptr;
 
-		delete g_mockAampConfig;
-		g_mockAampConfig = nullptr;
+		g_mockAampConfig.reset();
 	}
 };
 
@@ -339,7 +335,7 @@ TEST_F(LocalTSBTests, IncreaseGSTBufferTest_2)
 TEST_F(LocalTSBTests, ScheduleRetuneTest)
 {
 	//initializing scheduler for single test
-	g_mockAampScheduler = new NiceMock<MockAampScheduler>();
+	g_mockAampScheduler = std::make_shared<NiceMock<MockAampScheduler>>();
 	AampScheduler mScheduler{};
 	mPrivateInstanceAAMP->SetScheduler(&mScheduler);
 
@@ -383,8 +379,7 @@ TEST_F(LocalTSBTests, ScheduleRetuneTest)
 	EXPECT_CALL(*g_mockAampScheduler, ScheduleTask(_)).Times(0);
 	mPrivateInstanceAAMP->ScheduleRetune(eGST_ERROR_GST_PIPELINE_INTERNAL, eMEDIATYPE_VIDEO);
 
-	delete g_mockAampScheduler;
-	g_mockAampScheduler = nullptr;
+	g_mockAampScheduler.reset();
 }
 
 

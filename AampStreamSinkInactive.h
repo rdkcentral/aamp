@@ -139,7 +139,7 @@ public:
      *   @fn Pause
 	 *   @brief stub implementation for Inactive aamp instance
 	 */
-	virtual bool Pause(bool pause, bool forceStopGstreamerPreBuffering)
+	virtual bool Pause(bool pause, bool forceStopPreBuffering)
 	{
 		AAMPLOG_WARN("Called AAMPGstPlayer()::%s stub", __FUNCTION__);
 		return false;

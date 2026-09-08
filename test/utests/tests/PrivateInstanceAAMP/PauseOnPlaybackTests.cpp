@@ -84,15 +84,15 @@ protected:
 
         mPrivateInstanceAAMP = new TestablePrivateInstanceAAMP(gpGlobalConfig);
 
-        g_mockAampGstPlayer = new MockAAMPGstPlayer( mPrivateInstanceAAMP);
-        g_mockAampStreamSinkManager = new NiceMock<MockAampStreamSinkManager>();
-        g_mockAampEventManager = new MockAampEventManager();
-        g_mockStreamAbstractionAAMP = new MockStreamAbstractionAAMP(mPrivateInstanceAAMP);
+        g_mockAampGstPlayer = std::make_shared<MockAAMPGstPlayer>( mPrivateInstanceAAMP);
+        g_mockAampStreamSinkManager = std::make_shared<NiceMock<MockAampStreamSinkManager>>();
+        g_mockAampEventManager = std::make_shared<MockAampEventManager>();
+        g_mockStreamAbstractionAAMP = std::make_shared<MockStreamAbstractionAAMP>(mPrivateInstanceAAMP);
 
 
-        mPrivateInstanceAAMP->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+        mPrivateInstanceAAMP->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
 
-   		EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
+   		EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer.get()));
         EXPECT_CALL(*g_mockAampEventManager, IsEventListenerAvailable(_)).WillRepeatedly(Return(true));
     }
 
@@ -101,17 +101,13 @@ protected:
         delete mPrivateInstanceAAMP;
         mPrivateInstanceAAMP = nullptr;
 
-        delete g_mockStreamAbstractionAAMP;
-        g_mockStreamAbstractionAAMP = nullptr;
+        g_mockStreamAbstractionAAMP.reset();
 
-        delete g_mockAampGstPlayer;
-        g_mockAampGstPlayer = nullptr;
+        g_mockAampGstPlayer.reset();
 
-        delete g_mockAampStreamSinkManager;
-        g_mockAampStreamSinkManager = nullptr;
+        g_mockAampStreamSinkManager.reset();
 
-        delete g_mockAampEventManager;
-        g_mockAampEventManager = nullptr;
+        g_mockAampEventManager.reset();
     }
 
 public:
@@ -165,7 +161,6 @@ TEST_F(PauseOnPlaybackTests, SetPauseOnStartPlayback_NoSink)
 TEST_F(PauseOnPlaybackTests, NotifyPauseOnStartPlayback_NotActive)
 {
     mPrivateInstanceAAMP->mbDownloadsBlocked = false;
-    mPrivateInstanceAAMP->mDisableRateCorrection = false;
 
     mPrivateInstanceAAMP->SetLowLatencyMode();
 
@@ -175,7 +170,6 @@ TEST_F(PauseOnPlaybackTests, NotifyPauseOnStartPlayback_NotActive)
 
     EXPECT_FALSE(mPrivateInstanceAAMP->Test_PauseOnStartPlayback());
     EXPECT_FALSE(mPrivateInstanceAAMP->mbDownloadsBlocked);
-    EXPECT_FALSE(mPrivateInstanceAAMP->mDisableRateCorrection);
 }
 
 // Testing calling NotifyPauseOnStartPlayback when Pause On Playback active
@@ -183,8 +177,6 @@ TEST_F(PauseOnPlaybackTests, NotifyPauseOnStartPlayback_NotActive)
 TEST_F(PauseOnPlaybackTests, NotifyFirstFrameReceived_Success)
 {
     mPrivateInstanceAAMP->mbDownloadsBlocked = false;
-    mPrivateInstanceAAMP->mDisableRateCorrection = false;
-
     mPrivateInstanceAAMP->SetPauseOnStartPlayback(true);
 
     mPrivateInstanceAAMP->SetLowLatencyMode();
@@ -194,9 +186,7 @@ TEST_F(PauseOnPlaybackTests, NotifyFirstFrameReceived_Success)
     EXPECT_CALL(*g_mockStreamAbstractionAAMP, NotifyPlaybackPaused(true)).Times(1);
 
     mPrivateInstanceAAMP->NotifyPauseOnStartPlayback();
-
     EXPECT_FALSE(mPrivateInstanceAAMP->Test_PauseOnStartPlayback());
     EXPECT_TRUE(mPrivateInstanceAAMP->mbDownloadsBlocked);
-    EXPECT_TRUE(mPrivateInstanceAAMP->mDisableRateCorrection);
 }
 

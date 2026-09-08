@@ -64,13 +64,12 @@ protected:
 	{
 		config = new AampConfig();
 		aamp = new PrivateInstanceAAMP(config);
-		g_mockAampConfig = new NiceMock<MockAampConfig>();
+		g_mockAampConfig = std::make_shared<NiceMock<MockAampConfig>>();
 	}
 
 	void TearDown() override
 	{
-		delete g_mockAampConfig;
-		g_mockAampConfig = nullptr;
+		g_mockAampConfig.reset();
 
 		delete aamp;
 		aamp = nullptr;

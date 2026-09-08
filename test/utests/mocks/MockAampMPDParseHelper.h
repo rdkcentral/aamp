@@ -21,6 +21,7 @@
 #define AAMP_MOCK_AAMP_MPD_PARSE_H
 
 #include <gmock/gmock.h>
+#include <memory>
 #include "AampMPDParseHelper.h"
 
 class MockAampMPDParseHelper
@@ -32,6 +33,6 @@ public:
 	MOCK_METHOD(bool, IsEmptyPeriod, (int iPeriodIndex, bool checkIframe));
 };
 
-extern MockAampMPDParseHelper *g_mockAampMPDParseHelper;
+extern std::shared_ptr<MockAampMPDParseHelper> g_mockAampMPDParseHelper;
 
 #endif /* AAMP_MOCK_AAMP_MPD_PARSE_H */

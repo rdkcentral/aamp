@@ -24,7 +24,7 @@
 
 #include <cstdarg>
 
-MockSdJournal *g_mockSdJournal = nullptr;
+std::shared_ptr<MockSdJournal> g_mockSdJournal{};
 
 int sd_journal_printv_with_location(int priority, const char *file, const char *line, const char *func, const char *format, va_list arg )
 { // truncated to LINE_MAX - 8
@@ -43,4 +43,9 @@ int sd_journal_printv_with_location(int priority, const char *file, const char *
 		}
     }
     return ret_val;
+}
+
+int sd_journal_printv(int priority, const char *format, va_list arg)
+{
+    return sd_journal_printv_with_location(priority, "", "", "", format, arg);
 }

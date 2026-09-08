@@ -25,7 +25,8 @@ set(EXEC_NAME AampEventTests)
 include(${CMAKE_CURRENT_LIST_DIR}/../CommonTestIncludes.cmake)
 
 set(TEST_SOURCES AampEventTests.cpp
-AampEventAAMPTests.cpp)
+AampEventAAMPTests.cpp
+ErrorCodeMappingTests.cpp)
 set(AAMP_SOURCES ${AAMP_ROOT}/AampEvent.cpp)
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}

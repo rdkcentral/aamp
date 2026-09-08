@@ -20,7 +20,7 @@
 #include "AampEventManager.h"
 #include "MockAampEventManager.h"
 
-MockAampEventManager *g_mockAampEventManager = nullptr;
+std::shared_ptr<MockAampEventManager> g_mockAampEventManager{};
 
 AampEventManager::AampEventManager(int playerId)
 {

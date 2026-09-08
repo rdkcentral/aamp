@@ -81,12 +81,12 @@ class IsoBmffHelper
 		 *
 		 * @param[in,out] buffer - buffer containing ISOBMFF I-frame media segment
 		 * @param[in] pts - Base media decode time to set
-		 * @param[in] duration - Sample duration to set
+		 * @param[in] duration - Sample duration to set (uint32_t per ISOBMFF spec)
 		 *
 		 * @retval true  - PTS and duration were set in the ISOBMFF boxes
 		 * @retval false - Setting failed
 		 */
-		bool SetPtsAndDuration(std::vector<uint8_t> &buffer, uint64_t pts, uint64_t duration);
+		bool SetPtsAndDuration(std::vector<uint8_t> &buffer, uint64_t pts, uint32_t duration);
 
 		/**
 		 * @fn ClearMediaHeaderDuration

@@ -45,8 +45,8 @@ ProfileEventAAMP::ProfileEventAAMP():
 }
 
 std::string ProfileEventAAMP::GetTuneTimeMetricAsJson(TuneEndMetrics tuneMetricsData, const char *tuneTimeStrPrefix,
-				unsigned int licenseAcqNWTime, bool playerPreBuffered,
-				unsigned int durationSeconds, bool interfaceWifi, std::string failureReason, std::string appName)
+				bool playerPreBuffered, unsigned int durationSeconds, bool interfaceWifi,
+				std::string failureReason, std::string appName)
 {
 	//Convert to JSON format
 	std::string metrics = "";
@@ -98,7 +98,7 @@ std::string ProfileEventAAMP::GetTuneTimeMetricAsJson(TuneEndMetrics tuneMetrics
 	cJSON_AddNumberToObject(item, "dfe", drmErrorCode);
 
 	cJSON_AddNumberToObject(item, "lpr", bucketDuration(PROFILE_BUCKET_LA_PREPROC));
-	cJSON_AddNumberToObject(item, "lnw", licenseAcqNWTime);
+	cJSON_AddNumberToObject(item, "lnw", bucketDuration(PROFILE_BUCKET_LA_NETWORK));
 	cJSON_AddNumberToObject(item, "lps", bucketDuration(PROFILE_BUCKET_LA_POSTPROC));
 
 	cJSON_AddNumberToObject(item, "vdd", bucketDuration(PROFILE_BUCKET_DECRYPT_VIDEO));
@@ -310,7 +310,6 @@ void ProfileEventAAMP::TuneEnd(TuneEndMetrics &mTuneEndMetrics,std::string appNa
 		return;
 	}
 	enabled = false;
-	unsigned int licenseAcqNWTime = bucketDuration(PROFILE_BUCKET_LA_NETWORK);
 	char tuneTimeStrPrefix[128];
 	memset(tuneTimeStrPrefix, '\0', sizeof(tuneTimeStrPrefix));
 	int totalTuneTime = 0;
@@ -325,7 +324,7 @@ void ProfileEventAAMP::TuneEnd(TuneEndMetrics &mTuneEndMetrics,std::string appNa
 	auto tDecode = tFirstFrameStart;
 	if (tDecode > 0)
 	{
-		tDecode -= (tDecryptVideoFinish?tDecryptVideoFinish:tFirstBufferStart);
+		tDecode -= (tDecryptVideoFinish ? tDecryptVideoFinish : tFirstBufferStart);
 	}
 
 	if (mTuneEndMetrics.success > 0)
@@ -393,7 +392,7 @@ void ProfileEventAAMP::TuneEnd(TuneEndMetrics &mTuneEndMetrics,std::string appNa
 		buckets[PROFILE_BUCKET_FRAGMENT_AUDIO].tStart, bucketDuration(PROFILE_BUCKET_FRAGMENT_AUDIO), buckets[PROFILE_BUCKET_FRAGMENT_AUDIO].errorCount,bandwidthBitsPerSecondAudio,
 
 		buckets[PROFILE_BUCKET_LA_TOTAL].tStart, bucketDuration(PROFILE_BUCKET_LA_TOTAL), drmErrorCode,
-		bucketDuration(PROFILE_BUCKET_LA_PREPROC), licenseAcqNWTime, bucketDuration(PROFILE_BUCKET_LA_POSTPROC),
+		bucketDuration(PROFILE_BUCKET_LA_PREPROC), bucketDuration(PROFILE_BUCKET_LA_NETWORK), bucketDuration(PROFILE_BUCKET_LA_POSTPROC),
 		bucketDuration(PROFILE_BUCKET_DECRYPT_VIDEO),bucketDuration(PROFILE_BUCKET_DECRYPT_AUDIO),
 
 		(playerPreBuffered && mTuneEndMetrics.success > 0) ? tFirstBufferStart - tPreBufferStart : tFirstBufferStart, // gstPlaying: offset in ms from tunestart when pipeline first fed data
@@ -410,7 +409,7 @@ void ProfileEventAAMP::TuneEnd(TuneEndMetrics &mTuneEndMetrics,std::string appNa
 		);
 
 		// Telemetry is generated in GetTuneTimeMetricAsJson hence calling always,
-		std::string metricsDataJson = GetTuneTimeMetricAsJson(mTuneEndMetrics, tuneTimeStrPrefix, licenseAcqNWTime, playerPreBuffered, durationSeconds, interfaceWifi, std::move(failureReason), std::move(appName));
+		std::string metricsDataJson = GetTuneTimeMetricAsJson(mTuneEndMetrics, tuneTimeStrPrefix, playerPreBuffered, durationSeconds, interfaceWifi, std::move(failureReason), std::move(appName));
 
 		// tuneMetricData could be NULL if application has not registered for tuneMetrics event,
 		if( NULL != tuneMetricData)

@@ -30,7 +30,7 @@
 #define AAMP_CFG_PATH "/opt/aamp.cfg"
 #define AAMP_JSON_PATH "/opt/aampcfg.json"
 
-#define AAMP_VERSION "8.03"
+#define AAMP_VERSION "8.08"
 #define AAMP_TUNETIME_VERSION 8
 
 //Stringification of Macro : use two levels of macros
@@ -113,6 +113,7 @@
 #define MAX_CURL_SOCK_STORE		10			/**< Maximum no of host to be maintained in curl store*/
 #define DEFAULT_AD_FULFILLMENT_TIMEOUT 2000	/**< Default Ad fulfillment timeout in milliseconds */
 #define MAX_AD_FULFILLMENT_TIMEOUT 5000	/**< Max Ad fulfillment timeout in milliseconds */
+#define DEFAULT_VOD_ADBREAK_LOOKAHEAD_SEC 5	/**< Default VOD ad-break lookahead in seconds; event fired this many seconds before the insertion point */
 
 #define AAMP_TRACK_COUNT 3		/**< internal use - audio+video+sub track */
 #define DEFAULT_CURL_INSTANCE_COUNT (AAMP_TRACK_COUNT + 1) /**< One for Manifest/Playlist + Number of tracks */
@@ -121,6 +122,7 @@
 #define DEFAULT_PLAYLIST_DL_TIMEOUT 10L	/**< Curl timeout for playlist download */
 #define DEFAULT_CURL_TIMEOUT 5L		/**< Default timeout for Curl downloads */
 #define DEFAULT_CURL_CONNECTTIMEOUT 3L	/**< Curl socket connection timeout */
+#define DEFAULT_DNS_CACHE_TIMEOUT (3*60L)	/**< Name resolve results cached for this many seconds (180 s = 3x the libcurl default of 60 s) */
 #define EAS_CURL_TIMEOUT 3L		/**< Curl timeout for EAS manifest downloads */
 #define EAS_CURL_CONNECTTIMEOUT 2L      /**< Curl timeout for EAS connection */
 #define DEFAULT_INTERVAL_BETWEEN_PLAYLIST_UPDATES_MS (6*1000)   /**< Interval between playlist refreshes */
@@ -156,7 +158,6 @@
 #define DEFAULT_UNDERFLOW_RESUME_THRESHOLD_SEC 1.0		/**< Threshold to resume from underflow in seconds */
 #define DEFAULT_UNDERFLOW_LOW_BUFFER_SEC 5.0			/**< Low buffer threshold in seconds */
 #define DEFAULT_UNDERFLOW_HIGH_BUFFER_SEC 10.0			/**< High buffer threshold in seconds */
-#define DEFAULT_UNDERFLOW_EOS_END_TOLERANCE_SEC 0.25	/**< EOS end-boundary tolerance for suppressing underflow in seconds */
 
 #define DEFAULT_BUFFER_LEVEL_TO_ENABLE_LATENCY_SEC 0.0  /*< Default is 0.0 means latency correction is enabled at all buffer values */
 #define DEFAULT_REBUFFER_LATENCY_STEP_SEC 1.0			/*< Step value for latency increase when rebuffering occurs in seconds */
@@ -214,7 +215,16 @@
 #define AAMP_FOG_TSB_URL_KEYWORD "tsb?" /**< AAMP expect this keyword in URL to identify it is FOG url */
 
 #define DEFAULT_INITIAL_RATE_CORRECTION_SPEED 1.000001f	/**< Initial rate correction speed to avoid audio drop */
-#define DEFAULT_LLD_CACHED_FRAGMENTS_PER_TRACK	20					/**< Default LLD cached fragments per track */
+/** Hard upper limit for the per-track fragment ring buffer.
+ *  mCachedFragment[] is sized by this value.
+ *  No config or SetCachedFragmentSize call may exceed it.
+ */
+#define MAX_CACHED_FRAGMENTS_PER_TRACK  20
+#define DEFAULT_LLD_CACHED_FRAGMENTS_PER_TRACK	MAX_CACHED_FRAGMENTS_PER_TRACK	/**< Default LLD cached fragments per track; must be <= MAX_CACHED_FRAGMENTS_PER_TRACK */
+static_assert(DEFAULT_LLD_CACHED_FRAGMENTS_PER_TRACK <= MAX_CACHED_FRAGMENTS_PER_TRACK,
+	"DEFAULT_LLD_CACHED_FRAGMENTS_PER_TRACK must not exceed MAX_CACHED_FRAGMENTS_PER_TRACK");
+static_assert(DEFAULT_CACHED_FRAGMENTS_PER_TRACK <= MAX_CACHED_FRAGMENTS_PER_TRACK,
+	"DEFAULT_CACHED_FRAGMENTS_PER_TRACK must not exceed MAX_CACHED_FRAGMENTS_PER_TRACK");
 #define DEFAULT_AAMP_ABR_CHUNK_THRESHOLD_SIZE		(DEFAULT_AAMP_ABR_THRESHOLD_SIZE)	/**< aamp abr Chunk threshold size */
 #define DEFAULT_ABR_CHUNK_SPEEDCNT			10					/**< Chunk Speed Count Store Size */
 #define DEFAULT_ABR_ELAPSED_MILLIS_FOR_ESTIMATE		100					/**< Duration(ms) to check Chunk Speed */

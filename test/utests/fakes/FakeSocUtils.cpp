@@ -17,7 +17,7 @@
  * limitations under the License.
  */
 
-#include "middleware/SocUtils.h"
+#include "SocUtils.h"
 
 namespace SocUtils
 {

@@ -85,6 +85,7 @@ typedef enum
 	eCONFIG_RANGE_MONITOR_AVSYNC_THRESHOLD_POSITIVE, //1ms to 10000ms
 	eCONFIG_RANGE_MONITOR_AVSYNC_THRESHOLD_NEGATIVE, //-1 to -10000ms
 	eCONFIG_RANGE_MONITOR_AVSYNC_JUMP_THRESHOLD,//1ms to 10000
+	eCONFIG_RANGE_FRAGMENT_CACHE, // 1..MAX_CACHED_FRAGMENTS_PER_TRACK
 	eCONFIG_RANGE_MAX_VALUE,
 } ConfigValidRange;
 #define CONFIG_RANGE_ENUM_COUNT (eCONFIG_RANGE_MAX_VALUE)
@@ -128,6 +129,7 @@ static const struct
 	{ MIN_MONITOR_AVSYNC_POSITIVE_DELTA_MS, MAX_MONITOR_AVSYNC_POSITIVE_DELTA_MS, eCONFIG_RANGE_MONITOR_AVSYNC_THRESHOLD_POSITIVE},
 	{ MIN_MONITOR_AVSYNC_NEGATIVE_DELTA_MS, MAX_MONITOR_AVSYNC_NEGATIVE_DELTA_MS, eCONFIG_RANGE_MONITOR_AVSYNC_THRESHOLD_NEGATIVE},
 	{ MIN_MONITOR_AV_JUMP_THRESHOLD_MS, MAX_MONITOR_AV_JUMP_THRESHOLD_MS, eCONFIG_RANGE_MONITOR_AVSYNC_JUMP_THRESHOLD},
+	{ 1, MAX_CACHED_FRAGMENTS_PER_TRACK, eCONFIG_RANGE_FRAGMENT_CACHE },
 };
 
 static ConfigPriority customOwner;
@@ -361,6 +363,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false, "earlyProcessing", eAAMPConfig_EarlyID3Processing, false},
 	{false, "seamlessAudioSwitch", eAAMPConfig_SeamlessAudioSwitch, true},
 	{false, "useRialtoSink", eAAMPConfig_useRialtoSink, false},
+	{false, "useDirectRialto", eAAMPConfig_useDirectRialto, false},
 	{false, "localTSBEnabled", eAAMPConfig_LocalTSBEnabled, true},
 	{false, "enableIFrameTrackExtract", eAAMPConfig_EnableIFrameTrackExtract, true},
 	{false, "forceMultiPeriodDiscontinuity", eAAMPConfig_ForceMultiPeriodDiscontinuity, false},
@@ -378,7 +381,8 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false, "enablePTSReStampLogging", eAAMPConfig_EnablePTSReStampLogging, false},
 	{false, "netTraceCsvDump", eAAMPConfig_NetTraceCsvDump, false},
 	{false, "logFilename", eAAMPConfig_LogFilename, false},
-
+	{false, "processLicenseFromEAP", eAAMPConfig_ProcessLicenseFromEAP, false},
+	{false, "enableProducerReferenceDelay", eAAMPConfig_EnableProducerReferenceDelay, false},
 };
 
 #define CONFIG_INT_ALIAS_COUNT 2
@@ -397,10 +401,10 @@ static const ConfigLookupEntryInt mConfigLookupTableInt[AAMPCONFIG_INT_COUNT+CON
 	{DEFAULT_ABR_SKIP_DURATION,"abrSkipDuration",eAAMPConfig_ABRSkipDuration,false},
 	{DEFAULT_ABR_NW_CONSISTENCY_CNT,"abrNwConsistency",eAAMPConfig_ABRNWConsistency,false},
 	{DEFAULT_AAMP_ABR_THRESHOLD_SIZE,"thresholdSizeABR",eAAMPConfig_ABRThresholdSize,false},
-	{DEFAULT_CACHED_FRAGMENTS_PER_TRACK,"downloadBuffer",eAAMPConfig_MaxFragmentCached,false},
+	{DEFAULT_CACHED_FRAGMENTS_PER_TRACK,"downloadBuffer",eAAMPConfig_MaxFragmentCached,false,eCONFIG_RANGE_FRAGMENT_CACHE},
 	{DEFAULT_BUFFER_HEALTH_MONITOR_DELAY,"bufferHealthMonitorDelay",eAAMPConfig_BufferHealthMonitorDelay,false},
 	{DEFAULT_BUFFER_HEALTH_MONITOR_INTERVAL,"bufferHealthMonitorInterval",eAAMPConfig_BufferHealthMonitorInterval,false},
-	{eDRM_PlayReady,"preferredDrm",eAAMPConfig_PreferredDRM,true,eCONFIG_RANGE_DRM_SYSTEMS},
+	{eDRM_WideVine,"preferredDrm",eAAMPConfig_PreferredDRM,true,eCONFIG_RANGE_DRM_SYSTEMS},
 	{eTUNED_EVENT_ON_GST_PLAYING,"tuneEventConfig",eAAMPConfig_TuneEventConfig,false,eCONFIG_RANGE_TUNED_EVENT_CODE},
 	{TRICKPLAY_VOD_PLAYBACK_FPS,"vodTrickPlayFps",eAAMPConfig_VODTrickPlayFPS,false},
 	{TRICKPLAY_LINEAR_PLAYBACK_FPS,"linearTrickPlayFps",eAAMPConfig_LinearTrickPlayFPS,false},
@@ -420,7 +424,6 @@ static const ConfigLookupEntryInt mConfigLookupTableInt[AAMPCONFIG_INT_COUNT+CON
 	{AAMP_HIGH_BUFFER_BEFORE_RAMPUP,"maxABRBufferRampup",eAAMPConfig_MaxABRNWBufferRampUp,false},
 	{DEFAULT_PREBUFFER_COUNT,"preplayBuffercount",eAAMPConfig_PrePlayBufferCount,false},
 	{0,"preCachePlaylistTime",eAAMPConfig_PreCachePlaylistTime,false},
-	{-1, "ceaFormat",eAAMPConfig_CEAPreferred,false, eCONFIG_RANGE_CEA_PREFERRED},
 	{DEFAULT_STALL_ERROR_CODE,"stallErrorCode",eAAMPConfig_StallErrorCode,false},
 	{DEFAULT_STALL_DETECTION_TIMEOUT,"stallTimeout",eAAMPConfig_StallTimeoutMS,false},
 	{DEFAULT_MINIMUM_INIT_CACHE_SECONDS,"initialBuffer",eAAMPConfig_InitialBuffer,false},
@@ -432,7 +435,7 @@ static const ConfigLookupEntryInt mConfigLookupTableInt[AAMPCONFIG_INT_COUNT+CON
 	{MAX_GST_AUDIO_BUFFER_BYTES,"gstAudioBufBytes", eAAMPConfig_GstAudioBufBytes,true},
 	{DEFAULT_LATENCY_MONITOR_DELAY_MS,"latencyMonitorDelayMs",eAAMPConfig_LatencyMonitorDelayMs,false},
 	{DEFAULT_LATENCY_MONITOR_INTERVAL_MS,"latencyMonitorIntervalMs",eAAMPConfig_LatencyMonitorIntervalMs,false},
-	{DEFAULT_LLD_CACHED_FRAGMENTS_PER_TRACK,"downloadBufferChunks",eAAMPConfig_MaxLLDFragmentCached,false},
+	{DEFAULT_LLD_CACHED_FRAGMENTS_PER_TRACK,"downloadBufferChunks",eAAMPConfig_MaxLLDFragmentCached,false,eCONFIG_RANGE_FRAGMENT_CACHE},
 	{DEFAULT_AAMP_ABR_CHUNK_THRESHOLD_SIZE,"abrChunkThresholdSize",eAAMPConfig_ABRChunkThresholdSize,false},
 	{MAX_SEG_DOWNLOAD_FAIL_COUNT,"fragmentDownloadFailThreshold",eAAMPConfig_FragmentDownloadFailThreshold,false,eCONFIG_RANGE_DOWNLOAD_ERROR_THRESHOLD },
 	{MAX_INIT_FRAGMENT_CACHE_PER_TRACK,"maxInitFragCachePerTrack",eAAMPConfig_MaxInitFragCachePerTrack,true, eCONFIG_RANGE_INIT_FRAGMENT_CACHE },
@@ -457,7 +460,6 @@ static const ConfigLookupEntryInt mConfigLookupTableInt[AAMPCONFIG_INT_COUNT+CON
 	{0,"timeBasedBufferSeconds",eAAMPConfig_TimeBasedBufferSeconds,true,eCONFIG_RANGE_PLAYBACK_OFFSET},
 	{DEFAULT_MAX_DOWNLOAD_BUFFER,"maxDownloadBuffer",eAAMPConfig_MaxDownloadBuffer,true,eCONFIG_RANGE_PLAYBACK_OFFSET},
 	{DEFAULT_TELEMETRY_REPORT_INTERVAL,"telemetryInterval",eAAMPConfig_TelemetryInterval,true},
-	{0,"rateCorrectionDelay", eAAMPConfig_RateCorrectionDelay,true},
 	{-1,"harvestDuration",eAAMPConfig_HarvestDuration,false,eCONFIG_RANGE_HARVEST_DURATION},
 	{DEFAULT_SUBTITLE_CLOCK_SYNC_INTERVAL_S,"subtitleClockSyncInterval",eAAMPConfig_SubtitleClockSyncInterval,true},
 	{eABSOLUTE_PROGRESS_WITHOUT_AVAILABILITY_START,"preferredAbsoluteReporting",eAAMPConfig_PreferredAbsoluteProgressReporting,true, eCONFIG_RANGE_ABSOLUTE_REPORTING},
@@ -469,6 +471,7 @@ static const ConfigLookupEntryInt mConfigLookupTableInt[AAMPCONFIG_INT_COUNT+CON
 	{static_cast<int>(TSB::LogLevel::WARN),"tsbLog",eAAMPConfig_TsbLogLevel,false},
 	{DEFAULT_AD_FULFILLMENT_TIMEOUT,"adFulfillmentTimeout",eAAMPConfig_AdFulfillmentTimeout,true},
 	{MAX_AD_FULFILLMENT_TIMEOUT,"adFulfillmentTimeoutMax",eAAMPConfig_AdFulfillmentTimeoutMax,true},
+	{DEFAULT_VOD_ADBREAK_LOOKAHEAD_SEC,"vodAdBreakLookaheadSec",eAAMPConfig_VodAdBreakLookaheadSec,true},
 	{eDIAG_OVERLAY_NONE,"showDiagnosticsOverlay",eAAMPConfig_ShowDiagnosticsOverlay,true, eCONFIG_RANGE_SHOW_DIAGNOSTICS_OVERLAY },
 	{DEFAULT_MONITOR_AVSYNC_POSITIVE_DELTA_MS, "monitorAVSyncThresholdPositive", eAAMPConfig_MonitorAVSyncThresholdPositive,true, eCONFIG_RANGE_MONITOR_AVSYNC_THRESHOLD_POSITIVE },
 	{DEFAULT_MONITOR_AVSYNC_NEGATIVE_DELTA_MS,"monitorAVSyncThresholdNegative",eAAMPConfig_MonitorAVSyncThresholdNegative,true,eCONFIG_RANGE_MONITOR_AVSYNC_THRESHOLD_NEGATIVE },
@@ -517,7 +520,6 @@ static const ConfigLookupEntryFloat mConfigLookupTableFloat[AAMPCONFIG_FLOAT_COU
 	{DEFAULT_UNDERFLOW_RESUME_THRESHOLD_SEC, "underflowResumeThresholdSec", eAAMPConfig_UnderflowResumeThresholdSec, true},
 	{DEFAULT_UNDERFLOW_LOW_BUFFER_SEC, "underflowLowBufferSec", eAAMPConfig_UnderflowLowBufferSec, true},
 	{DEFAULT_UNDERFLOW_HIGH_BUFFER_SEC, "underflowHighBufferSec", eAAMPConfig_UnderflowHighBufferSec, true},
-	{DEFAULT_UNDERFLOW_EOS_END_TOLERANCE_SEC, "underflowEosEndToleranceSec", eAAMPConfig_UnderflowEosEndToleranceSec, true},
 	{DEFAULT_BUFFER_LEVEL_TO_ENABLE_LATENCY_SEC, "bufferLevelToEnableLatencySec", eAAMPConfig_BufferLevelToEnableCorrectionSec, false},
 	{DEFAULT_REBUFFER_LATENCY_STEP_SEC, "rebufferLatencyStepSec", eAAMPConfig_RebufferLatencyStepSec, false},
 	{DEFAULT_REBUFFER_LATENCY_MAX_INCREMENT_SEC, "rebufferLatencyMaxIncrementSec", eAAMPConfig_RebufferLatencyMaxIncrementSec, false},

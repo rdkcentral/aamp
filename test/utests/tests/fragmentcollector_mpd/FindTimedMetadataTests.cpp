@@ -28,6 +28,8 @@
 #include "fragmentcollector_mpd.h"
 #include "MockPrivateInstanceAAMP.h"
 #include "MockAampUtils.h"
+#include "MockAampConfig.h"
+#include "MockAampMPDParseHelper.h"
 
 #include "libdash/IMPD.h"
 #include "libdash/INode.h"
@@ -75,6 +77,11 @@ protected:
         {
             mIsLiveManifest = isLive;
         }
+
+        void SetMPDParseHelper(AampMPDParseHelperPtr helper)
+        {
+            mMPDParseHelper = helper;
+        }
     };
 
     PrivateInstanceAAMP *mPrivateInstanceAAMP;
@@ -95,9 +102,13 @@ protected:
 
         mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
 
-        g_mockPrivateInstanceAAMP = new StrictMock<MockPrivateInstanceAAMP>();
+        g_mockPrivateInstanceAAMP = std::make_shared<NiceMock<MockPrivateInstanceAAMP>>();
 
-        g_mockAampUtils = new NiceMock<MockAampUtils>();
+        g_mockAampUtils = std::make_shared<NiceMock<MockAampUtils>>();
+
+        g_mockAampConfig = std::make_shared<NiceMock<MockAampConfig>>();
+
+        g_mockAampMPDParseHelper = std::make_shared<NiceMock<MockAampMPDParseHelper>>();
 
         mStreamAbstractionAAMP_MPD = nullptr;
 
@@ -124,11 +135,13 @@ protected:
         delete gpGlobalConfig;
         gpGlobalConfig = nullptr;
 
-        delete g_mockPrivateInstanceAAMP;
-        g_mockPrivateInstanceAAMP = nullptr;
+        g_mockAampMPDParseHelper.reset();
 
-        delete g_mockAampUtils;
-        g_mockAampUtils = nullptr;
+        g_mockAampConfig.reset();
+
+        g_mockPrivateInstanceAAMP.reset();
+
+        g_mockAampUtils.reset();
 
         mManifest = nullptr;
         if (mMPD)
@@ -245,10 +258,12 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
     // LiveManifest=true and init=false
     ResetCDAIAdObject();
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, FoundEventBreak(adBreakId,_,Field(&EventBreakInfo::duration, 27120))).Times(1);
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SaveNewTimedMetadata(_,StrEq(adBreakId.c_str()),27120.0)).Times(1);
     mStreamAbstractionAAMP_MPD->InvokeFindTimedMetadata(mMPD, mRootNode, false, false);
 
     // Duplicate Periods are not processed
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, FoundEventBreak(adBreakId,_,_)).Times(0);
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SaveNewTimedMetadata(_,_,_)).Times(0);
     mStreamAbstractionAAMP_MPD->InvokeFindTimedMetadata(mMPD, mRootNode, false, false);
 }
 
@@ -287,17 +302,22 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
     // LiveManifest=false and init=true
     InitializeMPD(manifest);
     mStreamAbstractionAAMP_MPD->SetIsLiveManifest(false);
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, FoundEventBreak(adBreakId,_,Field(&EventBreakInfo::duration, 30000))).Times(1);
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, FoundEventBreak(adBreakId,_,Field(&EventBreakInfo::duration, 0))).Times(1);
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, SaveNewTimedMetadata(_,StrEq(adBreakId.c_str()),30000.0)).Times(1);
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, SaveNewTimedMetadata(_,StrEq(adBreakId.c_str()),0)).Times(1);
     mStreamAbstractionAAMP_MPD->InvokeFindTimedMetadata(mMPD, mRootNode, true, false);
 
     // LiveManifest=false and init=false
     ResetCDAIAdObject();
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, FoundEventBreak(adBreakId,_,Field(&EventBreakInfo::duration, 30000))).Times(1);
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, FoundEventBreak(adBreakId,_,Field(&EventBreakInfo::duration, 0))).Times(1);
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, SaveNewTimedMetadata(_,StrEq(adBreakId.c_str()),30000.0)).Times(1);
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, SaveNewTimedMetadata(_,StrEq(adBreakId.c_str()),0)).Times(1);
     mStreamAbstractionAAMP_MPD->InvokeFindTimedMetadata(mMPD, mRootNode, false, false);
 
     // Duplicate Periods are not processed
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, FoundEventBreak(adBreakId,_,_)).Times(0);
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, SaveNewTimedMetadata(_,_,_)).Times(0);
     mStreamAbstractionAAMP_MPD->InvokeFindTimedMetadata(mMPD, mRootNode, false, false);
 }
@@ -343,5 +363,144 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
     mStreamAbstractionAAMP_MPD->SetIsLiveManifest(true);
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, FoundEventBreak(adBreakId,_,Field(&EventBreakInfo::duration, 27120))).Times(1);
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, FoundEventBreak(adBreakId,_,Field(&EventBreakInfo::duration, 30000))).Times(1);
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SaveNewTimedMetadata(_,StrEq(adBreakId.c_str()),27120.0)).Times(1);
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SaveNewTimedMetadata(_,StrEq(adBreakId.c_str()),30000.0)).Times(1);
+    mStreamAbstractionAAMP_MPD->InvokeFindTimedMetadata(mMPD, mRootNode, false, false);
+}
+
+TEST_F(FindTimedMetadataTests, BulkMetaReporting_CallsSaveTimedMetadata)
+{
+    static const char *manifest =
+R"(<?xml version="1.0" encoding="UTF-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" xmlns:scte35="urn:scte:scte35:2014:xml+bin" type="dynamic" id="test" profiles="urn:mpeg:dash:profile:isoff-live:2011" minBufferTime="PT1S" availabilityStartTime="1970-01-01T00:00:00.000Z" timeShiftBufferDepth="PT30M">
+  <Period id="Period-1" start="PT477586H51M45.467S">
+    <EventStream schemeIdUri="urn:scte:scte35:2014:xml+bin" timescale="90000" presentationTimeOffset="79441464098">
+      <Event presentationTime="79441464098" duration="2440800">
+        <scte35:Signal><scte35:Binary>/DAsAAAQdSsYAP/wBQb+3zKJFQAWAhRDVUVJAAAkQn/AAABOcUAAACIAAJR2FfM=</scte35:Binary></scte35:Signal>
+      </Event>
+      <Event presentationTime="79455172898" duration="2700000">
+        <scte35:Signal><scte35:Binary>/DAnAAAQdSsYAP/wBQb+34D6VQARAg9DVUVJAAAkQn+AAAAjAAAJmX3z</scte35:Binary></scte35:Signal>
+      </Event>
+    </EventStream>
+    <AdaptationSet id="track-1" contentType="video" mimeType="video/mp4">
+      <SegmentTemplate initialization="init.mp4" media="seg-$Time$.mp4" timescale="240000" presentationTimeOffset="79455172898">
+        <SegmentTimeline><S t="79476480098" d="460800" r="10"/></SegmentTimeline>
+      </SegmentTemplate>
+      <Representation id="track-2" bandwidth="500000" codecs="avc1.640028" width="640" height="360"/>
+    </AdaptationSet>
+  </Period>
+</MPD>
+)";
+    std::string adBreakId = "Period-1";
+    EXPECT_CALL(*g_mockAampUtils, parseAndValidateSCTE35(_)).WillRepeatedly(Return(true));
+
+    InitializeMPD(manifest);
+    mStreamAbstractionAAMP_MPD->SetIsLiveManifest(true);
+
+    // FoundEventBreak must be called for both events regardless of reportBulkMeta.
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, FoundEventBreak(adBreakId,_,Field(&EventBreakInfo::duration, 27120))).Times(1);
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, FoundEventBreak(adBreakId,_,Field(&EventBreakInfo::duration, 30000))).Times(1);
+    // With reportBulkMeta=true, SaveTimedMetadata is called instead of SaveNewTimedMetadata.
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SaveTimedMetadata(_,_,StrEq(adBreakId.c_str()),27120.0)).Times(1);
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SaveTimedMetadata(_,_,StrEq(adBreakId.c_str()),30000.0)).Times(1);
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SaveNewTimedMetadata(_,_,_)).Times(0);
+    mStreamAbstractionAAMP_MPD->InvokeFindTimedMetadata(mMPD, mRootNode, false, true);
+}
+
+TEST_F(FindTimedMetadataTests, Validate_StartPeriodMS_for_EAP_EventStream)
+{
+    static const char *manifest =
+R"(<?xml version="1.0" encoding="UTF-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011"
+     xmlns:scte35="urn:scte:scte35:2014:xml+bin"
+     type="dynamic"
+     id="hot-cdvr-eap-test"
+     profiles="urn:mpeg:dash:profile:isoff-live:2011"
+     minBufferTime="PT4S"
+     minimumUpdatePeriod="PT4S"
+     availabilityStartTime="2026-07-01T10:00:00.000Z"
+     timeShiftBufferDepth="PT3H"
+     suggestedPresentationDelay="PT10S">
+  <!-- Period-1: 10:00, main video, no EventStream -->
+  <Period id="Period-1" start="PT0S">
+    <AdaptationSet id="1" contentType="video" mimeType="video/mp4" segmentAlignment="true">
+      <SegmentTemplate timescale="90000" initialization="video-init.mp4"
+                       media="video-$Number$.m4s" startNumber="1">
+        <SegmentTimeline>
+          <S t="0" d="360000" r="24"/>
+        </SegmentTimeline>
+      </SegmentTemplate>
+      <Representation id="r1" mimeType="video/mp4" codecs="avc1.640028"
+                      bandwidth="2000000" width="1280" height="720"/>
+    </AdaptationSet>
+  </Period>
+  <!-- Period-2: 10:30, main video + EventStream (SCTE-35 ad cue) -->
+  <Period id="Period-2" start="PT1800S">
+    <EventStream schemeIdUri="urn:scte:scte35:2014:xml+bin" timescale="1000">
+      <Event presentationTime="0" duration="30000">
+        <scte35:Signal>
+          <scte35:Binary>/DAsAAAQdSsYAP/wBQb+3zKJFQAWAhRDVUVJAAAkQn/AAABOcUAAACIAAJR2FfM=</scte35:Binary>
+        </scte35:Signal>
+      </Event>
+    </EventStream>
+    <AdaptationSet id="2" contentType="video" mimeType="video/mp4" segmentAlignment="true">
+      <SegmentTemplate timescale="90000" initialization="video-init.mp4"
+                       media="video-$Number$.m4s" startNumber="451">
+        <SegmentTimeline>
+          <S t="162000000" d="360000" r="24"/>
+        </SegmentTimeline>
+      </SegmentTemplate>
+      <Representation id="r2" mimeType="video/mp4" codecs="avc1.640028"
+                      bandwidth="2000000" width="1280" height="720"/>
+    </AdaptationSet>
+  </Period>
+  <!-- Period-3: 11:00 – live edge, main video, NO @duration (EAP follows) -->
+  <Period id="Period-3" start="PT3600S">
+    <AdaptationSet id="3" contentType="video" mimeType="video/mp4" segmentAlignment="true">
+      <SegmentTemplate timescale="90000" initialization="video-init.mp4"
+                       media="video-$Number$.m4s" startNumber="901">
+        <!-- 5 × 4 s = 20 s = 20000 ms; GetPeriodDuration(index 2) mocked to 20000.0 -->
+        <SegmentTimeline>
+          <S t="324000000" d="360000" r="4"/>
+        </SegmentTimeline>
+      </SegmentTemplate>
+      <Representation id="r3" mimeType="video/mp4" codecs="avc1.640028"
+                      bandwidth="2000000" width="1280" height="720"/>
+    </AdaptationSet>
+  </Period>
+  <!-- Period-4: EAP — no @start, no @duration, no AdaptationSet -->
+  <Period id="Period-4">
+    <EventStream schemeIdUri="urn:scte:scte35:2014:xml+bin" timescale="1000">
+      <Event presentationTime="0" duration="30000">
+        <scte35:Signal>
+          <scte35:Binary>/DAsAAAQdSsYAP/wBQb+3zKJFQAWAhRDVUVJAAAkQn/AAABOcUAAACIAAJR2FfM=</scte35:Binary>
+        </scte35:Signal>
+      </Event>
+    </EventStream>
+  </Period>
+</MPD>
+)";
+
+    EXPECT_CALL(*g_mockAampUtils, parseAndValidateSCTE35(_)).WillRepeatedly(Return(true));
+
+    InitializeMPD(manifest);
+    mStreamAbstractionAAMP_MPD->SetIsLiveManifest(true);
+    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableSCTE35PresentationTime)).WillRepeatedly(Return(false));
+
+    auto mpdHelper = std::make_shared<AampMPDParseHelper>();
+    mStreamAbstractionAAMP_MPD->SetMPDParseHelper(mpdHelper);
+
+    // Period-4 has no AdaptationSets → IsEmptyPeriod returns true.
+    EXPECT_CALL(*g_mockAampMPDParseHelper, IsEmptyPeriod(3, _)).WillOnce(Return(true));
+    EXPECT_CALL(*g_mockAampMPDParseHelper, GetPeriodDuration(2, _, _, _)).WillOnce(Return(20000.0));
+
+    // Period-2: periodStartMS = 1800000 ms.
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, FoundEventBreak(std::string("Period-2"), 1800000ULL, _)).Times(1);
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SaveNewTimedMetadata(1800000LL, StrEq("Period-2"), 30000.0)).Times(1);
+
+    // Period-4 (EAP): periodStartMS = Period-3 start (3600000) + GetPeriodDuration(index 2) (20000) = 3620000 ms.
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, FoundEventBreak(std::string("Period-4"), 3620000ULL, _)).Times(1);
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SaveNewTimedMetadata(3620000LL, StrEq("Period-4"), 30000.0)).Times(1);
+
     mStreamAbstractionAAMP_MPD->InvokeFindTimedMetadata(mMPD, mRootNode, false, false);
 }

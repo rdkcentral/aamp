@@ -19,7 +19,7 @@
 #include "AampTimeBasedBufferManager.hpp"
 #include "MockAampTimeBasedBufferManager.h"
 
-aamp::MockAampTimeBasedBufferManager *g_mockAampTimeBasedBufferManager = nullptr;
+std::shared_ptr<aamp::MockAampTimeBasedBufferManager> g_mockAampTimeBasedBufferManager{};
 
 namespace aamp
 {

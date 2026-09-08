@@ -21,7 +21,7 @@
 #include "MockDrmMetaDataEvent.h"
 
 // Global pointer to mock DrmMetaDataEvent for testing
-MockDrmMetaDataEvent* g_mockDrmMetaDataEvent = nullptr;
+std::shared_ptr<MockDrmMetaDataEvent> g_mockDrmMetaDataEvent{};
 
 AAMPEventObject::AAMPEventObject(AAMPEventType type, std::string sid) : mType(type), mSessionID{std::move(sid)}
 {
@@ -214,6 +214,10 @@ const std::string &DrmMetaDataEvent::getNetworkMetricData() const
 
 void DrmMetaDataEvent::setNetworkMetricData(const std::string &data)
 {
+	if (g_mockDrmMetaDataEvent)
+	{
+		g_mockDrmMetaDataEvent->setNetworkMetricData(data);
+	}
 }
 
 int DrmMetaDataEvent::getAccessStatusValue() const
@@ -344,14 +348,14 @@ int SupportedSpeedsChangedEvent::getSupportedSpeedCount() const
 }
 
 MediaErrorEvent::MediaErrorEvent(AAMPTuneFailure failure, int code, int subCode, const std::string &desc, bool shouldRetry, int classCode, int reason, int businessStatus, const std::string &responseData, std::string sid):
-		AAMPEventObject(AAMP_EVENT_TUNE_FAILED, std::move(sid))
+		AAMPEventObject(AAMP_EVENT_TUNE_FAILED, std::move(sid)), mCode(code), mSubCode(subCode)
 {
 }
 bool MediaErrorEvent::shouldRetry(void) const { return false; }
 int32_t MediaErrorEvent::getBusinessStatus(void) const { return 0; }
 int32_t MediaErrorEvent::getClass(void) const { return 0; }
-int MediaErrorEvent::getCode(void) const { return 0; }
-int MediaErrorEvent::getSubCode(void) const { return 0; }
+int MediaErrorEvent::getCode(void) const { return mCode; }
+int MediaErrorEvent::getSubCode(void) const { return mSubCode; }
 
 BitrateChangeEvent::BitrateChangeEvent(int time, BitsPerSecond bitrate, const std::string &desc, int width, int height, double frameRate, double position, bool cappedProfile, int displayWidth, int displayHeight, VideoScanType videoScanType, int aspectRatioWidth, int aspectRatioHeight, std::string sid):
 		AAMPEventObject(AAMP_EVENT_BITRATE_CHANGED, std::move(sid))
@@ -535,15 +539,16 @@ uint32_t ManifestRefreshEvent::getManifestPublishedTime() const
 
 
 
-TuneTimeMetricsEvent::TuneTimeMetricsEvent(const std::string &timeMetricData, std::string sid):
+TuneTimeMetricsEvent::TuneTimeMetricsEvent(std::string &&timeMetricData, std::string sid):
 	AAMPEventObject(AAMP_EVENT_TUNE_TIME_METRICS, std::move(sid))
+	, mTuneMetricsData(std::move(timeMetricData))
 {
 
 }
 
 const std::string &TuneTimeMetricsEvent::getTuneMetricsData() const
 {
-		return mTuneMetricsData;
+	return mTuneMetricsData;
 }
 
 void MediaMetadataEvent::SetAudioMetaData(const std::string &audioCodec,const std::string &mixType,bool  isAtmos  )
@@ -623,3 +628,16 @@ uint64_t MonitorAVStatusEvent::getDroppedFrames() const
 {
 	return mDroppedFrames;
 }
+
+VodAdBreakOpportunityEvent::VodAdBreakOpportunityEvent(const std::string &breakId, double insertionPointSec,
+	double breakDurationSec, const std::string &breakType, std::string sid)
+	: AAMPEventObject(AAMP_EVENT_VOD_ADBREAK_OPPORTUNITY, sid),
+	  mBreakId(breakId), mInsertionPointSec(insertionPointSec),
+	  mBreakDurationSec(breakDurationSec), mBreakType(breakType)
+{
+}
+
+const std::string &VodAdBreakOpportunityEvent::getBreakId() const { return mBreakId; }
+double VodAdBreakOpportunityEvent::getInsertionPointSec() const { return mInsertionPointSec; }
+double VodAdBreakOpportunityEvent::getBreakDurationSec() const { return mBreakDurationSec; }
+const std::string &VodAdBreakOpportunityEvent::getBreakType() const { return mBreakType; }

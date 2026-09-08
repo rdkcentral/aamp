@@ -561,13 +561,6 @@ public:
 
 protected:
 	/**
-	 * @fn AddIfUnique
-	 * @brief Adds a text track to the list if it is not already in list
-	 * @return true if the text track was added, false otherwise
-	 */
-	bool AddIfUnique(std::vector<TextTrackInfo> &tTracks, TextTrackInfo& value);
-
-	/**
 	 * @fn StartFromAampLocalTsb
 	 *
 	 * @brief Start streaming from AAMP Local TSB
@@ -987,7 +980,13 @@ protected:
 	 */
 	bool IsMatchingLanguageAndMimeType(AampMediaType type, std::string lang, IAdaptationSet *adaptationSet, int &representationIndex);
 
-	double GetEncoderDisplayLatency();
+	/**
+	 * @fn CalculateProducerReferenceTimeOffset
+	 * @brief Computes the encoder delay in milliseconds using
+	 *        ProducerReferenceTime (PRT) data from the current period's
+	 *        video AdaptationSet.
+	 */
+	double CalculateProducerReferenceTimeOffset();
 
 	/**
 	 * @fn GetPreferredCodecIndex
@@ -1201,6 +1200,7 @@ protected:
 	double mCulledSeconds;      // Culled absolute position
 	double mPrevFirstPeriodStart;
 	bool mAdPlayingFromCDN;   /*Note: TRUE: Ad playing currently & from CDN. FALSE: Ad "maybe playing", but not from CDN.*/
+	bool mPostRollAdPlaybackDone; /**< Set in onAdEvent when the post-roll ad playback has fully completed; triggers EOS path in SelectSourceOrAdPeriod */
 	double mAvailabilityStartTime;
 	std::map<std::string, int> mDrmPrefs;
 	int mMaxTracks; /* Max number of tracks for this session */
@@ -1257,10 +1257,22 @@ protected:
 	*/
 	void ProcessVssLicenseRequest();
 	/**
+	* @fn ProcessLicenseFromEAP
+	* @brief Process DRM license for early available periods found in the given manifest response
+	* @param[in] mpdDnldResp Manifest download response containing the MPD parse helper used
+	*                        to identify and process early available periods
+	*/
+	void ProcessLicenseFromEAP(ManifestDownloadResponsePtr mpdDnldResp);
+	/**
 	* @fn GetAvailableVSSPeriods
 	* @param PeriodIds VSS Periods
 	*/
 	void GetAvailableVSSPeriods(std::vector<IPeriod*>& PeriodIds);
+	/**
+	* @fn GetEarlyAvailablePeriods
+	* @param PeriodIds Non-VSS early available periods
+	*/
+	void GetEarlyAvailablePeriods(std::vector<IPeriod*>& PeriodIds, AampMPDParseHelperPtr mpdParseHelper);
 	/**
 	* @fn GetVssVirtualStreamID
 	*/

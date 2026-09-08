@@ -18,10 +18,11 @@
  */
 
 #include <cstdint>
+#include <memory>
 
 #include "MockSecureClient.h"
 
-MockSecureClient *g_mocksecclient = nullptr;
+std::shared_ptr<MockSecureClient> g_mocksecclient{};
 
 int32_t SecClient_AcquireLicense(const char *serviceHostUrl, uint8_t numberOfRequestMetadataKeys,
 								 const char *requestMetadata[][2], uint8_t numberOfAccessAttributes,

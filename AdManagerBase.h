@@ -117,6 +117,19 @@ public:
 	 */
 	virtual void CancelReservation(const std::string& cancelAtReservationId) {}
 
+	/**
+	 * @brief Register a VOD ad-break insertion point.
+	 * Default implementation is a no-op; overridden by CDAIObjectMPD for DASH VOD.
+	 */
+	virtual void RegisterVodAdBreak(const std::string &/*breakId*/, double /*insertionPointSec*/,
+	                                double /*breakDurationSec*/, const std::string &/*breakType*/) {}
+
+	/**
+	 * @brief Cancel a previously registered VOD ad-break.
+	 * Default implementation is a no-op; overridden by CDAIObjectMPD for DASH VOD.
+	 */
+	virtual void CancelVodAdBreak(const std::string &/*breakId*/) {}
+
 	/** 
 	 * @brief Check if an ad is currently playing
 	 * @return true if an ad is playing, false otherwise
@@ -124,6 +137,19 @@ public:
 	virtual bool IsAdPlaying()
 	{
 		return false;
+	}
+
+	/**
+	 * @brief Return the virtual-timeline position accounting for all
+	 *        completed and in-progress VOD ad pods inserted before
+	 *        sourcePositionSec.  Default returns sourcePositionSec unchanged.
+	 * @param[in] sourcePositionSec Current playhead position in the source
+	 *        VOD asset (seconds).
+	 * @return Virtual position in the fully-assembled timeline (seconds).
+	 */
+	virtual double GetVirtualPosition(double sourcePositionSec)
+	{
+		return sourcePositionSec;
 	}
 };
 

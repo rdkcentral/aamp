@@ -20,6 +20,7 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 #include <memory>
+#include <mutex>
 #include <vector>
 #include <thread>
 #include <chrono>
@@ -61,6 +62,20 @@ private:
 
 public:
 	TestDrmSession() : DrmSession("test-key-system"), mState(KEY_READY) {}
+
+#ifdef DRMSESSION_HAS_LIFECYCLE_GUARD
+	~TestDrmSession() override
+	{
+		// Mirror what DrmSessionManager does before deleting a real session:
+		// mark for destruction and wait for any in-flight operations to drain
+		// before the object is freed. PrepareForDestruction() is defined in
+		// DrmSession.cpp which is not linked into this test binary, so we
+		// inline the equivalent logic using the protected members directly.
+		std::unique_lock<std::mutex> lock(mLifecycleMutex);
+		mMarkedForDestruction = true;
+		mLifecycleCV.wait(lock, [this]() { return mActiveOperations == 0; });
+	}
+#endif
 
 	void generateDRMSession(const uint8_t *f_pbInitData, uint32_t f_cbInitData, std::string &customData) override
 	{
@@ -216,9 +231,9 @@ protected:
 	void SetUp() override
 	{
 		// Initialize mocks with smart pointers
-		g_mockPrivateInstanceAAMP = new NiceMock<MockPrivateInstanceAAMP>();
-		g_mockDRMSessionManager = new NiceMock<MockDRMSessionManager>();
-		g_mockAampLicenseManager = new NiceMock<MockAampLicenseManager>();
+		g_mockPrivateInstanceAAMP = std::make_shared<NiceMock<MockPrivateInstanceAAMP>>();
+		g_mockDRMSessionManager = std::make_shared<NiceMock<MockDRMSessionManager>>();
+		g_mockAampLicenseManager = std::make_shared<NiceMock<MockAampLicenseManager>>();
 		mPrivateInstanceAAMP = std::make_unique<PrivateInstanceAAMP>();
 		mAampDRMLicenseManager = std::make_unique<AampDRMLicenseManager>(5, mPrivateInstanceAAMP.get());
 
@@ -238,14 +253,11 @@ protected:
 		mAampDRMLicenseManager.reset();
 		mPrivateInstanceAAMP.reset();
 
-		delete g_mockAampLicenseManager;
-		g_mockAampLicenseManager = nullptr;
+		g_mockAampLicenseManager.reset();
 
-		delete g_mockDRMSessionManager;
-		g_mockDRMSessionManager = nullptr;
+		g_mockDRMSessionManager.reset();
 
-		delete g_mockPrivateInstanceAAMP;
-		g_mockPrivateInstanceAAMP = nullptr;
+		g_mockPrivateInstanceAAMP.reset();
 	}
 
 	/**

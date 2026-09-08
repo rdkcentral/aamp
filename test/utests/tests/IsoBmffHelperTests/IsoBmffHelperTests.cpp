@@ -38,14 +38,13 @@ class IsoBmffHelperTests : public ::testing::Test
 
 		void SetUp() override
 		{
-			g_mockIsoBmffBuffer = new MockIsoBmffBuffer();
+			g_mockIsoBmffBuffer = std::make_shared<MockIsoBmffBuffer>();
 			helper = std::make_shared<IsoBmffHelper>();
 		}
 
 		void TearDown() override
 		{
-			delete g_mockIsoBmffBuffer;
-			g_mockIsoBmffBuffer = nullptr;
+			g_mockIsoBmffBuffer.reset();
 			helper.reset();
 		}
 };

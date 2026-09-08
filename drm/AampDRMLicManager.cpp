@@ -504,8 +504,7 @@ KeyState AampDRMLicenseManager::handleLicenseResponse(int &responseCode,std::sha
 			return KEY_ERROR;
 		}
 	}
-      return processLicenseResponse(std::move(drmHelper), sessionSlot, cdmError, std::move(licenseResponse), std::move(eventHandle), isLicenseRenewal);
-      return processLicenseResponse(std::move(drmHelper), sessionSlot, cdmError, std::move(licenseResponse), std::move(eventHandle), isLicenseRenewal);
+	return processLicenseResponse(std::move(drmHelper), sessionSlot, cdmError, std::move(licenseResponse), std::move(eventHandle), isLicenseRenewal);
 }
 KeyState AampDRMLicenseManager::processLicenseResponse(std::shared_ptr<DrmHelper> drmHelper, int sessionSlot, int &cdmError,
 		shared_ptr<DrmData> licenseResponse, DrmMetaDataEventPtr eventHandle, bool isLicenseRenewal)
@@ -578,21 +577,21 @@ void AampDRMLicenseManager::UpdateLicenseMetrics(DrmRequestType requestType, int
 	item = cJSON_CreateObject();
 	if( nullptr != item)
 	{
-		cJSON_AddNumberToObject(item, "req",requestType);
-		cJSON_AddNumberToObject(item, "res", statusCode);
-		cJSON_AddNumberToObject(item, "tot",downloadTimeMS);
-		cJSON_AddStringToObject(item, "url",licenseRequestUrl.c_str());
+		cJSON_AddNumberToObject(item, "req", requestType);   // DRM license request type
+		cJSON_AddNumberToObject(item, "res", statusCode);    // HTTP response code from the license server (HTTP/curl/SecClient response code)
+		cJSON_AddNumberToObject(item, "tot", downloadTimeMS); // Total wall-clock time for DRM license acquisition (including retries)
+		cJSON_AddStringToObject(item, "url", licenseRequestUrl.c_str()); // License server URL
 
 		if( (nullptr != respData) && (DRM_GET_LICENSE == requestType))
 		{
-			cJSON_AddNumberToObject(item, "con", respData->downloadCompleteMetrics.connect);
-			cJSON_AddNumberToObject(item, "str", respData->downloadCompleteMetrics.startTransfer);
-			cJSON_AddNumberToObject(item, "res", respData->downloadCompleteMetrics.resolve);
-			cJSON_AddNumberToObject(item, "acn", respData->downloadCompleteMetrics.appConnect);
-			cJSON_AddNumberToObject(item, "ptr", respData->downloadCompleteMetrics.preTransfer);
-			cJSON_AddNumberToObject(item, "rdt", respData->downloadCompleteMetrics.redirect);
-			cJSON_AddNumberToObject(item, "dls", respData->downloadCompleteMetrics.dlSize);
-			cJSON_AddNumberToObject(item, "rqs", respData->downloadCompleteMetrics.reqSize);
+			cJSON_AddNumberToObject(item, "con", respData->downloadCompleteMetrics.connect);       // TCP connection establishment time
+			cJSON_AddNumberToObject(item, "str", respData->downloadCompleteMetrics.startTransfer); // Time from request start to first byte received
+			cJSON_AddNumberToObject(item, "dns", respData->downloadCompleteMetrics.resolve);       // DNS resolution time
+			cJSON_AddNumberToObject(item, "acn", respData->downloadCompleteMetrics.appConnect);    // TLS/SSL handshake completion time
+			cJSON_AddNumberToObject(item, "ptr", respData->downloadCompleteMetrics.preTransfer);   // Pre-transfer overhead time
+			cJSON_AddNumberToObject(item, "rdt", respData->downloadCompleteMetrics.redirect);      // Time spent following HTTP redirects
+			cJSON_AddNumberToObject(item, "dls", respData->downloadCompleteMetrics.dlSize);        // Number of bytes downloaded in the response body
+			cJSON_AddNumberToObject(item, "rqs", respData->downloadCompleteMetrics.reqSize);       // Number of bytes sent in the license request
 		}
 
 		char *jsonStr = cJSON_Print(item);
@@ -1346,11 +1345,9 @@ void AampDRMLicenseManager::TriggerLAProfileErrorCb(void *ptr)
 	{
 		DrmMetaDataEventPtr e = *static_cast<DrmMetaDataEventPtr*>(ptr);
 		AAMPTuneFailure failure = e->getFailure();
-		if(AAMP_TUNE_FAILURE_UNKNOWN != failure)
+		if (AAMP_TUNE_FAILURE_UNKNOWN != failure)
 		{
-			long responseCode = e->getResponseCode();
-			bool selfAbort = (failure == AAMP_TUNE_LICENCE_REQUEST_FAILED && (responseCode == CURLE_ABORTED_BY_CALLBACK || responseCode == CURLE_WRITE_ERROR));
-			if (!selfAbort)
+			if (failure != AAMP_TUNE_DRM_SELF_ABORT)
 			{
 				aampInstance->SendErrorEvent(failure);
 			}

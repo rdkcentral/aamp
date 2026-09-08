@@ -19,18 +19,19 @@
 
 /**
  * @file aampstreamsinkmanager.cpp
- * @brief manages stream sink of gstreamer
+ * @brief manages stream sink players
  */
 
 #include "AampStreamSinkManager.h"
 #include "priv_aamp.h"
 #include "StreamAbstractionAAMP.h"
+#include "AampConfig.h"
 
 AampStreamSinkManager::AampStreamSinkManager() :
-	mGstPlayer(nullptr),
+	mStreamPlayer(nullptr),
 	mClientStreamSinkMap(),
-	mActiveGstPlayersMap(),
-	mInactiveGstPlayersMap(),
+	mActivePlayersMap(),
+	mInactivePlayersMap(),
 	mEncryptedHeaders(),
 	mMediaHeaders(AAMP_TRACK_COUNT, nullptr),
 	mPipelineMode(ePIPELINEMODE_UNDEFINED),
@@ -54,26 +55,26 @@ void AampStreamSinkManager::Clear(void)
 		// Don't delete the StreamSink as client owned
 		it = mClientStreamSinkMap.erase(it);
 	}
-	for (auto it = mInactiveGstPlayersMap.begin(); it != mInactiveGstPlayersMap.end();)
+	for (auto it = mInactivePlayersMap.begin(); it != mInactivePlayersMap.end();)
 	{
 		delete(it->second);
-		it = mInactiveGstPlayersMap.erase(it);
+		it = mInactivePlayersMap.erase(it);
 	}
-	if (mActiveGstPlayersMap.size())
+	if (mActivePlayersMap.size())
 	{
-		for (auto it = mActiveGstPlayersMap.begin(); it != mActiveGstPlayersMap.end();)
+		for (auto it = mActivePlayersMap.begin(); it != mActivePlayersMap.end();)
 		{
 			delete(it->second);
-			it = mActiveGstPlayersMap.erase(it);
+			it = mActivePlayersMap.erase(it);
 		}
-		mGstPlayer = nullptr;
+		mStreamPlayer = nullptr;
 	}
 	else
 	{
-		if (mGstPlayer)
+		if (mStreamPlayer)
 		{
-			delete (mGstPlayer);
-			mGstPlayer = nullptr;
+			delete (mStreamPlayer);
+			mStreamPlayer = nullptr;
 		}
 	}
 	mPipelineMode = ePIPELINEMODE_UNDEFINED;
@@ -102,20 +103,20 @@ void AampStreamSinkManager::SetSinglePipelineMode(PrivateInstanceAAMP *aamp)
 				AAMPLOG_ERR("AampStreamSinkManager(%p) Encrypted headers already been set", this );
 			}
 
-			// Retain matching GstPlayer player, remove others
-			for (auto it = mActiveGstPlayersMap.begin(); it != mActiveGstPlayersMap.end();)
+			// Retain matching stream player, remove others
+			for (auto it = mActivePlayersMap.begin(); it != mActivePlayersMap.end();)
 			{
 				if (aamp == it->first)
 				{
-					AAMPLOG_WARN("AampStreamSinkManager(%p) Retaining GstPlayer created for PLAYER[%d]", this, it->first->mPlayerId);
-					mGstPlayer = it->second;
+					AAMPLOG_WARN("AampStreamSinkManager(%p) Retaining stream player created for PLAYER[%d]", this, it->first->mPlayerId);
+					mStreamPlayer = it->second;
 					it++;
 				}
 				else
 				{
-					AAMPLOG_WARN("AampStreamSinkManager(%p) Deleting GstPlayer created for PLAYER[%d]", this, it->first->mPlayerId);
+					AAMPLOG_WARN("AampStreamSinkManager(%p) Deleting stream player created for PLAYER[%d]", this, it->first->mPlayerId);
 					delete(it->second);
-					it = mActiveGstPlayersMap.erase(it);
+					it = mActivePlayersMap.erase(it);
 				}
 			}
 		}
@@ -135,27 +136,44 @@ void AampStreamSinkManager::SetSinglePipelineMode(PrivateInstanceAAMP *aamp)
 	}
 }
 
+StreamSink* AampStreamSinkManager::CreateSinkInstance(PrivateInstanceAAMP *aamp, id3_callback_t id3HandlerCallback, std::function<void(const unsigned char *, int, int, int)> exportFrames)
+{
+	StreamSink *sink = nullptr;
+	// DirectRialto is not yet supported, so we will always create the GstPlayer for now.
+	// The config is in place for when DirectRialto support is added.
+	if (ISCONFIGSET(eAAMPConfig_useDirectRialto))
+	{
+		AAMPLOG_ERR("Creating AampRialtoPlayer not yet supported");
+	}
+	//else
+	{
+		AAMPLOG_MIL("Creating stream player");
+		sink = new AAMPGstPlayer(aamp, std::move(id3HandlerCallback), std::move(exportFrames));
+	}
+	return sink;
+}
+
 void AampStreamSinkManager::CreateStreamSink(PrivateInstanceAAMP *aamp, id3_callback_t id3HandlerCallback, std::function< void(const unsigned char *, int, int, int) > exportFrames)
 {
 	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
 	AampStreamSinkInactive *inactiveSink = new AampStreamSinkInactive(id3HandlerCallback);  /* For every instance of aamp, there should be an AampStreamSinkInactive object*/
-	mInactiveGstPlayersMap.insert({aamp,inactiveSink});
+	mInactivePlayersMap.insert({aamp,inactiveSink});
 
 	switch(mPipelineMode)
 	{
 		case ePIPELINEMODE_SINGLE:
 		{
-			if (mGstPlayer == nullptr)
+			if (mStreamPlayer == nullptr)
 			{
 				//Do not edit or remove this log - it is used in L2 test
-				AAMPLOG_WARN("AampStreamSinkManager(%p) Single Pipeline mode, creating GstPlayer for PLAYER[%d]", this, aamp->mPlayerId);
-				mGstPlayer = new AAMPGstPlayer(aamp, std::move(id3HandlerCallback), std::move(exportFrames));
-				mActiveGstPlayersMap.insert({aamp, mGstPlayer});
+				AAMPLOG_MIL("AampStreamSinkManager(%p) Single Pipeline mode, creating stream player for PLAYER[%d]", this, aamp->mPlayerId);
+				mStreamPlayer = CreateSinkInstance(aamp, std::move(id3HandlerCallback), std::move(exportFrames));
+				mActivePlayersMap.insert({aamp, mStreamPlayer});
 			}
 			else
 			{
 				//Do not edit or remove this log - it is used in L2 test
-				AAMPLOG_WARN("AampStreamSinkManager(%p) Single Pipeline mode, not creating GstPlayer for PLAYER[%d]", this, aamp->mPlayerId);
+				AAMPLOG_WARN("AampStreamSinkManager(%p) Single Pipeline mode, not creating stream player for PLAYER[%d]", this, aamp->mPlayerId);
 			}
 		}
 		break;
@@ -164,10 +182,10 @@ void AampStreamSinkManager::CreateStreamSink(PrivateInstanceAAMP *aamp, id3_call
 		case ePIPELINEMODE_MULTI:
 		{
 			//Do not edit or remove this log - it is used in L2 test
-			AAMPLOG_WARN("AampStreamSinkManager(%p) %s Pipeline mode, creating GstPlayer for PLAYER[%d]", this,
+			AAMPLOG_MIL("AampStreamSinkManager(%p) %s Pipeline mode, creating stream player for PLAYER[%d]", this,
 						 mPipelineMode == ePIPELINEMODE_UNDEFINED ? "Undefined" : "Multi", aamp->mPlayerId);
-			AAMPGstPlayer *gstPlayer = new AAMPGstPlayer(aamp, std::move(id3HandlerCallback), std::move(exportFrames));
-			mActiveGstPlayersMap.insert({aamp, gstPlayer});
+			StreamSink *streamPlayer = CreateSinkInstance(aamp, std::move(id3HandlerCallback), std::move(exportFrames));
+			mActivePlayersMap.insert({aamp, streamPlayer});
 		}
 		break;
 	}
@@ -214,42 +232,42 @@ void AampStreamSinkManager::DeleteStreamSink(PrivateInstanceAAMP *aamp)
 	{
 		case ePIPELINEMODE_SINGLE:
 		{
-			if (mActiveGstPlayersMap.size() &&
-				(aamp == mActiveGstPlayersMap.begin()->first))
+			if (mActivePlayersMap.size() &&
+				(aamp == mActivePlayersMap.begin()->first))
 			{
 				/* Erase the map of active player*/
-				mActiveGstPlayersMap.erase(aamp);
+				mActivePlayersMap.erase(aamp);
 				AAMPLOG_WARN("AampStreamSinkManager(%p) No active players present", this );
 			}
 
-			if (mInactiveGstPlayersMap.count(aamp))
+			if (mInactivePlayersMap.count(aamp))
 			{
-				AampStreamSinkInactive* sink = mInactiveGstPlayersMap[aamp];
-				mInactiveGstPlayersMap.erase(aamp);
+				AampStreamSinkInactive* sink = mInactivePlayersMap[aamp];
+				mInactivePlayersMap.erase(aamp);
 				delete sink;
 			}
 
-			if (mInactiveGstPlayersMap.size())
+			if (mInactivePlayersMap.size())
 			{
-				AAMPLOG_WARN("AampStreamSinkManager(%p) %zu Inactive players present", this, mInactiveGstPlayersMap.size());
+				AAMPLOG_WARN("AampStreamSinkManager(%p) %zu Inactive players present", this, mInactivePlayersMap.size());
 
 				// check the sink was not attached to the player that is being deleted
-				if (mGstPlayer->IsAssociatedAamp(aamp))
+				if (mStreamPlayer->IsAssociatedAamp(aamp))
 				{
-					if (mActiveGstPlayersMap.size() == 0)
+					if (mActivePlayersMap.size() == 0)
 					{
 						// attach it to one of the existing inactive players
-						AAMPLOG_WARN("AampStreamSinkManager(%p) Deleting player associated with sink! Attaching sink to default inactive PLAYER[%d]", this, mInactiveGstPlayersMap.begin()->first->mPlayerId);
-						mGstPlayer->ChangeAamp(mInactiveGstPlayersMap.begin()->first,
-												mInactiveGstPlayersMap.begin()->second->GetID3MetadataHandler());
+						AAMPLOG_WARN("AampStreamSinkManager(%p) Deleting player associated with sink! Attaching sink to default inactive PLAYER[%d]", this, mInactivePlayersMap.begin()->first->mPlayerId);
+						mStreamPlayer->ChangeAamp(mInactivePlayersMap.begin()->first,
+												mInactivePlayersMap.begin()->second->GetID3MetadataHandler());
 					}
 				}
 			}
 			else
 			{
-				AAMPLOG_WARN("AampStreamSinkManager(%p) No inactive players present, deleting GStreamer Pipeline PLAYER[%d]", this, aamp->mPlayerId);
-				delete(mGstPlayer);
-				mGstPlayer = nullptr;
+				AAMPLOG_WARN("AampStreamSinkManager(%p) No inactive players present, deleting stream player pipeline PLAYER[%d]", this, aamp->mPlayerId);
+				delete(mStreamPlayer);
+				mStreamPlayer = nullptr;
 				mPipelineMode = ePIPELINEMODE_UNDEFINED;
 				mEncryptedHeadersInjected = false;
 				for (auto& header : mMediaHeaders)
@@ -264,17 +282,17 @@ void AampStreamSinkManager::DeleteStreamSink(PrivateInstanceAAMP *aamp)
 		case ePIPELINEMODE_UNDEFINED:
 		case ePIPELINEMODE_MULTI:
 		{
-			if (mInactiveGstPlayersMap.count(aamp))
+			if (mInactivePlayersMap.count(aamp))
 			{
-				AampStreamSinkInactive* sink = mInactiveGstPlayersMap[aamp];
-				mInactiveGstPlayersMap.erase(aamp);
+				AampStreamSinkInactive* sink = mInactivePlayersMap[aamp];
+				mInactivePlayersMap.erase(aamp);
 				delete(sink);
 			}
 
-			if (mActiveGstPlayersMap.count(aamp))
+			if (mActivePlayersMap.count(aamp))
 			{
-				AAMPGstPlayer* sink = mActiveGstPlayersMap[aamp];
-				mActiveGstPlayersMap.erase(aamp);
+				StreamSink* sink = mActivePlayersMap[aamp];
+				mActivePlayersMap.erase(aamp);
 				delete(sink);
 			}
 
@@ -302,10 +320,10 @@ void AampStreamSinkManager::SetEncryptedHeaders(PrivateInstanceAAMP *aamp, std::
 		break;
 		case ePIPELINEMODE_SINGLE:
 		{
-			if ((mGstPlayer != nullptr) && !mEncryptedHeaders.empty())
+			if ((mStreamPlayer != nullptr) && !mEncryptedHeaders.empty())
 			{
 				// If encryption info is already set, check that it has not been set from a different player
-				int encryptedPlayerId = mGstPlayer->GetEncryptedAampId();
+				int encryptedPlayerId = mStreamPlayer->GetEncryptedAampId();
 				if (encryptedPlayerId != aamp->mPlayerId)
 				{
 					AAMPLOG_ERR("AampStreamSinkManager(%p) encrypted player (%d) does not match current player (%d)", this, encryptedPlayerId, aamp->mPlayerId);
@@ -318,10 +336,10 @@ void AampStreamSinkManager::SetEncryptedHeaders(PrivateInstanceAAMP *aamp, std::
 			{
 				AAMPLOG_INFO("AampStreamSinkManager(%p) Encrypted headers have already been set PLAYER[%d]", this, aamp->mPlayerId);
 			}
-			else if (mGstPlayer != nullptr)
+			else if (mStreamPlayer != nullptr)
 			{
 				AAMPLOG_INFO("AampStreamSinkManager(%p) Set encrypted player to PLAYER[%d]", this, aamp->mPlayerId);
-				mGstPlayer->SetEncryptedAamp(aamp);
+				mStreamPlayer->SetEncryptedAamp(aamp);
 				mEncryptedHeaders = mappedHeaders;
 			}
 			else
@@ -368,11 +386,11 @@ void AampStreamSinkManager::DeactivatePlayer(PrivateInstanceAAMP *aamp, bool sto
 
 		case ePIPELINEMODE_SINGLE:
 		{
-			if (mActiveGstPlayersMap.size() == 0)
+			if (mActivePlayersMap.size() == 0)
 			{
 				AAMPLOG_WARN("AampStreamSinkManager(%p) Single Pipeline mode, no current active PLAYER[%d]", this, aamp->mPlayerId);
 			}
-			else if (mActiveGstPlayersMap.begin()->first == aamp)
+			else if (mActivePlayersMap.begin()->first == aamp)
 			{
 				if (stop)
 				{
@@ -391,13 +409,13 @@ void AampStreamSinkManager::DeactivatePlayer(PrivateInstanceAAMP *aamp, bool sto
 					//Do not edit or remove this log - it is used in L2 test
 					AAMPLOG_WARN("AampStreamSinkManager(%p) Single Pipeline mode, deactivating active PLAYER[%d]", this, aamp->mPlayerId);
 				}
-				mActiveGstPlayersMap.erase(aamp);
+				mActivePlayersMap.erase(aamp);
 			}
 			else
 			{
 				// Can happen when Stop is called after Detach has already been called
 				//Do not edit or remove this log - it is used in L2 test
-				AAMPLOG_WARN("AampStreamSinkManager(%p) Single Pipeline mode, asked to deactivate PLAYER[%d] when current active PLAYER[%d]", this, aamp->mPlayerId, mActiveGstPlayersMap.begin()->first->mPlayerId);
+				AAMPLOG_WARN("AampStreamSinkManager(%p) Single Pipeline mode, asked to deactivate PLAYER[%d] when current active PLAYER[%d]", this, aamp->mPlayerId, mActivePlayersMap.begin()->first->mPlayerId);
 			}
 		}
 		break;
@@ -440,35 +458,35 @@ void AampStreamSinkManager::ActivatePlayer(PrivateInstanceAAMP *aamp)
 	{
 		case ePIPELINEMODE_SINGLE:
 		{
-			if (mActiveGstPlayersMap.size() == 0)
+			if (mActivePlayersMap.size() == 0)
 			{
 				//Do not edit or remove this log - it is used in L2 test
 				AAMPLOG_WARN("AampStreamSinkManager(%p) Single Pipeline mode, no current active player", this );
 			}
-			else if (mActiveGstPlayersMap.begin()->first == aamp)
+			else if (mActivePlayersMap.begin()->first == aamp)
 			{
 				AAMPLOG_WARN("AampStreamSinkManager(%p) Single Pipeline mode, already active PLAYER[%d]", this, aamp->mPlayerId);
 			}
 			else
 			{
 				//Do not edit or remove this log - it is used in L2 test
-				AAMPLOG_WARN("AampStreamSinkManager(%p) Single Pipeline mode, resetting current active PLAYER[%d]", this, mActiveGstPlayersMap.begin()->first->mPlayerId);
-				mActiveGstPlayersMap.clear();
+				AAMPLOG_WARN("AampStreamSinkManager(%p) Single Pipeline mode, resetting current active PLAYER[%d]", this, mActivePlayersMap.begin()->first->mPlayerId);
+				mActivePlayersMap.clear();
 			}
 
-			if (mActiveGstPlayersMap.size() == 0)
+			if (mActivePlayersMap.size() == 0)
 			{
-				if (mGstPlayer != nullptr)
+				if (mStreamPlayer != nullptr)
 				{
 					//Do not edit or remove this log - it is used in L2 test
 					AAMPLOG_WARN("AampStreamSinkManager(%p) Single Pipeline mode, setting active PLAYER[%d]", this, aamp->mPlayerId);
 
-					mActiveGstPlayersMap.insert({aamp, mGstPlayer});
+					mActivePlayersMap.insert({aamp, mStreamPlayer});
 					SetActive(aamp, flushPosition);
 				}
 				else
 				{
-					AAMPLOG_ERR("AampStreamSinkManager(%p) Single Pipeline mode, mGstPlayer is null, can't set active PLAYER[%d]", this, aamp->mPlayerId);
+					AAMPLOG_ERR("AampStreamSinkManager(%p) Single Pipeline mode, mStreamPlayer is null, can't set active PLAYER[%d]", this, aamp->mPlayerId);
 				}
 			}
 		}
@@ -495,14 +513,14 @@ void AampStreamSinkManager::SetActive(PrivateInstanceAAMP *aamp, double position
 {
 	AAMPLOG_INFO("AampStreamSinkManager(%p) Setting PLAYER[%d] active, position(%f)", this, aamp->mPlayerId, position);
 
-	mGstPlayer->ChangeAamp(aamp, mInactiveGstPlayersMap[aamp]->GetID3MetadataHandler());
+	mStreamPlayer->ChangeAamp(aamp, mInactivePlayersMap[aamp]->GetID3MetadataHandler());
 	aamp->mIsFlushOperationInProgress = true;
-	mGstPlayer->Flush(position, aamp->rate, true);
+	mStreamPlayer->Flush(position, aamp->rate, true);
 	aamp->mIsFlushOperationInProgress = false;
-	mGstPlayer->SetSubtitleMute(aamp->subtitles_muted);
+	mStreamPlayer->SetSubtitleMute(aamp->subtitles_muted);
 	if(!aamp->IsTuneCompleted() && aamp->IsPlayEnabled() && (mPipelineMode == ePIPELINEMODE_SINGLE))
 	{
-		mGstPlayer->ResetFirstFrame();
+		mStreamPlayer->ResetFirstFrame();
 	}
 }
 
@@ -530,10 +548,10 @@ StreamSink* AampStreamSinkManager::GetActiveStreamSink(PrivateInstanceAAMP *aamp
 				AAMPLOG_TRACE("AampStreamSinkManager(%p) Returning matching client Stream Sink", this );
 				sink_ptr = mClientStreamSinkMap[aamp];
 			}
-			else if (mActiveGstPlayersMap.count(aamp))
+			else if (mActivePlayersMap.count(aamp))
 			{
 				AAMPLOG_TRACE("AampStreamSinkManager(%p) Returning matching Stream Sink", this );
-				sink_ptr = mActiveGstPlayersMap[aamp];
+				sink_ptr = mActivePlayersMap[aamp];
 			}
 			else
 			{
@@ -543,15 +561,15 @@ StreamSink* AampStreamSinkManager::GetActiveStreamSink(PrivateInstanceAAMP *aamp
 		break;
 		case ePIPELINEMODE_SINGLE:
 		{
-			if (!mActiveGstPlayersMap.empty())
+			if (!mActivePlayersMap.empty())
 			{
 				AAMPLOG_TRACE("AampStreamSinkManager(%p) Returning active Stream Sink found", this );
-				sink_ptr = mActiveGstPlayersMap.begin()->second;
+				sink_ptr = mActivePlayersMap.begin()->second;
 			}
-			else if (mGstPlayer != nullptr)
+			else if (mStreamPlayer != nullptr)
 			{
-				AAMPLOG_TRACE("AampStreamSinkManager(%p) No active Stream Sink found, returning mGstPlayer", this );
-				sink_ptr = mGstPlayer;
+				AAMPLOG_TRACE("AampStreamSinkManager(%p) No active Stream Sink found, returning mStreamPlayer", this );
+				sink_ptr = mStreamPlayer;
 			}
 			else
 			{
@@ -579,15 +597,15 @@ StreamSink* AampStreamSinkManager::GetStreamSinkNoLock(PrivateInstanceAAMP *aamp
 		AAMPLOG_TRACE("AampStreamSinkManager(%p) Returning client Stream Sink found for PLAYER[%d]", this, aamp->mPlayerId);
 		sink_ptr = mClientStreamSinkMap[aamp];
 	}
-	else if (mActiveGstPlayersMap.count(aamp) != 0)
+	else if (mActivePlayersMap.count(aamp) != 0)
 	{
 		AAMPLOG_TRACE("AampStreamSinkManager(%p) Returning active Stream Sink found for PLAYER[%d]", this, aamp->mPlayerId);
-		sink_ptr = mActiveGstPlayersMap[aamp];
+		sink_ptr = mActivePlayersMap[aamp];
 	}
-	else if (mInactiveGstPlayersMap.count(aamp) != 0)
+	else if (mInactivePlayersMap.count(aamp) != 0)
 	{
 		AAMPLOG_TRACE("AampStreamSinkManager(%p) Returning inactive Stream Sink found or PLAYER[%d]", this, aamp->mPlayerId);
-		sink_ptr = mInactiveGstPlayersMap[aamp];
+		sink_ptr = mInactivePlayersMap[aamp];
 	}
 	else
 	{
@@ -603,11 +621,11 @@ StreamSink *AampStreamSinkManager::GetStoppingStreamSink(PrivateInstanceAAMP *aa
 	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
 	StreamSink *sink_ptr = nullptr;
 
-	if ((mPipelineMode == ePIPELINEMODE_SINGLE) && mActiveGstPlayersMap.empty())
+	if ((mPipelineMode == ePIPELINEMODE_SINGLE) && mActivePlayersMap.empty())
 	{
 		// Check if there is any inactive player that has been tuned (excluding the calling aamp)
 		bool hasTunedInactivePlayer = false;
-		for (const auto& inactivePlayer : mInactiveGstPlayersMap)
+		for (const auto& inactivePlayer : mInactivePlayersMap)
 		{
 			if (inactivePlayer.first != aamp)
 			{
@@ -625,7 +643,7 @@ StreamSink *AampStreamSinkManager::GetStoppingStreamSink(PrivateInstanceAAMP *aa
 		{
 			AAMPLOG_INFO("AampStreamSinkManager(%p) No active player and no tuned inactive players, returning single-pipeline sink for PLAYER[%d]",
 					this, aamp->mPlayerId);
-			sink_ptr = mGstPlayer;
+			sink_ptr = mStreamPlayer;
 		}
 		else
 		{
@@ -647,8 +665,8 @@ void AampStreamSinkManager::SetTuned(PrivateInstanceAAMP *aamp)
 {
 	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
 
-	auto it = mInactiveGstPlayersMap.find(aamp);
-	if (it != mInactiveGstPlayersMap.end())
+	auto it = mInactivePlayersMap.find(aamp);
+	if (it != mInactivePlayersMap.end())
 	{
 		it->second->SetTuned(true);
 		AAMPLOG_INFO("AampStreamSinkManager(%p) Set tuned flag for PLAYER[%d]", this, aamp->mPlayerId);
@@ -666,15 +684,15 @@ void AampStreamSinkManager::UpdateTuningPlayer(PrivateInstanceAAMP *aamp)
 	{
 		case ePIPELINEMODE_SINGLE:
 		{
-			if (mActiveGstPlayersMap.empty())
+			if (mActivePlayersMap.empty())
 			{
-				if (mGstPlayer == nullptr)
+				if (mStreamPlayer == nullptr)
 				{
 					AAMPLOG_ERR(
 						"AampStreamSinkManager(%p) No single pipeline stream sink PLAYER[%d]",
 						this, aamp->mPlayerId);
 				}
-				else if (mInactiveGstPlayersMap.count(aamp) == 0)
+				else if (mInactivePlayersMap.count(aamp) == 0)
 				{
 					AAMPLOG_ERR(
 						"AampStreamSinkManager(%p) No inactive stream sink for PLAYER[%d]",
@@ -686,8 +704,8 @@ void AampStreamSinkManager::UpdateTuningPlayer(PrivateInstanceAAMP *aamp)
 						"AampStreamSinkManager(%p) Single pipeline stream sink with no active players, update player to PLAYER[%d]",
 						this, aamp->mPlayerId);
 
-					mGstPlayer->ChangeAamp(aamp,
-										   mInactiveGstPlayersMap[aamp]->GetID3MetadataHandler());
+					mStreamPlayer->ChangeAamp(aamp,
+										   mInactivePlayersMap[aamp]->GetID3MetadataHandler());
 				}
 			}
 			else

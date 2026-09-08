@@ -22,7 +22,7 @@
 
 using namespace TSB;
 
-MockTSBStore *g_mockTSBStore = nullptr;
+std::shared_ptr<MockTSBStore> g_mockTSBStore{};
 
 class TSB::StoreImpl
 {

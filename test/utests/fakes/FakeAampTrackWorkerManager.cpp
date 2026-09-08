@@ -18,6 +18,15 @@
  */
 
 #include "AampTrackWorkerManager.hpp"
+#include "MockAampTrackWorkerManager.h"
+
+// Global counter incremented each time AampTrackWorkerManager::SubmitJob is
+// called.  Tests that need to distinguish the synchronous Execute() path from
+// the async SubmitJob path reset this to 0 before the window under test and
+// inspect it afterwards.
+int g_submitJobCallCount = 0;
+
+std::shared_ptr<aamp::MockAampTrackWorkerManager> g_mockAampTrackWorkerManager{};
 
 namespace aamp
 {
@@ -92,6 +101,11 @@ namespace aamp
 	 */
 	void AampTrackWorkerManager::WaitForCompletionWithTimeout(int timeout, std::function<void()> onTimeout)
 	{
+		if (g_mockAampTrackWorkerManager)
+		{
+			g_mockAampTrackWorkerManager->WaitForCompletionWithTimeout(timeout, onTimeout);
+			return;
+		}
 	}
 
 	/**
@@ -116,6 +130,7 @@ namespace aamp
 	 */
 	std::shared_future<void> AampTrackWorkerManager::SubmitJob(AampMediaType mediaType, std::shared_ptr<AampTrackWorkerJob> job, bool highPriority)
 	{
+		g_submitJobCallCount++;
 		if (job)
 		{
 			job->Run(); // Execute the job immediately for testing purposes

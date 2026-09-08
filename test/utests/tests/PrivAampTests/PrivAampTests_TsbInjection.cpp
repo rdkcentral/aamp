@@ -32,7 +32,7 @@ using ::testing::NiceMock;
 using ::testing::Return;
 using ::testing::WithParamInterface;
 
-class PrivAampTests : public ::testing::Test
+class PrivAampTestsBase : public ::testing::Test
 {
 public:
 	PrivateInstanceAAMP *p_aamp{nullptr};
@@ -43,13 +43,12 @@ protected:
 	{
 		config=new AampConfig();
 		p_aamp = new PrivateInstanceAAMP(config);
-		g_mockStreamAbstractionAAMP = new NiceMock<MockStreamAbstractionAAMP>(p_aamp);
+		g_mockStreamAbstractionAAMP = std::make_shared<NiceMock<MockStreamAbstractionAAMP>>(p_aamp);
 	}
 
 	void TearDown() override
 	{
-		delete g_mockStreamAbstractionAAMP;
-		g_mockStreamAbstractionAAMP = nullptr;
+		g_mockStreamAbstractionAAMP.reset();
 
 		delete p_aamp;
 		p_aamp = nullptr;
@@ -79,15 +78,15 @@ struct TrackInjectionParams
 	}
 };
 
-class TestPrivateInstanceAAMPTracks : public PrivAampTests,
+class TestPrivateInstanceAAMPTracks : public PrivAampTestsBase,
 									  public WithParamInterface<TrackInjectionParams>
 {
 protected:
 	void SetUp() override
 	{
-		PrivAampTests::SetUp();
+		PrivAampTestsBase::SetUp();
 		p_aamp->SetLocalAAMPTsbInjection(true);
-		p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+		p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
 	}
 
 	// Helper to create mock track

@@ -21,6 +21,7 @@
 #define AAMP_MOCK_SDJOURNAL_H
 
 #include <gmock/gmock.h>
+#include <memory>
 
 
 class MockSdJournal
@@ -31,6 +32,6 @@ public:
 	MOCK_METHOD(int, sd_journal_print_mock, (int priority, const char *buffer));
 };
 
-extern MockSdJournal *g_mockSdJournal;
+extern std::shared_ptr<MockSdJournal> g_mockSdJournal;
 
 #endif /* AAMP_MOCK_SDJOURNAL_H */

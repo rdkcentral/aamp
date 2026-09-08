@@ -702,6 +702,7 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 		case AAMP_EVENT_TUNE_TIME_METRICS:
 		{
 			TuneTimeMetricsEventPtr ev = std::dynamic_pointer_cast<TuneTimeMetricsEvent>(e);
+			AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_TUNE_TIME_METRICS received\n");
 			// below is redundant with IP_AAMP_TUNETIME logging done in core aamp
 			//AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_TUNE_TIME_METRICS\n\tData[%s]\n",ev->getTuneMetricsData().c_str());
 			break;
@@ -753,6 +754,31 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 		{
 			AdPlacementEventPtr ev = std::dynamic_pointer_cast<AdPlacementEvent>(e);
 			AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_AD_PLACEMENT_PROGRESS\tadId=%s\tposition=%u\toffset=%u\tduration=%u\terror=%d\n", ev->getAdId().c_str(), ev->getPosition(), ev->getOffset(), ev->getDuration(), ev->getErrorCode());
+			break;
+		}
+		case AAMP_EVENT_VOD_ADBREAK_OPPORTUNITY:
+		{
+			VodAdBreakOpportunityEventPtr ev = std::dynamic_pointer_cast<VodAdBreakOpportunityEvent>(e);
+			const std::string &breakId = ev->getBreakId();
+			AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_VOD_ADBREAK_OPPORTUNITY breakId=%s insertionPt=%.3f dur=%.3f type=%s\n",
+				breakId.c_str(), ev->getInsertionPointSec(), ev->getBreakDurationSec(), ev->getBreakType().c_str());
+			bool mapped = false;
+			for( const AdvertInfo &advertInfo : mAdvertList )
+			{
+				if( advertInfo.adBreakId == breakId )
+				{
+					std::string adId = "adId" + std::to_string(++mAdReservationIndex);
+					AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_VOD_ADBREAK_OPPORTUNITY place advert breakId=%s adId=%s url=%s\n",
+						breakId.c_str(), adId.c_str(), advertInfo.url.c_str());
+					mAampcli.mSingleton->SetAlternateContents(breakId, adId, advertInfo.url);
+					mapped = true;
+				}
+			}
+			if( !mapped )
+			{
+				AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_VOD_ADBREAK_OPPORTUNITY unmapped breakId=%s, notifying reservation complete\n", breakId.c_str());
+			}
+			mAampcli.mSingleton->NotifyReservationComplete(breakId);
 			break;
 		}
 		case AAMP_EVENT_NEED_MANIFEST_DATA:

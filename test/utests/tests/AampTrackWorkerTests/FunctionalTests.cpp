@@ -592,3 +592,149 @@ TEST_F(FunctionalTests, StopWorkerTest)
 		FAIL() << "Exception caught in AampTrackWorker StopWorker: " << e.what();
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Regression tests for RDKAAMP-4072 (PR 114108): parallel init segment download
+//
+// PR 114108 parallelised init segment downloads via AampTrackWorker.  The
+// protection mechanism is: FetchFragment submits the init job with
+// highPriority=true (push_front) so it executes before any already-queued
+// media jobs.  If that priority is lost (e.g. profileChanged is false on the
+// DetectDiscontinuityAndFetchInit path) the decoder receives a media segment
+// before the init segment, causing a silent 20-second tune hang.
+// ---------------------------------------------------------------------------
+
+/**
+ * @test FunctionalTests::InitJob_HighPriority_ExecutesBeforeEnqueuedMediaJobs
+ * @brief Validates the init-before-media ordering protection.
+ *
+ * When profileChanged=true, FetchFragment calls SubmitJob(..., highPriority=true),
+ * which pushes the init job to the front of the per-track worker queue.  This
+ * test verifies that an init job submitted AFTER two media jobs still executes
+ * FIRST, as long as it is submitted with highPriority=true.
+ *
+ * Regression: if highPriority is not set the decoder receives media before init,
+ * resulting in a silent tune hang (no AAMP_EVENT_TUNED, no error event).
+ */
+TEST_F(FunctionalTests, InitJob_HighPriority_ExecutesBeforeEnqueuedMediaJobs)
+{
+	std::vector<std::string> executionOrder;
+	std::mutex orderMutex;
+
+	mTestableAampTrackWorker->Pause();
+
+	// Two media segment jobs queued first (push_back / normal priority).
+	auto mediaJob1 = std::make_shared<aamp::MediaSegmentDownloadJob>(nullptr, [&]() {
+		std::lock_guard<std::mutex> lock(orderMutex);
+		executionOrder.push_back("media1");
+	});
+	auto mediaJob2 = std::make_shared<aamp::MediaSegmentDownloadJob>(nullptr, [&]() {
+		std::lock_guard<std::mutex> lock(orderMutex);
+		executionOrder.push_back("media2");
+	});
+	// Init segment job submitted last, but with highPriority=true (push_front).
+	// This models FetchFragment(isInitSegment=true, profileChanged=true) -> push_front.
+	auto initJob = std::make_shared<aamp::MediaSegmentDownloadJob>(nullptr, [&]() {
+		std::lock_guard<std::mutex> lock(orderMutex);
+		executionOrder.push_back("init");
+	});
+
+	auto futureMedia1 = mTestableAampTrackWorker->SubmitJob(mediaJob1);       // push_back
+	auto futureMedia2 = mTestableAampTrackWorker->SubmitJob(mediaJob2);       // push_back
+	auto futureInit   = mTestableAampTrackWorker->SubmitJob(initJob, true);   // push_front
+
+	mTestableAampTrackWorker->Resume();
+
+	ASSERT_EQ(futureInit.wait_for(std::chrono::seconds(2)),   std::future_status::ready);
+	ASSERT_EQ(futureMedia1.wait_for(std::chrono::seconds(2)), std::future_status::ready);
+	ASSERT_EQ(futureMedia2.wait_for(std::chrono::seconds(2)), std::future_status::ready);
+
+	ASSERT_EQ(executionOrder.size(), 3u);
+	// Init must run first despite being submitted last.
+	EXPECT_EQ(executionOrder[0], "init");
+	EXPECT_EQ(executionOrder[1], "media1");
+	EXPECT_EQ(executionOrder[2], "media2");
+}
+
+/**
+ * @test FunctionalTests::InitJob_LowPriority_ExecutesAfterEnqueuedMediaJobs
+ * @brief Documents the ordering hazard when init priority is not set.
+ *
+ * On the DetectDiscontinuityAndFetchInit path profileChanged has already been
+ * cleared before FetchAndInjectInitialization is called, so highPriority=false
+ * and the init job goes to push_back.  If media jobs are already queued at that
+ * point, media executes before init — this is the secondary vulnerability
+ * exposed by PR 114108.
+ *
+ * This test intentionally asserts the HAZARDOUS ordering to document it.
+ * A proper fix must ensure init jobs always carry highPriority=true on the
+ * DetectDiscontinuityAndFetchInit path, or that no media jobs are submitted
+ * before the init completes.
+ */
+TEST_F(FunctionalTests, InitJob_LowPriority_ExecutesAfterEnqueuedMediaJobs)
+{
+	std::vector<std::string> executionOrder;
+	std::mutex orderMutex;
+
+	mTestableAampTrackWorker->Pause();
+
+	auto mediaJob1 = std::make_shared<aamp::MediaSegmentDownloadJob>(nullptr, [&]() {
+		std::lock_guard<std::mutex> lock(orderMutex);
+		executionOrder.push_back("media1");
+	});
+	auto mediaJob2 = std::make_shared<aamp::MediaSegmentDownloadJob>(nullptr, [&]() {
+		std::lock_guard<std::mutex> lock(orderMutex);
+		executionOrder.push_back("media2");
+	});
+	// Init job submitted with highPriority=false (push_back).
+	// Models DetectDiscontinuityAndFetchInit where profileChanged=false.
+	auto initJob = std::make_shared<aamp::MediaSegmentDownloadJob>(nullptr, [&]() {
+		std::lock_guard<std::mutex> lock(orderMutex);
+		executionOrder.push_back("init");
+	});
+
+	auto futureMedia1 = mTestableAampTrackWorker->SubmitJob(mediaJob1);        // push_back
+	auto futureMedia2 = mTestableAampTrackWorker->SubmitJob(mediaJob2);        // push_back
+	auto futureInit   = mTestableAampTrackWorker->SubmitJob(initJob, false);   // push_back (no priority)
+
+	mTestableAampTrackWorker->Resume();
+
+	ASSERT_EQ(futureInit.wait_for(std::chrono::seconds(2)),   std::future_status::ready);
+	ASSERT_EQ(futureMedia1.wait_for(std::chrono::seconds(2)), std::future_status::ready);
+	ASSERT_EQ(futureMedia2.wait_for(std::chrono::seconds(2)), std::future_status::ready);
+
+	ASSERT_EQ(executionOrder.size(), 3u);
+	// Without priority boost, init executes AFTER the two queued media jobs.
+	// A fix to the DetectDiscontinuityAndFetchInit path should change this ordering
+	// so that the init job always precedes media jobs.
+	EXPECT_EQ(executionOrder[0], "media1");
+	EXPECT_EQ(executionOrder[1], "media2");
+	EXPECT_EQ(executionOrder[2], "init");
+}
+
+/**
+ * @test FunctionalTests::StoppedWorker_SubmitInitJob_FutureIsInvalid
+ * @brief Validates that a job submitted to a stopped worker is silently dropped.
+ *
+ * SubmitJob returns an invalid (empty) future when the worker is stopped.  Any
+ * caller that relies on the future to detect completion will not observe the
+ * job executing.  This documents the silent-drop hazard: if the worker is
+ * stopped mid-tune (e.g. due to a stop/retune race), the init segment job is
+ * lost and the decoder will never be initialised for that tune attempt.
+ */
+TEST_F(FunctionalTests, StoppedWorker_SubmitInitJob_FutureIsInvalid)
+{
+	mTestableAampTrackWorker->StopWorker();
+	ASSERT_TRUE(mTestableAampTrackWorker->IsStopped());
+
+	bool jobExecuted = false;
+	auto initJob = std::make_shared<aamp::MediaSegmentDownloadJob>(nullptr, [&]() {
+		jobExecuted = true;
+	});
+
+	auto future = mTestableAampTrackWorker->SubmitJob(initJob, true /*highPriority*/);
+
+	// Job must be silently dropped: future is invalid and the lambda never runs.
+	EXPECT_FALSE(future.valid());
+	EXPECT_FALSE(jobExecuted);
+}

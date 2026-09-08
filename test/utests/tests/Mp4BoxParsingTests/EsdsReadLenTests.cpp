@@ -453,7 +453,7 @@ static std::vector<uint8_t> build_zero_size_unknown_box(const char type[4], uint
     return box;
 }
 
-TEST_F(EsdsReadLenTests, ZeroSizeUnknownTypeTriggersDataBoundaryMismatch)
+TEST_F(EsdsReadLenTests, ZeroSizeUnknownTypeIsSkippedSuccessfully)
 {
     // Prelude: a valid stsd->mp4a->esds so parser is in a good state
     auto lenBytes = encode_len(8);
@@ -471,11 +471,10 @@ TEST_F(EsdsReadLenTests, ZeroSizeUnknownTypeTriggersDataBoundaryMismatch)
     Mp4Demux demux;
     bool ok = demux.Parse(std::make_shared<std::vector<uint8_t>>(std::move(buffer)));
 
-    // Rationale: For size==0, DemuxHelper sets next=fin. Since the type is unknown,
-    // it falls into default: (no ptr advance). The final ptr!=next check fires and sets
-    // MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH.
-    EXPECT_FALSE(ok) << "Parse should fail: zero-size box with unknown type leaves ptr!=next";
-    EXPECT_EQ(demux.GetLastError(), MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH);
+    // Rationale: For size==0, DemuxHelper sets next=fin. Unknown box types are now
+    // gracefully skipped (ptr=next in default case). Parse succeeds.
+    EXPECT_TRUE(ok) << "Parse should succeed: unknown box type is skipped";
+    EXPECT_EQ(demux.GetLastError(), MP4_PARSE_OK);
 }
 
 
@@ -680,5 +679,118 @@ TEST_F(EsdsReadLenTests, SizeZeroFreeWithExtraPaddingParsesSuccessfully)
 
     // Expected: next=fin for size==0, ptr set to next for 'free'; extra padding is part of the box payload.
     EXPECT_TRUE(ok) << "Parse should succeed: size==0 free with extra padding still extends to end";
+    EXPECT_EQ(demux.GetLastError(), MP4_PARSE_OK);
+}
+
+
+// === Tests for unknown box type skip behavior ===
+
+// Build a fixed-size box with a given type and payload
+static std::vector<uint8_t> build_fixed_size_box(const char type[4], uint32_t payloadSize)
+{
+    std::vector<uint8_t> box;
+    uint32_t totalSize = 8 + payloadSize;
+    append_u32(box, totalSize);
+    append_type(box, type);
+    box.resize(totalSize, 0xAB); // fill payload with arbitrary data
+    return box;
+}
+
+TEST_F(EsdsReadLenTests, FixedSizeUnknownBoxIsSkippedSuccessfully)
+{
+    // Prelude: valid stsd->mp4a->esds
+    auto lenBytes = encode_len(8);
+    auto esdsPayload = build_esds_payload(lenBytes, /*payload*/ 8);
+    auto mp4aBox = build_mp4a_box(esdsPayload);
+    auto stsdBox = build_stsd_with_mp4a(mp4aBox);
+
+    // Create a fixed-size unknown box ('xyzw') with 32 bytes payload
+    auto unknownBox = build_fixed_size_box("xyzw", 32);
+
+    std::vector<uint8_t> buffer;
+    buffer.insert(buffer.end(), stsdBox.begin(), stsdBox.end());
+    buffer.insert(buffer.end(), unknownBox.begin(), unknownBox.end());
+
+    Mp4Demux demux;
+    bool ok = demux.Parse(std::make_shared<std::vector<uint8_t>>(std::move(buffer)));
+
+    // Expected: DemuxHelper encounters unknown type 'xyzw', sets ptr=next to skip it.
+    // Parse succeeds since ptr==next after the skip.
+    EXPECT_TRUE(ok) << "Parse should succeed: fixed-size unknown box is skipped";
+    EXPECT_EQ(demux.GetLastError(), MP4_PARSE_OK);
+}
+
+TEST_F(EsdsReadLenTests, MultipleUnknownBoxesAreSkippedSuccessfully)
+{
+    // Prelude: valid stsd->mp4a->esds
+    auto lenBytes = encode_len(8);
+    auto esdsPayload = build_esds_payload(lenBytes, /*payload*/ 8);
+    auto mp4aBox = build_mp4a_box(esdsPayload);
+    auto stsdBox = build_stsd_with_mp4a(mp4aBox);
+
+    // Create several unknown boxes with different types
+    auto unknownBox1 = build_fixed_size_box("aaaa", 16);
+    auto unknownBox2 = build_fixed_size_box("bbbb", 64);
+    auto unknownBox3 = build_fixed_size_box("cccc", 8);
+
+    std::vector<uint8_t> buffer;
+    buffer.insert(buffer.end(), stsdBox.begin(), stsdBox.end());
+    buffer.insert(buffer.end(), unknownBox1.begin(), unknownBox1.end());
+    buffer.insert(buffer.end(), unknownBox2.begin(), unknownBox2.end());
+    buffer.insert(buffer.end(), unknownBox3.begin(), unknownBox3.end());
+
+    Mp4Demux demux;
+    bool ok = demux.Parse(std::make_shared<std::vector<uint8_t>>(std::move(buffer)));
+
+    // Expected: All three unknown boxes are skipped in sequence. Parse succeeds.
+    EXPECT_TRUE(ok) << "Parse should succeed: multiple unknown boxes skipped in sequence";
+    EXPECT_EQ(demux.GetLastError(), MP4_PARSE_OK);
+}
+
+TEST_F(EsdsReadLenTests, UnknownBoxFollowedByKnownBoxParsesSuccessfully)
+{
+    // Prelude: valid stsd->mp4a->esds
+    auto lenBytes = encode_len(8);
+    auto esdsPayload = build_esds_payload(lenBytes, /*payload*/ 8);
+    auto mp4aBox = build_mp4a_box(esdsPayload);
+    auto stsdBox = build_stsd_with_mp4a(mp4aBox);
+
+    // Unknown box followed by a known 'free' box
+    auto unknownBox = build_fixed_size_box("qqqq", 48);
+    auto freeBox = build_free_box(32);
+
+    std::vector<uint8_t> buffer;
+    buffer.insert(buffer.end(), stsdBox.begin(), stsdBox.end());
+    buffer.insert(buffer.end(), unknownBox.begin(), unknownBox.end());
+    buffer.insert(buffer.end(), freeBox.begin(), freeBox.end());
+
+    Mp4Demux demux;
+    bool ok = demux.Parse(std::make_shared<std::vector<uint8_t>>(std::move(buffer)));
+
+    // Expected: Unknown box is skipped, then 'free' box is also skipped. Parse succeeds.
+    EXPECT_TRUE(ok) << "Parse should succeed: unknown box skipped before known box";
+    EXPECT_EQ(demux.GetLastError(), MP4_PARSE_OK);
+}
+
+TEST_F(EsdsReadLenTests, UnknownBoxWithEmptyPayloadIsSkipped)
+{
+    // Prelude: valid stsd->mp4a->esds
+    auto lenBytes = encode_len(8);
+    auto esdsPayload = build_esds_payload(lenBytes, /*payload*/ 8);
+    auto mp4aBox = build_mp4a_box(esdsPayload);
+    auto stsdBox = build_stsd_with_mp4a(mp4aBox);
+
+    // Unknown box with size=8 (header only, no payload)
+    auto unknownBox = build_fixed_size_box("zzzz", 0);
+
+    std::vector<uint8_t> buffer;
+    buffer.insert(buffer.end(), stsdBox.begin(), stsdBox.end());
+    buffer.insert(buffer.end(), unknownBox.begin(), unknownBox.end());
+
+    Mp4Demux demux;
+    bool ok = demux.Parse(std::make_shared<std::vector<uint8_t>>(std::move(buffer)));
+
+    // Expected: Unknown box with no payload is skipped (ptr already == next). Parse succeeds.
+    EXPECT_TRUE(ok) << "Parse should succeed: unknown box with empty payload";
     EXPECT_EQ(demux.GetLastError(), MP4_PARSE_OK);
 }

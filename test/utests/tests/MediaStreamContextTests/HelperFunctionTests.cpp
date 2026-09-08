@@ -69,10 +69,10 @@ protected:
 		mStreamAbstractionAAMP_MPD = new StreamAbstractionAAMP_MPD(
 			mPrivateInstanceAAMP, 123.45, 12.34);
 
-		g_mockAampConfig = new NiceMock<MockAampConfig>();
-		g_mockMediaTrack = new NiceMock<MockMediaTrack>();
-		g_mockPrivateInstanceAAMP = new StrictMock<MockPrivateInstanceAAMP>();
-		g_mockIsoBmffBuffer = new NiceMock<MockIsoBmffBuffer>();
+		g_mockAampConfig = std::make_shared<NiceMock<MockAampConfig>>();
+		g_mockMediaTrack = std::make_shared<NiceMock<MockMediaTrack>>();
+		g_mockPrivateInstanceAAMP = std::make_shared<StrictMock<MockPrivateInstanceAAMP>>();
+		g_mockIsoBmffBuffer = std::make_shared<NiceMock<MockIsoBmffBuffer>>();
 	}
 
 	void TearDown() override
@@ -83,17 +83,13 @@ protected:
 		delete mStreamAbstractionAAMP_MPD;
 		mStreamAbstractionAAMP_MPD = nullptr;
 
-		delete g_mockAampConfig;
-		g_mockAampConfig = nullptr;
+		g_mockAampConfig.reset();
 
-		delete g_mockMediaTrack;
-		g_mockMediaTrack = nullptr;
+		g_mockMediaTrack.reset();
 
-		delete g_mockPrivateInstanceAAMP;
-		g_mockPrivateInstanceAAMP = nullptr;
+		g_mockPrivateInstanceAAMP.reset();
 
-		delete g_mockIsoBmffBuffer;
-		g_mockIsoBmffBuffer = nullptr;
+		g_mockIsoBmffBuffer.reset();
 	}
 
 	PrivateInstanceAAMP *mPrivateInstanceAAMP{nullptr};
