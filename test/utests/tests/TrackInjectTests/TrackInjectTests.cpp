@@ -18,6 +18,9 @@
  * limitations under the License.
  */
 #include <gtest/gtest.h>
+#include <chrono>
+#include <future>
+#include <thread>
 #include "MediaStreamContext.h"
 #include "fragmentcollector_mpd.h"
 #include "isobmff/isobmffbuffer.h"
@@ -501,4 +504,71 @@ TEST_F(TrackInjectTests, InjectFragment_VodEosAbortedWait_StopsUnderflowMonitor)
 
 	mPrivateInstanceAAMP->mpStreamAbstractionAAMP = nullptr;
 	g_mockStreamAbstractionAAMP.reset();
+}
+
+/**
+ * VPAAMP-1166: Verify that RunInjectLoop() exits cleanly (no deadlock) when
+ * eosReached is set on the audio track while a loadNewAudio switch is pending.
+ *
+ * Before the fix, AbortWaitForCachedAndFreeFragment() only notified the
+ * fragmentFetched condition variable.  The audio injector was blocked in
+ * WaitForCachedAudioFragmentAvailable() (waiting on audioFragmentCached), so it
+ * never woke up, never signalled EOS to GStreamer, and left the pipeline in a
+ * permanent stall state.
+ *
+ * The fix makes AbortWaitForCachedAndFreeFragment() also notify audioFragmentCached
+ * when loadNewAudio is set, and makes RunInjectLoop() clear the switch flags on
+ * wake-up when eosReached is true, so the EOS path proceeds cleanly.
+ */
+TEST_F(TrackInjectTests, RunInjectLoop_AudioEosDuringTrackSwitch_NoDeadlock)
+{
+	AampLLDashServiceData llDashData;
+	llDashData.availabilityTimeOffset = 0.0;
+	llDashData.lowLatencyMode = false;
+	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
+	mPrivateInstanceAAMP->SetLLDashServiceData(llDashData);
+	mPrivateInstanceAAMP->SetIsLive(false); // VOD
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(false));
+	Initialize();
+
+	// Replace the VIDEO track that Initialize() creates with an AUDIO track so
+	// the loadNewAudio guard in RunInjectLoop() is exercised.
+	delete mMediaTrack;
+	mMediaTrack = new MediaTrackTest(eTRACK_AUDIO, mPrivateInstanceAAMP, "audio");
+	mMediaTrack->SetMonitorBufferDisabled(true);
+
+	// Reproduce the VPAAMP-1166 state: SwitchAudioTrack() left loadNewAudio=true
+	// and the fetcher reached EOS before a new audio fragment was cached.
+	mMediaTrack->LoadNewAudio(true);
+	mMediaTrack->eosReached = true; // set as if the fetcher already marked EOS
+
+	// DownloadsAreEnabled() must return true to enter the while loop.  The loop
+	// exits via keepInjecting=false (not via a false return here) once the fix
+	// clears loadNewAudio and InjectFragment() processes the EOS path.
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
+		.WillRepeatedly(Return(true));
+	// BlockUntilGstreamerWantsData is called once at the top of InjectFragment().
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, BlockUntilGstreamerWantsData(_, _, _)).Times(1);
+
+	// Run RunInjectLoop() in a background thread.  Without the fix it would
+	// block indefinitely in WaitForCachedAudioFragmentAvailable().
+	auto injectFuture = std::async(std::launch::async, [this]() {
+		mMediaTrack->RunInjectLoop();
+	});
+
+	// Allow the injector thread enough time to reach WaitForCachedAudioFragmentAvailable().
+	std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+	// Simulate the FetcherLoop's EOS worker job calling
+	// AbortWaitForCachedAndFreeFragment().  With the VPAAMP-1166 fix this also
+	// notifies audioFragmentCached, unblocking the injector.
+	mMediaTrack->AbortWaitForCachedAndFreeFragment(false);
+
+	// The injector must exit within 2 s.  A timeout here indicates a deadlock
+	// caused by the unfixed code path.
+	auto status = injectFuture.wait_for(std::chrono::seconds(2));
+	EXPECT_EQ(status, std::future_status::ready)
+		<< "RunInjectLoop deadlocked: audio injector did not exit after "
+		   "AbortWaitForCachedAndFreeFragment with pending loadNewAudio (VPAAMP-1166)";
 }

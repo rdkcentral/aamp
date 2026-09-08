@@ -713,6 +713,26 @@ void MediaTrack::AbortWaitForCachedAndFreeFragment(bool immediate)
 	aamp->waitforplaystart.notify_one();
 	lock.unlock();
 
+	// If a track-switch is pending the injector thread may be blocked in
+	// WaitForCachedAudioFragmentAvailable() / WaitForCachedSubtitleFragmentAvailable()
+	// rather than WaitForCachedFragmentAvailable().  The fragmentFetched signal above
+	// only wakes the latter, so we must also notify the switch-specific condition
+	// variables to ensure the injector can observe eosReached and forward EOS to the
+	// pipeline.  Without this, a pending audio/subtitle switch at VOD EOS causes the
+	// injector to stall until an external timeout fires StopInjectLoop(), by which
+	// point DownloadsAreEnabled() is already false and the EOS signal path is skipped,
+	// leaving GStreamer in a permanent stall state (VPAAMP-1166).
+	if (loadNewAudio)
+	{
+		AAMPLOG_WARN("[%s] loadNewAudio pending at abort — notifying audioFragmentCached for EOS", name);
+		NotifyCachedAudioFragmentAvailable();
+	}
+	if (loadNewSubtitle)
+	{
+		AAMPLOG_WARN("[%s] loadNewSubtitle pending at abort — notifying subtitleFragmentCached for EOS", name);
+		NotifyCachedSubtitleFragmentAvailable();
+	}
+
 	GetContext()?GetContext()->AbortWaitForDiscontinuity(): void();
 }
 
@@ -1407,10 +1427,28 @@ void MediaTrack::RunInjectLoop()
 		if(type == eTRACK_AUDIO && (loadNewAudio || refreshAudio) && !lowLatency) //TBD
 		{
 			WaitForCachedAudioFragmentAvailable();
+			// If EOS arrived on the fetcher side while we were waiting for the
+			// switched audio track, the fetcher will have set eosReached and
+			// notified us via AbortWaitForCachedAndFreeFragment (VPAAMP-1166).
+			// Clear the switch flags so InjectFragment() can follow the EOS path
+			// and the loop exits cleanly instead of looping back into this wait.
+			if (eosReached)
+			{
+				AAMPLOG_WARN("[%s] EOS reached during audio track switch; clearing loadNewAudio/refreshAudio", name);
+				loadNewAudio = false;
+				refreshAudio = false;
+			}
 		}
 		if(type == eTRACK_SUBTITLE && (loadNewSubtitle || refreshSubtitles) && !lowLatency) // TBD
 		{
 			WaitForCachedSubtitleFragmentAvailable();
+			// Same EOS-guard for subtitle switches (VPAAMP-1166).
+			if (eosReached)
+			{
+				AAMPLOG_WARN("[%s] EOS reached during subtitle track switch; clearing loadNewSubtitle/refreshSubtitles", name);
+				loadNewSubtitle = false;
+				refreshSubtitles = false;
+			}
 		}
 		if (!InjectFragment())
 		{
