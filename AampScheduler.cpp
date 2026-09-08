@@ -263,6 +263,15 @@ void AampScheduler::EnableScheduleTask()
 }
 
 /**
+ * @brief To disable scheduler to queue new tasks
+ */
+void AampScheduler::DisableScheduleTask()
+{
+	std::lock_guard<std::mutex>lock(mQMutex);
+	mLockOut = true;
+}
+
+/**
  * @brief To player state to Scheduler
  */
 void AampScheduler::SetState(AAMPPlayerState sstate)
