@@ -741,27 +741,30 @@ public:
 	bool PausePipeline(bool pause, bool forceStopGstreamerPreBuffering);
 
 	/**
-	 * @fn mediaType2Bucket
-	 *
 	 * @param[in] mediaType - Media filetype
 	 * @return Profiler bucket type
 	 */
 	ProfilerBucketType mediaType2Bucket(AampMediaType mediaType);
 
-       /**
-         * @brief to set the vod-tune-event according to the player
-         *
-         * @param[in] tuneEventType
-         * @return void
-         */
+	/**
+	 * @brief To set the vod-tune-event according to the player
+	 *
+	 * @param[in] tuneEventType
+	 * @return void
+	 */
 	void SetTuneEventConfig( TunedEventConfig tuneEventType);
+
+	/**
+	 * @brief Get the value of tune event config
+	 *
+	 * @param[in] isLive - true for live, false for VOD
+	 * @return current tune event config
+	 */
 	TunedEventConfig GetTuneEventConfig(bool isLive);
 
-        /**
-         * @fn UpdatePreferredAudioList
-         *
-         * @return void
-         */
+	/**
+	 * @fn UpdatePreferredAudioList
+	 */
 	void UpdatePreferredAudioList();
 
 	/**
@@ -861,7 +864,7 @@ public:
 	*
 	* @return modified manifest data
 	*/
-	std::string SendManifestPreProcessEvent();
+	std::pair<std::string,int> SendManifestPreProcessEvent();
 
 	/**
 	 * @brief This function is invoked by application with the available preprocessed manifest information
@@ -1516,6 +1519,16 @@ public:
 	 * @return void
 	 */
 	void SendBufferChangeEvent(bool bufferingStopped=false);
+
+	/**
+	 * @fn HandleManifestRefreshFailureOnBuffering
+	 * @brief When buffering starts, checks whether the buffer drained because manifest
+	 *        refresh was already failing. If so, sends the appropriate error event
+	 *        (manifest request failed or invalid manifest) and returns true so the
+	 *        caller can skip the normal BufferingChanged event.
+	 * @return true if a fatal manifest error event was sent; false otherwise.
+	 */
+	bool HandleManifestRefreshFailureOnBuffering();
 
 	/**
 	 * @fn SendTuneMetricsEvent

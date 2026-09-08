@@ -3037,7 +3037,6 @@ void StreamAbstractionAAMP::CheckForPlaybackStall(bool fragmentParsed)
 				if (CheckIfPlayerRunningDry())
 				{
 					AAMPLOG_WARN("StreamAbstractionAAMP: Stall detected!. Time elapsed since fragment parsed(%f), caches are all empty!", timeElapsedSinceLastFragment);
-					aamp->SetFlushFdsNeededInCurlStore(true);
 					aamp->SendStalledErrorEvent();
 				}
 			}

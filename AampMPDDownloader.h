@@ -67,6 +67,22 @@
 typedef void (*ManifestUpdateCallbackFunc)(void *);
 
 /**
+ * @brief Manifest-refresh status shared between downloader and player private instance.
+ */
+struct ManifestRefreshStatus
+{
+	AAMPStatusType type;  /**< Refresh status from the latest manifest refresh */
+	int errorCode;        /**< HTTP/curl code if manifest failed */
+
+	ManifestRefreshStatus(
+		AAMPStatusType retryType = AAMPStatusType::eAAMPSTATUS_OK,
+		int code = 0)
+		: type(retryType), errorCode(code)
+	{
+	}
+};
+
+/**
  * @struct _manifestDownloadConfig
  * @brief structure to store the download configuration
  */
@@ -214,7 +230,7 @@ public:
 	*	@fn Initialize
 	*	@brief Function to initialize MPD Downloader
 	*/
-	void Initialize(ManifestDownloadConfigPtr mpdDnldCfg, std::string appName="",std::function<std::string()> mpdPreProcessFuncptr = nullptr);
+	void Initialize(ManifestDownloadConfigPtr mpdDnldCfg, std::string appName="",std::function<std::pair<std::string,int>()> mpdPreProcessFuncptr = nullptr);
 
 	/**
 	*	@fn Release
@@ -273,6 +289,11 @@ public:
 	 * @brief Registers a callback function for manifest update notifications.
 	 */
 	void RegisterCallback(ManifestUpdateCallbackFunc fnPtr, void *);
+	/**
+	 * @fn GetManifestRefreshStatus
+	 * @brief Return latest manifest-refresh state.
+	 */
+	ManifestRefreshStatus GetManifestRefreshStatus() const;
 	/**
 	 * @fn UnRegisterCallback
 	 * @brief Unregister the callback function for manifest update notifications.
@@ -353,10 +374,14 @@ private:
 	*/
 	bool readMPDData(ManifestDownloadResponsePtr mMPD);
 	/**
-	*	@fn waitForRefreshInterval
-	*	@brief Function to wait for refresh interval before next download
-	*/
-	bool waitForRefreshInterval();
+	 *	@fn waitForRefreshInterval
+	 *	@brief Function to wait for refresh interval before next download
+	 *
+	 *	@param waitMs Actual duration to sleep in milliseconds. The caller
+	 *	should subtract already-elapsed time from mRefreshInterval
+	 *	so the total download + wait cycle matches the intended update period.
+	 */
+	bool waitForRefreshInterval(uint32_t waitMs);
 	/**
 	*	@fn pushDownloadDataToQueue
 	*	@brief Function to push the download MPD to Queue for collector to read it
@@ -438,7 +463,9 @@ private:
 	uint64_t mPublishTime; 		   /* Publish time of updated manifest*/
 	int mMinimalRefreshRetryCount;  /* A counter to checks if the publication time remains the same for 2 consecutive refresh*/
 	std::atomic_bool mMPDNotifyPending ; /*To allow wait for downloadNotifier based on NotifyPending Status */
-	std::function<std::string()> mMpdPreProcessFuncptr; /* function invoked to read the available preprocessed manifest data or to send event if manifest data is not available */
+	std::function<std::pair<std::string,int>()> mMpdPreProcessFuncptr; /* function invoked to read the available preprocessed manifest data or to send event if manifest data is not available */
+	std::atomic<int> mManifestRefreshErrorCode;
+	std::atomic<AAMPStatusType> mManifestRefreshErrorType;
 };
 
 #endif /* __AAMP_MPD_DOWNLOADER_H__ */
