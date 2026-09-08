@@ -25,6 +25,7 @@
 #include "PrivateInstanceAAMPNotifiable.h"
 #include "priv_aamp.h"
 #include "StreamAbstractionAAMP.h"
+#include "AampStreamSinkManager.h"
 #include "AampLogManager.h"
 #include <cinttypes>
 
@@ -283,7 +284,14 @@ void PrivateInstanceAAMPNotifiable::NotifyOutputProtectionRecovered()
 	AAMPLOG_TRACE("NotifyOutputProtectionRecovered");
 	m_aamp->ScheduleAsyncTask([](void *p) -> int {
 		auto *aamp = static_cast<PrivateInstanceAAMP *>(p);
-		aamp->SetVideoMute(true);
+		// Mute the sink directly (transient, sink-scoped), not aamp's own
+		// SetVideoMute() - that sets the persistent video_muted flag, which
+		// TuneHelper() would then re-apply forever on the retuned pipeline.
+		StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(aamp);
+		if (sink)
+		{
+			sink->SetVideoMute(true);
+		}
 		aamp->ScheduleRetune(eGST_ERROR_OUTPUT_PROTECTION_ERROR, eMEDIATYPE_VIDEO);
 		return 0;
 	}, m_aamp, "NotifyOutputProtectionRecovered");

@@ -33,6 +33,8 @@
 #include "PrivateInstanceAAMPNotifiable.h"
 #include "MockAampConfig.h"
 #include "MockPrivateInstanceAAMP.h"
+#include "MockAampStreamSinkManager.h"
+#include "MockStreamSink.h"
 
 using ::testing::Return;
 using ::testing::NiceMock;
@@ -59,6 +61,7 @@ protected:
 		m_notifiable.reset();
 		g_mockPrivateInstanceAAMP.reset();
 		g_mockAampConfig.reset();
+		g_mockAampStreamSinkManager.reset();
 	}
 
 	PrivateInstanceAAMP m_aamp{};
@@ -301,15 +304,24 @@ TEST_F(PrivateInstanceAAMPNotifiableTest,
 // ===========================================================================
 
 TEST_F(PrivateInstanceAAMPNotifiableTest,
-	NotifyOutputProtectionRecovered_SchedulesTaskThatMutesAndRetunes)
+	NotifyOutputProtectionRecovered_SchedulesTaskThatMutesSinkAndRetunes)
 {
+	g_mockAampStreamSinkManager =
+		std::make_shared<NiceMock<MockAampStreamSinkManager>>();
+	MockStreamSink mockSink;
+
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(&m_aamp))
+		.WillOnce(Return(&mockSink));
+	EXPECT_CALL(mockSink, SetVideoMute(true));
+	// Must mute the sink only, not the persistent app-level video_muted flag -
+	// otherwise TuneHelper() re-applies mute forever on the retuned pipeline.
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetVideoMute(_)).Times(0);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP,
 		ScheduleAsyncTask(_, _, std::string("NotifyOutputProtectionRecovered")))
 		.WillOnce([](IdleTask task, void *arg, std::string) -> int {
 			task(arg);
 			return 1;
 		});
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetVideoMute(true));
 
 	m_notifiable->NotifyOutputProtectionRecovered();
 }
