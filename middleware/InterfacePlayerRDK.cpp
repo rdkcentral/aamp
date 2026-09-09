@@ -1317,6 +1317,7 @@ void InterfacePlayerRDK::TearDownStream(int type)
 {
 	tearDownCb(true, type);
 	gst_media_stream* stream = &interfacePlayerPriv->gstPrivateContext->stream[type];
+	MW_LOG_WARN("CrashTrace:TearDownStream enter type=%d stream=%p sinkbin=%p source=%p format=%d", type, stream, stream->sinkbin, stream->source, stream->format);
 	RemoveProbe(type);
 	stream->bufferUnderrun = false;
 	stream->eosReached = false;
@@ -1333,6 +1334,7 @@ void InterfacePlayerRDK::TearDownStream(int type)
 			/* set the playbin state to NULL before detach it */
 			if (stream->sinkbin)
 			{
+				MW_LOG_WARN("CrashTrace:TearDownStream set sinkbin NULL type=%d sinkbin=%p pipeline=%p", type, stream->sinkbin, interfacePlayerPriv->gstPrivateContext->pipeline);
 				if (GST_STATE_CHANGE_FAILURE == SetStateWithWarnings(GST_ELEMENT(stream->sinkbin), GST_STATE_NULL))
 				{
 					MW_LOG_ERR("InterfacePlayerRDK::TearDownStream: Failed to set NULL state for sinkbin");
@@ -1340,6 +1342,10 @@ void InterfacePlayerRDK::TearDownStream(int type)
 				if (!gst_bin_remove(GST_BIN(interfacePlayerPriv->gstPrivateContext->pipeline), GST_ELEMENT(stream->sinkbin)))			/* Removes the sinkbin element from the pipeline */
 				{
 					MW_LOG_ERR("InterfacePlayerRDK::TearDownStream:  Unable to remove sinkbin from pipeline");
+				}
+				else
+				{
+					MW_LOG_WARN("CrashTrace:TearDownStream removed sinkbin type=%d sinkbin=%p", type, stream->sinkbin);
 				}
 			}
 			else
@@ -1387,12 +1393,14 @@ void InterfacePlayerRDK::TearDownStream(int type)
 		pthread_mutex_unlock(&stream->sourceLock);
 	}
 	tearDownCb(false, mediaType);
+	MW_LOG_WARN("CrashTrace:TearDownStream exit type=%d mediaType=%d stream=%p sinkbin=%p source=%p", type, mediaType, stream, stream->sinkbin, stream->source);
 	MW_LOG_MIL("InterfacePlayerRDK::TearDownStream: exit mediaType = %d", mediaType);
 }
 
 void InterfacePlayerRDK::Stop(bool keepLastFrame)
 {
 	std::lock_guard<std::mutex> lock(mMutex);
+	MW_LOG_WARN("CrashTrace:Stop enter keepLastFrame=%d pipeline=%p state=%d paused=%d", keepLastFrame, interfacePlayerPriv->gstPrivateContext->pipeline, interfacePlayerPriv->gstPrivateContext->pipelineState, interfacePlayerPriv->gstPrivateContext->paused);
 	/*  make the execution of this function more deterministic and
 	 *  reduce scope for potential pipeline lockups*/
 
@@ -1450,12 +1458,15 @@ void InterfacePlayerRDK::Stop(bool keepLastFrame)
 	 * should not have a significant performance impact.*/
 	interfacePlayerPriv->gstPrivateContext->syncControl.waitForDone(50, "bus_sync_handler");
 	interfacePlayerPriv->gstPrivateContext->aSyncControl.waitForDone(50, "bus_message");
+	MW_LOG_WARN("CrashTrace:Stop bus handlers drained pipeline=%p", interfacePlayerPriv->gstPrivateContext->pipeline);
 	interfacePlayerPriv->gstPrivateContext->callbackControl.disable();
 	DisconnectSignals();
 	interfacePlayerPriv->gstPrivateContext->aSyncControl.waitForDone(100, "callback handler");
+	MW_LOG_WARN("CrashTrace:Stop callbacks drained pipeline=%p", interfacePlayerPriv->gstPrivateContext->pipeline);
 
 	// Remove probes before setting the pipeline to NULL
 	RemoveProbes();
+	MW_LOG_WARN("CrashTrace:Stop probes removed pipeline=%p", interfacePlayerPriv->gstPrivateContext->pipeline);
 
 	if (interfacePlayerPriv->gstPrivateContext->pipeline)
 	{
@@ -1467,6 +1478,7 @@ void InterfacePlayerRDK::Stop(bool keepLastFrame)
 		}
 
 		interfacePlayerPriv->gstPrivateContext->buffering_in_progress = false;   /* stopping pipeline, don't want to change state if GST_MESSAGE_ASYNC_DONE message comes in */
+		MW_LOG_WARN("CrashTrace:Stop setting pipeline NULL pipeline=%p", interfacePlayerPriv->gstPrivateContext->pipeline);
 		SetStateWithWarnings(interfacePlayerPriv->gstPrivateContext->pipeline, GST_STATE_NULL);
 		MW_LOG_MIL(" InterfacePlayerRDK: Pipeline state set to null");
 	}
@@ -1477,9 +1489,12 @@ void InterfacePlayerRDK::Stop(bool keepLastFrame)
 	}
 	for(int i = 0; i<GST_TRACK_COUNT;i++)
 	{
+		auto &stream = interfacePlayerPriv->gstPrivateContext->stream[i];
+		MW_LOG_WARN("CrashTrace:Stop before TearDownStream track=%d sinkbin=%p source=%p format=%d", i, stream.sinkbin, stream.source, stream.format);
 		TearDownStream((int(i)));
 	}
 	DestroyPipeline();
+	MW_LOG_WARN("CrashTrace:Stop pipeline destroyed");
 	interfacePlayerPriv->gstPrivateContext->rate = GST_NORMAL_PLAY_RATE;
 	interfacePlayerPriv->gstPrivateContext->lastKnownPTS = 0;
 	interfacePlayerPriv->gstPrivateContext->segmentStart = 0;
@@ -1490,6 +1505,7 @@ void InterfacePlayerRDK::Stop(bool keepLastFrame)
 	interfacePlayerPriv->gstPrivateContext->videoMuted = false;
 	interfacePlayerPriv->gstPrivateContext->subtitleMuted = false;
 	interfacePlayerPriv->gstPrivateContext->audioVolume = 1.0;
+	MW_LOG_WARN("CrashTrace:Stop exit state=%d pipeline=%p", interfacePlayerPriv->gstPrivateContext->pipelineState, interfacePlayerPriv->gstPrivateContext->pipeline);
 }
 
 void InterfacePlayerRDK::ResetGstEvents()

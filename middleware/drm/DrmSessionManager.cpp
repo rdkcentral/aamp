@@ -804,6 +804,7 @@ KeyState DrmSessionManager::getDrmSession(int &err, std::shared_ptr<DrmHelper> d
 
 	selectedSlot = sessionSlot;
 	const std::string systemId = drmHelper->ocdmSystemId();
+	MW_LOG_WARN("CrashTrace:getDrmSession selected slot=%d system=%s keyId=%s isCached=%d isPrimary=%d", sessionSlot, systemId.c_str(), keyIdDebugStr.c_str(), isCachedKeyId, isPrimarySession);
 	std::lock_guard<std::mutex> guard(drmSessionContexts[sessionSlot].sessionMutex);
 	if (drmSessionContexts[sessionSlot].drmSession != NULL)
 	{
@@ -877,9 +878,11 @@ KeyState DrmSessionManager::getDrmSession(int &err, std::shared_ptr<DrmHelper> d
 			else
 			{
 				MW_LOG_WARN("existing DRM session for %s has different key in slot %d", drmSessionContexts[sessionSlot].drmSession->getKeySystem().c_str(), sessionSlot);
+				MW_LOG_WARN("CrashTrace:getDrmSession replacing slot=%d existingSession=%p existingState=%d", sessionSlot, drmSessionContexts[sessionSlot].drmSession, drmSessionContexts[sessionSlot].drmSession->getState());
 			}
 		}
 		MW_LOG_WARN("deleting existing DRM session for %s ", drmSessionContexts[sessionSlot].drmSession->getKeySystem().c_str());
+		MW_LOG_WARN("CrashTrace:getDrmSession PrepareForDestruction slot=%d session=%p", sessionSlot, drmSessionContexts[sessionSlot].drmSession);
 		/* DELIA-70726 fix: this slot may still be referenced by a GStreamer
 		 * decryptor element of a previous, not-yet-fully-torn-down pipeline
 		 * (rapid/back-to-back channel change). Block here until any decrypt()
@@ -887,7 +890,9 @@ KeyState DrmSessionManager::getDrmSession(int &err, std::shared_ptr<DrmHelper> d
 		 * below cannot race with OCDMSessionAdapter::verifyOutputProtection()/
 		 * decrypt() running on the old pipeline's multiqueue thread. */
 		drmSessionContexts[sessionSlot].drmSession->PrepareForDestruction();
+		MW_LOG_WARN("CrashTrace:getDrmSession deleting slot=%d session=%p", sessionSlot, drmSessionContexts[sessionSlot].drmSession);
 		MW_SAFE_DELETE(drmSessionContexts[sessionSlot].drmSession);
+		MW_LOG_WARN("CrashTrace:getDrmSession deleted slot=%d", sessionSlot);
 	}
         this->ProfileUpdateCb();
 
@@ -895,6 +900,7 @@ KeyState DrmSessionManager::getDrmSession(int &err, std::shared_ptr<DrmHelper> d
 	if (drmSessionContexts[sessionSlot].drmSession != NULL)
 	{
 		MW_LOG_INFO("Created new DrmSession for DrmSystemId %s", systemId.c_str());
+		MW_LOG_WARN("CrashTrace:getDrmSession created slot=%d newSession=%p state=%d", sessionSlot, drmSessionContexts[sessionSlot].drmSession, drmSessionContexts[sessionSlot].drmSession->getState());
 		drmSessionContexts[sessionSlot].data = keyIdArray;
 		code = drmSessionContexts[sessionSlot].drmSession->getState();
 		// exception : by default for all types of drm , outputprotection is not handled in player

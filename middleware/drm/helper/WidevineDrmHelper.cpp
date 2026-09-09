@@ -300,10 +300,14 @@ DrmHelperPtr WidevineDrmHelperFactory::createHelper(const struct DrmInfo& drmInf
 	if (isDRM(drmInfo))
 	{
 		MW_LOG_ERR("creating helper");
+		MW_LOG_WARN("CrashTrace:Widevine createHelper accepted systemUUID=%s keyFormat=%s mediaFormat=%d", drmInfo.systemUUID.c_str(), drmInfo.keyFormat.c_str(), static_cast<int>(drmInfo.mediaFormat));
 		return std::make_shared<WidevineDrmHelper>(drmInfo);
 	}
 	else
+	{
 		MW_LOG_ERR("failed to create helper");
+		MW_LOG_WARN("CrashTrace:Widevine createHelper rejected systemUUID=%s keyFormat=%s mediaFormat=%d", drmInfo.systemUUID.c_str(), drmInfo.keyFormat.c_str(), static_cast<int>(drmInfo.mediaFormat));
+	}
 	return NULL;
 }
 
