@@ -108,6 +108,34 @@ public:
 
 static bool IsIframeTrack(IAdaptationSet *adaptationSet);
 
+// note: This has been moved here for 8.4 branch. It is centralized in AaampDefine.h on sprint using inline, but this is not available with the older compiler on 8.4.
+/**
+ * @brief lambda to return a string for a status name
+ */
+static auto statusName = [](AAMPStatusType s) -> const char* {
+	// must match AAMPStatusType
+	static const char* AAMPStatusStrings[] =
+	{
+		"eAAMPSTATUS_OK",
+		"eAAMPSTATUS_FAKE_TUNE_COMPLETE",
+		"eAAMPSTATUS_GENERIC_ERROR",
+		"eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR",
+		"eAAMPSTATUS_PLAYLIST_VIDEO_DOWNLOAD_ERROR",
+		"eAAMPSTATUS_PLAYLIST_AUDIO_DOWNLOAD_ERROR",
+		"eAAMPSTATUS_MANIFEST_PARSE_ERROR",
+		"eAAMPSTATUS_MANIFEST_CONTENT_ERROR",
+		"eAAMPSTATUS_MANIFEST_INVALID_TYPE",
+		"eAAMPSTATUS_PLAYLIST_PLAYBACK",
+		"eAAMPSTATUS_SEEK_RANGE_ERROR",
+		"eAAMPSTATUS_TRACKS_SYNCHRONIZATION_ERROR",
+		"eAAMPSTATUS_INVALID_PLAYLIST_ERROR",
+		"eAAMPSTATUS_UNSUPPORTED_DRM_ERROR",
+		"eAAMPSTATUS_MANIFEST_DOWNLOAD_ABORTED"
+	};
+	return (s >= 0 && s < (int)(sizeof(AAMPStatusStrings)/sizeof(AAMPStatusStrings[0])))
+		? AAMPStatusStrings[s] : "UNKNOWN";
+};
+
 
 /**
  * @brief StreamAbstractionAAMP_MPD Constructor
@@ -3587,7 +3615,38 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 		aamp->SetCurlTimeout(aamp->mNetworkTimeoutMs, (AampCurlInstance)i);
 	}
 
-	AAMPStatusType ret = FetchDashManifest();
+	AAMPStatusType ret= eAAMPSTATUS_OK;
+	if (aamp->IsAsyncTuneAbortSupported())
+	{
+		aamp->initialManifestFetchInProgress=true;	// Signal to any stop process that a manifest download can be aborted
+	}
+	if (aamp->IsAsyncTuneAbortRequired())
+	{
+		AAMPLOG_WARN("Manifest download will be skipped since we are already stopping");
+		ret = eAAMPSTATUS_MANIFEST_DOWNLOAD_ABORTED;
+	}
+	else
+	{
+		// This may get terminated by Release from Stop(), returning eAAMPSTATUS_MANIFEST_DOWNLOAD_ABORTED
+		// Note: if we abort then any fog tsb will not get deleted in SendErrorEvent (which is not called). We will do this in PrivateInstanceAAMP::Stop
+		ret = FetchDashManifest();
+	}
+	aamp->initialManifestFetchInProgress=false;
+
+	if (ret != eAAMPSTATUS_OK)
+	{
+		AAMPLOG_WARN("Manifest download failed or was aborted, code = %s", statusName(ret));
+	}
+	else
+	{
+		// If stop was called too late to abort in the progress callback then abort now
+		if (aamp->IsAsyncTuneAbortRequired())
+		{
+			ret = eAAMPSTATUS_MANIFEST_DOWNLOAD_ABORTED;
+			AAMPLOG_WARN("A stop has been requested during completed manifest download, so abort");
+		}
+	}
+
 	if (ret == eAAMPSTATUS_OK)
 	{
 		std::string manifestUrl = aamp->GetManifestUrl();
@@ -4241,6 +4300,10 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 	{
 		retval = eAAMPSTATUS_MANIFEST_CONTENT_ERROR;
 	}
+	else if(ret == eAAMPSTATUS_MANIFEST_DOWNLOAD_ABORTED)
+	{
+		retval = eAAMPSTATUS_MANIFEST_DOWNLOAD_ABORTED;
+	}
 	else
 	{
 		AAMPLOG_ERR("StreamAbstractionAAMP_MPD: corrupt/invalid manifest");
@@ -4537,6 +4600,13 @@ AAMPStatusType StreamAbstractionAAMP_MPD::FetchDashManifest()
 			manifestUrl = aamp->mManifestUrl = mManifestDnldRespPtr->mMPDDownloadResponse->sEffectiveUrl;
 			aamp->profiler.ProfileEnd(PROFILE_BUCKET_MANIFEST);
 			mNetworkDownDetected = false;
+		}
+		else if ( CURLE_ABORTED_BY_CALLBACK == mManifestDnldRespPtr->mMPDDownloadResponse->iHttpRetValue && aamp->IsAsyncTuneAbortRequired() )
+		{
+			AAMPLOG_MIL("Manifest download successfully aborted during Stop (http_error=%d)", http_error);
+			aamp->profiler.ProfileError(PROFILE_BUCKET_MANIFEST, http_error); // this will be tagged with CURLE_ABORTED_BY_CALLBACK in tune metrics
+			aamp->profiler.ProfileEnd(PROFILE_BUCKET_MANIFEST);
+			ret = AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ABORTED;
 		}
 		else if (aamp->DownloadsAreEnabled())
 		{
@@ -10654,6 +10724,8 @@ void  StreamAbstractionAAMP_MPD::ResumeSubtitleAfterSeek(bool mute, char *data)
  */
 StreamAbstractionAAMP_MPD::~StreamAbstractionAAMP_MPD()
 {
+	aamp->initialManifestFetchInProgress=false;
+
 	for (int iTrack = 0; iTrack < mMaxTracks; iTrack++)
 	{
 		MediaStreamContext *track = mMediaStreamContext[iTrack];
@@ -10801,6 +10873,12 @@ void StreamAbstractionAAMP_MPD::Start(void)
  */
 void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 {
+
+	if(aamp->initialManifestFetchInProgress)
+	{
+		AAMPLOG_WARN("Clearing initialManifestFetchInProgress flag since we are stopping stream abstraction");
+	}
+	aamp->initialManifestFetchInProgress = false;
 
 	if (!aamp->IsLocalAAMPTsb() || aamp->mAampTsbLanguageChangeInProgress)
 	{

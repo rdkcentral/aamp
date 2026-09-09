@@ -337,7 +337,7 @@ TEST_F(FunctionalTests, AampCurlDownloader_DownloadTest_StallAtStart)
 		.Times(0); // This prevents the function from being called if CURL return value is not CURLE_OK
 	mAampCurlDownloader->Download(mUrl, respData);
 	respData->show();
-	EXPECT_EQ(progress_callback_return, -1);
+	EXPECT_EQ(progress_callback_return, 1);
 	EXPECT_EQ(CURLE_ABORTED_BY_CALLBACK, respData->iHttpRetValue);
 	EXPECT_EQ(eCURL_ABORT_REASON_START_TIMEDOUT ,respData->mAbortReason);
 
@@ -394,7 +394,7 @@ TEST_F(FunctionalTests, AampCurlDownloader_DownloadTest_Stall)
 	mAampCurlDownloader->Download(mUrl, respData);
 	respData->show();
 	EXPECT_EQ(write_func_return, (write_sz * write_nmemb));
-	EXPECT_EQ(progress_callback_return, -1);
+	EXPECT_EQ(progress_callback_return, 1);
 	EXPECT_EQ(CURLE_ABORTED_BY_CALLBACK, respData->iHttpRetValue);
 	EXPECT_EQ(eCURL_ABORT_REASON_STALL_TIMEDOUT ,respData->mAbortReason);
 	free(write_buffer);
@@ -518,7 +518,7 @@ TEST_F(FunctionalTests, Release_BeforeCleanupCurlHeaderResources_PreventRaceCond
 				// Simulate ongoing download - progress callback should detect abort
 				std::this_thread::sleep_for(std::chrono::milliseconds(10));
 				int result = mCurlProgressCallback(mAampCurlDownloader, 0, 0, 0, 0);
-				if (result == -1) {
+				if (result == 1) {
 					downloadAborted.store(true);
 				}
 			}),

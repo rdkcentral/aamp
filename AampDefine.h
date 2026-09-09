@@ -292,6 +292,7 @@ enum LatencyStatus
 
 /**
  * @brief AAMP Function return values
+ * @brief AAMP Function return values  - must match AAMPStatusStrings
  */
 enum AAMPStatusType
 {
@@ -308,9 +309,9 @@ enum AAMPStatusType
 	eAAMPSTATUS_SEEK_RANGE_ERROR,			/**< Seek position range invalid */
 	eAAMPSTATUS_TRACKS_SYNCHRONIZATION_ERROR,	/**< Audio video track synchronization Error */
 	eAAMPSTATUS_INVALID_PLAYLIST_ERROR,		/**< Playlist discontinuity mismatch*/
-	eAAMPSTATUS_UNSUPPORTED_DRM_ERROR		/**< Unsupported DRM */
+	eAAMPSTATUS_UNSUPPORTED_DRM_ERROR,		/**< Unsupported DRM */
+	eAAMPSTATUS_MANIFEST_DOWNLOAD_ABORTED	/**< Manifest download has been aborted due to a player stop request */
 };
-
 
 /**
  *
