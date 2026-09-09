@@ -722,14 +722,14 @@ void MediaTrack::AbortWaitForCachedAndFreeFragment(bool immediate)
 	// injector to stall until an external timeout fires StopInjectLoop(), by which
 	// point DownloadsAreEnabled() is already false and the EOS signal path is skipped,
 	// leaving GStreamer in a permanent stall state (VPAAMP-1166).
-	if (loadNewAudio)
+	if (type == eTRACK_AUDIO && (loadNewAudio || refreshAudio))
 	{
-		AAMPLOG_WARN("[%s] loadNewAudio pending at abort — notifying audioFragmentCached for EOS", name);
+		AAMPLOG_WARN("[%s] audio switch pending at abort - notifying audioFragmentCached for EOS", name);
 		NotifyCachedAudioFragmentAvailable();
 	}
-	if (loadNewSubtitle)
+	if (type == eTRACK_SUBTITLE && (loadNewSubtitle || refreshSubtitles))
 	{
-		AAMPLOG_WARN("[%s] loadNewSubtitle pending at abort — notifying subtitleFragmentCached for EOS", name);
+		AAMPLOG_WARN("[%s] subtitle switch pending at abort - notifying subtitleFragmentCached for EOS", name);
 		NotifyCachedSubtitleFragmentAvailable();
 	}
 
