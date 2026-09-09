@@ -767,6 +767,11 @@ class InterfacePlayerRDK
 		 * @return A pointer to the MonitorAVState structure containing the AV status or nullptr.
 		 */
 		const MonitorAVState& GetMonitorAVState();
+		
+		/**	
+		 * @brief Arm buffering before play
+		 */
+		void ArmBufferingBeforePlay(int rate);
 
 	private:
 		InterfacePlayerPriv *interfacePlayerPriv;

@@ -214,6 +214,10 @@ public:
 		 */
 	void ResetFirstFrame(void);
 	/**
+	 * @fn ArmBufferingBeforePlay
+	 */
+	void ArmBufferingBeforePlay(int rate);
+	/**
 		 * @fn SetVideoMute
 		 * @param[in] muted true to mute video otherwise false
 		 */
