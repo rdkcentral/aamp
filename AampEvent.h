@@ -209,6 +209,24 @@ typedef enum
 	eSTATE_BLOCKED      = 14  /**< AV muted due to parental control */
 } AAMPPlayerState;
 
+
+/**
+ * @brief Returns a human-readable name for an AAMPPlayerState value.
+ *
+ * The name table is local to the lambda so it does not pollute the enclosing
+ * namespace and cannot shadow local variables in translation units that include
+ * this header.
+ */
+inline constexpr auto AAMPPlayerStateName = [](AAMPPlayerState s) -> const char* {
+	constexpr const char* kNames[] = {
+		"IDLE", "INITIALIZING", "INITIALIZED", "PREPARING", "PREPARED",
+		"BUFFERING", "PAUSED", "SEEKING", "PLAYING", "STOPPING",
+		"STOPPED", "COMPLETE", "ERROR", "RELEASED", "BLOCKED"
+	};
+	return (s >= 0 && s < (int)(sizeof(kNames)/sizeof(kNames[0])))
+		? kNames[s] : "UNKNOWN";
+};
+
 /**
  * @enum AAMPCDAIError
  * @brief CDAI failure error code
@@ -776,6 +794,7 @@ class ProgressEvent: public AAMPEventObject
 	double mAudioBufferedDurationMs; /**< current duration of buffered audio ready to playback */
 	std::string mSEITimecode;   	/**< SEI Timecode information */
 	double mLiveLatency;		/**< Live latency */
+	double mTargetLatency;		/**< Current latency monitor target (ms); 0 when monitor inactive */
 	BitsPerSecond mProfileBandwidth;     /**<Profile Bandwidth */
 	BitsPerSecond mNetworkBandwidth;     /**<Network Bandwidth */
 	double mCurrentPlayRate; /**<CurrentPlaybackRate */
@@ -798,12 +817,13 @@ public:
 	 * @param[in]  audioBufferedDuration - audio buffered duration in milliseconds
 	 * @param[in]  seiTimecode      - Time code
 	 * @param[in]  liveLatency      - Live latency
+	 * @param[in]  targetLatency    - Current latency monitor target (ms); 0 when monitor inactive
 	 * @param[in]  profileBandwidth - profile Bandwidth
 	 * @param[in]  networkBandwidth - network Bandwidth
 	 * @param[in]  currentPlayRate - currentPlayRate
 
 	 */
-	ProgressEvent(double duration, double position, double start, double end, float speed, long long pts, double videoBufferedDuration, double audioBufferedDuration, std::string seiTimecode, double liveLatency, BitsPerSecond profileBandwidth, BitsPerSecond networkBandwidth, double currentPlayRate, std::string sid);
+	ProgressEvent(double duration, double position, double start, double end, float speed, long long pts, double videoBufferedDuration, double audioBufferedDuration, std::string seiTimecode, double liveLatency, double targetLatency, BitsPerSecond profileBandwidth, BitsPerSecond networkBandwidth, double currentPlayRate, std::string sid);
 
 	/**
 	 * @brief ProgressEvent Destructor
@@ -864,6 +884,11 @@ public:
 	double getLiveLatency() const;
 
 	/**
+	 * @fn getTargetLatency
+	 */
+	double getTargetLatency() const;
+
+	/**
 	 * @fn getProfileBandwidth
 	 */
 	BitsPerSecond getProfileBandwidth() const;
@@ -877,8 +902,6 @@ public:
 	 * @fn getCurrentPlayRate
 	 */
 	double getCurrentPlayRate() const;
-
-
 };
 
 /**
@@ -926,6 +949,7 @@ class MediaMetadataEvent: public AAMPEventObject
 	bool mIsLive;			    /**< Is Live */
 	std::string mDrmType;		    /**< DRM type */
 	double mProgramStartTime;	    /**< Program/Availability start time */
+	double mProducerReferenceClockOffset; /**< PRT-derived clock offset in seconds */
 
 	/* Additional data from ATSC playback  */
 	std::string mPCRating; 		/**< Parental control rating json string object  */
@@ -955,16 +979,19 @@ public:
 	/**
 	 * @fn MediaMetadataEvent
 	 *
-	 * @param[in] duration - Duration of Media Metadata
-	 * @param[in] width    - Video width
-	 * @param[in] height   - Video height
-	 * @param[in] hasDrm   - Drm enablement status
-	 * @param[in] isLive   - Is Live
-	 * @param[in] DrmType  - DRM Type
-	 * @param[in] Url    - EffectiveUrl
-	 * @param[in] programStartTime  - Program/Availability start time
+	 * @param[in] duration                     - Duration of Media Metadata
+	 * @param[in] width                        - Video width
+	 * @param[in] height                       - Video height
+	 * @param[in] hasDrm                       - Drm enablement status
+	 * @param[in] isLive                       - Is Live
+	 * @param[in] DrmType                      - DRM Type
+	 * @param[in] programStartTime             - Program/Availability start time
+	 * @param[in] tsbDepthMs                   - TSB depth in milliseconds
+	 * @param[in] sid                          - Session ID
+	 * @param[in] url                          - Effective URL
+	 * @param[in] producerReferenceClockOffset - PRT-derived clock offset in seconds
 	 */
-	MediaMetadataEvent(long duration, int width, int height, bool hasDrm, bool isLive, const std::string &DrmType, double programStartTime, int tsbDepthMs, std::string sid, const std::string &url);
+	MediaMetadataEvent(long duration, int width, int height, bool hasDrm, bool isLive, const std::string &DrmType, double programStartTime, int tsbDepthMs, std::string sid, const std::string &url, double producerReferenceClockOffset = 0.0);
 
 	/**
 	 * @brief MediaMetadataEvent Destructor
@@ -985,6 +1012,11 @@ public:
 	 * @fn getTsbDepth
 	 */
 	int getTsbDepth() const;
+
+	/**
+	 * @fn getProducerReferenceClockOffset
+	 */
+	double getProducerReferenceClockOffset() const;
 
 	/**
 	 * @fn addLanguage

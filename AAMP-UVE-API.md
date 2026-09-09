@@ -1905,6 +1905,7 @@ Example:
 - videoBufferedMiliseconds : number
 - audioBufferedMiliseconds : number
 - liveLatency : number
+- targetLatency : number
 - profileBandwidth : number
 - networkBandwidth : number
 - currentPlayRate : number
@@ -1915,6 +1916,7 @@ Example:
 - Added video PTS reporting if enabled with reportVideoPTS config
 - Added video buffer value (2.4 version)
 - Added audio buffer value (version 7.07 onwards)
+- Added targetLatency: current latency monitor target in milliseconds; 0 when monitor is inactive (non-LLD or LLD without latency correction enabled)
 
 ---
 
@@ -2935,12 +2937,10 @@ App                          AAMP Player                Ad Server
 | AAMP_TUNE_CORRUPT_DRM_DATA | 51 | 1 | AAMP: DRM failure due to Corrupt DRM files |
 | AAMP_TUNE_DEVICE_NOT_PROVISIONED | 52 | 1 | AAMP: Device not provisioned |
 | AAMP_TUNE_HDCP_COMPLIANCE_ERROR | 53 | 1 | AAMP: HDCP Compliance Check Failure |
-
 | AAMP_TUNE_UNSUPPORTED_STREAM_TYPE | 60 | 1 | AAMP: Unsupported Stream Type |
 | AAMP_TUNE_UNSUPPORTED_AUDIO_TYPE | 60 | 2 | AAMP: No supported Audio Types in Manifest |
 | AAMP_TUNE_GST_PIPELINE_ERROR | 80 | 1 | AAMP: Error from gstreamer pipeline |
 | AAMP_TUNE_FAILED_PTS_ERROR | 80 | 2 | AAMP: Playback failed due to PTS error |
-
 | AAMP_TUNE_PLAYBACK_STALLED | 7600 | 1 | AAMP: Playback was stalled due to lack of new fragments |
 | AAMP_TUNE_FAILURE_UNKNOWN | 100 | 1 | AAMP: Unknown Failure |
 
@@ -4243,3 +4243,8 @@ Aug 2024
 - Events:
     - Audio buffer added to playbackProgressUpdate
 - [TSB Feature](#tsb-feature) documentation
+
+**Version:** 8.08
+**Release Notes:**
+- Events:
+    - `targetLatency` field added to `playbackProgressUpdate` — reports the current latency monitor target in milliseconds (0 when the latency monitor is inactive, e.g. non-LLD streams or LLD without latency correction enabled)

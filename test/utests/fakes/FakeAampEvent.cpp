@@ -106,7 +106,7 @@ const std::string& ID3MetadataEvent::getSchemeIdUri() const
 	return mSchemeIdUri;
 }
 
-MediaMetadataEvent::MediaMetadataEvent(long duration, int width, int height, bool hasDrm, bool isLive, const std::string &DrmType, double programStartTime, int tsbDepthMs, std::string sid, const std::string &url):
+MediaMetadataEvent::MediaMetadataEvent(long duration, int width, int height, bool hasDrm, bool isLive, const std::string &DrmType, double programStartTime, int tsbDepthMs, std::string sid, const std::string &url, double producerReferenceClockOffset):
 		AAMPEventObject(AAMP_EVENT_MEDIA_METADATA, std::move(sid))
 {
 }
@@ -138,6 +138,7 @@ bool MediaMetadataEvent::hasDrm(void) const{ return false; }
 bool MediaMetadataEvent::isLive(void) const{ return false;  }
 int MediaMetadataEvent::getWidth(void) const{ return 0; }
 int MediaMetadataEvent::getHeight(void) const{ return 0; }
+double MediaMetadataEvent::getProducerReferenceClockOffset(void) const{ return 0.0; }
 
 DrmMetaDataEvent::DrmMetaDataEvent(AAMPTuneFailure failure, const std::string &accessStatus, int statusValue, int responseCode, bool secclientErr, std::string sid):
     AAMPEventObject(AAMP_EVENT_DRM_METADATA, std::move(sid))
@@ -276,7 +277,7 @@ bool BufferingChangedEvent::buffering() const
 	return false;
 }
 
-ProgressEvent::ProgressEvent(double duration, double position, double start, double end, float speed, long long pts, double videoBufferedDuration, double audioBufferedDuration, std::string seiTimecode,double liveLatency, long profileBandwidth, long networkBandwidth, double currentPlayRate, std::string sid):
+ProgressEvent::ProgressEvent(double duration, double position, double start, double end, float speed, long long pts, double videoBufferedDuration, double audioBufferedDuration, std::string seiTimecode, double liveLatency, double targetLatency, long profileBandwidth, long networkBandwidth, double currentPlayRate, std::string sid):
 		AAMPEventObject(AAMP_EVENT_PROGRESS, std::move(sid))
 {
 }
@@ -284,6 +285,7 @@ ProgressEvent::ProgressEvent(double duration, double position, double start, dou
 double ProgressEvent::getDuration(void) const{ return 0.0; }
 double ProgressEvent::getPosition(void) const{ return 0.0; }
 double ProgressEvent::getLiveLatency(void) const{ return 0.0; }
+double ProgressEvent::getTargetLatency(void) const{ return 0.0; }
 const char* ProgressEvent::getSEITimeCode(void) const{ return NULL; }
 double ProgressEvent::getCurrentPlayRate(void) const{ return 0.0; }
 double ProgressEvent::getVideoBufferedDuration(void) const{ return 0.0; }

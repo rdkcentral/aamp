@@ -1662,7 +1662,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	mState(eSTATE_RELEASED), mMediaFormat(eMEDIAFORMAT_HLS), mPersistedProfileIndex(0),
 	mDiscontinuityTuneOperationInProgress(false), mContentType(ContentType_UNKNOWN), mTunedEventPending(false),
 	mSeekOperationInProgress(false), mTrickplayInProgress(false), mPendingAsyncEvents(), mCustomHeaders(),
-	mManifestUrl(""), mTunedManifestUrl(""), mOrigManifestUrl(), mServiceZone(), mVssVirtualStreamId(),
+	initialManifestFetchInProgress(false), mManifestUrl(""), mTunedManifestUrl(""), mOrigManifestUrl(), mServiceZone(), mVssVirtualStreamId(),
 	mCurrentLanguageIndex(0),
 	preferredLanguagesString(), preferredLanguagesList(), preferredLabelList(),mhAbrManager(),
 	mVideoEnd(NULL),
@@ -1676,6 +1676,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	,mCustomLicenseHeaders(), mIsIframeTrackPresent(false), mManifestTimeoutMs(-1), mNetworkTimeoutMs(-1)
 	,mbPlayEnabled(true), mPlayerPreBuffered(false), mPlayerId(PLAYERID_CNTR++),mAampCacheHandler(NULL)
 	,mAsyncTuneEnabled(false)
+	,mAsyncTaskAbortEnabled(false)
 	,waitforplaystart()
 	,mCurlShared(NULL)
 	,mDrmDecryptFailCount(MAX_SEG_DRM_DECRYPT_FAIL_COUNT)
@@ -2587,7 +2588,13 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 			bps = mpStreamAbstractionAAMP->GetVideoBitrate();
 		}
 
-		ProgressEventPtr evt = std::make_shared<ProgressEvent>(duration, reportFormattedCurrPos, start, end, speed, videoPTS, videoBufferedDuration, audioBufferedDuration, seiTimecode.c_str(), latency, bps, networkBandwidth, currentRate, GetSessionId());
+		double targetLatencyMs = 0.0;
+		if (mLatencyMonitor && mLatencyMonitor->IsRunning())
+		{
+			targetLatencyMs = std::get<1>(mLatencyMonitor->GetCurrentThresholds());
+		}
+
+		ProgressEventPtr evt = std::make_shared<ProgressEvent>(duration, reportFormattedCurrPos, start, end, speed, videoPTS, videoBufferedDuration, audioBufferedDuration, seiTimecode.c_str(), latency, targetLatencyMs, bps, networkBandwidth, currentRate, GetSessionId());
 
 		if (trickStartUTCMS >= 0 && (bProcessEvent || mFirstProgress))
 		{
@@ -2622,7 +2629,7 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 				int divisor = GETCONFIGVALUE_PRIV(eAAMPConfig_ProgressLoggingDivisor);
 				if( divisor==0 || (tick++ % divisor) == 0 )
 				{
-					AAMPLOG_MIL("aamp pos: [%ld..%ld..%ld..%lld..%.2f..%.2f..%.2f..%s..%" BITSPERSECOND_FORMAT "..%" BITSPERSECOND_FORMAT "..%.2f]",
+					AAMPLOG_MIL("aamp pos: [%ld..%ld..%ld..%lld..%.2f..%.2f..%.2f..%s..%" BITSPERSECOND_FORMAT "..%" BITSPERSECOND_FORMAT "..%.2f..%.2f]",
 						(long)(start / 1000),
 						(long)(reportFormattedCurrPos / 1000),
 						(long)(end / 1000),
@@ -2633,7 +2640,8 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 						seiTimecode.c_str(),
 						bps,
 						networkBandwidth,
-						currentRate);
+						currentRate,
+						(double)(targetLatencyMs / 1000.0));
 				}
 			}
 
@@ -3010,6 +3018,9 @@ void PrivateInstanceAAMP::SendDownloadErrorEvent(AAMPTuneFailure tuneFailure, in
 		{
 			strcat(description, "(FOG)");
 		}
+		// There is a playback failure due to network issues
+		// so flush the curl store to avoid using stale curl handles in the next tune.
+		SetFlushFdsNeededInCurlStore(true);
 		SendErrorEvent(actualFailure, description, retryStatus);
 	}
 	else
@@ -3053,11 +3064,61 @@ void PrivateInstanceAAMP::UpdateRefreshPlaylistInterval(float maxIntervalSecs)
 }
 
 /**
- * @brief Sends UnderFlow Event messages
- * @param[in] bufferingStarted True if buffering started, false if buffering ended.
+ * @brief Handle a pending manifest refresh failure when buffering starts.
+ *
+ * If buffering begins while the MPD downloader is already in a manifest
+ * refresh failure state, send the corresponding fatal error event and let
+ * the caller skip the normal BufferingChanged path.
+ *
+ * @return true if a manifest failure event was sent; false otherwise.
  */
+bool PrivateInstanceAAMP::HandleManifestRefreshFailureOnBuffering()
+{
+	if (mMPDDownloaderInstance == nullptr)
+	{
+		// Always null for HLS, so lets move to DEBUG to avoid noisy logging
+		AAMPLOG_DEBUG("Null MPD downloader instance");
+		return false;
+	}
+
+	ManifestRefreshStatus retryStatus = mMPDDownloaderInstance->GetManifestRefreshStatus();
+	AAMPStatusType retryErrorType = retryStatus.type;
+	if (retryErrorType == AAMPStatusType::eAAMPSTATUS_OK)
+	{
+		AAMPLOG_DEBUG("Manifest refresh status is OK");
+		return false;
+	}
+	// Buffer drained while manifest refresh was already failing.
+	// Send the appropriate fatal error event instead of a BufferingChanged event.
+	// SetBufUnderFlowStatus is intentionally omitted here: the error event triggers
+	// player teardown, so the underflow flag is irrelevant. The normal buffering path
+	// (when this function returns false) sets it via SetBufUnderFlowStatus(bufferingStarted).
+	else if (retryErrorType == AAMPStatusType::eAAMPSTATUS_MANIFEST_CONTENT_ERROR)
+	{
+		AAMPLOG_WARN("PrivateInstanceAAMP: Buffering during manifest refresh retry with manifest content failure; sending init-failed content error");
+		SendErrorEvent(AAMP_TUNE_INIT_FAILED_MANIFEST_CONTENT_ERROR);
+	}
+	else if (retryErrorType == AAMPStatusType::eAAMPSTATUS_MANIFEST_PARSE_ERROR)
+	{
+		AAMPLOG_WARN("PrivateInstanceAAMP: Buffering during manifest refresh retry with manifest parse failure; sending init-failed parse error");
+		SendErrorEvent(AAMP_TUNE_INIT_FAILED_MANIFEST_PARSE_ERROR);
+	}
+	else
+	{
+		int manifestRefreshError = retryStatus.errorCode;
+		AAMPLOG_WARN("PrivateInstanceAAMP: Buffering during manifest refresh retry failure (status=%d err=%d); sending manifest request failed event", retryErrorType, manifestRefreshError);
+		SendDownloadErrorEvent(AAMP_TUNE_MANIFEST_REQ_FAILED, manifestRefreshError);
+	}
+	return true;
+}
+
 void PrivateInstanceAAMP::SendBufferChangeEvent(bool bufferingStarted)
 {
+	if (bufferingStarted && HandleManifestRefreshFailureOnBuffering())
+	{
+		return;
+	}
+
 	// Buffer Change event indicate buffer availability
 	// bufferingStarted need to be inverted to indicate if buffer available or not
 	// BufferChangeEvent with False = Underflow / non-availability of buffer to play
@@ -3095,7 +3156,7 @@ void PrivateInstanceAAMP::SendBufferChangeEvent(bool bufferingStarted)
 		}
 	}
 
-	AAMPLOG_INFO("PrivateInstanceAAMP: Sending Buffer Change event status (Buffering): %s durationMs: %lld", (e->buffering() ? "End": "Start"), bufferingDurationMs);
+	AAMPLOG_MIL("PrivateInstanceAAMP: Sending Buffer Change event status (Buffering): %s durationMs: %lld", (e->buffering() ? "End": "Start"), bufferingDurationMs);
 #ifdef AAMP_TELEMETRY_SUPPORT
 	AAMPTelemetry2 at2(mAppName);
 	std::string telemetryName = bufferingStarted?"VideoBufferingStart":"VideoBufferingEnd";
@@ -3109,11 +3170,11 @@ void PrivateInstanceAAMP::SendBufferChangeEvent(bool bufferingStarted)
 /**
  * @brief Forward the current buffer level to the latency monitor.
  */
-void PrivateInstanceAAMP::NotifyBufferLevelToLatencyMonitor(double bufferMs)
+void PrivateInstanceAAMP::NotifyBufferLevelToLatencyMonitor(AampMediaType mediaType, double bufferMs)
 {
 	if (mLatencyMonitor)
 	{
-		mLatencyMonitor->OnBufferLevelUpdate(bufferMs);
+		mLatencyMonitor->OnBufferLevelUpdate(mediaType, bufferMs);
 	}
 }
 
@@ -3324,7 +3385,7 @@ void PrivateInstanceAAMP::SendErrorEvent(AAMPTuneFailure tuneFailure, const char
 	}
 	else
 	{
-		AAMPLOG_WARN("PrivateInstanceAAMP: Ignore error %d[%s]", (int)tuneFailure, description);
+		AAMPLOG_WARN("PrivateInstanceAAMP: Ignore error %d[%s]", (int)tuneFailure, description ? description : "NONE");
 	}
 }
 
@@ -4958,10 +5019,16 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 						print_headerResponse(context.allResponseHeaders, mediaType);
 
 					}
+#if defined(CURL_HTTP_VERSION_3ONLY) || defined(AAMP_HTTP3_SUPPORTED)
+						if (res == CURLE_HTTP3)
+						{
+							AAMPLOG_ERR("QUIC connection failed (CURLE_HTTP3=%d) mediaType=%d url=%s", res, mediaType, remoteUrl.c_str());
+						}
+#endif
 						if (res == CURLE_COULDNT_CONNECT || res == CURLE_RECV_ERROR || IsCurlTimeoutFailure(res) ||
 							(isDownloadStalled &&
 								(eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT != abortReason)) ||
-							res == CURLE_SEND_ERROR )
+							res == CURLE_SEND_ERROR || res == CURLE_COULDNT_RESOLVE_HOST )
 						{
 
 						if(mpStreamAbstractionAAMP)
@@ -5485,6 +5552,59 @@ void PrivateInstanceAAMP::GetOnVideoEndSessionStatData(std::string &data)
 	return ;
 }
 
+/**
+ * @brief Control whether we can terminate a TuneInternal async task early
+ */
+void PrivateInstanceAAMP::SetEarlyAbortRequestFlag(bool enableAbort)
+{
+	mAsyncTaskAbortEnabled=enableAbort;
+}
+
+/**
+ * @brief Single source of truth for which format/content-type combinations support
+ *        early async-tune abort.  Both IsAsyncTuneAbortSupported() and the
+ *        manifest-URL overload of IsAsyncTuneAbortRequired() delegate here so that
+ *        the criteria stay in sync automatically.
+ */
+bool PrivateInstanceAAMP::IsAsyncTuneSupportedForType(MediaFormat format, ContentType type) const
+{
+	return (eMEDIAFORMAT_DASH == format) &&
+	       (ContentType_LINEAR == type)  &&
+	        ((eTUNETYPE_NEW_NORMAL == mTuneType) || (eTUNETYPE_NEW_SEEK == mTuneType) || (eTUNETYPE_NEW_END == mTuneType)) && // replace with IsNewTune()
+	       mAsyncTuneEnabled;
+}
+
+/**
+ * @brief Determine whether the current tune type supports early async-tune abort.
+ *        Uses stored mMediaFormat / mContentType (active tune).
+ */
+bool PrivateInstanceAAMP::IsAsyncTuneAbortSupported()
+{
+	return IsAsyncTuneSupportedForType(mMediaFormat, mContentType);
+}
+
+/**
+ * @brief Determine whether the current async tune task should be aborted early.
+ */
+bool PrivateInstanceAAMP::IsAsyncTuneAbortRequired()
+{
+	return mAsyncTaskAbortEnabled.load() && IsAsyncTuneAbortSupported();
+}
+
+/**
+ * @brief Determine whether an incoming tune (identified by URL and content-type string)
+ *        should be aborted because a Stop is in progress.
+ */
+bool PrivateInstanceAAMP::IsAsyncTuneAbortRequired(const char* manifestUrl, const char* contentTypeString)
+{
+	if (!mAsyncTaskAbortEnabled.load())
+		return false;
+	MediaFormat format = manifestUrl ? GetMediaFormatType(manifestUrl) : eMEDIAFORMAT_UNKNOWN;
+	// Map the content-type string to enum — the only type that supports abort is LINEAR_TV.
+	ContentType type = (contentTypeString && !strncmp(contentTypeString, "LINEAR_TV", 9))
+	                 ? ContentType_LINEAR : ContentType_UNKNOWN;
+	return IsAsyncTuneSupportedForType(format, type);
+}
 
 /**
  * @brief Terminate the stream
@@ -5618,6 +5738,15 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 				if (sink)
 				{
 					sink->Stop(!newTune);
+				}
+			}
+			// Deactivate DRM session after pipeline teardown to avoid use-after-free race
+			// between GStreamer element disposal and async DRM session cleanup
+			if (!IsLocalAAMPTsb() && (ISCONFIGSET_PRIV(eAAMPConfig_UseSecManager) || ISCONFIGSET_PRIV(eAAMPConfig_UseFireboltSDK)))
+			{
+				if (mDRMLicenseManager)
+				{
+					mDRMLicenseManager->notifyCleanup();
 				}
 			}
 		}
@@ -6182,6 +6311,12 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 				mEventManager->SendEvent(std::make_shared<AAMPEventObject>(AAMP_EVENT_EOS, GetSessionId()));
 				AAMPLOG_MIL( "Stopping fake tune playback");
 			}
+		}
+		else if (retVal == eAAMPSTATUS_MANIFEST_DOWNLOAD_ABORTED)
+		{
+			mInitSuccess = false;
+			AAMPLOG_MIL("TuneHelper aborted due to a manifest download abort during Stop");
+			return;
 		}
 		else if (DownloadsAreEnabled())
 		{
@@ -8643,7 +8778,7 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 		mLastStopDurationMs,
 		(unsigned int)(streamLockStopTime - streamLockStartTime),
 		(unsigned int)(licenseAcquisitionLockStopTime - licenseAcquisitionLockStartTime),
-		(unsigned int)(tearDownEndTime - tearDownStartTime)	);
+		(unsigned int)(tearDownEndTime - tearDownStartTime));
 	profiler.mStopDurationMs = mLastStopDurationMs;
 
 }
@@ -9189,17 +9324,7 @@ void PrivateInstanceAAMP::SetState(AAMPPlayerState state, bool sendStateChangeEv
 	{
 		return;
 	}
-
-	static const char* const kStateNames[] = {
-		"IDLE", "INITIALIZING", "INITIALIZED", "PREPARING", "PREPARED",
-		"BUFFERING", "PAUSED", "SEEKING", "PLAYING", "STOPPING",
-		"STOPPED", "COMPLETE", "ERROR", "RELEASED", "BLOCKED"
-	};
-	auto stateName = [](AAMPPlayerState s) -> const char* {
-		return (s >= 0 && s < (int)(sizeof(kStateNames)/sizeof(kStateNames[0])))
-			? kStateNames[s] : "UNKNOWN";
-	};
-	AAMPLOG_MIL("Player state changed: %s -> %s", stateName(oldState), stateName(state));
+	AAMPLOG_MIL("Player state changed: %s -> %s", AAMPPlayerStateName(oldState), AAMPPlayerStateName(state));
 
 	// Handle SEEKED event based on the actual previous state
 	// Only the thread that performed this specific transition will send the event
@@ -9853,6 +9978,8 @@ void PrivateInstanceAAMP::SendStalledErrorEvent()
 	char description[MAX_ERROR_DESCRIPTION_LENGTH] = {};
 	int stalltimeout = GETCONFIGVALUE_PRIV(eAAMPConfig_StallTimeoutMS);
 	snprintf(description, (MAX_ERROR_DESCRIPTION_LENGTH - 1), "Playback has been stalled for more than %d ms due to lack of new fragments", stalltimeout);
+	// Flush the curl store FDs, to avoid using stale curl handles in the next tune.
+	SetFlushFdsNeededInCurlStore(true);
 	SendErrorEvent(AAMP_TUNE_PLAYBACK_STALLED, description);
 }
 
@@ -10186,7 +10313,7 @@ void PrivateInstanceAAMP::SendMediaMetadataEvent(void)
 		// To send an event to app we convert the URL scheme to "https" by replacing the prefix which is the CDN url sent from app
 		url.replace(0,4,"http");
 	}
-	MediaMetadataEventPtr event = std::make_shared<MediaMetadataEvent>(CONVERT_SEC_TO_MS(durationSeconds), width, height, mpStreamAbstractionAAMP->hasDrm, IsLive(), drmType, mpStreamAbstractionAAMP->mProgramStartTime, mTsbDepthMs, GetSessionId(), url);
+	MediaMetadataEventPtr event = std::make_shared<MediaMetadataEvent>(CONVERT_SEC_TO_MS(durationSeconds), width, height, mpStreamAbstractionAAMP->hasDrm, IsLive(), drmType, mpStreamAbstractionAAMP->mProgramStartTime, mTsbDepthMs, GetSessionId(), url, mEncoderDelay / 1000.0);
 
 	for (auto iter = langList.begin(); iter != langList.end(); iter++)
 	{
@@ -10210,6 +10337,20 @@ void PrivateInstanceAAMP::SendMediaMetadataEvent(void)
 	}
 
 	event->setMediaFormat(mMediaFormatName[mMediaFormat]);
+
+	// Populate audio metadata (codec, mixType, isAtmos).
+	// previousAudioType (AudioType) tracks the DASH-selected audio type;
+	// eAUDIO_ATMOS means a JOC-flagged EC-3 track was selected on DASH.
+	// mPreviousAudioType (StreamOutputFormat) tracks the HLS-selected audio
+	// type; FORMAT_AUDIO_ES_ATMOS means an Atmos ES track was selected on HLS.
+	// Both trackers are checked so that isAtmos is correct for DASH and HLS.
+	AudioTrackInfo currentAudioTrack;
+	if (mpStreamAbstractionAAMP && mpStreamAbstractionAAMP->GetCurrentAudioTrack(currentAudioTrack))
+	{
+		bool isAtmos = (previousAudioType == eAUDIO_ATMOS) ||
+		               (mPreviousAudioType == FORMAT_AUDIO_ES_ATMOS);
+		event->SetAudioMetaData(currentAudioTrack.codec, currentAudioTrack.mixType, isAtmos);
+	}
 
 	SendEvent(event,AAMP_EVENT_ASYNC_MODE);
 }
@@ -11619,6 +11760,14 @@ std::string PrivateInstanceAAMP::GetAudioTrackInfo()
 				{
 					cJSON_AddStringToObject(item, "mixType", trackInfo.mixType.c_str());
 				}
+				// isAtmos: derived from both audio-type trackers so that
+				// getAudioTrackInfo() reflects the real-time Atmos status for both
+				// DASH (previousAudioType == eAUDIO_ATMOS) and HLS
+				// (mPreviousAudioType == FORMAT_AUDIO_ES_ATMOS) after period
+				// transitions (where mediaMetadata is not re-fired).
+				cJSON_AddBoolToObject(item, "isAtmos",
+				                      (previousAudioType == eAUDIO_ATMOS) ||
+				                      (mPreviousAudioType == FORMAT_AUDIO_ES_ATMOS));
 				if (!trackInfo.mType.empty())
 				{
 					cJSON_AddStringToObject(item, "type", trackInfo.mType.c_str());
@@ -15028,6 +15177,36 @@ double PrivateInstanceAAMP::GetBufferedDurationSecs()
 	// Return a negative sentinel so callers can distinguish a genuine empty
 	// buffer from a transient lock-contention failure.  0.0 would be
 	// indistinguishable from an actually-empty buffer.
+	return -1.0;
+}
+
+/**
+ * @fn GetVideoBufferedDurationSecs
+ * @brief Get the buffered video duration in seconds
+ * @return Buffered video duration in seconds
+ */
+double PrivateInstanceAAMP::GetVideoBufferedDurationSecs()
+{
+	std::unique_lock<std::recursive_mutex> lock(mStreamLock, std::try_to_lock);
+	if (lock.owns_lock() && mpStreamAbstractionAAMP)
+	{
+		return mpStreamAbstractionAAMP->GetBufferedVideoDurationSec();
+	}
+	return -1.0;
+}
+
+/**
+ * @fn GetAudioBufferedDurationSecs
+ * @brief Get the buffered audio duration in seconds
+ * @return Buffered audio duration in seconds
+ */
+double PrivateInstanceAAMP::GetAudioBufferedDurationSecs()
+{
+	std::unique_lock<std::recursive_mutex> lock(mStreamLock, std::try_to_lock);
+	if (lock.owns_lock() && mpStreamAbstractionAAMP)
+	{
+		return mpStreamAbstractionAAMP->GetBufferedAudioDurationSec();
+	}
 	return -1.0;
 }
 

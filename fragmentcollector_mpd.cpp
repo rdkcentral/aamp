@@ -793,11 +793,17 @@ uint64_t StreamAbstractionAAMP_MPD::FindPositionInTimeline(class MediaStreamCont
 		* and a manifest update after segment 1 has been sent. Ensure one cycle of the for loop so
 		* timeLineIndex gets incremented.
 		* Without this we get a segment dropped and another repeated in server side ads
+		* Also check that this is not a special case (only 1 segment in timeline) as given below
+		* which causes AAMP to land in a non-existent timeline when it forces one cycle of for loop.
+		* <SegmentTimeline>
+		*  <S d="109568" t="0"/>
+		* </SegmentTimeline>
 		*/
 
 		bool isFirstSegment = pMediaStreamContext->lastSegmentTime == 0 && startTime == 0
 									&& pMediaStreamContext->lastSegmentDuration != 0
-									&& repeatCount == 0 && pMediaStreamContext->timeLineIndex == 0;
+									&& repeatCount == 0 && pMediaStreamContext->timeLineIndex == 0
+									&& timelines.size() != 1;
 
 #if defined(DEBUG_TIMELINE) || defined(AAMP_SIMULATOR_BUILD)
 		AAMPLOG_INFO("Type[%d] nextStartTime=%" PRIu64 " startTime=%" PRIu64 " repeatCount=%u", pMediaStreamContext->type,
@@ -3914,7 +3920,38 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 		aamp->SetCurlTimeout(aamp->mNetworkTimeoutMs, (AampCurlInstance)i);
 	}
 
-	AAMPStatusType ret = FetchDashManifest();
+	AAMPStatusType ret= eAAMPSTATUS_OK;
+	if (aamp->IsAsyncTuneAbortSupported())
+	{
+		aamp->initialManifestFetchInProgress=true;	// Signal to any stop process that a manifest download can be aborted
+	}
+	if (aamp->IsAsyncTuneAbortRequired())
+	{
+		AAMPLOG_WARN("Manifest download will be skipped since we are already stopping");
+		ret = eAAMPSTATUS_MANIFEST_DOWNLOAD_ABORTED;
+	}
+	else
+	{
+		// This may get terminated by Release from Stop(), returning eAAMPSTATUS_MANIFEST_DOWNLOAD_ABORTED
+		// Note: if we abort then any fog tsb will not get deleted in SendErrorEvent (which is not called). We will do this in PrivateInstanceAAMP::Stop
+		ret = FetchDashManifest();
+	}
+	aamp->initialManifestFetchInProgress=false;
+
+	if (ret != eAAMPSTATUS_OK)
+	{
+		AAMPLOG_WARN("Manifest download failed or was aborted, code = %s", statusName(ret));
+	}
+	else
+	{
+		// If stop was called too late to abort in the progress callback then abort now
+		if (aamp->IsAsyncTuneAbortRequired())
+		{
+			ret = eAAMPSTATUS_MANIFEST_DOWNLOAD_ABORTED;
+			AAMPLOG_WARN("A stop has been requested during completed manifest download, so abort");
+		}
+	}
+
 	if (ret == eAAMPSTATUS_OK)
 	{
 		std::string manifestUrl = aamp->GetManifestUrl();
@@ -4553,6 +4590,10 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 	{
 		retval = eAAMPSTATUS_MANIFEST_CONTENT_ERROR;
 	}
+	else if(ret == eAAMPSTATUS_MANIFEST_DOWNLOAD_ABORTED)
+	{
+		retval = eAAMPSTATUS_MANIFEST_DOWNLOAD_ABORTED;
+	}
 	else
 	{
 		AAMPLOG_ERR("StreamAbstractionAAMP_MPD: corrupt/invalid manifest");
@@ -4852,15 +4893,24 @@ AAMPStatusType StreamAbstractionAAMP_MPD::FetchDashManifest()
 			aamp->profiler.ProfileEnd(PROFILE_BUCKET_MANIFEST);
 			mNetworkDownDetected = false;
 		}
+		else if ( CURLE_ABORTED_BY_CALLBACK == mManifestDnldRespPtr->mMPDDownloadResponse->iHttpRetValue && aamp->IsAsyncTuneAbortRequired() )
+		{
+			AAMPLOG_MIL("Manifest download successfully aborted during Stop (http_error=%d)", http_error);
+			aamp->profiler.ProfileError(PROFILE_BUCKET_MANIFEST, http_error); // this will be tagged with CURLE_ABORTED_BY_CALLBACK in tune metrics
+			aamp->profiler.ProfileEnd(PROFILE_BUCKET_MANIFEST);
+			ret = AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ABORTED;
+		}
 		else if (aamp->DownloadsAreEnabled())
 		{
 			aamp->profiler.ProfileError(PROFILE_BUCKET_MANIFEST, http_error);
 			aamp->profiler.ProfileEnd(PROFILE_BUCKET_MANIFEST);
-			if (this->mpd != NULL && ( ( IsCurlTimeoutFailure( http_error ) ) || CURLE_COULDNT_CONNECT == http_error))
+			if (this->mpd != NULL &&
+				((IsCurlTimeoutFailure(http_error)) ||
+				 (CURLE_COULDNT_CONNECT == http_error)))
 			{
 				//Skip this for first ever update mpd request
 				mNetworkDownDetected = true;
-				AAMPLOG_WARN("StreamAbstractionAAMP_MPD: Ignore curl timeout");
+				AAMPLOG_WARN("StreamAbstractionAAMP_MPD: Ignore transient curl failure");
 				ret = AAMPStatusType::eAAMPSTATUS_OK;
 			}
 			else if (http_error == 512 )
@@ -4882,7 +4932,6 @@ AAMPStatusType StreamAbstractionAAMP_MPD::FetchDashManifest()
 				}
 				if(aamp->mFogDownloadFailReason.find("PROFILE_NONE") != std::string::npos)
 				{
-
 					aamp->mFogDownloadFailReason.clear();
 					AAMPLOG_ERR("StreamAbstractionAAMP_MPD: No playable profiles found");
 					ret = AAMPStatusType::eAAMPSTATUS_MANIFEST_CONTENT_ERROR;
@@ -4891,14 +4940,11 @@ AAMPStatusType StreamAbstractionAAMP_MPD::FetchDashManifest()
 			//When Fog is having tsb write error , then it will respond back with 302 with direct CDN url,In this case alone TSB should be disabled
 			else if (aamp->mFogTSBEnabled && http_error == 302)
 			{
-					aamp->mFogTSBEnabled = false;
+				aamp->mFogTSBEnabled = false;
 			}
-
 			else
 			{
 				aamp->UpdateDuration(0);
-				aamp->SetFlushFdsNeededInCurlStore(true);
-
 				switch( http_error )
 				{
 					case eCURL_TIMEOUT_DNS:
@@ -4923,7 +4969,6 @@ AAMPStatusType StreamAbstractionAAMP_MPD::FetchDashManifest()
 		{
 			aamp->UpdateDuration(0);
 			AAMPLOG_ERR("StreamAbstractionAAMP_MPD: manifest download failed");
-			aamp->SetFlushFdsNeededInCurlStore(true);
 			ret = AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR;
 		}
 	}
@@ -5052,60 +5097,44 @@ void StreamAbstractionAAMP_MPD::MPDUpdateCallbackExec()
 	}
 	else
 	{
-		// Failure from the manifest download during refresh --- fire , what to do ??
-		// Check if the App only insisted to stop the download resulting in partial failure ?
-		int http_error	=	tmpManifestDnldRespPtr->mMPDDownloadResponse->iHttpRetValue;
-
+		// Failure from the manifest download during refresh
+		// 1. Check if its due to app-induced stop
+		// 2. Log a FOG reason if available
+		// 3. Move on with the old manifest. The error might recover on next try.
+		// 4. Ultimately when buffer runs dry and manifest is not updated, send appropriate error event to app
+		int http_error = tmpManifestDnldRespPtr->mMPDDownloadResponse->iHttpRetValue;
 		if (aamp->DownloadsAreEnabled())
 		{
 			// if already mpd is available
-			if (this->mpd != NULL
-				&& ( IsCurlTimeoutFailure(http_error) || CURLE_COULDNT_CONNECT == http_error))
+			if (this->mpd != NULL &&
+				(IsCurlTimeoutFailure(http_error) ||
+				 CURLE_COULDNT_CONNECT == http_error))
 			{
 				//Skip this for first ever update mpd request
 				mNetworkDownDetected = true;
-				AAMPLOG_WARN("Ignore curl timeout");
+				AAMPLOG_WARN("Ignore transient curl failure");
 			}
-			else
+			else if (http_error == 512 &&
+					tmpManifestDnldRespPtr->mMPDDownloadResponse->mResponseHeader.size() &&
+					aamp->mFogTSBEnabled)
 			{
-				if (http_error == 512 )
+				for (const std::string& header : tmpManifestDnldRespPtr->mMPDDownloadResponse->mResponseHeader)
 				{
-					if(tmpManifestDnldRespPtr->mMPDDownloadResponse->mResponseHeader.size() && aamp->mFogTSBEnabled)
+					if(STARTS_WITH_IGNORE_CASE(header.c_str(),FOG_REASON_STRING))
 					{
-						for ( std::string header : tmpManifestDnldRespPtr->mMPDDownloadResponse->mResponseHeader )
-						{
-							if(STARTS_WITH_IGNORE_CASE(header.c_str(),FOG_REASON_STRING))
-							{
-								aamp->mFogDownloadFailReason.clear();
-								aamp->mFogDownloadFailReason  =         header.substr(std::string(FOG_REASON_STRING).length());
-								AAMPLOG_WARN("Received FOG-Reason header: %s",aamp->mFogDownloadFailReason.c_str());
-								aamp->SendAnomalyEvent(ANOMALY_WARNING, "FOG-Reason:%s", aamp->mFogDownloadFailReason.c_str());
-								break;
-							}
-						}
+						aamp->mFogDownloadFailReason.clear();
+						aamp->mFogDownloadFailReason  =         header.substr(std::string(FOG_REASON_STRING).length());
+						AAMPLOG_WARN("Received FOG-Reason header: %s",aamp->mFogDownloadFailReason.c_str());
+						aamp->SendAnomalyEvent(ANOMALY_WARNING, "FOG-Reason:%s", aamp->mFogDownloadFailReason.c_str());
+						break;
 					}
 				}
-				else if(tmpManifestDnldRespPtr->mMPDStatus == eAAMPSTATUS_MANIFEST_PARSE_ERROR)
-				{
-					aamp->SendErrorEvent(AAMP_TUNE_INVALID_MANIFEST_FAILURE); //corrupt or invalid manifest
-					AAMPLOG_ERR("Invalid manifest, parse failed");
-				}
-				else if(tmpManifestDnldRespPtr->mMPDStatus == eAAMPSTATUS_MANIFEST_CONTENT_ERROR)
-				{
-					//Unknown Manifest content
-					aamp->SendErrorEvent(AAMP_TUNE_INIT_FAILED_MANIFEST_CONTENT_ERROR);
-					AAMPLOG_ERR("Unknown manifest content");
-				}
-				else
-				{
-					aamp->SendDownloadErrorEvent(AAMP_TUNE_MANIFEST_REQ_FAILED, http_error);
-					AAMPLOG_ERR("manifest download failed");
-				}
 			}
+			AAMPLOG_ERR("manifest download failed [status:%d][http:%d], re-using old manifest", tmpManifestDnldRespPtr->mMPDStatus, http_error);
 		}
-		else // if downloads disabled
+		else
 		{
-			AAMPLOG_ERR("manifest download failed");
+			AAMPLOG_ERR("manifest download failed, due to downloads being disabled, re-using old manifest");
 		}
 	}
 	// Inform fetch loop to proceed with the new manifest
@@ -10329,9 +10358,6 @@ void StreamAbstractionAAMP_MPD::DetectDiscontinuityAndFetchInit(bool periodChang
 }
 
 /**
- * @brief Update the start time of first PTS
- */
-/**
  * @brief Returns the fragment start time (seconds) for the current ad within a multi-ad pod.
  *
  * When the player is IN_ADBREAK_AD_PLAYING and mCurAdIdx > 0, the correct
@@ -10356,7 +10382,7 @@ double StreamAbstractionAAMP_MPD::GetCurrentAdStartTimeSeconds() const
 	auto it = mCdaiObject->mAdBreaks.find(mCdaiObject->mCurPlayingBreakId);
 	if (it == mCdaiObject->mAdBreaks.end())
 	{
-		AAMPLOG_WARN("GetCurrentAdStartTimeSeconds: AdBreak not found for breakId=%s", mCdaiObject->mCurPlayingBreakId.c_str());
+		AAMPLOG_WARN("AdBreak not found for breakId=%s", mCdaiObject->mCurPlayingBreakId.c_str());
 		return -1.0;
 	}
 
@@ -10367,27 +10393,36 @@ double StreamAbstractionAAMP_MPD::GetCurrentAdStartTimeSeconds() const
 	{
 		cumulativeAdDurationMs += mCdaiObject->mCurAds->at(adIdx).duration;
 	}
-	AAMPLOG_INFO("GetCurrentAdStartTimeSeconds: AbsoluteAdBreakStartTime=%f cumulativeAdDuration=%.0f ms",
-		absoluteAdBreakStartTime, cumulativeAdDurationMs);
+	AAMPLOG_INFO("AbsoluteAdBreakStartTime=%f cumulativeAdDuration=%.0f ms", absoluteAdBreakStartTime, cumulativeAdDurationMs);
 	return absoluteAdBreakStartTime + (cumulativeAdDurationMs / 1000.0);
 }
 
+/**
+ * @brief Update the start time of first PTS
+ */
 void StreamAbstractionAAMP_MPD::UpdateStartTimeOfFirstPTS()
 {
 	double startTime = (mMPDParseHelper->GetPeriodStartTime(mCurrentPeriodIdx, mLastPlaylistDownloadTimeMs) - mAvailabilityStartTime);
 	if (startTime != 0)
 	{
 		mStartTimeOfFirstPTS = mMPDParseHelper->GetPeriodStartTime(mCurrentPeriodIdx, mLastPlaylistDownloadTimeMs) * 1000.0;
-		AAMPLOG_INFO("UpdateStartTimeOfFirstPTS: mStartTimeOfFirstPTS=%.0f ms : PeriodStartTime=%f", mStartTimeOfFirstPTS, startTime);
 		double adStartTimeSec = GetCurrentAdStartTimeSeconds();
 		if (adStartTimeSec >= 0)
 		{
 			mStartTimeOfFirstPTS = adStartTimeSec * 1000.0;
-			AAMPLOG_INFO("UpdateStartTimeOfFirstPTS (ad): mStartTimeOfFirstPTS=%.0f ms", mStartTimeOfFirstPTS);
+			AAMPLOG_MIL("mStartTimeOfFirstPTS=%.0f ms, landing at ad period", mStartTimeOfFirstPTS);
 		}
 		else
 		{
-			AAMPLOG_WARN("skipping adPeriodOffset; using mStartTimeOfFirstPTS as %.0f ms", mStartTimeOfFirstPTS);
+			if (mBasePeriodOffset > 0)
+			{
+				mStartTimeOfFirstPTS += (mBasePeriodOffset * 1000.0);
+				AAMPLOG_MIL("mStartTimeOfFirstPTS=%.0f ms, landing at period offset=%.0f ms", mStartTimeOfFirstPTS, mBasePeriodOffset * 1000.0);
+			}
+			else
+			{
+				AAMPLOG_MIL("mStartTimeOfFirstPTS=%.0f ms, landing at period start", mStartTimeOfFirstPTS);
+			}
 		}
 	}
 }
@@ -11369,6 +11404,8 @@ void  StreamAbstractionAAMP_MPD::ResumeSubtitleAfterSeek(bool mute, char *data)
  */
 StreamAbstractionAAMP_MPD::~StreamAbstractionAAMP_MPD()
 {
+	aamp->initialManifestFetchInProgress=false;
+	
 	// Unregister the MPD download callback BEFORE deleting tracks.
 	// This ensures the notifier thread cannot fire MPDUpdateCallbackExec()
 
@@ -11513,6 +11550,12 @@ void StreamAbstractionAAMP_MPD::Start(void)
 void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 {
 
+	if(aamp->initialManifestFetchInProgress)
+	{
+		AAMPLOG_WARN("Clearing initialManifestFetchInProgress flag since we are stopping stream abstraction");
+	}
+	aamp->initialManifestFetchInProgress = false;
+
 	if (!aamp->IsLocalAAMPTsb() || aamp->mAampTsbLanguageChangeInProgress)
 	{
 		aamp->DisableDownloads();
@@ -11613,13 +11656,6 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 		if (sink)
 		{
 			sink->ClearProtectionEvent();
-		}
-		if (clearChannelData)
-		{
-			if(ISCONFIGSET(eAAMPConfig_UseSecManager) || ISCONFIGSET(eAAMPConfig_UseFireboltSDK))
-			{
-				aamp->mDRMLicenseManager->notifyCleanup();
-			}
 		}
 	}
 

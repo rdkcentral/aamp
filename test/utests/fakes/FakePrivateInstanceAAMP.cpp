@@ -51,6 +51,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) :
 	mMediaFormat(eMEDIAFORMAT_HLS),
 	mPersistedProfileIndex(0),
 	mContentType(ContentType_UNKNOWN),
+	initialManifestFetchInProgress(false),
 	mManifestUrl(""),
 	mServiceZone(),
 	mVssVirtualStreamId(),
@@ -63,6 +64,8 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) :
 	mCdaiObject(NULL),
 	mBufUnderFlowStatus(false),
 	mVideoBasePTS(0),
+	mAsyncTuneEnabled(false),
+	mAsyncTaskAbortEnabled(false),
 	mIsIframeTrackPresent(false),
 	mManifestTimeoutMs(-1),
 	mNetworkTimeoutMs(-1),
@@ -410,6 +413,38 @@ void PrivateInstanceAAMP::SetVideoZoom(VideoZoomMode zoom)
 {
 }
 
+void PrivateInstanceAAMP::SetEarlyAbortRequestFlag(bool enableAbort)
+{
+	mAsyncTaskAbortEnabled=enableAbort;
+}
+
+bool PrivateInstanceAAMP::IsAsyncTuneSupportedForType(MediaFormat format, ContentType type) const
+{
+	return (eMEDIAFORMAT_DASH == format) &&
+	       (ContentType_LINEAR == type)  &&
+	       mAsyncTuneEnabled;
+}
+
+bool PrivateInstanceAAMP::IsAsyncTuneAbortSupported()
+{
+	return IsAsyncTuneSupportedForType(mMediaFormat, mContentType);
+}
+
+bool PrivateInstanceAAMP::IsAsyncTuneAbortRequired()
+{
+	return mAsyncTaskAbortEnabled.load() && IsAsyncTuneAbortSupported();
+}
+
+bool PrivateInstanceAAMP::IsAsyncTuneAbortRequired(const char* manifestUrl, const char* contentTypeString)
+{
+	if (!mAsyncTaskAbortEnabled.load())
+		return false;
+	MediaFormat format = manifestUrl ? GetMediaFormatType(manifestUrl) : eMEDIAFORMAT_UNKNOWN;
+	ContentType type = (contentTypeString && !strncmp(contentTypeString, "LINEAR_TV", 9))
+	                 ? ContentType_LINEAR : ContentType_UNKNOWN;
+	return IsAsyncTuneSupportedForType(format, type);
+}
+
 void PrivateInstanceAAMP::SetVideoMute(bool muted)
 {
 	if (g_mockPrivateInstanceAAMP != nullptr)
@@ -475,6 +510,24 @@ double PrivateInstanceAAMP::GetBufferedDurationSecs()
 	if (g_mockPrivateInstanceAAMP != nullptr)
 	{
 		return g_mockPrivateInstanceAAMP->GetBufferedDurationSecs();
+	}
+	return 0.0;
+}
+
+double PrivateInstanceAAMP::GetVideoBufferedDurationSecs()
+{
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		return g_mockPrivateInstanceAAMP->GetVideoBufferedDurationSecs();
+	}
+	return 0.0;
+}
+
+double PrivateInstanceAAMP::GetAudioBufferedDurationSecs()
+{
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		return g_mockPrivateInstanceAAMP->GetAudioBufferedDurationSecs();
 	}
 	return 0.0;
 }
@@ -1680,7 +1733,7 @@ void PrivateInstanceAAMP::SendBufferChangeEvent(bool bufferingStarted)
 {
 }
 
-void PrivateInstanceAAMP::NotifyBufferLevelToLatencyMonitor(double bufferMs)
+void PrivateInstanceAAMP::NotifyBufferLevelToLatencyMonitor(AampMediaType mediaType, double bufferMs)
 {
 }
 

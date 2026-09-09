@@ -754,6 +754,26 @@ void MediaTrack::AbortWaitForCachedAndFreeFragment(bool immediate)
 	aamp->waitforplaystart.notify_one();
 	lock.unlock();
 
+	// If a track-switch is pending the injector thread may be blocked in
+	// WaitForCachedAudioFragmentAvailable() / WaitForCachedSubtitleFragmentAvailable()
+	// rather than WaitForCachedFragmentAvailable().  The fragmentFetched signal above
+	// only wakes the latter, so we must also notify the switch-specific condition
+	// variables to ensure the injector can observe eosReached and forward EOS to the
+	// pipeline.  Without this, a pending audio/subtitle switch at VOD EOS causes the
+	// injector to stall until an external timeout fires StopInjectLoop(), by which
+	// point DownloadsAreEnabled() is already false and the EOS signal path is skipped,
+	// leaving GStreamer in a permanent stall state (VPAAMP-1166).
+	if (type == eTRACK_AUDIO && (loadNewAudio || refreshAudio))
+	{
+		AAMPLOG_WARN("[%s] audio switch pending at abort - notifying audioFragmentCached for EOS", name);
+		NotifyCachedAudioFragmentAvailable();
+	}
+	if (type == eTRACK_SUBTITLE && (loadNewSubtitle || refreshSubtitles))
+	{
+		AAMPLOG_WARN("[%s] subtitle switch pending at abort - notifying subtitleFragmentCached for EOS", name);
+		NotifyCachedSubtitleFragmentAvailable();
+	}
+
 	GetContext()?GetContext()->AbortWaitForDiscontinuity(): void();
 }
 
@@ -1550,7 +1570,9 @@ void MediaTrack::WaitForCachedAudioFragmentAvailable()
 {
 	AAMPLOG_WARN("Enter WaitForCachedAudioFragmentAvailable");
 	std::unique_lock<std::mutex> lock(audioMutex);
-	audioFragmentCached.wait(lock);
+	// Use a predicate so that a notification sent before wait() is not lost.
+	audioFragmentCached.wait(lock, [this]{ return audioFragmentCachedReady; });
+	audioFragmentCachedReady = false;
 	AAMPLOG_DEBUG("[%s] wait complete for audioFragmentCached", name);
 }
 
@@ -1558,7 +1580,9 @@ void MediaTrack::WaitForCachedSubtitleFragmentAvailable()
 {
 	AAMPLOG_WARN("Enter WaitForCachedSubtitleFragmentAvailable");
 	std::unique_lock<std::mutex> lock(subtitleMutex);
-	subtitleFragmentCached.wait(lock);
+	// Use a predicate so that a notification sent before wait() is not lost.
+	subtitleFragmentCached.wait(lock, [this]{ return subtitleFragmentCachedReady; });
+	subtitleFragmentCachedReady = false;
 	AAMPLOG_DEBUG("[%s] wait complete for subtitleFragmentCached", name);
 }
 
@@ -1569,12 +1593,14 @@ void MediaTrack::WaitForCachedSubtitleFragmentAvailable()
 void MediaTrack::NotifyCachedAudioFragmentAvailable()
 {
 	std::lock_guard<std::mutex> guard(audioMutex);
+	audioFragmentCachedReady = true;
 	audioFragmentCached.notify_one();
 }
 
 void MediaTrack::NotifyCachedSubtitleFragmentAvailable()
 {
 	std::lock_guard<std::mutex> guard(subtitleMutex);
+	subtitleFragmentCachedReady = true;
 	subtitleFragmentCached.notify_one();
 }
 
@@ -1633,10 +1659,28 @@ void MediaTrack::RunInjectLoop()
 		if(type == eTRACK_AUDIO && (loadNewAudio || refreshAudio) && !lowLatency) //TBD
 		{
 			WaitForCachedAudioFragmentAvailable();
+			// If EOS arrived on the fetcher side while we were waiting for the
+			// switched audio track, the fetcher will have set eosReached and
+			// notified us via AbortWaitForCachedAndFreeFragment (VPAAMP-1166).
+			// Clear the switch flags so InjectFragment() can follow the EOS path
+			// and the loop exits cleanly instead of looping back into this wait.
+			if (eosReached)
+			{
+				AAMPLOG_WARN("[%s] EOS reached during audio track switch; clearing loadNewAudio/refreshAudio", name);
+				loadNewAudio = false;
+				refreshAudio = false;
+			}
 		}
 		if(type == eTRACK_SUBTITLE && (loadNewSubtitle || refreshSubtitles) && !lowLatency) // TBD
 		{
 			WaitForCachedSubtitleFragmentAvailable();
+			// Same EOS-guard for subtitle switches (VPAAMP-1166).
+			if (eosReached)
+			{
+				AAMPLOG_WARN("[%s] EOS reached during subtitle track switch; clearing loadNewSubtitle/refreshSubtitles", name);
+				loadNewSubtitle = false;
+				refreshSubtitles = false;
+			}
 		}
 		if (!InjectFragment())
 		{
@@ -1886,7 +1930,7 @@ MediaTrack::MediaTrack(TrackType type, PrivateInstanceAAMP* aamp, const char* na
 		mutex(), abortInject(false),
 		mSubtitleParser(), refreshSubtitles(false), refreshAudio(false),
 		mCachedFragment{}, fragmentFetched(), fragmentInjected(), maxLLDCachedFragmentsPerTrack(0),
-		noMDATCount(0), loadNewAudio(false), audioFragmentCached(), audioMutex(), loadNewSubtitle(false), subtitleFragmentCached(), subtitleMutex(),
+		noMDATCount(0), loadNewAudio(false), audioFragmentCached(), audioFragmentCachedReady(false), audioMutex(), loadNewSubtitle(false), subtitleFragmentCached(), subtitleFragmentCachedReady(false), subtitleMutex(),
 		abortPlaylistDownloader(true), plDownloadWait()
 		,dwnldMutex(), playlistDownloaderThread(NULL), mManifestUpdateCounter(0)
 		,mManifestUpdateWait(),prevDownloadStartTime(-1)
@@ -2920,20 +2964,32 @@ void StreamAbstractionAAMP::NotifyVideoFragmentToUnderflowMonitor(double endPosi
 	std::lock_guard<std::mutex> lock(mUnderflowMonitorMutex);
 	if (mUnderflowMonitor)
 	{
-		mUnderflowMonitor->NotifyVideoFragment(endPosition, playRate);
+		// Resolve paused-state gating under the same mutex used by pause/resume
+		// notifications so check+use are serialized with monitor updates.
+		const float effectiveRate = (aamp && aamp->mSinkPaused.load()) ? 0.0f : playRate;
+		mUnderflowMonitor->NotifyVideoFragment(endPosition, effectiveRate);
 	}
 }
 
-void StreamAbstractionAAMP::NotifyBufferLevelToLatencyMonitor(double bufferMs)
+/**
+ *  @brief Notify buffer level to latency monitor.
+ *  @param mediaType The media type (audio or video).
+ *  @param bufferMs The buffer level in milliseconds.
+ */
+void StreamAbstractionAAMP::NotifyBufferLevelToLatencyMonitor(AampMediaType mediaType, double bufferMs)
 {
 	if (aamp)
 	{
-		aamp->NotifyBufferLevelToLatencyMonitor(bufferMs);
+		aamp->NotifyBufferLevelToLatencyMonitor(mediaType, bufferMs);
 	}
 }
 
 void StreamAbstractionAAMP::NotifyPipelinePausedToUnderflowMonitor()
 {
+	if (!ISCONFIGSET(eAAMPConfig_EnableAampUnderflowMonitor))
+	{
+		return;
+	}
 	std::lock_guard<std::mutex> lock(mUnderflowMonitorMutex);
 	if (mUnderflowMonitor)
 	{
@@ -2943,6 +2999,10 @@ void StreamAbstractionAAMP::NotifyPipelinePausedToUnderflowMonitor()
 
 void StreamAbstractionAAMP::NotifyRateChangeToUnderflowMonitor(float rate)
 {
+	if (!ISCONFIGSET(eAAMPConfig_EnableAampUnderflowMonitor))
+	{
+		return;
+	}
 	std::lock_guard<std::mutex> lock(mUnderflowMonitorMutex);
 	if (mUnderflowMonitor)
 	{
@@ -2952,6 +3012,10 @@ void StreamAbstractionAAMP::NotifyRateChangeToUnderflowMonitor(float rate)
 
 void StreamAbstractionAAMP::NotifyPipelineResumedToUnderflowMonitor(float playRate)
 {
+	if (!ISCONFIGSET(eAAMPConfig_EnableAampUnderflowMonitor))
+	{
+		return;
+	}
 	std::lock_guard<std::mutex> lock(mUnderflowMonitorMutex);
 	if (mUnderflowMonitor)
 	{
@@ -2998,7 +3062,6 @@ void StreamAbstractionAAMP::CheckForPlaybackStall(bool fragmentParsed)
 				if (CheckIfPlayerRunningDry())
 				{
 					AAMPLOG_WARN("StreamAbstractionAAMP: Stall detected!. Time elapsed since fragment parsed(%f), caches are all empty!", timeElapsedSinceLastFragment);
-					aamp->SetFlushFdsNeededInCurlStore(true);
 					aamp->SendStalledErrorEvent();
 				}
 			}

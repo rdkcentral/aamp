@@ -578,7 +578,7 @@ public:
 		if( iter != lookupBool.end())
 		{
 			auto cfg = iter->second;
-			AAMPLOG_MIL("Parsed value for dev cfg property %s - %s", key.c_str(), value_cstr );
+			AAMPLOG_MIL("Parsed value for dev config %s - %s", key.c_str(), value_cstr );
 			if( value.empty() )
 			{
 				bool currentValue = aampConfig->GetConfigValue(cfg.configEnum);
@@ -723,16 +723,9 @@ public:
 			auto cfg = it->second;
 			auto cfgEnum = cfg.configEnum;
 			std::string keyname = it->first;
-			if(cJSON_IsTrue(searchObj))
-			{
-				aampConfig->SetConfigValue(owner,cfgEnum,true);
-				AAMPLOG_MIL("Parsed value for property %s - true",keyname.c_str());
-			}
-			else
-			{
-				aampConfig->SetConfigValue(owner,cfgEnum,false);
-				AAMPLOG_MIL("Parsed value for property %s - false",keyname.c_str());
-			}
+			bool value = cJSON_IsTrue(searchObj);
+			AAMPLOG_MIL("Parsed value for config %s - %s", keyname.c_str(), value ? "true" : "false");
+			aampConfig->SetConfigValue(owner, cfgEnum, value);
 		}
 		else
 		{
@@ -744,8 +737,8 @@ public:
 				auto cfg = it->second;
 				auto cfgEnum = cfg.configEnum;
 				std::string keyname = it->first;
-				aampConfig->SetConfigValue(owner,cfgEnum,conv);
-				AAMPLOG_MIL("Parsed value for property %s - %d",keyname.c_str(),conv);
+				AAMPLOG_MIL("Parsed value for config %s - %d", keyname.c_str(), conv);
+				aampConfig->SetConfigValue(owner, cfgEnum, conv);
 			}
 			else
 			{
@@ -753,12 +746,11 @@ public:
 				if( it != lookupFloat.end() )
 				{
 					auto conv = (double)searchObj->valuedouble;
-					//cJSON_GetNumberValue(searchObj)
 					auto cfg = it->second;
 					auto cfgEnum = cfg.configEnum;
 					std::string keyname = it->first;
-					aampConfig->SetConfigValue(owner,cfgEnum,conv);
-					AAMPLOG_MIL("Parsed value for property %s - %f",keyname.c_str(),conv);
+					AAMPLOG_MIL("Parsed value for config %s - %f", keyname.c_str(), conv);
+					aampConfig->SetConfigValue(owner, cfgEnum, conv);
 				}
 				else
 				{
@@ -770,8 +762,8 @@ public:
 						auto cfg = it->second;
 						auto cfgEnum = cfg.configEnum;
 						std::string keyname = it->first;
-						aampConfig->SetConfigValue(owner,cfgEnum,conv);
-						AAMPLOG_MIL("Parsed value for property %s - %s",keyname.c_str(),conv.c_str() );
+						AAMPLOG_MIL("Parsed value for config %s - %s", keyname.c_str(), conv.c_str());
+						aampConfig->SetConfigValue(owner, cfgEnum, conv);
 					}
 				}
 			}
@@ -1042,11 +1034,11 @@ void AampConfig::SetConfigValue(ConfigPriority newowner, AAMPConfigSettingBool c
 		}
 		setting.value = value;
 		setting.owner = newowner;
-		AAMPLOG_MIL("%s New Owner[%d]",cfgName,newowner);
+		AAMPLOG_MIL("Config[%s] updated owner[%d] updated value[%s]", cfgName, newowner, value ? "true" : "false");
 	}
 	else
 	{
-		AAMPLOG_WARN("%s Owner[%d] not allowed to Set ,current Owner[%d]",cfgName,newowner,setting.owner);
+		AAMPLOG_WARN("Config[%s] cannot be set by owner[%d]: current owner[%d] has higher priority", cfgName, newowner, setting.owner);
 	}
 }
 
@@ -1068,11 +1060,11 @@ void AampConfig::SetConfigValue(ConfigPriority newowner, AAMPConfigSettingInt cf
 		}
 		setting.value = value;
 		setting.owner = newowner;
-		AAMPLOG_MIL("%s New Owner[%d]", cfgInfo.cmdString, newowner);
+		AAMPLOG_MIL("Config[%s] updated owner[%d] updated value[%d]", cfgInfo.cmdString, newowner, value);
 	}
 	else
 	{
-		AAMPLOG_WARN("%s Owner[%d] not allowed to Set ,current Owner[%d]", cfgInfo.cmdString, newowner, setting.owner);
+		AAMPLOG_WARN("Config[%s] cannot be set by owner[%d]: current owner[%d] has higher priority", cfgInfo.cmdString, newowner, setting.owner);
 	}
 }
 
@@ -1094,11 +1086,11 @@ void AampConfig::SetConfigValue(ConfigPriority newowner, AAMPConfigSettingFloat 
 		}
 		setting.value = value;
 		setting.owner = newowner;
-		AAMPLOG_MIL("%s New Owner[%d]",cfgInfo.cmdString,newowner);
+		AAMPLOG_MIL("Config[%s] updated owner[%d] updated value[%f]", cfgInfo.cmdString, newowner, value);
 	}
 	else
 	{
-		AAMPLOG_WARN("%s Owner[%d] not allowed to Set ,current Owner[%d]", cfgInfo.cmdString, newowner, setting.owner);
+		AAMPLOG_WARN("Config[%s] cannot be set by owner[%d]: current owner[%d] has higher priority", cfgInfo.cmdString, newowner, setting.owner);
 	}
 }
 
@@ -1115,11 +1107,11 @@ void AampConfig::SetConfigValue(ConfigPriority newowner, AAMPConfigSettingString
 		}
 		setting.value = value;
 		setting.owner = newowner;
-		AAMPLOG_MIL("%s New Owner[%d]",cfgName,newowner);
+		AAMPLOG_MIL("Config[%s] updated owner[%d] updated value[%s]", cfgName, newowner, value.c_str());
 	}
 	else
 	{
-		AAMPLOG_WARN("%s Owner[%d] not allowed to Set ,current Owner[%d]", cfgName, newowner, setting.owner);
+		AAMPLOG_WARN("Config[%s] cannot be set by owner[%d]: current owner[%d] has higher priority", cfgName, newowner, setting.owner);
 	}
 }
 
@@ -1177,7 +1169,7 @@ bool AampConfig::ProcessConfigJson(const cJSON *cfgdata, ConfigPriority owner )
 		cJSON *drmConfig = cJSON_GetObjectItem(cfgdata,"drmConfig");
 		if(drmConfig)
 		{
-			AAMPLOG_MIL("Parsed value for property DrmConfig");
+			AAMPLOG_MIL("Parsed value for config DrmConfig");
 			cJSON *subitem = drmConfig->child;
 			DRMSystems drmType = eDRM_PlayReady;
 			while( subitem )
