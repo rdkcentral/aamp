@@ -404,8 +404,6 @@ TEST_F(MediaMetadataEventTest, MediaFormatMethodsTest) {
     EXPECT_EQ(event.getMediaFormat(), "DASH");
 }
 
-
-
 // Test functions of BitrateChangeEventTest
 class BitrateChangeEventTest : public testing::Test {
 protected:
