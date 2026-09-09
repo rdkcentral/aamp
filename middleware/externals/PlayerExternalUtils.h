@@ -30,9 +30,16 @@
 
 #define MW_PRE_LOGGER_LOG(fmt, ...)                                            \
     do {                                                                    \
-        std::printf("[MIDDLEWARE] %s:%d %s: " fmt, __FILE__, __LINE__,      \
-                    __func__ , ##__VA_ARGS__);                              \
-        std::fflush(stdout);                                                \
+        char _log_buf[512];                                                 \
+        int _len = std::snprintf(_log_buf, sizeof(_log_buf),                \
+                                 "[PLAYER_IF] %s:%d %s: " fmt,              \
+                                 __FILE__, __LINE__, __func__,              \
+                                 ##__VA_ARGS__);                            \
+        if (_len > 0) {                                                     \
+            (void)write(STDERR_FILENO, _log_buf,                            \
+                       (_len < (int)sizeof(_log_buf)) ? _len :             \
+                       (int)sizeof(_log_buf) - 1);                         \
+        }                                                                  \
     } while (0)
 
 
