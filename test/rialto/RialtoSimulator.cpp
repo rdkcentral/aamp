@@ -87,9 +87,9 @@ static std::string LogPreamble(const char *function, int line)
 }
 
 // If we use fprintf and formatting as we write to stderr then the line gets interleaved
-// with AAMP logging before completly written out. To fix this write the entire log line
+// with AAMP logging before completely written out. To fix this write the entire log line
 // to a buffer first, then output it in one go to reduce chance of interleaving.
-// Not completly thread-safe since arguments can change between the two snprintf calls.
+// Not completely thread-safe since arguments can change between the two snprintf calls.
 #define RIALTO_SIM_LOG(fmt, ...) \
 do { \
 	auto len = std::snprintf(nullptr, 0, fmt "\n", ##__VA_ARGS__); \
