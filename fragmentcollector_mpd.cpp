@@ -6937,7 +6937,14 @@ void StreamAbstractionAAMP_MPD::SelectSubtitleTrack(bool newTune, std::vector<Te
 		if (-1 != selAdaptationSetIndex)
 			tTrackIdx = std::to_string(selAdaptationSetIndex) + "-" + std::to_string(selRepresentationIndex);
 
-		aamp->StopTrackDownloads(eMEDIATYPE_SUBTITLE);
+		// direct-rialto's subtitle playContext (AampMp4Demuxer) is never torn down/recreated here,
+		// unlike mSubtitleParser above, so pausing injection isn't needed.
+		// It also needs the new period's init segment to keep flowing through
+		// the (unblocked) injector to reach AttachSource/SetStreamCaps.
+		if (!ISCONFIGSET(eAAMPConfig_useDirectRialto))
+		{
+			aamp->StopTrackDownloads(eMEDIATYPE_SUBTITLE);
+		}
 	}
 	if ((AAMP_NORMAL_PLAY_RATE == mPlayRate) && (pMediaStreamContext->enabled == false) && (selAdaptationSetIndex >= 0))
 	{

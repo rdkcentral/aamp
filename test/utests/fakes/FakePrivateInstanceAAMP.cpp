@@ -1055,6 +1055,10 @@ void PrivateInstanceAAMP::SetPreCacheDownloadList(PreCacheUrlList &dnldListInput
 
 void PrivateInstanceAAMP::StopTrackDownloads(AampMediaType type)
 {
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		g_mockPrivateInstanceAAMP->StopTrackDownloads(type);
+	}
 }
 
 void PrivateInstanceAAMP::StopTrackInjection(AampMediaType type, bool discard)
