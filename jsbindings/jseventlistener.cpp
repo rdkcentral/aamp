@@ -1742,7 +1742,10 @@ AAMP_JSEventListener::AAMP_JSEventListener(PrivAAMPStruct_JS *obj, AAMPEventType
  */
 AAMP_JSEventListener::~AAMP_JSEventListener()
 {
-	if (p_jsCallback != NULL)
+	// p_obj is NULL when this listener was detached by RemoveAllEventListener() during
+	// JS object teardown. The callback was already unprotected there, while the JS
+	// context was still valid, so there is nothing left to do here.
+	if (p_jsCallback != NULL && p_obj != NULL)
 	{
 		JSValueUnprotect(p_obj->_ctx, p_jsCallback);
 	}
@@ -1757,6 +1760,12 @@ void AAMP_JSEventListener::Event(const AAMPEventPtr& e)
         LOG_TRACE("type=%d, jsCallback=%p", evtType, p_jsCallback);
 
 	if (evtType < 0 || evtType >= AAMP_MAX_NUM_EVENTS)
+	{
+		return;
+	}
+	// Listener was detached during JS object teardown - drop the event rather than
+	// dereferencing a JS context which may already have been destroyed.
+	if (p_obj == NULL)
 	{
 		return;
 	}
@@ -1991,6 +2000,18 @@ void AAMP_JSEventListener::RemoveAllEventListener(PrivAAMPStruct_JS * obj)
 		{
 			obj->_aamp->RemoveEventListener(listenerIter->first, listener);
 		}
+
+		// Release the JS callback here, while _ctx is still valid and we are on the JS
+		// thread. An in-flight event dispatch on the AAMP event thread may still hold a
+		// reference to this listener and destroy it later, after the JS object has been
+		// freed; detaching p_obj makes both that destructor and Event() a safe no-op.
+		if (listener->p_jsCallback != NULL)
+		{
+			JSValueUnprotect(obj->_ctx, listener->p_jsCallback);
+			listener->p_jsCallback = NULL;
+		}
+		listener->p_obj = NULL;
+
 		listenerIter = obj->_listeners.erase(listenerIter);
 	}
 

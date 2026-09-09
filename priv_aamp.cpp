@@ -7681,6 +7681,10 @@ bool PrivateInstanceAAMP::IsLiveStream()
 void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 {
 	auto stopStartTime = NOW_STEADY_TS_MS;
+	// Block dispatch of any further events before teardown begins, so listeners cannot be
+	// invoked or destroyed while the owning application object is being released.
+	// Tune() and ReloadTSB() reset this back to eSTATE_IDLE, so retune is unaffected.
+	mEventManager->SetPlayerState(eSTATE_RELEASED);
 	// Clear all the player events in the queue and sets its state to RELEASED as everything is done
 	mEventManager->FlushPendingEvents();
 	// Set state to STOPPING irrespective of sending state change event or not
