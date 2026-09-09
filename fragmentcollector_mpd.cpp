@@ -3768,6 +3768,7 @@ void StreamAbstractionAAMP_MPD::QueueContentProtection(IPeriod* period, uint32_t
 						/** Queue content protection in DRM license fetcher **/
 						licenseMgr->QueueContentProtection(std::move(drmHelper), period->GetId(), adaptationSetIdx, mediaType, isVssPeriod);
 					}
+					aamp->SetTrackEncrypted(mediaType, true);
 					hasDrm = true;
 					aamp->licenceFromManifest = true;
 				}
@@ -9298,11 +9299,22 @@ void StreamAbstractionAAMP_MPD::PushEncryptedHeaders(std::map<int, std::string>&
 	std::vector<std::shared_future<void>> futures;
 	for (std::map<int, std::string>::iterator it = mappedHeaders.begin(); it != mappedHeaders.end(); ++it)
 	{
+		auto track = it->first;
+		if (track < 0 || track >= AAMP_TRACK_COUNT)
+		{
+			AAMPLOG_ERR("Invalid encrypted header track %d", track);
+			continue;
+		}
+		aamp->SetTrackEncrypted(static_cast<AampMediaType>(track), true);
+		if (track >= mNumberOfTracks || mMediaStreamContext[track] == nullptr)
+		{
+			AAMPLOG_ERR("No media stream context for encrypted header track %d", track);
+			continue;
+		}
 		if (ISCONFIGSET(eAAMPConfig_DashParallelFragDownload))
 		{
 			// Download the video, audio & subtitle fragments in a separate parallel thread.
-			AAMPLOG_DEBUG("Submitting job for init encrypted header track %d", it->first);
-			auto track = it->first;
+			AAMPLOG_DEBUG("Submitting job for init encrypted header track %d", track);
 			auto header = it->second;
 			auto dashWorkerJob = std::make_shared<AampDashWorkerJob>([this, track, header]() { CacheEncryptedHeader(track, header); });
 			auto future = aamp->GetAampTrackWorkerManager()->SubmitJob(static_cast<AampMediaType>(it->first), dashWorkerJob);
@@ -11696,14 +11708,10 @@ void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutpu
 		//
 		// FORMAT_UNKNOWN is still the fallback for codecs AampMp4Demuxer does not recognise
 		// (see the maps in AampUtils.cpp). DRM protection does not gate this lookup; clear and
-		// protected assets use the same codec mapping, unless eAAMPConfig_ApplyEncryptedCaps
-		// is disabled, in which case encrypted assets fall back to FORMAT_UNKNOWN.
+		// protected assets use the same codec mapping.
 		videoFormat = audioFormat = FORMAT_UNKNOWN;
-		if (!hasDrm || ISCONFIGSET(eAAMPConfig_ApplyEncryptedCaps))
-		{
-			videoFormat = GetMp4DemuxVideoFormatForCodec(GetCurrentCodec(eMEDIATYPE_VIDEO).c_str());
-			audioFormat = GetMp4DemuxAudioFormatForCodec(GetCurrentCodec(eMEDIATYPE_AUDIO).c_str());
-		}
+		videoFormat = GetMp4DemuxVideoFormatForCodec(GetCurrentCodec(eMEDIATYPE_VIDEO).c_str());
+		audioFormat = GetMp4DemuxAudioFormatForCodec(GetCurrentCodec(eMEDIATYPE_AUDIO).c_str());
 	}
 	if(mMediaStreamContext[eMEDIATYPE_VIDEO] && mMediaStreamContext[eMEDIATYPE_VIDEO]->enabled )
 	{

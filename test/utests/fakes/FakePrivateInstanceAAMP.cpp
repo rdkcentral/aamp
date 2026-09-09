@@ -1918,6 +1918,42 @@ void PrivateInstanceAAMP::SetStreamCaps(AampMediaType type, MediaCodecInfo&& cod
 	}
 }
 
+void PrivateInstanceAAMP::SetTrackEncrypted(AampMediaType type, bool isEncrypted)
+{
+	switch (type)
+	{
+		case eMEDIATYPE_VIDEO:
+			mVideoTrackEncrypted.store(isEncrypted);
+			break;
+		case eMEDIATYPE_AUDIO:
+			mAudioTrackEncrypted.store(isEncrypted);
+			break;
+		case eMEDIATYPE_SUBTITLE:
+			mSubtitleTrackEncrypted.store(isEncrypted);
+			break;
+		default:
+			break;
+	}
+}
+
+MediaCodecInfo PrivateInstanceAAMP::GetMediaCodecInfo(StreamOutputFormat format)
+{
+	MediaCodecInfo codecInfo(static_cast<GstStreamOutputFormat>(format));
+	if (format == mVideoFormat)
+	{
+		codecInfo.mIsEncrypted = mVideoTrackEncrypted.load();
+	}
+	else if (format == mAudioFormat)
+	{
+		codecInfo.mIsEncrypted = mAudioTrackEncrypted.load();
+	}
+	else if (format == mSubtitleFormat)
+	{
+		codecInfo.mIsEncrypted = mSubtitleTrackEncrypted.load();
+	}
+	return codecInfo;
+}
+
 void PrivateInstanceAAMP::QueueProtectionEvent(AampMediaType type, const std::vector<MediaProtectionInfo>& protectionEvents)
 {
 	if (g_mockPrivateInstanceAAMP)

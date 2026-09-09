@@ -2634,6 +2634,21 @@ TEST_F(StreamAbstractionAAMP_MPDTest, PushEncryptedHeadersTest)
 	mStreamAbstractionAAMP_MPD->CallPushEncryptedHeaders(mappedHeaders);
 }
 
+TEST_F(StreamAbstractionAAMP_MPDTest, PushEncryptedHeadersMarksTracksEncryptedBeforeInjection)
+{
+	mPrivateInstanceAAMP->mVideoFormat = FORMAT_VIDEO_ES_HEVC;
+	mPrivateInstanceAAMP->mAudioFormat = FORMAT_AUDIO_ES_EC3;
+	std::map<int, std::string> mappedHeaders = {
+		{eMEDIATYPE_VIDEO, "video-init.mp4"},
+		{eMEDIATYPE_AUDIO, "audio-init.mp4"}
+	};
+
+	mStreamAbstractionAAMP_MPD->CallPushEncryptedHeaders(mappedHeaders);
+
+	EXPECT_TRUE(mPrivateInstanceAAMP->GetMediaCodecInfo(FORMAT_VIDEO_ES_HEVC).mIsEncrypted);
+	EXPECT_TRUE(mPrivateInstanceAAMP->GetMediaCodecInfo(FORMAT_AUDIO_ES_EC3).mIsEncrypted);
+}
+
 TEST_F(StreamAbstractionAAMP_MPDTest, GetProfileIdxForBandwidthNotificationTest)
 {
 	uint32_t bandwidth = 22;
