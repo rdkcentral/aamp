@@ -962,6 +962,9 @@ public:
 	std::condition_variable_any mDownloadsDisabled;
 	bool mDownloadsEnabled;
 	std::map<AampMediaType, bool> mMediaDownloadsEnabled; /* Used to enable/Disable individual mediaType downloads */
+	std::atomic<bool> mVideoTrackEncrypted{false};
+	std::atomic<bool> mAudioTrackEncrypted{false};
+	std::atomic<bool> mSubtitleTrackEncrypted{false};
 	ABRManager mhAbrManager;                 /**< Pointer to Hybrid abr manager*/
 	ProfileEventAAMP profiler;
 	bool licenceFromManifest;
@@ -4134,6 +4137,21 @@ public:
 	 * @param[in] codecInfo - Codec information
 	 */
 	void SetStreamCaps(AampMediaType type, MediaCodecInfo&& codecInfo);
+	/**
+	 * @brief Set encryption state for the specified media track
+	 * @param[in] type - Media track type
+	 * @param[in] isEncrypted - true if the track is encrypted
+	 */
+	void SetTrackEncrypted(AampMediaType type, bool isEncrypted);
+
+	/**
+	 * @fn GetMediaCodecInfo
+	 * @brief Build codec information for pipeline configuration
+	 *
+	 * @param[in] format - Stream output format
+	 * @return Codec information including encryption state
+	 */
+	MediaCodecInfo GetMediaCodecInfo(StreamOutputFormat format);
 
 	/**
 	 * @fn QueueProtectionEvent
@@ -4217,7 +4235,6 @@ protected:
 	 *   @return void
 	 */
 	void LazilyLoadConfigIfNeeded(void);
-
 	/**
 	 *   @fn ExtractServiceZone
 	 *   @param  url - stream url with vss service zone info as query string

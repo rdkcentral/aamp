@@ -61,7 +61,8 @@ void InterfacePlayerRDK::SetPreferredDRM(const char* /*drmID*/) {}
 void InterfacePlayerRDK::setEncryption(void* /*mEncrypt*/, void* /*mDRMSessionManager*/) {}
 void InterfacePlayerRDK::EnableGstDebugLogging(std::string /*debugLevel*/) {}
 
-void InterfacePlayerRDK::ConfigurePipeline(int, int, int, bool, bool, bool, int32_t, gint, const char*, int, bool, std::string, bool) {}
+void InterfacePlayerRDK::ConfigurePipeline(PipelineCodecInfo&&, bool, bool, bool, int32_t, gint, const char*, int, bool, std::string, bool) {}
+void InterfacePlayerRDK::ConfigurePipeline(PipelineCodecInfo&&, int, int, int, bool, bool, bool, int32_t, gint, const char*, int, bool, std::string, bool) {}
 bool InterfacePlayerRDK::CreatePipeline(const char* /*pipelineName*/, int /*PipelinePriority*/) { return false; }
 void InterfacePlayerRDK::DestroyPipeline() {}
 void InterfacePlayerRDK::Stop(bool /*keepLastFrame*/) {}

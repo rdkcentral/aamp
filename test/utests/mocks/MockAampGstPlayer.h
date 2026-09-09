@@ -54,7 +54,7 @@ public:
 
     MOCK_METHOD(void, SeekStreamSink, (double , double ), (override));
 
-    MOCK_METHOD(void, Configure, (StreamOutputFormat format, StreamOutputFormat audioFormat, StreamOutputFormat subFormat, bool bESChangeStatus, bool setReadyAfterPipelineCreation), (override));
+    MOCK_METHOD(void, Configure, (PipelineCodecInfo&& codecInfo, StreamOutputFormat format, StreamOutputFormat audioFormat, StreamOutputFormat subFormat, bool bESChangeStatus, bool setReadyAfterPipelineCreation), (override));
 };
 
 extern std::shared_ptr<MockAAMPGstPlayer> g_mockAampGstPlayer;
