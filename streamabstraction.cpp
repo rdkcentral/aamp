@@ -1345,7 +1345,9 @@ void MediaTrack::WaitForCachedAudioFragmentAvailable()
 {
 	AAMPLOG_WARN("Enter WaitForCachedAudioFragmentAvailable");
 	std::unique_lock<std::mutex> lock(audioMutex);
-	audioFragmentCached.wait(lock);
+	// Use a predicate so that a notification sent before wait() is not lost.
+	audioFragmentCached.wait(lock, [this]{ return audioFragmentCachedReady; });
+	audioFragmentCachedReady = false;
 	AAMPLOG_DEBUG("[%s] wait complete for audioFragmentCached", name);
 }
 
@@ -1353,7 +1355,9 @@ void MediaTrack::WaitForCachedSubtitleFragmentAvailable()
 {
 	AAMPLOG_WARN("Enter WaitForCachedSubtitleFragmentAvailable");
 	std::unique_lock<std::mutex> lock(subtitleMutex);
-	subtitleFragmentCached.wait(lock);
+	// Use a predicate so that a notification sent before wait() is not lost.
+	subtitleFragmentCached.wait(lock, [this]{ return subtitleFragmentCachedReady; });
+	subtitleFragmentCachedReady = false;
 	AAMPLOG_DEBUG("[%s] wait complete for subtitleFragmentCached", name);
 }
 
@@ -1364,12 +1368,14 @@ void MediaTrack::WaitForCachedSubtitleFragmentAvailable()
 void MediaTrack::NotifyCachedAudioFragmentAvailable()
 {
 	std::lock_guard<std::mutex> guard(audioMutex);
+	audioFragmentCachedReady = true;
 	audioFragmentCached.notify_one();
 }
 
 void MediaTrack::NotifyCachedSubtitleFragmentAvailable()
 {
 	std::lock_guard<std::mutex> guard(subtitleMutex);
+	subtitleFragmentCachedReady = true;
 	subtitleFragmentCached.notify_one();
 }
 
@@ -1694,7 +1700,7 @@ MediaTrack::MediaTrack(TrackType type, PrivateInstanceAAMP* aamp, const char* na
 		mutex(), abortInject(false),
 		mSubtitleParser(), refreshSubtitles(false), refreshAudio(false),
 		mCachedFragment{}, fragmentFetched(), fragmentInjected(), maxLLDCachedFragmentsPerTrack(0),
-		loadNewAudio(false), audioFragmentCached(), audioMutex(), loadNewSubtitle(false), subtitleFragmentCached(), subtitleMutex(),
+		loadNewAudio(false), audioFragmentCached(), audioFragmentCachedReady(false), audioMutex(), loadNewSubtitle(false), subtitleFragmentCached(), subtitleFragmentCachedReady(false), subtitleMutex(),
 		abortPlaylistDownloader(true), plDownloadWait()
 		,dwnldMutex(), playlistDownloaderThread(NULL), mManifestUpdateCounter(0)
 		,mManifestUpdateWait()

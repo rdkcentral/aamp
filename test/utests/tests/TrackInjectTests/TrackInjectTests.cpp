@@ -20,7 +20,6 @@
 #include <gtest/gtest.h>
 #include <chrono>
 #include <future>
-#include <thread>
 #include "MediaStreamContext.h"
 #include "fragmentcollector_mpd.h"
 #include "isobmff/isobmffbuffer.h"
@@ -551,19 +550,18 @@ TEST_F(TrackInjectTests, RunInjectLoop_AudioEosDuringTrackSwitch_NoDeadlock)
 	// BlockUntilGstreamerWantsData is called once at the top of InjectFragment().
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, BlockUntilGstreamerWantsData(_, _, _)).Times(1);
 
+	// Simulate the FetcherLoop's EOS worker job calling
+	// AbortWaitForCachedAndFreeFragment() *before* the injector thread starts.
+	// WaitForCachedAudioFragmentAvailable() now uses a predicate (audioFragmentCachedReady),
+	// so the notification is not lost even if it arrives before the condvar wait begins.
+	// This removes the need for any sleep-based synchronization.
+	mMediaTrack->AbortWaitForCachedAndFreeFragment(false);
+
 	// Run RunInjectLoop() in a background thread.  Without the fix it would
 	// block indefinitely in WaitForCachedAudioFragmentAvailable().
 	auto injectFuture = std::async(std::launch::async, [this]() {
 		mMediaTrack->RunInjectLoop();
 	});
-
-	// Allow the injector thread enough time to reach WaitForCachedAudioFragmentAvailable().
-	std::this_thread::sleep_for(std::chrono::milliseconds(100));
-
-	// Simulate the FetcherLoop's EOS worker job calling
-	// AbortWaitForCachedAndFreeFragment().  With the VPAAMP-1166 fix this also
-	// notifies audioFragmentCached, unblocking the injector.
-	mMediaTrack->AbortWaitForCachedAndFreeFragment(false);
 
 	// The injector must exit within 2 s.  A timeout here indicates a deadlock
 	// caused by the unfixed code path.
@@ -571,4 +569,12 @@ TEST_F(TrackInjectTests, RunInjectLoop_AudioEosDuringTrackSwitch_NoDeadlock)
 	EXPECT_EQ(status, std::future_status::ready)
 		<< "RunInjectLoop deadlocked: audio injector did not exit after "
 		   "AbortWaitForCachedAndFreeFragment with pending loadNewAudio (VPAAMP-1166)";
+
+	// Always consume the future so its destructor does not block if the above
+	// assertion timed out (the destructor of a std::async future joins the thread).
+	if (status != std::future_status::ready)
+	{
+		mMediaTrack->SetAbortInject(true);
+	}
+	injectFuture.get();
 }
