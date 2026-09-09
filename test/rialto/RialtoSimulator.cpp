@@ -93,8 +93,11 @@ static std::string LogPreamble(const char *function, int line)
 #define RIALTO_SIM_LOG(fmt, ...) \
 do { \
 	auto len = std::snprintf(nullptr, 0, fmt "\n", ##__VA_ARGS__); \
-	std::string s2(len + 1, '\0'); \
-	std::snprintf(&s2[0], len + 1, fmt "\n", ##__VA_ARGS__); \
+	std::string s2("snprintf Error"); \
+	if (len >=0) { \
+		s2.resize(len + 1); \
+		std::snprintf(&s2[0], len + 1, fmt "\n", ##__VA_ARGS__); \
+	} \
 	fputs((LogPreamble(__func__, __LINE__) + s2).c_str(), stderr); \
 } while(0)
 
