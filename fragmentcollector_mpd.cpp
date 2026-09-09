@@ -7078,12 +7078,7 @@ void StreamAbstractionAAMP_MPD::SelectAudioTrack(std::vector<AudioTrackInfo> &aT
 	* if the stream has AAC and EC3 for the current decoding language then as per the EC3(default priority)
 	* the player will choose EC3 but the audio pipeline actually not configured in this case to affect this change.
 	*/
-	if (aamp->previousAudioType != selectedCodecType)
-	{
-		AAMPLOG_MIL("StreamAbstractionAAMP_MPD: AudioType Changed %d -> %d", aamp->previousAudioType, selectedCodecType);
-		aamp->previousAudioType = selectedCodecType;
-		SetESChangeStatus();
-	}
+	CheckAndUpdateCodecChangeStatus(GetMediaTypeName(eMEDIATYPE_AUDIO), aamp->previousAudioType, selectedCodecType);
 }
 
 /**
@@ -7945,6 +7940,35 @@ static bool IsVideoCodecAVC(const std::string &codec)
 	return codec.rfind("avc1.", 0) == 0 || codec == "avc1";
 }
 
+static VideoCodecType GetVideoCodecType(const std::string &codec)
+{
+	if (IsVideoCodecHEVC(codec))
+	{
+		return eVIDEO_HEVC;
+	}
+	if (codec.rfind("avc1.", 0) == 0 || codec.rfind("avc3.", 0) == 0 || codec == "avc1" || codec == "avc3")
+	{
+		return eVIDEO_H264;
+	}
+	if (codec.rfind("vp09", 0) == 0 || codec.rfind("vp9", 0) == 0)
+	{
+		return eVIDEO_VP9;
+	}
+	if (codec.rfind("vp08", 0) == 0 || codec.rfind("vp8", 0) == 0)
+	{
+		return eVIDEO_VP8;
+	}
+	if (codec.rfind("av01", 0) == 0)
+	{
+		return eVIDEO_AV1;
+	}
+	if (codec.rfind("mp2v", 0) == 0 || codec.rfind("mpeg2", 0) == 0)
+	{
+		return eVIDEO_MPEG2;
+	}
+	return eVIDEO_UNKNOWN;
+}
+
 /**
  * @brief Updates track information based on current state
  */
@@ -8517,6 +8541,11 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 				AAMPLOG_WARN("Not able to find representation from manifest, sending error event");
 				aamp->SendErrorEvent(AAMP_TUNE_INIT_FAILED_MANIFEST_CONTENT_ERROR);
 				return eAAMPSTATUS_MANIFEST_CONTENT_ERROR;
+			}
+
+			if (i == eMEDIATYPE_VIDEO)
+			{
+				CheckAndUpdateCodecChangeStatus(GetMediaTypeName(eMEDIATYPE_VIDEO), aamp->previousVideoType, GetVideoCodecType(GetCurrentCodec(eMEDIATYPE_VIDEO)));
 			}
 
 			// Only process content protection when there is a period change.
@@ -10335,7 +10364,7 @@ void StreamAbstractionAAMP_MPD::DetectDiscontinuityAndFetchInit(bool periodChang
 
 				/* Process the discontinuity,
 				* 1. If the next segment time is not matching with the next period segment start time.
-				* 2. To reconfigure the pipeline, if there is a change in the Audio Codec even if there is no change in segment start time in multi period content.
+				* 2. To reconfigure the pipeline, if there is an audio or video codec change even if there is no change in segment start time in multi period content.
 				*/
 				if ((segmentTemplates.GetSegmentTimeline() != NULL && nextSegmentTime != segmentStartTime) || GetESChangeStatus() || ISCONFIGSET(eAAMPConfig_ForceMultiPeriodDiscontinuity))
 				{

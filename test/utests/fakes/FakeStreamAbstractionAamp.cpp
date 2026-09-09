@@ -33,7 +33,7 @@ std::shared_ptr<MockMediaTrack> g_mockMediaTrack{};
 // can set this before calling OnFragmentDownloadSuccess and clear it afterwards.
 std::function<void()> g_notifyVideoFragmentSideEffect;
 
-StreamAbstractionAAMP::StreamAbstractionAAMP(PrivateInstanceAAMP* aamp, id3_callback_t mID3Handler) : aamp(nullptr), mAudiostateChangeCount(0), mESChangeStatus(false)
+StreamAbstractionAAMP::StreamAbstractionAAMP(PrivateInstanceAAMP* aamp, id3_callback_t mID3Handler) : aamp(nullptr), mESChangeCount(0), mESChangeStatus(false)
 {
 }
 
