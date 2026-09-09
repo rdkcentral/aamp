@@ -964,14 +964,16 @@ public:
 	/**
 	 * @fn MediaMetadataEvent
 	 *
-	 * @param[in] duration - Duration of Media Metadata
-	 * @param[in] width    - Video width
-	 * @param[in] height   - Video height
-	 * @param[in] hasDrm   - Drm enablement status
-	 * @param[in] isLive   - Is Live
-	 * @param[in] DrmType  - DRM Type
-	 * @param[in] Url    - EffectiveUrl
-	 * @param[in] programStartTime  - Program/Availability start time
+	 * @param[in] duration                     - Duration of Media Metadata
+	 * @param[in] width                        - Video width
+	 * @param[in] height                       - Video height
+	 * @param[in] hasDrm                       - Drm enablement status
+	 * @param[in] isLive                       - Is Live
+	 * @param[in] DrmType                      - DRM Type
+	 * @param[in] programStartTime             - Program/Availability start time
+	 * @param[in] tsbDepthMs                   - TSB depth in milliseconds
+	 * @param[in] sid                          - Session ID
+	 * @param[in] url                          - Effective URL
 	 * @param[in] producerReferenceClockOffset - PRT-derived clock offset in seconds
 	 */
 	MediaMetadataEvent(long duration, int width, int height, bool hasDrm, bool isLive, const std::string &DrmType, double programStartTime, int tsbDepthMs, std::string sid, const std::string &url, double producerReferenceClockOffset = 0.0);
