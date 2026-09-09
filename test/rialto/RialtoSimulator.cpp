@@ -45,7 +45,6 @@
 #include <condition_variable>
 #include <cstdio>
 #include <cstdint>
-#include <cstring>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -87,17 +86,16 @@ static std::string LogPreamble(const char *function, int line)
 	return preamble;
 }
 
-// If we use fprintf and formatt as we write to stderr then the output gets interleaved
-// with AAMP logging. Write the entire log line to a buffer first, then output it in one
-// go to reduce chance of interleaving.
+// If we use fprintf and formatting as we write to stderr then the line gets interleaved
+// with AAMP logging before completly written out. To fix this write the entire log line
+// to a buffer first, then output it in one go to reduce chance of interleaving.
 // Not completly thread-safe since arguments can change between the two snprintf calls.
 #define RIALTO_SIM_LOG(fmt, ...) \
 do { \
-	std::string s1 = LogPreamble(__func__, __LINE__); \
 	auto len = std::snprintf(nullptr, 0, fmt "\n", ##__VA_ARGS__); \
 	std::string s2(len + 1, '\0'); \
 	std::snprintf(&s2[0], len + 1, fmt "\n", ##__VA_ARGS__); \
-	fputs((s1 + s2).c_str(), stderr); \
+	fputs((LogPreamble(__func__, __LINE__) + s2).c_str(), stderr); \
 } while(0)
 
 
