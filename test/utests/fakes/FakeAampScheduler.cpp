@@ -62,6 +62,22 @@ int AampScheduler::ScheduleTask(AsyncTaskObj obj)
     }
 }
 
+void AampScheduler::EnableScheduleTask()
+{
+    if (g_mockAampScheduler != nullptr)
+    {
+        g_mockAampScheduler->EnableScheduleTask();
+    }
+}
+
+void AampScheduler::DisableScheduleTask()
+{
+    if (g_mockAampScheduler != nullptr)
+    {
+        g_mockAampScheduler->DisableScheduleTask();
+    }
+}
+
 void AampScheduler::SetState(AAMPPlayerState sstate)
 {
     if (g_mockAampScheduler != nullptr)
