@@ -1020,6 +1020,7 @@ Examples:
 |||audio_descriptions — Audio track meant to assist the vision impaired in the enjoyment of the video asset |
 | Channels | String | Indicates the maximum number of audio channels; 1 = mono, 2=stereo, up to 8 for DD+ |
 | availability  | Boolean | Availability of the audio track in current TSB buffer (FOG or AAMP TSB) |
+| selected  | Boolean | Indicates whether this audio track is currently selected for playback. true for the active track, false for all other tracks. When the current track cannot be determined, all tracks will have selected: false. |
 | accessibility  | Object | DASH shall signal a new object accessibility to notify a track as hearing impaired |
 | scheme  | String | The SchemeId to indicate the type of Accessibility Example:- "urn:mpeg:dash:role:2011" |
 | string_value  | String | The string value of Accessibility object; Example:-  "description" |
@@ -1036,6 +1037,7 @@ Examples:
     "bandwidth":	117600,
     "Type":	"audio_description",
     "availability":	true,
+    "selected":	true,
     "accessibility":	{
         "scheme":	"urn:mpeg:dash:role:2011",
         "string_value":	"description"
@@ -1072,6 +1074,7 @@ Examples:
 | bandwidth  | String | Decimal-Integer encoding - bits per second. Represents peak segment bit rate of the Variant Stream. |
 | Channels | String | Indicates maximum number of audio channels present in any Media Segment in the Rendition. e.g: An AC-3 5.1 rendition would have a CHANNELS=6 |
 | characteristics | String | One or more comma-delimited Uniform Type Identifiers [UTI].  This attribute is OPTIONAL. |
+| selected | Boolean | Indicates whether this audio track is currently selected for playback. true for the active track, false for all other tracks. When the current track cannot be determined, all tracks will have selected: false. |
 
 - ###### Example:
 
@@ -1081,7 +1084,8 @@ Examples:
     "language":     "eng",
     "codec":        "mp4a.40.2",
     "rendition":    "english",
-    "bandwidth":    288000
+    "bandwidth":    288000,
+    "selected":     true
 }]
 ```
 
