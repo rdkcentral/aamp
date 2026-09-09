@@ -3920,7 +3920,6 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 	}
 
 	AAMPStatusType ret= eAAMPSTATUS_OK;
-	AAMPPlayerState state = aamp->GetState();
 	if (aamp->IsAsyncTuneAbortSupported())
 	{
 		aamp->initialManifestFetchInProgress=true;	// Signal to any stop process that a manifest download can be aborted
@@ -3935,8 +3934,8 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 		// This may get terminated by Release from Stop(), returning eAAMPSTATUS_MANIFEST_DOWNLOAD_ABORTED
 		// Note: if we abort then any fog tsb will not get deleted in SendErrorEvent (which is not called). We will do this in PrivateInstanceAAMP::Stop
 		ret = FetchDashManifest();
-		aamp->initialManifestFetchInProgress=false;
 	}
+	aamp->initialManifestFetchInProgress=false;
 
 	if (ret != eAAMPSTATUS_OK)
 	{
@@ -3945,7 +3944,6 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 	else
 	{
 		// If stop was called too late to abort in the progress callback then abort now
-		state = aamp->GetState();
 		if (aamp->IsAsyncTuneAbortRequired())
 		{
 			ret = eAAMPSTATUS_MANIFEST_DOWNLOAD_ABORTED;
@@ -10395,9 +10393,6 @@ void StreamAbstractionAAMP_MPD::DetectDiscontinuityAndFetchInit(bool periodChang
 }
 
 /**
- * @brief Update the start time of first PTS
- */
-/**
  * @brief Returns the fragment start time (seconds) for the current ad within a multi-ad pod.
  *
  * When the player is IN_ADBREAK_AD_PLAYING and mCurAdIdx > 0, the correct
@@ -10422,7 +10417,7 @@ double StreamAbstractionAAMP_MPD::GetCurrentAdStartTimeSeconds() const
 	auto it = mCdaiObject->mAdBreaks.find(mCdaiObject->mCurPlayingBreakId);
 	if (it == mCdaiObject->mAdBreaks.end())
 	{
-		AAMPLOG_WARN("GetCurrentAdStartTimeSeconds: AdBreak not found for breakId=%s", mCdaiObject->mCurPlayingBreakId.c_str());
+		AAMPLOG_WARN("AdBreak not found for breakId=%s", mCdaiObject->mCurPlayingBreakId.c_str());
 		return -1.0;
 	}
 
@@ -10433,27 +10428,36 @@ double StreamAbstractionAAMP_MPD::GetCurrentAdStartTimeSeconds() const
 	{
 		cumulativeAdDurationMs += mCdaiObject->mCurAds->at(adIdx).duration;
 	}
-	AAMPLOG_INFO("GetCurrentAdStartTimeSeconds: AbsoluteAdBreakStartTime=%f cumulativeAdDuration=%.0f ms",
-		absoluteAdBreakStartTime, cumulativeAdDurationMs);
+	AAMPLOG_INFO("AbsoluteAdBreakStartTime=%f cumulativeAdDuration=%.0f ms", absoluteAdBreakStartTime, cumulativeAdDurationMs);
 	return absoluteAdBreakStartTime + (cumulativeAdDurationMs / 1000.0);
 }
 
+/**
+ * @brief Update the start time of first PTS
+ */
 void StreamAbstractionAAMP_MPD::UpdateStartTimeOfFirstPTS()
 {
 	double startTime = (mMPDParseHelper->GetPeriodStartTime(mCurrentPeriodIdx, mLastPlaylistDownloadTimeMs) - mAvailabilityStartTime);
 	if (startTime != 0)
 	{
 		mStartTimeOfFirstPTS = mMPDParseHelper->GetPeriodStartTime(mCurrentPeriodIdx, mLastPlaylistDownloadTimeMs) * 1000.0;
-		AAMPLOG_INFO("UpdateStartTimeOfFirstPTS: mStartTimeOfFirstPTS=%.0f ms : PeriodStartTime=%f", mStartTimeOfFirstPTS, startTime);
 		double adStartTimeSec = GetCurrentAdStartTimeSeconds();
 		if (adStartTimeSec >= 0)
 		{
 			mStartTimeOfFirstPTS = adStartTimeSec * 1000.0;
-			AAMPLOG_INFO("UpdateStartTimeOfFirstPTS (ad): mStartTimeOfFirstPTS=%.0f ms", mStartTimeOfFirstPTS);
+			AAMPLOG_MIL("mStartTimeOfFirstPTS=%.0f ms, landing at ad period", mStartTimeOfFirstPTS);
 		}
 		else
 		{
-			AAMPLOG_WARN("skipping adPeriodOffset; using mStartTimeOfFirstPTS as %.0f ms", mStartTimeOfFirstPTS);
+			if (mBasePeriodOffset > 0)
+			{
+				mStartTimeOfFirstPTS += (mBasePeriodOffset * 1000.0);
+				AAMPLOG_MIL("mStartTimeOfFirstPTS=%.0f ms, landing at period offset=%.0f ms", mStartTimeOfFirstPTS, mBasePeriodOffset * 1000.0);
+			}
+			else
+			{
+				AAMPLOG_MIL("mStartTimeOfFirstPTS=%.0f ms, landing at period start", mStartTimeOfFirstPTS);
+			}
 		}
 	}
 }
