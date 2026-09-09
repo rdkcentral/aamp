@@ -155,7 +155,7 @@ public:
 	 * @brief Phase 2: Called after GStreamer is safely initialized to re-detect platform via plugin scan.
 	 *        Must NOT be called during dl_init / library constructor.
 	 */
-	static void InitializePlatformFromPlugins();
+	static void InitializePlatformFromPlugins(SocPlatformType platformType);
 	/**
 	 * @brief Configure the accept caps
 	 * @return void

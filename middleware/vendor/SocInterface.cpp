@@ -195,42 +195,80 @@ std::shared_ptr<SocInterface> SocInterface::CreateSocInterface(bool isRialto)
  */
 std::shared_ptr<SocInterface> SocInterface::CreateSocInterface()
 {
-	std::lock_guard<std::mutex> lock(g_socMutex);
-	if (!g_socInterface)
-	{
-		// Only use device.properties at this stage — no GStreamer calls
-		SocPlatformType platformType = InferPlatformFromDeviceProperties();
-		g_socInterface = CreateForPlatform(platformType);
-	}
-	return g_socInterface;
+    std::lock_guard<std::mutex> lock(g_socMutex);
+
+    if (!g_socInterface)
+    {
+        // Only use device.properties at this stage.
+        // No GStreamer calls.
+        SocPlatformType platformType =
+            InferPlatformFromDeviceProperties();
+
+        g_socInterface = CreateForPlatform(platformType);
+    }
+
+    return g_socInterface;
 }
 
-/**
- * @brief Phase 2: Called after GStreamer is safely initialized to re-detect platform via plugin scan.
- *        Must NOT be called during dl_init / library constructor.
- *        Contains gst_init_check (via InferPlatformFromPluginScan).
- */
-void SocInterface::InitializePlatformFromPlugins()
+
+
+
+void SocInterface::InitializePlatformFromPlugins(
+        SocPlatformType platformType)
 {
-	std::lock_guard<std::mutex> lock(g_socMutex);
-	if (mIsRialtoMode) return;
+    std::lock_guard<std::mutex> lock(g_socMutex);
 
-	// If device.properties already identified a specific platform, no need to scan plugins
-	SocPlatformType currentType = InferPlatformFromDeviceProperties();
-	if (currentType != SOC_PLATFORM_DEFAULT)
-	{
-		MW_LOG_MIL("Platform already identified from device.properties, skipping plugin scan");
-		return;
-	}
+    /*
+     * Rialto mode:
+     *
+     * If device.properties detected a specific platform,
+     * use the default SoC interface as required by Rialto.
+     */
+    if (mIsRialtoMode)
+    {
+        if (platformType != SOC_PLATFORM_DEFAULT)
+        {
+            MW_LOG_MIL(
+                "Rialto mode: platform detected from device.properties, "
+                   "using default SoC interface");
 
-	// This calls gst_init_check internally — safe here because we are NOT in dl_init
-	SocPlatformType platformType = InferPlatformFromPluginScan();
-	if (platformType != SOC_PLATFORM_DEFAULT)
-	{
-		MW_LOG_MIL("Plugin scan detected platform, replacing SoC interface");
-		g_socInterface = CreateForPlatform(platformType);
-	}
+            g_socInterface =
+                CreateForPlatform(SOC_PLATFORM_DEFAULT);
+        }
+
+        return;
+    }
+
+    /*
+     * Non-Rialto mode:
+     *
+     * If device.properties already identified the platform,
+     * no plugin scan is required.
+     */
+    if (platformType != SOC_PLATFORM_DEFAULT)
+    {
+        MW_LOG_MIL("Platform already identified from device.properties, ""skipping plugin scan");
+
+        return;
+    }
+
+    /*
+     * Platform was not identified from device.properties.
+     * Plugin scan can now safely call gst_init_check().
+     */
+    MW_LOG_MIL("Platform not identified from device.properties, ""performing plugin scan");
+
+    SocPlatformType detectedPlatform = InferPlatformFromPluginScan();
+
+    if (detectedPlatform != SOC_PLATFORM_DEFAULT)
+    {
+        MW_LOG_MIL(
+            "Plugin scan detected platform, replacing SoC interface");
+
+        g_socInterface = CreateForPlatform(detectedPlatform);
+    }
 }
+
 
 /**
  * @brief Get video PTS.
