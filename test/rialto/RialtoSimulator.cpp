@@ -102,7 +102,10 @@ static void RialtoSimLog(const std::string &preamble, const char *fmt, ...)
 		va_start(args, fmt);
 		std::vsnprintf(&s2[0], len + 1, fmt, args);
 		va_end(args);
+		// We initially allocated one extra character for the null terminator, but std::string doesn't need it.
+		s2.resize(len);
 	}
+
 	fputs((preamble + s2).c_str(), stderr);
 }
 // If we use fprintf and formatting as we write to stderr then the line gets interleaved
