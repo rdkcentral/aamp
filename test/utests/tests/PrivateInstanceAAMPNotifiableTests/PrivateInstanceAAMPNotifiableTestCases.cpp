@@ -313,6 +313,8 @@ TEST_F(PrivateInstanceAAMPNotifiableTest,
 	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(&m_aamp))
 		.WillOnce(Return(&mockSink));
 	EXPECT_CALL(mockSink, SetVideoMute(true));
+	// ScheduleRetune is a no-op fake and not mockable, so this only verifies
+	// the task is dispatched and mutes the sink before requesting a retune.
 	// Must mute the sink only, not the persistent app-level video_muted flag -
 	// otherwise TuneHelper() re-applies mute forever on the retuned pipeline.
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetVideoMute(_)).Times(0);
