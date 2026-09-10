@@ -2,7 +2,7 @@
 * If not stated otherwise in this file or this component's license file the
 * following copyright and licenses apply:
 *
-* Copyright 2022 RDK Management
+* Copyright 2026 RDK Management
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -16,28 +16,10 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
-
-#ifndef AAMP_MOCK_AAMP_SCHEDULER_H
-#define AAMP_MOCK_AAMP_SCHEDULER_H
-
-#include <gmock/gmock.h>
-#include <memory>
-#include "AampScheduler.h"
-
-class MockAampScheduler
+#include <gtest/gtest.h>
+#include "priv_aamp.h"
+int main(int argc, char** argv)
 {
-public:
-
-    MOCK_METHOD(int, ScheduleTask, (AsyncTaskObj obj));
-
-    MOCK_METHOD(void, SetState, (AAMPPlayerState sstate));
-
-    MOCK_METHOD(void, EnableScheduleTask, ());
-
-    MOCK_METHOD(void, DisableScheduleTask, ());
-
-};
-
-extern std::shared_ptr<MockAampScheduler> g_mockAampScheduler;
-
-#endif /* AAMP_MOCK_AAMP_SCHEDULER_H */
+	testing::InitGoogleTest(&argc, argv);
+	return RUN_ALL_TESTS();
+}

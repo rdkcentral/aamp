@@ -27,7 +27,6 @@
 
 #include "StreamAbstractionAAMP.h"
 #include "fragmentcollector_mpd.h"
-#include "FragmentCacheDescriptor.h"
 
 /**
  * @class MediaStreamContext
@@ -116,73 +115,63 @@ public:
 	 * @brief Get the context of media track. To be implemented by subclasses
 	 * @retval Context of track.
 	 */
-	StreamAbstractionAAMP* GetContext() override
+	StreamAbstractionAAMP *GetContext() override
 	{
 		return context;
 	}
 
-/**
- * @fn InjectFragmentInternal
- *
- * @param[in] cachedFragment - contains fragment to be processed and injected
- * @param[out] fragmentDiscarded - true if fragment is discarded.
- */
-void InjectFragmentInternal(CachedFragment* cachedFragment, bool &fragmentDiscarded, bool isDiscontinuity = false) override;
+	/**
+	 * @fn InjectFragmentInternal
+	 *
+	 * @param[in] cachedFragment - contains fragment to be processed and injected
+	 * @param[out] fragmentDiscarded - true if fragment is discarded.
+	 */
+	void InjectFragmentInternal(CachedFragment *cachedFragment, bool &fragmentDiscarded, bool isDiscontinuity = false) override;
 
-/**
- * @fn CacheFragment
- * @param fragmentUrl url of fragment
- * @param curlInstance curl instance to be used to fetch
- * @param position position of fragment in seconds
- * @param duration duration of fragment in seconds
- * @param range byte range
- * @param initSegment true if fragment is init fragment
- * @param discontinuity true if fragment is discontinuous
- * @param playingAd flag if playing Ad
- * @param pto unscaled pto value from mpd
- * @param scale timeScale value from mpd
- * @retval true on success
- */
-bool CacheFragment(std::string fragmentUrl, unsigned int curlInstance, double position, double duration, const char *range = NULL, bool initSegment = false, bool discontinuity = false, bool playingAd = false, uint32_t scale = 0);
+	/**
+	 * @fn CacheFragment
+	 * @param fragmentUrl url of fragment
+	 * @param curlInstance curl instance to be used to fetch
+	 * @param position position of fragment in seconds
+	 * @param duration duration of fragment in seconds
+	 * @param range byte range
+	 * @param initSegment true if fragment is init fragment
+	 * @param discontinuity true if fragment is discontinuous
+	 * @param playingAd flag if playing Ad
+	 * @param pto unscaled pto value from mpd
+	 * @param scale timeScale value from mpd
+	 * @retval true on success
+	 */
+	bool CacheFragment(std::string fragmentUrl, unsigned int curlInstance, double position, double duration, const char *range = NULL, bool initSegment = false, bool discontinuity = false, bool playingAd = false, uint32_t scale = 0);
 
-/**
- * @fn CacheTsbFragment
- * @param[in] fragment TSB fragment pointer (must be passed with std::move)
- * @retval true on success
- */
-bool CacheTsbFragment(std::shared_ptr<CachedFragment>&& fragment);
+	/**
+	 * @fn CacheTsbFragment
+	 * @param[in] fragment TSB fragment pointer (must be passed with std::move)
+	 * @retval true on success
+	 */
+	bool CacheTsbFragment(std::shared_ptr<CachedFragment> &&fragment);
 
-/**
- * @fn CacheFragmentChunk
- * @param actualType AampMediaType type of cached media
- * @param ptr CURL provided chunk data
- * @param size CURL provided chunk data size
- * @param remoteUrl url of fragment
- * @param dnldStartTime of the download
- * @param durationInTicks duration of the chunk in ticks
- */
-bool CacheFragmentChunk(AampMediaType actualType, const uint8_t *ptr, size_t size, std::string remoteUrl, uint64_t dnldStartTime, uint64_t durationInTicks);
-
-/**
- * @fn CacheFragmentData
- * @brief Unified fragment caching API - handles both full fragments and chunks
- * @param desc Fragment cache descriptor with all metadata and payload
- * @retval true on success
- * @note This is the unified internal implementation. External code should continue
- *       using CacheFragment() or CacheFragmentChunk() wrapper methods.
- */
-bool CacheFragmentData(const FragmentCacheDescriptor& desc);
+	/**
+	 * @fn CacheFragmentChunk
+	 * @param actualType AampMediaType type of cached media
+	 * @param ptr CURL provided chunk data
+	 * @param size CURL provided chunk data size
+	 * @param remoteUrl url of fragment
+	 * @param dnldStartTime of the download
+	 * @param durationInTicks duration of the chunk in ticks
+	 */
+	bool CacheFragmentChunk(AampMediaType actualType, const uint8_t *ptr, size_t size, std::string remoteUrl, uint64_t dnldStartTime, uint64_t durationInTicks);
 
 	/**
 	 * @fn TransferFragmentBuffer
 	 * @brief Transfer buffer data into a CachedFragment using the appropriate
 	 *        semantics for the caching mode.
 	 */
-	static void TransferFragmentBuffer(CachedFragment* cached,
-			const uint8_t* chunkPayload,
-			std::vector<uint8_t>* downloadBuffer,
-			size_t payloadSize,
-			bool isChunkMode);
+	static void TransferFragmentBuffer(CachedFragment *cached,
+									   const uint8_t *chunkPayload,
+									   std::vector<uint8_t> *downloadBuffer,
+									   size_t payloadSize,
+									   bool isChunkMode);
 
 	/**
 	 * @fn PopulateCommonMetadata

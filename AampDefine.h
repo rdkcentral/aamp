@@ -230,7 +230,6 @@ static_assert(DEFAULT_CACHED_FRAGMENTS_PER_TRACK <= MAX_CACHED_FRAGMENTS_PER_TRA
 #define DEFAULT_ABR_ELAPSED_MILLIS_FOR_ESTIMATE		100					/**< Duration(ms) to check Chunk Speed */
 #define AAMP_LLDABR_MIN_BUFFER_VALUE			0.5f                  /** 0.5 sec */
 #define DEFAULT_ABR_BYTES_TRANSFERRED_FOR_ESTIMATE	(512 * 1024)				/**< 512K */
-#define MAX_MDAT_NOT_FOUND_COUNT			500					/**< Max MDAT not found count*/
 #define DEFAULT_CONTENT_PROTECTION_DATA_UPDATE_TIMEOUT	5000					/**< Default Timeout for Content Protection Data Update on Dynamic Key Rotation */
 
 // Player configuration for Fog download
@@ -305,7 +304,7 @@ typedef enum
 }ConfigPriority;
 
 /**
- * @brief AAMP Function return values
+ * @brief AAMP Function return values  - must match the below block
  */
 enum AAMPStatusType
 {
@@ -322,7 +321,37 @@ enum AAMPStatusType
 	eAAMPSTATUS_SEEK_RANGE_ERROR,			/**< Seek position range invalid */
 	eAAMPSTATUS_TRACKS_SYNCHRONIZATION_ERROR,	/**< Audio video track synchronization Error */
 	eAAMPSTATUS_INVALID_PLAYLIST_ERROR,		/**< Playlist discontinuity mismatch*/
-	eAAMPSTATUS_UNSUPPORTED_DRM_ERROR		/**< Unsupported DRM */
+	eAAMPSTATUS_UNSUPPORTED_DRM_ERROR,		/**< Unsupported DRM */
+	eAAMPSTATUS_MANIFEST_DOWNLOAD_ABORTED	/**< Manifest download has been aborted due to a player stop request */
+};
+/**
+ * @brief AAMP Function return descriptions - must match the above block
+ */
+[[maybe_unused]] inline constexpr const char* AAMPStatusStrings[] =
+{
+	"eAAMPSTATUS_OK",
+	"eAAMPSTATUS_FAKE_TUNE_COMPLETE",
+	"eAAMPSTATUS_GENERIC_ERROR",
+	"eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR",
+	"eAAMPSTATUS_PLAYLIST_VIDEO_DOWNLOAD_ERROR",
+	"eAAMPSTATUS_PLAYLIST_AUDIO_DOWNLOAD_ERROR",
+	"eAAMPSTATUS_MANIFEST_PARSE_ERROR",
+	"eAAMPSTATUS_MANIFEST_CONTENT_ERROR",
+	"eAAMPSTATUS_MANIFEST_INVALID_TYPE",
+	"eAAMPSTATUS_PLAYLIST_PLAYBACK",
+	"eAAMPSTATUS_SEEK_RANGE_ERROR",
+	"eAAMPSTATUS_TRACKS_SYNCHRONIZATION_ERROR",
+	"eAAMPSTATUS_INVALID_PLAYLIST_ERROR",
+	"eAAMPSTATUS_UNSUPPORTED_DRM_ERROR",
+	"eAAMPSTATUS_MANIFEST_DOWNLOAD_ABORTED"
+};
+
+/**
+ * @brief lambda to return a string for a status name
+ */
+inline constexpr auto statusName = [](AAMPStatusType s) -> const char* {
+	return (s >= 0 && s < (int)(sizeof(AAMPStatusStrings)/sizeof(AAMPStatusStrings[0])))
+		? AAMPStatusStrings[s] : "UNKNOWN";
 };
 
 /**

@@ -1905,6 +1905,7 @@ Example:
 - videoBufferedMiliseconds : number
 - audioBufferedMiliseconds : number
 - liveLatency : number
+- targetLatency : number
 - profileBandwidth : number
 - networkBandwidth : number
 - currentPlayRate : number
@@ -1915,6 +1916,7 @@ Example:
 - Added video PTS reporting if enabled with reportVideoPTS config
 - Added video buffer value (2.4 version)
 - Added audio buffer value (version 7.07 onwards)
+- Added targetLatency: current latency monitor target in milliseconds; 0 when monitor is inactive (non-LLD or LLD without latency correction enabled)
 
 ---
 
@@ -4241,3 +4243,8 @@ Aug 2024
 - Events:
     - Audio buffer added to playbackProgressUpdate
 - [TSB Feature](#tsb-feature) documentation
+
+**Version:** 8.08
+**Release Notes:**
+- Events:
+    - `targetLatency` field added to `playbackProgressUpdate` — reports the current latency monitor target in milliseconds (0 when the latency monitor is inactive, e.g. non-LLD streams or LLD without latency correction enabled)

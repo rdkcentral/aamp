@@ -135,6 +135,10 @@ public:
 		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getLiveLatency()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
+		prop = JSStringCreateWithUTF8CString("targetLatency");
+		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getTargetLatency()), kJSPropertyAttributeReadOnly, NULL);
+		JSStringRelease(prop);
+
 		prop = JSStringCreateWithUTF8CString("profileBandwidth");
 		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getProfileBandwidth()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
@@ -375,6 +379,10 @@ public:
 
 		prop = JSStringCreateWithUTF8CString("programStartTime");
 		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getProgramStartTime()), kJSPropertyAttributeReadOnly, NULL);
+		JSStringRelease(prop);
+
+		prop = JSStringCreateWithUTF8CString("producerReferenceClockOffset");
+		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getProducerReferenceClockOffset()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
 		prop = JSStringCreateWithUTF8CString("width");
