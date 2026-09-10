@@ -503,7 +503,7 @@ private:
 	/// Minimum number of needData dispatches required for video and for
 	/// audio (independently) before subtitle's own needData requests are
 	/// allowed through.  See HaveVideoAndAudioReachedNeedDataThreshold().
-	static constexpr int kMinNeedDataCountBeforeSubtitle = 10;
+	static constexpr int kMinNeedDataCountBeforeSubtitle = 50;
 
 	/// Count of OnNeedMediaData() dispatches for video/audio in the current
 	/// pipeline session.  Reset by Configure().  Atomic: Rialto's IPC
