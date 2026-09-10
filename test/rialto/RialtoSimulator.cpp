@@ -45,6 +45,7 @@
 #include <condition_variable>
 #include <cstdio>
 #include <cstdint>
+#include <cstdarg>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -86,8 +87,33 @@ static std::string LogPreamble(const char *function, int line)
 	return preamble;
 }
 
+static void RialtoSimLog(const std::string &preamble, const char *fmt, ...) __attribute__ ((format (printf, 2, 3)));
+
+static void RialtoSimLog(const std::string &preamble, const char *fmt, ...)
+{
+	va_list args;
+	va_start(args, fmt);
+	auto len = std::vsnprintf(nullptr, 0, fmt, args);
+	va_end(args);
+	std::string s2("snprintf Error");
+	if (len >= 0)
+	{
+		s2.resize(len + 1);
+		va_start(args, fmt);
+		std::vsnprintf(&s2[0], len + 1, fmt, args);
+		va_end(args);
+		// We initially allocated one extra character for the null terminator, but std::string doesn't need it.
+		s2.resize(len);
+	}
+
+	fputs((preamble + s2).c_str(), stderr);
+}
+// If we use fprintf and formatting as we write to stderr then the line gets interleaved
+// with AAMP logging before completely written out. To fix this write the entire log line
+// to a buffer first, then output it in one go to reduce chance of interleaving.
+// Not completely thread-safe since arguments can change between the two snprintf calls.
 #define RIALTO_SIM_LOG(fmt, ...) \
-	fprintf(stderr, "%s" fmt "\n",LogPreamble(__func__, __LINE__).c_str(), ##__VA_ARGS__)
+    RialtoSimLog(LogPreamble(__func__, __LINE__), fmt "\n", ##__VA_ARGS__) \
 
 // Minimum amount of media data (per non-subtitle track) that must be
 // injected — or an EOS received — before the pipeline transitions to
