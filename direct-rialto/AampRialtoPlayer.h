@@ -500,6 +500,17 @@ private:
 	///   order and cannot substitute for this atomic.
 	std::atomic<bool> m_allSourcesAttachedFlag{false};
 
+	/// Minimum number of needData dispatches required for video and for
+	/// audio (independently) before subtitle's own needData requests are
+	/// allowed through.  See HaveVideoAndAudioReachedNeedDataThreshold().
+	static constexpr int kMinNeedDataCountBeforeSubtitle = 10;
+
+	/// Count of OnNeedMediaData() dispatches for video/audio in the current
+	/// pipeline session.  Reset by Configure().  Atomic: Rialto's IPC
+	/// dispatch thread is the only writer, but tests may read concurrently.
+	std::atomic<int> m_videoNeedDataCount{0};
+	std::atomic<int> m_audioNeedDataCount{0};
+
 	/// True when the player has no established position for the current
 	/// period. Cleared once a position is (re)established: either
 	/// AttachSource() commits a definitive baseline for a newly-attached
@@ -696,16 +707,18 @@ private:
 	void UngateAllSources(const char *reason);
 
 	/**
-	 * @brief Return true once every source that actually exists among
-	 *        video/audio has sent at least one segment to Rialto.
+	 * @brief Return true once video and audio have each had at least
+	 *        kMinNeedDataCountBeforeSubtitle needData requests dispatched
+	 *        to them (see m_videoNeedDataCount / m_audioNeedDataCount).
 	 *
 	 * Used to hold back subtitle's needData responses (see
-	 * OnNeedMediaData()) until video/audio data is already flowing,
+	 * OnNeedMediaData()) until video/audio data is well established,
 	 * mitigating a Rialto server-side race where the dynamically-created
 	 * subtitle sink's clock-sync can misfire if subtitle data arrives at
-	 * the server first.
+	 * the server first. A source that doesn't exist at all (e.g. no audio
+	 * track) is treated as already past the threshold.
 	 */
-	bool HaveVideoAndAudioSentFirstSegment() const;
+	bool HaveVideoAndAudioReachedNeedDataThreshold() const;
 
 	/**
 	 * @brief Return true when Configure() must recreate the pipeline.

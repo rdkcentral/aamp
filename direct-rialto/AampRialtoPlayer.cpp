@@ -525,6 +525,8 @@ void AampRialtoPlayer::Configure(
 	// from issuing play() after the new pipeline attaches its sources.
 	// m_playRequested is reset by Stop(), which marks the end of a session.
 	m_allSourcesAttachedFlag.store(false, std::memory_order_relaxed);
+	m_videoNeedDataCount.store(0, std::memory_order_relaxed);
+	m_audioNeedDataCount.store(0, std::memory_order_relaxed);
 	for (auto &pa : m_pendingAttach)
 	{
 		pa.reset();
@@ -1151,15 +1153,14 @@ void AampRialtoPlayer::UngateAllSources(const char *reason)
 	}
 }
 
-bool AampRialtoPlayer::HaveVideoAndAudioSentFirstSegment() const
+bool AampRialtoPlayer::HaveVideoAndAudioReachedNeedDataThreshold() const
 {
-	auto sentOrAbsent = [this](AampMediaType type)
+	auto reachedOrAbsent = [this](AampMediaType type, int count)
 	{
-		const auto &source = m_sources[type];
-		return !source ||
-			source->firstPtsMs() != AampRialtoMediaSource::kFirstPtsNotSet;
+		return !m_sources[type] || count >= kMinNeedDataCountBeforeSubtitle;
 	};
-	return sentOrAbsent(eMEDIATYPE_VIDEO) && sentOrAbsent(eMEDIATYPE_AUDIO);
+	return reachedOrAbsent(eMEDIATYPE_VIDEO, m_videoNeedDataCount.load(std::memory_order_relaxed)) &&
+			reachedOrAbsent(eMEDIATYPE_AUDIO, m_audioNeedDataCount.load(std::memory_order_relaxed));
 }
 
 
@@ -2460,18 +2461,30 @@ void AampRialtoPlayer::OnNeedMediaData(
 	auto *source = findSourceByRialtoId(sourceId);
 	if (source)
 	{
+		if (source->mediaType() == eMEDIATYPE_VIDEO)
+		{
+			m_videoNeedDataCount.fetch_add(1, std::memory_order_relaxed);
+		}
+		else if (source->mediaType() == eMEDIATYPE_AUDIO)
+		{
+			m_audioNeedDataCount.fetch_add(1, std::memory_order_relaxed);
+		}
+
 		if (source->mediaType() == eMEDIATYPE_SUBTITLE &&
-			!HaveVideoAndAudioSentFirstSegment())
+			!HaveVideoAndAudioReachedNeedDataThreshold())
 		{
 			// Mitigates a Rialto server-side race where the dynamically-created
 			// subtitle sink's clock-sync can misfire if subtitle data reaches
 			// the server before video/audio's.  Answering NO_AVAILABLE_SAMPLES
 			// (rather than serving real data) here costs nothing — Rialto
 			// simply issues another needData shortly afterwards — but ensures
-			// video/audio's first segments always reach the server first.
-			AAMPLOG_INFO("sourceId=%d requestId=%u held back - video/audio "
-				 "have not both sent their first segment yet. Sleep 1 sec", sourceId, requestId);
-			std::this_thread::sleep_for(std::chrono::milliseconds(1000));  // experiment only
+			// video/audio are well established before subtitle data flows.
+			AAMPLOG_INFO("sourceId=%d requestId=%u held back - video/audio have"
+				"not each reached %d needData dispatches yet (video=%d audio=%d)",
+				sourceId, requestId, kMinNeedDataCountBeforeSubtitle,
+				m_videoNeedDataCount.load(std::memory_order_relaxed),
+				m_audioNeedDataCount.load(std::memory_order_relaxed));
+
 			if (m_pipeline &&
 				!m_pipeline->haveData(
 					firebolt::rialto::MediaSourceStatus::NO_AVAILABLE_SAMPLES, requestId))
