@@ -2818,9 +2818,15 @@ void AampRialtoPlayer::OnPlaybackError(
 				/*isRetryEnabled=*/true);
 			break;
 		case firebolt::rialto::PlaybackError::OUTPUT_PROTECTION:
-			m_notifiable->NotifyPlaybackError(
-				AAMP_TUNE_HDCP_COMPLIANCE_ERROR, errorDesc,
-				/*isRetryEnabled=*/false);
+			// Non-fatal per Rialto's own PlaybackErrorCallback contract.
+			// This fires once, exactly at HDCP recovery. Schedule a retune
+			// to resynchronize A/V and recover cleanly, mirroring
+			// AAMPGstPlayer's HandleBusMessage() HDCPProtectionFailure path -
+			// do not escalate to SendErrorEvent(), which would put AAMP into
+			// eSTATE_ERROR right as playback is recovering.
+			AAMPLOG_WARN("%s - scheduling retune for HDCP recovery",
+				errorDesc.c_str());
+			m_notifiable->NotifyOutputProtectionRecovered();
 			break;
 		case firebolt::rialto::PlaybackError::UNKNOWN:
 		default:

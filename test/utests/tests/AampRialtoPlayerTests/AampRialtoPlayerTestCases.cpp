@@ -4048,13 +4048,13 @@ TEST_F(AampRialtoPlayerTest,
 }
 
 TEST_F(AampRialtoPlayerTest,
-	OnPlaybackError_OutputProtection_MapsToHdcpComplianceErrorNoRetry)
+	OnPlaybackError_OutputProtection_SchedulesRetune)
 {
 	Configure();
 
-	EXPECT_CALL(m_mockNotifiable,
-		NotifyPlaybackError(AAMP_TUNE_HDCP_COMPLIANCE_ERROR, _,
-			/*isRetryEnabled=*/false))
+	EXPECT_CALL(m_mockNotifiable, NotifyPlaybackError(_, _, _))
+		.Times(0);
+	EXPECT_CALL(m_mockNotifiable, NotifyOutputProtectionRecovered())
 		.Times(1);
 
 	PostPlaybackError(/*sourceId=*/0,
