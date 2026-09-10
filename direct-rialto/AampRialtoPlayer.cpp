@@ -1151,6 +1151,18 @@ void AampRialtoPlayer::UngateAllSources(const char *reason)
 	}
 }
 
+bool AampRialtoPlayer::HaveVideoAndAudioSentFirstSegment() const
+{
+	auto sentOrAbsent = [this](AampMediaType type)
+	{
+		const auto &source = m_sources[type];
+		return !source ||
+			source->firstPtsMs() != AampRialtoMediaSource::kFirstPtsNotSet;
+	}
+	return sentOrAbsent(eMEDIATYPE_VIDEO) && sentOrAbsent(eMEDIATYPE_AUDIO);
+}
+
+
 void AampRialtoPlayer::CheckAllSourcesAttached()
 {
 	if (!m_pipeline)
@@ -2448,7 +2460,28 @@ void AampRialtoPlayer::OnNeedMediaData(
 	auto *source = findSourceByRialtoId(sourceId);
 	if (source)
 	{
-		source->handleNeedData(frameCount, requestId, m_pipeline.get());
+		if (source->mediaType() == eMEDIATYPE_SUBTITLE &&
+			!HaveVideoAndAudioSentFirstSegment())
+		{
+			// Mitigates a Rialto server-side race where the dynamically-created
+			// subtitle sink's clock-sync can misfire if subtitle data reaches
+			// the server before video/audio's.  Answering NO_AVAILABLE_SAMPLES
+			// (rather than serving real data) here costs nothing — Rialto
+			// simply issues another needData shortly afterwards — but ensures
+			// video/audio's first segments always reach the server first.
+			AAMPLOG_INFO("sourceId=%d requestId=%u held back - video/audio "
+				 "have not both sent their first segment yet", sourceId, requestId);
+			if (m_pipeline &&
+				!m_pipeline->haveData(
+					firebolt::rialto::MediaSourceStatus::NO_AVAILABLE_SAMPLES, requestId))
+			{
+				AAMPLOG_WARN("haveData(NO_AVAILABLE_SAMPLES) failed requestId=%u", requestId);
+			}
+		}
+		else
+		{
+			source->handleNeedData(frameCount, requestId, m_pipeline.get());
+		}
 	}
 	else
 	{

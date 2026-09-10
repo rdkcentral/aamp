@@ -696,6 +696,18 @@ private:
 	void UngateAllSources(const char *reason);
 
 	/**
+	 * @brief Return true once every source that actually exists among
+	 *        video/audio has sent at least one segment to Rialto.
+	 *
+	 * Used to hold back subtitle's needData responses (see
+	 * OnNeedMediaData()) until video/audio data is already flowing,
+	 * mitigating a Rialto server-side race where the dynamically-created
+	 * subtitle sink's clock-sync can misfire if subtitle data arrives at
+	 * the server first.
+	 */
+	bool HaveVideoAndAudioSentFirstSegment() const;
+
+	/**
 	 * @brief Return true when Configure() must recreate the pipeline.
 	 *
 	 * Rialto does not support dynamic source management; any change to
