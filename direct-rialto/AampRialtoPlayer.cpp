@@ -1158,7 +1158,7 @@ bool AampRialtoPlayer::HaveVideoAndAudioSentFirstSegment() const
 		const auto &source = m_sources[type];
 		return !source ||
 			source->firstPtsMs() != AampRialtoMediaSource::kFirstPtsNotSet;
-	}
+	};
 	return sentOrAbsent(eMEDIATYPE_VIDEO) && sentOrAbsent(eMEDIATYPE_AUDIO);
 }
 
