@@ -2470,7 +2470,8 @@ void AampRialtoPlayer::OnNeedMediaData(
 			// simply issues another needData shortly afterwards — but ensures
 			// video/audio's first segments always reach the server first.
 			AAMPLOG_INFO("sourceId=%d requestId=%u held back - video/audio "
-				 "have not both sent their first segment yet", sourceId, requestId);
+				 "have not both sent their first segment yet. Sleep 1 sec", sourceId, requestId);
+			std::this_thread::sleep_for(std::chrono::milliseconds(1000));  // experiment only
 			if (m_pipeline &&
 				!m_pipeline->haveData(
 					firebolt::rialto::MediaSourceStatus::NO_AVAILABLE_SAMPLES, requestId))
