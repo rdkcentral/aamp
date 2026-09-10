@@ -106,9 +106,9 @@ static void RialtoSimLog(const std::string &preamble, const char *fmt, ...)
 	fputs((preamble + s2).c_str(), stderr);
 }
 // If we use fprintf and formatting as we write to stderr then the line gets interleaved
-// with AAMP logging before completly written out. To fix this write the entire log line
+// with AAMP logging before completely written out. To fix this write the entire log line
 // to a buffer first, then output it in one go to reduce chance of interleaving.
-// Not completly thread-safe since arguments can change between the two snprintf calls.
+// Not completely thread-safe since arguments can change between the two snprintf calls.
 #define RIALTO_SIM_LOG(fmt, ...) \
     RialtoSimLog(LogPreamble(__func__, __LINE__), fmt "\n", ##__VA_ARGS__) \
 
