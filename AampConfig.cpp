@@ -513,7 +513,6 @@ static const ConfigLookupEntryFloat mConfigLookupTableFloat[AAMPCONFIG_FLOAT_COU
 	{DEFAULT_MIN_RATE_CORRECTION_SPEED,"minLatencyCorrectionPlaybackRate",eAAMPConfig_MinLatencyCorrectionPlaybackRate,false},
 	{DEFAULT_MAX_RATE_CORRECTION_SPEED,"maxLatencyCorrectionPlaybackRate",eAAMPConfig_MaxLatencyCorrectionPlaybackRate,false},
 	{DEFAULT_NORMAL_RATE_CORRECTION_SPEED,"normalLatencyCorrectionPlaybackRate",eAAMPConfig_NormalLatencyCorrectionPlaybackRate,false},
-	{DEFAULT_MIN_BUFFER_LOW_LATENCY,"lowLatencyMinBuffer",eAAMPConfig_LowLatencyMinBuffer,true, eCONFIG_RANGE_LLDBUFFER},
 	{DEFAULT_TARGET_BUFFER_LOW_LATENCY,"lowLatencyTargetBuffer",eAAMPConfig_LowLatencyTargetBuffer,true, eCONFIG_RANGE_LLDBUFFER},
 	{GST_BW_TO_BUFFER_FACTOR,"bandwidthToBufferFactor", eAAMPConfig_BWToGstBufferFactor,true},
 	// Underflow monitor thresholds (seconds)
