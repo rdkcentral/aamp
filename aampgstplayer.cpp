@@ -870,15 +870,17 @@ void AAMPGstPlayer::Stream()
 /**
  * @brief Configure pipeline based on A/V formats
  */
-void AAMPGstPlayer::Configure(PipelineCodecInfo&& codecInfo, StreamOutputFormat format, StreamOutputFormat audioFormat, StreamOutputFormat subFormat, bool bESChangeStatus, bool setReadyAfterPipelineCreation)
+void AAMPGstPlayer::Configure(StreamCodecInfo&& codecInfo, bool bESChangeStatus, bool setReadyAfterPipelineCreation)
 {
 	bool isSubEnable = aamp->IsGstreamerSubsEnabled();
 	int32_t trackId = aamp->GetCurrentAudioTrackId();
 	int PipelinePriority;
 	gint rate = INVALID_RATE;
 
-	AAMPLOG_MIL("videoFormat %d audioFormat %d subFormat %d", format, audioFormat, subFormat);
-
+	AAMPLOG_MIL("videoFormat %d videoEncrypted %d audioFormat %d audioEncrypted %d subFormat %d subtitleEncrypted %d",
+				codecInfo.video.mCodecFormat, codecInfo.video.mIsEncrypted,
+				codecInfo.audio.mCodecFormat, codecInfo.audio.mIsEncrypted,
+				codecInfo.subtitle.mCodecFormat, codecInfo.subtitle.mIsEncrypted);
 	playerInstance->SetPreferredDRM(GetDrmSystemID(aamp->GetPreferredDRM())); // pass the preferred DRM to Interface
 	InitializePlayerConfigs(this, playerInstance);
 	/*set the run time configs for pipeline configuration*/
@@ -889,7 +891,7 @@ void AAMPGstPlayer::Configure(PipelineCodecInfo&& codecInfo, StreamOutputFormat 
 	bool FirstFrameFlag = aamp->IsFirstVideoFrameDisplayedRequired();
 	bool isLiveRateCorrection = aamp->mConfig->IsConfigSet(eAAMPConfig_EnableLiveLatencyRateCorrection) && aamp->IsLive();
 	/*Configure and create the pipeline*/
-	playerInstance->ConfigurePipeline(std::move(codecInfo), (static_cast<int>(format)), (static_cast<int>(audioFormat)), (static_cast<int>(subFormat)),
+	playerInstance->ConfigurePipeline(std::move(codecInfo),
 									  bESChangeStatus, setReadyAfterPipelineCreation,
 									  isSubEnable, trackId, rate, PIPELINE_NAME, PipelinePriority, FirstFrameFlag, aamp->GetManifestUrl().c_str(), isLiveRateCorrection);
 	AAMPLOG_TRACE("exiting AAMPGstPlayer");
