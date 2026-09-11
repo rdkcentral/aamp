@@ -1741,6 +1741,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	, subTimeScale(0)
 	, speedCache {}
 	, mCurrentLatencyMs(0)
+	, mEncoderDelay(0)
 	, mLiveOffsetAppRequest(false)
 	, bLowLatencyStartABR(false)
 	, mEventManager (NULL)
@@ -2704,10 +2705,11 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 				// the seek info was last updated, and getPosition() is the playback
 				// position in milliseconds at that same update. Their difference
 				// yields how far (in ms) the player is behind the live edge.
-				latency = (mNewSeekInfo.GetInfo().getUpdateTime() - mNewSeekInfo.GetInfo().getPosition());
+				// Add mEncoderDelay to account for the encoder's contribution to latency.
+				latency = (mNewSeekInfo.GetInfo().getUpdateTime() - mNewSeekInfo.GetInfo().getPosition()) + mEncoderDelay;
 				if(latency < 0)
-				{ // this should never happen!
-					AAMPLOG_ERR("DASH negative live latency = %ldms, getUpdateTime() = %lldms, getPosition() = %lfms", latency, mNewSeekInfo.GetInfo().getUpdateTime(), mNewSeekInfo.GetInfo().getPosition());
+				{
+					AAMPLOG_ERR("DASH negative live latency = %ldms, getUpdateTime() = %lldms, getPosition() = %lfms, mEncoderDelay = %ldms", latency, mNewSeekInfo.GetInfo().getUpdateTime(), mNewSeekInfo.GetInfo().getPosition(), mEncoderDelay);
 				}
 			}
 			else
@@ -8794,7 +8796,7 @@ void PrivateInstanceAAMP::SaveNewTimedMetadata(long long timeMilliseconds, const
 void PrivateInstanceAAMP::ReportTimedMetadata(bool init)
 {
 	bool bMetadata = ISCONFIGSET_PRIV(eAAMPConfig_BulkTimedMetaReport) || ISCONFIGSET_PRIV(eAAMPConfig_BulkTimedMetaReportLive);
-	if(bMetadata && init && IsNewTune())
+	if(bMetadata)
 	{
 		ReportBulkTimedMetadata();
 	}
@@ -10249,7 +10251,7 @@ void PrivateInstanceAAMP::SendMediaMetadataEvent(void)
 		// To send an event to app we convert the URL scheme to "https" by replacing the prefix which is the CDN url sent from app
 		url.replace(0,4,"http");
 	}
-	MediaMetadataEventPtr event = std::make_shared<MediaMetadataEvent>(CONVERT_SEC_TO_MS(durationSeconds), width, height, mpStreamAbstractionAAMP->hasDrm, IsLive(), drmType, mpStreamAbstractionAAMP->mProgramStartTime, mTsbDepthMs, GetSessionId(), url);
+	MediaMetadataEventPtr event = std::make_shared<MediaMetadataEvent>(CONVERT_SEC_TO_MS(durationSeconds), width, height, mpStreamAbstractionAAMP->hasDrm, IsLive(), drmType, mpStreamAbstractionAAMP->mProgramStartTime, mTsbDepthMs, GetSessionId(), url, mEncoderDelay / 1000.0);
 
 	for (auto iter = langList.begin(); iter != langList.end(); iter++)
 	{
