@@ -3678,9 +3678,7 @@ bool PrivateInstanceAAMP::ProcessPendingDiscontinuity()
 			if (sink)
 			{
 				sink->Configure(
-					mVideoFormat,
-					mAudioFormat,
-					mSubtitleFormat,
+					StreamCodecInfo{GetMediaCodecInfo(eMEDIATYPE_VIDEO), GetMediaCodecInfo(eMEDIATYPE_AUDIO), GetMediaCodecInfo(eMEDIATYPE_SUBTITLE)},
 					mpStreamAbstractionAAMP->GetESChangeStatus(),
 					mIsTrackIdMismatch /*setReadyAfterPipelineCreation*/);
 
@@ -6060,6 +6058,13 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 
 	newTune = IsNewTune();
 	AAMPLOG_INFO("tuneType %d newTune %d mediaFormat %d", tuneType, newTune, mMediaFormat);
+	if (newTune || (eTUNETYPE_RETUNE == tuneType))
+	{
+		for (auto& trackEncrypted : mTrackEncrypted)
+		{
+			trackEncrypted.store(false);
+		}
+	}
 
 	// Get position before pipeline is teared down
 	if (eTUNETYPE_RETUNE == tuneType)
@@ -6512,7 +6517,8 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 				sink->SetAudioVolume(volume);
 				if (mbPlayEnabled)
 				{
-					sink->Configure(mVideoFormat, mAudioFormat, mSubtitleFormat, mpStreamAbstractionAAMP->GetESChangeStatus());
+					sink->Configure(StreamCodecInfo{GetMediaCodecInfo(eMEDIATYPE_VIDEO), GetMediaCodecInfo(eMEDIATYPE_AUDIO), GetMediaCodecInfo(eMEDIATYPE_SUBTITLE)},
+						mpStreamAbstractionAAMP->GetESChangeStatus());
 				}
 			}
 			else
@@ -12435,7 +12441,8 @@ void PrivateInstanceAAMP::SetStreamFormat(StreamOutputFormat videoFormat, Stream
 		StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 		if (sink)
 		{
-			sink->Configure(mVideoFormat, mAudioFormat, mSubtitleFormat, false);
+			sink->Configure(StreamCodecInfo{GetMediaCodecInfo(eMEDIATYPE_VIDEO), GetMediaCodecInfo(eMEDIATYPE_AUDIO), GetMediaCodecInfo(eMEDIATYPE_SUBTITLE)},
+				false);
 		}
 	}
 }
@@ -15193,6 +15200,7 @@ void PrivateInstanceAAMP::GetStreamFormat(StreamOutputFormat &primaryOutputForma
 void PrivateInstanceAAMP::SetStreamCaps(AampMediaType type, MediaCodecInfo&& codecInfo)
 {
 	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+	SetTrackEncrypted(type, codecInfo.mIsEncrypted);
 	switch (type)
 	{
 		case eMEDIATYPE_VIDEO:
@@ -15209,6 +15217,53 @@ void PrivateInstanceAAMP::SetStreamCaps(AampMediaType type, MediaCodecInfo&& cod
 	{
 		sink->SetStreamCaps(type, std::move(codecInfo));
 	}
+}
+
+/**
+ * @brief Set per-track encryption state used during pipeline codec configuration
+ * @param[in] type - Media track type
+ * @param[in] isEncrypted - true if the track is encrypted
+ */
+void PrivateInstanceAAMP::SetTrackEncrypted(AampMediaType type, bool isEncrypted)
+{
+	if (type >= eMEDIATYPE_VIDEO && type <= eMEDIATYPE_SUBTITLE)
+	{
+		mTrackEncrypted[static_cast<size_t>(type)].store(isEncrypted);
+		AAMPLOG_MIL("mediaType %d encrypted %d", type, isEncrypted);
+	}
+	else
+	{
+		AAMPLOG_WARN("Invalid mediaType %d, encryption state not updated", type);
+	}
+}
+
+/**
+ * @brief Build codec information for a media track
+ * @param[in] type - Media track type
+ * @return Codec information including format and encryption state
+ */
+MediaCodecInfo PrivateInstanceAAMP::GetMediaCodecInfo(AampMediaType type)
+{
+	MediaCodecInfo codecInfo;
+	switch (type)
+	{
+		case eMEDIATYPE_VIDEO:
+			codecInfo.mCodecFormat = static_cast<GstStreamOutputFormat>(mVideoFormat);
+			break;
+		case eMEDIATYPE_AUDIO:
+			codecInfo.mCodecFormat = static_cast<GstStreamOutputFormat>(mAudioFormat);
+			break;
+		case eMEDIATYPE_SUBTITLE:
+			codecInfo.mCodecFormat = static_cast<GstStreamOutputFormat>(mSubtitleFormat);
+			break;
+		default:
+			AAMPLOG_WARN("Invalid mediaType %d, returning default codec info", type);
+			return codecInfo;
+	}
+	codecInfo.mIsEncrypted = mTrackEncrypted[static_cast<size_t>(type)].load();
+	AAMPLOG_MIL("mediaType %d codecFormat %d encrypted %d", type,
+		codecInfo.mCodecFormat, codecInfo.mIsEncrypted);
+	return codecInfo;
 }
 
 /**

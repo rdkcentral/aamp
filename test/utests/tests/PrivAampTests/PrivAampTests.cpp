@@ -6122,20 +6122,20 @@ TEST_F(PrivAampPrivTests, TuneHelperWithAampTsbConfigureFlushSequence)
 	//Verify the sequence for SeekToLive
 	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer.get()));
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, DoEarlyStreamSinkFlush(false, AAMP_NORMAL_PLAY_RATE)).WillRepeatedly(Return(true));
-	EXPECT_CALL(*g_mockAampGstPlayer, Configure(_,_,_,_,_)).InSequence(s);
+	EXPECT_CALL(*g_mockAampGstPlayer, Configure(_,_,_)).InSequence(s);
 	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_)).InSequence(s);
 	testp_aamp->TuneHelper(eTUNETYPE_SEEKTOLIVE);
 
 	//Verify the sequence for newTune
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, DoEarlyStreamSinkFlush(true, AAMP_NORMAL_PLAY_RATE)).WillRepeatedly(Return(true));
-	EXPECT_CALL(*g_mockAampGstPlayer, Configure(_,_,_,_,_)).InSequence(s);
+	EXPECT_CALL(*g_mockAampGstPlayer, Configure(_,_,_)).InSequence(s);
 	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_)).InSequence(s);
 	testp_aamp->TuneHelper(eTUNETYPE_NEW_NORMAL);
 
 	//Verify the sequence for eTUNETYPE_SEEK
 	testp_aamp->SetLocalAAMPTsb(true);
 	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_)).InSequence(s);
-	EXPECT_CALL(*g_mockAampGstPlayer, Configure(_,_,_,_,_)).InSequence(s);
+	EXPECT_CALL(*g_mockAampGstPlayer, Configure(_,_,_)).InSequence(s);
 	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_)).InSequence(s);
 	testp_aamp->TuneHelper(eTUNETYPE_SEEK);
 }
@@ -6966,4 +6966,3 @@ TEST_F(PrivAampPrivTests, StartLatencyMonitor_LiveLatencyCorrectionDisabled_Does
 	testp_aamp->CallStartLatencyMonitor();
 	testp_aamp->mpStreamAbstractionAAMP = nullptr;
 }
-

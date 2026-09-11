@@ -42,6 +42,7 @@
 #include <curl/curl.h>
 #include <string.h>
 #include <vector>
+#include <array>
 #include <unordered_map>
 #include <map>
 #include <set>
@@ -962,6 +963,7 @@ public:
 	std::condition_variable_any mDownloadsDisabled;
 	bool mDownloadsEnabled;
 	std::map<AampMediaType, bool> mMediaDownloadsEnabled; /* Used to enable/Disable individual mediaType downloads */
+	std::array<std::atomic<bool>, AAMP_TRACK_COUNT> mTrackEncrypted{false, false, false};
 	ABRManager mhAbrManager;                 /**< Pointer to Hybrid abr manager*/
 	ProfileEventAAMP profiler;
 	bool licenceFromManifest;
@@ -4110,6 +4112,21 @@ public:
 	 * @param[in] codecInfo - Codec information
 	 */
 	void SetStreamCaps(AampMediaType type, MediaCodecInfo&& codecInfo);
+	/**
+	 * @brief Set encryption state for the specified media track
+	 * @param[in] type - Media track type
+	 * @param[in] isEncrypted - true if the track is encrypted
+	 */
+	void SetTrackEncrypted(AampMediaType type, bool isEncrypted);
+
+	/**
+	 * @fn GetMediaCodecInfo
+	 * @brief Build codec information for pipeline configuration
+	 *
+	 * @param[in] type - Media track type
+	 * @return Codec information including format and encryption state
+	 */
+	MediaCodecInfo GetMediaCodecInfo(AampMediaType type);
 
 	/**
 	 * @fn QueueProtectionEvent
@@ -4193,7 +4210,6 @@ protected:
 	 *   @return void
 	 */
 	void LazilyLoadConfigIfNeeded(void);
-
 	/**
 	 *   @fn ExtractServiceZone
 	 *   @param  url - stream url with vss service zone info as query string

@@ -3768,6 +3768,8 @@ void StreamAbstractionAAMP_MPD::QueueContentProtection(IPeriod* period, uint32_t
 						/** Queue content protection in DRM license fetcher **/
 						licenseMgr->QueueContentProtection(std::move(drmHelper), period->GetId(), adaptationSetIdx, mediaType, isVssPeriod);
 					}
+					AAMPLOG_MIL("Marking mediaType %d encrypted from MPD content protection", mediaType);
+					aamp->SetTrackEncrypted(mediaType, true);
 					hasDrm = true;
 					aamp->licenceFromManifest = true;
 				}
@@ -9344,11 +9346,23 @@ void StreamAbstractionAAMP_MPD::PushEncryptedHeaders(std::map<int, std::string>&
 	std::vector<std::shared_future<void>> futures;
 	for (std::map<int, std::string>::iterator it = mappedHeaders.begin(); it != mappedHeaders.end(); ++it)
 	{
+		auto track = it->first;
+		if (track < 0 || track >= AAMP_TRACK_COUNT)
+		{
+			AAMPLOG_ERR("Invalid encrypted header track %d", track);
+			continue;
+		}
+		AAMPLOG_MIL("Marking track %d encrypted before encrypted header injection", track);
+		aamp->SetTrackEncrypted(static_cast<AampMediaType>(track), true);
+		if (track >= mNumberOfTracks || mMediaStreamContext[track] == nullptr)
+		{
+			AAMPLOG_ERR("No media stream context for encrypted header track %d", track);
+			continue;
+		}
 		if (ISCONFIGSET(eAAMPConfig_DashParallelFragDownload))
 		{
 			// Download the video, audio & subtitle fragments in a separate parallel thread.
-			AAMPLOG_DEBUG("Submitting job for init encrypted header track %d", it->first);
-			auto track = it->first;
+			AAMPLOG_DEBUG("Submitting job for init encrypted header track %d", track);
 			auto header = it->second;
 			auto dashWorkerJob = std::make_shared<AampDashWorkerJob>([this, track, header]() { CacheEncryptedHeader(track, header); });
 			auto future = aamp->GetAampTrackWorkerManager()->SubmitJob(static_cast<AampMediaType>(it->first), dashWorkerJob);
@@ -11754,17 +11768,12 @@ void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutpu
 		// data push is already in flight, and when the autoplug loses that race the push lands on
 		// an unlinked pad and the pipeline dies with "not-linked (-1)". See VPAAMP-1039.
 		//
-		// FORMAT_UNKNOWN is still the fallback whenever the codec cannot be predicted, which
-		// keeps the previous behaviour for anything this cannot cover:
-		//  - codecs AampMp4Demuxer does not recognise (see the maps in AampUtils.cpp)
-		//  - DRM protected assets, whose final caps are application/x-cenc, a different media
-		//    type that cannot be derived from the codec string alone
+		// FORMAT_UNKNOWN is still the fallback for codecs AampMp4Demuxer does not recognise
+		// (see the maps in AampUtils.cpp). DRM protection does not gate this lookup; clear and
+		// protected assets use the same codec mapping.
 		videoFormat = audioFormat = FORMAT_UNKNOWN;
-		if (!hasDrm)
-		{
-			videoFormat = GetMp4DemuxVideoFormatForCodec(GetCurrentCodec(eMEDIATYPE_VIDEO).c_str());
-			audioFormat = GetMp4DemuxAudioFormatForCodec(GetCurrentCodec(eMEDIATYPE_AUDIO).c_str());
-		}
+		videoFormat = GetMp4DemuxVideoFormatForCodec(GetCurrentCodec(eMEDIATYPE_VIDEO).c_str());
+		audioFormat = GetMp4DemuxAudioFormatForCodec(GetCurrentCodec(eMEDIATYPE_AUDIO).c_str());
 	}
 	if(mMediaStreamContext[eMEDIATYPE_VIDEO] && mMediaStreamContext[eMEDIATYPE_VIDEO]->enabled )
 	{
