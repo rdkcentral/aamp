@@ -106,14 +106,11 @@ public:
 	InterfacePlayerRDK* playerInterface;
 	/**
 		 * @fn Configure
-		 * @param[in] codecInfo pipeline codec information
-		 * @param[in] format video format
-		 * @param[in] audioFormat audio format
-		 * @param[in] subFormat subtitle format
+		 * @param[in] codecInfo Stream codec information
 		 * @param[in] bESChangeStatus flag to indicate if the audio type changed in mid stream
 		 * @param[in] setReadyAfterPipelineCreation True/False for pipeline is created
 		 */
-	void Configure(PipelineCodecInfo&& codecInfo, StreamOutputFormat format, StreamOutputFormat audioFormat, StreamOutputFormat subFormat, bool bESChangeStatus, bool setReadyAfterPipelineCreation=false) override;
+	void Configure(StreamCodecInfo&& codecInfo, bool bESChangeStatus, bool setReadyAfterPipelineCreation=false) override;
 	/**
 		 * @fn SendCopy
 		 * @param[in] mediaType stream type
