@@ -40,7 +40,7 @@ public:
 
     MOCK_METHOD(void, ChangeAamp, (PrivateInstanceAAMP *, id3_callback_t), (override));
 
-    MOCK_METHOD(void, Flush, (double position, int rate, bool shouldTearDown), (override));
+    MOCK_METHOD(void, Flush, (double position, int rate, bool shouldTearDown, bool positionIsAuthoritative), (override));
 
     MOCK_METHOD(void, SetEncryptedAamp, (PrivateInstanceAAMP *), (override));
 

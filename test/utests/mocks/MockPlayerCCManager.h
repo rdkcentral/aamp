@@ -29,6 +29,7 @@ public:
 	MOCK_METHOD(int, Init, (void *handle));
 	MOCK_METHOD(void, RestoreCC, (bool shouldRestoreCC));
 	MOCK_METHOD(void, Release, (int iID));
+	MOCK_METHOD(void, InvalidateHandle, (void *handle));
 	MOCK_METHOD(bool, IsOOBCCRenderingSupported, ());
 	MOCK_METHOD(int, SetStatus, (bool enable));
 	MOCK_METHOD(bool, GetStatus, ());

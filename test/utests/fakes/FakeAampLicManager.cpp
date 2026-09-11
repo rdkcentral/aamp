@@ -45,7 +45,7 @@ AAMPTuneFailure MapDrmToPlayerTuneFailure(DrmTuneFailure drmError)
     }
 }
 
-AampDRMLicenseManager::AampDRMLicenseManager(int, PrivateInstanceAAMP*)
+AampDRMLicenseManager::AampDRMLicenseManager(int, PrivateInstanceAAMP*, DrmSessionCreator)
 {
 }
 
