@@ -62,6 +62,7 @@ set(FAKE_SOURCES ${UTESTS_ROOT}/fakes/FakeAampRfc.cpp
 				 ${AAMP_ROOT}/test/utests/fakes/FakePlayerLogManager.cpp)
 
 set(AAMP_SOURCES ${AAMP_ROOT}/AampConfig.cpp
+		 ${AAMP_ROOT}/AampFlightDataRecorder.cpp
 		 ${AAMP_ROOT}/drm/AampDRMLicManager.cpp
 		 ${AAMP_ROOT}/AampFragmentDescriptor.cpp
 		 ${AAMP_ROOT}/downloader/AampCurlStore.cpp
