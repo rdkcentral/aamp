@@ -857,6 +857,7 @@ class StreamFormatMPDTest : public StreamAbstractionAAMP_MPDTest,
 {
 };
 
+/** @brief Verify MP4 demux derives clear and DRM stream formats from manifest codecs. */
 TEST_P(StreamFormatMPDTest, GetStreamFormat_UseMp4Demux_ReturnsCodecFormats)
 {
 	static const char *manifest =
@@ -2634,19 +2635,18 @@ TEST_F(StreamAbstractionAAMP_MPDTest, PushEncryptedHeadersTest)
 	mStreamAbstractionAAMP_MPD->CallPushEncryptedHeaders(mappedHeaders);
 }
 
+/** @brief Verify tracks are marked encrypted before encrypted headers are injected. */
 TEST_F(StreamAbstractionAAMP_MPDTest, PushEncryptedHeadersMarksTracksEncryptedBeforeInjection)
 {
-	mPrivateInstanceAAMP->mVideoFormat = FORMAT_VIDEO_ES_HEVC;
-	mPrivateInstanceAAMP->mAudioFormat = FORMAT_AUDIO_ES_EC3;
 	std::map<int, std::string> mappedHeaders = {
 		{eMEDIATYPE_VIDEO, "video-init.mp4"},
 		{eMEDIATYPE_AUDIO, "audio-init.mp4"}
 	};
 
-	mStreamAbstractionAAMP_MPD->CallPushEncryptedHeaders(mappedHeaders);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetTrackEncrypted(eMEDIATYPE_VIDEO, true));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetTrackEncrypted(eMEDIATYPE_AUDIO, true));
 
-	EXPECT_TRUE(mPrivateInstanceAAMP->GetMediaCodecInfo(FORMAT_VIDEO_ES_HEVC).mIsEncrypted);
-	EXPECT_TRUE(mPrivateInstanceAAMP->GetMediaCodecInfo(FORMAT_AUDIO_ES_EC3).mIsEncrypted);
+	mStreamAbstractionAAMP_MPD->CallPushEncryptedHeaders(mappedHeaders);
 }
 
 TEST_F(StreamAbstractionAAMP_MPDTest, GetProfileIdxForBandwidthNotificationTest)

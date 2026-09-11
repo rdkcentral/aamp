@@ -3768,6 +3768,7 @@ void StreamAbstractionAAMP_MPD::QueueContentProtection(IPeriod* period, uint32_t
 						/** Queue content protection in DRM license fetcher **/
 						licenseMgr->QueueContentProtection(std::move(drmHelper), period->GetId(), adaptationSetIdx, mediaType, isVssPeriod);
 					}
+					AAMPLOG_DEBUG("Marking mediaType %d encrypted from MPD content protection", mediaType);
 					aamp->SetTrackEncrypted(mediaType, true);
 					hasDrm = true;
 					aamp->licenceFromManifest = true;
@@ -9392,7 +9393,9 @@ void StreamAbstractionAAMP_MPD::PushEncryptedHeaders(std::map<int, std::string>&
 			AAMPLOG_ERR("Invalid encrypted header track %d", track);
 			continue;
 		}
+		AAMPLOG_DEBUG("Marking track %d encrypted before encrypted header injection", track);
 		aamp->SetTrackEncrypted(static_cast<AampMediaType>(track), true);
+		// L1 invokes this before track initialization; avoid dereferencing an unavailable media context.
 		if (track >= mNumberOfTracks || mMediaStreamContext[track] == nullptr)
 		{
 			AAMPLOG_ERR("No media stream context for encrypted header track %d", track);

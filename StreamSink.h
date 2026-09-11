@@ -31,7 +31,7 @@
 #include "AampDefine.h"
 
 class PrivateInstanceAAMP;
-struct PipelineCodecInfo;
+struct StreamCodecInfo;
 
 /**
  * @struct PlaybackQualityData
@@ -60,7 +60,7 @@ public:
      *   @param[in]  setReadyAfterPipelineCreation - Flag denotes if pipeline has to be reset to ready or not
      *   @return void
      */
-    virtual void Configure(PipelineCodecInfo&& codecInfo,StreamOutputFormat format, StreamOutputFormat audioFormat, StreamOutputFormat subFormat, bool bESChangeStatus, bool setReadyAfterPipelineCreation=false){}
+    virtual void Configure(StreamCodecInfo&& codecInfo,bool bESChangeStatus, bool setReadyAfterPipelineCreation=false){}
     /**
      *   @brief  API to send audio/video buffer into the sink.
      *
