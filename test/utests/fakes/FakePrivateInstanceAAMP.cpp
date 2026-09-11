@@ -1562,6 +1562,14 @@ void PrivateInstanceAAMP::ResumeTrackDownloads(AampMediaType)
 {
 }
 
+void PrivateInstanceAAMP::ForceResumeTrackBufferControl(AampMediaType)
+{
+}
+
+void PrivateInstanceAAMP::ResetNewSegmentEventSent()
+{
+}
+
 void PrivateInstanceAAMP::SetDiscontinuityParam()
 {
 }

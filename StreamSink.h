@@ -223,6 +223,12 @@ public:
     virtual void SetVideoZoom(VideoZoomMode zoom){};
 
     /**
+     *   @brief Force buffer control to resume for a given track.
+     *   @param[in] type - Media type to resume
+     */
+    virtual void ForceResumeBufferControl(AampMediaType type){};
+
+    /**
      *   @brief Set video mute state
      *
      *   @param[in] muted - true: video muted, false: video unmuted

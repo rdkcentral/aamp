@@ -4200,6 +4200,27 @@ void PrivateInstanceAAMP::ResumeTrackDownloads(AampMediaType type)
 }
 
 /**
+ * @brief Force-resume buffer control and track downloads for a media type.
+ */
+void PrivateInstanceAAMP::ForceResumeTrackBufferControl(AampMediaType type)
+{
+	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+	if (sink)
+	{
+		sink->ForceResumeBufferControl(type);
+	}
+	ResumeTrackDownloads(type);
+}
+
+void PrivateInstanceAAMP::ResetNewSegmentEventSent()
+{
+	if(SocUtils::ResetNewSegmentEvent())
+	{
+		for (int i = 0; i < AAMP_TRACK_COUNT; i++) mbNewSegmentEvtSent[i] = false;
+	}
+}
+
+/**
  *  @brief Block the injector thread until gstreamer needs buffer/more data.
  */
 void PrivateInstanceAAMP::BlockUntilGstreamerWantsData(void(*cb)(void), int periodMs, int track)
@@ -4210,7 +4231,7 @@ void PrivateInstanceAAMP::BlockUntilGstreamerWantsData(void(*cb)(void), int peri
 	{
 		if (!mDownloadsEnabled || mTrackInjectionBlocked[track])
 		{
-			AAMPLOG_WARN("PrivateInstanceAAMP: track:%d interrupted. mDownloadsEnabled:%d mTrackInjectionBlocked:%d", track, mDownloadsEnabled, mTrackInjectionBlocked[track]);
+			AAMPLOG_WARN("PrivateInstanceAAMP: track:%d interrupted after %dms. mDownloadsEnabled:%d mTrackInjectionBlocked:%d", track, elapsedMs, mDownloadsEnabled, mTrackInjectionBlocked[track]);
 			break;
 		}
 		if (cb && periodMs)
@@ -4220,9 +4241,14 @@ void PrivateInstanceAAMP::BlockUntilGstreamerWantsData(void(*cb)(void), int peri
 				cb();
 				elapsedMs -= periodMs;
 			}
-			elapsedMs += 10;
 		}
+		elapsedMs += 10;
 		interruptibleMsSleep(10);
+	}
+	if (elapsedMs > 1000)
+	{
+		AAMPLOG_WARN("track:%d was blocked for %dms before resuming (mbDownloadsBlocked:%d mbTrackDownloadsBlocked:%d)",
+			track, elapsedMs, (int)mbDownloadsBlocked, (int)mbTrackDownloadsBlocked[track]);
 	}
 	AAMPLOG_DEBUG("PrivateInstanceAAMP::Exit. type = %d",  track);
 }
