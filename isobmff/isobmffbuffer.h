@@ -186,6 +186,13 @@ public:
 	void setBuffer(uint8_t *buf, size_t sz);
 
 	/**
+	 * @fn dumpToFile
+	 * @brief Dump the whole mp4 fragment buffer to a file in /opt/dump
+	 * @param[in] prefix - optional filename prefix (defaults to "fragment")
+	 */
+	void dumpToFile(const char *prefix = nullptr);
+
+	/**
 	 * @fn parseBuffer
 	 *
 	 * @brief Parse the ISO BMFF buffer and create a vector of boxes with the parsed information.

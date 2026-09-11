@@ -27,6 +27,10 @@
 #include "AampLogManager.h"
 #include <inttypes.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <errno.h>
+#include <atomic>
 
 static Box *findBoxInVector(const char * box_type, const std::vector<Box*> *boxes);
 
@@ -51,6 +55,54 @@ void IsoBmffBuffer::setBuffer(uint8_t *buf, size_t sz)
 {
 	buffer = buf;
 	bufSize = sz;
+}
+
+/**
+ *  @brief Dump the whole mp4 fragment buffer to a file in /opt/dump
+ */
+void IsoBmffBuffer::dumpToFile(const char *prefix)
+{
+	static std::atomic<uint32_t> sDumpIndex{0};
+
+	if ((nullptr == buffer) || (0 == bufSize))
+	{
+		AAMPLOG_WARN("Nothing to dump (buffer=%p size=%zu)", buffer, bufSize);
+		return;
+	}
+
+	const char *dumpDir = "/opt/dump";
+
+	// Create the directory if it does not already exist
+	if ((mkdir(dumpDir, 0777) != 0) && (errno != EEXIST))
+	{
+		AAMPLOG_WARN("Failed to create directory %s (errno=%d)", dumpDir, errno);
+		return;
+	}
+
+	uint32_t index = sDumpIndex++;
+
+	char filePath[256];
+	snprintf(filePath, sizeof(filePath), "%s/%s_%05u.mp4",
+			 dumpDir, (prefix ? prefix : "fragment"), index);
+
+	FILE *fp = fopen(filePath, "wb");
+	if (nullptr == fp)
+	{
+		AAMPLOG_WARN("Failed to open %s for writing (errno=%d)", filePath, errno);
+		return;
+	}
+
+	size_t written = fwrite(buffer, 1, bufSize, fp);
+	fclose(fp);
+
+	if (written != bufSize)
+	{
+		AAMPLOG_WARN("Partial write to %s (%zu of %zu bytes)", filePath, written, bufSize);
+	}
+	else
+	{
+		AAMPLOG_INFO("Dumped %zu bytes to %s", bufSize, filePath);
+	}
 }
 
 /**
@@ -237,6 +289,14 @@ void IsoBmffBuffer::restampPtsInternal(int64_t offset, uint8_t *segment, size_t 
 		READ_U8(type, buf, 4);
 		type[4] = '\0';
 
+		// Reject a box whose declared size is invalid or exceeds the remaining
+		// bytes; walking past it would read/write foreign heap memory.
+		if ((size < SIZEOF_SIZE_AND_TAG) || (size > (bufSz - curOffset)))
+		{
+			AAMPLOG_WARN("Bad box[%s] size %u at offset %zu (bufSz %zu)", type, size, curOffset, bufSz);
+			break;
+		}
+
 		if (IS_TYPE(type, Box::MOOF) || IS_TYPE(type, Box::TRAF))
 		{
 			restampPtsInternal(offset, buf, size);
@@ -289,7 +349,18 @@ void IsoBmffBuffer::restampPtsInternal(int64_t offset, uint8_t *segment, size_t 
 
 void IsoBmffBuffer::restampPts(int64_t offset)
 {
+	// A chunked box means parseBuffer flagged the fragment as truncated;
+	// restamping would re-walk raw bytes past the allocation.
+	if (getChunkedfBox() != nullptr)
+	{
+		AAMPLOG_WARN("Incomplete fragment, skipping restamp");
+		return;
+	}
+
 	restampPtsInternal(offset, buffer, bufSize);
+
+	// Dump the modified fragment for debugging
+	dumpToFile("restamped");
 }
 
 void IsoBmffBuffer::setPtsAndDuration(uint64_t pts, uint64_t duration)
