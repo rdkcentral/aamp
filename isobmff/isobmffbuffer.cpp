@@ -264,7 +264,7 @@ void IsoBmffBuffer::restampPTS(uint64_t offset, uint64_t basePts, uint8_t *segme
 				uint64_t pts = ReadUint64(buf);
 				pts -= basePts;
 				pts += offset;
-				WriteUint64(buf, pts);
+				WriteUint64(buf, pts, segment + bufSz);
 			}
 			else
 			{
@@ -316,7 +316,7 @@ void IsoBmffBuffer::restampPtsInternal(int64_t offset, uint8_t *segment, size_t 
 					beforePTS = pts;
 				}
 				pts += offset;
-				WriteUint64(buf, pts);
+				WriteUint64(buf, pts, segment + bufSz);
 				if (!firstPtsSaved)
 				{
 					firstPtsSaved = true;

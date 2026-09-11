@@ -78,11 +78,18 @@ uint64_t ReadUint64(uint8_t *buf)
 /**
  *  @brief Utility function to write 8 bytes to a buffer
  */
-void WriteUint64(uint8_t *dst, uint64_t val)
+bool WriteUint64(uint8_t *dst, uint64_t val, const uint8_t *bufEnd)
 {
+	// Reject an 8-byte write that would run past the caller-supplied buffer end.
+	if ((nullptr != bufEnd) && ((dst + sizeof(uint64_t)) > bufEnd))
+	{
+		AAMPLOG_WARN("WriteUint64 rejected: 8-byte write past buffer end (dst=%p end=%p)", dst, bufEnd);
+		return false;
+	}
 	uint32_t msw = (uint32_t)(val>>32);
 	WRITE_U32(dst, msw); dst+=4;
 	WRITE_U32(dst, val);
+	return true;
 }
 
 /**
