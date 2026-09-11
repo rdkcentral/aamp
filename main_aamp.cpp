@@ -797,8 +797,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 					StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(aamp);
 					if (sink)
 					{
-						sink->Configure(PipelineCodecInfo{aamp->GetMediaCodecInfo(aamp->mVideoFormat), aamp->GetMediaCodecInfo(aamp->mAudioFormat), aamp->GetMediaCodecInfo(aamp->mSubtitleFormat)},
-							aamp->mVideoFormat, aamp->mAudioFormat, aamp->mSubtitleFormat,
+						sink->Configure(StreamCodecInfo{aamp->GetMediaCodecInfo(eMEDIATYPE_VIDEO), aamp->GetMediaCodecInfo(eMEDIATYPE_AUDIO), aamp->GetMediaCodecInfo(eMEDIATYPE_SUBTITLE)},
 							aamp->mpStreamAbstractionAAMP->GetESChangeStatus());
 						aamp->ResumeDownloads(); //To make sure that the playback resumes after a player switch if player was in paused state before being at background
 						aamp->mpStreamAbstractionAAMP->StartInjection();
