@@ -3284,7 +3284,7 @@ void PrivateInstanceAAMP::SendBufferChangeEvent(bool bufferingStarted)
 		}
 	}
 
-	AAMPLOG_INFO("PrivateInstanceAAMP: Sending Buffer Change event status (Buffering): %s durationMs: %lld", (e->buffering() ? "End": "Start"), bufferingDurationMs);
+	AAMPLOG_WARN("PrivateInstanceAAMP: Sending Buffer Change event status (Buffering): %s durationMs: %lld", (e->buffering() ? "End": "Start"), bufferingDurationMs);
 #ifdef AAMP_TELEMETRY_SUPPORT
 	AAMPTelemetry2 at2(mAppName);
 	std::string telemetryName = bufferingStarted?"VideoBufferingStart":"VideoBufferingEnd";
