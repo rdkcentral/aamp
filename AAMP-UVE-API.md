@@ -178,6 +178,7 @@ Configuration options are passed to AAMP using the UVE `initConfig()` method. Th
 | lowLatencyMaxValue | Number | 7 | Maximum acceptable latency (seconds). Ensures playback does not fall too far behind live stream. If latency exceeds this, playback speeds up to catch up with live edge. |
 | lowLatencyMinBuffer | Float | 2 | Minimum buffer level the player should maintain for low latency buffering (seconds). |
 | lowLatencyTargetBuffer | Float | 4 | Target buffer size for low latency mode (seconds). Balances latency and stability by keeping a healthy buffer. |
+| llDrmLatencyEstimate | Float | 2.0 | Estimated DRM license acquisition latency (seconds) used to pre-compensate the initial live offset for a new low-latency DASH tune. Set to 0 to disable DRM pre-compensation. |
 | maxABRBufferRampup | Number | 15 | Maximum ABR Buffer for Rampup in secs. |
 | maxLatencyCorrectionPlaybackRate | Float | 1.03 | Maximum playback speed for latency correction. When the player detects that it’s too far from the live edge (or fall behind target latency), it can speeds up playback slightly to catch up with the live edge without noticeable fast-forward effect. |
 | minABRBufferRampdown | Number | 10 | Minimum ABR Buffer for Rampdown in secs. |

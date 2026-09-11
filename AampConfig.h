@@ -370,6 +370,7 @@ typedef enum
 	eAAMPConfig_LLMinLatency,						/**< Low Latency Min Latency Offset */
 	eAAMPConfig_LLTargetLatency,					/**< Low Latency Target Latency */
 	eAAMPConfig_LLMaxLatency,						/**< Low Latency Max Latency */
+	eAAMPConfig_LLDrmLatencyEstimateSec,			/**< LL-DASH: estimated DRM acquisition latency (s); default is DEFAULT_LL_DRM_LATENCY_ESTIMATE_SEC; 0 disables feature */
 	eAAMPConfig_FloatMaxValue						/**< Max value for float config always last element*/
 } AAMPConfigSettingFloat;
 #define AAMPCONFIG_FLOAT_COUNT (eAAMPConfig_FloatMaxValue)
