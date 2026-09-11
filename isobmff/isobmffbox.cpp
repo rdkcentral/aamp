@@ -80,11 +80,9 @@ uint64_t ReadUint64(uint8_t *buf)
  */
 bool WriteUint64(uint8_t *dst, uint64_t val, const uint8_t *bufEnd)
 {
-	// Reject an 8-byte write that would run past the caller-supplied buffer end.
 	if ((nullptr != bufEnd) && ((dst + sizeof(uint64_t)) > bufEnd))
 	{
-		AAMPLOG_WARN("WriteUint64 rejected: 8-byte write past buffer end (dst=%p end=%p)", dst, bufEnd);
-		return false;
+		AAMPLOG_ERR("WriteUint64 potential overrun: writing 8 bytes past buffer end (dst=%p end=%p)", dst, bufEnd);
 	}
 	uint32_t msw = (uint32_t)(val>>32);
 	WRITE_U32(dst, msw); dst+=4;

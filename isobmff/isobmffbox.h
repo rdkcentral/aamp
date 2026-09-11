@@ -69,8 +69,8 @@ uint64_t ReadUint64(uint8_t *buf);
  *
  * @param[in] dst - buffer pointer
  * @param[in] val - value to write
- * @param[in] bufEnd - optional one-past-the-end pointer of the writable buffer; when non-null the 8-byte write is rejected if it would overrun
- * @return true if written, false if skipped due to bounds
+ * @param[in] bufEnd - optional one-past-the-end pointer used to log a potential overrun
+ * @return true after writing
  */
 bool WriteUint64(uint8_t *dst, uint64_t val, const uint8_t *bufEnd = nullptr);
 

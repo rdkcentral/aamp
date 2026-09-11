@@ -248,6 +248,11 @@ void IsoBmffBuffer::restampPTS(uint64_t offset, uint64_t basePts, uint8_t *segme
 		READ_U8(type, buf, 4);
 		type[4] = '\0';
 
+		if ((size < SIZEOF_SIZE_AND_TAG) || (size > (bufSz - curOffset)))
+		{
+			AAMPLOG_ERR("Restamp potential overrun: box[%s] size %u at offset %zu exceeds remaining buffer %zu", type, size, curOffset, bufSz - curOffset);
+		}
+
 		if (IS_TYPE(type, Box::MOOF) || IS_TYPE(type, Box::TRAF))
 		{
 			restampPTS(offset, basePts, buf, size);
@@ -264,7 +269,7 @@ void IsoBmffBuffer::restampPTS(uint64_t offset, uint64_t basePts, uint8_t *segme
 				uint64_t pts = ReadUint64(buf);
 				pts -= basePts;
 				pts += offset;
-				WriteUint64(buf, pts, segment + bufSz);
+				WriteUint64(buf, pts,bufSz);
 			}
 			else
 			{
@@ -283,18 +288,20 @@ void IsoBmffBuffer::restampPtsInternal(int64_t offset, uint8_t *segment, size_t 
 	size_t curOffset = 0;
 	while (curOffset < bufSz)
 	{
+		if ((bufSz - curOffset) < SIZEOF_SIZE_AND_TAG)
+		{
+			AAMPLOG_ERR("Restamp potential overrun: incomplete box header at offset %zu (remaining %zu)", curOffset, bufSz - curOffset);
+		}
+
 		uint8_t *buf = segment + curOffset;
 		uint32_t size = READ_U32(buf);
 		uint8_t type[5];
 		READ_U8(type, buf, 4);
 		type[4] = '\0';
 
-		// Reject a box whose declared size is invalid or exceeds the remaining
-		// bytes; walking past it would read/write foreign heap memory.
 		if ((size < SIZEOF_SIZE_AND_TAG) || (size > (bufSz - curOffset)))
 		{
-			AAMPLOG_WARN("Bad box[%s] size %u at offset %zu (bufSz %zu)", type, size, curOffset, bufSz);
-			break;
+			AAMPLOG_ERR("Restamp potential overrun: box[%s] size %u at offset %zu exceeds remaining buffer %zu", type, size, curOffset, bufSz - curOffset);
 		}
 
 		if (IS_TYPE(type, Box::MOOF) || IS_TYPE(type, Box::TRAF))
@@ -349,12 +356,9 @@ void IsoBmffBuffer::restampPtsInternal(int64_t offset, uint8_t *segment, size_t 
 
 void IsoBmffBuffer::restampPts(int64_t offset)
 {
-	// A chunked box means parseBuffer flagged the fragment as truncated;
-	// restamping would re-walk raw bytes past the allocation.
 	if (getChunkedfBox() != nullptr)
 	{
-		AAMPLOG_WARN("Incomplete fragment, skipping restamp");
-		return;
+		AAMPLOG_ERR("Restamping chunked fragment; potential out-of-bounds access");
 	}
 
 	restampPtsInternal(offset, buffer, bufSize);
