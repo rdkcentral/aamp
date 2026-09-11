@@ -269,7 +269,7 @@ void IsoBmffBuffer::restampPTS(uint64_t offset, uint64_t basePts, uint8_t *segme
 				uint64_t pts = ReadUint64(buf);
 				pts -= basePts;
 				pts += offset;
-				WriteUint64(buf, pts,bufSz);
+				WriteUint64(buf, pts, segment + bufSz);
 			}
 			else
 			{
