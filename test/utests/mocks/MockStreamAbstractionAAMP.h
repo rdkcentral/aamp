@@ -109,6 +109,8 @@ public:
 	MOCK_METHOD(bool, IsCurrentProfileLowest, ());
 
 	MOCK_METHOD(void, StopUnderflowMonitor, (), (override));
+
+	MOCK_METHOD(void, RefreshTrack, (AampMediaType type), (override));
 };
 
 extern std::shared_ptr<MockStreamAbstractionAAMP> g_mockStreamAbstractionAAMP;

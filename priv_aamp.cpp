@@ -12931,7 +12931,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 			bool labelAvailabilityInManifest = false;
 			bool nameAvailabilityInManifest = false;
 			std::string trackIndexStr;
-			bool codecChange = true;
+			bool codecChange = false;
 
 			if (trackIndex >= 0)
 			{
@@ -12946,11 +12946,26 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 				//If codec is already set, check the new codec against the older and ensure any change. If not set, read through the audio track info and found the codec against the new language set
 				if(!preferredCodecString.empty())
 				{
-					if(preferredCodecString == currentPrefCodec)
+					codecChange = (preferredCodecString != std::string(currentPrefCodec));
+					AAMPLOG_WARN("PreferredCodecString %s existing Codec %s codecChange=%d",preferredCodecString.c_str(),currentPrefCodec, (int)codecChange);
+				}
+				else if (!preferredLanguagesList.empty())
+				{
+					// No explicit codec preference was given — infer whether the target
+					// track uses the same codec as the current track.  If it does, no
+					// audio pipeline reconfiguration is needed and the seamless
+					// audio-switch path (RefreshTrack) can be used instead of a retune.
+					std::string firstLanguage = preferredLanguagesList.at(0);
+					for (auto &temp : trackInfo)
 					{
-						codecChange = false;
+						if (temp.language == firstLanguage && temp.isAvailable)
+						{
+							codecChange = (temp.codec != std::string(currentPrefCodec));
+							AAMPLOG_INFO("SetPreferredLanguages: target lang=%s codec=%s current codec=%s codecChange=%d",
+								firstLanguage.c_str(), temp.codec.c_str(), currentPrefCodec, (int)codecChange);
+							break;
+						}
 					}
-					AAMPLOG_WARN("PreferredCodecString %s existing Codec %s",preferredCodecString.c_str(),currentPrefCodec);
 				}
 
 				// Logic to check whether the given language is present in the available tracks,
