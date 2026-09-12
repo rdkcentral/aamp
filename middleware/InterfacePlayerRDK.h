@@ -782,6 +782,13 @@ class InterfacePlayerRDK
 		 */
 		void SetStreamCaps(GstMediaType type, MediaCodecInfo&& codecInfo);
 
+		/**
+                 * @brief Gets the stream capabilities.
+                 * @param[in] type The media type.
+                 * @return The codec information for the specified media type.
+                 */
+                GstStateChangeReturn GetPipelineState(GstState *currentState, GstState *pendingState);
+
 	private:
 		InterfacePlayerPriv *interfacePlayerPriv;
 };
