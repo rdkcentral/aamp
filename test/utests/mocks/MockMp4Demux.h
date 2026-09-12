@@ -30,6 +30,7 @@ class MockMp4Demux
 public:
     MOCK_METHOD(bool, Parse, (std::shared_ptr<std::vector<uint8_t>> segment));
     MOCK_METHOD(uint32_t, GetTimeScale, (), (const));
+    MOCK_METHOD(uint32_t, GetEffectiveTimeScale, (), (const));
     MOCK_METHOD(MediaCodecInfo, GetCodecInfo, ());
     MOCK_METHOD(std::vector<MediaProtectionInfo>, GetProtectionEvents, ());
     MOCK_METHOD(std::vector<AampMediaSample>, GetSamples, ());
