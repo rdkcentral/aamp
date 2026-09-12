@@ -526,6 +526,7 @@ static const ConfigLookupEntryFloat mConfigLookupTableFloat[AAMPCONFIG_FLOAT_COU
 	{DEFAULT_REBUFFER_LATENCY_MAX_INCREMENT_SEC, "rebufferLatencyMaxIncrementSec", eAAMPConfig_RebufferLatencyMaxIncrementSec, false},
 	{DEFAULT_LATENCY_STABLE_DURATION_SEC, "latencyStableDurationSec", eAAMPConfig_LatencyStableDurationSec, false},
 	{DEFAULT_LATENCY_DANGER_BUFFER_SEC, "latencyDangerBufferSec", eAAMPConfig_LatencyDangerBufferSec, false},
+	{DEFAULT_LATENCY_RESTORATION_BUFFER_SEC, "latencyRestorationBufferSec", eAAMPConfig_LatencyRestorationBufferSec, false},
 	{DEFAULT_MIN_LOW_LATENCY, "lowLatencyMinValue", eAAMPConfig_LLMinLatency, true},
 	{DEFAULT_TARGET_LOW_LATENCY, "lowLatencyTargetValue", eAAMPConfig_LLTargetLatency, true},
 	{DEFAULT_MAX_LOW_LATENCY, "lowLatencyMaxValue", eAAMPConfig_LLMaxLatency, true}

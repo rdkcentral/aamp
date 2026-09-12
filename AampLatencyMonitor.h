@@ -75,12 +75,17 @@ struct LatencyConfig
 	/// thresholds.  Zero means no cap.
 	double rebufferingLatencyMaxIncrementMs {0.0};
 
-	/// Buffer level (ms) that counts as healthy runway for restoration.
-	/// If bufferMs >= this value for latencyStableSec consecutive seconds,
-	/// one restoration step is applied.  Zero disables dynamic restoration entirely.
+	/// Buffer level (ms) below which a danger episode is considered active.
+	/// If bufferMs < this value, one upward threshold shift may be applied
+	/// for a danger episode. Zero disables dynamic threshold shifting entirely.
 	double dangerBufferMs {0.0};
 
-	/// Duration (s) of consecutive polls with buffer >= dangerBufferMs
+	/// Buffer level (ms) required to sustain the restoration window.
+	/// If bufferMs >= this value for latencyStableSec consecutive seconds,
+	/// one restoration step is applied. Zero disables dynamic restoration entirely.
+	double restorationBufferMs {0.0};
+
+	/// Duration (s) of consecutive polls with buffer >= restorationBufferMs
 	/// required before one restoration step is taken.
 	/// Zero disables dynamic restoration entirely.
 	double latencyStableSec {0.0};
@@ -92,7 +97,8 @@ struct LatencyConfig
 				  double minLatency, double targetLatency, double maxLatency,
 				  int monitorDelay, int monitorInterval, double bufferLevel,
 				  double rebufferingStepMs = 0.0, double rebufferingMaxIncrMs = 0.0,
-				  double dangerBufferMs = 0.0, double latencyStableSec = 0.0)
+				  double dangerBufferMs = 0.0, double restorationBufferMs = 0.0,
+				  double latencyStableSec = 0.0)
 		: normalPlaybackRate(normalRate)
 		, minPlaybackRate(minRate)
 		, maxPlaybackRate(maxRate)
@@ -105,6 +111,7 @@ struct LatencyConfig
 		, rebufferingLatencyStepMs(rebufferingStepMs)
 		, rebufferingLatencyMaxIncrementMs(rebufferingMaxIncrMs)
 		, dangerBufferMs(dangerBufferMs)
+		, restorationBufferMs(restorationBufferMs)
 		, latencyStableSec(latencyStableSec)
 	{}
 };
@@ -339,7 +346,7 @@ private:
 	/**
 	 * @brief Attempt one restoration step toward the config-default thresholds.
 	 *
-	 * Called from Run() once the buffer has remained at or above dangerBufferMs
+	 * Called from Run() once the buffer has remained at or above restorationBufferMs
 	 * for latencyStableSec consecutive seconds (measured across polling intervals).
 	 * Decrements mLatencyIncrementAccumulatedMs by rebufferingLatencyStepMs (floored
 	 * at zero) and recomputes the three dynamic thresholds.  Has no effect
@@ -365,7 +372,7 @@ private:
 	/// Reset to zero on Start() and Stop().
 	double mLatencyIncrementAccumulatedMs {0.0};
 
-	/// Time point when the buffer first reached dangerBufferMs, marking the
+	/// Time point when the buffer first reached restorationBufferMs, marking the
 	/// start of the current restoration window.  Reset to epoch (default-constructed) on
 	/// Start(), Stop(), and whenever a rebuffering event interrupts the healthy streak.
 	std::chrono::steady_clock::time_point mRestorationWindowStartTime {};
