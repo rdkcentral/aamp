@@ -12931,6 +12931,11 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 			bool labelAvailabilityInManifest = false;
 			bool nameAvailabilityInManifest = false;
 			std::string trackIndexStr;
+			// Default to assuming the audio codec changes, i.e. retune.  The seamless
+			// path below reuses the running audio pipeline, so it must only be taken
+			// when we can positively establish that the format is unchanged.  Any case
+			// where the current or the target codec cannot be determined has to fall
+			// back to a retune rather than guess.
 			bool codecChange = true;
 
 			if (trackIndex >= 0)
@@ -12946,11 +12951,50 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 				//If codec is already set, check the new codec against the older and ensure any change. If not set, read through the audio track info and found the codec against the new language set
 				if(!preferredCodecString.empty())
 				{
-					if(preferredCodecString == currentPrefCodec)
+					codecChange = (preferredCodecString != std::string(currentPrefCodec));
+					AAMPLOG_WARN("PreferredCodecString %s existing Codec %s codecChange=%d",preferredCodecString.c_str(),currentPrefCodec, (int)codecChange);
+				}
+				else if (preferredLanguagesList.size() == 1)
+				{
+					// No explicit codec preference was given - infer whether the target
+					// track uses the same codec as the current track.  If it does, no
+					// audio pipeline reconfiguration is needed and the seamless
+					// audio-switch path (RefreshTrack) can be used instead of a retune.
+					//
+					// Only attempt this for a single requested language.  With multiple
+					// languages the track that finally gets picked is decided by
+					// SelectAudioTrack() scoring and cannot be predicted here (and the
+					// logic below forces a retune in that case anyway).
+					std::string firstLanguage = preferredLanguagesList.at(0);
+					const AudioTrackInfo *target = nullptr;
+					bool ambiguousCodec = false;
+
+					for (auto &temp : trackInfo)
 					{
-						codecChange = false;
+						if ((temp.language == firstLanguage) && temp.isAvailable)
+						{
+							if ((NULL != target) && (target->codec != temp.codec))
+							{
+								// The requested language is offered in more than one
+								// codec; which representation SelectAudioTrack() ends up
+								// choosing is not decided here, so do not guess.
+								ambiguousCodec = true;
+								break;
+							}
+							if (NULL == target)
+							{
+								target = &temp;
+							}
+						}
 					}
-					AAMPLOG_WARN("PreferredCodecString %s existing Codec %s",preferredCodecString.c_str(),currentPrefCodec);
+
+					if ((NULL != target) && !ambiguousCodec)
+					{
+						codecChange = (target->codec != std::string(currentPrefCodec));
+					}
+					AAMPLOG_INFO("SetPreferredLanguages: target lang=%s codec=%s current codec=%s ambiguousCodec=%d codecChange=%d",
+						firstLanguage.c_str(), target ? target->codec.c_str() : "(not found)", currentPrefCodec,
+						(int)ambiguousCodec, (int)codecChange);
 				}
 
 				// Logic to check whether the given language is present in the available tracks,
@@ -13127,7 +13171,12 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 					mLanguageChangeInProgress = true;
 					{
 						std::lock_guard<std::recursive_mutex> lock(mStreamLock);
-						if(ISCONFIGSET_PRIV(eAAMPConfig_SeamlessAudioSwitch) && !mFirstTune && ( mMediaFormat == eMEDIAFORMAT_HLS_MP4 || mMediaFormat == eMEDIAFORMAT_DASH )  && !codecChange)
+						// IsSeamlessAudioSwitchPossible() must be evaluated last: the
+						// seamless request is serviced asynchronously by the fetcher loop,
+						// so it is dropped without effect if the fetcher has already
+						// finished.  Retuning is the only way to honour the request then.
+						if(ISCONFIGSET_PRIV(eAAMPConfig_SeamlessAudioSwitch) && !mFirstTune && ( mMediaFormat == eMEDIAFORMAT_HLS_MP4 || mMediaFormat == eMEDIAFORMAT_DASH )  && !codecChange
+						   && mpStreamAbstractionAAMP->IsSeamlessAudioSwitchPossible())
 						{
 							AAMPLOG_WARN("Seamless audio switch has been enabled");
 							mpStreamAbstractionAAMP->RefreshTrack(eMEDIATYPE_AUDIO);

@@ -361,6 +361,14 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	// ideally would be named enableEarlyId3Processing for clarity, but to avoid partner confusion leaving original spelling for now
 	// this will eventually be default enabled and deprecated as a configuration
 	{false, "earlyProcessing", eAAMPConfig_EarlyID3Processing, false},
+	// Requires useMp4Demux=false.  The flush that discards the already-buffered
+	// old-language audio is reached via MediaProcessor::resetPTSOnAudioSwitch(), which
+	// only IsoBmffProcessor implements.  AampMp4Demuxer inherits the empty base version,
+	// so with useMp4Demux=true PrivateInstanceAAMP::FlushTrack() is never called: AAMP
+	// selects and fetches the new language but the audio pipeline is never flushed, and
+	// playback continues in the previous language until the buffered audio runs out
+	// On desktop (OSX/Ubuntu) the audio switch itself works, but is
+	// accompanied by a multi-second video freeze.
 	{false, "seamlessAudioSwitch", eAAMPConfig_SeamlessAudioSwitch, true},
 	{false, "useRialtoSink", eAAMPConfig_useRialtoSink, false},
 	{false, "useDirectRialto", eAAMPConfig_useDirectRialto, false},
