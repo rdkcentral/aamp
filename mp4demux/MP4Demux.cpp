@@ -1737,6 +1737,24 @@ uint32_t Mp4Demux::GetTimeScale() const
 }
 
 /**
+ * @brief Get the effective timescale for PTS-to-seconds conversion.
+ *
+ * Returns the box-derived timescale when available (set by mdhd/mvhd parsing),
+ * otherwise falls back to the manifest-declared timescale supplied via
+ * SetFallbackTimeScale().  Data-only fragments (no init segment parsed in this
+ * call) leave timeScale at 0 even when the manifest fallback is configured —
+ * callers that need to convert PTS units to seconds should use this method
+ * rather than GetTimeScale() to avoid silently skipping the conversion.
+ *
+ * @return Effective timescale (>0 when either source has been set; 0 only if
+ *         neither box parsing nor SetFallbackTimeScale() has supplied a value)
+ */
+uint32_t Mp4Demux::GetEffectiveTimeScale() const
+{
+	return (timeScale != 0) ? timeScale : fallbackTimeScale;
+}
+
+/**
  * @brief Set the manifest-declared fallback timescale
  * @see MP4Demux.h
  */
