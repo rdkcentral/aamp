@@ -1144,6 +1144,8 @@ TEST_F(SetPreferredLanguagesTests, LanguageSwitchSameCodecNoExplicitPreference)
 	 */
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableAudioTracks(_))
 		.WillOnce(ReturnRef(tracks));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, IsSeamlessAudioSwitchPossible())
+		.WillOnce(Return(true));
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, RefreshTrack(eMEDIATYPE_AUDIO))
 		.Times(1);
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
@@ -1196,4 +1198,206 @@ TEST_F(SetPreferredLanguagesTests, LanguageSwitchDifferentCodecNoExplicitPrefere
 	EXPECT_STREQ(mPrivateInstanceAAMP->preferredLanguagesString.c_str(), "lang1");
 	EXPECT_EQ(mPrivateInstanceAAMP->preferredLanguagesList.size(), 1);
 	EXPECT_STREQ(mPrivateInstanceAAMP->preferredLanguagesList.at(0).c_str(), "lang1");
+}
+
+/**
+ * @brief Test VPAAMP-1191: a seamless switch must not be attempted once the
+ *        fetcher has reached end of stream.
+ *
+ * RefreshTrack() only raises a flag that the fetcher loop polls; if the fetcher has
+ * already exited, the request is silently dropped and the audio track never changes
+ * (the failure mode seen in L3 TST_2023 switch 2 on a fully-downloaded short VOD).
+ * Even with matching codecs, AAMP must retune in that situation.
+ */
+TEST_F(SetPreferredLanguagesTests, LanguageSwitchSameCodecFetcherAtEosRetunes)
+{
+	std::vector<AudioTrackInfo> tracks;
+	tracks.push_back(AudioTrackInfo("idx0", "lang0", "rend0", "trackName0", "codec0", 0, "type0", false, "label0", "type0", true));
+	tracks.push_back(AudioTrackInfo("idx1", "lang1", "rend1", "trackName1", "codec0", 0, "type1", false, "label1", "type1", true));
+
+	mPrivateInstanceAAMP->preferredLanguagesString = "lang0";
+	mPrivateInstanceAAMP->preferredLanguagesList.clear();
+	mPrivateInstanceAAMP->preferredLanguagesList.push_back("lang0");
+	mPrivateInstanceAAMP->SetFirstTune(false);
+	mPrivateInstanceAAMP->mMediaFormat = eMEDIAFORMAT_HLS_MP4;
+
+	/* Enable seamless audio switch config */
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_SeamlessAudioSwitch))
+		.WillOnce(Return(true));
+
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableAudioTracks(_))
+		.WillOnce(ReturnRef(tracks));
+	/* Fetcher can no longer service the request. */
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, IsSeamlessAudioSwitchPossible())
+		.WillOnce(Return(false));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, StopUnderflowMonitor());
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, RefreshTrack(eMEDIATYPE_AUDIO))
+		.Times(0);
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
+		.WillOnce(Invoke(this, &SetPreferredLanguagesTests::Stop));
+
+	mPrivateInstanceAAMP->SetPreferredLanguages("lang1", NULL, NULL, NULL, NULL);
+
+	/* Verify the preferred languages list. */
+	EXPECT_STREQ(mPrivateInstanceAAMP->preferredLanguagesString.c_str(), "lang1");
+	EXPECT_EQ(mPrivateInstanceAAMP->preferredLanguagesList.size(), 1);
+	EXPECT_STREQ(mPrivateInstanceAAMP->preferredLanguagesList.at(0).c_str(), "lang1");
+}
+
+/**
+ * @brief Test VPAAMP-1191: a label-only change carries no codec information, so it
+ *        must retune rather than assume the codec is unchanged.
+ *
+ * With no preferred codec and no preferred language set, there is nothing to compare
+ * the current codec against. The target track may well use a different codec, so the
+ * seamless path is unsafe here.
+ */
+TEST_F(SetPreferredLanguagesTests, LabelSwitchNoLanguageOrCodecPreferenceRetunes)
+{
+	std::vector<AudioTrackInfo> tracks;
+	tracks.push_back(AudioTrackInfo("idx0", "lang0", "rend0", "trackName0", "codec0", 0, "type0", false, "label0", "type0", true));
+	tracks.push_back(AudioTrackInfo("idx1", "lang1", "rend1", "trackName1", "codec1", 0, "type1", false, "label1", "type1", true));
+
+	mPrivateInstanceAAMP->preferredLanguagesString.clear();
+	mPrivateInstanceAAMP->preferredLanguagesList.clear();
+	mPrivateInstanceAAMP->preferredLabelsString = "label0";
+	mPrivateInstanceAAMP->SetFirstTune(false);
+	mPrivateInstanceAAMP->mMediaFormat = eMEDIAFORMAT_HLS_MP4;
+
+	/* Enable seamless audio switch config */
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_SeamlessAudioSwitch))
+		.Times(AnyNumber())
+		.WillRepeatedly(Return(true));
+
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableAudioTracks(_))
+		.WillOnce(ReturnRef(tracks));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, StopUnderflowMonitor());
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, RefreshTrack(eMEDIATYPE_AUDIO))
+		.Times(0);
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
+		.WillOnce(Invoke(this, &SetPreferredLanguagesTests::Stop));
+
+	mPrivateInstanceAAMP->SetPreferredLanguages(NULL, NULL, NULL, NULL, "label1");
+
+	/* Verify the preferred label. */
+	EXPECT_STREQ(mPrivateInstanceAAMP->preferredLabelsString.c_str(), "label1");
+}
+
+/**
+ * @brief Test VPAAMP-1191: when the requested language is offered in more than one
+ *        codec, the codec of the track that SelectAudioTrack() will pick cannot be
+ *        predicted here, so AAMP must retune.
+ */
+TEST_F(SetPreferredLanguagesTests, LanguageSwitchAmbiguousCodecRetunes)
+{
+	std::vector<AudioTrackInfo> tracks;
+	tracks.push_back(AudioTrackInfo("idx0", "lang0", "rend0", "trackName0", "codec0", 0, "type0", false, "label0", "type0", true));
+	/* lang1 is available as both codec0 and codec1. */
+	tracks.push_back(AudioTrackInfo("idx1", "lang1", "rend1", "trackName1", "codec0", 0, "type1", false, "label1", "type1", true));
+	tracks.push_back(AudioTrackInfo("idx2", "lang1", "rend2", "trackName2", "codec1", 0, "type2", false, "label2", "type2", true));
+
+	mPrivateInstanceAAMP->preferredLanguagesString = "lang0";
+	mPrivateInstanceAAMP->preferredLanguagesList.clear();
+	mPrivateInstanceAAMP->preferredLanguagesList.push_back("lang0");
+	mPrivateInstanceAAMP->SetFirstTune(false);
+	mPrivateInstanceAAMP->mMediaFormat = eMEDIAFORMAT_HLS_MP4;
+
+	/* Enable seamless audio switch config */
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_SeamlessAudioSwitch))
+		.Times(AnyNumber())
+		.WillRepeatedly(Return(true));
+
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableAudioTracks(_))
+		.WillOnce(ReturnRef(tracks));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, StopUnderflowMonitor());
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, RefreshTrack(eMEDIATYPE_AUDIO))
+		.Times(0);
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
+		.WillOnce(Invoke(this, &SetPreferredLanguagesTests::Stop));
+
+	mPrivateInstanceAAMP->SetPreferredLanguages("lang1", NULL, NULL, NULL, NULL);
+
+	/* Verify the preferred languages list. */
+	EXPECT_STREQ(mPrivateInstanceAAMP->preferredLanguagesString.c_str(), "lang1");
+	EXPECT_EQ(mPrivateInstanceAAMP->preferredLanguagesList.size(), 1);
+	EXPECT_STREQ(mPrivateInstanceAAMP->preferredLanguagesList.at(0).c_str(), "lang1");
+}
+
+/**
+ * @brief Test VPAAMP-1191: when the requested language is present but not flagged
+ *        available in the manifest, no codec can be established for it and AAMP must
+ *        retune rather than take the seamless path on an uninspected track.
+ */
+TEST_F(SetPreferredLanguagesTests, LanguageSwitchTargetNotAvailableRetunes)
+{
+	std::vector<AudioTrackInfo> tracks;
+	tracks.push_back(AudioTrackInfo("idx0", "lang0", "rend0", "trackName0", "codec0", 0, "type0", false, "label0", "type0", true));
+	/* Same codec as the current track, but not available in the manifest. */
+	tracks.push_back(AudioTrackInfo("idx1", "lang1", "rend1", "trackName1", "codec0", 0, "type1", false, "label1", "type1", false));
+
+	mPrivateInstanceAAMP->preferredLanguagesString = "lang0";
+	mPrivateInstanceAAMP->preferredLanguagesList.clear();
+	mPrivateInstanceAAMP->preferredLanguagesList.push_back("lang0");
+	mPrivateInstanceAAMP->SetFirstTune(false);
+	mPrivateInstanceAAMP->mMediaFormat = eMEDIAFORMAT_HLS_MP4;
+
+	/* Enable seamless audio switch config */
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_SeamlessAudioSwitch))
+		.Times(AnyNumber())
+		.WillRepeatedly(Return(true));
+
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableAudioTracks(_))
+		.WillOnce(ReturnRef(tracks));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, StopUnderflowMonitor());
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, RefreshTrack(eMEDIATYPE_AUDIO))
+		.Times(0);
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
+		.WillOnce(Invoke(this, &SetPreferredLanguagesTests::Stop));
+
+	mPrivateInstanceAAMP->SetPreferredLanguages("lang1", NULL, NULL, NULL, NULL);
+
+	/* Verify the preferred languages list. */
+	EXPECT_STREQ(mPrivateInstanceAAMP->preferredLanguagesString.c_str(), "lang1");
+	EXPECT_EQ(mPrivateInstanceAAMP->preferredLanguagesList.size(), 1);
+	EXPECT_STREQ(mPrivateInstanceAAMP->preferredLanguagesList.at(0).c_str(), "lang1");
+}
+
+/**
+ * @brief Test VPAAMP-1191: multiple preferred languages always retune. The language
+ *        that ends up selected is decided by SelectAudioTrack() scoring, so inferring
+ *        a codec from the first entry alone would be a guess.
+ */
+TEST_F(SetPreferredLanguagesTests, MultipleLanguagesNoExplicitCodecRetunes)
+{
+	std::vector<AudioTrackInfo> tracks;
+	tracks.push_back(AudioTrackInfo("idx0", "lang0", "rend0", "trackName0", "codec0", 0, "type0", false, "label0", "type0", true));
+	tracks.push_back(AudioTrackInfo("idx1", "lang1", "rend1", "trackName1", "codec0", 0, "type1", false, "label1", "type1", true));
+	tracks.push_back(AudioTrackInfo("idx2", "lang2", "rend2", "trackName2", "codec1", 0, "type2", false, "label2", "type2", true));
+
+	mPrivateInstanceAAMP->preferredLanguagesString = "lang0";
+	mPrivateInstanceAAMP->preferredLanguagesList.clear();
+	mPrivateInstanceAAMP->preferredLanguagesList.push_back("lang0");
+	mPrivateInstanceAAMP->SetFirstTune(false);
+	mPrivateInstanceAAMP->mMediaFormat = eMEDIAFORMAT_HLS_MP4;
+
+	/* Enable seamless audio switch config */
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_SeamlessAudioSwitch))
+		.Times(AnyNumber())
+		.WillRepeatedly(Return(true));
+
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableAudioTracks(_))
+		.WillOnce(ReturnRef(tracks));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, StopUnderflowMonitor());
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, RefreshTrack(eMEDIATYPE_AUDIO))
+		.Times(0);
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
+		.WillOnce(Invoke(this, &SetPreferredLanguagesTests::Stop));
+
+	/* lang1 uses the same codec as the current track, lang2 does not. */
+	mPrivateInstanceAAMP->SetPreferredLanguages("lang1,lang2", NULL, NULL, NULL, NULL);
+
+	/* Verify the preferred languages list. */
+	EXPECT_EQ(mPrivateInstanceAAMP->preferredLanguagesList.size(), 2);
+	EXPECT_STREQ(mPrivateInstanceAAMP->preferredLanguagesList.at(0).c_str(), "lang1");
+	EXPECT_STREQ(mPrivateInstanceAAMP->preferredLanguagesList.at(1).c_str(), "lang2");
 }

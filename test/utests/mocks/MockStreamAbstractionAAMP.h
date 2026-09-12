@@ -111,6 +111,8 @@ public:
 	MOCK_METHOD(void, StopUnderflowMonitor, (), (override));
 
 	MOCK_METHOD(void, RefreshTrack, (AampMediaType type), (override));
+
+	MOCK_METHOD(bool, IsSeamlessAudioSwitchPossible, (), (override));
 };
 
 extern std::shared_ptr<MockStreamAbstractionAAMP> g_mockStreamAbstractionAAMP;
