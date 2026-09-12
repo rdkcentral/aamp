@@ -1119,7 +1119,7 @@ TEST_F(SetPreferredLanguagesTests, CodecListTest5)
 }
 
 /**
- * @brief Test VPAAMP-1191: seamlessAudioSwitch should work when switching audio
+ * @brief seamlessAudioSwitch should work when switching audio
  *        language without explicit codec preference when codecs are the same.
  */
 TEST_F(SetPreferredLanguagesTests, LanguageSwitchSameCodecNoExplicitPreference)
@@ -1162,7 +1162,7 @@ TEST_F(SetPreferredLanguagesTests, LanguageSwitchSameCodecNoExplicitPreference)
 }
 
 /**
- * @brief Test VPAAMP-1191: seamlessAudioSwitch should NOT be used when switching
+ * @brief seamlessAudioSwitch should NOT be used when switching
  *        audio language without explicit codec preference when codecs differ.
  */
 TEST_F(SetPreferredLanguagesTests, LanguageSwitchDifferentCodecNoExplicitPreference)
@@ -1201,7 +1201,7 @@ TEST_F(SetPreferredLanguagesTests, LanguageSwitchDifferentCodecNoExplicitPrefere
 }
 
 /**
- * @brief Test VPAAMP-1191: a seamless switch must not be attempted once the
+ * @brief Test a seamless switch must not be attempted once the
  *        fetcher has reached end of stream.
  *
  * RefreshTrack() only raises a flag that the fetcher loop polls; if the fetcher has
@@ -1245,7 +1245,7 @@ TEST_F(SetPreferredLanguagesTests, LanguageSwitchSameCodecFetcherAtEosRetunes)
 }
 
 /**
- * @brief Test VPAAMP-1191: a label-only change carries no codec information, so it
+ * @brief a label-only change carries no codec information, so it
  *        must retune rather than assume the codec is unchanged.
  *
  * With no preferred codec and no preferred language set, there is nothing to compare
@@ -1284,7 +1284,7 @@ TEST_F(SetPreferredLanguagesTests, LabelSwitchNoLanguageOrCodecPreferenceRetunes
 }
 
 /**
- * @brief Test VPAAMP-1191: when the requested language is offered in more than one
+ * @brief when the requested language is offered in more than one
  *        codec, the codec of the track that SelectAudioTrack() will pick cannot be
  *        predicted here, so AAMP must retune.
  */
@@ -1324,7 +1324,7 @@ TEST_F(SetPreferredLanguagesTests, LanguageSwitchAmbiguousCodecRetunes)
 }
 
 /**
- * @brief Test VPAAMP-1191: when the requested language is present but not flagged
+ * @brief when the requested language is present but not flagged
  *        available in the manifest, no codec can be established for it and AAMP must
  *        retune rather than take the seamless path on an uninspected track.
  */
@@ -1363,7 +1363,7 @@ TEST_F(SetPreferredLanguagesTests, LanguageSwitchTargetNotAvailableRetunes)
 }
 
 /**
- * @brief Test VPAAMP-1191: multiple preferred languages always retune. The language
+ * @brief multiple preferred languages always retune. The language
  *        that ends up selected is decided by SelectAudioTrack() scoring, so inferring
  *        a codec from the first entry alone would be a guess.
  */
