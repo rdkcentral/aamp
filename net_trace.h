@@ -27,6 +27,9 @@
 #include <chrono>
 #include <cmath>
 #include <cstdint>
+#include <cstdio>     // fprintf, stderr
+#include <cerrno>     // errno
+#include <cstring>    // strerror
 #if defined(__unix__) || defined(__APPLE__)
 #include <unistd.h>   // getpid()
 #endif
@@ -384,11 +387,19 @@ private:
 		auto& state = GetFileState();
 		std::call_once(state.openOnce, [&state]() {
 			state.req_ofs.open(state.req_path, std::ios::app);
-			if (state.req_ofs.tellp() == 0) {
+			if (!state.req_ofs.is_open()) {
+				fprintf(stderr, "[NetTrace] failed to open requests CSV '%s': %s\n",
+					state.req_path.c_str(), strerror(errno));
+			}
+			else if (state.req_ofs.tellp() == 0) {
 				state.req_ofs << "req_id,when_start_s,url_path,media_type,bytes_total,http_code,conn_reused,primary_ip,local_port,ttfb_s,total_s,namelookup_s,connect_s,appconnect_s,pretransfer_s,redirect_s,chunked,gap_time_s,burst_time_s,burst_count,late_gap_count,avg_burst_rate_Bps\n";
 			}
 			state.burst_ofs.open(state.burst_path, std::ios::app);
-			if (state.burst_ofs.tellp() == 0) {
+			if (!state.burst_ofs.is_open()) {
+				fprintf(stderr, "[NetTrace] failed to open bursts CSV '%s': %s\n",
+					state.burst_path.c_str(), strerror(errno));
+			}
+			else if (state.burst_ofs.tellp() == 0) {
 				state.burst_ofs << "req_id,burst_idx,t_start_s,duration_s,bytes,gap_before_s,class\n";
 			}
 		});
