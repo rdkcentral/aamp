@@ -102,6 +102,7 @@ typedef enum
 	eAAMPConfig_DASHIgnoreBaseURLIfSlash,					/**< Ignore the constructed URI of DASH, if it is / */
 	eAAMPConfig_AnonymousLicenseRequest,					/**< Acquire license without token*/
 	eAAMPConfig_HLSAVTrackSyncUsingStartTime,				/**< HLS A/V track to be synced with start time*/
+	eAAMPConfig_EnableHLSPDTLatency,					/**< Enable HLS live latency calculation using EXT-X-PROGRAM-DATE-TIME when available */
 	eAAMPConfig_MPDDiscontinuityHandling,					/**< Enable MPD discontinuity handling*/
 	eAAMPConfig_MPDDiscontinuityHandlingCdvr,				/**< Enable MPD discontinuity handling for CDVR*/
 	eAAMPConfig_ForceHttp,							/**< Force HTTP*/
