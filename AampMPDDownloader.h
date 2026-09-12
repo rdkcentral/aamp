@@ -474,6 +474,8 @@ private:
 	int mPreProcessErrorCode; /**< curl/HTTP error injected when mMpdPreProcessFuncptr returns empty; default CURLE_OPERATION_TIMEDOUT */
 	std::atomic<int> mManifestRefreshErrorCode;
 	std::atomic<AAMPStatusType> mManifestRefreshErrorType;
+	std::atomic<int> mManifestRefreshRetryFailureCount;
+	int mManifestRefreshRetryFailureThreshold;
 };
 
 #endif /* __AAMP_MPD_DOWNLOADER_H__ */
