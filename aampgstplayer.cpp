@@ -1066,7 +1066,7 @@ bool AAMPGstPlayer::Pause( bool pause, bool forceStopPreBuffering )
  */
 void AAMPGstPlayer::SetVideoRectangle(int x, int y, int w, int h)
 {
-	playerInstance->SetVideoRectangle(x, y, w, h);
+	this->playerInstance->SetVideoRectangle(x, y, w, h);
 }
 
 /**
