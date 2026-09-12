@@ -26,6 +26,9 @@
  */
 
 #include "InterfacePlayerRDK.h"
+#include "MockInterfacePlayerRDK.h"
+
+std::shared_ptr<MockInterfacePlayerRDK> g_mockInterfacePlayerRDK{};
 
 static MonitorAVState sMonitorAVState{};
 static Configs sDefaultConfigs{};
@@ -111,7 +114,14 @@ bool InterfacePlayerRDK::IsCacheEmpty(int) { return true; }
 bool InterfacePlayerRDK::IsStreamReady(int) { return false; }
 bool InterfacePlayerRDK::GetBufferControlData(int) { return false; }
 bool InterfacePlayerRDK::IsPipelinePaused() { return false; }
-bool InterfacePlayerRDK::CheckDiscontinuity(int, int, bool, bool&, bool&) { return false; }
+bool InterfacePlayerRDK::CheckDiscontinuity(int mediaType, int streamFormat, bool codecChange, bool& unblockDiscProcess, bool& shouldHaltBuffering)
+{
+	if (g_mockInterfacePlayerRDK != nullptr)
+	{
+		return g_mockInterfacePlayerRDK->CheckDiscontinuity(mediaType, streamFormat, codecChange, unblockDiscProcess, shouldHaltBuffering);
+	}
+	return false;
+}
 bool InterfacePlayerRDK::CheckForPTSChangeWithTimeout(long) { return false; }
 
 void InterfacePlayerRDK::FirstFrameCallback(std::function<void(int, bool, bool, bool&, bool&)> callback)
