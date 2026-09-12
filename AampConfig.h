@@ -236,6 +236,7 @@ typedef enum
 	eAAMPConfig_LogFilename,				/**< Config to include source filename in log output */
 	eAAMPConfig_ProcessLicenseFromEAP,			/**< Config to enable non-VSS early available period DRM prefetch */
 	eAAMPConfig_EnableProducerReferenceDelay,		/**< Add PRT-derived encoder delay (from CalculateProducerReferenceTimeOffset) to DASH live latency calculation; default false */
+	eAAMPConfig_EnableFlightDataRecorder,			/**< Enable/Disable Flight Data Recorder for logging */
 	eAAMPConfig_BoolMaxValue				/**< Max value of bool config always last element */	
 
 } AAMPConfigSettingBool;
@@ -335,6 +336,8 @@ typedef enum
 	eAAMPConfig_UnderflowLowBufferPollMs,			/**< Underflow monitor polling interval for low buffer condition in milliseconds */
 	eAAMPConfig_UnderflowMediumBufferPollMs,		/**< Underflow monitor polling interval for medium buffer condition in milliseconds */
 	eAAMPConfig_UnderflowHighBufferPollMs,			/**< Underflow monitor polling interval for high buffer condition in milliseconds */
+	eAAMPConfig_FlightDataRecorderMaxLines,			/**< Maximum number of log lines to store in Flight Data Recorder */
+	eAAMPConfig_FlightDataRecorderMaxSeconds,		/**< Maximum age of log entries in Flight Data Recorder in seconds */
 	eAAMPConfig_IntMaxValue							/**< Max value of int config always last element*/
 } AAMPConfigSettingInt;
 #define AAMPCONFIG_INT_COUNT (eAAMPConfig_IntMaxValue)

@@ -161,13 +161,25 @@ function install_build_middleware_interface_fn()
         current_commit=$(cd "${mw_src}" && git rev-parse HEAD 2>/dev/null || echo "unknown")
     fi
     
+    local middleware_logger_patch="${AAMP_DIR}/OSX/patches/RDKEMW-23400-pluggable-player-logger.patch"
+    local apply_middleware_logger_patch=false
+    local current_build_id="${current_commit}"
+    if [[ "$OSTYPE" == "darwin"* ]] &&
+       ! grep -Eq "PLAYER_LOGGER_CALLBACK_API_VERSION[[:space:]]+([1-9]|[1-9][0-9]+)" \
+           "${mw_src}/playerLogManager/PlayerLogManager.h"; then
+        apply_middleware_logger_patch=true
+        local middleware_logger_patch_hash
+        middleware_logger_patch_hash=$(openssl dgst -sha256 "${middleware_logger_patch}" | awk '{print $2}')
+        current_build_id="${current_commit}+RDKEMW-23400-${middleware_logger_patch_hash}"
+    fi
+
     local needs_rebuild=false
     if [[ ! -f "${mw_build_marker}" ]]; then
         needs_rebuild=true
-    elif [[ -n "${current_commit}" ]] && [[ "${current_commit}" != "unknown" ]]; then
+    elif [[ -n "${current_build_id}" ]] && [[ "${current_commit}" != "unknown" ]]; then
         local built_commit=$(cat "${mw_build_marker}" 2>/dev/null || echo "")
-        if [[ "${built_commit}" != "${current_commit}" ]]; then
-            echo "Middleware commit changed from ${built_commit:0:8} to ${current_commit:0:8}, rebuilding..."
+        if [[ "${built_commit}" != "${current_build_id}" ]]; then
+            echo "Middleware build changed from ${built_commit:0:8} to ${current_build_id:0:8}, rebuilding..."
             needs_rebuild=true
         fi
     fi
@@ -178,15 +190,49 @@ function install_build_middleware_interface_fn()
         return 0
     fi
 
-    local mw_build_dir="${mw_src}/build_aamp"
+    local mw_build_source="${mw_src}"
+    local staged_mw_source=""
+    if [[ "${apply_middleware_logger_patch}" == true ]]; then
+        staged_mw_source="${LOCAL_DEPS_BUILD_DIR}/middleware-player-interface-rdkemw23400-src"
+        rm -rf "${staged_mw_source}"
+        mkdir -p "${staged_mw_source}" || return 1
+        if ! tar -C "${mw_src}" --exclude='.git' --exclude='build_aamp' -cf - . |
+             tar -C "${staged_mw_source}" -xf -; then
+            echo "Error: Failed to stage middleware source for RDKEMW-23400 patch"
+            return 1
+        fi
+        if ! patch -d "${staged_mw_source}" -p1 --dry-run < "${middleware_logger_patch}" ||
+           ! patch -d "${staged_mw_source}" -p1 < "${middleware_logger_patch}"; then
+            echo "Error: Failed to apply RDKEMW-23400 middleware logger patch"
+            rm -rf "${staged_mw_source}"
+            return 1
+        fi
+        mw_build_source="${staged_mw_source}"
+    fi
+
+    function cleanup_staged_middleware_source()
+    {
+        cd "${LOCAL_DEPS_BUILD_DIR}" 2>/dev/null || true
+        if [[ -n "${staged_mw_source}" ]]; then
+            rm -rf "${staged_mw_source}"
+            staged_mw_source=""
+        fi
+    }
+
+    local mw_build_dir="${mw_build_source}/build_aamp"
+    if [[ -n "${staged_mw_source}" ]]; then
+        mw_build_dir="${LOCAL_DEPS_BUILD_DIR}/middleware-player-interface-rdkemw23400-build"
+    fi
     rm -rf "${mw_build_dir}"
     mkdir -p "${mw_build_dir}" || {
         echo "Error: Failed to create build directory ${mw_build_dir}"
+        cleanup_staged_middleware_source
         return 1
     }
 
     cd "${mw_build_dir}" || {
         echo "Error: Failed to change directory to ${mw_build_dir}"
+        cleanup_staged_middleware_source
         return 1
     }
 
@@ -237,36 +283,45 @@ function install_build_middleware_interface_fn()
         fi
     fi
 
-    if ! PKG_CONFIG_PATH="${pkg_config_path_arg}:${PKG_CONFIG_PATH:-}" cmake "${mw_src}" \
+    if ! PKG_CONFIG_PATH="${pkg_config_path_arg}:${PKG_CONFIG_PATH:-}" cmake "${mw_build_source}" \
             -DCMAKE_INSTALL_PREFIX="${LOCAL_DEPS_BUILD_DIR}" \
             ${cmake_platform_flag} \
             ${openssl_root_flag} \
             -DCMAKE_BUILD_TYPE=Debug; then
         echo "Error: CMake configuration failed for middleware-player-interface"
+        cleanup_staged_middleware_source
         return 1
     fi
 
     echo "Building middleware-player-interface..."
     if ! make; then
         echo "Error: Build failed for middleware-player-interface"
+        cleanup_staged_middleware_source
         return 1
     fi
 
     echo "Installing middleware-player-interface..."
     if ! make install; then
         echo "Error: Installation failed for middleware-player-interface"
+        cleanup_staged_middleware_source
         return 1
     fi
 
     # Create pkg-config directory if it doesn't exist
     mkdir -p "$LOCAL_DEPS_BUILD_DIR/lib/pkgconfig" || {
         echo "Error: Failed to create pkgconfig directory"
+        cleanup_staged_middleware_source
         return 1
     }
 
+    cleanup_staged_middleware_source
+    if [[ "${mw_build_dir}" == "${LOCAL_DEPS_BUILD_DIR}/middleware-player-interface-rdkemw23400-build" ]]; then
+        rm -rf "${mw_build_dir}"
+    fi
+
     # Write commit hash to marker file for future rebuild detection
-    if [[ -n "${current_commit}" ]] && [[ "${current_commit}" != "unknown" ]]; then
-        echo "${current_commit}" > "${mw_build_marker}"
+    if [[ -n "${current_build_id}" ]] && [[ "${current_commit}" != "unknown" ]]; then
+        echo "${current_build_id}" > "${mw_build_marker}"
     else
         touch "${mw_build_marker}"
     fi
