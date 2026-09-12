@@ -367,8 +367,8 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	// so with useMp4Demux=true PrivateInstanceAAMP::FlushTrack() is never called: AAMP
 	// selects and fetches the new language but the audio pipeline is never flushed, and
 	// playback continues in the previous language until the buffered audio runs out
-	// (VPAAMP-1193).  On desktop (OSX/Ubuntu) the audio switch itself works, but is
-	// accompanied by a multi-second video freeze (VPAAMP-1194).
+	// On desktop (OSX/Ubuntu) the audio switch itself works, but is
+	// accompanied by a multi-second video freeze.
 	{false, "seamlessAudioSwitch", eAAMPConfig_SeamlessAudioSwitch, true},
 	{false, "useRialtoSink", eAAMPConfig_useRialtoSink, false},
 	{false, "useDirectRialto", eAAMPConfig_useDirectRialto, false},
