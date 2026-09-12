@@ -175,7 +175,7 @@ public:
       mManifest = manifest;
       mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
       // remoteUrl, manifest, effectiveUrl
-      EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adManifestUrl, _,_ , _, _, _, _, _, _, _, _, _, _, _))
+      EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adManifestUrl, _,_ , _, _, _, _, _, _, _, _, _, _, _, _))
               .Times(count)
               .WillRepeatedly(WithArgs<0,2,3,4>(Invoke(this, &AdManagerMPDTests::GetManifest)));
       if (isFOG)
@@ -185,19 +185,19 @@ public:
         std::string adFogManifestUrl = TEST_FOG_AD_MANIFEST_URL;
         if (fogDownloadSuccess)
         {
-          EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adFogManifestUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
+          EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adFogManifestUrl, _, _, _, _, _, _, _, _, _, _, _, _, _, _))
               .WillOnce(WithArgs<0,2,3,4>(Invoke(this, &AdManagerMPDTests::GetManifest)));
         }
         else
         {
-          EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adFogManifestUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
+          EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adFogManifestUrl, _, _, _, _, _, _, _, _, _, _, _, _, _, _))
               .WillOnce(Return(false));
         }
       }
     }
     else
     {
-      EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adManifestUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
+      EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adManifestUrl, _, _, _, _, _, _, _, _, _, _, _, _, _, _))
               .WillOnce(WithArgs<4>(Invoke([httpError](int& err){
                 err = httpError;
                 return false;
@@ -447,10 +447,10 @@ TEST_F(AdManagerMPDTests, SetAlternateContentsTests_2)
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
   }
   std::string adInitUrl = GetFullURI(TEST_AD_MANIFEST_HOST, "manifest/track-video-repid-LE5-tc--header.mp4");
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _, _))
               .WillOnce(Return(true));
   adInitUrl = GetFullURI(TEST_AD_MANIFEST_HOST, "manifest-eac3/track-audio-repid-DDen-tc--header.mp4");
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _, _))
               .WillOnce(Return(true));
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, url, startMS, breakdur);
   const auto adResolvedStatus = adResolvedFuture.wait_for(std::chrono::seconds(5));
@@ -532,10 +532,10 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
       .WillOnce(InvokeWithoutArgs([adResolvedPromise]{ adResolvedPromise->set_value(); }));
 
   std::string adInitUrl = GetFullURI(TEST_FOG_AD_MANIFEST_HOST, "manifest/track-video-repid-LE5-tc--header.mp4");
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _, _))
               .WillOnce(Return(true));
   adInitUrl = GetFullURI(TEST_FOG_AD_MANIFEST_HOST, "manifest-eac3/track-audio-repid-DDen-tc--header.mp4");
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _, _))
               .WillOnce(Return(true));
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, url, startMS, breakdur);
   ASSERT_EQ(adResolvedFuture.wait_for(std::chrono::seconds(5)), std::future_status::ready);
@@ -671,10 +671,10 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
       .Times(1)
       .WillOnce(InvokeWithoutArgs([adResolvedPromise]{ adResolvedPromise->set_value(); }));
   std::string adInitUrl = GetFullURI(TEST_AD_MANIFEST_HOST, "manifest/track-video-repid-LE5-tc--header.mp4");
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _, _))
               .WillOnce(Return(true));
   adInitUrl = GetFullURI(TEST_AD_MANIFEST_HOST, "manifest-eac3/track-audio-repid-DDen-tc--header.mp4");
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _, _))
               .WillOnce(Return(true));
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, url, startMS, breakdur);
   ASSERT_EQ(adResolvedFuture.wait_for(std::chrono::seconds(5)), std::future_status::ready);
@@ -757,10 +757,10 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
   EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId2, true, startMS + adDuration, 10000, adErrorCode))
       .Times(1).WillOnce(InvokeWithoutArgs(adResolvedLatch));
   std::string adInitUrl = GetFullURI(TEST_AD_MANIFEST_HOST, "manifest/track-video-repid-LE5-tc--header.mp4");
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _, _))
               .WillRepeatedly(Return(true));
   adInitUrl = GetFullURI(TEST_AD_MANIFEST_HOST, "manifest-eac3/track-audio-repid-DDen-tc--header.mp4");
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _, _))
               .WillRepeatedly(Return(true));
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId1, url, startMS, adDuration);
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId2, url, startMS, adDuration);
@@ -1013,13 +1013,13 @@ TEST_F(AdManagerMPDTests, SetAlternateContentsTests_13)
 
     // Set up GetFile expectations for video and audio init segments
     std::string videoInitUrl = TEST_AD_MANIFEST_HOST + std::string("video_init.mp4");
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(videoInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(videoInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _, _))
       .WillOnce(Return(true));
     std::string audioInitUrl = TEST_AD_MANIFEST_HOST + std::string("audio_init.mp4");
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(audioInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(audioInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _, _))
       .WillOnce(Return(true));
     // Set up the mock for GetFile before any SetAlternateContents calls
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(url, _, _, _, _, _, _, _, _, _, _, _, _, _))
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(url, _, _, _, _, _, _, _, _, _, _, _, _, _, _))
       .WillOnce(WithArgs<0,2,3,4>(Invoke([this, periodId, manifest](std::string remoteUrl, std::vector<uint8_t> &buffer, std::string& effectiveUrl, int& httpError)
         {
             buffer.clear();
@@ -4989,7 +4989,7 @@ TEST_F(AdManagerMPDTests, StaticManifest_NotifyComplete_TriggersPlacement)
   // Step 3: set up the mock to serve the ad manifest on download.
   mManifest = kSharedTenSecondAdManifest;
   EXPECT_CALL(*g_mockPrivateInstanceAAMP,
-      GetFile(std::string(TEST_AD_MANIFEST_URL), _, _, _, _, _, _, _, _, _, _, _, _, _))
+      GetFile(std::string(TEST_AD_MANIFEST_URL), _, _, _, _, _, _, _, _, _, _, _, _, _, _))
       .WillOnce(WithArgs<0,2,3,4>(Invoke(this, &AdManagerMPDTests::GetManifest)));
   EXPECT_CALL(*g_mockPrivateInstanceAAMP,
       SendAdResolvedEvent(adId, true, startMS, 10000u, eCDAI_ERROR_NONE))
@@ -4997,10 +4997,10 @@ TEST_F(AdManagerMPDTests, StaticManifest_NotifyComplete_TriggersPlacement)
     .WillOnce(InvokeWithoutArgs([adResolvedPromise]{ adResolvedPromise->set_value(); }));
 
   std::string adInitUrl = GetFullURI(TEST_AD_MANIFEST_HOST, "manifest/track-video-repid-LE5-tc--header.mp4");
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _, _))
             .WillOnce(Return(true));
   adInitUrl = GetFullURI(TEST_AD_MANIFEST_HOST, "manifest-eac3/track-audio-repid-DDen-tc--header.mp4");
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _, _))
             .WillOnce(Return(true));
 
   // Step 4: trigger the fulfillment loop.
@@ -5073,7 +5073,7 @@ TEST_F(AdManagerMPDTests, StaticManifest_TwoAds_CompleteTwentySecondBreak)
   // Step 3: each ad fulfillment downloads the same 10s ad manifest.
   mManifest = kSharedTenSecondAdManifest;
   EXPECT_CALL(*g_mockPrivateInstanceAAMP,
-      GetFile(std::string(TEST_AD_MANIFEST_URL), _, _, _, _, _, _, _, _, _, _, _, _, _))
+      GetFile(std::string(TEST_AD_MANIFEST_URL), _, _, _, _, _, _, _, _, _, _, _, _, _, _))
       .Times(2)
       .WillRepeatedly(WithArgs<0,2,3,4>(Invoke(this, &AdManagerMPDTests::GetManifest)));
 
@@ -5092,10 +5092,10 @@ TEST_F(AdManagerMPDTests, StaticManifest_TwoAds_CompleteTwentySecondBreak)
 
   // Expecting the ad init fragment to be downloaded twice (once for each ad fulfillment).
   std::string adInitUrl = GetFullURI(TEST_AD_MANIFEST_HOST, "manifest/track-video-repid-LE5-tc--header.mp4");
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _, _))
             .WillRepeatedly(Return(true));
   adInitUrl = GetFullURI(TEST_AD_MANIFEST_HOST, "manifest-eac3/track-audio-repid-DDen-tc--header.mp4");
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _, _))
             .WillRepeatedly(Return(true));
 
   // Step 4: fulfill ad1 and validate partial placement state.
@@ -5172,7 +5172,7 @@ TEST_F(AdManagerMPDTests, StaticManifest_NoBaseHelper_NotifyComplete_DoesNotPlac
   // Step 2: mock ad manifest download.
   mManifest = kSharedTenSecondAdManifest;
   EXPECT_CALL(*g_mockPrivateInstanceAAMP,
-      GetFile(std::string(TEST_AD_MANIFEST_URL), _, _, _, _, _, _, _, _, _, _, _, _, _))
+      GetFile(std::string(TEST_AD_MANIFEST_URL), _, _, _, _, _, _, _, _, _, _, _, _, _, _))
       .WillOnce(WithArgs<0,2,3,4>(Invoke(this, &AdManagerMPDTests::GetManifest)));
   EXPECT_CALL(*g_mockPrivateInstanceAAMP,
       SendAdResolvedEvent(adId, true, startMS, 10000u, eCDAI_ERROR_NONE))
@@ -5180,10 +5180,10 @@ TEST_F(AdManagerMPDTests, StaticManifest_NoBaseHelper_NotifyComplete_DoesNotPlac
     .WillOnce(InvokeWithoutArgs([adResolvedPromise]{ adResolvedPromise->set_value(); }));
 
   std::string adInitUrl = GetFullURI(TEST_AD_MANIFEST_HOST, "manifest/track-video-repid-LE5-tc--header.mp4");
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _, _))
             .WillOnce(Return(true));
   adInitUrl = GetFullURI(TEST_AD_MANIFEST_HOST, "manifest-eac3/track-audio-repid-DDen-tc--header.mp4");
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _, _))
             .WillOnce(Return(true));
 
   // Step 3: trigger fulfillment.
@@ -5241,7 +5241,7 @@ TEST_F(AdManagerMPDTests, StaticManifest_AdDownloadFails_NotifyComplete_DoesNotP
 
   // Step 3: make the ad manifest download fail with HTTP 404.
   EXPECT_CALL(*g_mockPrivateInstanceAAMP,
-      GetFile(std::string(TEST_AD_MANIFEST_URL), _, _, _, _, _, _, _, _, _, _, _, _, _))
+      GetFile(std::string(TEST_AD_MANIFEST_URL), _, _, _, _, _, _, _, _, _, _, _, _, _, _))
       .WillOnce(WithArgs<4>(Invoke([](int& err){ err = 404; return false; })));
   EXPECT_CALL(*g_mockPrivateInstanceAAMP,
       SendAdResolvedEvent(adId, false, 0, 0, eCDAI_ERROR_DELIVERY_HTTP_ERROR))

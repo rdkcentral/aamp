@@ -127,6 +127,7 @@ protected:
 		{eAAMPConfig_EnablePTSReStamp, false},
 		{eAAMPConfig_LocalTSBEnabled, false},
 		{eAAMPConfig_EnableIFrameTrackExtract, false},
+		{eAAMPConfig_SynthesizeIframeForVOD, false},
 		{eAAMPConfig_useRialtoSink, false},
 		{eAAMPConfig_GstSubtecEnabled, false},
 		{eAAMPConfig_UseMp4Demux, false},
@@ -2290,6 +2291,7 @@ TEST_F(FunctionalTests_1, UseIframeTrack_aamptsb_iframeextract)
 TEST_F(FunctionalTests_1, UseIframeTrack_iframeextract)
 {
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableIFrameTrackExtract)).WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_SynthesizeIframeForVOD)).WillRepeatedly(Return(false));
 	_instanceStreamAbstractionAAMP_MPD->aamp->SetLocalAAMPTsb(false);
 	_instanceStreamAbstractionAAMP_MPD->trickplayMode = true;
 	bool result = _instanceStreamAbstractionAAMP_MPD->UseIframeTrack();
@@ -3922,7 +3924,7 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
 	EXPECT_CALL(*g_mockAampStreamSinkManager, GetMediaHeader(3))
 		.WillRepeatedly(Return(nullptr));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Return(true));
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(_,_,_,_,_,_,_,_,_,_,_,_,_,_)).WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(_,_,_,_,_,_,_,_,_,_,_,_,_,_,_)).WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(_,_,_,_,_,_,_,_));
 
 	EXPECT_CALL(*g_mockAampStreamSinkManager, RemoveMediaHeader(2));
@@ -6122,6 +6124,8 @@ TEST_F(StreamAbstractionAAMP_MPDTest, CheckForRampDownProfile_CurleRecvError_Ram
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableABR))
 		.WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_ABRBufferCheckEnabled))
+		.WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_SynthesizeIframeForVOD))
 		.WillRepeatedly(Return(false));
 
 	mStreamAbstractionAAMP_MPD->SetIsFogTSB(false);

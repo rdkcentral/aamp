@@ -63,3 +63,11 @@ bool IsoBmffHelper::ClearMediaHeaderDuration(std::vector<uint8_t> &buffer)
 	}
 	return true;
 }
+
+/*static*/ size_t IsoBmffHelper::GetIframeByteCap(const uint8_t * /*buf*/, size_t /*len*/)
+{
+	// Fake stub: return 0 so callers fall back to a full download.
+	// Tests that need to exercise the byte-cap path should link the real
+	// isobmffhelper.cpp rather than this fake.
+	return 0;
+}
