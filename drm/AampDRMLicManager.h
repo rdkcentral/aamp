@@ -226,6 +226,15 @@ public:
 	bool QueueContentProtection(std::shared_ptr<DrmHelper> drmHelper, std::string periodId, uint32_t adapIdx, AampMediaType type, bool isVssPeriod = false);
 
 	/**
+	 * @brief Check whether a key ID has already been processed by the DRM session manager.
+	 *
+	 * @param[in] keyId key ID to check
+	 * @param[out] keyStatus processing status when the key was found
+	 * @return true if the key was already processed, false otherwise
+	 */
+	bool IsKeyIdProcessed(const std::vector<uint8_t>& keyId, bool& keyStatus);
+
+	/**
 	 * @brief Queue a content protection event to the pipeline
 	 * 
 	 * @param drmHelper DrmHelper shared_ptr
