@@ -104,6 +104,11 @@ bool AampDRMLicenseManager::QueueContentProtection(DrmHelperPtr drmHelper, std::
 	return false;
 }
 
+bool AampDRMLicenseManager::IsKeyIdProcessed(const std::vector<uint8_t>&, bool&)
+{
+    return false;
+}
+
 void AampDRMLicenseManager::QueueProtectionEvent(DrmHelperPtr drmHelper, std::string periodId, uint32_t adapIdx, AampMediaType type)
 {
     if (g_mockAampLicenseManager)
