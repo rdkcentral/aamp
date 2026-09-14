@@ -49,6 +49,22 @@ public:
 };
 
 /**
+ * @class StreamSinkBufferControl
+ * @brief Optional buffer control extension for stream sink implementations
+ */
+class StreamSinkBufferControl
+{
+public:
+    /**
+     * @brief Force buffer control to resume for a given track.
+     * @param[in] type - Media type to resume
+     */
+    virtual void ForceResumeBufferControl(AampMediaType type) = 0;
+
+    virtual ~StreamSinkBufferControl() = default;
+};
+
+/**
  * @struct PlaybackQualityData
  * @brief Playback quality data information
  */
@@ -68,12 +84,6 @@ public:
 
     /**
      *   @brief  Configure output formats
-     *
-     *   @param[in]  format - Video output format.
-     *   @param[in]  audioFormat - Audio output format.
-     *   @param[in]  bESChangeStatus - Flag to keep force configure the pipeline value
-     *   @param[in]  setReadyAfterPipelineCreation - Flag denotes if pipeline has to be reset to ready or not
-     *   @return void
      */
     virtual void Configure(StreamOutputFormat format, StreamOutputFormat audioFormat, StreamOutputFormat subFormat, bool bESChangeStatus, bool setReadyAfterPipelineCreation=false){}
     /**

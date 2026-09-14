@@ -1104,8 +1104,8 @@ void AAMPGstPlayer::ForceResumeBufferControl(AampMediaType type)
 {
 	if (privateContext)
 	{
-		AAMPLOG_WARN("[type=%d] ForceResumeBufferControl: invoking needData on buffer control", type);
-		privateContext->mBufferControl[type].needData(this, type);
+		AAMPLOG_WARN("[type=%d] ForceResumeBufferControl: resuming buffer control", type);
+		privateContext->mBufferControl[type].forceResume(type);
 	}
 }
 

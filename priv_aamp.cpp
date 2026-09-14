@@ -11682,7 +11682,12 @@ bool PrivateInstanceAAMP::SetStateBufferingIfRequired()
 			StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 			if(sink)
 			{
-				sink->NotifyFragmentCachingOngoing();
+				StreamSinkBufferControl *bufferControl =
+					dynamic_cast<StreamSinkBufferControl *>(sink);
+				if (bufferControl)
+				{
+					bufferControl->ForceResumeBufferControl(type);
+				}
 			}
 			SetState(eSTATE_BUFFERING);
 		}
