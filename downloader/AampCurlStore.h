@@ -80,12 +80,12 @@ typedef struct curlstorestruct
 {
 	std::deque<CurlHandleStruct> mFreeQ;
 	CURLSH* mCurlShared;
-	CurlDataShareLock *pstShareLocks;
+	CurlDataShareLock mShareLock; // per-host lock; lifetime equals this struct
 
 	unsigned int mCurlStoreUserCount;
 	long long timestamp;
 
-	curlstorestruct():mCurlShared(NULL), pstShareLocks(NULL), timestamp(0), mCurlStoreUserCount(0), mFreeQ()
+	curlstorestruct():mFreeQ(), mCurlShared(NULL), mShareLock(), mCurlStoreUserCount(0), timestamp(0)
 	{}
 
 	//Disabled for now
@@ -103,6 +103,8 @@ class CurlStore
 private:
 	std::mutex mCurlInstLock{};
 	int MaxCurlSockStore;
+	// mSharedCurlLock removed (VPAAMP-558): each curlstorestruct now embeds its own
+	// CurlDataShareLock (mShareLock), restoring per-host DNS/SSL lock granularity.
 
 	typedef std::unordered_map <std::string, CurlSocketStoreStruct*> CurlSockData ;
 	typedef std::unordered_map <std::string, CurlSocketStoreStruct*>::iterator CurlSockDataIter;
