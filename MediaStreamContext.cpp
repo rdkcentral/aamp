@@ -25,6 +25,7 @@
 #include "MediaStreamContext.h"
 #include "AampUtils.h"
 #include "isobmff/isobmffbuffer.h"
+#include "isobmff/isobmffhelper.h"
 #include "AampCacheHandler.h"
 #include "AampTSBSessionManager.h"
 #include "AampMPDUtils.h"
@@ -126,7 +127,17 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 					maxInitDownloadTimeMS, initSegment, aamp->mTsbDepthMs, (unsigned long long)dnldInstance->GetPublishTime(), fragmentTime);
 			}
 
-			ret = aamp->GetFile(fragmentUrl, actualType, mTempFragment, effectiveUrl, httpErrorCode, &downloadTimeS, range, curlInstance, true/*resetBuffer*/,  &bitrate, &iFogError, fragmentDurationS, bucketType, maxInitDownloadTimeMS);
+			// VOD iframe synthesis (Phase 2): abort the CURL transfer as soon as the
+		// first I-frame payload has been received, saving the bandwidth cost of
+		// downloading the remainder of the segment.  The caller still runs
+		// ConvertToKeyFrame() afterwards to fix the MOOF metadata.
+		const bool doSynthesizeAbort = !initSegment
+			&& iCurrentRate != AAMP_NORMAL_PLAY_RATE
+			&& iCurrentRate != AAMP_RATE_PAUSE
+			&& mediaType == eMEDIATYPE_VIDEO
+			&& ISCONFIGSET(eAAMPConfig_SynthesizeIframeForVOD);
+
+		ret = aamp->GetFile(fragmentUrl, actualType, mTempFragment, effectiveUrl, httpErrorCode, &downloadTimeS, range, curlInstance, true/*resetBuffer*/,  &bitrate, &iFogError, fragmentDurationS, bucketType, maxInitDownloadTimeMS, doSynthesizeAbort);
 			if (initSegment && ret)
 			{
 				aamp->getAampCacheHandler()->InsertToInitFragCache(fragmentUrl, mTempFragment, effectiveUrl, actualType);
@@ -134,6 +145,30 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 			if (ret)
 			{
 				TransferFragmentBuffer(cachedFragment, nullptr, &mTempFragment, 0, false);
+
+				/* VOD iframe synthesis: when the feature is enabled, strip each non-init
+				 * video segment to its leading I-frame during trickplay.  This mirrors the
+				 * behaviour of AampTSBSessionManager for the AAMP-Managed Local TSB path and
+				 * allows VCR-style FF/REW on VOD DASH assets (including JITT ads) that do not
+				 * advertise a dedicated iframe AdaptationSet. */
+				if (!initSegment
+					&& iCurrentRate != AAMP_NORMAL_PLAY_RATE
+					&& iCurrentRate != AAMP_RATE_PAUSE
+					&& mediaType == eMEDIATYPE_VIDEO
+					&& ISCONFIGSET(eAAMPConfig_SynthesizeIframeForVOD))
+				{
+					IsoBmffHelper isoBmffHelper;
+					if (!isoBmffHelper.ConvertToKeyFrame(cachedFragment->fragment))
+					{
+						AAMPLOG_WARN("[%s] ConvertToKeyFrame failed for VOD iframe synthesis"
+								 " at position %.3f", name, position);
+					}
+					else
+					{
+						AAMPLOG_INFO("[%s] Synthesized I-frame for VOD trickplay at %.3f"
+								 " (rate=%d)", name, position, iCurrentRate);
+					}
+				}
 			}
 		}
 

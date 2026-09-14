@@ -42,6 +42,28 @@ class IsoBmffHelper
 		bool ConvertToKeyFrame(std::vector<uint8_t> &buffer);
 
 		/**
+		 * @brief Streaming MOOF probe for VOD iframe synthesis partial download.
+		 *
+		 *        Given a partially-received segment buffer, compute the minimum
+		 *        byte count required to cover:
+		 *            [MOOF box (complete)] [MDAT header (8 bytes)] [first-sample payload]
+		 *
+		 *        Intended to be called from the CURL write callback on every chunk
+		 *        until the MOOF is fully buffered (returns 0 until then).  Once the
+		 *        cap is returned, the caller should truncate the download at that
+		 *        offset and then call ConvertToKeyFrame() to fix the MOOF metadata.
+		 *
+		 *        No heap allocation is performed; safe for the write-callback hot path.
+		 *
+		 * @param[in] buf  Raw bytes received so far (segment start = offset 0)
+		 * @param[in] len  Valid byte count in buf
+		 * @return Total bytes needed (moofSize + 8 + firstSampleSize), or 0 if the
+		 *         MOOF is not yet fully buffered or the first-sample size cannot be
+		 *         determined (caller should fall back to full download).
+		 */
+		static size_t GetIframeByteCap(const uint8_t *buf, size_t len);
+
+		/**
 		 * @fn RestampPts
 		 *
 		 * @brief Restamp the PTS in the ISO BMFF boxes in the buffer, by adding an offset

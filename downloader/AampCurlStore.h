@@ -279,6 +279,8 @@ struct CurlCallbackContext
 	long long dataTransferStartTime = -1; /**< Indicate the time when data transfer starts */
 	CurlAbortReason abortReason = eCURL_ABORT_REASON_NONE; /**< Reason for aborting the curl download  */
 	bool earlyAbortEnabled = false; /**< Flag to enable early abort logic for chunk downloads */
+	bool synthesizeIframeAbort = false;    /**< VOD iframe synthesis: abort after first I-frame bytes received */
+	size_t synthesizeIframeByteCap = 0;    /**< Computed cap (moofSize+8+firstSampleSize); 0 until MOOF fully buffered */
 	BitsPerSecond profileBps = 0; /**< Current video profile bits per second used for early abort calculation*/
 	uint64_t chunkDurationInTicks = 0; /**< Duration of the current chunk in ticks, used while caching chunks */
 

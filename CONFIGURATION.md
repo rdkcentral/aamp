@@ -191,6 +191,7 @@ Network timeout configurations control how long AAMP waits for various network o
 |----------|------|---------|-------------|
 | `disable4K` | Boolean | false | Disable 4K playback on 4K devices |
 | `iframeDefaultBitrate` | Number | 0 | Default bitrate for I-frame tracks |
+| `synthesizeIframeForVOD` | Boolean | false | When `true`, AAMP downloads the regular video track during VOD DASH trickplay (FF/REW) and strips each segment to its leading I-frame using `IsoBmffHelper::ConvertToKeyFrame()`. Enables VCR-style trickplay on VOD assets (including JITT ads) that do not advertise a dedicated iframe `AdaptationSet`. Has no effect during live/TSB playback. |
 
 ### DRM & License
 
