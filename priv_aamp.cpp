@@ -11679,16 +11679,6 @@ bool PrivateInstanceAAMP::SetStateBufferingIfRequired()
 			{
 				mpStreamAbstractionAAMP->NotifyPlaybackPaused(true);
 			}
-			StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
-			if(sink)
-			{
-				StreamSinkBufferControl *bufferControl =
-					dynamic_cast<StreamSinkBufferControl *>(sink);
-				if (bufferControl)
-				{
-					bufferControl->ForceResumeBufferControl(type);
-				}
-			}
 			SetState(eSTATE_BUFFERING);
 		}
 	}
