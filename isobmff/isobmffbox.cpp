@@ -78,11 +78,25 @@ uint64_t ReadUint64(const uint8_t *buf)
 /**
  *  @brief Utility function to write 8 bytes to a buffer
  */
-void WriteUint64(uint8_t *dst, uint64_t val)
+bool WriteUint64(uint8_t *dst, uint64_t val, const uint8_t *bufEnd, const uint8_t *boxEnd)
 {
+	if (nullptr == dst)
+	{
+		AAMPLOG_DEBUG("WriteUint64 bounds check failed: dst is null");
+	}
+	if ((nullptr != bufEnd) && ((dst + sizeof(uint64_t)) > bufEnd))
+	{
+		AAMPLOG_DEBUG("WriteUint64 bounds check failed: write would overrun the buffer");
+	}
+	if ((nullptr != boxEnd) && ((dst + sizeof(uint64_t)) > boxEnd))
+	{
+		AAMPLOG_DEBUG("WriteUint64 bounds check failed: write would overrun tfdt box");
+	}
+
 	uint32_t msw = (uint32_t)(val>>32);
 	WRITE_U32(dst, msw); dst+=4;
 	WRITE_U32(dst, static_cast<uint32_t>(val) );
+	return true;
 }
 
 /**
