@@ -180,6 +180,16 @@ AampMPDDownloader::AampMPDDownloader() :  mMPDBufferQ(),mMPDBufferSize(1),mMPDBu
 AampMPDDownloader::~AampMPDDownloader()
 {
 	// Clear the queue and release all the objects
+	if ( mReleaseCalled && (mDownloaderThread_t1.joinable() || mDownloaderThread_t2.joinable() || mDownloadNotifierThread.joinable()) )
+	{
+		// NOTE: mReleaseCalled is initialised to true in the constructor.  Threads started
+		// inside StreamAbstraction::Init() are not joined if mReleaseCalled remains true when
+		// the destructor runs.  This guard defensively resets the flag and calls Release() to
+		// perform all pending thread joins, preventing a thread-leak crash in this state.
+		AAMPLOG_ERR("mReleaseCalled=true, but t1 = %d, t2 = %d, t3 = %d. Force mReleaseCalled=false before Release() to avoid a crash",
+			mDownloaderThread_t1.joinable() , mDownloaderThread_t2.joinable() , mDownloadNotifierThread.joinable());
+		mReleaseCalled=false;	// check for and force thread cleanups + join, since we're in a bad state
+	}
 	Release();
 	// reset the pointers , its shared pointer, it will released automatically
 	mMPDData = nullptr;
@@ -399,6 +409,17 @@ void AampMPDDownloader::downloadMPDThread1()
 			}
 			else
 			{
+				if(mReleaseCalled)
+				{
+					AAMPLOG_INFO("Skipping manifest download since Release was called");
+					break;
+				}
+				// KNOWN LIMITATION: There is a narrow window between the mReleaseCalled check above
+				// and mDownloader1.Download() below where an external Release() call can arrive.  If
+				// Release() fires in this window, Download() proceeds regardless (mDownloader1 is
+				// re-initialised before each attempt); the progress_callback abort via
+				// mDownloadActive=false remains the fallback mechanism.  Taking mMPDDnldMutex here
+				// to close the window would deadlock Release().
 				mDownloader1.Download(tuneUrl, mMPDData->mMPDDownloadResponse);
 			}
 		}
