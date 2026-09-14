@@ -28,10 +28,14 @@
 #include "AampCurlDefine.h"
 #include "priv_aamp.h"
 #include <map>
+#include <unordered_map>
+#include <deque>
 #include <iterator>
 #include <vector>
 #include <glib.h>
 #include <mutex>
+#include <utility> // std::pair
+#include <cstdint> // uint64_t
 
 namespace aamptrace {
 	class NetTrace;
@@ -63,29 +67,50 @@ typedef struct curldatasharelock
 	curldatasharelock():mCurlSharedlock(), mDnsCurlShareMutex(),mSslCurlShareMutex(){}
 }CurlDataShareLock;
 
-typedef struct curlstruct
-{
-	CURL *curl;
-	int curlId;
-	long long eHdlTimestamp;
-
-	curlstruct():curl(NULL), eHdlTimestamp(0),curlId(0){}
-}CurlHandleStruct;
-
 /**
  * @struct curlstorestruct
  * @brief structure to store curl easy, shared handle & locks for a host
+ *
+ * mFreeQ (single mixed-curlId deque) has been replaced with mFreeSlots,
+ * a per-curlId map of handle LIFO queues.  This eliminates the O(n) linear
+ * scan that GetCurlHandleFromFreeQ previously required to find a handle for a
+ * specific curlId, and removes the pathological case where a non-matching
+ * front element blocked access to every subsequent lookup.
+ *
+ * mCurlStoreUserCount is now a signed int (was unsigned int) so that
+ * mismatched Get/Keep calls produce a negative value that can be detected and
+ * clamped, rather than silently wrapping to ~4 billion and making the entry
+ * impossible to evict.
+ *
+ * mPendingFlush is set by FlushCurlSockForHost when live users prevent
+ * immediate cleanup.  Handles returned while the flag is set are disposed
+ * (curl_easy_cleanup) rather than re-pooled, and cleanup completes
+ * automatically when the user count reaches zero.
  */
 typedef struct curlstorestruct
 {
-	std::deque<CurlHandleStruct> mFreeQ;
+	// Per-curlId free-handle pools.  Each slot holds a LIFO deque of
+	// {CURL*, insertion-timestamp} pairs, oldest entries at the front.
+	// Using an unordered_map avoids the mixed-type accumulation that the
+	// old single deque had: lookup is O(1) per slot.
+	using CurlSlotEntry = std::pair<CURL *, long long>;
+	std::unordered_map<int, std::deque<CurlSlotEntry>> mFreeSlots;
+
 	CURLSH* mCurlShared;
 	CurlDataShareLock mShareLock; // per-host lock; lifetime equals this struct
 
-	unsigned int mCurlStoreUserCount;
+	int mCurlStoreUserCount; // signed so underflow is detectable (was: unsigned int)
+	bool mPendingFlush;      // set when FlushCurlSockForHost cannot immediately clean up
 	long long timestamp;
 
-	curlstorestruct():mFreeQ(), mCurlShared(NULL), mShareLock(), mCurlStoreUserCount(0), timestamp(0)
+	// Telemetry — incremented under mCurlInstLock, logged by ShowCurlStoreData
+	uint64_t mCacheHits;    // handle successfully retrieved from pool
+	uint64_t mCacheMisses;  // slot empty; caller will create a new handle
+
+	curlstorestruct()
+		: mFreeSlots(), mCurlShared(nullptr), mShareLock(),
+		  mCurlStoreUserCount(0), mPendingFlush(false), timestamp(0),
+		  mCacheHits(0), mCacheMisses(0)
 	{}
 
 	//Disabled for now
@@ -218,10 +243,14 @@ public:
 
 	/**
 	 * @param[in] CurlSock - Curl socket struct
-	 * @param[in] instId - Curl instance id
-	 * @return - Curl easy handle
+	 * @param[in] curlId   - Curl instance id (slot key in mFreeSlots)
+	 * @return - Curl easy handle, or nullptr if slot empty / all handles stale
+	 *
+	 * O(1) per-slot lookup.  Stale handles (older than eCURL_MAX_AGE_TIME) are
+	 * evicted from the slot front before attempting retrieval.  The returned
+	 * handle has CURLOPT_SHARE re-applied to the current mCurlShared pointer.
 	 */
-	CURL* GetCurlHandleFromFreeQ ( CurlSocketStoreStruct *CurlSock, int instId );
+	CURL* GetCurlHandleFromSlot ( CurlSocketStoreStruct *CurlSock, int curlId );
 
 	// Copy constructor and Copy assignment disabled
 	CurlStore(const CurlStore&) = delete;
