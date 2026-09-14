@@ -46,9 +46,11 @@
 #include <cstdio>
 #include <cstdint>
 #include <cstdarg>
+#include <deque>
 #include <map>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <set>
 #include <thread>
 #include <cstdlib>
@@ -140,6 +142,26 @@ constexpr int64_t kBufferHighWaterNs = 40000000000LL; // 40 seconds
 // defeating the backpressure model.
 constexpr unsigned int kNeedDataFrameCount = 24;
 
+// One queued unit of media: the fields the master-clock/backpressure model
+// needs from a MediaSegment. Ingestion order for video is decode order, not
+// presentation order (see ComparePts below); audio/subtitle ingestion order
+// is already presentation order (no B-frame-style reordering for audio).
+struct QueuedSample
+{
+	int64_t ptsNs;
+	int64_t durationNs;
+};
+
+// Orders queued video samples by presentation timestamp rather than arrival
+// (decode) order, modelling a decoder's reorder buffer/frame store.
+struct ComparePts
+{
+	bool operator()(const QueuedSample &a, const QueuedSample &b) const
+	{
+		return a.ptsNs < b.ptsNs;
+	}
+};
+
 // ===========================================================================
 // SimMediaPipeline - simulates the Rialto media pipeline
 // ===========================================================================
@@ -165,13 +187,7 @@ public:
 		, m_eosSourceCount(0)
 		, m_eosNotified(false)
 		, m_eosDrainGeneration(0)
-		, m_playbackRateEnabled(false)
 	{
-		const char *envRate = std::getenv("RIALTO_SIM_ENABLE_PLAYBACK_RATE");
-		if (envRate && std::string(envRate) == "1")
-		{
-			m_playbackRateEnabled = true;
-		}
 		RIALTO_SIM_LOG("SimMediaPipeline: created (width=%u height=%u)",
 			reqs.maxWidth, reqs.maxHeight);
 	}
@@ -208,6 +224,16 @@ public:
 			std::lock_guard<std::mutex> lock(m_trackMutex);
 			m_attachedSources.push_back(id);
 			m_sourceTypes[id] = type;
+			// Audio is always the master (A/V sync) track when present; video
+			// is only master if no audio ever attaches.
+			if (type == MediaSourceType::AUDIO)
+			{
+				m_masterSourceId = id;
+			}
+			else if (type == MediaSourceType::VIDEO && !m_masterSourceId)
+			{
+				m_masterSourceId = id;
+			}
 		}
 		RIALTO_SIM_LOG("attachSource: assigned sourceId=%d type=%d",
 			id, static_cast<int>(type));
@@ -275,18 +301,13 @@ public:
 	bool setPlaybackRate(double rate) override
 	{
 		RIALTO_SIM_LOG("setPlaybackRate: rate=%f", rate);
-		if (!m_playbackRateEnabled)
-		{
-			RIALTO_SIM_LOG("setPlaybackRate: rate simulation disabled (set RIALTO_SIM_ENABLE_PLAYBACK_RATE=1 to enable)");
-			return false;
-		}
 		// Snapshot the current position before changing rate so that
 		// subsequent elapsed-time calculations use the new rate from
 		// this point onward.
-		if (m_playing && m_basePositionSet.load(std::memory_order_relaxed))
+		if (m_playing.load(std::memory_order_relaxed))
 		{
-			m_basePositionNs.store(getCurrentPositionNs(), std::memory_order_relaxed);
-			m_playStartTime = std::chrono::steady_clock::now();
+			std::lock_guard<std::mutex> lock(m_trackMutex);
+			refreshMasterClockLocked();
 		}
 		m_rate.store(rate, std::memory_order_relaxed);
 		return true;
@@ -320,10 +341,12 @@ public:
 		m_playing = false;
 		{
 			std::lock_guard<std::mutex> lock(m_trackMutex);
-			for (auto &entry : m_injectedDurationNs)
-			{
-				entry.second = 0;
-			}
+			m_fifoQueue.clear();
+			m_videoQueue.clear();
+			m_totalEnqueuedDurationNs.clear();
+			m_trackHorizonNs.clear();
+			m_underflowNotifiedSources.clear();
+			m_pendingUnderflowNotifications.clear();
 			m_readySources.clear();
 			m_eosSources.clear();
 			m_pendingSegments.clear();
@@ -334,6 +357,10 @@ public:
 			// ignored instead of being applied to the post-seek state.
 			m_generation.fetch_add(1, std::memory_order_relaxed);
 			m_requestIdToSource.clear();
+
+			// Apply the new position, as setSourcePosition() would after a flush.
+			m_masterClockAnchorNs = position;
+			m_masterClockAnchorWallTime = std::chrono::steady_clock::now();
 		}
 
 		// Restart the needData pump immediately, as flush() does, instead of
@@ -343,10 +370,8 @@ public:
 			startNeedDataPump();
 		}
 
-		// Apply the new position, as setSourcePosition() would after a flush.
 		m_basePositionNs.store(position, std::memory_order_relaxed);
 		m_basePositionSet.store(true, std::memory_order_relaxed);
-		m_playStartTime = std::chrono::steady_clock::now();
 
 		// AampRialtoPlayer's Flush() blocks on SEEK_DONE (via its state
 		// machine) to restore state and commit the pending rate/position,
@@ -362,7 +387,7 @@ public:
 
 	bool getPosition(int64_t &position) override
 	{
-		position = getCurrentPositionNs();
+		position = refreshAndGetPositionNs();
 		return true;
 	}
 
@@ -442,18 +467,25 @@ public:
 			{
 				sourceId = pending.sourceId;
 			}
-			if (pending.firstTimeStampNs >= 0 &&
-				!m_basePositionSet.load(std::memory_order_relaxed))
+			if (!m_basePositionSet.load(std::memory_order_relaxed))
 			{
-				m_basePositionNs.store(pending.firstTimeStampNs,
-					std::memory_order_relaxed);
-				m_basePositionSet.store(true, std::memory_order_relaxed);
-				m_playStartTime = std::chrono::steady_clock::now();
+				// Guard against a zero/negative PTS (treated as "not set"),
+				// matching the pre-rework firstTimeStampNs behaviour: scan
+				// for the first genuinely positive PTS in this batch rather
+				// than blindly taking the first sample.
+				for (const auto &sample : pending.samples)
+				{
+					if (sample.ptsNs > 0)
+					{
+						m_basePositionNs.store(sample.ptsNs, std::memory_order_relaxed);
+						m_basePositionSet.store(true, std::memory_order_relaxed);
+						break;
+					}
+				}
 			}
-			if (pending.sourceId >= 0 && pending.totalDurationNs > 0)
+			if (pending.sourceId >= 0 && !pending.samples.empty())
 			{
-				accumulateInjectedDuration(pending.sourceId,
-					pending.totalDurationNs);
+				commitPendingSamples(pending.sourceId, pending.samples);
 			}
 			maybeStartPlayback();
 		}
@@ -505,7 +537,8 @@ public:
 				int64_t maxBufferedAheadNs = 0;
 				{
 					std::lock_guard<std::mutex> lock(m_trackMutex);
-					for (const auto &[srcId, injectedNs] : m_injectedDurationNs)
+					refreshMasterClockLocked();
+					for (const auto &[srcId, injectedNs] : m_totalEnqueuedDurationNs)
 					{
 						auto typeIt = m_sourceTypes.find(srcId);
 						if (typeIt != m_sourceTypes.end() &&
@@ -564,15 +597,8 @@ public:
 			}
 			PendingSegmentData &pending = m_pendingSegments[needDataRequestId];
 			pending.sourceId = mediaSegment->getId();
-			pending.totalDurationNs += mediaSegment->getDuration();
-			if (pending.firstTimeStampNs < 0)
-			{
-				int64_t pts = mediaSegment->getTimeStamp();
-				if (pts > 0)
-				{
-					pending.firstTimeStampNs = pts;
-				}
-			}
+			pending.samples.push_back(QueuedSample{
+				mediaSegment->getTimeStamp(), mediaSegment->getDuration()});
 		}
 		return AddSegmentStatus::OK;
 	}
@@ -632,10 +658,12 @@ public:
 		// first trickplay progress event from appearing.
 		{
 			std::lock_guard<std::mutex> lock(m_trackMutex);
-			for (auto &entry : m_injectedDurationNs)
-			{
-				entry.second = 0;
-			}
+			m_fifoQueue.clear();
+			m_videoQueue.clear();
+			m_totalEnqueuedDurationNs.clear();
+			m_trackHorizonNs.clear();
+			m_underflowNotifiedSources.clear();
+			m_pendingUnderflowNotifications.clear();
 			m_readySources.clear();
 			m_eosSources.clear();
 			m_pendingSegments.clear();
@@ -676,9 +704,11 @@ public:
 			sourceId, static_cast<long>(position), resetTime);
 		if (position >= 0)
 		{
+			std::lock_guard<std::mutex> lock(m_trackMutex);
 			m_basePositionNs.store(position, std::memory_order_relaxed);
 			m_basePositionSet.store(true, std::memory_order_relaxed);
-			m_playStartTime = std::chrono::steady_clock::now();
+			m_masterClockAnchorNs = position;
+			m_masterClockAnchorWallTime = std::chrono::steady_clock::now();
 		}
 		return true;
 	}
@@ -707,13 +737,12 @@ public:
 private:
 	// Segment data staged by addSegment() for a given needDataRequestId,
 	// consumed by haveData() once the client confirms that request is
-	// complete.  Only the derived fields needed to update playback state
-	// are kept — the sample payload itself is never used by the simulator.
+	// complete.  The sample payload itself is never used by the simulator,
+	// only the per-sample PTS/duration needed by the master-clock model.
 	struct PendingSegmentData
 	{
 		int32_t sourceId = -1;
-		int64_t totalDurationNs = 0;
-		int64_t firstTimeStampNs = -1;
+		std::vector<QueuedSample> samples;
 	};
 
 	// Bookkeeping for an outstanding notifyNeedMediaData() request, tagged
@@ -724,27 +753,241 @@ private:
 		uint64_t generation = 0;
 	};
 
-	int64_t getCurrentPositionNs() const
+	// Commits every sample staged by addSegment() for a completed request:
+	// enqueues it into the appropriate per-track structure (FIFO for audio/
+	// subtitle, PTS-ordered reorder buffer for video), and updates the
+	// running duration total (for the kMinPlayDurationNs gate) and horizon
+	// (furthest presentation time we have real data for; see
+	// refreshMasterClockLocked()).
+	void commitPendingSamples(int32_t sourceId, const std::vector<QueuedSample> &samples)
 	{
-		int64_t base = m_basePositionNs.load(std::memory_order_relaxed);
-		if (!m_playing)
+		std::lock_guard<std::mutex> lock(m_trackMutex);
+		auto typeIt = m_sourceTypes.find(sourceId);
+		if (typeIt == m_sourceTypes.end())
 		{
-			return base;
+			return;
 		}
-		auto elapsed = std::chrono::steady_clock::now() - m_playStartTime;
+		const bool isSubtitle = (typeIt->second == MediaSourceType::SUBTITLE);
+		for (const auto &sample : samples)
+		{
+			if (!isSubtitle)
+			{
+				if (typeIt->second == MediaSourceType::VIDEO)
+				{
+					m_videoQueue[sourceId].insert(sample);
+				}
+				else
+				{
+					m_fifoQueue[sourceId].push_back(sample);
+				}
+				m_totalEnqueuedDurationNs[sourceId] += sample.durationNs;
+				m_trackHorizonNs[sourceId] = std::max(
+					m_trackHorizonNs[sourceId], sample.ptsNs + sample.durationNs);
+			}
+		}
+		if (!isSubtitle && !samples.empty())
+		{
+			m_eosSources.erase(sourceId);
+			m_eosSourceCount.store(
+				static_cast<int>(m_eosSources.size()), std::memory_order_relaxed);
+			m_eosNotified.store(false, std::memory_order_relaxed);
+			RIALTO_SIM_LOG("DBG commit sourceId=%d samples=%zu totalNs=%lld horizonNs=%lld",
+				sourceId, samples.size(),
+				static_cast<long long>(m_totalEnqueuedDurationNs[sourceId]),
+				static_cast<long long>(m_trackHorizonNs[sourceId]));
+			if (m_totalEnqueuedDurationNs[sourceId] >= kMinPlayDurationNs)
+			{
+				m_readySources.insert(sourceId);
+			}
+		}
+	}
+
+	// Pops the head of a track's queue while a real successor exists whose
+	// PTS has cleared clockNs (3.2.2 of the design doc): a sample's own
+	// duration only defines the horizon (used when it's still the tail with
+	// no successor yet); once a successor is known, that successor's PTS is
+	// the authoritative completion boundary for the previous sample.  The
+	// current tail is never popped here.
+	// Caller must hold m_trackMutex.
+	void popMaturedSamplesLocked(int32_t sourceId, int64_t clockNs)
+	{
+		auto typeIt = m_sourceTypes.find(sourceId);
+		if (typeIt == m_sourceTypes.end())
+		{
+			return;
+		}
+		if (typeIt->second == MediaSourceType::VIDEO)
+		{
+			auto &q = m_videoQueue[sourceId];
+			while (q.size() >= 2)
+			{
+				auto second = std::next(q.begin());
+				if (second->ptsNs > clockNs)
+				{
+					break;
+				}
+				q.erase(q.begin());
+			}
+		}
+		else
+		{
+			auto &q = m_fifoQueue[sourceId];
+			while (q.size() >= 2 && q[1].ptsNs <= clockNs)
+			{
+				q.pop_front();
+			}
+		}
+	}
+
+	// Computes the current master clock estimate, clamped to the master
+	// track's horizon so it stalls instead of free-running when expected
+	// data hasn't arrived (e.g. a segment that failed to download), pops any
+	// now-matured samples from every track, and re-anchors.  Returns the
+	// (possibly unchanged) master clock value in nanoseconds.
+	//
+	// Also detects per-track underflow: a track is starved once playback has
+	// reached (master: would advance past) the furthest point it has real
+	// data for.  Newly-starved sources are queued in
+	// m_pendingUnderflowNotifications for refreshAndGetPositionNs() to
+	// dispatch via notifyBufferUnderflow() after releasing the lock,
+	// mirroring real Rialto (see AampRialtoMediaPipelineClient); debounced
+	// via m_underflowNotifiedSources so it fires once per stall, not on
+	// every poll.
+	// The nominal master track (audio if attached, else video; see
+	// attachSource()) stops being a usable clock reference once it has EOS'd
+	// without new data since (e.g. audio sends a zero-duration EOS at the
+	// start of video-only trickplay - see markSourceReadyForPlay() - and
+	// produces nothing further for the rest of the trick session).  Mirrors
+	// a real pipeline reselecting its clock provider once the previous one
+	// can no longer provide one.  Falls back to any other attached,
+	// non-EOS'd, non-subtitle source; if none exists, returns the nominal
+	// master anyway (nothing better available).
+	// Caller must hold m_trackMutex.
+	std::optional<int32_t> effectiveMasterSourceIdLocked() const
+	{
+		if (m_masterSourceId && m_eosSources.find(*m_masterSourceId) == m_eosSources.end())
+		{
+			return m_masterSourceId;
+		}
+		for (int32_t sourceId : m_attachedSources)
+		{
+			auto typeIt = m_sourceTypes.find(sourceId);
+			if (typeIt != m_sourceTypes.end() && typeIt->second != MediaSourceType::SUBTITLE &&
+				m_eosSources.find(sourceId) == m_eosSources.end())
+			{
+				return sourceId;
+			}
+		}
+		return m_masterSourceId;
+	}
+
+	// Caller must hold m_trackMutex.
+	int64_t refreshMasterClockLocked()
+	{
+		if (!m_playing.load(std::memory_order_relaxed) || !m_masterSourceId)
+		{
+			return m_basePositionNs.load(std::memory_order_relaxed);
+		}
+		auto elapsed = std::chrono::steady_clock::now() - m_masterClockAnchorWallTime;
 		auto elapsedNs = std::chrono::duration_cast<std::chrono::nanoseconds>(elapsed).count();
-		// Position increases at 1x regardless of rate; the Rialto player
-		// applies the rate multiplier in GetPositionMilliseconds().
-		return base + static_cast<int64_t>(elapsedNs);
+		int64_t estimate = m_masterClockAnchorNs +
+			static_cast<int64_t>(elapsedNs * m_rate.load(std::memory_order_relaxed));
+
+		const std::optional<int32_t> effectiveMaster = effectiveMasterSourceIdLocked();
+		int64_t clockNs = estimate;
+		if (effectiveMaster)
+		{
+			auto horizonIt = m_trackHorizonNs.find(*effectiveMaster);
+			if (horizonIt != m_trackHorizonNs.end())
+			{
+				clockNs = std::min(estimate, horizonIt->second);
+			}
+		}
+
+		for (int32_t sourceId : m_attachedSources)
+		{
+			auto typeIt = m_sourceTypes.find(sourceId);
+			if (typeIt == m_sourceTypes.end() || typeIt->second == MediaSourceType::SUBTITLE)
+			{
+				continue;
+			}
+			// A source that has legitimately reached EOS is finished, not
+			// starved - don't report underflow for it (e.g. audio during
+			// video-only trickplay must not spuriously fire on every trick
+			// session once the video-driven clock passes its frozen horizon).
+			if (m_eosSources.find(sourceId) != m_eosSources.end())
+			{
+				continue;
+			}
+			auto trackHorizonIt = m_trackHorizonNs.find(sourceId);
+			if (trackHorizonIt == m_trackHorizonNs.end())
+			{
+				// Never received any data yet - that's preroll, not underflow.
+				continue;
+			}
+			// The effective master's own clockNs is already clamped to its
+			// horizon (so could never itself exceed it) - use the pre-clamp
+			// estimate for that check.  Followers are checked against the
+			// position actually being reported.
+			int64_t referencePos = (effectiveMaster && sourceId == *effectiveMaster) ? estimate : clockNs;
+			bool starved = referencePos > trackHorizonIt->second;
+			bool alreadyNotified = m_underflowNotifiedSources.count(sourceId) > 0;
+			if (starved && !alreadyNotified)
+			{
+				m_underflowNotifiedSources.insert(sourceId);
+				m_pendingUnderflowNotifications.push_back(sourceId);
+			}
+			else if (!starved && alreadyNotified)
+			{
+				m_underflowNotifiedSources.erase(sourceId);
+			}
+		}
+
+		for (int32_t sourceId : m_attachedSources)
+		{
+			popMaturedSamplesLocked(sourceId, clockNs);
+		}
+
+		m_masterClockAnchorNs = clockNs;
+		m_masterClockAnchorWallTime = std::chrono::steady_clock::now();
+		return clockNs;
+	}
+
+	// Convenience wrapper for call sites that don't already hold m_trackMutex.
+	// Also dispatches any underflow notifications queued by
+	// refreshMasterClockLocked(), outside the lock (the client callback must
+	// not be invoked while holding m_trackMutex).
+	int64_t refreshAndGetPositionNs()
+	{
+		std::vector<int32_t> toNotify;
+		int64_t pos;
+		{
+			std::lock_guard<std::mutex> lock(m_trackMutex);
+			pos = refreshMasterClockLocked();
+			toNotify.swap(m_pendingUnderflowNotifications);
+		}
+		if (!toNotify.empty())
+		{
+			if (auto client = m_client.lock())
+			{
+				for (int32_t sourceId : toNotify)
+				{
+					RIALTO_SIM_LOG("notifyBufferUnderflow: sourceId=%d", sourceId);
+					client->notifyBufferUnderflow(sourceId);
+				}
+			}
+		}
+		return pos;
 	}
 
 	// Pause playback: snapshot the current position (to freeze it for
 	// subsequent queries) and clear the play/playRequested state.
 	void pausePlayback()
 	{
-		if (m_playing && m_basePositionSet.load(std::memory_order_relaxed))
+		if (m_playing.load(std::memory_order_relaxed) && m_basePositionSet.load(std::memory_order_relaxed))
 		{
-			int64_t currentPos = getCurrentPositionNs();
+			std::lock_guard<std::mutex> lock(m_trackMutex);
+			int64_t currentPos = refreshMasterClockLocked();
 			m_basePositionNs.store(currentPos, std::memory_order_relaxed);
 		}
 		m_playRequested.store(false, std::memory_order_relaxed);
@@ -752,19 +995,23 @@ private:
 	}
 
 	// Amount of injected-but-not-yet-played media held for a single
-	// non-subtitle source, in the pipeline (restamped) timebase.  Used to
-	// model per-track buffer-fill backpressure: injected duration
-	// accumulates as segments arrive, while playback drains it at 1x
-	// wall-clock time.  Backpressure is only meaningful while the pipeline
-	// is PLAYING: during preroll/seek/flush the pipeline buffers freely to
-	// (re)reach the play threshold, so report no backpressure when not
-	// playing to avoid starving the pipeline (and deadlocking, since
-	// buffered would never drain while paused).  Subtitle sources are never
-	// gated (see kMinPlayDurationNs).
-	// Caller must hold m_trackMutex.
+	// non-subtitle source, i.e. how far the track's horizon (furthest PTS +
+	// duration it has real data for; see refreshMasterClockLocked()) is
+	// ahead of the master clock.  popMaturedSamplesLocked() only ever pops
+	// from the low-PTS end, so the horizon always equals the still-queued
+	// maximum-PTS entry's own pts+duration - using it here (rather than
+	// re-reading the queue tail) also means this reflects the tail sample's
+	// full duration, not just its PTS.  Backpressure is only meaningful
+	// while the pipeline is PLAYING: during preroll/seek/flush the pipeline
+	// buffers freely to (re)reach the play threshold, so report no
+	// backpressure when not playing to avoid starving the pipeline (and
+	// deadlocking, since buffered would never drain while paused).  Subtitle
+	// sources are never gated (see kMinPlayDurationNs).
+	// Caller must hold m_trackMutex, and should have called
+	// refreshMasterClockLocked() recently so m_masterClockAnchorNs is current.
 	int64_t bufferedAheadNsLocked(int32_t sourceId) const
 	{
-		if (!m_playing || !m_basePositionSet.load(std::memory_order_relaxed))
+		if (!m_playing.load(std::memory_order_relaxed) || !m_basePositionSet.load(std::memory_order_relaxed))
 		{
 			return 0;
 		}
@@ -774,15 +1021,12 @@ private:
 		{
 			return 0;
 		}
-		auto it = m_injectedDurationNs.find(sourceId);
-		if (it == m_injectedDurationNs.end())
+		auto horizonIt = m_trackHorizonNs.find(sourceId);
+		if (horizonIt == m_trackHorizonNs.end())
 		{
 			return 0;
 		}
-		auto elapsed = std::chrono::steady_clock::now() - m_playStartTime;
-		int64_t playedNs = std::chrono::duration_cast<std::chrono::nanoseconds>(
-			elapsed).count();
-		int64_t buffered = it->second - playedNs;
+		int64_t buffered = horizonIt->second - m_masterClockAnchorNs;
 		return buffered > 0 ? buffered : 0;
 	}
 
@@ -932,6 +1176,7 @@ private:
 				int64_t buffered = 0;
 				{
 					std::lock_guard<std::mutex> lock(m_trackMutex);
+					refreshMasterClockLocked();
 					buffered = bufferedAheadNsLocked(sourceId);
 				}
 				RIALTO_SIM_LOG("DBG scheduleNextNeedData sourceId=%d buffered=%lld high=%lld playing=%d baseSet=%d",
@@ -975,33 +1220,6 @@ private:
 		});
 	}
 
-	void accumulateInjectedDuration(int32_t sourceId, int64_t durationNs)
-	{
-		std::lock_guard<std::mutex> lock(m_trackMutex);
-		auto typeIt = m_sourceTypes.find(sourceId);
-		if (typeIt == m_sourceTypes.end() ||
-			typeIt->second == MediaSourceType::SUBTITLE)
-		{
-			return;
-		}
-		if (durationNs > 0)
-		{
-			m_injectedDurationNs[sourceId] += durationNs;
-			m_eosSources.erase(sourceId);
-			m_eosSourceCount.store(
-				static_cast<int>(m_eosSources.size()),
-				std::memory_order_relaxed);
-			m_eosNotified.store(false, std::memory_order_relaxed);
-		}
-		RIALTO_SIM_LOG("DBG accumulate sourceId=%d durationNs=%lld totalNs=%lld",
-			sourceId, static_cast<long long>(durationNs),
-			static_cast<long long>(m_injectedDurationNs[sourceId]));
-		if (m_injectedDurationNs[sourceId] >= kMinPlayDurationNs)
-		{
-			m_readySources.insert(sourceId);
-		}
-	}
-
 	void markSourceReadyForPlay(int32_t sourceId)
 	{
 		std::lock_guard<std::mutex> lock(m_trackMutex);
@@ -1017,8 +1235,8 @@ private:
 		// has primed its firstPtsMs, causing MonitorProgress to see an
 		// unchanged position and suppress the first trickplay progress
 		// event, which blocks callback-driven test steps.
-		auto durIt = m_injectedDurationNs.find(sourceId);
-		if (durIt == m_injectedDurationNs.end() || durIt->second == 0)
+		auto durIt = m_totalEnqueuedDurationNs.find(sourceId);
+		if (durIt == m_totalEnqueuedDurationNs.end() || durIt->second == 0)
 		{
 			return;
 		}
@@ -1092,7 +1310,11 @@ private:
 		}
 		if (startPlaying)
 		{
-			m_playStartTime = std::chrono::steady_clock::now();
+			{
+				std::lock_guard<std::mutex> lock(m_trackMutex);
+				m_masterClockAnchorNs = m_basePositionNs.load(std::memory_order_relaxed);
+				m_masterClockAnchorWallTime = std::chrono::steady_clock::now();
+			}
 			if (auto client = m_client.lock())
 			{
 				RIALTO_SIM_LOG("transition to PLAYING "
@@ -1124,7 +1346,7 @@ private:
 					continue;
 				}
 
-				int64_t pos = getCurrentPositionNs();
+				int64_t pos = refreshAndGetPositionNs();
 				if (auto client = m_client.lock())
 				{
 					client->notifyPosition(pos);
@@ -1163,7 +1385,6 @@ private:
 	std::atomic<double> m_rate;
 	std::atomic<int64_t> m_basePositionNs;
 	std::atomic<bool> m_basePositionSet;
-	std::chrono::steady_clock::time_point m_playStartTime;
 	std::atomic<uint32_t> m_needDataRequestId;
 	// Bumped whenever flush()/setPosition() abandons in-flight needData
 	// requests, so haveData() can recognise and ignore responses for
@@ -1177,10 +1398,28 @@ private:
 	std::thread m_positionThread;
 	std::thread m_eosThread;
 	std::map<int32_t, std::thread> m_needDataThread;
-	bool m_playbackRateEnabled;
 	mutable std::mutex m_trackMutex;
 	std::map<int32_t, MediaSourceType> m_sourceTypes;
-	std::map<int32_t, int64_t> m_injectedDurationNs;
+	// Audio / subtitle: FIFO (arrival order == presentation order).
+	std::map<int32_t, std::deque<QueuedSample>> m_fifoQueue;
+	// Video: PTS-ordered reorder buffer (arrival is decode order).
+	std::map<int32_t, std::multiset<QueuedSample, ComparePts>> m_videoQueue;
+	// Running per-source enqueued-duration totals, for the kMinPlayDurationNs
+	// gate without re-summing the queue on every check.
+	std::map<int32_t, int64_t> m_totalEnqueuedDurationNs;
+	// Furthest presentation time we actually have real data for, per track.
+	// Monotonically non-decreasing; updated only when a new sample arrives.
+	std::map<int32_t, int64_t> m_trackHorizonNs;
+	// Sources currently in a notified-underflow state (debounce: cleared once
+	// that source's horizon catches back up, so a later stall renotifies).
+	std::set<int32_t> m_underflowNotifiedSources;
+	// Newly-starved sources queued by refreshMasterClockLocked() for
+	// refreshAndGetPositionNs() to dispatch outside the lock.
+	std::vector<int32_t> m_pendingUnderflowNotifications;
+	// Master (A/V-sync-leading) track: audio if attached, else video.
+	std::optional<int32_t> m_masterSourceId;
+	int64_t m_masterClockAnchorNs = 0;
+	std::chrono::steady_clock::time_point m_masterClockAnchorWallTime;
 	std::set<int32_t> m_readySources;
 	std::set<int32_t> m_eosSources;
 	std::map<uint32_t, RequestInfo> m_requestIdToSource;
