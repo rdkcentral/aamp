@@ -76,13 +76,43 @@ pkg_check_modules(SUBTEC libsubtec)
 # tests/CommonTestIncludes.cmake.
 get_filename_component(MIDDLEWARE_REPO_ABS_PATH
 	"${CMAKE_CURRENT_SOURCE_DIR}/../../middleware-player-interface" ABSOLUTE)
-if(PLAYERFBINTERFACE_INCLUDE_DIRS OR EXISTS "${MIDDLEWARE_REPO_ABS_PATH}")
-	message(STATUS "Middleware develop headers detected — enabling DRMSESSION_HAS_LIFECYCLE_GUARD")
-	add_compile_definitions(DRMSESSION_HAS_LIFECYCLE_GUARD)
-endif()
 # Cache the absolute path so subdirectory cmake files (CommonTestIncludes.cmake,
 # fakes/CMakeLists.txt) can use it reliably instead of fragile relative EXISTS checks.
 set(MIDDLEWARE_REPO_ABS_PATH "${MIDDLEWARE_REPO_ABS_PATH}" CACHE INTERNAL "")
+
+# Locate the DrmSession.h that will actually be compiled against. The search
+# order must match the include_directories() order used in fakes/CMakeLists.txt
+# and tests/CommonTestIncludes.cmake.
+set(DRMSESSION_HEADER "")
+if(PLAYERFBINTERFACE_INCLUDE_DIRS)
+	foreach(_inc_dir IN LISTS PLAYERFBINTERFACE_INCLUDE_DIRS)
+		if(EXISTS "${_inc_dir}/DrmSession.h")
+			set(DRMSESSION_HEADER "${_inc_dir}/DrmSession.h")
+			break()
+		endif()
+	endforeach()
+elseif(EXISTS "${MIDDLEWARE_REPO_ABS_PATH}/drm/DrmSession.h")
+	set(DRMSESSION_HEADER "${MIDDLEWARE_REPO_ABS_PATH}/drm/DrmSession.h")
+elseif(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../../middleware/drm/DrmSession.h")
+	set(DRMSESSION_HEADER "${CMAKE_CURRENT_SOURCE_DIR}/../../middleware/drm/DrmSession.h")
+endif()
+
+# Feature-detect the DELIA-70726 lifecycle guard in that header rather than
+# inferring it from the mere presence of a middleware package. Installed
+# headers (e.g. under .libs/include) can predate the guard, in which case the
+# fakes must not try to initialise members that do not exist.
+if(DRMSESSION_HEADER)
+	file(STRINGS "${DRMSESSION_HEADER}" DRMSESSION_GUARD_MATCH
+		REGEX "mMarkedForDestruction")
+	if(DRMSESSION_GUARD_MATCH)
+		message(STATUS "DrmSession lifecycle guard found in ${DRMSESSION_HEADER} — enabling DRMSESSION_HAS_LIFECYCLE_GUARD")
+		add_compile_definitions(DRMSESSION_HAS_LIFECYCLE_GUARD)
+	else()
+		message(STATUS "DrmSession lifecycle guard absent from ${DRMSESSION_HEADER} — DRMSESSION_HAS_LIFECYCLE_GUARD not enabled")
+	endif()
+else()
+	message(WARNING "DrmSession.h not found in any known middleware include path")
+endif()
 
 if (NOT CMAKE_SYSTEM_NAME STREQUAL Darwin)
 	pkg_search_module(JSCORE REQUIRED javascriptcoregtk-4.1 javascriptcoregtk-4.0)
