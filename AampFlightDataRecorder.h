@@ -126,7 +126,8 @@ private:
 	void EvictEldestLocked();
 	void EmitEntryLocked(const FDRLogEntry& entry) const;
 	void FlushLocked(int triggerLevel, const char* triggerSource);
-	std::string FormatLogEntry(const FDRLogEntry& entry) const;
+	std::string FormatLogEntry(const FDRLogEntry& entry,
+		std::chrono::steady_clock::time_point flushTime = std::chrono::steady_clock::time_point{}) const;
 	const char* GetLogLevelString(int level) const;
 
 	mutable std::mutex mMutex;

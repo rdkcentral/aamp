@@ -488,8 +488,44 @@ TEST_F(AampFlightDataRecorderTest, Flush_PreservesTimestampAndFilenameFormat)
 
     std::ostringstream timestamp;
     timestamp << timestampMs / 1000 << "." << std::setfill('0') << std::setw(3) << timestampMs % 1000;
-    EXPECT_THAT(output, testing::HasSubstr(timestamp.str() + ": [TEST][000][0][INFO]"));
+    // Timestamp prefix is still present; [LAG:Nms] is now inserted before the source bracket.
+    EXPECT_THAT(output, testing::HasSubstr(timestamp.str() + ": [LAG:"));
+    EXPECT_THAT(output, testing::HasSubstr("[TEST][000][0][INFO]"));
     EXPECT_THAT(output, testing::HasSubstr("[TestFile.cpp][TestFunc][0]formatted"));
+}
+
+/**
+ * @test AampFlightDataRecorder_Flush_LagTagAppearsInDumpLines
+ * @brief FDR dump lines produced by Flush() must contain a [LAG:Nms] tag
+ *        between the timestamp and the source bracket.  Eviction-emitted
+ *        lines (not produced by Flush) must not contain the tag.
+ *
+ * Behavioral contract:
+ *   - recorded_at is set to steady_clock::now() at AddEntry time.
+ *   - flushNow is captured at the start of FlushLocked.
+ *   - lag = flushNow - recorded_at >= 0.
+ *   - The tag must appear after "timestamp: " and before "[source]".
+ */
+TEST_F(AampFlightDataRecorderTest, Flush_LagTagAppearsInDumpLines)
+{
+    fdr().AddEntry(MakeEntry("lag-test-entry"));
+
+    testing::internal::CaptureStdout();
+    fdr().Flush(eLOGLEVEL_ERROR, "LAG_TEST");
+    std::string output = testing::internal::GetCapturedStdout();
+
+    // [LAG:Nms] must be present somewhere in the dump output.
+    EXPECT_THAT(output, testing::HasSubstr("[LAG:"));
+    EXPECT_THAT(output, testing::HasSubstr("ms]"));
+    // The message content must still follow the tag chain.
+    EXPECT_THAT(output, testing::HasSubstr("lag-test-entry"));
+
+    // Verify structural ordering: timestamp comes before [LAG:, which comes before [TEST].
+    size_t posLag    = output.find("[LAG:");
+    size_t posSource = output.find("[TEST]");
+    ASSERT_NE(posLag,    std::string::npos);
+    ASSERT_NE(posSource, std::string::npos);
+    EXPECT_LT(posLag, posSource);
 }
 
 TEST_F(AampFlightDataRecorderTest, Initialize_ReconfiguresCapacityAndEnabledState)
