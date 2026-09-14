@@ -33,6 +33,22 @@
 class PrivateInstanceAAMP;
 
 /**
+ * @class StreamSinkBufferControl
+ * @brief Optional buffer control extension for stream sink implementations
+ */
+class StreamSinkBufferControl
+{
+public:
+    /**
+     * @brief Force buffer control to resume for a given track.
+     * @param[in] type - Media type to resume
+     */
+    virtual void ForceResumeBufferControl(AampMediaType type) = 0;
+
+    virtual ~StreamSinkBufferControl() = default;
+};
+
+/**
  * @struct PlaybackQualityData
  * @brief Playback quality data information
  */
@@ -221,12 +237,6 @@ public:
      *   @return void
      */
     virtual void SetVideoZoom(VideoZoomMode zoom){};
-
-    /**
-     *   @brief Force buffer control to resume for a given track.
-     *   @param[in] type - Media type to resume
-     */
-    virtual void ForceResumeBufferControl(AampMediaType type){};
 
     /**
      *   @brief Set video mute state

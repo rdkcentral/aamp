@@ -4207,7 +4207,12 @@ void PrivateInstanceAAMP::ForceResumeTrackBufferControl(AampMediaType type)
 	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 	if (sink)
 	{
-		sink->ForceResumeBufferControl(type);
+		StreamSinkBufferControl *bufferControl =
+			dynamic_cast<StreamSinkBufferControl *>(sink);
+		if (bufferControl)
+		{
+			bufferControl->ForceResumeBufferControl(type);
+		}
 	}
 	ResumeTrackDownloads(type);
 }
