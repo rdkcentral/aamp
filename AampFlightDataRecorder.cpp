@@ -264,12 +264,21 @@ const char* AampFlightDataRecorder::GetLogLevelString(int level) const
 	return "UNKNOWN";
 }
 
-std::string AampFlightDataRecorder::FormatLogEntry(const FDRLogEntry& entry) const
+std::string AampFlightDataRecorder::FormatLogEntry(const FDRLogEntry& entry,
+	std::chrono::steady_clock::time_point flushTime) const
 {
 	std::ostringstream oss;
 	uint64_t sec = entry.timestamp_ms / 1000;
 	uint64_t msec = entry.timestamp_ms % 1000;
 	oss << sec << "." << std::setfill('0') << std::setw(3) << msec << ": ";
+	if (flushTime != std::chrono::steady_clock::time_point{} &&
+		entry.recorded_at != std::chrono::steady_clock::time_point{})
+	{
+		int64_t lagMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+			flushTime - entry.recorded_at).count();
+		if (lagMs < 0) { lagMs = 0; }
+		oss << "[LAG:" << lagMs << "ms]";
+	}
 	oss << "[" << entry.source << "]";
 	oss << "[" << std::setfill('0') << std::setw(3) << entry.seq_num << "]";
 	oss << "[" << entry.player_id << "]";
@@ -292,6 +301,7 @@ void AampFlightDataRecorder::FlushLocked(int triggerLevel, const char* triggerSo
 		return;
 	}
 
+	auto flushNow = std::chrono::steady_clock::now();
 	bool disableRedir = AampLogManager::disableLogRedirection;
 	bool enableEthan = AampLogManager::enableEthanLogRedirection;
 	char header[256];
@@ -308,7 +318,7 @@ void AampFlightDataRecorder::FlushLocked(int triggerLevel, const char* triggerSo
 		--mCount;
 		if (entry.timestamp_ms > 0)
 		{
-			std::string formatted = FormatLogEntry(entry);
+			std::string formatted = FormatLogEntry(entry, flushNow);
 			emitLogLine(entry.log_level, formatted.c_str(), disableRedir, enableEthan);
 		}
 	}
