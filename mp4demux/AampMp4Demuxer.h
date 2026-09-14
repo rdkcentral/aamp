@@ -140,6 +140,34 @@ public:
 	void setTrackOffset(double offset) override { }
 
 	/**
+	 * @brief Reset PTS on audio track switch.
+	 *
+	 * Parses the first PTS from the supplied fragment buffer and flushes the
+	 * audio pipeline to the corresponding playback position.  This is the
+	 * AampMp4Demuxer equivalent of IsoBmffProcessor::resetPTSOnAudioSwitch().
+	 * Without this override the base-class no-op was inherited, causing
+	 * seamless audio switching to silently do nothing when useMp4Demux=true
+	 * (VPAAMP-1193).
+	 *
+	 * @param[in] fragment  First data fragment of the incoming audio track.
+	 * @param[in] position  Playback position at the time of the switch (seconds).
+	 * @param[in] ptsOffset PTS offset to add when converting raw PTS to seconds.
+	 */
+	void resetPTSOnAudioSwitch(std::vector<uint8_t>& fragment, double position, double ptsOffset = 0) override;
+
+	/**
+	 * @brief Reset PTS on subtitle track switch.
+	 *
+	 * Parses the first PTS from the supplied fragment buffer and flushes the
+	 * subtitle pipeline to the corresponding playback position.  Symmetric
+	 * companion to resetPTSOnAudioSwitch() for the subtitle track.
+	 *
+	 * @param[in] fragment  First data fragment of the incoming subtitle track.
+	 * @param[in] position  Playback position at the time of the switch (seconds).
+	 */
+	void resetPTSOnSubtitleSwitch(std::vector<uint8_t>& fragment, double position) override;
+
+	/**
 	 * @brief Check whether MP4 demux performs PTS restamping internally.
 	 * @return true if internal PTS restamping is configured and active
 	 */
