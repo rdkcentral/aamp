@@ -4252,7 +4252,7 @@ void PrivateInstanceAAMP::BlockUntilGstreamerWantsData(void(*cb)(void), int peri
 	}
 	if (elapsedMs > 1000)
 	{
-		AAMPLOG_WARN("track:%d was blocked for %dms before resuming (mbDownloadsBlocked:%d mbTrackDownloadsBlocked:%d)",
+		AAMPLOG_WARN("track:%d was blocked for %dms before exiting the wait (mbDownloadsBlocked:%d mbTrackDownloadsBlocked:%d)",
 			track, elapsedMs, (int)mbDownloadsBlocked, (int)mbTrackDownloadsBlocked[track]);
 	}
 	AAMPLOG_DEBUG("PrivateInstanceAAMP::Exit. type = %d",  track);
