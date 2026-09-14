@@ -827,9 +827,11 @@ private:
 	uint32_t mManifestUpdateCounter;		/**< Monotonically increasing counter incremented by AbortWaitForManifestUpdate. */
 	std::condition_variable mManifestUpdateWait;	/**< Conditional variable for signaling manifest update */
 	std::condition_variable audioFragmentCached;  /**< Signal after a audio fragment cached after reconfigure */
+	bool audioFragmentCachedReady;        /**< Predicate flag for audioFragmentCached; set under audioMutex */
 	double lastInjectedPosition;			/**< Last injected position */
 	double lastInjectedDuration;			/**< Last injected fragment end position */
 	std::condition_variable subtitleFragmentCached;
+	bool subtitleFragmentCachedReady;     /**< Predicate flag for subtitleFragmentCached; set under subtitleMutex */
 	std::atomic_bool mIsLocalTSBInjection;
 	size_t mCachedFragmentSize;				/**< Active window size of the fragment ring buffer */	
 	AampTime mLastFragmentPts;				/**< pts of the previous fragment, used in trick modes */
