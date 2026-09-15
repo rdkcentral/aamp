@@ -886,6 +886,11 @@ bool AampDRMLicenseManager::QueueContentProtection(std::shared_ptr<DrmHelper> dr
 	return mLicensePrefetcher->QueueContentProtection(std::move(drmHelper), std::move(periodId), adapIdx, type, isVssPeriod);
 }
 
+bool AampDRMLicenseManager::IsKeyIdProcessed(const std::vector<uint8_t>& keyId, bool& keyStatus)
+{
+	return mDrmSessionManager && mDrmSessionManager->IsKeyIdProcessed(keyId, keyStatus);
+}
+
 /**
  *  @brief Get DRM license key from DRM server.
  */
