@@ -1019,6 +1019,17 @@ MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifes
 	if (gotManifest)
 	{
 		AAMPLOG_TRACE("PrivateCDAIObjectMPD:: manifest download success");
+		// Propagate any 302 redirect back to the caller's URL so that all
+		// downstream consumers (Period BaseURL injection, adNode.url,
+		// fragmentDescriptor.manifestUrl) use the CDN hostname rather than
+		// the origin, avoiding a fresh 302 redirect on every fragment request.
+		// The FOG path overwrites manifestUrl again (line ~1067) so this is safe.
+		if (!effectiveUrl.empty() && effectiveUrl != manifestUrl)
+		{
+			AAMPLOG_INFO("PrivateCDAIObjectMPD:: Ad manifest redirected from [%s] to [%s]",
+			             manifestUrl.c_str(), effectiveUrl.c_str());
+			manifestUrl = effectiveUrl;
+		}
 	}
 	else if (mAamp->DownloadsAreEnabled())
 	{
