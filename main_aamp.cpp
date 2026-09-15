@@ -139,7 +139,7 @@ static cJSON* TryParseAsJson(const char* input)
  */
 PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 	, std::function< void(const unsigned char *, int, int, int) > exportFrames
-	, bool powerEvt) : aamp(NULL), sp_aamp(nullptr), mJSBinding_DL(),mAsyncRunning(false),mConfig(),mAsyncTuneEnabled(false),mScheduler()
+	, bool powerEvt) : aamp(NULL), sp_aamp(nullptr), mAsyncRunning(false),mConfig(),mAsyncTuneEnabled(false),mScheduler()
 {
 	// Create very first instance of Aamp Config to read the cfg & Operator file .This is needed for very first
 	// tune only . After that every tune will use the same config parameters
@@ -185,16 +185,6 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 	pExternalsInterface->SetDoFakeTuneCallBack(doFakeTune);
 	pExternalsInterface->SetPowerEvent(powerEvt);
 	pExternalsInterface->Initialize();
-
-#ifdef SUPPORT_JS_EVENTS
-#ifdef AAMP_WPEWEBKIT_JSBINDINGS //aamp_LoadJS defined in libaampjsbindings.so
-	const char* szJSLib = "libaampjsbindings.so";
-#else
-	const char* szJSLib = "libaamp.so";
-#endif
-	mJSBinding_DL = dlopen(szJSLib, RTLD_GLOBAL | RTLD_LAZY);
-	AAMPLOG_WARN("[AAMP_JS] dlopen(\"%s\")=%p", szJSLib, mJSBinding_DL);
-#endif
 
 #ifdef AAMP_BUILD_INFO
 		std::string tmpstr = MACRO_TO_STRING(AAMP_BUILD_INFO);
@@ -291,13 +281,6 @@ PlayerInstanceAAMP::~PlayerInstanceAAMP()
 	{
 		PlayerCCManager::DestroyInstance();
 	}
-#ifdef SUPPORT_JS_EVENTS
-	if (mJSBinding_DL && isLastPlayerInstance)
-	{
-		AAMPLOG_WARN("[AAMP_JS] dlclose(%p)", mJSBinding_DL);
-		dlclose(mJSBinding_DL);
-	}
-#endif
 	if (isLastPlayerInstance)
 	{
 		ContentSecurityManager::DestroyInstance();
@@ -1790,43 +1773,6 @@ void PlayerInstanceAAMP::SubscribeResponseHeaders(std::vector<std::string> respo
 		}
 	}
 }
-
-#ifdef SUPPORT_JS_EVENTS
-
-/**
- *  @brief Load AAMP JS object in the specified JS context.
- */
-void PlayerInstanceAAMP::LoadJS(void* context)
-{
-	AAMPLOG_WARN("[AAMP_JS] (%p)", context);
-	if (mJSBinding_DL) {
-		void(*loadJS)(void*, void*);
-		const char* szLoadJS = "aamp_LoadJS";
-		loadJS = (void(*)(void*, void*))dlsym(mJSBinding_DL, szLoadJS);
-		if (loadJS) {
-			AAMPLOG_WARN("[AAMP_JS]  dlsym(%p, \"%s\")=%p", mJSBinding_DL, szLoadJS, loadJS);
-			loadJS(context, this);
-		}
-	}
-}
-
-/**
- *  @brief Unload AAMP JS object in the specified JS context.
- */
-void PlayerInstanceAAMP::UnloadJS(void* context)
-{
-	AAMPLOG_WARN("[AAMP_JS] (%p)", context);
-	if (mJSBinding_DL) {
-		void(*unloadJS)(void*);
-		const char* szUnloadJS = "aamp_UnloadJS";
-		unloadJS = (void(*)(void*))dlsym(mJSBinding_DL, szUnloadJS);
-		if (unloadJS) {
-			AAMPLOG_WARN("[AAMP_JS] dlsym(%p, \"%s\")=%p", mJSBinding_DL, szUnloadJS, unloadJS);
-			unloadJS(context);
-		}
-	}
-}
-#endif
 
 /**
  *  @brief Support multiple listeners for multiple event type
