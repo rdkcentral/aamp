@@ -762,6 +762,87 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 			bool isPipelinePaused = aamp->mSinkPaused.load();
 			if ((!isPipelinePaused && rate == aamp->rate && !aamp->GetPauseOnFirstVideoFrameDisp()) || (rate == 0 && isPipelinePaused))
 			{
+				// RDKEMW-21923: During rapid scrubbing (e.g. 1x->2x->1x->PAUSE within ~1s),
+				// TuneHelper may still be rebuilding the pipeline (NULL/READY state).
+				// If we skip here, downstream Pause()/Resume() will race with the rebuild
+				// and cause a PAUSED->PAUSED wedge. Detect and bail out early.
+				if (!isPipelinePaused && rate == aamp->rate && rate == AAMP_NORMAL_PLAY_RATE)
+				{
+					StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(aamp);
+					if (sink)
+					{
+						GstState curState = GST_STATE_VOID_PENDING;
+						GstState pendState = GST_STATE_VOID_PENDING;
+						sink->GetPipelineState(&curState, &pendState);
+						if (curState == GST_STATE_NULL || curState == GST_STATE_VOID_PENDING || curState == GST_STATE_READY)
+						{
+							AAMPLOG_WARN("SetRateInternal: rate=%.1f but pipeline in state %d "
+								"(rebuild in progress) — skipping, TuneHelper will complete", rate, curState);
+							return;
+						}
+					}
+				}
+
+				if (!isPipelinePaused && rate == aamp->rate && rate == AAMP_NORMAL_PLAY_RATE)
+				{
+					StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(aamp);
+					if (sink)
+					{
+						GstState curState;
+						GstState pendState;
+						sink->GetPipelineState(&curState, &pendState);
+
+						if (curState == GST_STATE_PLAYING)
+						{
+							// Pipeline is genuinely PLAYING — safe to skip
+							AAMPLOG_WARN("SetRateInternal: pipeline confirmed PLAYING (state=%d), safe to skip", curState);
+						}
+						else if (curState == GST_STATE_NULL || curState == GST_STATE_VOID_PENDING)
+						{
+							// Pipeline destroyed — teardown/rebuild in progress by another TuneHelper
+							// Do NOT re-seek; let the active TuneHelper complete naturally
+							AAMPLOG_WARN("SetRateInternal: pipeline is NULL/VOID (state=%d), "
+								"teardown in progress — skipping recovery", curState);
+							return;
+						}
+						else if (curState == GST_STATE_PAUSED)
+						{
+							// Pipeline stuck in PAUSED despite mSinkPaused=false (state drift)
+							if (!sink->Pause(false, false))
+							{
+								AAMPLOG_WARN("SetRateInternal: pipeline stuck in PAUSED, "
+									"resume failed; recovering via re-seek");
+								aamp->SetState(eSTATE_SEEKING);
+								aamp->seek_pos_seconds = aamp->GetPositionSeconds();
+								aamp->rate = AAMP_NORMAL_PLAY_RATE;
+								aamp->mSinkPaused = false;
+								{
+									std::lock_guard<std::recursive_mutex> lock(aamp->GetStreamLock());
+									aamp->TuneHelper(eTUNETYPE_SEEK, false);
+								}
+								aamp->NotifySpeedChanged(aamp->rate, false);
+								aamp->ResumeDownloads();
+								return;
+							}
+							else
+							{
+								// Un-pause succeeded — pipeline was just lagging
+								AAMPLOG_WARN("SetRateInternal: pipeline was PAUSED (drift), un-pause succeeded");
+								aamp->NotifyFirstBufferProcessed(sink->GetVideoRectangle());
+								return;
+							}
+						}
+						else if (curState == GST_STATE_READY)
+						{
+							// Pipeline in READY — being rebuilt by TuneHelper
+							AAMPLOG_WARN("SetRateInternal: pipeline in READY (state=%d), "
+								"rebuild in progress — skipping recovery", curState);
+							return;
+						}
+						// else: unknown state — fall through to original early-return
+					}
+				}
+				
 				AAMPLOG_WARN("Already running at playback rate(%f) mSinkPaused(%d), hence skipping set rate for (%f)", aamp->rate, isPipelinePaused, rate);
 				return;
 			}
@@ -888,6 +969,44 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 				if (aamp->mSinkPaused.load() && rate != 0)
 				{
 					AAMPLOG_INFO("Resuming Playback at Position '%lld'.", aamp->GetPositionMilliseconds());
+	
+					// RDKEMW-21923: If pipeline is NULL/READY (mid-rebuild from a prior
+					// TuneHelper), do NOT attempt resume — it will fail and wedge.
+					// Instead, clear mSinkPaused and let TuneHelper's rebuild naturally
+					// transition to PLAYING.
+					StreamSink *sinkGuard = AampStreamSinkManager::GetInstance().GetStreamSink(aamp);	
+					if (sinkGuard)
+					{
+						GstState guardCur = GST_STATE_VOID_PENDING;
+						GstState guardPend = GST_STATE_VOID_PENDING;
+						sinkGuard->GetPipelineState(&guardCur, &guardPend);
+
+						if (guardCur == GST_STATE_NULL || guardCur == GST_STATE_VOID_PENDING || guardCur == GST_STATE_READY)
+						{
+							AAMPLOG_WARN("SetRateInternal: resume requested but pipeline in state %d "
+								"(rebuild in progress) — deferring, TuneHelper will resume", guardCur);
+							aamp->mSinkPaused = false;
+							aamp->ResumeDownloads();
+							return;
+						}
+					}
+
+					if (aamp->IsPipelineWedged())
+					{
+						AAMPLOG_WARN("SetRateInternal: pipeline wedged, recovering via re-seek instead of resume");
+						aamp->SetState(eSTATE_SEEKING);
+						aamp->seek_pos_seconds = aamp->GetPositionSeconds();
+						aamp->rate = AAMP_NORMAL_PLAY_RATE;
+						aamp->mSinkPaused = false;
+						{
+							std::lock_guard<std::recursive_mutex> lock(aamp->GetStreamLock());
+							aamp->TuneHelper(eTUNETYPE_SEEK, false);
+						}
+						aamp->NotifySpeedChanged(aamp->rate, false);
+						aamp->ResumeDownloads();
+						return;
+					}
+
 					// Resuming payback from pause
 					// If have local TSB, but playing from Live then seek into the TSB
 					// Otherwise unpause the pipeline
@@ -923,15 +1042,39 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 								// rapid trickplay->seek->resume race - seen on both VOD and FOG-TSB linear).
 								// Recover by re-seeking to the current position: the same mechanism the
 								// local-TSB resume path uses. Works uniformly for VOD, FOG-TSB & local TSB.
-								AAMPLOG_WARN("SetRateInternal: pipeline resume failed (GstState timeout); recovering via re-seek");
+								long long nowMs = NOW_STEADY_TS_MS;
+								if ((nowMs - aamp->mLastRecoveryTimeMs) > PrivateInstanceAAMP::RECOVERY_COOLDOWN_MS)
+								{
+									aamp->mRecoveryAttemptCount = 0; // healthy gap since last recovery -> reset
+								}
+								aamp->mLastRecoveryTimeMs = nowMs;
+
 								aamp->SetState(eSTATE_SEEKING);
 								aamp->seek_pos_seconds = aamp->GetPositionSeconds();
 								aamp->rate = AAMP_NORMAL_PLAY_RATE;
 								aamp->mSinkPaused = false;
+								
+								if (aamp->mRecoveryAttemptCount >= PrivateInstanceAAMP::MAX_RECOVERY_ATTEMPTS)
+								{
+									// Repeated resume-timeouts: stop re-seeking, force a full retune once.
+									AAMPLOG_ERR("SetRateInternal: resume recovery exceeded %d attempts; escalating to full retune",
+														PrivateInstanceAAMP::MAX_RECOVERY_ATTEMPTS);
+									aamp->mRecoveryAttemptCount = 0;
+									{
+										std::lock_guard<std::recursive_mutex> lock(aamp->GetStreamLock());
+										aamp->TuneHelper(eTUNETYPE_RETUNE, false);
+									}
+								}
+								else
+								{
+									aamp->mRecoveryAttemptCount++;
+									AAMPLOG_WARN("SetRateInternal: pipeline resume failed (GstState timeout); recovering via re-seek (attempt %d/%d)										",aamp->mRecoveryAttemptCount, PrivateInstanceAAMP::MAX_RECOVERY_ATTEMPTS);
+
 									{
 										std::lock_guard<std::recursive_mutex> lock(aamp->GetStreamLock());
 										aamp->TuneHelper(eTUNETYPE_SEEK, false);
 									}
+								}
 
 								// Skip common notification (like local-TSB path): state -> PLAYING
 								// via NotifyFirstBufferProcessed once fragments arrive.
@@ -940,8 +1083,36 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 							}
 							else
 							{
-								// required since buffers are already cached in paused state
-								aamp->NotifyFirstBufferProcessed(sink ? sink->GetVideoRectangle() : std::string());
+								if (!retValue && sink)
+								{
+									// RDKEMW-21923: Resume failed — check if pipeline is now wedged.
+									GstState cur = GST_STATE_VOID_PENDING;
+									GstState pend = GST_STATE_VOID_PENDING;
+									GstStateChangeReturn stRet = sink->GetPipelineState(&cur, &pend);
+									if (stRet == GST_STATE_CHANGE_FAILURE ||
+										(stRet == GST_STATE_CHANGE_ASYNC && cur == pend))
+									{
+										AAMPLOG_WARN("SetRateInternal: post-resume wedge detected "
+											"(state=%d pending=%d ret=%d), recovering via re-seek",
+											cur, pend, stRet);
+										aamp->SetState(eSTATE_SEEKING);
+										aamp->seek_pos_seconds = aamp->GetPositionSeconds();
+										aamp->rate = AAMP_NORMAL_PLAY_RATE;
+										aamp->mSinkPaused = false;
+										{
+											std::lock_guard<std::recursive_mutex> lock(aamp->GetStreamLock());
+											aamp->TuneHelper(eTUNETYPE_SEEK, false);
+										}
+										aamp->NotifySpeedChanged(aamp->rate, false);
+										aamp->ResumeDownloads();
+										return;
+									}
+								}
+								else
+								{
+									// required since buffers are already cached in paused state
+									aamp->NotifyFirstBufferProcessed(sink ? sink->GetVideoRectangle() : std::string());
+								}
 							}
 						}
 					}
@@ -953,6 +1124,25 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 			{
 				if (!aamp->mSinkPaused.load())
 				{
+					
+					// RDKEMW-21923: Guard against pausing a pipeline that is mid-rebuild.
+					// Calling sink->Pause() on a NULL/READY pipeline triggers a PAUSED->PAUSED
+					// wedge once the rebuild completes. Defer: mark paused and return.
+					StreamSink *sinkCheck = AampStreamSinkManager::GetInstance().GetStreamSink(aamp);
+					if (sinkCheck)
+					{
+						GstState cur = GST_STATE_VOID_PENDING;
+						GstState pend = GST_STATE_VOID_PENDING;
+						sinkCheck->GetPipelineState(&cur, &pend);
+						if (cur == GST_STATE_NULL || cur == GST_STATE_VOID_PENDING || cur == GST_STATE_READY)
+						{
+							AAMPLOG_WARN("SetRateInternal: pause requested but pipeline in state %d "
+								"(rebuild in progress) — deferring pause", cur);
+							aamp->mSinkPaused = true;
+							return;
+						}
+					}
+
 					aamp->mpStreamAbstractionAAMP->NotifyPlaybackPaused(true);
 					if (!aamp->IsLocalAAMPTsb())
 					{
@@ -966,12 +1156,32 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 						}
 					}
 
+					if (aamp->IsPipelineWedged())
+					{
+						AAMPLOG_WARN("SetRateInternal: pipeline wedged at pause-on-first-frame, skipping pause");
+						// Don't attempt pause, just notify completion
+						return;
+					}
+
 					StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(aamp);
 					if (sink)
 					{
 						retValue = sink->Pause(true, false);
 					}
 					aamp->mSinkPaused = true;
+					
+					if (!retValue)
+					{
+						AAMPLOG_WARN("SetRateInternal: pause failed on first frame; recovering via re-seek");
+						aamp->SetState(eSTATE_SEEKING);
+						aamp->seek_pos_seconds = aamp->GetPositionSeconds();
+						aamp->mSinkPaused = true;
+						{
+							std::lock_guard<std::recursive_mutex> lock(aamp->GetStreamLock());
+							aamp->TuneHelper(eTUNETYPE_SEEK, false);
+						}
+						return;
+					}
 
 					if(aamp->GetLLDashServiceData()->lowLatencyMode)
 					{
