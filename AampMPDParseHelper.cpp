@@ -586,7 +586,7 @@ double AampMPDParseHelper::GetPeriodStartTime(int periodIndex,uint64_t mLastPlay
 						durationTotal += aamp_GetPeriodDuration(idx, mLastPlaylistDownloadTimeMs);
 					}
 					periodStart =  ((double)durationTotal / (double)1000);
-					if(mIsLiveManifest && (periodStart >= 0))
+					if(mAvailabilityStartTime > 0 && (periodStart >= 0))
 					{
 						periodStart += mAvailabilityStartTime;
 					}
@@ -668,24 +668,9 @@ double AampMPDParseHelper::GetPeriodEndTime(int periodIndex, uint64_t mLastPlayl
 				if(startTimeStr.empty() || mLiveTimeFragmentSync)
 				{
 					AAMPLOG_INFO("Period startTime is not present in MPD, so calculating start time with previous period durations");
-					if(mIsLiveManifest)
-					{
-						periodStartMs = GetPeriodStartTime(periodIndex,mLastPlaylistDownloadTimeMs) * 1000 - (mAvailabilityStartTime * 1000);
-					}
-					else
-					{
-						periodStartMs = GetPeriodStartTime(periodIndex,mLastPlaylistDownloadTimeMs) * 1000;
-					}
 				}
-				else
-				{
-					periodStartMs = ParseISO8601Duration(startTimeStr.c_str()) + (aamp_GetPeriodStartTimeDeltaRelativeToPTSOffset(period)* 1000);
-				}
+				periodStartMs = GetPeriodStartTime(periodIndex,mLastPlaylistDownloadTimeMs) * 1000;
 				periodEndTime = ((double)(periodStartMs + periodDurationMs) /1000);
-				if(mIsLiveManifest)
-				{
-					periodEndTime +=  mAvailabilityStartTime;
-				}
 			}
 			AAMPLOG_INFO("StreamAbstractionAAMP_MPD: MPD periodIndex:%d periodId %s periodEndTime %f", periodIndex, period->GetId().c_str(), periodEndTime);
 		}
