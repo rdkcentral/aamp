@@ -82,15 +82,15 @@ bool WriteUint64(uint8_t *dst, uint64_t val, const uint8_t *bufEnd, const uint8_
 {
 	if (nullptr == dst)
 	{
-		AAMPLOG_DEBUG("WriteUint64 bounds check failed: dst is null");
+		AAMPLOG_ERR("WriteUint64 bounds check failed: dst is null");
 	}
 	if ((nullptr != bufEnd) && ((dst + sizeof(uint64_t)) > bufEnd))
 	{
-		AAMPLOG_DEBUG("WriteUint64 bounds check failed: write would overrun the buffer");
+		AAMPLOG_ERR("WriteUint64 bounds check failed: write would overrun the buffer");
 	}
 	if ((nullptr != boxEnd) && ((dst + sizeof(uint64_t)) > boxEnd))
 	{
-		AAMPLOG_DEBUG("WriteUint64 bounds check failed: write would overrun tfdt box");
+		AAMPLOG_ERR("WriteUint64 bounds check failed: write would overrun tfdt box");
 	}
 
 	uint32_t msw = (uint32_t)(val>>32);
