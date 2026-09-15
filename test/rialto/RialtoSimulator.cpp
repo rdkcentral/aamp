@@ -371,6 +371,7 @@ public:
 
 			// Apply the new position, as setSourcePosition() would after a flush.
 			m_masterClockAnchorNs = position;
+			m_horizonFloorNs = position;
 			m_masterClockAnchorWallTime = std::chrono::steady_clock::now();
 		}
 
@@ -719,6 +720,7 @@ public:
 			m_basePositionNs.store(position, std::memory_order_relaxed);
 			m_basePositionSet.store(true, std::memory_order_relaxed);
 			m_masterClockAnchorNs = position;
+			m_horizonFloorNs = position;
 			m_masterClockAnchorWallTime = std::chrono::steady_clock::now();
 		}
 		return true;
@@ -911,7 +913,11 @@ private:
 			auto horizonIt = m_trackHorizonNs.find(*effectiveMaster);
 			if (horizonIt != m_trackHorizonNs.end())
 			{
-				clockNs = std::min(estimate, horizonIt->second);
+				// Never clamp below the floor: a horizon entry left over from
+				// data whose PTS predates the last position reset (e.g. a
+				// mid-fragment seek re-delivering the start of a segment) is
+				// not a real stall and must not freeze the clock.
+				clockNs = std::min(estimate, std::max(horizonIt->second, m_horizonFloorNs));
 			}
 		}
 
@@ -941,7 +947,7 @@ private:
 			// estimate for that check.  Followers are checked against the
 			// position actually being reported.
 			int64_t referencePos = (effectiveMaster && sourceId == *effectiveMaster) ? estimate : clockNs;
-			bool starved = referencePos > trackHorizonIt->second;
+			bool starved = referencePos > std::max(trackHorizonIt->second, m_horizonFloorNs);
 			bool alreadyNotified = m_underflowNotifiedSources.count(sourceId) > 0;
 			if (starved && !alreadyNotified)
 			{
@@ -1430,6 +1436,11 @@ private:
 	// Master (A/V-sync-leading) track: audio if attached, else video.
 	std::optional<int32_t> m_masterSourceId;
 	int64_t m_masterClockAnchorNs = 0;
+	// Floor for horizon-based clamping: the position most recently applied
+	// by setPosition()/setSourcePosition(). A track's horizon can only cap
+	// the clock below this if that horizon was actually established after
+	// the reset - see refreshMasterClockLocked().
+	int64_t m_horizonFloorNs = 0;
 	std::chrono::steady_clock::time_point m_masterClockAnchorWallTime;
 	std::set<int32_t> m_readySources;
 	std::set<int32_t> m_eosSources;
