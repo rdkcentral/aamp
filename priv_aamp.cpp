@@ -5924,14 +5924,14 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 		mIscDVR = true;
 	}
 
-#ifdef ENABLE_PTS_RESTAMP
+
 	if (ContentType_LINEAR == mContentType)
 	{
 		SETCONFIGVALUE_PRIV(AAMP_TUNE_SETTING, eAAMPConfig_EnablePTSReStamp, true);
 	}
 
 	AAMPLOG_MIL("ContentType(%d) EnablePTSReStamp(%d)", mContentType, GETCONFIGVALUE_PRIV(eAAMPConfig_EnablePTSReStamp));
-#endif
+
 
 	CreateTsbSessionManager();
 
