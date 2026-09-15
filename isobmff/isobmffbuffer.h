@@ -219,9 +219,14 @@ public:
 	 * @param[in] basePts - base pts
 	 * @param[in] segment - buffer pointer
 	 * @param[in] bufSz - buffer size
+	 * @param[in] bufferEnd - one-past-the-end pointer of the whole fmp4
+	 *                        fragment buffer; computed from the top-level
+	 *                        call when left null, and preserved across the
+	 *                        recursion so bounds checks always refer to the
+	 *                        entire fragment
 	 * @return void
 	 */
-	void restampPTS(uint64_t offset, uint64_t basePts, uint8_t *segment, uint32_t bufSz);
+	void restampPTS(uint64_t offset, uint64_t basePts, uint8_t *segment, uint32_t bufSz, const uint8_t *bufferEnd = nullptr);
 
 	/**
 	 * @fn restampPts
