@@ -1953,6 +1953,23 @@ void PrivateInstanceAAMP::SetStreamCaps(AampMediaType type, MediaCodecInfo&& cod
 	}
 }
 
+void PrivateInstanceAAMP::SetTrackEncrypted(AampMediaType type, bool isEncrypted)
+{
+	if (g_mockPrivateInstanceAAMP)
+	{
+		g_mockPrivateInstanceAAMP->SetTrackEncrypted(type, isEncrypted);
+	}
+}
+
+MediaCodecInfo PrivateInstanceAAMP::GetMediaCodecInfo(AampMediaType type)
+{
+	if (g_mockPrivateInstanceAAMP)
+	{
+		return g_mockPrivateInstanceAAMP->GetMediaCodecInfo(type);
+	}
+	return MediaCodecInfo();
+}
+
 void PrivateInstanceAAMP::QueueProtectionEvent(AampMediaType type, const std::vector<MediaProtectionInfo>& protectionEvents)
 {
 	if (g_mockPrivateInstanceAAMP)
