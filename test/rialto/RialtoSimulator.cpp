@@ -187,7 +187,13 @@ public:
 		, m_eosSourceCount(0)
 		, m_eosNotified(false)
 		, m_eosDrainGeneration(0)
+		, m_playbackRateEnabled(false)
 	{
+		const char *envRate = std::getenv("RIALTO_SIM_ENABLE_PLAYBACK_RATE");
+		if (envRate && std::string(envRate) == "1")
+		{
+			m_playbackRateEnabled = true;
+		}
 		RIALTO_SIM_LOG("SimMediaPipeline: created (width=%u height=%u)",
 			reqs.maxWidth, reqs.maxHeight);
 	}
@@ -310,6 +316,11 @@ public:
 			refreshMasterClockLocked();
 		}
 		m_rate.store(rate, std::memory_order_relaxed);
+		if (!m_playbackRateEnabled)
+		{
+			RIALTO_SIM_LOG("setPlaybackRate: rate simulation disabled (set RIALTO_SIM_ENABLE_PLAYBACK_RATE=1 to enable)");
+			return false;
+		}
 		return true;
 	}
 
@@ -1424,6 +1435,7 @@ private:
 	std::set<int32_t> m_eosSources;
 	std::map<uint32_t, RequestInfo> m_requestIdToSource;
 	std::map<uint32_t, PendingSegmentData> m_pendingSegments;
+	bool m_playbackRateEnabled;
 };
 
 // ===========================================================================
