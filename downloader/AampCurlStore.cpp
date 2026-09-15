@@ -25,6 +25,7 @@
 #include "AampCurlStore.h"
 #include "AampDefine.h"
 #include "AampUtils.h"
+#include <cinttypes>
 #include <mutex>
 
 // Curl callback functions
@@ -555,7 +556,7 @@ CurlStore::~CurlStore()
 	for( auto& it : umCurlSockDataStore )
 	{
 		CurlSocketStoreStruct *CurlSock {it.second};
-		AAMPLOG_INFO("Removing host:%s lastused:%lld UserCount:%d Hits:%llu Misses:%llu",
+		AAMPLOG_INFO("Removing host:%s lastused:%lld UserCount:%d Hits:%" PRIu64 " Misses:%" PRIu64,
 		             (it.first).c_str(), CurlSock->timestamp, CurlSock->mCurlStoreUserCount,
 		             CurlSock->mCacheHits, CurlSock->mCacheMisses);
 
@@ -626,8 +627,11 @@ CURL *CurlStore::GetCurlHandleFromSlot ( CurlSocketStoreStruct *CurlSock, int cu
 		return nullptr;
 	}
 
-	CURL *hdl = slot.front().first;
-	slot.pop_front();
+	// Retrieve from the back (newest entry) so the most-recently-used handle
+	// is reused first — LIFO gives the best chance of reusing a still-warm
+	// TCP connection.
+	CURL *hdl = slot.back().first;
+	slot.pop_back();
 
 	// Re-apply CURLOPT_SHARE: ensures the recycled handle always binds to the
 	// current live mCurlShared pointer, guarding against any future
@@ -913,7 +917,7 @@ void CurlStore::RemoveCurlSock ( void )
 	if( umCurlSockDataStore.end() != RemIt )
 	{
 		CurlSocketStoreStruct *RmCurlSock = RemIt->second;
-		AAMPLOG_INFO("Removing host:%s lastused:%lld UserCount:%d Hits:%llu Misses:%llu",
+		AAMPLOG_INFO("Removing host:%s lastused:%lld UserCount:%d Hits:%" PRIu64 " Misses:%" PRIu64,
 		             (RemIt->first).c_str(), RmCurlSock->timestamp, RmCurlSock->mCurlStoreUserCount,
 		             RmCurlSock->mCacheHits, RmCurlSock->mCacheMisses);
 
@@ -964,7 +968,7 @@ void CurlStore::FlushCurlSockForHost(const std::string &hostname)
 	if( umCurlSockDataStore.end() != removeIter )
 	{
 		CurlSocketStoreStruct *RmCurlSock = removeIter->second;
-		AAMPLOG_WARN("Flushing host:%s UserCount:%d Hits:%llu Misses:%llu",
+		AAMPLOG_WARN("Flushing host:%s UserCount:%d Hits:%" PRIu64 " Misses:%" PRIu64,
 		             hostname.c_str(), RmCurlSock->mCurlStoreUserCount,
 		             RmCurlSock->mCacheHits, RmCurlSock->mCacheMisses);
 
@@ -1036,7 +1040,7 @@ void CurlStore::ShowCurlStoreData ( bool trace )
 			             loop, (it->first).c_str(), CurlSock->mCurlShared,
 			             CurlSock->timestamp, CurlSock->mCurlStoreUserCount,
 			             CurlSock->mPendingFlush ? "yes" : "no");
-			AAMPLOG_INFO("%d.CacheHits:%llu Misses:%llu HitRate:%.1f%%",
+			AAMPLOG_INFO("%d.CacheHits:%" PRIu64 " Misses:%" PRIu64 " HitRate:%.1f%%",
 			             loop, CurlSock->mCacheHits, CurlSock->mCacheMisses, hitRate);
 
 			// Log per-slot handle counts

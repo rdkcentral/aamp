@@ -363,13 +363,18 @@ TEST_F(CurlStoreTests, LockCallback_HandlesAllLockDataTypes)
 }
 
 // ---------------------------------------------------------------------------
-// T5: Per-slot retrieval — GetCurlHandle for curlId=N always returns the
-// handle that was stored for slot N, never a handle from a different slot.
+// T5: Per-slot storage and retrieval correctness.
 //
-// Before this fix (single mixed-curlId mFreeQ), the O(n) GetCurlHandleFromFreeQ
-// scan could return a handle from the wrong slot when the front element had a
-// non-matching curlId.  With the per-slot mFreeSlots map the lookup is O(1)
-// and there is no cross-slot contamination.
+// Verifies the API contract: a handle stored for slot N is returned when
+// slot N is requested, and a handle stored for slot M is returned when slot M
+// is requested.  Both slots are independent — returning a handle to one slot
+// does not affect the other.
+//
+// Note: the O(1) lookup improvement over the old linear-scan mFreeQ is a
+// structural property of the unordered_map<int, deque<...>> design and
+// cannot be verified by a unit test.  This test only covers the correctness
+// contract (right handle in, right handle out), not performance or
+// the former mFreeQ cross-slot blocking behaviour.
 // ---------------------------------------------------------------------------
 TEST_F(CurlStoreTests, PerSlotRetrieval_NoCrossSlotContamination)
 {
@@ -441,6 +446,11 @@ TEST_F(CurlStoreTests, PendingFlush_DisposesReturnedHandlesAndDefersCurlShare)
     // *after* this catch-all will still be tried first and take priority.
     EXPECT_CALL(*g_mockCurl, curl_easy_cleanup(_)).Times(AnyNumber());
 
+    // kHdlVid must be disposed exactly once by FlushCurlSockForHost when the
+    // pool is cleared.  Set after the catch-all so GMock (LIFO) tries this
+    // specific matcher first.
+    EXPECT_CALL(*g_mockCurl, curl_easy_cleanup(kHdlVid)).Times(1);
+
     ON_CALL(*g_mockAampUtils, getHostFromURL(_)).WillByDefault(Return(hostname));
     ON_CALL(*g_mockCurl, curl_share_init()).WillByDefault(Return(kShareHdl));
     EXPECT_CALL(*g_mockCurl, curl_easy_init())
@@ -458,10 +468,11 @@ TEST_F(CurlStoreTests, PendingFlush_DisposesReturnedHandlesAndDefersCurlShare)
 
     // Session-1 returns VIDEO handle and triggers flush (isFlushFds=true):
     //   KeepInCurlStoreBulk: count→1, kHdlVid pushed to pool[VIDEO].
-    //   FlushCurlSockForHost: pool cleared (kHdlVid disposed), mPendingFlush=true.
+    //   FlushCurlSockForHost: pool cleared (kHdlVid disposed via the explicit
+    //   EXPECT_CALL above), mPendingFlush=true.
     //   curl_share_cleanup NOT called yet (count still 1 > 0).
-    // No specific EXPECT_CALL for curl_share_cleanup during this phase: any
-    // share_cleanup from evictions (e.g., t1-host-a) is NiceMock-uninteresting.
+    // Any share_cleanup from evictions (e.g., t1-host-a) during CurlTerm is
+    // NiceMock-uninteresting (no matching EXPECT_CALL active at that point).
     mAamp->curl[eCURLINSTANCE_VIDEO] = h_vid;
     mAamp->mOrigManifestUrl.hostname     = hostname;
     mAamp->mOrigManifestUrl.isRemotehost = true;
@@ -491,6 +502,15 @@ TEST_F(CurlStoreTests, PendingFlush_DisposesReturnedHandlesAndDefersCurlShare)
 TEST_F(CurlStoreTests, UserCount_DoesNotGoBelowZero)
 {
     const std::string hostname = "t7-host.example.com";
+
+    // Give t7-host a unique CURLSH sentinel so we can assert its specific
+    // share handle is cleaned up when the entry is evicted (not just any
+    // share handle from a different host).
+    CURLSH *const kT7ShareHdl = reinterpret_cast<CURLSH *>(0xC002);
+    EXPECT_CALL(*g_mockCurl, curl_share_init())
+        .WillOnce(Return(kT7ShareHdl))           // t7-host
+        .WillRepeatedly(Return(kFakeShHandle));   // t7-trigger and any other host
+
     ON_CALL(*g_mockAampUtils, getHostFromURL(_)).WillByDefault(Return(hostname));
 
     // One Get → count=1; one matching Keep → count=0 (balanced).
@@ -504,12 +524,10 @@ TEST_F(CurlStoreTests, UserCount_DoesNotGoBelowZero)
     // NiceMock: curl_easy_cleanup is allowed (store may dispose the extra handle).
     ReturnHandleForHost(hostname, kExtraHdl);
 
-    // Verify the entry is still evictable by triggering RemoveCurlSock.
-    // CreateCurlStore for a new host with MaxCurlSockStore=0 evicts the oldest
-    // entry with userCount==0.  If count had wrapped to ~4e9 the entry would
-    // NOT be evictable (RemoveCurlSock only picks entries with userCount==0).
-    // Expect at least one curl_share_cleanup when the eviction happens.
-    EXPECT_CALL(*g_mockCurl, curl_share_cleanup(_)).Times(::testing::AtLeast(1));
+    // Verify t7-host's entry is evictable: RemoveCurlSock must call
+    // curl_share_cleanup on kT7ShareHdl exactly once, proving the entry's
+    // userCount stayed at 0 (was not wrapped to ~4e9 by the underflow bug).
+    EXPECT_CALL(*g_mockCurl, curl_share_cleanup(kT7ShareHdl)).Times(1);
 
     // Creating a new host entry triggers RemoveCurlSock (MaxCurlSockStore=0),
     // which must successfully evict t7-host (proving userCount==0 after clamp).

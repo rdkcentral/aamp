@@ -89,8 +89,13 @@ typedef struct curldatasharelock
  */
 typedef struct curlstorestruct
 {
-	// Per-curlId free-handle pools.  Each slot holds a LIFO deque of
-	// {CURL*, insertion-timestamp} pairs, oldest entries at the front.
+	// Per-curlId free-handle pools.  Each slot holds a deque of
+	// {CURL*, insertion-timestamp} pairs.  New entries are appended at the
+	// back (push_back) so the oldest entries accumulate at the front.
+	// Retrieval uses pop_back (LIFO) so the most-recently-returned — and
+	// therefore most likely still-warm — connection is reused first.
+	// Stale-entry eviction sweeps from the front (pop_front) where the
+	// oldest handles live, independent of the LIFO retrieval order.
 	// Using an unordered_map avoids the mixed-type accumulation that the
 	// old single deque had: lookup is O(1) per slot.
 	using CurlSlotEntry = std::pair<CURL *, long long>;
