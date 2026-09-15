@@ -210,8 +210,6 @@ void IsoBmffBuffer::restampPTS(uint64_t offset, uint64_t basePts, uint8_t *segme
 		uint32_t size = READ_U32(buf);
 		if (size < minHeaderSize || size > remaining)
 		{
-			AAMPLOG_WARN("Invalid box size[%u] while restamping PTS (remaining %u)",
-				size, remaining);
 			break;
 		}
 		uint8_t type[5];
@@ -302,8 +300,6 @@ void IsoBmffBuffer::restampPtsInternal(int64_t offset, uint8_t *segment, size_t 
 		uint32_t size = READ_U32(buf);
 		if (size < minHeaderSize || size > remaining)
 		{
-			AAMPLOG_WARN("Invalid box size[%u] while restamping PTS (remaining %u)",
-				size, remaining);
 			break;
 		}
 		uint8_t type[5];
