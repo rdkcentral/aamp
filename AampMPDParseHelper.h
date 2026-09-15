@@ -248,6 +248,11 @@ public :
  	* 	@retval double . AvailabilityStartTime
 	*/
 	double GetAvailabilityStartTime() { return mAvailabilityStartTime;}
+	void SetAvailabilityStartTime(double availabilityStartTime)
+	{
+		mAvailabilityStartTime = availabilityStartTime;
+		mMPDPeriodDetails.clear();
+	}
 	/**
 	*
 	*   @fn GetPublishTime
