@@ -510,8 +510,8 @@ void PlayerInstanceAAMP::TuneInternal(const char *mainManifestUrl,
 	if(aamp)
 	{
 		UsingPlayerId playerId(aamp->mPlayerId);
-
-		if ( aamp->IsAsyncTuneAbortRequired(mainManifestUrl, contentType) )
+		double seekPos=GETCONFIGVALUE(eAAMPConfig_PlaybackOffset);
+		if ( aamp->IsAsyncTuneAbortRequired(mainManifestUrl, contentType, seekPos) )
 		{
 				AAMPLOG_INFO("Aborting tune early");
 				return;
@@ -533,7 +533,7 @@ void PlayerInstanceAAMP::TuneInternal(const char *mainManifestUrl,
 				IsOTAtoOTA = true;
 			}
 		}
-		if ((state != eSTATE_IDLE) && (state != eSTATE_RELEASED) && (!IsOTAtoOTA) && (!(aamp->IsAsyncTuneAbortRequired(mainManifestUrl, contentType))) )
+		if ((state != eSTATE_IDLE) && (state != eSTATE_RELEASED) && (!IsOTAtoOTA) && (!(aamp->IsAsyncTuneAbortRequired(mainManifestUrl, contentType, seekPos))) )
 		{
 			//Calling tune without closing previous tune
 			StopInternal(true, false);
@@ -543,7 +543,7 @@ void PlayerInstanceAAMP::TuneInternal(const char *mainManifestUrl,
 			AAMPLOG_INFO("Player is in state '%s'. Do not stop before tune", AAMPPlayerStateName(state));
 		}
 
-		if ( !aamp->IsAsyncTuneAbortRequired(mainManifestUrl, contentType) )
+		if ( !aamp->IsAsyncTuneAbortRequired(mainManifestUrl, contentType, seekPos) )
 		{
 			aamp->getAampCacheHandler()->StartPlaylistCache();
 			aamp->Tune(mainManifestUrl, autoPlay, contentType, bFirstAttempt, bFinalAttempt, traceUUID, audioDecoderStreamSync, refreshManifestUrl, mpdStitchingMode, std::move(sid),manifestData);

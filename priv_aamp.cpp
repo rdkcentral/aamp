@@ -5602,20 +5602,22 @@ void PrivateInstanceAAMP::SetEarlyAbortRequestFlag(bool enableAbort)
  *        manifest-URL overload of IsAsyncTuneAbortRequired() delegate here so that
  *        the criteria stay in sync automatically.
  */
-bool PrivateInstanceAAMP::IsAsyncTuneSupportedForType(MediaFormat format, ContentType type) const
+bool PrivateInstanceAAMP::IsAsyncTuneSupportedForType(MediaFormat format, ContentType type, TuneType tuneType) const
 {
 	return (eMEDIAFORMAT_DASH == format) &&
 	       (ContentType_LINEAR == type)  &&
+		   ((eTUNETYPE_NEW_NORMAL == tuneType) || (eTUNETYPE_NEW_SEEK == tuneType) || (eTUNETYPE_NEW_END == tuneType)) &&
 	       mAsyncTuneEnabled;
 }
 
 /**
  * @brief Determine whether the current tune type supports early async-tune abort.
- *        Uses stored mMediaFormat / mContentType (active tune).
+ *        Uses stored mMediaFormat, mContentType,  mTuneType(active tune).
+ *        So these must have already been set.
  */
 bool PrivateInstanceAAMP::IsAsyncTuneAbortSupported()
 {
-	return IsAsyncTuneSupportedForType(mMediaFormat, mContentType);
+	return IsAsyncTuneSupportedForType(mMediaFormat, mContentType, mTuneType);
 }
 
 /**
@@ -5629,16 +5631,20 @@ bool PrivateInstanceAAMP::IsAsyncTuneAbortRequired()
 /**
  * @brief Determine whether an incoming tune (identified by URL and content-type string)
  *        should be aborted because a Stop is in progress.
+ *        Use IsAsyncTuneAbortRequired() in preference except where this is called prior to tune parameters being parsed.
+ *        i.e. This is specific for use from PrivateInstanceAAMP::Tune(), not paths like retune.
  */
-bool PrivateInstanceAAMP::IsAsyncTuneAbortRequired(const char* manifestUrl, const char* contentTypeString)
+bool PrivateInstanceAAMP::IsAsyncTuneAbortRequired(const char* manifestUrl, const char* contentTypeString, double seek_pos)
 {
 	if (!mAsyncTaskAbortEnabled.load())
 		return false;
 	MediaFormat format = manifestUrl ? GetMediaFormatType(manifestUrl) : eMEDIAFORMAT_UNKNOWN;
 	// Map the content-type string to enum — the only type that supports abort is LINEAR_TV.
-	ContentType type = (contentTypeString && !strncmp(contentTypeString, "LINEAR_TV", 9))
+	ContentType contentType = (contentTypeString && !strncmp(contentTypeString, "LINEAR_TV", 9))
 	                 ? ContentType_LINEAR : ContentType_UNKNOWN;
-	return IsAsyncTuneSupportedForType(format, type);
+	// tune type as derrived in PrivateInstanceAAMP::Tune()
+	TuneType tuneType = ((AAMP_DEFAULT_PLAYBACK_OFFSET == seek_pos) || (-1 == seek_pos)) ? eTUNETYPE_NEW_NORMAL : eTUNETYPE_SEEK;
+	return IsAsyncTuneSupportedForType(format, contentType, tuneType);
 }
 
 /**
