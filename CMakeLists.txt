@@ -41,6 +41,8 @@ message("build: ${buildinfo}")
 find_package(Threads REQUIRED)
 find_package(PkgConfig REQUIRED)
 
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
+
 # Resolve dependent modules
 message("using gstreamer-1.0")
 pkg_check_modules(GSTREAMER REQUIRED gstreamer-1.0>=1.18.0)
@@ -50,6 +52,29 @@ pkg_check_modules(LIBDASH REQUIRED libdash)
 pkg_check_modules(OPENSSL REQUIRED openssl)
 pkg_check_modules(LIBCJSON REQUIRED libcjson)
 pkg_check_modules(UUID REQUIRED uuid)
+find_package(Rialto)
+
+# When the real Rialto client library is not available (e.g. macOS or builds
+# without the "rialto" option), build and link the Rialto simulator so that AAMP
+# can still compile.  The simulator drives DirectRialto callbacks for L2 tests.
+if(NOT RIALTO_FOUND)
+	message(STATUS "Rialto client library not found — building simulator from test/rialto/")
+	add_subdirectory(test/rialto)
+	set(RIALTO_LIBRARIES RialtoSimulator)
+	if(NOT RIALTO_INCLUDE_DIRS)
+		set(RIALTO_INCLUDE_DIRS "${CMAKE_SOURCE_DIR}/.libs/include/rialto")
+	endif()
+	# Simulator builds always enable the Direct Rialto DRM adapter.
+	# Production Yocto recipes that have the real RialtoClient and want the DRM
+	# path must pass -DCMAKE_USE_DIRECT_RIALTO_ADAPTER=TRUE explicitly.
+	set(CMAKE_USE_DIRECT_RIALTO_ADAPTER TRUE)
+endif()
+
+# TODO - Remove this code?
+# Production Yocto recipes that have the real RialtoClient and want the DRM
+# path must pass -DCMAKE_USE_DIRECT_RIALTO_ADAPTER=TRUE explicitly.
+set(CMAKE_USE_DIRECT_RIALTO_ADAPTER TRUE)
+
 
 # External middleware-player-interface dependencies (required)
 # Components are sourced from the external middleware-player-interface repository.
@@ -173,6 +198,7 @@ include_directories(
 	${OPENSSL_INCLUDE_DIRS}
 	${UUID_INCLUDE_DIRS}
 	${LIBCJSON_INCLUDE_DIRS}
+	${RIALTO_INCLUDE_DIRS}
 )
 
 # Internal source directory includes
@@ -191,6 +217,7 @@ include_directories(
 	${CMAKE_CURRENT_SOURCE_DIR}/tsb/api
 	${CMAKE_CURRENT_SOURCE_DIR}/abr
 	${CMAKE_CURRENT_SOURCE_DIR}/mp4demux
+	${CMAKE_CURRENT_SOURCE_DIR}/direct-rialto
 	# Locally built/installed dependencies
 	${CMAKE_CURRENT_SOURCE_DIR}/.libs/include
 )
@@ -205,6 +232,7 @@ set(LIBAAMP_DEPENDS
 	${LIBDASH_LINK_LIBRARIES}
 	${LIBXML2_LIBRARIES}
 	${CMAKE_THREAD_LIBS_INIT}
+	${RIALTO_LIBRARIES}
 	${OPENSSL_LINK_LIBRARIES}
 	${GL_DEPENDS}
 	${AAMP_CLI_LD_FLAGS}
@@ -465,6 +493,23 @@ set(LIBAAMP_SOURCES
 	drm/AampDRMLicManager.cpp drm/AampDRMLicManager.h
 	drm/DrmInterface.cpp drm/DrmInterface.h
 	aampgstplayer.cpp aampgstplayer.h
+	direct-rialto/AampDrmBridge.cpp
+	direct-rialto/RialtoMediaKeySession.cpp
+	direct-rialto/RialtoMediaKeySystem.cpp
+	direct-rialto/RialtoMediaKeySessionAdapter.cpp
+	direct-rialto/RialtoSessionCreator.cpp
+	direct-rialto/AampPlayerStateMachine.cpp
+	direct-rialto/AampRialtoAudioSource.cpp
+	direct-rialto/AampRialtoMediaPipelineClient.cpp
+	direct-rialto/AampRialtoPlayer.cpp
+	direct-rialto/AampRialtoMediaSource.cpp
+	direct-rialto/AampRialtoPlayer.h
+	direct-rialto/AampRialtoControlBackend.cpp
+	direct-rialto/PrivateInstanceAAMPNotifiable.cpp
+	direct-rialto/AampRialtoSourceCreators.cpp
+	direct-rialto/AampRialtoSubtitleSource.cpp
+	direct-rialto/AampRialtoVideoSource.cpp
+	direct-rialto/AampRialtoMonitorAV.cpp
 	AampBufferControl.cpp AampBufferControl.h
 	tsprocessor.cpp tsprocessor.h
 	aamplogging.cpp AampLogManager.h

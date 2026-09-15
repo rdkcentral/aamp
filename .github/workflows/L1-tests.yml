@@ -3,7 +3,7 @@ name: L1 tests
 on:
   pull_request:
     branches:
-      - develop
+      - feature/VPLAY-12250
       - dev_sprint_25_2
       - 'support/**'
 
@@ -26,7 +26,7 @@ jobs:
 
       - name: Clone Middleware repo
         run: |
-          git clone -b develop https://github.com/rdkcentral/middleware-player-interface
+          git clone -b feature/VPLAY-12250 https://github.com/rdkcentral/middleware-player-interface
       # Run L1 tests
       - name: Run unit tests
         working-directory: ./test/utests
