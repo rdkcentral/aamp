@@ -5681,7 +5681,7 @@ bool PrivateInstanceAAMP::IsAsyncTuneSupportedForType(MediaFormat format, Conten
 {
 	return (eMEDIAFORMAT_DASH == format) &&
 	       (ContentType_LINEAR == type)  &&
-		   ((eTUNETYPE_NEW_NORMAL == tuneType) || (eTUNETYPE_NEW_SEEK == tuneType) || (eTUNETYPE_NEW_END == tuneType)) &&
+	       ((eTUNETYPE_NEW_NORMAL == tuneType) || (eTUNETYPE_NEW_SEEK == tuneType) || (eTUNETYPE_NEW_END == tuneType)) &&
 	       mAsyncTuneEnabled;
 }
 
