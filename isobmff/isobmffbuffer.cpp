@@ -307,28 +307,25 @@ void IsoBmffBuffer::restampPtsInternal(int64_t offset, uint8_t *segment, size_t 
 
 			if (1 == version)
 			{
+				if ((buf + sizeof(uint64_t) > tfdtBoxEnd) ||
+					(buf + sizeof(uint64_t) > bufferEnd))
+				{
+					AAMPLOG_ERR("Skipping v1 tfdt restamp: 8-byte access out of bounds ,tfdtBoxEnd[%p] bufferEnd[%p] buf[%p]", tfdtBoxEnd, bufferEnd, buf);
+				}
+				else
+				{
 				uint64_t pts = ReadUint64(buf);
-				const uint64_t beforeRestampPts = pts;
-				const size_t ptsReadStart = (size_t)(buf - buffer);
-				const size_t ptsReadEnd = ptsReadStart + sizeof(pts);
-				AAMPLOG_DEBUG("tfdt v1 PTS read: buffer pos start[%zu] end[%zu]",
-					ptsReadStart, ptsReadEnd);
 				if (!firstPtsSaved)
 				{
 					beforePTS = pts;
 				}
 				pts += offset;
-				AAMPLOG_DEBUG("tfdt v1 PTS value: before[%" PRIu64 "] after[%" PRIu64 "]",
-					beforeRestampPts, pts);
-				WriteUint64(buf, pts, bufferEnd, tfdtBoxEnd);
-				const size_t ptsWriteStart = (size_t)(buf - buffer);
-				const size_t ptsWriteEnd = ptsWriteStart + sizeof(pts);
-				AAMPLOG_DEBUG("tfdt v1 PTS write: buffer pos start[%zu] end[%zu]",
-					ptsWriteStart, ptsWriteEnd);
+				WriteUint64(buf, pts);
 				if (!firstPtsSaved)
 				{
 					firstPtsSaved = true;
 					afterPTS = pts;
+				}
 				}
 			}
 			else
@@ -336,28 +333,17 @@ void IsoBmffBuffer::restampPtsInternal(int64_t offset, uint8_t *segment, size_t 
 				if ((buf + sizeof(uint32_t) > tfdtBoxEnd) ||
 					(buf + sizeof(uint32_t) > bufferEnd))
 				{
-					AAMPLOG_DEBUG("Skipping v0 tfdt restamp: 4-byte access out of bounds");
+					AAMPLOG_ERR("Skipping v0 tfdt restamp: 4-byte access out of bounds, tfdtBoxEnd[%p] bufferEnd[%p] buf[%p]", tfdtBoxEnd, bufferEnd, buf);
 				}
 				else
 				{
 					uint32_t pts = (buf[0] << 24) | (buf[1] << 16) | (buf[2] << 8) | buf[3];
-					const uint32_t beforeRestampPts = pts;
-					const size_t ptsReadStart = (size_t)(buf - buffer);
-					const size_t ptsReadEnd = ptsReadStart + sizeof(pts);
-					AAMPLOG_DEBUG("tfdt v0 PTS read: buffer pos start[%zu] end[%zu]",
-						ptsReadStart, ptsReadEnd);
 					if (!firstPtsSaved)
 					{
 						beforePTS = pts;
 					}
 					pts += (uint32_t)offset;
-					AAMPLOG_DEBUG("tfdt v0 PTS value: before[%u] after[%u]",
-						beforeRestampPts, pts);
 					WRITE_U32(buf, pts);
-					const size_t ptsWriteStart = (size_t)(buf - buffer);
-					const size_t ptsWriteEnd = ptsWriteStart + sizeof(pts);
-					AAMPLOG_DEBUG("tfdt v0 PTS write: buffer pos start[%zu] end[%zu]",
-						ptsWriteStart, ptsWriteEnd);
 					if (!firstPtsSaved )
 					{
 						afterPTS = pts;
