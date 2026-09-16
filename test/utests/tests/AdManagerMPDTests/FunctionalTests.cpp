@@ -4732,7 +4732,7 @@ TEST_F(AdManagerMPDTests, StaticManifest_AdDownloadFails_NotifyComplete_DoesNotP
 }
 
 /**
- * @brief Regression test for VPAAMP-1201: GetAdMPD must propagate 302 redirect
+ * @brief Regression test: GetAdMPD must propagate 302 redirect
  *        effective URL back to the caller's manifestUrl parameter.
  *
  * This test ensures that when an ad manifest download encounters a 302 redirect,
