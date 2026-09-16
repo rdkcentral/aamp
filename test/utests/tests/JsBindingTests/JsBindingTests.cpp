@@ -224,3 +224,33 @@ TEST_F(JsBindingTests, JsValueToJSONCStringReturnsEmptyOnConversionException)
 	std::string result = aamp_JSValueToJSONCString(context, value, &exception);
 	EXPECT_TRUE(result.empty());
 }
+
+TEST_F(JsBindingTests, RemoveEventListenerDetachesInFlightListener)
+{
+	PrivAAMPStruct_JS *obj = new PrivAAMPStruct_JS();
+	obj->_aamp = playerInstanceAAMP;
+	obj->_ctx = reinterpret_cast<JSGlobalContextRef>(0x1234);
+
+	JSObjectRef jsCallback = reinterpret_cast<JSObjectRef>(0x5678);
+	AAMP_JSEventListener::AddEventListener(obj, AAMP_EVENT_STATE_CHANGED, jsCallback);
+	ASSERT_EQ(obj->_listeners.size(), 1u);
+
+	// Stand-in for the shared_ptr copy AampEventManager::SendEventSync() would be
+	// holding in its local dispatch list while removeEventListener() runs concurrently.
+	auto inFlightRef = std::static_pointer_cast<AAMP_JSEventListener>(obj->_listeners.begin()->second);
+
+	AAMP_JSEventListener::RemoveEventListener(obj, AAMP_EVENT_STATE_CHANGED, jsCallback);
+
+	// Listener must be detached from its (about to be freed) owner even though a stray
+	// reference is still outstanding.
+	EXPECT_EQ(inFlightRef->p_obj, nullptr);
+	EXPECT_EQ(inFlightRef->p_jsCallback, nullptr);
+
+	// The JS object is torn down next, exactly as release()/GC finalization would do.
+	delete obj;
+	obj = nullptr;
+
+	// inFlightRef is now the last owner. Destroying it must not touch the freed
+	// PrivAAMPStruct_JS - if p_obj/p_jsCallback weren't nulled above, this deref's it.
+	inFlightRef.reset();
+}
