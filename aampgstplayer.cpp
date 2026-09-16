@@ -105,6 +105,15 @@ static void InitializePlayerConfigs(AAMPGstPlayer *_this, void *playerInstance)
 	interfacePlayer->m_gstConfigParam->monitorAvsyncThresholdPositiveMs = config->GetConfigValue(eAAMPConfig_MonitorAVSyncThresholdPositive);
 	interfacePlayer->m_gstConfigParam->monitorAvsyncThresholdNegativeMs = config->GetConfigValue(eAAMPConfig_MonitorAVSyncThresholdNegative);
 	interfacePlayer->m_gstConfigParam->monitorAvJumpThresholdMs =  config->GetConfigValue(eAAMPConfig_MonitorAVJumpThreshold);
+	interfacePlayer->m_gstConfigParam->initialVideoWidth = 0;
+	interfacePlayer->m_gstConfigParam->initialVideoHeight = 0;
+	if (config->IsConfigSet(eAAMPConfig_UseMp4Demux) &&
+		_this->aamp->mpStreamAbstractionAAMP)
+	{
+		_this->aamp->mpStreamAbstractionAAMP->GetCurrentVideoResolution(
+			interfacePlayer->m_gstConfigParam->initialVideoWidth,
+			interfacePlayer->m_gstConfigParam->initialVideoHeight);
+	}
 	interfacePlayer->m_gstConfigParam->audioDecoderStreamSync = _this->aamp->mAudioDecoderStreamSync;
 	interfacePlayer->m_gstConfigParam->audioOnlyMode = _this->aamp->mAudioOnlyPb;
 	interfacePlayer->m_gstConfigParam->gstreamerSubsEnabled = _this->aamp->IsGstreamerSubsEnabled();
