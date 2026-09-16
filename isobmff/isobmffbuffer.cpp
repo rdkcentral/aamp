@@ -185,23 +185,45 @@ bool IsoBmffBuffer::getBoxSizeInternal(const std::vector<Box*> *boxes, const cha
 /**
  *  @brief Restamp PTS in a buffer
  */
-void IsoBmffBuffer::restampPTS(uint64_t offset, uint64_t basePts, uint8_t *segment, uint32_t bufSz)
+void IsoBmffBuffer::restampPTS(uint64_t offset, uint64_t basePts, uint8_t *segment, uint32_t bufSz, const uint8_t *bufferEnd)
 {
+	// On the top-level call bufferEnd is null; capture the end of the whole
+	// fmp4 fragment buffer and preserve it across the recursion so bounds
+	// checks always refer to the entire fragment, not a nested box.
+	if (nullptr == bufferEnd)
+	{
+		bufferEnd = segment + bufSz;
+	}
+	const uint32_t minHeaderSize = sizeof(uint32_t) + sizeof(uint32_t);
 	uint32_t curOffset = 0;
 	while (curOffset < bufSz)
 	{
+		//Adding remaining check to avoid reading box header when remaining buffer is less than box header size
+		const uint32_t remaining = bufSz - curOffset;
+		if (remaining < minHeaderSize)
+		{
+			AAMPLOG_WARN("Trailing bytes[%u] smaller than box header while restamping",
+				remaining);
+			break;
+		}
 		uint8_t *buf = segment + curOffset;
 		uint32_t size = READ_U32(buf);
+		if (size < minHeaderSize || size > remaining)
+		{
+			break;
+		}
 		uint8_t type[5];
 		READ_U8(type, buf, 4);
 		type[4] = '\0';
 
 		if (IS_TYPE(type, Box::MOOF) || IS_TYPE(type, Box::TRAF))
 		{
-			restampPTS(offset, basePts, buf, size);
+			restampPTS(offset, basePts, buf, size-minHeaderSize, bufferEnd);
 		}
 		else if (IS_TYPE(type, Box::TFDT))
 		{
+			// End of this tfdt box, used to detect writes past the box.
+			const uint8_t *tfdtBoxEnd = segment + curOffset + size;
 			uint8_t version = READ_VERSION(buf);
 			uint32_t flags  = READ_FLAGS(buf);
 
@@ -209,17 +231,50 @@ void IsoBmffBuffer::restampPTS(uint64_t offset, uint64_t basePts, uint8_t *segme
 
 			if (1 == version)
 			{
+				if ((buf + sizeof(uint64_t) > tfdtBoxEnd) ||
+					(buf + sizeof(uint64_t) > bufferEnd))
+				{
+					AAMPLOG_ERR("Skipping v1 tfdt restamp: 8-byte access out of bounds ,tfdtBoxEnd[%p] bufferEnd[%p] buf[%p]", tfdtBoxEnd, bufferEnd, buf);
+				}
+				else
+				{
 				uint64_t pts = ReadUint64(buf);
 				pts -= basePts;
+				const uint64_t ptsBeforeOffset = pts;
+				// Pre-check: adding offset must not push the value beyond the
+				// intended 8-byte (UINT64_MAX) range of a v1 tfdt.
+				if ((offset > 0 && pts > (UINT64_MAX - (uint64_t)offset)) ||
+				    (offset < 0 && pts < (static_cast<uint64_t>(-(offset + 1)) + 1ULL)))
+				{
+					AAMPLOG_WARN("tfdt v1 PTS overflow: pts[%" PRIu64 "] + offset[%" PRIu64 "] exceeds 8-byte range", ptsBeforeOffset, offset);
+				}
 				pts += offset;
 				WriteUint64(buf, pts);
+
+				}
 			}
 			else
 			{
-				uint32_t pts = (buf[0] << 24) | (buf[1] << 16) | (buf[2] << 8) | buf[3];
-				pts -= (uint32_t)basePts;
-				pts += (uint32_t)offset;
-				WRITE_U32(buf, pts);
+				if ((buf + sizeof(uint32_t) > tfdtBoxEnd) ||
+					(buf + sizeof(uint32_t) > bufferEnd))
+				{
+					AAMPLOG_ERR("Skipping v0 tfdt restamp: 4-byte access out of bounds, tfdtBoxEnd[%p] bufferEnd[%p] buf[%p]", tfdtBoxEnd, bufferEnd, buf);
+				}
+				else
+				{
+					uint32_t pts = (buf[0] << 24) | (buf[1] << 16) | (buf[2] << 8) | buf[3];
+					pts -= (uint32_t)basePts;
+					const uint32_t ptsBeforeOffset = pts;
+					// Check the unsigned offset before adding it, since uint64_t addition
+					// would silently wrap and hide an overflow in the 32-bit tfdt range.
+					const bool v0Overflow = offset > static_cast<uint64_t>(UINT32_MAX - pts);
+					if (v0Overflow)
+					{
+						AAMPLOG_WARN("tfdt v0 PTS overflow: pts[%u] + offset[%" PRIu64 "] exceeds 4-byte range", ptsBeforeOffset, offset);
+					}
+					pts += (uint32_t)offset;
+					WRITE_U32(buf, pts);
+				}
 			}
 		}
 		curOffset += size;
@@ -228,21 +283,40 @@ void IsoBmffBuffer::restampPTS(uint64_t offset, uint64_t basePts, uint8_t *segme
 
 void IsoBmffBuffer::restampPtsInternal(int64_t offset, uint8_t *segment, size_t bufSz)
 {
+	// The whole fmp4 fragment is the member buffer/bufSize set via setBuffer();
+	// restampPts() enters this recursion with exactly that buffer, so its end
+	const uint8_t *bufferEnd = buffer + bufSize;// is the correct bound for the entire fragment even inside nested boxes.
+	const uint32_t minHeaderSize = sizeof(uint32_t) + sizeof(uint32_t);
+	
 	size_t curOffset = 0;
 	while (curOffset < bufSz)
 	{
+		//Adding remaining check to avoid reading box header when remaining buffer is less than box header size
+		const uint32_t remaining = bufSz - curOffset;
+		if (remaining < minHeaderSize)
+		{
+			AAMPLOG_WARN("Trailing bytes[%u] smaller than box header while restamping",
+				remaining);
+			break;
+		}
 		uint8_t *buf = segment + curOffset;
 		uint32_t size = READ_U32(buf);
+		if (size < minHeaderSize || size > remaining)
+		{
+			break;
+		}
 		uint8_t type[5];
 		READ_U8(type, buf, 4);
 		type[4] = '\0';
 
 		if (IS_TYPE(type, Box::MOOF) || IS_TYPE(type, Box::TRAF))
 		{
-			restampPtsInternal(offset, buf, size);
+			restampPtsInternal(offset, buf, size-minHeaderSize);
 		}
 		else if (IS_TYPE(type, Box::TFDT))
 		{
+			// End of this tfdt box, used to detect writes past the box.
+			const uint8_t *tfdtBoxEnd = segment + curOffset + size;
 			uint8_t version = READ_VERSION(buf);
 			uint32_t flags  = READ_FLAGS(buf);
 
@@ -250,10 +324,25 @@ void IsoBmffBuffer::restampPtsInternal(int64_t offset, uint8_t *segment, size_t 
 
 			if (1 == version)
 			{
+				if ((buf + sizeof(uint64_t) > tfdtBoxEnd) ||
+					(buf + sizeof(uint64_t) > bufferEnd))
+				{
+					AAMPLOG_ERR("Skipping v1 tfdt restamp: 8-byte access out of bounds ,tfdtBoxEnd[%p] bufferEnd[%p] buf[%p]", tfdtBoxEnd, bufferEnd, buf);
+				}
+				else
+				{
 				uint64_t pts = ReadUint64(buf);
+				const uint64_t ptsBeforeOffset = pts;
 				if (!firstPtsSaved)
 				{
 					beforePTS = pts;
+				}
+				// Pre-check: adding offset must not push the value beyond the
+				// intended 8-byte (UINT64_MAX) range of a v1 tfdt.
+				if ((offset > 0 && pts > (UINT64_MAX - (uint64_t)offset)) ||
+				    (offset < 0 && pts < (static_cast<uint64_t>(-(offset + 1)) + 1ULL)))
+				{
+					AAMPLOG_ERR("tfdt v1 PTS overflow: pts[%" PRIu64 "] + offset[%" PRIu64 "] exceeds 8-byte range", ptsBeforeOffset, offset);
 				}
 				pts += offset;
 				WriteUint64(buf, pts);
@@ -262,26 +351,40 @@ void IsoBmffBuffer::restampPtsInternal(int64_t offset, uint8_t *segment, size_t 
 					firstPtsSaved = true;
 					afterPTS = pts;
 				}
+				}
 			}
 			else
 			{
-				uint32_t pts = (buf[0] << 24) | (buf[1] << 16) | (buf[2] << 8) | buf[3];
-				if (!firstPtsSaved)
+				if ((buf + sizeof(uint32_t) > tfdtBoxEnd) ||
+					(buf + sizeof(uint32_t) > bufferEnd))
 				{
-					beforePTS = pts;
+					AAMPLOG_ERR("Skipping v0 tfdt restamp: 4-byte access out of bounds, tfdtBoxEnd[%p] bufferEnd[%p] buf[%p]", tfdtBoxEnd, bufferEnd, buf);
 				}
-				pts += (uint32_t)offset;
-				WRITE_U32(buf, pts);
-				if (!firstPtsSaved )
+				else
 				{
-					afterPTS = pts;
-					firstPtsSaved = true;
+					uint32_t pts = (buf[0] << 24) | (buf[1] << 16) | (buf[2] << 8) | buf[3];
+					const uint32_t ptsBeforeOffset = pts;
+					if (!firstPtsSaved)
+					{
+						beforePTS = pts;
+					}
+					// Check the signed offset against the valid 32-bit range.
+					const bool v0OutOfRange =
+						(offset > 0 && static_cast<uint64_t>(offset) > static_cast<uint64_t>(UINT32_MAX - pts)) ||
+						(offset < 0 && pts < (static_cast<uint64_t>(-(offset + 1)) + 1ULL));
+					if (v0OutOfRange)
+					{
+						AAMPLOG_ERR("tfdt v0 PTS out of range: pts[%" PRIu32 "] + offset[%" PRId64 "] exceeds 4-byte range", ptsBeforeOffset, offset);
+					}
+					pts += (uint32_t)offset;
+					WRITE_U32(buf, pts);
+					if (!firstPtsSaved )
+					{
+						afterPTS = pts;
+						firstPtsSaved = true;
+					}
 				}
 			}
-		}
-		else
-		{
-			// Any other box type
 		}
 		curOffset += size;
 	}

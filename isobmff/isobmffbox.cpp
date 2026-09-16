@@ -78,11 +78,18 @@ uint64_t ReadUint64(uint8_t *buf)
 /**
  *  @brief Utility function to write 8 bytes to a buffer
  */
-void WriteUint64(uint8_t *dst, uint64_t val)
+bool WriteUint64(uint8_t *dst, uint64_t val)
 {
+	if (nullptr == dst)
+	{
+		AAMPLOG_ERR("WriteUint64 bounds check failed: dst is null");
+		return false;
+	}
 	uint32_t msw = (uint32_t)(val>>32);
 	WRITE_U32(dst, msw); dst+=4;
 	WRITE_U32(dst, val);
+	return true;
+
 }
 
 /**
