@@ -105,7 +105,7 @@ set(SECMGR_SOURCES contentsecuritymanager/PlayerMemoryUtils.cpp
     contentsecuritymanager/ContentSecurityManagerSession.cpp
     ${MW_ROOT}/PlayerScheduler.cpp)
 
-option(CMAKE_USE_FIREBOLT "Enable Firebolt SDK for RDK-E builds (disables IARM/DS linking)" OFF)
+option(CMAKE_USE_FIREBOLT "Enable Firebolt SDK for RDK-E builds (disables IARM/DS linking)" ON)
 if(CMAKE_USE_FIREBOLT)
     message("USE_FIREBOLT SET")
     set(LIB_EXT_DEFINES "${LIB_EXT_DEFINES} -DUSE_FIREBOLT=1")
