@@ -2321,7 +2321,7 @@ TEST_F(PrivAampTests, SendBufferChangeEvent_UnderflowStatusTracksTransitions)
 }
 
 // Stop() while a buffering episode is in-flight must clear mBufferingStartTimeMS
-// (VPAAMP-1105: stale start time would cause the next session to report a bogus
+// stale start time would cause the next session to report a bogus
 // buffering duration derived from the previous session's clock).
 TEST_F(PrivAampTests, Stop_ClearsInFlightBufferingStartTime)
 {
