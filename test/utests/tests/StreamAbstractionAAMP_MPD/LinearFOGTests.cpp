@@ -398,7 +398,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 		EXPECT_CALL(*g_mockAampTrackWorker, RescheduleActiveJob())
 			.Times(1)
 			.WillOnce([pMediaStreamContext]()
-					  { pMediaStreamContext->mDownloadedFragment = {}; /* releases heap capacity; clear() alone would not free it */ });
+					  { aamp_utils::ClearAndRelease(pMediaStreamContext->mDownloadedFragment); });
 
 		ret = PushNextFragment(eTRACK_VIDEO);
         EXPECT_EQ(ret, true);

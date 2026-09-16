@@ -392,7 +392,7 @@ void MediaTrack::UpdateTSAfterInject()
 {
 	std::lock_guard<std::mutex> guard(mutex);
 	//Free cached fragment slot
-	mCachedFragment[fragmentIdxToInject].fragment = {}; // releases heap capacity; clear() alone would not free it
+	aamp_utils::ClearAndRelease(mCachedFragment[fragmentIdxToInject].fragment);
 
 	// Advance inject index with ring wrap
 	fragmentIdxToInject = (fragmentIdxToInject + 1) % mCachedFragmentSize;

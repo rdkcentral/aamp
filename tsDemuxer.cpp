@@ -194,10 +194,9 @@ void Demuxer::emitLastSample(const MediaProcessor::process_fcn_t &processor)
 
 void Demuxer::resetInternal()
 {
-	// = {} releases heap capacity; clear() alone would not free it
-	es = {};
-	pes_header = {};
-	pending_es = {};
+	aamp_utils::ClearAndRelease(es);
+	aamp_utils::ClearAndRelease(pes_header);
+	aamp_utils::ClearAndRelease(pending_es);
 }
 
 void Demuxer::sendInternal(MediaProcessor::process_fcn_t processor)

@@ -1399,7 +1399,7 @@ bool TrackState::FetchFragmentHelper(int &http_error, bool &decryption_error, bo
 					abortWaitForVideoPTS();
 					aamp->SendDownloadErrorEvent(AAMP_TUNE_FRAGMENT_DOWNLOAD_FAILURE, http_error);
 				}
-				cachedFragment->fragment = {}; // releases heap capacity; clear() alone would not free it
+				aamp_utils::ClearAndRelease(cachedFragment->fragment);
 				lastDownloadedIFrameTarget = -1;
 				return false;
 			}
@@ -1483,7 +1483,7 @@ bool TrackState::FetchFragmentHelper(int &http_error, bool &decryption_error, bo
 								}
 							}
 						}
-						cachedFragment->fragment = {}; // releases heap capacity; clear() alone would not free it
+						aamp_utils::ClearAndRelease(cachedFragment->fragment);
 						lastDownloadedIFrameTarget = -1;
 						return false;
 					}
@@ -2406,8 +2406,8 @@ void TrackState::ProcessPlaylist(std::vector<uint8_t>& newPlaylist, int http_err
 	}
 	else
 	{
-		// Clear data and release heap capacity; clear() alone would not free it
-		newPlaylist = {};
+		// Clear data if any
+		aamp_utils::ClearAndRelease(newPlaylist);
 
 		if (aamp->DownloadsAreEnabled())
 		{
@@ -5294,7 +5294,7 @@ bool StreamAbstractionAAMP_HLS::SetThumbnailTrack( int thumbIndex )
 {
 	bool rc = false;
 	indexedTileInfo.clear();
-	thumbnailManifest = {}; // releases heap capacity; clear() alone would not free it
+	aamp_utils::ClearAndRelease(thumbnailManifest);
 	int iProfile{};
 
 	for (auto& streamInfo : streamInfoStore)
@@ -5426,7 +5426,7 @@ std::vector<ThumbnailData> StreamAbstractionAAMP_HLS::GetThumbnailRangeData(doub
 	ContentType type = aamp->GetContentType();
 	if(thumbnailManifest.empty() || ( type == ContentType_SLE || type == ContentType_LINEAR ) )
 	{
-		thumbnailManifest = {}; // releases heap capacity; clear() alone would not free it
+		aamp_utils::ClearAndRelease(thumbnailManifest);
 		std::string tmpurl;
 		if(aamp->getAampCacheHandler()->RetrieveFromPlaylistCache(streamInfo.uri, thumbnailManifest, tmpurl,eMEDIATYPE_PLAYLIST_IFRAME))
 		{
@@ -6345,7 +6345,7 @@ bool TrackState::FetchInitFragmentHelper(int &http_code, bool forcePushEncrypted
 			if (!fetched)
 			{
 				AAMPLOG_ERR("TrackState::aamp_GetFile failed");
-				cachedFragment->fragment = {}; // releases heap capacity; clear() alone would not free it
+				aamp_utils::ClearAndRelease(cachedFragment->fragment);
 			}
 			else
 			{

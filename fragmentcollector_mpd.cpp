@@ -1784,7 +1784,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 					else
 					{ // done with index
 						std::lock_guard<std::mutex> idxLock(pMediaStreamContext->mIdxMutex);
-						pMediaStreamContext->IDX = {}; // releases heap capacity; clear() alone would not free it
+						aamp_utils::ClearAndRelease(pMediaStreamContext->IDX);
 						pMediaStreamContext->mIdxBaseOffset = 0;
 						pMediaStreamContext->eos = true;
 					}
@@ -2964,7 +2964,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 							else
 							{
 								std::lock_guard<std::mutex> idxLock(pMediaStreamContext->mIdxMutex);
-								pMediaStreamContext->IDX = {}; // releases heap capacity; clear() alone would not free it
+								aamp_utils::ClearAndRelease(pMediaStreamContext->IDX);
 								pMediaStreamContext->eos = true;
 								break;
 							}
@@ -3068,7 +3068,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 						{
 							// done with index
 							std::lock_guard<std::mutex> idxLock(pMediaStreamContext->mIdxMutex);
-							pMediaStreamContext->IDX = {}; // releases heap capacity; clear() alone would not free it
+							aamp_utils::ClearAndRelease(pMediaStreamContext->IDX);
 							pMediaStreamContext->eos = true;
 							break;
 						}
@@ -9182,7 +9182,7 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 						{
 							std::lock_guard<std::mutex> idxLock(pMediaStreamContext->mIdxMutex);
 							pMediaStreamContext->fragmentOffset = 0;
-							pMediaStreamContext->IDX = {}; // releases heap capacity; clear() alone would not free it
+							aamp_utils::ClearAndRelease(pMediaStreamContext->IDX);
 							pMediaStreamContext->mIdxBaseOffset = 0;
 						}
 						std::string range;
@@ -11725,7 +11725,7 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 			}
 			{
 				std::lock_guard<std::mutex> idxLock(track->mIdxMutex);
-				track->IDX = {}; // releases heap capacity; clear() alone would not free it
+				aamp_utils::ClearAndRelease(track->IDX);
 			}
 		}
 	}
