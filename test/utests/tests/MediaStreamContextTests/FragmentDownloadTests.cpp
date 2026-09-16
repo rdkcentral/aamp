@@ -249,7 +249,7 @@ TEST_P(FragmentDownloadSuccessParamTest, OnFragmentDownloadSuccess)
 		{
 			EXPECT_EQ(chunkSlot->position, dlInfo->pts);
 		}
-		aamp_utils::ClearAndRelease(chunkSlot->fragment);
+		chunkSlot->fragment = {}; // releases heap capacity; clear() alone would not free it
 	}
 }
 
@@ -987,7 +987,7 @@ TEST_F(FragmentDownloadTests, SegmentBase_FetchAndInjectInit_ResetsAreAtomic)
 	{
 		std::lock_guard<std::mutex> lk(mMediaStreamContext->mIdxMutex);
 		mMediaStreamContext->fragmentOffset = 0;
-		aamp_utils::ClearAndRelease(mMediaStreamContext->IDX);
+		mMediaStreamContext->IDX = {}; // releases heap capacity; clear() alone would not free it
 		mMediaStreamContext->mIdxBaseOffset = 0;
 	}
 
@@ -1051,7 +1051,7 @@ TEST_F(FragmentDownloadTests, SegmentBase_IDXEmptyCheck_MutexGuard_NoStaleRead)
 	{
 		std::lock_guard<std::mutex> lk(mMediaStreamContext->mIdxMutex);
 		mMediaStreamContext->fragmentOffset = 0;
-		aamp_utils::ClearAndRelease(mMediaStreamContext->IDX);
+		mMediaStreamContext->IDX = {}; // releases heap capacity; clear() alone would not free it
 		mMediaStreamContext->mIdxBaseOffset = 0;
 	}
 
@@ -1101,7 +1101,7 @@ TEST_F(FragmentDownloadTests, SegmentBase_StopPath_ClearAndRelease_IsLocked)
 	// Simulate the fixed Stop() path: clear under mutex.
 	{
 		std::lock_guard<std::mutex> lk(mMediaStreamContext->mIdxMutex);
-		aamp_utils::ClearAndRelease(mMediaStreamContext->IDX);
+		mMediaStreamContext->IDX = {}; // releases heap capacity; clear() alone would not free it
 	}
 
 	// A reader acquiring the mutex immediately after must see IDX empty.

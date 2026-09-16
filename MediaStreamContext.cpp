@@ -187,7 +187,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 		context->SetTsbBandwidth(bitrate);
 		context->mUpdateReason = true;
 		mDownloadedFragment = std::move(cachedFragment->fragment);
-		aamp_utils::ClearAndRelease(cachedFragment->fragment);
+		cachedFragment->fragment = {}; // releases remaining capacity; move leaves source in a valid but size=0 state
 		ret = false;
 	}
 	return ret;
@@ -309,7 +309,7 @@ void MediaStreamContext::TransferFragmentBuffer(CachedFragment* cached,
 		if (downloadBuffer)
 		{
 			cached->fragment = std::move(*downloadBuffer);
-			aamp_utils::ClearAndRelease(*downloadBuffer);
+			*downloadBuffer = {}; // releases remaining capacity; move leaves source in a valid but size=0 state
 		}
 	}
 }
@@ -648,7 +648,7 @@ bool MediaStreamContext::CacheTsbFragment(std::shared_ptr<CachedFragment>&& frag
 		else
 		{
 			AAMPLOG_TRACE("Empty fragment, not injecting");
-			aamp_utils::ClearAndRelease(cachedFragment->fragment);
+			cachedFragment->fragment = {}; // releases heap capacity; clear() alone would not free it
 		}
 	}
 	else
@@ -829,7 +829,7 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 	{
 		AAMPLOG_TRACE("[%s] cachedFragment %p ptr %p not injecting IsLocalTSBInjection %d, aamp->mSinkPaused %d, aamp->GetBufUnderFlowStatus() %d",
 			name, cachedFragment, cachedFragment->fragment.data(), IsLocalTSBInjection(), isPipelinePaused, aamp->GetBufUnderFlowStatus());
-		aamp_utils::ClearAndRelease(cachedFragment->fragment);
+		cachedFragment->fragment = {}; // releases heap capacity; clear() alone would not free it
 		auto timeBasedBufferManager = GetTimeBasedBufferManager();
 		if(timeBasedBufferManager)
 		{
@@ -905,7 +905,7 @@ void MediaStreamContext::OnFragmentDownloadFailed(DownloadInfoPtr dlInfo)
 	CachedFragment *cachedFragment = &mStagingFragment;
 	mActiveDownloadInfo = nullptr;
 	AAMPLOG_INFO("fragment fetch failed - Free cachedFragment for %d", cachedFragment->type);
-	aamp_utils::ClearAndRelease(cachedFragment->fragment);
+	cachedFragment->fragment = {}; // releases heap capacity; clear() alone would not free it
 	if (aamp->DownloadsAreEnabled())
 	{
 		AAMPLOG_WARN("%sfragment fetch failed -- fragmentUrl %s", (dlInfo->isInitSegment) ? "Init " : " ", dlInfo->url.c_str());

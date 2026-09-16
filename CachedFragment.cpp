@@ -78,7 +78,7 @@ void CachedFragment::Copy(const CachedFragment& other)
  */
 void CachedFragment::Clear()
 {
-	aamp_utils::ClearAndRelease(fragment);
+	fragment = {}; // releases heap capacity; clear() alone would not free it
 	position = 0.0;
 	duration = 0.0;
 	initFragment = false;

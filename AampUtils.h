@@ -347,30 +347,6 @@ double ComputeFragmentDuration(uint32_t duration, uint32_t timeScale);
  */
 uint32_t aamp_ComputeCRC32(const uint8_t *data, uint32_t size, uint32_t initial = 0xffffffff);
 
-namespace aamp_utils
-{
-	template<typename T, typename ...Args>
-	std::unique_ptr<T> make_unique(Args&& ...args)
-	{
-		return std::unique_ptr<T>(new T(std::forward<Args>(args)...));
-	}
-
-	/**
-	 * @brief Clear a vector and release its heap memory
-	 *
-	 * Swaps the target vector with a default-constructed temporary so that
-	 * the size becomes zero and the capacity is reduced to that of a
-	 * default-constructed vector (typically releasing its heap storage).
-	 *
-	 * @tparam T Element type of the vector
-	 * @param[in,out] v Vector to clear and release
-	 */
-	template<typename T>
-	inline void ClearAndRelease(std::vector<T>& v)
-	{
-		std::vector<T>().swap(v);
-	}
-}
 
 /**
  * @fn ConvertTsbLogLevel

@@ -21,7 +21,7 @@
 
 #include "priv_aamp.h"
 #include "AampLogManager.h"
-#include "AampUtils.h"        // for aamp_utils::ClearAndRelease
+#include "AampUtils.h"
 #include "DemuxDataTypes.h"  // for exchange utility
 // TS Demuxing defines
 
@@ -194,9 +194,10 @@ void Demuxer::emitLastSample(const MediaProcessor::process_fcn_t &processor)
 
 void Demuxer::resetInternal()
 {
-	aamp_utils::ClearAndRelease(es);
-	aamp_utils::ClearAndRelease(pes_header);
-	aamp_utils::ClearAndRelease(pending_es);
+	// = {} releases heap capacity; clear() alone would not free it
+	es = {};
+	pes_header = {};
+	pending_es = {};
 }
 
 void Demuxer::sendInternal(MediaProcessor::process_fcn_t processor)

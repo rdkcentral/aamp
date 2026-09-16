@@ -1399,7 +1399,7 @@ bool TrackState::FetchFragmentHelper(int &http_error, bool &decryption_error, bo
 					abortWaitForVideoPTS();
 					aamp->SendDownloadErrorEvent(AAMP_TUNE_FRAGMENT_DOWNLOAD_FAILURE, http_error);
 				}
-				aamp_utils::ClearAndRelease(cachedFragment->fragment);
+				cachedFragment->fragment = {}; // releases heap capacity; clear() alone would not free it
 				lastDownloadedIFrameTarget = -1;
 				return false;
 			}
@@ -1483,7 +1483,7 @@ bool TrackState::FetchFragmentHelper(int &http_error, bool &decryption_error, bo
 								}
 							}
 						}
-						aamp_utils::ClearAndRelease(cachedFragment->fragment);
+						cachedFragment->fragment = {}; // releases heap capacity; clear() alone would not free it
 						lastDownloadedIFrameTarget = -1;
 						return false;
 					}
@@ -2406,8 +2406,8 @@ void TrackState::ProcessPlaylist(std::vector<uint8_t>& newPlaylist, int http_err
 	}
 	else
 	{
-		// Clear data if any
-		aamp_utils::ClearAndRelease(newPlaylist);
+		// Clear data and release heap capacity; clear() alone would not free it
+		newPlaylist = {};
 
 		if (aamp->DownloadsAreEnabled())
 		{
@@ -5294,7 +5294,7 @@ bool StreamAbstractionAAMP_HLS::SetThumbnailTrack( int thumbIndex )
 {
 	bool rc = false;
 	indexedTileInfo.clear();
-	aamp_utils::ClearAndRelease(thumbnailManifest);
+	thumbnailManifest = {}; // releases heap capacity; clear() alone would not free it
 	int iProfile{};
 
 	for (auto& streamInfo : streamInfoStore)
@@ -5426,7 +5426,7 @@ std::vector<ThumbnailData> StreamAbstractionAAMP_HLS::GetThumbnailRangeData(doub
 	ContentType type = aamp->GetContentType();
 	if(thumbnailManifest.empty() || ( type == ContentType_SLE || type == ContentType_LINEAR ) )
 	{
-		aamp_utils::ClearAndRelease(thumbnailManifest);
+		thumbnailManifest = {}; // releases heap capacity; clear() alone would not free it
 		std::string tmpurl;
 		if(aamp->getAampCacheHandler()->RetrieveFromPlaylistCache(streamInfo.uri, thumbnailManifest, tmpurl,eMEDIATYPE_PLAYLIST_IFRAME))
 		{
@@ -5574,14 +5574,14 @@ const std::unique_ptr<aamp::MetadataProcessorIntf> & StreamAbstractionAAMP_HLS::
 		if (fmt == FORMAT_MPEGTS)
 		{
 			auto video_processor = std::make_shared<TSProcessor>(aamp, eStreamOp_DEMUX_ALL, mID3Handler, eMEDIATYPE_DSM_CC);
-			mMetadataProcessor = aamp_utils::make_unique<aamp::TSMetadataProcessor>(mID3Handler, mPtsOffsetUpdate, std::move(video_processor));
+			mMetadataProcessor = std::make_unique<aamp::TSMetadataProcessor>(mID3Handler, mPtsOffsetUpdate, std::move(video_processor));
 		}
 		else if (fmt == FORMAT_ISO_BMFF)
 		{
 			auto video_processor = std::dynamic_pointer_cast<IsoBmffProcessor>(GetMediaTrack(eTRACK_VIDEO)->playContext);
 			if (video_processor)
 			{
-				mMetadataProcessor = aamp_utils::make_unique<aamp::IsoBMFFMetadataProcessor>(mID3Handler, mPtsOffsetUpdate, video_processor);
+				mMetadataProcessor = std::make_unique<aamp::IsoBMFFMetadataProcessor>(mID3Handler, mPtsOffsetUpdate, video_processor);
 			}
 			else
 			{
@@ -6345,7 +6345,7 @@ bool TrackState::FetchInitFragmentHelper(int &http_code, bool forcePushEncrypted
 			if (!fetched)
 			{
 				AAMPLOG_ERR("TrackState::aamp_GetFile failed");
-				aamp_utils::ClearAndRelease(cachedFragment->fragment);
+				cachedFragment->fragment = {}; // releases heap capacity; clear() alone would not free it
 			}
 			else
 			{

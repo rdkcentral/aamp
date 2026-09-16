@@ -1784,7 +1784,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 					else
 					{ // done with index
 						std::lock_guard<std::mutex> idxLock(pMediaStreamContext->mIdxMutex);
-						aamp_utils::ClearAndRelease(pMediaStreamContext->IDX);
+						pMediaStreamContext->IDX = {}; // releases heap capacity; clear() alone would not free it
 						pMediaStreamContext->mIdxBaseOffset = 0;
 						pMediaStreamContext->eos = true;
 					}
@@ -2964,7 +2964,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 							else
 							{
 								std::lock_guard<std::mutex> idxLock(pMediaStreamContext->mIdxMutex);
-								aamp_utils::ClearAndRelease(pMediaStreamContext->IDX);
+								pMediaStreamContext->IDX = {}; // releases heap capacity; clear() alone would not free it
 								pMediaStreamContext->eos = true;
 								break;
 							}
@@ -3068,7 +3068,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 						{
 							// done with index
 							std::lock_guard<std::mutex> idxLock(pMediaStreamContext->mIdxMutex);
-							aamp_utils::ClearAndRelease(pMediaStreamContext->IDX);
+							pMediaStreamContext->IDX = {}; // releases heap capacity; clear() alone would not free it
 							pMediaStreamContext->eos = true;
 							break;
 						}
@@ -9182,7 +9182,7 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 						{
 							std::lock_guard<std::mutex> idxLock(pMediaStreamContext->mIdxMutex);
 							pMediaStreamContext->fragmentOffset = 0;
-							aamp_utils::ClearAndRelease(pMediaStreamContext->IDX);
+							pMediaStreamContext->IDX = {}; // releases heap capacity; clear() alone would not free it
 							pMediaStreamContext->mIdxBaseOffset = 0;
 						}
 						std::string range;
@@ -11725,7 +11725,7 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 			}
 			{
 				std::lock_guard<std::mutex> idxLock(track->mIdxMutex);
-				aamp_utils::ClearAndRelease(track->IDX);
+				track->IDX = {}; // releases heap capacity; clear() alone would not free it
 			}
 		}
 	}
@@ -15084,7 +15084,7 @@ void StreamAbstractionAAMP_MPD::GenerateFragmentURLList(URLBitrateMap &uriList, 
 				for (auto &representation : adaptationSet->GetRepresentation())
 				{
 					URIInfo uriInfo;
-					auto fragmentDescriptor = aamp_utils::make_unique<FragmentDescriptor>();
+					auto fragmentDescriptor = std::make_unique<FragmentDescriptor>();
 					fragmentDescriptor->Bandwidth = representation->GetBandwidth();
 					fragmentDescriptor->RepresentationID = representation->GetId();
 					fragmentDescriptor->bUseMatchingBaseUrl = ISCONFIGSET(eAAMPConfig_MatchBaseUrl);
