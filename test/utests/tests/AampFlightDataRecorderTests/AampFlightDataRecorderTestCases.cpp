@@ -478,6 +478,7 @@ TEST_F(AampFlightDataRecorderTest, Flush_EmitsInOrderAndLeavesEmpty)
 TEST_F(AampFlightDataRecorderTest, Flush_PreservesTimestampAndFilenameFormat)
 {
     AampLogManager::logFilename = true;
+    AampLogManager::disableLogRedirection = true;
     uint64_t timestampMs = AampFlightDataRecorder::GetCurrentTimeMilliseconds();
     fdr().AddEntry(MakeEntry("formatted", timestampMs));
 
@@ -485,47 +486,104 @@ TEST_F(AampFlightDataRecorderTest, Flush_PreservesTimestampAndFilenameFormat)
     fdr().Flush(eLOGLEVEL_ERROR, "FORMAT_TEST");
     std::string output = testing::internal::GetCapturedStdout();
     AampLogManager::logFilename = false;
+    AampLogManager::disableLogRedirection = false;
 
     std::ostringstream timestamp;
     timestamp << timestampMs / 1000 << "." << std::setfill('0') << std::setw(3) << timestampMs % 1000;
-    // Timestamp prefix is still present; [LAG:Nms] is now inserted before the source bracket.
-    EXPECT_THAT(output, testing::HasSubstr(timestamp.str() + ": [LAG:"));
+    // [TS:<record>] carries the original record time; the chronological prefix is
+    // the emit time (record + lag), so the tag equals the injected timestamp.
+    EXPECT_THAT(output, testing::HasSubstr("[TS:" + timestamp.str() + "]"));
+    EXPECT_THAT(output, testing::HasSubstr(": [TS:"));
     EXPECT_THAT(output, testing::HasSubstr("[TEST][000][0][INFO]"));
     EXPECT_THAT(output, testing::HasSubstr("[TestFile.cpp][TestFunc][0]formatted"));
 }
 
 /**
- * @test AampFlightDataRecorder_Flush_LagTagAppearsInDumpLines
- * @brief FDR dump lines produced by Flush() must contain a [LAG:Nms] tag
- *        between the timestamp and the source bracket.  Eviction-emitted
- *        lines (not produced by Flush) must not contain the tag.
+ * @test AampFlightDataRecorder_Flush_TimestampTagAppearsInDumpLines
+ * @brief FDR dump lines produced by Flush() in aamp-cli mode must contain a
+ *        [TS:<sec>.<msec>] record-time tag between the emit-time prefix and the
+ *        source bracket. Eviction-emitted lines (not produced by Flush) must
+ *        not contain the tag.
  *
  * Behavioral contract:
  *   - recorded_at is set to steady_clock::now() at AddEntry time.
  *   - flushNow is captured at the start of FlushLocked.
- *   - lag = flushNow - recorded_at >= 0.
- *   - The tag must appear after "timestamp: " and before "[source]".
+ *   - prefix (emit) = timestamp_ms + (flushNow - recorded_at), clamped to >= 0.
+ *   - [TS:] = timestamp_ms (the original record time) = prefix - lag.
+ *   - The tag is only emitted when disableLogRedirection is true (aamp-cli).
+ *   - The tag must appear after the prefix and before "[source]".
  */
-TEST_F(AampFlightDataRecorderTest, Flush_LagTagAppearsInDumpLines)
+TEST_F(AampFlightDataRecorderTest, Flush_TimestampTagAppearsInDumpLines)
 {
-    fdr().AddEntry(MakeEntry("lag-test-entry"));
+    AampLogManager::disableLogRedirection = true;
+    fdr().AddEntry(MakeEntry("ts-test-entry"));
 
     testing::internal::CaptureStdout();
-    fdr().Flush(eLOGLEVEL_ERROR, "LAG_TEST");
+    fdr().Flush(eLOGLEVEL_ERROR, "TS_TEST");
+    std::string output = testing::internal::GetCapturedStdout();
+    AampLogManager::disableLogRedirection = false;
+
+    // [TS:<sec>.<msec>] must be present somewhere in the dump output.
+    EXPECT_THAT(output, testing::HasSubstr("[TS:"));
+    // The message content must still follow the tag chain.
+    EXPECT_THAT(output, testing::HasSubstr("ts-test-entry"));
+
+    // Verify structural ordering: prefix comes before [TS:, which comes before [TEST].
+    size_t posTs     = output.find("[TS:");
+    size_t posSource = output.find("[TEST]");
+    ASSERT_NE(posTs,     std::string::npos);
+    ASSERT_NE(posSource, std::string::npos);
+    EXPECT_LT(posTs, posSource);
+}
+
+/**
+ * @test AampFlightDataRecorder_Flush_PrefixIsEmitTime_TsIsRecordTime
+ * @brief For a buffered entry with a known age, the chronological prefix must be
+ *        the emit time (record + lag) while [TS:] carries the original record
+ *        time. This proves the prefix stays monotonic with live logs and the
+ *        record time is recoverable as prefix - lag.
+ *
+ * A 2 s-old entry (well inside the 60 s window) is flushed immediately, so lag
+ * ~= 2 s: prefix ~= now, [TS:] == record time (now - 2 s), and the two differ.
+ */
+TEST_F(AampFlightDataRecorderTest, Flush_PrefixIsEmitTime_TsIsRecordTime)
+{
+    AampLogManager::disableLogRedirection = true;
+    const uint64_t recordMs = AampFlightDataRecorder::GetCurrentTimeMilliseconds() - 2000;
+    fdr().AddEntry(MakeEntry("aged-entry", recordMs));
+
+    testing::internal::CaptureStdout();
+    fdr().Flush(eLOGLEVEL_ERROR, "AGE_TS_TEST");
+    std::string output = testing::internal::GetCapturedStdout();
+    AampLogManager::disableLogRedirection = false;
+
+    std::ostringstream record;
+    record << recordMs / 1000 << "." << std::setfill('0') << std::setw(3) << recordMs % 1000;
+
+    // [TS:] must equal the original record time.
+    EXPECT_THAT(output, testing::HasSubstr("[TS:" + record.str() + "]"));
+    // The chronological prefix (emit time) must be later than the record time,
+    // so the line must NOT begin the record time as its prefix.
+    EXPECT_THAT(output, testing::Not(testing::HasSubstr(record.str() + ": [TS:")));
+    EXPECT_THAT(output, testing::HasSubstr("aged-entry"));
+}
+
+/**
+ * @test AampFlightDataRecorder_Flush_NoTimestampTagUnderLogRedirection
+ * @brief In journald/Ethan mode (disableLogRedirection == false) the sink
+ *        stamps the emit time, so FDR must not embed its own [TS:] tag.
+ */
+TEST_F(AampFlightDataRecorderTest, Flush_NoTimestampTagUnderLogRedirection)
+{
+    AampLogManager::disableLogRedirection = false;
+    fdr().AddEntry(MakeEntry("no-ts-entry"));
+
+    testing::internal::CaptureStdout();
+    fdr().Flush(eLOGLEVEL_ERROR, "NO_TS_TEST");
     std::string output = testing::internal::GetCapturedStdout();
 
-    // [LAG:Nms] must be present somewhere in the dump output.
-    EXPECT_THAT(output, testing::HasSubstr("[LAG:"));
-    EXPECT_THAT(output, testing::HasSubstr("ms]"));
-    // The message content must still follow the tag chain.
-    EXPECT_THAT(output, testing::HasSubstr("lag-test-entry"));
-
-    // Verify structural ordering: timestamp comes before [LAG:, which comes before [TEST].
-    size_t posLag    = output.find("[LAG:");
-    size_t posSource = output.find("[TEST]");
-    ASSERT_NE(posLag,    std::string::npos);
-    ASSERT_NE(posSource, std::string::npos);
-    EXPECT_LT(posLag, posSource);
+    EXPECT_THAT(output, testing::HasSubstr("no-ts-entry"));
+    EXPECT_THAT(output, testing::Not(testing::HasSubstr("[TS:")));
 }
 
 TEST_F(AampFlightDataRecorderTest, Initialize_ReconfiguresCapacityAndEnabledState)
