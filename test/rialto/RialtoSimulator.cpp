@@ -852,48 +852,30 @@ private:
 		}
 	}
 
-	// Computes the current master clock estimate, clamped to the master
-	// track's horizon so it stalls instead of free-running when expected
-	// data hasn't arrived (e.g. a segment that failed to download), pops any
-	// now-matured samples from every track, and re-anchors.  Returns the
-	// (possibly unchanged) master clock value in nanoseconds.
+	// Computes the current master clock estimate, clamped to the tightest
+	// (lowest) horizon across every attached, non-subtitle, non-EOS'd track -
+	// not just the nominal master (audio) - so playback stalls instead of
+	// free-running when ANY required track hasn't delivered expected data
+	// (e.g. a network-slow video track while audio downloads normally).  A/V
+	// playback is synchronized: audio having real data does not mean the
+	// reported position can advance past a stalled sibling track, since a
+	// real pipeline cannot render/report a position for which the
+	// corresponding video frame has never arrived.  Pops any now-matured
+	// samples from every track, and re-anchors.  Returns the (possibly
+	// unchanged) master clock value in nanoseconds.
 	//
-	// Also detects per-track underflow: a track is starved once playback has
-	// reached (master: would advance past) the furthest point it has real
-	// data for.  Newly-starved sources are queued in
+	// Also detects per-track underflow: a track is starved once the
+	// free-running (pre-clamp) estimate has passed the furthest point it has
+	// real data for.  Newly-starved sources are queued in
 	// m_pendingUnderflowNotifications for refreshAndGetPositionNs() to
 	// dispatch via notifyBufferUnderflow() after releasing the lock,
 	// mirroring real Rialto (see AampRialtoMediaPipelineClient); debounced
 	// via m_underflowNotifiedSources so it fires once per stall, not on
-	// every poll.
-	// The nominal master track (audio if attached, else video; see
-	// attachSource()) stops being a usable clock reference once it has EOS'd
-	// without new data since (e.g. audio sends a zero-duration EOS at the
-	// start of video-only trickplay - see markSourceReadyForPlay() - and
-	// produces nothing further for the rest of the trick session).  Mirrors
-	// a real pipeline reselecting its clock provider once the previous one
-	// can no longer provide one.  Falls back to any other attached,
-	// non-EOS'd, non-subtitle source; if none exists, returns the nominal
-	// master anyway (nothing better available).
-	// Caller must hold m_trackMutex.
-	std::optional<int32_t> effectiveMasterSourceIdLocked() const
-	{
-		if (m_masterSourceId && m_eosSources.find(*m_masterSourceId) == m_eosSources.end())
-		{
-			return m_masterSourceId;
-		}
-		for (int32_t sourceId : m_attachedSources)
-		{
-			auto typeIt = m_sourceTypes.find(sourceId);
-			if (typeIt != m_sourceTypes.end() && typeIt->second != MediaSourceType::SUBTITLE &&
-				m_eosSources.find(sourceId) == m_eosSources.end())
-			{
-				return sourceId;
-			}
-		}
-		return m_masterSourceId;
-	}
-
+	// every poll.  A source that has legitimately reached EOS is finished,
+	// not starved (e.g. audio sends a zero-duration EOS at the start of
+	// video-only trickplay - see markSourceReadyForPlay() - and produces
+	// nothing further for the rest of the trick session), and is excluded
+	// from both the clamp and the starvation check.
 	// Caller must hold m_trackMutex.
 	int64_t refreshMasterClockLocked()
 	{
@@ -906,19 +888,26 @@ private:
 		int64_t estimate = m_masterClockAnchorNs +
 			static_cast<int64_t>(elapsedNs * m_rate.load(std::memory_order_relaxed));
 
-		const std::optional<int32_t> effectiveMaster = effectiveMasterSourceIdLocked();
 		int64_t clockNs = estimate;
-		if (effectiveMaster)
+		for (int32_t sourceId : m_attachedSources)
 		{
-			auto horizonIt = m_trackHorizonNs.find(*effectiveMaster);
-			if (horizonIt != m_trackHorizonNs.end())
+			auto typeIt = m_sourceTypes.find(sourceId);
+			if (typeIt == m_sourceTypes.end() || typeIt->second == MediaSourceType::SUBTITLE ||
+				m_eosSources.find(sourceId) != m_eosSources.end())
 			{
-				// Never clamp below the floor: a horizon entry left over from
-				// data whose PTS predates the last position reset (e.g. a
-				// mid-fragment seek re-delivering the start of a segment) is
-				// not a real stall and must not freeze the clock.
-				clockNs = std::min(estimate, std::max(horizonIt->second, m_horizonFloorNs));
+				continue;
 			}
+			auto horizonIt = m_trackHorizonNs.find(sourceId);
+			if (horizonIt == m_trackHorizonNs.end())
+			{
+				// Never received any data yet - that's preroll, not a stall.
+				continue;
+			}
+			// Never clamp below the floor: a horizon entry left over from
+			// data whose PTS predates the last position reset (e.g. a
+			// mid-fragment seek re-delivering the start of a segment) is
+			// not a real stall and must not freeze the clock.
+			clockNs = std::min(clockNs, std::max(horizonIt->second, m_horizonFloorNs));
 		}
 
 		for (int32_t sourceId : m_attachedSources)
@@ -942,12 +931,10 @@ private:
 				// Never received any data yet - that's preroll, not underflow.
 				continue;
 			}
-			// The effective master's own clockNs is already clamped to its
-			// horizon (so could never itself exceed it) - use the pre-clamp
-			// estimate for that check.  Followers are checked against the
-			// position actually being reported.
-			int64_t referencePos = (effectiveMaster && sourceId == *effectiveMaster) ? estimate : clockNs;
-			bool starved = referencePos > std::max(trackHorizonIt->second, m_horizonFloorNs);
+			// Compare against the free-running estimate (not the clamped
+			// clockNs) so each track's starvation is judged independently of
+			// whichever other track is currently the tightest constraint.
+			bool starved = estimate > std::max(trackHorizonIt->second, m_horizonFloorNs);
 			bool alreadyNotified = m_underflowNotifiedSources.count(sourceId) > 0;
 			if (starved && !alreadyNotified)
 			{
