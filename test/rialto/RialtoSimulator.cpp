@@ -860,9 +860,14 @@ private:
 	// playback is synchronized: audio having real data does not mean the
 	// reported position can advance past a stalled sibling track, since a
 	// real pipeline cannot render/report a position for which the
-	// corresponding video frame has never arrived.  Pops any now-matured
-	// samples from every track, and re-anchors.  Returns the (possibly
-	// unchanged) master clock value in nanoseconds.
+	// corresponding video frame has never arrived.  A track with no horizon
+	// entry at all (nothing committed since the last reset) clamps to
+	// m_horizonFloorNs rather than being exempted: by the time m_playing is
+	// true every required track has already passed the readiness gate (see
+	// markSourceReadyForPlay()), so "no data since reset" here is a genuine
+	// stall, not startup preroll.  Pops any now-matured samples from every
+	// track, and re-anchors.  Returns the (possibly unchanged) master clock
+	// value in nanoseconds.
 	//
 	// Also detects per-track underflow: a track is starved once the
 	// free-running (pre-clamp) estimate has passed the furthest point it has
@@ -897,17 +902,20 @@ private:
 			{
 				continue;
 			}
+			// m_playing only becomes true once every required track has met
+			// the readiness gate (see markSourceReadyForPlay()), so a track
+			// with no horizon entry here hasn't delivered anything SINCE the
+			// last reset (e.g. stalled on a slow download) - that's a real
+			// stall, not preroll, so it must clamp to the floor rather than
+			// being skipped.  Never clamp below the floor itself: a horizon
+			// entry left over from data whose PTS predates the last position
+			// reset (e.g. a mid-fragment seek re-delivering the start of a
+			// segment) is not a real stall either.
 			auto horizonIt = m_trackHorizonNs.find(sourceId);
-			if (horizonIt == m_trackHorizonNs.end())
-			{
-				// Never received any data yet - that's preroll, not a stall.
-				continue;
-			}
-			// Never clamp below the floor: a horizon entry left over from
-			// data whose PTS predates the last position reset (e.g. a
-			// mid-fragment seek re-delivering the start of a segment) is
-			// not a real stall and must not freeze the clock.
-			clockNs = std::min(clockNs, std::max(horizonIt->second, m_horizonFloorNs));
+			int64_t horizon = (horizonIt != m_trackHorizonNs.end())
+				? std::max(horizonIt->second, m_horizonFloorNs)
+				: m_horizonFloorNs;
+			clockNs = std::min(clockNs, horizon);
 		}
 
 		for (int32_t sourceId : m_attachedSources)
@@ -925,16 +933,17 @@ private:
 			{
 				continue;
 			}
+			// See the clamp loop above: once playing, a missing horizon
+			// entry means stalled-since-reset, not preroll, so treat it as
+			// the floor rather than exempting the track from the check.
 			auto trackHorizonIt = m_trackHorizonNs.find(sourceId);
-			if (trackHorizonIt == m_trackHorizonNs.end())
-			{
-				// Never received any data yet - that's preroll, not underflow.
-				continue;
-			}
+			int64_t horizon = (trackHorizonIt != m_trackHorizonNs.end())
+				? std::max(trackHorizonIt->second, m_horizonFloorNs)
+				: m_horizonFloorNs;
 			// Compare against the free-running estimate (not the clamped
 			// clockNs) so each track's starvation is judged independently of
 			// whichever other track is currently the tightest constraint.
-			bool starved = estimate > std::max(trackHorizonIt->second, m_horizonFloorNs);
+			bool starved = estimate > horizon;
 			bool alreadyNotified = m_underflowNotifiedSources.count(sourceId) > 0;
 			if (starved && !alreadyNotified)
 			{
