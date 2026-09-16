@@ -234,7 +234,8 @@ include_directories(
 	${SUBTEC_INCLUDE_DIRS}
 )
 
-add_subdirectory(test/rialtoPOC)
+# rialtoPOC removed in commit 11817c40 - obsolete test code
+# add_subdirectory(test/rialtoPOC)
 
 #if (CMAKE_INBUILT_AAMP_DEPENDENCIES)
 	message("Building aamp support libraries")
