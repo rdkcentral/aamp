@@ -77,7 +77,7 @@ uint64_t ReadUint64(uint8_t *buf);
  *                     if it would write past the box boundary
  * @return true if written, false if skipped due to bounds
  */
-bool WriteUint64(uint8_t *dst, uint64_t val, const uint8_t *bufEnd = nullptr, const uint8_t *boxEnd = nullptr);
+bool WriteUint64(uint8_t *dst, uint64_t val);
 
 /**
  * @fn ReadCStringLen
