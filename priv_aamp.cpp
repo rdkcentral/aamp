@@ -6781,24 +6781,6 @@ bool PrivateInstanceAAMP::IsPlayEnabled()
 }
 
 /**
- * @brief Enable event processing
- */
-void PrivateInstanceAAMP::enableEventProcessing()
-{
-	// Reset Event Manager State to IDLE to resume event processing
-	mEventManager->SetPlayerState(eSTATE_IDLE);
-}
-
-/**
- * @brief Disable event processing
- */
-void PrivateInstanceAAMP::disableEventProcessing()
-{
-	// Set Event Manager State to RELEASED to avoid further event processing
-	mEventManager->SetPlayerState(eSTATE_RELEASED);
-}
-
-/**
  * @brief Soft stop the player instance.
  *
  */
@@ -6836,7 +6818,6 @@ void PrivateInstanceAAMP::detach()
 		mbDetached=true;
 		mPlayerPreBuffered  = false;
 		mTelemetryInterval = 0;
-		disableEventProcessing();
 		//EnableDownloads();// enable downloads
 	}
 	else
@@ -6844,6 +6825,8 @@ void PrivateInstanceAAMP::detach()
 		AampStreamSinkManager::GetInstance().DeactivatePlayer(this, false);
 	}
 	ReleaseStreamLock();
+	// This will flush all the pending events.
+	mEventManager->FlushPendingEvents();
 }
 
 /**
@@ -7698,6 +7681,10 @@ bool PrivateInstanceAAMP::IsLiveStream()
 void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 {
 	auto stopStartTime = NOW_STEADY_TS_MS;
+	// Block dispatch of any further events before teardown begins, so listeners cannot be
+	// invoked or destroyed while the owning application object is being released.
+	// Tune() and ReloadTSB() reset this back to eSTATE_IDLE, so retune is unaffected.
+	mEventManager->SetPlayerState(eSTATE_RELEASED);
 	// Clear all the player events in the queue and sets its state to RELEASED as everything is done
 	mEventManager->FlushPendingEvents();
 	// Set state to STOPPING irrespective of sending state change event or not
