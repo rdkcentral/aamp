@@ -40,7 +40,9 @@ set(TEST_SOURCES JsBindingRun.cpp
 
 set(MOCK_SOURCES ${DRM_ROOT}/mocks/aampMocks.cpp)
 
-set(AAMP_SOURCES ${AAMP_ROOT}/jsbindings/jseventlistener.cpp
+set(AAMP_SOURCES ${AAMP_ROOT}/jsbindings/jsbindings.cpp
+				 ${AAMP_ROOT}/jsbindings/jsevent.cpp
+				 ${AAMP_ROOT}/jsbindings/jseventlistener.cpp
 				 ${AAMP_ROOT}/jsbindings/jsmediaplayer.cpp
 				 ${AAMP_ROOT}/jsbindings/jsutils.cpp
 				 ${AAMP_ROOT}/jsbindings/PersistentWatermark/PersistentWatermark.cpp

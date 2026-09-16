@@ -285,10 +285,12 @@ if(CMAKE_WPEWEBKIT_JSBINDINGS OR APPLE OR CMAKE_PLATFORM_UBUNTU)
     message("CMAKE_WPEWEBKIT_JSBINDINGS is set, building jsbindings library")
 
 	set(LIBJSBINDINGS_SOURCES
-            jsbindings/jsbindings-main.cpp
+            jsbindings/jscontroller-jsbindings.cpp
+            jsbindings/jsbindings.cpp
             jsbindings/jsutils.cpp
             jsbindings/jsmediaplayer.cpp
             jsbindings/jseventlistener.cpp
+            jsbindings/jsevent.cpp
             jsbindings/PersistentWatermark/PersistentWatermark.cpp
         )
 

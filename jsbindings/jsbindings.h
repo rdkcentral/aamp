@@ -17,14 +17,14 @@
  * limitations under the License.
 */
 
-#ifndef __JSBINDINGS_MAIN_H__
-#define __JSBINDINGS_MAIN_H__
+#ifndef __JSBINDINGS_H__
+#define __JSBINDINGS_H__
 
 #include <JavaScriptCore/JavaScript.h>
 #include "main_aamp.h"
 #include <map>
 /*
- * @file jsbindings-main.h
+ * @file jsbindings.h
  * @brief APIs exposed by the AAMP JS to inject different bindings.
  */
 
@@ -52,6 +52,21 @@ struct PrivAAMPStruct_JS {
 };
 
 /**
+ *   @fn aamp_LoadJS
+ *
+ *   @param[in]  context - JS Core context.
+ *   @param[in]  playerInstanceAAMP - AAMP instance. NULL creates new aamp instance.
+ */
+void aamp_LoadJS(void* context, void* playerInstanceAAMP);
+
+/**
+ *   @fn aamp_UnloadJS
+ *
+ *   @param[in]  context - JS Core context.
+ */
+void aamp_UnloadJS(void* context);
+
+/**
  * @brief Loads AAMPMediaPlayer JS constructor into JS context
  *
  * @param[in] context JS execution context
@@ -65,6 +80,7 @@ void AAMPPlayer_LoadJS(void* context);
  */
 void AAMPPlayer_UnloadJS(void* context);
 
+
 /**
  * @brief Reads useragent from browser
  *
@@ -72,4 +88,4 @@ void AAMPPlayer_UnloadJS(void* context);
  */
 std::string GetBrowserUA(JSContextRef ctx);
 
-#endif// __JSBINDINGS_MAIN_H__
+#endif// __JSBINDINGS_H__

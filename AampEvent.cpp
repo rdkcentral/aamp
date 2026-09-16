@@ -161,7 +161,7 @@ float SpeedChangedEvent::getRate() const
 
  *
  */
-ProgressEvent::ProgressEvent(double duration, double position, double start, double end, float speed, long long pts, double videoBufferedDuration, double audioBufferedDuration, std::string seiTimecode, double liveLatency, BitsPerSecond profileBandwidth, BitsPerSecond networkBandwidth, double currentPlayRate,
+ProgressEvent::ProgressEvent(double duration, double position, double start, double end, float speed, long long pts, double videoBufferedDuration, double audioBufferedDuration, std::string seiTimecode, double liveLatency, double targetLatency, BitsPerSecond profileBandwidth, BitsPerSecond networkBandwidth, double currentPlayRate,
 	std::string sid):
 		AAMPEventObject(AAMP_EVENT_PROGRESS, std::move(sid)), mDuration(duration),
 		mPosition(position), mStart(start),
@@ -170,6 +170,7 @@ ProgressEvent::ProgressEvent(double duration, double position, double start, dou
 		mAudioBufferedDurationMs(audioBufferedDuration),
 		mSEITimecode(std::move(seiTimecode)),
 		mLiveLatency(liveLatency),
+		mTargetLatency(targetLatency),
 		mProfileBandwidth(profileBandwidth),
 		mNetworkBandwidth(networkBandwidth),
 		mCurrentPlayRate(currentPlayRate)
@@ -278,6 +279,16 @@ double ProgressEvent::getLiveLatency() const
 }
 
 /**
+ * @brief Get Target Latency
+ *
+ * @return Target Latency
+ */
+double ProgressEvent::getTargetLatency() const
+{
+	return mTargetLatency;
+}
+
+/**
  * @brief Get Profile Bandwidth
  *
  * @return Profile Bandwidth
@@ -307,7 +318,6 @@ double ProgressEvent::getCurrentPlayRate() const
 	return mCurrentPlayRate;
 }
 
-
 /**
  * @brief CCHandleEvent Constructor
  *
@@ -332,10 +342,11 @@ unsigned long CCHandleEvent::getCCHandle() const
 /**
  * @brief MediaMetadataEvent Constructor
  */
-MediaMetadataEvent::MediaMetadataEvent(long duration, int width, int height, bool hasDrm, bool isLive, const std::string &DrmType, double programStartTime, int tsbDepthMs, std::string sid,const std::string &url):
+MediaMetadataEvent::MediaMetadataEvent(long duration, int width, int height, bool hasDrm, bool isLive, const std::string &DrmType, double programStartTime, int tsbDepthMs, std::string sid,const std::string &url, double producerReferenceClockOffset):
 		AAMPEventObject(AAMP_EVENT_MEDIA_METADATA, std::move(sid)), mDuration(duration),
 		mLanguages(), mBitrates(), mWidth(width), mHeight(height),
 		mHasDrm(hasDrm), mSupportedSpeeds(), mIsLive(isLive), mDrmType(DrmType), mProgramStartTime(programStartTime),
+		mProducerReferenceClockOffset(producerReferenceClockOffset),
 		mPCRating(),mSsi(-1),mFrameRate(0),mVideoScanType(eVIDEOSCAN_UNKNOWN),mAspectRatioWidth(0),mAspectRatioHeight(0),
 		mVideoCodec(),mHdrType(),mAudioBitrates(),mAudioCodec(),mAudioMixType(),isAtmos(false),mMediaFormatName(), mTsbDepthMs(tsbDepthMs), mUrl(url)
 {
@@ -370,6 +381,16 @@ double MediaMetadataEvent::getProgramStartTime() const
 int MediaMetadataEvent::getTsbDepth() const
 {
 	return mTsbDepthMs;
+}
+
+/**
+ * @brief Get Producer Reference Time clock offset in seconds.
+ *
+ * @return Producer Reference Time clock offset in seconds.
+ */
+double MediaMetadataEvent::getProducerReferenceClockOffset() const
+{
+	return mProducerReferenceClockOffset;
 }
 
 /**
@@ -542,7 +563,7 @@ void MediaMetadataEvent::SetAudioMetaData(const std::string &audioCodec,const st
 {
 	mAudioCodec = audioCodec;
 	mAudioMixType = mixType;
-	isAtmos = isAtmos;
+	this->isAtmos = isAtmos;
 	return;
 }
 

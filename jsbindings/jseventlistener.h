@@ -27,7 +27,8 @@
 #define __AAMP_JSEVENTLISTENER__H__
 
 
-#include "jsbindings-main.h"
+#include "jsbindings.h"
+
 
 /**
  * @class AAMP_JSEventListener
@@ -67,9 +68,9 @@ public:
 	 */
 	~AAMP_JSEventListener();
 	/**
-	 * @brief Copy constructor disabled
-	 *
-	 */
+         * @brief Copy constructor disabled
+         *
+         */
 	AAMP_JSEventListener(const AAMP_JSEventListener&) = delete;
 	/**
  	 * @brief assignment operator disabled
@@ -84,7 +85,7 @@ public:
 
 	/**
 	 * 
-	 */
+	*/
 	virtual void SetEventProperties(const AAMPEventPtr& ev, JSObjectRef jsEventObj);
 
 public:

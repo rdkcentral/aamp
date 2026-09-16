@@ -52,11 +52,6 @@ void ethanlog(int level, const char *filename, const char *function, int line, c
 
 #define MAX_DEBUG_LOG_BUFF_SIZE 1024
 
-/**
- * @brief Map zoom mode string to VideoZoomMode enum
- * @param zoomStr Zoom mode string
- * @retval VideoZoomMode enum value
- */
 VideoZoomMode MapZoomMode( const char *zoomStr )
 {
 	VideoZoomMode zoom = VIDEO_ZOOM_FULL; // default
@@ -93,11 +88,61 @@ struct EventTypeMap
 	const char* szName;
 };
 
+
+/**
+ * @brief Map AAMP events to its corresponding JS event strings (used by JSPP)
+ */
+static EventTypeMap aamp_eventTypes[] =
+{
+	{ (AAMPEventType)0, "onEvent"},
+	{ AAMP_EVENT_TUNED, "tuned"},
+	{ AAMP_EVENT_TUNE_FAILED, "tuneFailed"},
+	{ AAMP_EVENT_SPEED_CHANGED, "speedChanged"},
+	{ AAMP_EVENT_EOS, "eos"},
+	{ AAMP_EVENT_PLAYLIST_INDEXED, "playlistIndexed"},
+	{ AAMP_EVENT_PROGRESS, "progress"},
+	{ AAMP_EVENT_CC_HANDLE_RECEIVED, "decoderAvailable"},
+	{ AAMP_EVENT_JS_EVENT, "jsEvent"},
+	{ AAMP_EVENT_MEDIA_METADATA, "metadata"},
+	{ AAMP_EVENT_ENTERING_LIVE, "enteringLive"},
+	{ AAMP_EVENT_BITRATE_CHANGED, "bitrateChanged"},
+	{ AAMP_EVENT_TIMED_METADATA, "timedMetadata"},
+	{ AAMP_EVENT_BULK_TIMED_METADATA, "bulkTimedMetadata"},
+	{ AAMP_EVENT_STATE_CHANGED, "statusChanged"},
+	{ AAMP_EVENT_SPEEDS_CHANGED, "speedsChanged"},
+	{ AAMP_EVENT_SEEKED, "seeked"},
+	{ AAMP_EVENT_DRM_METADATA, "drmMetadata"},
+	{ AAMP_EVENT_REPORT_ANOMALY, "anomalyReport" },
+	{ AAMP_EVENT_AD_RESOLVED, "adResolved"},
+	{ AAMP_EVENT_AD_RESERVATION_START, "reservationStart" },
+	{ AAMP_EVENT_AD_RESERVATION_END, "reservationEnd" },
+	{ AAMP_EVENT_AD_PLACEMENT_START, "placementStart" },
+	{ AAMP_EVENT_AD_PLACEMENT_END, "placementEnd" },
+	{ AAMP_EVENT_AD_PLACEMENT_PROGRESS, "placementProgress" },
+	{ AAMP_EVENT_AD_PLACEMENT_ERROR, "placementError" },
+	{ AAMP_EVENT_VOD_ADBREAK_OPPORTUNITY, "vodAdBreakOpportunity" },
+	{ AAMP_EVENT_REPORT_METRICS_DATA, "metricsData" },
+	{ AAMP_EVENT_BUFFERING_CHANGED, "bufferingChanged"},
+	{ AAMP_EVENT_ID3_METADATA, "id3Metadata"},
+	{ AAMP_EVENT_DRM_MESSAGE, "drmMessage" },
+	{ AAMP_EVENT_AUDIO_TRACKS_CHANGED, "audioTracksChanged"},
+	{ AAMP_EVENT_TEXT_TRACKS_CHANGED, "textTracksChanged"},
+	{ AAMP_EVENT_CONTENT_GAP, "contentGap" },
+	{ AAMP_EVENT_CONTENT_PROTECTION_DATA_UPDATE, "contentProtectionDataUpdate" },
+	{ AAMP_EVENT_MANIFEST_REFRESH_NOTIFY, "manifestRefresh"},
+	{ AAMP_EVENT_TUNE_TIME_METRICS, "tuneMetricsData" },
+	{ AAMP_EVENT_NEED_MANIFEST_DATA, "needManifest" },
+	{ AAMP_EVENT_MONITORAV_STATUS, "monitorAVStatus"},
+	{ (AAMPEventType)0, "" }
+};
+
+
 /**
  * @brief Map AAMP events to its corresponding JS event strings (used by AAMPMediaPlayer/UVE APIs)
  */
 static EventTypeMap aampPlayer_eventTypes[] =
 {
+//TODO: Need separate event list to avoid breaking existing legacy impl. Unify later.
 	{ (AAMPEventType)0, "onEvent"},
 	{ AAMP_EVENT_TUNED, "playbackStarted"},
 	{ AAMP_EVENT_TUNE_FAILED, "playbackFailed"},
@@ -179,12 +224,12 @@ char* aamp_JSValueToCString(JSContextRef context, JSValueRef value, JSValueRef* 
  */
 char* aamp_JSValueToJSONCString(JSContextRef context, JSValueRef value, JSValueRef* exception)
 {
-	JSStringRef jsstr = JSValueCreateJSONString(context, value, 0, exception);
-	size_t len = JSStringGetMaximumUTF8CStringSize(jsstr);
-	char* src = new char[len];
-	JSStringGetUTF8CString(jsstr, src, len);
-	JSStringRelease(jsstr);
-	return src;
+        JSStringRef jsstr = JSValueCreateJSONString(context, value, 0, exception);
+        size_t len = JSStringGetMaximumUTF8CStringSize(jsstr);
+        char* src = new char[len];
+        JSStringGetUTF8CString(jsstr, src, len);
+        JSStringRelease(jsstr);
+        return src;
 }
 
 /**
@@ -215,63 +260,63 @@ bool aamp_JSValueIsArray(JSContextRef context, JSValueRef value)
  */
 std::vector<std::string> aamp_StringArrayToCStringArray(JSContextRef context, JSValueRef arrayRef)
 {
-	std::vector<std::string> retval;
-	JSValueRef exception = NULL;
+    std::vector<std::string> retval;
+    JSValueRef exception = NULL;
 
-	if(!arrayRef)
-	{
-		LOG_ERROR_EX("Error: value is NULL.");
-		return retval;
-	}
-	if (!JSValueIsObject(context, arrayRef))
-	{
-		LOG_ERROR_EX("Error: value is not an object.");
-		return retval;
-	}
-	if(!aamp_JSValueIsArray(context, arrayRef))
-	{
-		LOG_ERROR_EX("Error: value is not an array.");
-		return retval;
-	}
-	JSObjectRef arrayObj = JSValueToObject(context, arrayRef, &exception);
-	if(exception)
-	{
+    if(!arrayRef)
+    {
+        LOG_ERROR_EX("Error: value is NULL.");
+        return retval;
+    }
+    if (!JSValueIsObject(context, arrayRef))
+    {
+        LOG_ERROR_EX("Error: value is not an object.");
+        return retval;
+    }
+    if(!aamp_JSValueIsArray(context, arrayRef))
+    {
+        LOG_ERROR_EX("Error: value is not an array.");
+        return retval;
+    }
+    JSObjectRef arrayObj = JSValueToObject(context, arrayRef, &exception);
+    if(exception)
+    {
 
-		LOG_ERROR_EX("Error: exception accessing array object.");
-		return retval;
-	}
+        LOG_ERROR_EX("Error: exception accessing array object.");
+        return retval;
+    }
 
-	JSStringRef lengthStrRef = JSStringCreateWithUTF8CString("length");
-	JSValueRef lengthRef = JSObjectGetProperty(context, arrayObj, lengthStrRef, &exception);
-	if(exception)
-	{
+    JSStringRef lengthStrRef = JSStringCreateWithUTF8CString("length");
+    JSValueRef lengthRef = JSObjectGetProperty(context, arrayObj, lengthStrRef, &exception);
+    if(exception)
+    {
 
-		LOG_ERROR_EX("Error: exception accessing array length.");
-		return retval;
-	}
-	int length = JSValueToNumber(context, lengthRef, &exception);
-	if(exception)
-	{
-		LOG_ERROR_EX("Error: exception array length in not a number.");
-		return retval;
-	}
+        LOG_ERROR_EX("Error: exception accessing array length.");
+        return retval;
+    }
+    int length = JSValueToNumber(context, lengthRef, &exception);
+    if(exception)
+    {
+        LOG_ERROR_EX("Error: exception array length in not a number.");
+        return retval;
+    }
 
-	retval.reserve(length);
-	for(int i = 0; i < length; i++)
-	{
-		JSValueRef strRef = JSObjectGetPropertyAtIndex(context, arrayObj, i, &exception);
-		if(exception)
-			continue;
+    retval.reserve(length);
+    for(int i = 0; i < length; i++)
+    {
+        JSValueRef strRef = JSObjectGetPropertyAtIndex(context, arrayObj, i, &exception);
+        if(exception)
+            continue;
 
-		char* str = aamp_JSValueToCString(context, strRef, NULL);
-		LOG_TRACE("array[%d] = '%s'.",i,str);
-		retval.push_back(str);
-		SAFE_DELETE_ARRAY(str);
-	}
+        char* str = aamp_JSValueToCString(context, strRef, NULL);
+        LOG_TRACE("array[%d] = '%s'.",i,str);
+        retval.push_back(str);
+        SAFE_DELETE_ARRAY(str);
+    }
 
-	JSStringRelease(lengthStrRef);
+    JSStringRelease(lengthStrRef);
 
-	return retval;
+    return retval;
 }
 
 
@@ -306,18 +351,39 @@ JSValueRef aamp_GetException(JSContextRef context, ErrorCode error, const char *
 		snprintf(exceptionMsg, EXCEPTION_ERR_MSG_MAX_LEN - 1, "%s!!", str);
 	}
 
-	LOG_WARN_EX("exception=%s", exceptionMsg);
-		
+
+        LOG_WARN_EX("exception=%s",exceptionMsg);
+        
 	const JSValueRef arguments[] = { aamp_CStringToJSValue(context, exceptionMsg) };
 	JSValueRef exception = NULL;
 	retVal = JSObjectMakeError(context, 1, arguments, &exception);
 	if (exception)
 	{
-		LOG_ERROR_EX("Error: exception creating an error object");
+                LOG_ERROR_EX("Error: exception creating an error object");
 		return NULL;
 	}
 
 	return retVal;
+}
+
+/**
+ * @brief Convert JS event name to AAMP event type
+ */
+AAMPEventType aamp_getEventTypeFromName(const char* szName)
+{
+	AAMPEventType eventType = AAMP_MAX_NUM_EVENTS;
+	int numEvents = sizeof(aamp_eventTypes) / sizeof(aamp_eventTypes[0]);
+
+	for (int i=0; i<numEvents; i++)
+	{
+		if (strcasecmp(aamp_eventTypes[i].szName, szName) == 0)
+		{
+			eventType = aamp_eventTypes[i].eventType;
+			break;
+		}
+	}
+
+	return eventType;
 }
 
 /**
@@ -337,6 +403,7 @@ void aamp_dispatchEventToJS(JSContextRef context, JSObjectRef callback, JSObject
  */
 AAMPEventType aampPlayer_getEventTypeFromName(const char* szName)
 {
+//TODO: Need separate event list for now to avoid breaking existing viper impl. Unify later
 	AAMPEventType eventType = AAMP_MAX_NUM_EVENTS;
 	int numEvents = sizeof(aampPlayer_eventTypes) / sizeof(aampPlayer_eventTypes[0]);
 
@@ -348,6 +415,7 @@ AAMPEventType aampPlayer_getEventTypeFromName(const char* szName)
 			break;
 		}
 	}
+
 	return eventType;
 }
 
@@ -356,6 +424,7 @@ AAMPEventType aampPlayer_getEventTypeFromName(const char* szName)
  */
 const char* aampPlayer_getNameFromEventType(AAMPEventType type)
 {
+//TODO: Need separate API to avoid breaking existing viper impl. Unify later.
 	if (type > 0 && type < AAMP_MAX_NUM_EVENTS)
 	{
 		return aampPlayer_eventTypes[type].szName;
@@ -365,6 +434,7 @@ const char* aampPlayer_getNameFromEventType(AAMPEventType type)
 		return NULL;
 	}
 }
+
 
 /**
  * @brief Create a TimedMetadata JS object with args passed.
@@ -377,8 +447,7 @@ JSObjectRef aamp_CreateTimedMetadataJSObject(JSContextRef context, long long tim
 
 	JSObjectRef timedMetadata = JSObjectMake(context, NULL, NULL);
 
-	if (timedMetadata)
-	{
+	if (timedMetadata) {
 		JSValueProtect(context, timedMetadata);
 		bool bGenerateID = true;
 
@@ -418,8 +487,7 @@ JSObjectRef aamp_CreateTimedMetadataJSObject(JSContextRef context, long long tim
 
 		// Force metadata as empty object
 		JSObjectRef metadata = JSObjectMake(context, NULL, NULL);
-		if (metadata)
-		{
+		if (metadata) {
 			JSValueProtect(context, metadata);
 			name = JSStringCreateWithUTF8CString("metadata");
 			JSObjectSetProperty(context, timedMetadata, name, metadata, kJSPropertyAttributeReadOnly, NULL);
@@ -428,15 +496,13 @@ JSObjectRef aamp_CreateTimedMetadataJSObject(JSContextRef context, long long tim
 			// Parse CUE metadata and TRICKMODE-RESTRICTION metadata
 			// Parsed values are used in PlayerPlatform at the time of tag object creation
 			if ((strcmp(szName, "#EXT-X-CUE") == 0) ||
-				(strcmp(szName, "#EXT-X-TRICKMODE-RESTRICTION") == 0) ||
-				(strcmp(szName, "#EXT-X-MARKER") == 0) ||
-				(strcmp(szName, "#EXT-X-SCTE35") == 0))
-			{
+			    (strcmp(szName, "#EXT-X-TRICKMODE-RESTRICTION") == 0) ||
+			    (strcmp(szName, "#EXT-X-MARKER") == 0) ||
+			    (strcmp(szName, "#EXT-X-SCTE35") == 0)) {
 				const char* szStart = szContent;
 
 				// Parse comma separated name=value list.
-				while (*szStart != '\0')
-				{
+				while (*szStart != '\0') {
 					char* szSep;
 					// Find the '=' separator.
 					for (szSep = (char*)szStart; *szSep != '=' && *szSep != '\0'; szSep++);
@@ -446,8 +512,7 @@ JSObjectRef aamp_CreateTimedMetadataJSObject(JSContextRef context, long long tim
 					for (; *szEnd != ',' && *szEnd != '\0'; szEnd++);
 
 					// Append the name / value metadata.
-					if ((szStart < szSep) && (szSep < szEnd))
-					{
+					if ((szStart < szSep) && (szSep < szEnd)) {
 						JSValueRef value;
 						char chSave = *szSep;
 
@@ -464,20 +529,19 @@ JSObjectRef aamp_CreateTimedMetadataJSObject(JSContextRef context, long long tim
 						JSStringRelease(name);
 
 						// If we just added the 'ID', copy into timedMetadata.id
-						if (szStart[0] == 'I' && szStart[1] == 'D' && szStart[2] == '=')
-						{
+						if (szStart[0] == 'I' && szStart[1] == 'D' && szStart[2] == '=') {
 							bGenerateID = false;
 							name = JSStringCreateWithUTF8CString("id");
 							JSObjectSetProperty(context, timedMetadata, name, value, kJSPropertyAttributeReadOnly, NULL);
 							JSStringRelease(name);
 						}
 					}
+
 					szStart = (*szEnd != '\0') ? szEnd + 1 : szEnd;
 				}
 			}
 			// Parse TARGETDURATION and CONTENT-IDENTIFIER metadata
-			else
-			{
+			else {
 				const char* szStart = szContent;
 				// Advance to the tag's value.
 				for (; *szStart != ':' && *szStart != '\0'; szStart++);
@@ -486,13 +550,11 @@ JSObjectRef aamp_CreateTimedMetadataJSObject(JSContextRef context, long long tim
 
 				// Stuff all content into DATA name/value pair.
 				JSValueRef value = aamp_CStringToJSValue(context, szStart);
-				if (strcmp(szName, "#EXT-X-TARGETDURATION") == 0)
-				{
+				if (strcmp(szName, "#EXT-X-TARGETDURATION") == 0) {
 					// Stuff into DURATION if EXT-X-TARGETDURATION content.
 					// Since #EXT-X-TARGETDURATION has only duration as value
 					name = JSStringCreateWithUTF8CString("DURATION");
-				} else
-				{
+				} else {
 					name = JSStringCreateWithUTF8CString("DATA");
 				}
 				JSObjectSetProperty(context, metadata, name, value, kJSPropertyAttributeReadOnly, NULL);
@@ -502,12 +564,10 @@ JSObjectRef aamp_CreateTimedMetadataJSObject(JSContextRef context, long long tim
 		}
 
 		// Generate an ID since the tag is missing one
-		if (bGenerateID)
-		{
+		if (bGenerateID) {
 			int hash = (int)timeMS;
 			const char* szStart = szName;
-			for (; *szStart != '\0'; szStart++)
-			{
+			for (; *szStart != '\0'; szStart++) {
 				hash = (hash * 33) ^ *szStart;
 			}
 
@@ -519,7 +579,8 @@ JSObjectRef aamp_CreateTimedMetadataJSObject(JSContextRef context, long long tim
 		}
 		JSValueUnprotect(context, timedMetadata);
 	}
-	return timedMetadata;
+
+        return timedMetadata;
 }
 
 /**

@@ -338,7 +338,7 @@ TEST_F(FunctionalTests, AampCurlDownloader_DownloadTest_StallAtStart)
 		.Times(0); // This prevents the function from being called if CURL return value is not CURLE_OK
 	mAampCurlDownloader->Download(mUrl, respData);
 	respData->show();
-	EXPECT_EQ(progress_callback_return, -1);
+	EXPECT_EQ(progress_callback_return, 1);
 	EXPECT_EQ(CURLE_ABORTED_BY_CALLBACK, respData->iHttpRetValue);
 	EXPECT_EQ(eCURL_ABORT_REASON_START_TIMEDOUT ,respData->mAbortReason);
 
@@ -395,7 +395,7 @@ TEST_F(FunctionalTests, AampCurlDownloader_DownloadTest_Stall)
 	mAampCurlDownloader->Download(mUrl, respData);
 	respData->show();
 	EXPECT_EQ(write_func_return, (write_sz * write_nmemb));
-	EXPECT_EQ(progress_callback_return, -1);
+	EXPECT_EQ(progress_callback_return, 1);
 	EXPECT_EQ(CURLE_ABORTED_BY_CALLBACK, respData->iHttpRetValue);
 	EXPECT_EQ(eCURL_ABORT_REASON_STALL_TIMEDOUT ,respData->mAbortReason);
 	free(write_buffer);
@@ -535,7 +535,7 @@ TEST_F(FunctionalTests, Release_BeforeCleanupCurlHeaderResources_PreventRaceCond
 				lock.unlock();
 
 				int result = mCurlProgressCallback(mAampCurlDownloader, 0, 0, 0, 0);
-				if (result == -1) {
+				if (result == 1) {
 					downloadAborted.store(true);
 				}
 			}),
@@ -663,6 +663,52 @@ TEST_F(FunctionalTests, AampCurlDownloader_Retry_RecvError)
 		.WillOnce(Return(CURLE_OK));
 	EXPECT_CALL(*g_mockCurl, curl_easy_perform(mCurlEasyHandle))
 		.WillOnce(Return(CURLE_RECV_ERROR))
+		.WillOnce(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_getinfo_int(mCurlEasyHandle, CURLINFO_RESPONSE_CODE, NotNull()))
+		.WillOnce(DoAll(SetArgPointee<2>(200), Return(CURLE_OK)));
+
+	mAampCurlDownloader->Download(mUrl, respData);
+
+	EXPECT_EQ(200, respData->iHttpRetValue);
+	EXPECT_FALSE(mAampCurlDownloader->IsDownloadActive());
+}
+
+/**
+ * @brief Verifies that AampCurlDownloader retries the download after CURLE_COULDNT_RESOLVE_HOST.
+ *
+ * CURLE_COULDNT_RESOLVE_HOST (DNS resolution failure) is a retry-worthy error.
+ * This test verifies that AampCurlDownloader retries when the first attempt fails
+ * with CURLE_COULDNT_RESOLVE_HOST and succeeds on the second attempt.
+ *
+ * Regression guard for DNS resolution failures being treated as non-retryable.
+ */
+TEST_F(FunctionalTests, AampCurlDownloader_Retry_CouldntResolveHost)
+{
+	DownloadResponsePtr respData = std::make_shared<DownloadResponse>();
+	DownloadConfigPtr inpData = std::make_shared<DownloadConfig>();
+	inpData->bNeedDownloadMetrics = true;
+	inpData->bIgnoreResponseHeader = true;
+	inpData->iDownloadRetryCount = 1;
+
+	EXPECT_CALL(*g_mockCurl, curl_easy_init()).WillOnce(Return(mCurlEasyHandle));
+	EXPECT_CALL(*g_mockCurl, curl_easy_cleanup(mCurlEasyHandle));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_ptr(mCurlEasyHandle, CURLOPT_PROGRESSDATA, mAampCurlDownloader))
+		.WillOnce(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_func_xferinfo(mCurlEasyHandle, CURLOPT_XFERINFOFUNCTION, NotNull()))
+		.WillOnce(DoAll(SaveArgPointee<2>(&mCurlProgressCallback), Return(CURLE_OK)));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_ptr(mCurlEasyHandle, CURLOPT_WRITEDATA, mAampCurlDownloader))
+		.WillOnce(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_func_write(mCurlEasyHandle, CURLOPT_WRITEFUNCTION, NotNull()))
+		.WillOnce(DoAll(SaveArgPointee<2>(&mCurlWriteFunc), Return(CURLE_OK)));
+	mAampCurlDownloader->Initialize(inpData);
+
+	ASSERT_NE(mCurlProgressCallback, nullptr);
+	ASSERT_NE(mCurlWriteFunc, nullptr);
+
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_str(mCurlEasyHandle, CURLOPT_URL, mUrl.c_str()))
+		.WillOnce(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_perform(mCurlEasyHandle))
+		.WillOnce(Return(CURLE_COULDNT_RESOLVE_HOST))
 		.WillOnce(Return(CURLE_OK));
 	EXPECT_CALL(*g_mockCurl, curl_easy_getinfo_int(mCurlEasyHandle, CURLINFO_RESPONSE_CODE, NotNull()))
 		.WillOnce(DoAll(SetArgPointee<2>(200), Return(CURLE_OK)));

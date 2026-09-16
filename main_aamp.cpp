@@ -36,6 +36,8 @@
 #include "PlayerMetadata.hpp"
 #include "PlayerLogManager.h"
 #include "AampDRMLicManager.h"
+#include "AampMPDDownloader.h"
+#include "AampEvent.h"
 
 #include <dlfcn.h>
 #include <termios.h>
@@ -143,6 +145,8 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 	// tune only . After that every tune will use the same config parameters
 	if(gpGlobalConfig == NULL)
 	{
+		
+
 		curl_global_init(CURL_GLOBAL_DEFAULT);
 		auto vers = curl_version_info(CURLVERSION_NOW);
 		printf( "curl version: %s\n", vers->version );
@@ -181,6 +185,16 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 	pExternalsInterface->SetDoFakeTuneCallBack(doFakeTune);
 	pExternalsInterface->SetPowerEvent(powerEvt);
 	pExternalsInterface->Initialize();
+
+#ifdef SUPPORT_JS_EVENTS
+#ifdef AAMP_WPEWEBKIT_JSBINDINGS //aamp_LoadJS defined in libaampjsbindings.so
+	const char* szJSLib = "libaampjsbindings.so";
+#else
+	const char* szJSLib = "libaamp.so";
+#endif
+	mJSBinding_DL = dlopen(szJSLib, RTLD_GLOBAL | RTLD_LAZY);
+	AAMPLOG_WARN("[AAMP_JS] dlopen(\"%s\")=%p", szJSLib, mJSBinding_DL);
+#endif
 
 #ifdef AAMP_BUILD_INFO
 		std::string tmpstr = MACRO_TO_STRING(AAMP_BUILD_INFO);
@@ -277,6 +291,13 @@ PlayerInstanceAAMP::~PlayerInstanceAAMP()
 	{
 		PlayerCCManager::DestroyInstance();
 	}
+#ifdef SUPPORT_JS_EVENTS
+	if (mJSBinding_DL && isLastPlayerInstance)
+	{
+		AAMPLOG_WARN("[AAMP_JS] dlclose(%p)", mJSBinding_DL);
+		dlclose(mJSBinding_DL);
+	}
+#endif
 	if (isLastPlayerInstance)
 	{
 		ContentSecurityManager::DestroyInstance();
@@ -354,21 +375,50 @@ void PlayerInstanceAAMP::Stop(bool sendStateChangeEvent, bool forceCleanup)
 		auto playerStopStartTime = NOW_STEADY_TS_MS;
 		UsingPlayerId playerId(aamp->mPlayerId);
 		AAMPPlayerState state = aamp->GetState();
-
-		// 1. Ensure scheduler is suspended and all tasks if any to be cleaned
-		// 2. Check for state ,if already in Idle / Released , ignore stopInternal
-		// 3. Restart the scheduler , needed if same instance is used for tune again
-
 		auto suspendSchedulerStartTime = NOW_STEADY_TS_MS;
-		mScheduler.SuspendScheduler();
-		auto suspendSchedulerEndTime = NOW_STEADY_TS_MS;
+
+		// Block new tasks from being scheduled
+		mScheduler.DisableScheduleTask();
+
+		// Clear the scheduled task queue so that no new tasks will start executing
 		mScheduler.RemoveAllTasks();
 
+		// Signal that the player is now in stopping state to any tune. This may trigger an early end to any async tune
+		aamp->SetEarlyAbortRequestFlag(true);
+
+		// If we are already tuning in another async task thread then take any additional steps possible to terminate the tune early
+		// 1. Terminate any manifest fetch in progress
+		if (aamp && aamp->initialManifestFetchInProgress)
+		{
+				AampMPDDownloader *dnldInstance = aamp->GetMPDDownloader();
+				if (dnldInstance)
+				{
+						AAMPLOG_INFO("An interruptable manifest download is in progress so signal it to abort");
+						auto manifestAbortStartTime = NOW_STEADY_TS_MS;
+						dnldInstance->Release();
+						AAMPLOG_MIL("Manifest abort took %u ms", (unsigned)(NOW_STEADY_TS_MS - manifestAbortStartTime));
+				}
+				else
+				{
+						AAMPLOG_WARN("Could not get a handle to dnldInstance to force a manifest abort");
+				}
+		}
+
+		// now suspend the scheduler; this will block until any existing tune task exits
+		mScheduler.SuspendScheduler();
+		// allow new tasks to be queued
+		mScheduler.EnableScheduleTask();
+
+		auto suspendSchedulerEndTime = NOW_STEADY_TS_MS;
 		//state will be eSTATE_IDLE or eSTATE_RELEASED, right after an init or post-processing of a Stop call
+		state = aamp->GetState();
 		if (state != eSTATE_IDLE && state != eSTATE_RELEASED)
 		{
 			StopInternal(sendStateChangeEvent, forceCleanup);
 		}
+
+		aamp->SetEarlyAbortRequestFlag(false);
+
 		// Enhanced DRM cleanup for Deep Sleep scenarios
 		// Must be done AFTER StopInternal() to ensure GStreamer pipeline is torn down
 		// and all encrypted buffers are flushed before destroying DRM sessions
@@ -381,10 +431,9 @@ void PlayerInstanceAAMP::Stop(bool sendStateChangeEvent, bool forceCleanup)
 		//Release lock
 		mScheduler.ResumeScheduler();
 		auto resumeSchedulerEndTime = NOW_STEADY_TS_MS;
-		AAMPLOG_WARN("-Stop (player) ; SuspendScheduler took %u ms, Total %u ms",
+		AAMPLOG_WARN("Stop (player) ; SuspendScheduler took %u ms, Total %u ms",
 				(unsigned)(suspendSchedulerEndTime - suspendSchedulerStartTime),
-				(unsigned)(resumeSchedulerEndTime - playerStopStartTime)
-			);
+				(unsigned)(resumeSchedulerEndTime - playerStopStartTime));
 	}
 }
 
@@ -458,9 +507,15 @@ void PlayerInstanceAAMP::TuneInternal(const char *mainManifestUrl,
 										const char* manifestData
 										)
 {
-	if(aamp){
+	if(aamp)
+	{
 		UsingPlayerId playerId(aamp->mPlayerId);
 
+		if ( aamp->IsAsyncTuneAbortRequired(mainManifestUrl, contentType) )
+		{
+				AAMPLOG_INFO("Aborting tune early");
+				return;
+		}
 	/* Set single pipeline according to the configuration */
 		aamp->UpdateUseSinglePipeline();
 
@@ -478,14 +533,25 @@ void PlayerInstanceAAMP::TuneInternal(const char *mainManifestUrl,
 				IsOTAtoOTA = true;
 			}
 		}
-
-		if ((state != eSTATE_IDLE) && (state != eSTATE_RELEASED) && (!IsOTAtoOTA))
+		if ((state != eSTATE_IDLE) && (state != eSTATE_RELEASED) && (!IsOTAtoOTA) && (!(aamp->IsAsyncTuneAbortRequired(mainManifestUrl, contentType))) )
 		{
 			//Calling tune without closing previous tune
 			StopInternal(true, false);
 		}
-		aamp->getAampCacheHandler()->StartPlaylistCache();
-		aamp->Tune(mainManifestUrl, autoPlay, contentType, bFirstAttempt, bFinalAttempt, traceUUID, audioDecoderStreamSync, refreshManifestUrl, mpdStitchingMode, std::move(sid),manifestData);
+		else
+		{
+			AAMPLOG_INFO("Player is in state '%s'. Do not stop before tune", AAMPPlayerStateName(state));
+		}
+
+		if ( !aamp->IsAsyncTuneAbortRequired(mainManifestUrl, contentType) )
+		{
+			aamp->getAampCacheHandler()->StartPlaylistCache();
+			aamp->Tune(mainManifestUrl, autoPlay, contentType, bFirstAttempt, bFinalAttempt, traceUUID, audioDecoderStreamSync, refreshManifestUrl, mpdStitchingMode, std::move(sid),manifestData);
+		}
+		else
+		{
+			AAMPLOG_MIL("Player is stopping, so do not continue with the tune");
+		}
 	}
 }
 
@@ -1703,8 +1769,7 @@ void PlayerInstanceAAMP::SetSubscribedTags(std::vector<std::string> subscribedTa
 		UsingPlayerId playerId(aamp->mPlayerId);
 		aamp->subscribedTags = subscribedTags;
 
-		for (int i=0; i < aamp->subscribedTags.size(); i++)
-		{
+		for (int i=0; i < aamp->subscribedTags.size(); i++) {
 			AAMPLOG_WARN("    subscribedTags[%d] = '%s'", i, subscribedTags.at(i).data());
 		}
 	}
@@ -1725,6 +1790,43 @@ void PlayerInstanceAAMP::SubscribeResponseHeaders(std::vector<std::string> respo
 		}
 	}
 }
+
+#ifdef SUPPORT_JS_EVENTS
+
+/**
+ *  @brief Load AAMP JS object in the specified JS context.
+ */
+void PlayerInstanceAAMP::LoadJS(void* context)
+{
+	AAMPLOG_WARN("[AAMP_JS] (%p)", context);
+	if (mJSBinding_DL) {
+		void(*loadJS)(void*, void*);
+		const char* szLoadJS = "aamp_LoadJS";
+		loadJS = (void(*)(void*, void*))dlsym(mJSBinding_DL, szLoadJS);
+		if (loadJS) {
+			AAMPLOG_WARN("[AAMP_JS]  dlsym(%p, \"%s\")=%p", mJSBinding_DL, szLoadJS, loadJS);
+			loadJS(context, this);
+		}
+	}
+}
+
+/**
+ *  @brief Unload AAMP JS object in the specified JS context.
+ */
+void PlayerInstanceAAMP::UnloadJS(void* context)
+{
+	AAMPLOG_WARN("[AAMP_JS] (%p)", context);
+	if (mJSBinding_DL) {
+		void(*unloadJS)(void*);
+		const char* szUnloadJS = "aamp_UnloadJS";
+		unloadJS = (void(*)(void*))dlsym(mJSBinding_DL, szUnloadJS);
+		if (unloadJS) {
+			AAMPLOG_WARN("[AAMP_JS] dlsym(%p, \"%s\")=%p", mJSBinding_DL, szUnloadJS, unloadJS);
+			unloadJS(context);
+		}
+	}
+}
+#endif
 
 /**
  *  @brief Support multiple listeners for multiple event type
@@ -1785,9 +1887,10 @@ bool PlayerInstanceAAMP::IsLive()
  */
 
 bool PlayerInstanceAAMP::IsJsInfoLoggingEnabled(void)
-{
-	return ISCONFIGSET(eAAMPConfig_JsInfoLogging);
-}
+
+ {
+	 return  ISCONFIGSET(eAAMPConfig_JsInfoLogging);
+ }
 
 /**
  *  @brief Get current audio language.
