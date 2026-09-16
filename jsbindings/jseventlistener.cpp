@@ -1974,6 +1974,16 @@ void AAMP_JSEventListener::RemoveEventListener(PrivAAMPStruct_JS* obj, AAMPEvent
 				{
 					obj->_aamp->RemoveEventListener(iter->first, listener);
 				}
+				// Event dispatch on the AAMP event thread may still hold a reference to this
+				// listener and destroy it later, after this JS object has been freed.
+				// Detaching p_obj makes both that destructor and Event() a safe no-op.
+				if (listener->p_jsCallback != NULL)
+				{
+					JSValueUnprotect(obj->_ctx, listener->p_jsCallback);
+					listener->p_jsCallback = NULL;
+				}
+				listener->p_obj = NULL;
+
 				iter = obj->_listeners.erase(iter);
 			}
 			else
