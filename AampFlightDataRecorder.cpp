@@ -268,16 +268,28 @@ std::string AampFlightDataRecorder::FormatLogEntry(const FDRLogEntry& entry,
 	std::chrono::steady_clock::time_point flushTime) const
 {
 	std::ostringstream oss;
-	uint64_t sec = entry.timestamp_ms / 1000;
-	uint64_t msec = entry.timestamp_ms % 1000;
-	oss << sec << "." << std::setfill('0') << std::setw(3) << msec << ": ";
-	if (flushTime != std::chrono::steady_clock::time_point{} &&
-		entry.recorded_at != std::chrono::steady_clock::time_point{})
+	// In aamp-cli (no log redirection) the buffered dump has no external stamp,
+	// so the prefix uses the emit time (record time + buffered lag) to stay
+	// chronological with surrounding live logs, and [TS:] carries the true record
+	// time. Under journald/Ethan the sink stamps the emit time itself.
+	bool emitStamped = flushTime != std::chrono::steady_clock::time_point{} &&
+		entry.recorded_at != std::chrono::steady_clock::time_point{} &&
+		AampLogManager::disableLogRedirection;
+	int64_t lagMs = 0;
+	uint64_t prefixMs = entry.timestamp_ms;
+	if (emitStamped)
 	{
-		int64_t lagMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+		lagMs = std::chrono::duration_cast<std::chrono::milliseconds>(
 			flushTime - entry.recorded_at).count();
 		if (lagMs < 0) { lagMs = 0; }
-		oss << "[LAG:" << lagMs << "ms]";
+		prefixMs = entry.timestamp_ms + static_cast<uint64_t>(lagMs);
+	}
+	oss << prefixMs / 1000 << "." << std::setfill('0') << std::setw(3)
+		<< prefixMs % 1000 << ": ";
+	if (emitStamped)
+	{
+		oss << "[TS:" << entry.timestamp_ms / 1000 << "."
+			<< std::setfill('0') << std::setw(3) << entry.timestamp_ms % 1000 << "]";
 	}
 	oss << "[" << entry.source << "]";
 	oss << "[" << std::setfill('0') << std::setw(3) << entry.seq_num << "]";
