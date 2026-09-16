@@ -1023,7 +1023,7 @@ MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifes
 		// downstream consumers (Period BaseURL injection, adNode.url,
 		// fragmentDescriptor.manifestUrl) use the CDN hostname rather than
 		// the origin, avoiding a fresh 302 redirect on every fragment request.
-		// The FOG path overwrites manifestUrl again (line ~1067) so this is safe.
+		// The FOG path overwrites manifestUrl again so this is safe.
 		if (!effectiveUrl.empty() && effectiveUrl != manifestUrl)
 		{
 			AAMPLOG_INFO("PrivateCDAIObjectMPD:: Ad manifest redirected from [%s] to [%s]",
