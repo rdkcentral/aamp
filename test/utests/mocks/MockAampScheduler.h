@@ -32,6 +32,10 @@ public:
 
     MOCK_METHOD(void, SetState, (AAMPPlayerState sstate));
 
+    MOCK_METHOD(void, EnableScheduleTask, ());
+
+    MOCK_METHOD(void, DisableScheduleTask, ());
+
 };
 
 extern std::shared_ptr<MockAampScheduler> g_mockAampScheduler;

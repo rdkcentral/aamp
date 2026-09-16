@@ -709,6 +709,16 @@ protected:
 	AAMPStatusType  EnableAndSetLiveOffsetForLLDashPlayback(const MPD* mpd);
 
 	/**
+	 * @fn IsVideoDRMLicenseRequired
+	 * @brief Returns true if an encrypted video adaptation set has a DRM helper and
+	 *        an unprocessed key ID, indicating that licence acquisition is required.
+	 *        Returns false for clear streams, missing DRM data, unavailable DRM
+	 *        session management, or already processed keys.
+	 * @retval bool true if the video stream requires DRM licence acquisition
+	 */
+	bool IsVideoDRMLicenseRequired();
+
+	/**
 	 * @fn GetLowLatencyParams
 	 * @param[In] const mpd Pointer to FragmentCollector
 	 * @param[Out] LLDashData Reference to LowLatency element parsed data

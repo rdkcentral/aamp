@@ -275,7 +275,7 @@ typedef enum
 	eAAMPConfig_DRMDecryptThreshold,					/**< Retry count on drm decryption failure*/
 	eAAMPConfig_SegmentInjectThreshold, 					/**< Retry count for segment injection discard/failure*/
 	eAAMPConfig_InitFragmentRetryCount, 					/**< Retry attempts for init frag curl timeout failures*/
-	eAAMPConfig_MinABRNWBufferRampDown, 					/**< Minimum ABR Buffer for Rampdown*/
+	eAAMPConfig_MinABRNWBufferRampDown, 					/**< Minimum buffer to switch to a lower bitrate to prevent rebuffering*/
 	eAAMPConfig_MaxABRNWBufferRampUp,					/**< Maximum ABR Buffer for Rampup*/
 	eAAMPConfig_PrePlayBufferCount, 					/**< Count of segments to be downloaded until play state */
 	eAAMPConfig_PreCachePlaylistTime,					/**< Max time to complete PreCaching .In Minutes  */
@@ -359,7 +359,6 @@ typedef enum
 	eAAMPConfig_MinLatencyCorrectionPlaybackRate,       /**< Latency adjust/buffer correction min playback rate*/
 	eAAMPConfig_MaxLatencyCorrectionPlaybackRate,       /**< Latency correction max playback rate*/
 	eAAMPConfig_NormalLatencyCorrectionPlaybackRate,    /**< Normal playback rate for LLD stream; backdoor for debug*/
-	eAAMPConfig_LowLatencyMinBuffer,                    /**< Low Latency minimum buffer value*/
 	eAAMPConfig_LowLatencyTargetBuffer,                 /**< Low Latency target buffer value; Buffer needed for rate correction to trigger*/
 	eAAMPConfig_BWToGstBufferFactor,				/**< Factor by multiply GST Base Buffer is multiplied to accommodate HiFi Content*/
 	eAAMPConfig_UnderflowDetectThresholdSec,		/**< Underflow detection threshold in seconds */
@@ -374,6 +373,7 @@ typedef enum
 	eAAMPConfig_LLMinLatency,						/**< Low Latency Min Latency Offset */
 	eAAMPConfig_LLTargetLatency,					/**< Low Latency Target Latency */
 	eAAMPConfig_LLMaxLatency,						/**< Low Latency Max Latency */
+	eAAMPConfig_LLDrmLatencyEstimateSec,			/**< LL-DASH: estimated DRM acquisition latency (s); default is DEFAULT_LL_DRM_LATENCY_ESTIMATE_SEC; 0 disables feature */
 	eAAMPConfig_FloatMaxValue						/**< Max value for float config always last element*/
 } AAMPConfigSettingFloat;
 #define AAMPCONFIG_FLOAT_COUNT (eAAMPConfig_FloatMaxValue)
