@@ -46,7 +46,9 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/rdk)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/contentsecuritymanager)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/contentsecuritymanager/IFirebolt)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/rdk/IIarm)
+if(NOT CMAKE_USE_FIREBOLT AND NOT CMAKE_PLATFORM_UBUNTU AND NOT CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+    include_directories(${CMAKE_CURRENT_SOURCE_DIR}/rdk/IIarm)
+endif()
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/rdk/IFirebolt)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/IFirebolt)
 
@@ -103,19 +105,39 @@ set(SECMGR_SOURCES contentsecuritymanager/PlayerMemoryUtils.cpp
     contentsecuritymanager/ContentSecurityManagerSession.cpp
     ${MW_ROOT}/PlayerScheduler.cpp)
 
-if(CMAKE_USE_SECCLIENT OR CMAKE_USE_SECMANAGER)
-	set(SECMGR_SOURCES ${SECMGR_SOURCES}  contentsecuritymanager/IFirebolt/ContentProtectionFirebolt.cpp)
+option(CMAKE_USE_FIREBOLT "Enable Firebolt SDK for RDK-E builds (disables IARM/DS linking)" OFF)
+if(CMAKE_USE_FIREBOLT)
+    message("USE_FIREBOLT SET")
+    set(LIB_EXT_DEFINES "${LIB_EXT_DEFINES} -DUSE_FIREBOLT=1")
+endif()
+
+if(CMAKE_USE_SECCLIENT OR CMAKE_USE_SECMANAGER OR CMAKE_USE_FIREBOLT)
+	# contentprotection.h requires firebolt-aamp-sdk; only compile on Firebolt builds
+	set(SECMGR_SOURCES ${SECMGR_SOURCES} contentsecuritymanager/IFirebolt/ContentProtectionFirebolt.cpp)
 	if(CMAKE_USE_SECMANAGER)
 		set(SECMGR_SOURCES ${SECMGR_SOURCES} contentsecuritymanager/ThunderAccessPlayer.cpp contentsecuritymanager/SecManagerThunder.cpp)
 	endif()
 endif()
 
-#IARM/RFC
-if(CMAKE_IARM_MGR)
+if(CMAKE_USE_FIREBOLT)
+    # RDK-E: Firebolt-only; no IARM or ds
+    message("USE_FIREBOLT set - RDK-E build: routing device APIs through Firebolt")
+    add_definitions(-DUSE_FIREBOLT)
+    set(LIB_EXT_DEFINES "${LIB_EXT_DEFINES} -DUSE_FIREBOLT=1")
+    set(EXT_SOURCES "${EXT_SOURCES}" rdk/PlayerExternalsRdkInterface.cpp)
+    set(EXT_SOURCES "${EXT_SOURCES}" rdk/IFirebolt/DeviceFireboltInterface.cpp)
+    set(EXT_SOURCES "${EXT_SOURCES}" IFirebolt/FireboltInterface.cpp)
+elseif(CMAKE_PLATFORM_UBUNTU OR CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+    # Native builds: use fake externals implementation (no IARM headers/libs).
+    message("Native build detected - skipping IARM/DeviceSettings backend in externals")
+else()
+    # RDK-V: IARM + DeviceSettings libraries
     message("PLAYER IARM_MGR set")
+    set(CMAKE_IARM_MGR 1)
     set(LIB_EXT_DEFINES "${LIB_EXT_DEFINES} -DIARM_MGR=1")
     set(EXT_SOURCES "${EXT_SOURCES}" rdk/PlayerExternalsRdkInterface.cpp)
     set(EXT_SOURCES "${EXT_SOURCES}" rdk/IIarm/DeviceIARMInterface.cpp)
+    # RDK-V containerized runtime may route through Firebolt; compile backend to avoid unresolved symbols.
     set(EXT_SOURCES "${EXT_SOURCES}" rdk/IFirebolt/DeviceFireboltInterface.cpp)
     set(EXT_SOURCES "${EXT_SOURCES}" IFirebolt/FireboltInterface.cpp)
     list(APPEND LIB_EXT_DEPENDS -lIARMBus -lds -ldshalcli)
@@ -149,8 +171,7 @@ endif()
 set_target_properties(playerfbinterface PROPERTIES PUBLIC_HEADER 
   "PlayerThunderInterface.h;PlayerThunderAccessBase.h;PlayerExternalsInterfaceBase.h;PlayerExternalsInterface.h;PlayerRfc.h;contentsecuritymanager/ContentSecurityManagerSession.h;contentsecuritymanager/PlayerSecInterface.h;contentsecuritymanager/ContentSecurityManager.h;contentsecuritymanager/PlayerMemoryUtils.h;Module.h")
 
-if(CMAKE_IARM_MGR)
-    # Append additional header(s) for IARM_MGR
+if(CMAKE_IARM_MGR OR CMAKE_USE_FIREBOLT)
     set_property(TARGET playerfbinterface APPEND PROPERTY PUBLIC_HEADER "rdk/PlayerExternalsRdkInterface.h")
 endif()
 
@@ -167,7 +188,7 @@ target_link_libraries(playerfbinterface ${LIB_EXT_DEPENDS})
 target_link_libraries(playerfbinterface playerlogmanager)
 target_link_libraries(playerfbinterface baseconversion)
 target_link_libraries(playerfbinterface playerjsonobject)
-if(CMAKE_USE_SECCLIENT OR CMAKE_USE_SECMANAGER)
+if(CMAKE_USE_SECCLIENT OR CMAKE_USE_SECMANAGER OR CMAKE_USE_FIREBOLT OR CMAKE_IARM_MGR)
    find_package(FireboltAamp CONFIG REQUIRED)
    target_link_libraries(playerfbinterface FireboltAamp::FireboltAamp)
 endif()

@@ -24,8 +24,10 @@
 #include "PlayerExternalsRdkInterface.h"
 #include "PlayerExternalUtils.h"
 #include "DeviceInterfaceBase.h"
-#include "DeviceIARMInterface.h"
 #include "DeviceFireboltInterface.h"
+#ifndef USE_FIREBOLT
+#include "DeviceIARMInterface.h"
+#endif
 #include "PlayerExternalsInterface.h"
 
 #include <cstdio>
@@ -60,6 +62,24 @@ void PlayerExternalsRdkInterface::Initialize()
 
     MW_PRE_LOGGER_LOG("Initializing started \n");
 
+    //RDK-E Case
+#ifdef USE_FIREBOLT
+    MW_PRE_LOGGER_LOG("Using Firebolt \n");
+    //initialize only if needed
+    if(m_initialized != InitState::NOT_INITIALIZED)
+    {
+        MW_PRE_LOGGER_LOG("Firebolt already Inited \n");
+        return;
+    }
+    MW_PRE_LOGGER_LOG("Initializing \n");
+    // Reset before assigning new interface
+    m_pDeviceInterfaceBase = nullptr;
+    m_pDeviceInterfaceBase = DeviceFireboltInterface::GetInstance();
+    DeviceFireboltInterface::Initialize();
+    m_initialized = PlayerExternalsRdkInterface::InitState::FIREBOLT;
+#else
+    //RDK-V case
+
     /*
     IARM Deprecation Note:
     IARM is to be deprecated in favor of DeviceSettings and Firebolt Device API.
@@ -69,48 +89,35 @@ void PlayerExternalsRdkInterface::Initialize()
     */
     
     //remove-start
+    const bool useFireboltInContainer = IsContainerEnvironment();
     //initialize only if needed
     if(m_initialized != InitState::NOT_INITIALIZED)
     {
-        if(m_initialized == InitState::FIREBOLT && (m_use_firebolt_sdk || IsContainerEnvironment()))
+        //should use firebolt for containerized environments
+        if(m_initialized == InitState::FIREBOLT && useFireboltInContainer)
         {
             MW_PRE_LOGGER_LOG("Firebolt already Inited \n");
-            //firebolt already inited
             return;
         }
-        else if(m_initialized == InitState::IARM && (!m_use_firebolt_sdk) && (!IsContainerEnvironment()))
+        //should use IARM for non-containerized environments
+        if(m_initialized == InitState::IARM && !useFireboltInContainer)
         {
             MW_PRE_LOGGER_LOG("IARM already Inited \n");
-            //IARM already inited
             return;
         }
-        else
-        {
-            MW_PRE_LOGGER_LOG("m_use_firebolt_sdk or IsContainerEnvironment() has changed, init again \n");
-            //m_use_firebolt_sdk has changed init again
-        }
+        MW_PRE_LOGGER_LOG("IsContainerEnvironment() changed, re-initializing backend \n");
     }
     else
     {
         MW_PRE_LOGGER_LOG("Initializing \n");
     }
-    //remove-end
-    
-    if(m_pDeviceInterfaceBase)
+    // Reset before assigning new interface
+    m_pDeviceInterfaceBase = nullptr;
+    if(useFireboltInContainer)
     {
-        m_pDeviceInterfaceBase = nullptr;
-    }
-
-    MW_PRE_LOGGER_LOG("m_use_firebolt_sdk : %d, IsContainerEnvironment() : %d \n", m_use_firebolt_sdk, IsContainerEnvironment());
-
-    //remove-start
-    if(m_use_firebolt_sdk || IsContainerEnvironment()) //if explicitly config'd to or if in container go for firebolt
-    {
-    //remove-end
-        MW_PRE_LOGGER_LOG("Using Firebolt \n");
+        MW_PRE_LOGGER_LOG("Using Firebolt (containerized environment) \n");
         m_pDeviceInterfaceBase = DeviceFireboltInterface::GetInstance();
         DeviceFireboltInterface::Initialize();
-    //remove-start
         m_initialized = PlayerExternalsRdkInterface::InitState::FIREBOLT;
     }
     else
@@ -121,7 +128,7 @@ void PlayerExternalsRdkInterface::Initialize()
         m_initialized = PlayerExternalsRdkInterface::InitState::IARM;
     }
     //remove-end
-
+#endif // USE_FIREBOLT
     MW_PRE_LOGGER_LOG("Done getting interface \n");
 
     SetHDMIStatus();
@@ -148,6 +155,16 @@ void PlayerExternalsRdkInterface::SetResolution(int width, int height)
     m_displayHeight  = height;
 }
 
+#ifdef USE_FIREBOLT
+void PlayerExternalsRdkInterface::SetHDMIStatus()
+{
+    auto* devIface = dynamic_cast<DeviceFireboltInterface*>(m_pDeviceInterfaceBase.get());
+    if (devIface)
+        devIface->SetHDMIStatus();
+    else
+        MW_LOG_ERR("SetHDMIStatus: DeviceFireboltInterface not available");
+}
+#else
 /**
  * @brief Set the HDCP status using data from DeviceSettings
  */
@@ -253,6 +270,7 @@ void PlayerExternalsRdkInterface::SetHDMIStatus()
 
     return;
 }
+#endif // USE_FIREBOLT
 
 void PlayerExternalsRdkInterface::setHdcpProtocol(dsHdcpProtocolVersion_t t_protocol)
 {
@@ -282,6 +300,7 @@ char * PlayerExternalsRdkInterface::GetTR181Config(const char * paramName, size_
 
 void PlayerExternalsRdkInterface::SetUseFireBoltSDK(bool t_use_firebolt_sdk)
 {
+    #ifndef USE_FIREBOLT
     MW_PRE_LOGGER_LOG("old : %d, new : %d \n", m_use_firebolt_sdk, t_use_firebolt_sdk);
     if(m_use_firebolt_sdk != t_use_firebolt_sdk)
     {
@@ -291,5 +310,5 @@ void PlayerExternalsRdkInterface::SetUseFireBoltSDK(bool t_use_firebolt_sdk)
         Initialize();
 
     }
-    
+    #endif // USE_FIREBOLT
 }
