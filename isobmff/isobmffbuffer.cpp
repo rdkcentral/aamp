@@ -368,12 +368,13 @@ void IsoBmffBuffer::restampPtsInternal(int64_t offset, uint8_t *segment, size_t 
 					{
 						beforePTS = pts;
 					}
-					// Check the unsigned offset before adding it, since uint64_t addition
-					// would silently wrap and hide an overflow in the 32-bit tfdt range.
-					const bool v0Overflow = offset > static_cast<uint64_t>(UINT32_MAX - pts);
-					if (v0Overflow)
+					// Check the signed offset against the valid 32-bit range.
+					const bool v0OutOfRange =
+						(offset > 0 && static_cast<uint64_t>(offset) > static_cast<uint64_t>(UINT32_MAX - pts)) ||
+						(offset < 0 && pts < (static_cast<uint64_t>(-(offset + 1)) + 1ULL));
+					if (v0OutOfRange)
 					{
-						AAMPLOG_ERR("tfdt v0 PTS overflow: pts[%" PRIu32 "] + offset[%" PRId64 "] exceeds 4-byte range", ptsBeforeOffset, offset);
+						AAMPLOG_ERR("tfdt v0 PTS out of range: pts[%" PRIu32 "] + offset[%" PRId64 "] exceeds 4-byte range", ptsBeforeOffset, offset);
 					}
 					pts += (uint32_t)offset;
 					WRITE_U32(buf, pts);
