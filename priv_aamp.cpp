@@ -8809,10 +8809,7 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 	EnableDownloads();
 
 	// Clear any stored buffering start time
-	if (mBufferingStartTimeMS.exchange(-1LL) > 0)
-	{
-		AAMPLOG_DEBUG("Clearing incomplete buffering event on stop");
-	}
+	mBufferingStartTimeMS.exchange(-1LL);
 
 	AampStreamSinkManager::GetInstance().DeactivatePlayer(this, true);
 	unsigned int mLastStopDurationMs = (unsigned)(NOW_STEADY_TS_MS - stopStartTime);
