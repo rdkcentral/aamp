@@ -1810,6 +1810,8 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	, mSubtitleDelta(0)
 	, mVideoComponentCount(-1)
 	, mAudioOnlyPb(false)
+	, mMiniWindowAudioOnlyActive(false)
+	, mMiniWindowAudioOnlyOwnsPlayback(false)
 	, mVideoOnlyPb(false)
 	, mCurrentAudioTrackIndex(-1)
 	, mCurrentTextTrackIndex(-1)
@@ -7159,7 +7161,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 				sink->SetVideoRectangle(mVideoRect.horizontalPos, mVideoRect.verticalPos, mVideoRect.width, mVideoRect.height);
 			}
 		}
-		AAMPLOG_INFO("Update SetVideoRectangle x:%d y:%d w:%d h:%d", mVideoRect.horizontalPos, mVideoRect.verticalPos, mVideoRect.width, mVideoRect.height);
+		AAMPLOG_ERR("Update SetVideoRectangle x:%d y:%d w:%d h:%d", mVideoRect.horizontalPos, mVideoRect.verticalPos, mVideoRect.width, mVideoRect.height);
 		mApplyVideoRect = false;
 	}
 	// To check and apply content restriction
@@ -7171,6 +7173,9 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 		}
 		mApplyContentRestriction = false;
 	}
+
+	AAMPLOG_ERR("setVideoMute true");
+	SetVideoMute(true);
 	// do not change location of this set, it should be done after sending previous VideoEnd data which
 	// is done in TuneHelper->SendVideoEndEvent function.
 	this->mTraceUUID = std::move(sTraceId);
@@ -8035,7 +8040,32 @@ void PrivateInstanceAAMP::UpdateVideoRectangle (int x, int y, int w, int h)
  */
 void PrivateInstanceAAMP::SetVideoRectangle(int x, int y, int w, int h)
 {
+	AAMPLOG_ERR("miniwindow: setVideoRectanle calling setVideoMute true  ");
+	SetVideoMute(true);
 	AAMPPlayerState state = GetState();
+	const bool isIpPlayback = (mMediaFormat != eMEDIAFORMAT_OTA) &&
+		(mMediaFormat != eMEDIAFORMAT_HDMI) && (mMediaFormat != eMEDIAFORMAT_COMPOSITE) &&
+		(mMediaFormat != eMEDIAFORMAT_RMF) && (mMediaFormat != eMEDIAFORMAT_PROGRESSIVE);
+	if (isIpPlayback && (ISCONFIGSET_PRIV(eAAMPConfig_MiniWindowAudioOnly) ||
+		mMiniWindowAudioOnlyActive.load()))
+	{
+		AAMPLOG_ERR("miniwindow: SetMiniWindowAudioOnly called ");
+		const int widthThreshold = GETCONFIGVALUE_PRIV(eAAMPConfig_MiniWindowWidthThreshold);
+		const int heightThreshold = GETCONFIGVALUE_PRIV(eAAMPConfig_MiniWindowHeightThreshold);
+		const bool isMiniWindow = ISCONFIGSET_PRIV(eAAMPConfig_MiniWindowAudioOnly) &&
+			(widthThreshold > 0) && (heightThreshold > 0) &&
+			(w > 0) && (h > 0) && (w <= widthThreshold || h <= heightThreshold);
+		AAMPLOG_ERR("miniwindow: SetMiniWindowAudioOnly width:%d height:%d isMiniWindow:%d ", widthThreshold, heightThreshold, isMiniWindow);
+		if (isMiniWindow != mMiniWindowAudioOnlyActive.load())
+		{
+			AAMPLOG_ERR("miniwindow: setMinidowAudioOnly:%d ", isMiniWindow);
+			SetMiniWindowAudioOnly(isMiniWindow);
+		}
+	}
+	else
+	{
+		AAMPLOG_ERR("miniwindow: SetMiniWindowAudioOnly not called ");
+	}
 	{
 		std::unique_lock<std::recursive_mutex> lock(mStreamLock, std::try_to_lock);
 		if( lock.owns_lock() )
@@ -8075,6 +8105,56 @@ void PrivateInstanceAAMP::SetVideoRectangle(int x, int y, int w, int h)
 		}
 	}
 }
+
+void PrivateInstanceAAMP::SetMiniWindowAudioOnly(bool enable)
+{
+	if (enable == mMiniWindowAudioOnlyActive.load())
+	{
+		return;
+	}
+
+	if (!enable && !mMiniWindowAudioOnlyOwnsPlayback.load())
+	{
+		mMiniWindowAudioOnlyActive.store(false);
+		return;
+	}
+
+	const bool audioOnlyPlayback = ISCONFIGSET_PRIV(eAAMPConfig_AudioOnlyPlayback);
+	if (enable && audioOnlyPlayback)
+	{
+		mMiniWindowAudioOnlyActive.store(true);
+		mMiniWindowAudioOnlyOwnsPlayback.store(false);
+		return;
+	}
+
+	mMiniWindowAudioOnlyActive.store(enable);
+	mMiniWindowAudioOnlyOwnsPlayback.store(enable);
+	SETCONFIGVALUE_PRIV(AAMP_APPLICATION_SETTING, eAAMPConfig_AudioOnlyPlayback, enable);
+	mAudioOnlyPb = enable;
+
+	const AAMPPlayerState state = GetState();
+	if (state <= eSTATE_PREPARING || state == eSTATE_ERROR || state == eSTATE_RELEASED)
+	{
+		return;
+	}
+
+	std::lock_guard<std::mutex> lock(gMutex);
+	if (mIsRetuneInProgress)
+	{
+		AAMPLOG_WARN("Mini-window audio-only mode will apply after the current retune");
+		return;
+	}
+
+	for (gActivePrivAAMP_t &instance : gActivePrivAAMPs)
+	{
+		if (instance.pAAMP == this)
+		{
+			instance.reTune = true;
+			ScheduleAsyncTask(PrivateInstanceAAMP_Retune, this, "PrivateInstanceAAMP_MiniWindowRetune");
+			return;
+		}
+	}
+}
 /**
  *   @brief Set video zoom.
  */
@@ -8092,7 +8172,7 @@ void PrivateInstanceAAMP::SetVideoZoom(VideoZoomMode zoom)
  */
 void PrivateInstanceAAMP::SetVideoMute(bool muted)
 {
-	AAMPLOG_INFO("mute %s subtitles_muted %s", muted?"true":"false", subtitles_muted.load()?"true":"false");
+	AAMPLOG_ERR("mute %s subtitles_muted %s", muted?"true":"false", subtitles_muted.load()?"true":"false");
 	video_muted = muted;
 
 	//If lock could not be acquired, then cache it
@@ -8127,6 +8207,7 @@ void PrivateInstanceAAMP::SetVideoMuteInternal(bool muted)
 	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 	if (sink)
 	{
+		AAMPLOG_ERR("setVideoMute TRUE");
 		sink->SetVideoMute(muted);
 	}
 	else

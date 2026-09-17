@@ -2054,9 +2054,9 @@ JSValueRef AAMPMediaPlayerJS_setVideoMute (JSContextRef ctx, JSObjectRef functio
 		if (argumentCount == 1)
 		{
 			bool videoMute = JSValueToBoolean(ctx, arguments[0]);
-			privObj->_aamp->SetVideoMute(videoMute);
+			privObj->_aamp->SetVideoMute(true);
 			bRet = true;
-			LOG_WARN(privObj,"Invoked setVideoMute %d",videoMute);
+			LOG_WARN(privObj,"Forced:Invoked setVideoMute %d",videoMute);
 		}
 		else
 		{
