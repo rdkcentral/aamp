@@ -1111,7 +1111,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	mState(eSTATE_RELEASED), mMediaFormat(eMEDIAFORMAT_HLS), mPersistedProfileIndex(0), mAvailableBandwidth(0),
 	mDiscontinuityTuneOperationInProgress(false), mContentType(ContentType_UNKNOWN), mTunedEventPending(false),
 	mSeekOperationInProgress(false), mTrickplayInProgress(false), mPendingAsyncEvents(), mCustomHeaders(),
-	mManifestUrl(""), mTunedManifestUrl(""), mOrigManifestUrl(), mServiceZone(), mVssVirtualStreamId(),
+	initialManifestFetchInProgress(false), mManifestUrl(""), mTunedManifestUrl(""), mOrigManifestUrl(), mServiceZone(), mVssVirtualStreamId(),
 	mCurrentLanguageIndex(0),
 	preferredLanguagesString(), preferredLanguagesList(), preferredLabelList(),mhAbrManager(),
 	mVideoEnd(NULL),
@@ -1125,6 +1125,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	,mCustomLicenseHeaders(), mIsIframeTrackPresent(false), mManifestTimeoutMs(-1), mNetworkTimeoutMs(-1)
 	,mbPlayEnabled(true), mPlayerPreBuffered(false), mPlayerId(PLAYERID_CNTR++),mAampCacheHandler(NULL)
 	,mAsyncTuneEnabled(false)
+	,mAsyncTaskAbortEnabled(false)
 	,waitforplaystart()
 	,mCurlShared(NULL)
 	,mDrmDecryptFailCount(MAX_SEG_DRM_DECRYPT_FAIL_COUNT)
@@ -1246,6 +1247,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	, bitrateList()
 	, userProfileStatus(false)
 	, mApplyCachedVideoMute(false)
+	, mApplyCachedCCStatus(false)
 	, mFirstProgress(false)
 	, mTsbSessionRequestUrl()
 	, mcurrent_keyIdArray()
@@ -2912,7 +2914,7 @@ void PrivateInstanceAAMP::SendErrorEvent(AAMPTuneFailure tuneFailure, const char
 	}
 	else
 	{
-		AAMPLOG_WARN("PrivateInstanceAAMP: Ignore error %d[%s]", (int)tuneFailure, description);
+		AAMPLOG_WARN("PrivateInstanceAAMP: Ignore error %d[%s]", (int)tuneFailure, description ? description : "NONE");
 	}
 }
 
@@ -4834,6 +4836,59 @@ void PrivateInstanceAAMP::GetOnVideoEndSessionStatData(std::string &data)
 	return ;
 }
 
+/**
+ * @brief Control whether we can terminate a TuneInternal async task early
+ */
+void PrivateInstanceAAMP::SetEarlyAbortRequestFlag(bool enableAbort)
+{
+	mAsyncTaskAbortEnabled=enableAbort;
+}
+
+/**
+ * @brief Single source of truth for which format/content-type combinations support
+ *        early async-tune abort.  Both IsAsyncTuneAbortSupported() and the
+ *        manifest-URL overload of IsAsyncTuneAbortRequired() delegate here so that
+ *        the criteria stay in sync automatically.
+ */
+bool PrivateInstanceAAMP::IsAsyncTuneSupportedForType(MediaFormat format, ContentType type) const
+{
+	return (eMEDIAFORMAT_DASH == format) &&
+	       (ContentType_LINEAR == type)  &&
+	        ((eTUNETYPE_NEW_NORMAL == mTuneType) || (eTUNETYPE_NEW_SEEK == mTuneType) || (eTUNETYPE_NEW_END == mTuneType)) && // replace with IsNewTune()
+	       mAsyncTuneEnabled;
+}
+
+/**
+ * @brief Determine whether the current tune type supports early async-tune abort.
+ *        Uses stored mMediaFormat / mContentType (active tune).
+ */
+bool PrivateInstanceAAMP::IsAsyncTuneAbortSupported()
+{
+	return IsAsyncTuneSupportedForType(mMediaFormat, mContentType);
+}
+
+/**
+ * @brief Determine whether the current async tune task should be aborted early.
+ */
+bool PrivateInstanceAAMP::IsAsyncTuneAbortRequired()
+{
+	return mAsyncTaskAbortEnabled.load() && IsAsyncTuneAbortSupported();
+}
+
+/**
+ * @brief Determine whether an incoming tune (identified by URL and content-type string)
+ *        should be aborted because a Stop is in progress.
+ */
+bool PrivateInstanceAAMP::IsAsyncTuneAbortRequired(const char* manifestUrl, const char* contentTypeString)
+{
+	if (!mAsyncTaskAbortEnabled.load())
+		return false;
+	MediaFormat format = manifestUrl ? GetMediaFormatType(manifestUrl) : eMEDIAFORMAT_UNKNOWN;
+	// Map the content-type string to enum — the only type that supports abort is LINEAR_TV.
+	ContentType type = (contentTypeString && !strncmp(contentTypeString, "LINEAR_TV", 9))
+	                 ? ContentType_LINEAR : ContentType_UNKNOWN;
+	return IsAsyncTuneSupportedForType(format, type);
+}
 
 /**
  * @brief Terminate the stream
@@ -5509,6 +5564,12 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 				AAMPLOG_MIL( "Stopping fake tune playback");
 			}
 		}
+		else if (retVal == eAAMPSTATUS_MANIFEST_DOWNLOAD_ABORTED)
+		{
+			mInitSuccess = false;
+			AAMPLOG_MIL("TuneHelper aborted due to a manifest download abort during Stop");
+			return;
+		}
 		else if (DownloadsAreEnabled())
 		{
 			AAMPLOG_ERR("mpStreamAbstractionAAMP Init Failed.Error(%d)",retVal);
@@ -5668,6 +5729,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 					sink->SetVideoMute(video_muted.load());
 				}
 				SetCCStatusInternal();
+				mApplyCachedCCStatus = false;
 				sink->SetAudioVolume(volume);
 				if (mbPlayEnabled)
 				{
@@ -6274,11 +6336,17 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 			//These two fns are being called in PlayerInstanceAAMP::SetVideoMute
 			SetVideoMuteInternal(video_muted.load());
 			SetCCStatusInternal();
+			mApplyCachedCCStatus=false;
 		}
 		else
 		{
 			AAMPLOG_ERR("mpStreamAbstractionAAMP is NULL, cannot apply cached video mute");
 		}
+	}
+	else if (mApplyCachedCCStatus.load())
+	{
+		SetCCStatusInternal();
+		mApplyCachedCCStatus=false;
 	}
 	ReleaseStreamLock();
 
@@ -7698,6 +7766,7 @@ bool PrivateInstanceAAMP::IsLiveStream()
 void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 {
 	auto stopStartTime = NOW_STEADY_TS_MS;
+	mApplyCachedCCStatus = false;
 	// Clear all the player events in the queue and sets its state to RELEASED as everything is done
 	mEventManager->FlushPendingEvents();
 	// Set state to STOPPING irrespective of sending state change event or not
@@ -7759,14 +7828,21 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 	// so downloads are disabled among other things
 	SetLocalAAMPTsb(false);
 	SetLocalAAMPTsbInjection(false);
+	auto streamLockStartTime = NOW_STEADY_TS_MS;
+	auto streamLockStopTime = NOW_STEADY_TS_MS;
+	auto licenseAcquisitionLockStartTime = NOW_STEADY_TS_MS;
+	auto licenseAcquisitionLockStopTime = licenseAcquisitionLockStartTime;
 	// Stopping the playback, release all DRM context
 	if (mpStreamAbstractionAAMP)
 	{
 		AcquireStreamLock();
+		streamLockStopTime = NOW_STEADY_TS_MS;
 		if (mDRMLicenseManager)
 		{
 			ReleaseDynamicDRMToUpdateWait();
 			mDRMLicenseManager->setLicenseRequestAbort(true);
+			// note: on sprint, this timer is used to time mDRMLicenseManager->SetLicenseFetcher(nullptr), but this is not present here.
+			licenseAcquisitionLockStopTime = NOW_STEADY_TS_MS;
 		}
 		if (HasSidecarData())
 		{ // has sidecar data
@@ -7774,7 +7850,9 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 		}
 		ReleaseStreamLock();
 	}
+	auto tearDownStartTime = NOW_STEADY_TS_MS;
 	TeardownStream(true,true); //disable download as well
+	auto tearDownEndTime = NOW_STEADY_TS_MS;
 
 	// stop the mpd update immediately after Stream abstraction delete
 	if(mMPDDownloaderInstance != nullptr)
@@ -7892,7 +7970,11 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 
 	AampStreamSinkManager::GetInstance().DeactivatePlayer(this, true);
 	unsigned int mLastStopDurationMs = (unsigned)(NOW_STEADY_TS_MS - stopStartTime);
-	AAMPLOG_WARN("AAMP Stop took %u ms",mLastStopDurationMs);
+	AAMPLOG_WARN("AAMP Stop took %u ms; streamLock %u, SetLicenseFetcher %u, Teardown %u",
+		mLastStopDurationMs,
+		(unsigned int)(streamLockStopTime - streamLockStartTime),
+		(unsigned int)(licenseAcquisitionLockStopTime - licenseAcquisitionLockStartTime),
+		(unsigned int)(tearDownEndTime - tearDownStartTime));
 	profiler.mStopDurationMs = mLastStopDurationMs;
 
 }
@@ -8447,6 +8529,7 @@ void PrivateInstanceAAMP::SetState(AAMPPlayerState state, bool sendStateChangeEv
 	}
 	{
 		std::lock_guard<std::recursive_mutex> guard(mLock);
+		AAMPLOG_MIL("Player state changed: %s -> %s", AAMPPlayerStateName(mState), AAMPPlayerStateName(state));
 		mState = state;
 	}
 
@@ -11154,40 +11237,70 @@ int PrivateInstanceAAMP::GetTextTrack()
 void PrivateInstanceAAMP::SetCCStatus(bool enabled)
 {
 	AAMPLOG_INFO("enabled %s", enabled?"true":"false");
-	AcquireStreamLock();
 	// Set subtitles_muted flag to the value requested by the app
-	subtitles_muted = !enabled;
+	subtitles_muted = !enabled; 	// this is atomic - StreamLock not required
 	SetCCStatusInternal();
-	ReleaseStreamLock();
 }
 
 void PrivateInstanceAAMP::SetCCStatusInternal(void)
 {
-	// StreamLock is recursive, so it is fine to call this method with it locked.
-	AcquireStreamLock();
-	if (mpStreamAbstractionAAMP)
-	{
-		// Mute subtitles if either video is muted or subtitles are muted
-		bool mute_subtitles_applied = video_muted.load() || subtitles_muted.load();
-		bool isGstSubtecEnabled = ISCONFIGSET_PRIV(eAAMPConfig_GstSubtecEnabled);
-		AAMPLOG_INFO("mIsInbandCC %d GstSubtecEnabled %d mute_subtitles_applied %d video_muted %d subtitles_muted %d",
-					  mIsInbandCC, isGstSubtecEnabled, mute_subtitles_applied, video_muted.load(), subtitles_muted.load());
+	auto playerState=GetState();
+	bool streamLockTaken=false;
+	// This process will be blocking if we've already entered a playback state.
+	// This is a workaround where SetCCStatus is called whilst Tune is in progress (StreamLock held) from an EPG Stop call.
+	// Note: CC status can be changed at any time during playback and we do not want to ignore this if StreamLock is currently taken.
+	// The alternative would be to allow TryStreamLock() to have a timeout ~1s, but this might be less predictable.
+	bool allowDeferredApplication =	
+					((playerState == eSTATE_IDLE)         ||
+					 (playerState == eSTATE_INITIALIZING) ||
+					 (playerState == eSTATE_INITIALIZED)  ||
+					 (playerState == eSTATE_PREPARING)    ||
+					 (playerState == eSTATE_PREPARED)     ||
+					 (playerState == eSTATE_STOPPING)     ||
+					 (playerState == eSTATE_STOPPED)
+					);
 
-		if (mIsInbandCC || !isGstSubtecEnabled)
-		{
-			PlayerCCManager::GetInstance()->SetStatus(!mute_subtitles_applied);
-		}
-		else
-		{
-			mpStreamAbstractionAAMP->MuteSubtitles(mute_subtitles_applied);
-			if (HasSidecarData())
-			{ // has sidecar data
-				mpStreamAbstractionAAMP->MuteSidecarSubtitles(mute_subtitles_applied);
-			}
-			SetSubtitleMuteInternal(mute_subtitles_applied);
-		}
+	if(allowDeferredApplication)
+	{
+		streamLockTaken=TryStreamLock();
 	}
-	ReleaseStreamLock();
+	else
+	{
+		AcquireStreamLock();
+		streamLockTaken=true;
+	}
+	if (streamLockTaken)
+	{
+		if (mpStreamAbstractionAAMP)
+		{
+			// Mute subtitles if either video is muted or subtitles are muted
+			bool mute_subtitles_applied = video_muted.load() || subtitles_muted.load();
+			bool isGstSubtecEnabled = ISCONFIGSET_PRIV(eAAMPConfig_GstSubtecEnabled);
+			AAMPLOG_INFO("mIsInbandCC %d GstSubtecEnabled %d mute_subtitles_applied %d video_muted %d subtitles_muted %d",
+						mIsInbandCC, isGstSubtecEnabled, mute_subtitles_applied, video_muted.load(), subtitles_muted.load());
+
+			if (mIsInbandCC || !isGstSubtecEnabled)
+			{
+				PlayerCCManager::GetInstance()->SetStatus(!mute_subtitles_applied);
+			}
+			else
+			{
+				mpStreamAbstractionAAMP->MuteSubtitles(mute_subtitles_applied);
+				if (HasSidecarData())
+				{ // has sidecar data
+					mpStreamAbstractionAAMP->MuteSidecarSubtitles(mute_subtitles_applied);
+				}
+				SetSubtitleMuteInternal(mute_subtitles_applied);
+			}
+        	}
+		mApplyCachedCCStatus=false;
+		ReleaseStreamLock();
+	}
+	else
+	{
+		AAMPLOG_WARN("CC status value has been cached, subtitles_muted = %d, playerState=%d", subtitles_muted.load(), playerState);
+		mApplyCachedCCStatus=true; // can't do it now, but remember that we want to apply this
+	}
 }
 
 /**
