@@ -852,60 +852,29 @@ private:
 		}
 	}
 
-	// The nominal master track (audio if attached, else video; see
-	// attachSource()) stops being a usable clock reference once it has EOS'd
-	// without new data since (e.g. audio sends a zero-duration EOS at the
-	// start of video-only trickplay - see markSourceReadyForPlay() - and
-	// produces nothing further for the rest of the trick session).  Mirrors
-	// a real pipeline reselecting its clock provider once the previous one
-	// can no longer provide one.  Falls back to any other attached,
-	// non-EOS'd, non-subtitle source; if none exists, returns the nominal
-	// master anyway (nothing better available).
-	// Caller must hold m_trackMutex.
-	std::optional<int32_t> effectiveMasterSourceIdLocked() const
-	{
-		if (m_masterSourceId && m_eosSources.find(*m_masterSourceId) == m_eosSources.end())
-		{
-			return m_masterSourceId;
-		}
-		for (int32_t sourceId : m_attachedSources)
-		{
-			auto typeIt = m_sourceTypes.find(sourceId);
-			if (typeIt != m_sourceTypes.end() && typeIt->second != MediaSourceType::SUBTITLE &&
-				m_eosSources.find(sourceId) == m_eosSources.end())
-			{
-				return sourceId;
-			}
-		}
-		return m_masterSourceId;
-	}
-
-	// Computes the current master clock estimate, clamped to the effective
-	// master track's own horizon only (see effectiveMasterSourceIdLocked()),
-	// so it stalls instead of free-running when the reference track hasn't
-	// delivered expected data.  This mirrors real GStreamer/Rialto: the
-	// reported pipeline position is driven by a single reference clock
-	// (commonly audio) and advances independently of a sibling track's
-	// buffer state - video can visually freeze/lag behind while audio (and
-	// therefore the reported position) continues normally.  Clamping by the
-	// minimum horizon across every track instead is NOT faithful to that
-	// model and was tried and reverted: it broke ordinary transient A/V
-	// horizon skew (e.g. audio and video segments simply having different
-	// durations/counts) into a permanent position freeze, well before any
-	// genuine stall occurred.  Pops any now-matured samples from every
-	// track, and re-anchors.  Returns the (possibly unchanged) master clock
-	// value in nanoseconds.
+	// Computes the current master clock estimate as a pure continuous
+	// wall-clock projection from the last anchor - deliberately NOT clamped
+	// to any track's horizon.  Clamping was tried twice (once to a single
+	// master track's horizon, once to the minimum across every track) and
+	// reverted both times: real GStreamer/Rialto's reported position is
+	// driven by a wall-clock/audio reference and keeps advancing even once
+	// a track's downloadable content is exhausted (e.g. a live stream tuned
+	// to the edge of a manifest snapshot that stops publishing new
+	// segments, or ordinary A/V segment-duration skew) - freezing the
+	// reported position in that case is not what a real pipeline does, and
+	// broke real L2 scenarios (AAMP-CONFIG-2033_live, AAMP-CONFIG-2029) that
+	// rely on position continuing to advance while paced samples simply run
+	// out.  Pops any now-matured samples from every track, and re-anchors.
+	// Returns the (possibly unchanged) master clock value in nanoseconds.
 	//
-	// Also detects per-track underflow: a track is starved once the
-	// free-running (pre-clamp) estimate has passed the furthest point it has
-	// real data for.  This is independent of what clockNs is clamped to -
-	// e.g. video can be flagged as starved (and notifyBufferUnderflow()
-	// dispatched for it) even while the reported position, driven by a
-	// healthy audio track, keeps advancing normally.  Newly-starved sources
-	// are queued in m_pendingUnderflowNotifications for
-	// refreshAndGetPositionNs() to dispatch via notifyBufferUnderflow()
-	// after releasing the lock, mirroring real Rialto (see
-	// AampRialtoMediaPipelineClient); debounced via
+	// Still detects per-track underflow: a track is starved once the clock
+	// has passed the furthest point it has real data for.  This is a
+	// narrower, purely informational signal - dispatched via
+	// notifyBufferUnderflow(), mirroring real Rialto (see
+	// AampRialtoMediaPipelineClient) - and does not affect the reported
+	// clock.  Newly-starved sources are queued in
+	// m_pendingUnderflowNotifications for refreshAndGetPositionNs() to
+	// dispatch after releasing the lock; debounced via
 	// m_underflowNotifiedSources so it fires once per stall, not on every
 	// poll.  A source that has legitimately reached EOS is finished, not
 	// starved (e.g. audio during video-only trickplay), and a source with no
@@ -920,23 +889,8 @@ private:
 		}
 		auto elapsed = std::chrono::steady_clock::now() - m_masterClockAnchorWallTime;
 		auto elapsedNs = std::chrono::duration_cast<std::chrono::nanoseconds>(elapsed).count();
-		int64_t estimate = m_masterClockAnchorNs +
+		int64_t clockNs = m_masterClockAnchorNs +
 			static_cast<int64_t>(elapsedNs * m_rate.load(std::memory_order_relaxed));
-
-		const std::optional<int32_t> effectiveMaster = effectiveMasterSourceIdLocked();
-		int64_t clockNs = estimate;
-		if (effectiveMaster)
-		{
-			auto horizonIt = m_trackHorizonNs.find(*effectiveMaster);
-			if (horizonIt != m_trackHorizonNs.end())
-			{
-				// Never clamp below the floor: a horizon entry left over from
-				// data whose PTS predates the last position reset (e.g. a
-				// mid-fragment seek re-delivering the start of a segment) is
-				// not a real stall and must not freeze the clock.
-				clockNs = std::min(estimate, std::max(horizonIt->second, m_horizonFloorNs));
-			}
-		}
 
 		for (int32_t sourceId : m_attachedSources)
 		{
@@ -959,10 +913,7 @@ private:
 				// Never received any data yet - that's preroll, not underflow.
 				continue;
 			}
-			// Compare against the free-running estimate (not the clamped
-			// clockNs) so each track's starvation is judged independently of
-			// whichever other track is currently the effective master.
-			bool starved = estimate > std::max(trackHorizonIt->second, m_horizonFloorNs);
+			bool starved = clockNs > std::max(trackHorizonIt->second, m_horizonFloorNs);
 			bool alreadyNotified = m_underflowNotifiedSources.count(sourceId) > 0;
 			if (starved && !alreadyNotified)
 			{
