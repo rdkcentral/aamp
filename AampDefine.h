@@ -291,7 +291,6 @@ enum LatencyStatus
 };
 
 /**
- * @brief AAMP Function return values
  * @brief AAMP Function return values  - must match AAMPStatusStrings
  */
 enum AAMPStatusType
