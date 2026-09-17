@@ -15091,7 +15091,7 @@ void StreamAbstractionAAMP_MPD::GenerateFragmentURLList(URLBitrateMap &uriList, 
 				for (auto &representation : adaptationSet->GetRepresentation())
 				{
 					URIInfo uriInfo;
-					auto fragmentDescriptor = aamp_utils::make_unique<FragmentDescriptor>();
+					auto fragmentDescriptor = std::make_unique<FragmentDescriptor>();
 					fragmentDescriptor->Bandwidth = representation->GetBandwidth();
 					fragmentDescriptor->RepresentationID = representation->GetId();
 					fragmentDescriptor->bUseMatchingBaseUrl = ISCONFIGSET(eAAMPConfig_MatchBaseUrl);

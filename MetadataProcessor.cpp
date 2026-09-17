@@ -202,7 +202,7 @@ TSMetadataProcessor::TSMetadataProcessor(id3_callback_t id3_hdl,
 	: MetadataProcessorIntf(std::move(id3_hdl), std::move(ptsoffset_callback)),
 	MetadataProcessorImpl(std::move(video_processor))
 {
-	mProcessor = aamp_utils::make_unique<aamp_ts::TSFragmentProcessor>();
+	mProcessor = std::make_unique<aamp_ts::TSFragmentProcessor>();
 }
 
 void TSMetadataProcessor::ProcessFragmentMetadata(const CachedFragment * cachedFragment,
