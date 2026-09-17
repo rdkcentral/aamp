@@ -234,8 +234,6 @@ include_directories(
 	${SUBTEC_INCLUDE_DIRS}
 )
 
-add_subdirectory(test/rialtoPOC)
-
 #if (CMAKE_INBUILT_AAMP_DEPENDENCIES)
 	message("Building aamp support libraries")
 	include_directories(support/aampmetrics)
@@ -285,10 +283,12 @@ if(CMAKE_WPEWEBKIT_JSBINDINGS OR APPLE OR CMAKE_PLATFORM_UBUNTU)
     message("CMAKE_WPEWEBKIT_JSBINDINGS is set, building jsbindings library")
 
 	set(LIBJSBINDINGS_SOURCES
-            jsbindings/jsbindings-main.cpp
+            jsbindings/jscontroller-jsbindings.cpp
+            jsbindings/jsbindings.cpp
             jsbindings/jsutils.cpp
             jsbindings/jsmediaplayer.cpp
             jsbindings/jseventlistener.cpp
+            jsbindings/jsevent.cpp
             jsbindings/PersistentWatermark/PersistentWatermark.cpp
         )
 

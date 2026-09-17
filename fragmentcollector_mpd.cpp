@@ -793,11 +793,17 @@ uint64_t StreamAbstractionAAMP_MPD::FindPositionInTimeline(class MediaStreamCont
 		* and a manifest update after segment 1 has been sent. Ensure one cycle of the for loop so
 		* timeLineIndex gets incremented.
 		* Without this we get a segment dropped and another repeated in server side ads
+		* Also check that this is not a special case (only 1 segment in timeline) as given below
+		* which causes AAMP to land in a non-existent timeline when it forces one cycle of for loop.
+		* <SegmentTimeline>
+		*  <S d="109568" t="0"/>
+		* </SegmentTimeline>
 		*/
 
 		bool isFirstSegment = pMediaStreamContext->lastSegmentTime == 0 && startTime == 0
 									&& pMediaStreamContext->lastSegmentDuration != 0
-									&& repeatCount == 0 && pMediaStreamContext->timeLineIndex == 0;
+									&& repeatCount == 0 && pMediaStreamContext->timeLineIndex == 0
+									&& timelines.size() != 1;
 
 #if defined(DEBUG_TIMELINE) || defined(AAMP_SIMULATOR_BUILD)
 		AAMPLOG_INFO("Type[%d] nextStartTime=%" PRIu64 " startTime=%" PRIu64 " repeatCount=%u", pMediaStreamContext->type,
@@ -3913,7 +3919,38 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 		aamp->SetCurlTimeout(aamp->mNetworkTimeoutMs, (AampCurlInstance)i);
 	}
 
-	AAMPStatusType ret = FetchDashManifest();
+	AAMPStatusType ret= eAAMPSTATUS_OK;
+	if (aamp->IsAsyncTuneAbortSupported())
+	{
+		aamp->initialManifestFetchInProgress=true;	// Signal to any stop process that a manifest download can be aborted
+	}
+	if (aamp->IsAsyncTuneAbortRequired())
+	{
+		AAMPLOG_WARN("Manifest download will be skipped since we are already stopping");
+		ret = eAAMPSTATUS_MANIFEST_DOWNLOAD_ABORTED;
+	}
+	else
+	{
+		// This may get terminated by Release from Stop(), returning eAAMPSTATUS_MANIFEST_DOWNLOAD_ABORTED
+		// Note: if we abort then any fog tsb will not get deleted in SendErrorEvent (which is not called). We will do this in PrivateInstanceAAMP::Stop
+		ret = FetchDashManifest();
+	}
+	aamp->initialManifestFetchInProgress=false;
+
+	if (ret != eAAMPSTATUS_OK)
+	{
+		AAMPLOG_WARN("Manifest download failed or was aborted, code = %s", statusName(ret));
+	}
+	else
+	{
+		// If stop was called too late to abort in the progress callback then abort now
+		if (aamp->IsAsyncTuneAbortRequired())
+		{
+			ret = eAAMPSTATUS_MANIFEST_DOWNLOAD_ABORTED;
+			AAMPLOG_WARN("A stop has been requested during completed manifest download, so abort");
+		}
+	}
+
 	if (ret == eAAMPSTATUS_OK)
 	{
 		std::string manifestUrl = aamp->GetManifestUrl();
@@ -3977,6 +4014,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 				aamp->SendErrorEvent(AAMP_TUNE_INVALID_MANIFEST_FAILURE);
 				return ret;
 			}
+
 			if (aamp->mIsVSS)
 			{
 				std::string vssVirtualStreamId = GetVssVirtualStreamID();
@@ -4240,6 +4278,46 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 						duration = (mMPDParseHelper->GetPeriodDuration(mCurrentPeriodIdx,mLastPlaylistDownloadTimeMs,ShouldCheckOnlyIframeAdaptation(),aamp->IsUninterruptedTSB())) / 1000;
 						currentPeriodStart = ((double)durationMs / 1000) - duration;
 						offsetFromStart = duration - aamp->mLiveOffset;
+
+						// LL-DASH DRM pre-compensation for new encrypted live tune.
+						// Apply exactly at the primary live-adjust offset derivation so
+						// SkipFragments/SeekInPeriod start closer to live edge.
+						if (mLowLatencyMode && newTune)
+						{
+							// Derive the relative live position from the absolute MPD period end.
+							// The live time and period end are in the same UTC time domain;
+							// compensate local time when a server UTC delta is available.
+							double liveTime = static_cast<double>(NOW_SYSTEM_TS_MS) / 1000.0;
+							double periodEndTime = mMPDParseHelper->GetPeriodEndTime(
+								mCurrentPeriodIdx,
+								mLastPlaylistDownloadTimeMs,
+								ShouldCheckOnlyIframeAdaptation(),
+								aamp->IsUninterruptedTSB());
+							offsetFromStart = duration + (liveTime - aamp->mLiveOffset - periodEndTime);
+							AAMPLOG_INFO("StreamAbstractionAAMP_MPD:[LL-DASH] liveTime %.3f liveOffset %.3f "
+							            "periodEndTime %.3f duration %.3f offsetFromStart %.3f",
+							            liveTime, aamp->mLiveOffset, periodEndTime, duration, offsetFromStart);
+
+							double drmLatencyEstimate = GETCONFIGVALUE(eAAMPConfig_LLDrmLatencyEstimateSec);
+							if (drmLatencyEstimate > 0.0 && IsVideoDRMLicenseRequired())
+							{
+								offsetFromStart += drmLatencyEstimate;
+								if (offsetFromStart > duration)
+								{
+									AAMPLOG_WARN("StreamAbstractionAAMP_MPD:[LL-DASH] DRM pre-compensation "
+									             "clamped to period end: offsetFromStart %.2f "
+									             "(period duration %.2f, estimate %.2fs)",
+									             offsetFromStart, duration, drmLatencyEstimate);
+									offsetFromStart = duration;
+								}
+								else
+								{
+									AAMPLOG_MIL("StreamAbstractionAAMP_MPD:[LL-DASH] offsetFromStart "
+									            "advanced to %.2f (+%.2fs DRM pre-compensation)",
+									            offsetFromStart, drmLatencyEstimate);
+								}
+							}
+						}
 						while(offsetFromStart < 0 && mCurrentPeriodIdx > 0)
 						{
 							AAMPLOG_INFO("Adjusting to live offset offsetFromStart %f, mCurrentPeriodIdx %d", offsetFromStart, mCurrentPeriodIdx);
@@ -4552,6 +4630,10 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 	{
 		retval = eAAMPSTATUS_MANIFEST_CONTENT_ERROR;
 	}
+	else if(ret == eAAMPSTATUS_MANIFEST_DOWNLOAD_ABORTED)
+	{
+		retval = eAAMPSTATUS_MANIFEST_DOWNLOAD_ABORTED;
+	}
 	else
 	{
 		AAMPLOG_ERR("StreamAbstractionAAMP_MPD: corrupt/invalid manifest");
@@ -4851,6 +4933,13 @@ AAMPStatusType StreamAbstractionAAMP_MPD::FetchDashManifest()
 			aamp->profiler.ProfileEnd(PROFILE_BUCKET_MANIFEST);
 			mNetworkDownDetected = false;
 		}
+		else if ( CURLE_ABORTED_BY_CALLBACK == mManifestDnldRespPtr->mMPDDownloadResponse->iHttpRetValue && aamp->IsAsyncTuneAbortRequired() )
+		{
+			AAMPLOG_MIL("Manifest download successfully aborted during Stop (http_error=%d)", http_error);
+			aamp->profiler.ProfileError(PROFILE_BUCKET_MANIFEST, http_error); // this will be tagged with CURLE_ABORTED_BY_CALLBACK in tune metrics
+			aamp->profiler.ProfileEnd(PROFILE_BUCKET_MANIFEST);
+			ret = AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ABORTED;
+		}
 		else if (aamp->DownloadsAreEnabled())
 		{
 			aamp->profiler.ProfileError(PROFILE_BUCKET_MANIFEST, http_error);
@@ -4896,8 +4985,6 @@ AAMPStatusType StreamAbstractionAAMP_MPD::FetchDashManifest()
 			else
 			{
 				aamp->UpdateDuration(0);
-				aamp->SetFlushFdsNeededInCurlStore(true);
-
 				switch( http_error )
 				{
 					case eCURL_TIMEOUT_DNS:
@@ -4922,7 +5009,6 @@ AAMPStatusType StreamAbstractionAAMP_MPD::FetchDashManifest()
 		{
 			aamp->UpdateDuration(0);
 			AAMPLOG_ERR("StreamAbstractionAAMP_MPD: manifest download failed");
-			aamp->SetFlushFdsNeededInCurlStore(true);
 			ret = AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR;
 		}
 	}
@@ -8516,6 +8602,10 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 				aamp->mNextPeriodDuration = mPeriodDuration;
 				aamp->mNextPeriodStartTime = mPeriodStartTime;
 				pMediaStreamContext->fragmentTime = mPeriodStartTime;
+				AAMPLOG_MIL("StreamAbstractionAAMP_MPD: Track %d PeriodId[%s] AdaptationSetId[%u] RepresentationId[%s] Codec[%s]",
+					i, mCurrentPeriod->GetId().c_str(), pMediaStreamContext->adaptationSet->GetId(),
+					pMediaStreamContext->representation->GetId().c_str(),
+					GetCurrentCodec(static_cast<AampMediaType>(i)).c_str());
 				// For playing an ad in an ad break, seed fragmentTime using absoluteAdBreakStartTime +
 				// cumulative duration of all previously played ads. This is robust against
 				// basePeriodOffset=0 being set incorrectly by the waitForNextPeriod path in
@@ -10348,9 +10438,6 @@ void StreamAbstractionAAMP_MPD::DetectDiscontinuityAndFetchInit(bool periodChang
 }
 
 /**
- * @brief Update the start time of first PTS
- */
-/**
  * @brief Returns the fragment start time (seconds) for the current ad within a multi-ad pod.
  *
  * When the player is IN_ADBREAK_AD_PLAYING and mCurAdIdx > 0, the correct
@@ -10375,7 +10462,7 @@ double StreamAbstractionAAMP_MPD::GetCurrentAdStartTimeSeconds() const
 	auto it = mCdaiObject->mAdBreaks.find(mCdaiObject->mCurPlayingBreakId);
 	if (it == mCdaiObject->mAdBreaks.end())
 	{
-		AAMPLOG_WARN("GetCurrentAdStartTimeSeconds: AdBreak not found for breakId=%s", mCdaiObject->mCurPlayingBreakId.c_str());
+		AAMPLOG_WARN("AdBreak not found for breakId=%s", mCdaiObject->mCurPlayingBreakId.c_str());
 		return -1.0;
 	}
 
@@ -10386,27 +10473,36 @@ double StreamAbstractionAAMP_MPD::GetCurrentAdStartTimeSeconds() const
 	{
 		cumulativeAdDurationMs += mCdaiObject->mCurAds->at(adIdx).duration;
 	}
-	AAMPLOG_INFO("GetCurrentAdStartTimeSeconds: AbsoluteAdBreakStartTime=%f cumulativeAdDuration=%.0f ms",
-		absoluteAdBreakStartTime, cumulativeAdDurationMs);
+	AAMPLOG_INFO("AbsoluteAdBreakStartTime=%f cumulativeAdDuration=%.0f ms", absoluteAdBreakStartTime, cumulativeAdDurationMs);
 	return absoluteAdBreakStartTime + (cumulativeAdDurationMs / 1000.0);
 }
 
+/**
+ * @brief Update the start time of first PTS
+ */
 void StreamAbstractionAAMP_MPD::UpdateStartTimeOfFirstPTS()
 {
 	double startTime = (mMPDParseHelper->GetPeriodStartTime(mCurrentPeriodIdx, mLastPlaylistDownloadTimeMs) - mAvailabilityStartTime);
 	if (startTime != 0)
 	{
 		mStartTimeOfFirstPTS = mMPDParseHelper->GetPeriodStartTime(mCurrentPeriodIdx, mLastPlaylistDownloadTimeMs) * 1000.0;
-		AAMPLOG_INFO("UpdateStartTimeOfFirstPTS: mStartTimeOfFirstPTS=%.0f ms : PeriodStartTime=%f", mStartTimeOfFirstPTS, startTime);
 		double adStartTimeSec = GetCurrentAdStartTimeSeconds();
 		if (adStartTimeSec >= 0)
 		{
 			mStartTimeOfFirstPTS = adStartTimeSec * 1000.0;
-			AAMPLOG_INFO("UpdateStartTimeOfFirstPTS (ad): mStartTimeOfFirstPTS=%.0f ms", mStartTimeOfFirstPTS);
+			AAMPLOG_MIL("mStartTimeOfFirstPTS=%.0f ms, landing at ad period", mStartTimeOfFirstPTS);
 		}
 		else
 		{
-			AAMPLOG_WARN("skipping adPeriodOffset; using mStartTimeOfFirstPTS as %.0f ms", mStartTimeOfFirstPTS);
+			if (mBasePeriodOffset > 0)
+			{
+				mStartTimeOfFirstPTS += (mBasePeriodOffset * 1000.0);
+				AAMPLOG_MIL("mStartTimeOfFirstPTS=%.0f ms, landing at period offset=%.0f ms", mStartTimeOfFirstPTS, mBasePeriodOffset * 1000.0);
+			}
+			else
+			{
+				AAMPLOG_MIL("mStartTimeOfFirstPTS=%.0f ms, landing at period start", mStartTimeOfFirstPTS);
+			}
 		}
 	}
 }
@@ -11388,6 +11484,8 @@ void  StreamAbstractionAAMP_MPD::ResumeSubtitleAfterSeek(bool mute, char *data)
  */
 StreamAbstractionAAMP_MPD::~StreamAbstractionAAMP_MPD()
 {
+	aamp->initialManifestFetchInProgress=false;
+	
 	// Unregister the MPD download callback BEFORE deleting tracks.
 	// This ensures the notifier thread cannot fire MPDUpdateCallbackExec()
 
@@ -11531,6 +11629,12 @@ void StreamAbstractionAAMP_MPD::Start(void)
  */
 void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 {
+
+	if(aamp->initialManifestFetchInProgress)
+	{
+		AAMPLOG_WARN("Clearing initialManifestFetchInProgress flag since we are stopping stream abstraction");
+	}
+	aamp->initialManifestFetchInProgress = false;
 
 	if (!aamp->IsLocalAAMPTsb() || aamp->mAampTsbLanguageChangeInProgress)
 	{
@@ -13995,6 +14099,63 @@ IProducerReferenceTime *StreamAbstractionAAMP_MPD::GetProducerReferenceTimeForAd
 }
 
 /**
+ * @brief Returns true if an encrypted video adaptation set requires DRM licence
+ *        acquisition because its key has not already been processed.
+ */
+bool StreamAbstractionAAMP_MPD::IsVideoDRMLicenseRequired()
+{
+	bool licenseRequired = false;
+	const bool drmStateAvailable =
+		mpd != nullptr &&
+		mMPDParseHelper != nullptr &&
+		aamp != nullptr &&
+		aamp->mDRMLicenseManager != nullptr;
+
+	/* Only inspect the manifest when all DRM state required for the check exists. */
+	if (drmStateAvailable)
+	{
+		for (const auto* period : mpd->GetPeriods())
+		{
+			if (period == nullptr || licenseRequired)
+			{
+				continue;
+			}
+
+			for (const auto* adaptationSet : period->GetAdaptationSets())
+			{
+				/* Clear and non-video adaptation sets do not need a video DRM license. */
+				if (adaptationSet == nullptr ||
+					!mMPDParseHelper->IsContentType(adaptationSet, eMEDIATYPE_VIDEO) ||
+					mMPDParseHelper->GetContentProtection(adaptationSet).empty())
+				{
+					continue;
+				}
+
+				/* Build the helper used to identify the key for this protected video. */
+				DrmHelperPtr drmHelper = CreateDrmHelper(adaptationSet, eMEDIATYPE_VIDEO);
+				if (drmHelper == nullptr)
+				{
+					continue;
+				}
+
+				std::vector<uint8_t> keyId;
+				drmHelper->getKey(keyId);
+				if (keyId.empty())
+				{
+					continue;
+				}
+
+				/* A license is required only when the DRM session has not processed the key. */
+				bool keyStatus = false;
+				licenseRequired = !aamp->mDRMLicenseManager->IsKeyIdProcessed(keyId, keyStatus);
+			}
+		}
+	}
+
+	return licenseRequired;
+}
+
+/**
  * @brief EnableAndSetLiveOffsetForLLDashPlayback based on playerconfig/LL-dash
  * profile/availabilityTimeOffset and set the LiveOffset
  */
@@ -14923,7 +15084,7 @@ void StreamAbstractionAAMP_MPD::GenerateFragmentURLList(URLBitrateMap &uriList, 
 				for (auto &representation : adaptationSet->GetRepresentation())
 				{
 					URIInfo uriInfo;
-					auto fragmentDescriptor = aamp_utils::make_unique<FragmentDescriptor>();
+					auto fragmentDescriptor = std::make_unique<FragmentDescriptor>();
 					fragmentDescriptor->Bandwidth = representation->GetBandwidth();
 					fragmentDescriptor->RepresentationID = representation->GetId();
 					fragmentDescriptor->bUseMatchingBaseUrl = ISCONFIGSET(eAAMPConfig_MatchBaseUrl);

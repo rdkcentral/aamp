@@ -394,6 +394,50 @@ TEST_F(MpdTests, FindPositionInTimeline2)
 	EXPECT_EQ(4, ms->fragmentRepeatCount);
 }
 
+TEST_F(MpdTests, FindPositionInTimeline_BoundaryAfterManifestRefresh)
+{
+	static const char *manifest =
+		R"(<?xml version="1.0" encoding="UTF-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="dynamic" id="refresh-boundary-test"
+     profiles="urn:mpeg:dash:profile:isoff-live:2011"
+     minBufferTime="PT1S" minimumUpdatePeriod="PT1S"
+     availabilityStartTime="1970-01-01T00:00:00.000Z"
+     timeShiftBufferDepth="PT30M">
+  <Period id="Period-1" start="PT0S">
+    <AdaptationSet id="video" contentType="video" mimeType="video/mp4">
+      <SegmentTemplate media="video-$Time$.cmfv" timescale="1" startNumber="1">
+        <SegmentTimeline>
+          <S d="10" t="0"/>
+        </SegmentTimeline>
+      </SegmentTemplate>
+      <Representation id="video-1" bandwidth="1000000"/>
+    </AdaptationSet>
+  </Period>
+</MPD>)";
+
+	std::vector<ITimeline *> timelines = {};
+	MediaStreamContext *ms = RunSetup(manifest, timelines);
+
+	ms->lastSegmentTime = 0;
+	ms->lastSegmentDuration = 10;
+	ms->lastSegmentNumber = 1;
+	ms->fragmentDescriptor.Number = 1;
+	ms->fragmentDescriptor.Time = 0;
+	ms->fragmentRepeatCount = 0;
+	ms->timeLineIndex = 0;
+
+	const uint64_t position = mStreamAbstractionAAMP_MPD->ExposeFindPositionInTimeline(ms, timelines);
+
+	EXPECT_EQ(10U, position);
+	EXPECT_EQ(2U, ms->fragmentDescriptor.Number);
+	EXPECT_EQ(0, ms->timeLineIndex);
+	EXPECT_EQ(1U, ms->fragmentRepeatCount);
+	EXPECT_EQ(3, ms->fragmentDescriptor.nextfragmentNum);
+	EXPECT_EQ(0, ms->fragmentDescriptor.Time);
+
+	delete ms;
+}
+
 // Test that calling Start() twice in succession does not cause the test to terminate
 
 TEST_F(MpdTests, testRepeatedStartLocalTSB)

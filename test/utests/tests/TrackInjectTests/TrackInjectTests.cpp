@@ -18,6 +18,8 @@
  * limitations under the License.
  */
 #include <gtest/gtest.h>
+#include <chrono>
+#include <future>
 #include "MediaStreamContext.h"
 #include "fragmentcollector_mpd.h"
 #include "isobmff/isobmffbuffer.h"
@@ -111,13 +113,14 @@ public:
 
 	void InjectFragmentInternal(CachedFragment *cachedFragment, bool &fragmentDiscarded, bool isDiscontinuity = false) override
 	{
+		fragmentDiscarded = false;
 		AAMPLOG_WARN("Type[%d] cachedFragment->position: %f cachedFragment->duration: %f cachedFragment->initFragment: %d",
 					 type, cachedFragment->position, cachedFragment->duration, cachedFragment->initFragment);
 		g_mockPrivateInstanceAAMP->SendStreamTransfer((AampMediaType)type, cachedFragment->fragment, cachedFragment->position,
-													  cachedFragment->position, cachedFragment->duration, 0.0, cachedFragment->initFragment, cachedFragment->discontinuity);
+													  cachedFragment->position, cachedFragment->duration, cachedFragment->PTSOffsetSec, cachedFragment->initFragment, cachedFragment->discontinuity);
 	}
 
-	void fillCachedFragment(bool isInit, bool isDisc)
+	void fillCachedFragment(bool isInit, bool isDisc, double position = 0.0, double duration = 0.0, double ptsOffsetSec = 0.0)
 	{
 		const uint8_t data[] = {0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA};
 		// DASH now routes all fragments through the chunk cache (see
@@ -127,6 +130,9 @@ public:
 		cachFragment->timeScale = PLAYBACK_TIMESCALE;
 		cachFragment->initFragment = isInit;
 		cachFragment->discontinuity = isDisc;
+		cachFragment->position = position;
+		cachFragment->duration = duration;
+		cachFragment->PTSOffsetSec = ptsOffsetSec;
 		cachFragment->type = isInit ? eMEDIATYPE_INIT_VIDEO : eMEDIATYPE_VIDEO;
 		cachFragment->fragment.assign(data, data + sizeof(data));
 		UpdateTSAfterFetch();
@@ -340,29 +346,17 @@ TEST_F(TrackInjectTests, RunInjectLoopTestLLD)
 	// Initialize after mock has been setup
 	Initialize();
 
-	mMediaTrack->fillCachedFragment(false, false);
+	double pts = 10.0, duration = 0.48, ptsOffsetSec = 5.0;
+	mMediaTrack->fillCachedFragment(false, false, pts, duration, ptsOffsetSec);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
 		.WillOnce(Return(true))
 		.WillOnce(Return(false));
 
-	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(_, _))
-		.WillOnce(Return(true));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
 
-	uint8_t unParsedBuffer[] = "AAAAAAAAAAAAAAAAAA";
-	int parsedBufferSize = 12, unParsedBufferSize = sizeof(unParsedBuffer);
-	double pts = 10.0, duration = 0.48;
-	EXPECT_CALL(*g_mockIsoBmffBuffer, ParseChunkData(_, _, _, _, _, _, _))
-		.WillRepeatedly(DoAll(SetArgReferee<1>(unParsedBuffer),
-							  SetArgReferee<3>(parsedBufferSize),
-							  SetArgReferee<4>(unParsedBufferSize),
-							  SetArgReferee<5>(pts),
-							  SetArgReferee<6>(duration),
-							  Return(true)));
-
-	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(An<std::vector<uint8_t>&>()));
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, ProcessID3Metadata(_, (AampMediaType)eMEDIATYPE_VIDEO, 0));
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer((AampMediaType)eMEDIATYPE_VIDEO, _, pts, pts, duration, 0.0, false, false));
+	// InjectFragmentInternal is overridden above to forward cachedFragment->position/duration/PTSOffsetSec
+	// straight to SendStreamTransfer, so no ISOBMFF box parsing occurs on this path.
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer((AampMediaType)eMEDIATYPE_VIDEO, _, pts, pts, duration, ptsOffsetSec, false, false));
 	mMediaTrack->RunInjectLoop();
 }
 
@@ -385,7 +379,7 @@ TEST_F(TrackInjectTests, RunInjectLoopTestLLDInit)
 		.WillOnce(Return(true))
 		.WillOnce(Return(false));
 
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, ProcessID3Metadata(_, (AampMediaType)eMEDIATYPE_VIDEO, 0));
+	// InjectFragmentInternal is overridden above to forward straight to SendStreamTransfer.
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(_, _, _, _, _, _, true, false));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
 
@@ -509,4 +503,78 @@ TEST_F(TrackInjectTests, InjectFragment_VodEosAbortedWait_StopsUnderflowMonitor)
 
 	mPrivateInstanceAAMP->mpStreamAbstractionAAMP = nullptr;
 	g_mockStreamAbstractionAAMP.reset();
+}
+
+/**
+ * VPAAMP-1166: Verify that RunInjectLoop() exits cleanly (no deadlock) when
+ * eosReached is set on the audio track while a loadNewAudio switch is pending.
+ *
+ * Before the fix, AbortWaitForCachedAndFreeFragment() only notified the
+ * fragmentFetched condition variable.  The audio injector was blocked in
+ * WaitForCachedAudioFragmentAvailable() (waiting on audioFragmentCached), so it
+ * never woke up, never signalled EOS to GStreamer, and left the pipeline in a
+ * permanent stall state.
+ *
+ * The fix makes AbortWaitForCachedAndFreeFragment() also notify audioFragmentCached
+ * when loadNewAudio is set, and makes RunInjectLoop() clear the switch flags on
+ * wake-up when eosReached is true, so the EOS path proceeds cleanly.
+ */
+TEST_F(TrackInjectTests, RunInjectLoop_AudioEosDuringTrackSwitch_NoDeadlock)
+{
+	AampLLDashServiceData llDashData;
+	llDashData.availabilityTimeOffset = 0.0;
+	llDashData.lowLatencyMode = false;
+	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
+	mPrivateInstanceAAMP->SetLLDashServiceData(llDashData);
+	mPrivateInstanceAAMP->SetIsLive(false); // VOD
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(false));
+	Initialize();
+
+	// Replace the VIDEO track that Initialize() creates with an AUDIO track so
+	// the loadNewAudio guard in RunInjectLoop() is exercised.
+	delete mMediaTrack;
+	mMediaTrack = new MediaTrackTest(eTRACK_AUDIO, mPrivateInstanceAAMP, "audio");
+	mMediaTrack->SetMonitorBufferDisabled(true);
+
+	// Reproduce the VPAAMP-1166 state: SwitchAudioTrack() left loadNewAudio=true
+	// and the fetcher reached EOS before a new audio fragment was cached.
+	mMediaTrack->LoadNewAudio(true);
+	mMediaTrack->eosReached = true; // set as if the fetcher already marked EOS
+
+	// DownloadsAreEnabled() must return true to enter the while loop.  The loop
+	// exits via keepInjecting=false (not via a false return here) once the fix
+	// clears loadNewAudio and InjectFragment() processes the EOS path.
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
+		.WillRepeatedly(Return(true));
+	// BlockUntilGstreamerWantsData is called once at the top of InjectFragment().
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, BlockUntilGstreamerWantsData(_, _, _)).Times(1);
+
+	// Simulate the FetcherLoop's EOS worker job calling
+	// AbortWaitForCachedAndFreeFragment() *before* the injector thread starts.
+	// WaitForCachedAudioFragmentAvailable() now uses a predicate (audioFragmentCachedReady),
+	// so the notification is not lost even if it arrives before the condvar wait begins.
+	// This removes the need for any sleep-based synchronization.
+	mMediaTrack->AbortWaitForCachedAndFreeFragment(false);
+
+	// Run RunInjectLoop() in a background thread.  Without the fix it would
+	// block indefinitely in WaitForCachedAudioFragmentAvailable().
+	auto injectFuture = std::async(std::launch::async, [this]() {
+		mMediaTrack->RunInjectLoop();
+	});
+
+	// The injector must exit within 2 s.  A timeout here indicates a deadlock
+	// caused by the unfixed code path.
+	auto status = injectFuture.wait_for(std::chrono::seconds(2));
+	EXPECT_EQ(status, std::future_status::ready)
+		<< "RunInjectLoop deadlocked: audio injector did not exit after "
+		   "AbortWaitForCachedAndFreeFragment with pending loadNewAudio (VPAAMP-1166)";
+
+	// Always consume the future so its destructor does not block if the above
+	// assertion timed out (the destructor of a std::async future joins the thread).
+	if (status != std::future_status::ready)
+	{
+		mMediaTrack->SetAbortInject(true);
+	}
+	injectFuture.get();
 }

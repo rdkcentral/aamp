@@ -37,7 +37,7 @@
  * @param[in] enablePtsRestamp - Flag to enable PTS restamping
  */
 AampMp4Demuxer::AampMp4Demuxer(PrivateInstanceAAMP* aamp, AampMediaType type, bool enablePtsRestamp) :
-	MediaProcessor(), mMp4Demux(aamp_utils::make_unique<Mp4Demux>()), mAamp(aamp), mMediaType(type), mEnablePtsRestamp(enablePtsRestamp)
+	MediaProcessor(), mMp4Demux(std::make_unique<Mp4Demux>()), mAamp(aamp), mMediaType(type), mEnablePtsRestamp(enablePtsRestamp)
 {
 	AAMPLOG_MIL("Created AampMp4Demuxer(%p) for type %d, PTS restamp: %s", this, type, enablePtsRestamp ? "enabled" : "disabled");
 	// TODO: Should we limit the media types here to only video/audio?
@@ -255,8 +255,7 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>&& buffer, double position,
 		// Parse(), which stamps each sample's mData (via aliasing shared_ptr)
 		// so each sample keeps the segment buffer alive for its lifetime.
 		auto segment = std::make_shared<std::vector<uint8_t>>(std::move(buffer));
-		AAMPLOG_INFO("Processing segment with type:%d position: %f, duration: %f, isInit: %d", mMediaType, position, duration, isInit);
-
+		AAMPLOG_INFO("Processing segment with type:%d position: %f, duration: %f, isInit: %d, discontinuous: %d", mMediaType, position, duration, isInit, discontinuous);
 
 		ret = mMp4Demux->Parse(std::move(segment));
 

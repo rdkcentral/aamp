@@ -38,7 +38,7 @@
 #include <chrono>
 #include "TsbApi.h"
 #include "AampCurlDownloader.h"
-
+#include "AampLogManager.h"
 
 #define NOW_SYSTEM_TS_SECS std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count()     /**< Getting current system clock in seconds */
 #define NOW_STEADY_TS_SECS std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now().time_since_epoch()).count()     /**< Getting current steady clock in seconds */
@@ -349,18 +349,14 @@ uint32_t aamp_ComputeCRC32(const uint8_t *data, uint32_t size, uint32_t initial 
 
 namespace aamp_utils
 {
-	template<typename T, typename ...Args>
-	std::unique_ptr<T> make_unique(Args&& ...args)
-	{
-		return std::unique_ptr<T>(new T(std::forward<Args>(args)...));
-	}
-
 	/**
-	 * @brief Clear a vector and release its heap memory
+	 * @brief Clear a vector and release its heap memory.
 	 *
 	 * Swaps the target vector with a default-constructed temporary so that
-	 * the size becomes zero and the capacity is reduced to that of a
-	 * default-constructed vector (typically releasing its heap storage).
+	 * the size becomes zero and the capacity is unconditionally released.
+	 * The swap idiom is intentional: shrink_to_fit() is non-binding per the
+	 * standard and cannot be relied upon for guaranteed deallocation, whereas
+	 * swap with a temporary destructs the old allocation immediately.
 	 *
 	 * @tparam T Element type of the vector
 	 * @param[in,out] v Vector to clear and release
@@ -486,5 +482,115 @@ bool aamp_isTuneScheme( const char *cmdBuf );
 CurlTimeoutFailureReason GetCurlTimeoutFailureReason(CURL* curl);
 
 bool IsCurlTimeoutFailure( int httpResponseCode );
+
+#ifdef AAMP_DEBUG_TIMING
+/**
+ * @brief Class for tracing timing deltas between checkpoints through a method,
+ *  allowing trace of where delays are taking place.
+ *
+ * @details
+ * Example usage:
+ * Timing will be output as warning for each code section in ms.
+ * At each point we see (line number, time since previous checkpoint), ...
+ * fn
+ * {
+ *    TimingExecutionStore timingData(__LINE__);
+ * 	     code section 1
+ *    timingData.storeTimingPoint(__LINE__);
+ *       code section 2
+ *    	 if (timingData.timeSinceStartMs() > 2000)
+ *    	 {
+ *    	    timingData.printTimingPointsAsWarning(__LINE__, __FUNCTION__,"fn failed");
+ *    	 }
+ *    	 else
+ *    	 {
+ *    	    timingData.printTimingPointsAsDebug(__LINE__, __FUNCTION__,"fn ok");
+ *    	 }
+ * }
+ */
+
+class TimingExecutionStore
+{
+	public:
+		TimingExecutionStore() = delete;
+		TimingExecutionStore(const unsigned int lineVal)
+		{
+			storeTimingPoint(lineVal);	// store an initial timing point where this object is constructed
+		}
+		/**
+		*   @brief stores a timing point
+		*
+		*   @param lineVal line number or other numerical reference point to log the timing to and from
+		*/
+		void storeTimingPoint(const unsigned int lineVal)
+		{
+			lineVals.push_back(lineVal);
+			timeVals.push_back(NOW_STEADY_TS_MS);
+		};
+		/**
+		*   @brief returns the time span since start of diagnostic data logging start (e.g. function start)
+		*   @return unsigned int - time in ms from first to last timing points
+		*/
+		long long timeSinceStartMs(void)
+		{
+			return ( NOW_STEADY_TS_MS - timeVals.front() );
+		};
+		/**
+		*   @brief prints out timing diagnostic data as WARN in format "debugMarker ... (l1,t1), (l2,t2)"
+		*          where l2 is the line number of checkpoint 2 and b2 is time delta in ms from l1->l2
+		*
+		*   @param lineVal final line number or other numerical reference point to log the timing to and from
+		*   @param functionName function name to pre-pend the output with, so that it's identified in the logs
+		*   @param debugMarker any string to pre-pend the output with, so that it's identified in the logs (optional)
+		*/
+		void printTimingPointsAsWarning(const unsigned int lineVal, const std::string &functionName, const std::string &debugMarker="")
+		{
+			AAMPLOG_WARN("%s",formatTimingPoints(lineVal, functionName, debugMarker).c_str());
+		};
+		/**
+		*   @brief prints out timing diagnostic data as INFO in format "debugMarker ... (l1,t1), (l2,t2)"
+		*          where l2 is the line number of checkpoint 2 and b2 is time delta in ms from l1->l2
+		*
+		*   @param lineVal final line number or other numerical reference point to log the timing to and from
+		*   @param functionName function name to pre-pend the output with, so that it's identified in the logs
+		*   @param debugMarker any string to pre-pend the output with, so that it's identified in the logs (optional)
+		*/
+		void printTimingPointsAsInfo(const unsigned int lineVal, const std::string &functionName, const std::string &debugMarker="")
+		{
+			AAMPLOG_INFO("%s",formatTimingPoints(lineVal, functionName, debugMarker).c_str());
+		};
+		/**
+		*   @brief prints out timing diagnostic data as DEBUG in format "debugMarker ... (l1,t1), (l2,t2)"
+		*          where l2 is the line number of checkpoint 2 and b2 is time delta in ms from l1->l2
+		*
+		*   @param lineVal final line number or other numerical reference point to log the timing to and from
+		*   @param functionName function name to pre-pend the output with, so that it's identified in the logs
+		*   @param debugMarker any string to pre-pend the output with, so that it's identified in the logs (optional)
+		*/
+		void printTimingPointsAsDebug(const unsigned int lineVal, const std::string &functionName, const std::string &debugMarker="")
+		{
+			AAMPLOG_DEBUG("%s",formatTimingPoints(lineVal, functionName, debugMarker).c_str());
+		};
+	private:
+		std::vector<long long> timeVals;	/**< time at given checkpoints  */
+		std::vector<unsigned int> lineVals;	/**< line number for a given checkpoint  */
+
+		std::string formatTimingPoints(const unsigned int lineVal, const std::string &functionName, const std::string &debugMarker)
+		{
+			storeTimingPoint(lineVal);	// store a final checkpoint before we output results
+			std::string timingData= "[" + functionName + "]" + debugMarker + " Total : ";
+			timingData.append( std::to_string(timeVals.back() - timeVals.front()) + "ms; Delta (to line, time ms): ");
+			for (auto checkPoint=1 ; checkPoint<lineVals.size() ; checkPoint++)
+			{
+				timingData.append("(" + std::to_string(lineVals[checkPoint]) + "," + std::to_string(timeVals[checkPoint]-timeVals[checkPoint-1]) + ")");
+				if (checkPoint<lineVals.size()-1)
+				{
+					timingData.append(",");
+				}
+			}
+			return timingData;
+		};
+};
+#endif // AAMP_DEBUG_TIMING
 
 #endif  /* __AAMP_UTILS_H__ */
