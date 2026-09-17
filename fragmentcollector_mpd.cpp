@@ -108,7 +108,8 @@ public:
 
 static bool IsIframeTrack(IAdaptationSet *adaptationSet);
 
-// note: This has been moved here for 8.4 branch. It is centralized in AaampDefine.h on sprint using inline, but this is not available with the older compiler on 8.4.
+// note: This has been moved here for 8.4 branch. It is centralized in AampDefine.h on sprint using inline, ..
+// but this is not available with the older compiler on 8.4.
 /**
  * @brief lambda to return a string for a status name
  */

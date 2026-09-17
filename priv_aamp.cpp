@@ -7831,7 +7831,7 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 	auto streamLockStartTime = NOW_STEADY_TS_MS;
 	auto streamLockStopTime = NOW_STEADY_TS_MS;
 	auto licenseAcquisitionLockStartTime = NOW_STEADY_TS_MS;
-	auto licenseAcquisitionLockStopTime = NOW_STEADY_TS_MS;
+	auto licenseAcquisitionLockStopTime = licenseAcquisitionLockStartTime;
 	// Stopping the playback, release all DRM context
 	if (mpStreamAbstractionAAMP)
 	{
@@ -7841,6 +7841,8 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 		{
 			ReleaseDynamicDRMToUpdateWait();
 			mDRMLicenseManager->setLicenseRequestAbort(true);
+			// note: on sprint, this timer is used to time mDRMLicenseManager->SetLicenseFetcher(nullptr), but this is not present here.
+			licenseAcquisitionLockStopTime = NOW_STEADY_TS_MS;
 		}
 		if (HasSidecarData())
 		{ // has sidecar data
@@ -8526,9 +8528,8 @@ void PrivateInstanceAAMP::SetState(AAMPPlayerState state, bool sendStateChangeEv
 		mEventManager->SendEvent(event,AAMP_EVENT_SYNC_MODE);
 	}
 	{
-		mState = state;
-		AAMPLOG_MIL("Player state changed: %s -> %s", AAMPPlayerStateName(mState), AAMPPlayerStateName(state));
 		std::lock_guard<std::recursive_mutex> guard(mLock);
+		AAMPLOG_MIL("Player state changed: %s -> %s", AAMPPlayerStateName(mState), AAMPPlayerStateName(state));
 		mState = state;
 	}
 
