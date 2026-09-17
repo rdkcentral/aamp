@@ -234,8 +234,6 @@ include_directories(
 	${SUBTEC_INCLUDE_DIRS}
 )
 
-add_subdirectory(test/rialtoPOC)
-
 #if (CMAKE_INBUILT_AAMP_DEPENDENCIES)
 	message("Building aamp support libraries")
 	include_directories(support/aampmetrics)
