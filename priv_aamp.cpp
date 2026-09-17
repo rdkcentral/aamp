@@ -1810,6 +1810,8 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	, mSubtitleDelta(0)
 	, mVideoComponentCount(-1)
 	, mAudioOnlyPb(false)
+	, mMiniWindowAudioOnlyActive(false)
+	, mMiniWindowAudioOnlyOwnsPlayback(false)
 	, mVideoOnlyPb(false)
 	, mCurrentAudioTrackIndex(-1)
 	, mCurrentTextTrackIndex(-1)
@@ -6821,6 +6823,15 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 
 	AAMPLOG_MIL("ContentType(%d) EnablePTSReStamp(%d)", mContentType, GETCONFIGVALUE_PRIV(eAAMPConfig_EnablePTSReStamp));
 #endif
+        AAMPLOG_ERR("miniwindow: Default Config :%d ", GETCONFIGVALUE_PRIV(eAAMPConfig_MiniWindowAudioOnly));
+	SETCONFIGVALUE_PRIV(AAMP_TUNE_SETTING, eAAMPConfig_MiniWindowAudioOnly, true);
+	AAMPLOG_ERR("miniwindow: New Config :%d ", GETCONFIGVALUE_PRIV(eAAMPConfig_MiniWindowAudioOnly));
+
+        // Force audio-only for this tune, so video adaptation sets are never selected.
+        SETCONFIGVALUE_PRIV(AAMP_TUNE_SETTING, eAAMPConfig_AudioOnlyPlayback, true);
+        mAudioOnlyPb = true;
+        AAMPLOG_ERR("miniwindow: forced audioOnlyPlayback=%d mAudioOnlyPb=%d",
+        ISCONFIGSET_PRIV(eAAMPConfig_AudioOnlyPlayback), mAudioOnlyPb);
 
 	CreateTsbSessionManager();
 
@@ -8035,7 +8046,32 @@ void PrivateInstanceAAMP::UpdateVideoRectangle (int x, int y, int w, int h)
  */
 void PrivateInstanceAAMP::SetVideoRectangle(int x, int y, int w, int h)
 {
+	AAMPLOG_ERR("miniwindow: setVideoRectanle calling setVideoMute true  ");
+	SetVideoMute(true);
 	AAMPPlayerState state = GetState();
+	const bool isIpPlayback = (mMediaFormat != eMEDIAFORMAT_OTA) &&
+		(mMediaFormat != eMEDIAFORMAT_HDMI) && (mMediaFormat != eMEDIAFORMAT_COMPOSITE) &&
+		(mMediaFormat != eMEDIAFORMAT_RMF) && (mMediaFormat != eMEDIAFORMAT_PROGRESSIVE);
+	if (isIpPlayback && (ISCONFIGSET_PRIV(eAAMPConfig_MiniWindowAudioOnly) ||
+		mMiniWindowAudioOnlyActive.load()))
+	{
+		AAMPLOG_ERR("miniwindow: SetMiniWindowAudioOnly called ");
+		const int widthThreshold = GETCONFIGVALUE_PRIV(eAAMPConfig_MiniWindowWidthThreshold);
+		const int heightThreshold = GETCONFIGVALUE_PRIV(eAAMPConfig_MiniWindowHeightThreshold);
+		const bool isMiniWindow = ISCONFIGSET_PRIV(eAAMPConfig_MiniWindowAudioOnly) &&
+			(widthThreshold > 0) && (heightThreshold > 0) &&
+			(w > 0) && (h > 0) && (w <= widthThreshold || h <= heightThreshold);
+		AAMPLOG_ERR("miniwindow: SetMiniWindowAudioOnly width:%d height:%d isMiniWindow:%d ", widthThreshold, heightThreshold, isMiniWindow);
+		if (isMiniWindow != mMiniWindowAudioOnlyActive.load())
+		{
+			AAMPLOG_ERR("miniwindow: setMinidowAudioOnly:%d ", isMiniWindow);
+			SetMiniWindowAudioOnly(isMiniWindow);
+		}
+	}
+	else
+	{
+		AAMPLOG_ERR("miniwindow: SetMiniWindowAudioOnly not called ");
+	}
 	{
 		std::unique_lock<std::recursive_mutex> lock(mStreamLock, std::try_to_lock);
 		if( lock.owns_lock() )
@@ -8072,6 +8108,56 @@ void PrivateInstanceAAMP::SetVideoRectangle(int x, int y, int w, int h)
 		{
 			AAMPLOG_INFO("StreamLock not available; state: %d", state );
 			UpdateVideoRectangle (x, y, w, h);
+		}
+	}
+}
+
+void PrivateInstanceAAMP::SetMiniWindowAudioOnly(bool enable)
+{
+	if (enable == mMiniWindowAudioOnlyActive.load())
+	{
+		return;
+	}
+
+	if (!enable && !mMiniWindowAudioOnlyOwnsPlayback.load())
+	{
+		mMiniWindowAudioOnlyActive.store(false);
+		return;
+	}
+
+	const bool audioOnlyPlayback = ISCONFIGSET_PRIV(eAAMPConfig_AudioOnlyPlayback);
+	if (enable && audioOnlyPlayback)
+	{
+		mMiniWindowAudioOnlyActive.store(true);
+		mMiniWindowAudioOnlyOwnsPlayback.store(false);
+		return;
+	}
+
+	mMiniWindowAudioOnlyActive.store(enable);
+	mMiniWindowAudioOnlyOwnsPlayback.store(enable);
+	SETCONFIGVALUE_PRIV(AAMP_APPLICATION_SETTING, eAAMPConfig_AudioOnlyPlayback, enable);
+	mAudioOnlyPb = enable;
+
+	const AAMPPlayerState state = GetState();
+	if (state <= eSTATE_PREPARING || state == eSTATE_ERROR || state == eSTATE_RELEASED)
+	{
+		return;
+	}
+
+	std::lock_guard<std::mutex> lock(gMutex);
+	if (mIsRetuneInProgress)
+	{
+		AAMPLOG_WARN("Mini-window audio-only mode will apply after the current retune");
+		return;
+	}
+
+	for (gActivePrivAAMP_t &instance : gActivePrivAAMPs)
+	{
+		if (instance.pAAMP == this)
+		{
+			instance.reTune = true;
+			ScheduleAsyncTask(PrivateInstanceAAMP_Retune, this, "PrivateInstanceAAMP_MiniWindowRetune");
+			return;
 		}
 	}
 }
