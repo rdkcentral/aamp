@@ -852,35 +852,65 @@ private:
 		}
 	}
 
-	// Computes the current master clock estimate, clamped to the tightest
-	// (lowest) horizon across every attached, non-subtitle, non-EOS'd track -
-	// not just the nominal master (audio) - so playback stalls instead of
-	// free-running when ANY required track hasn't delivered expected data
-	// (e.g. a network-slow video track while audio downloads normally).  A/V
-	// playback is synchronized: audio having real data does not mean the
-	// reported position can advance past a stalled sibling track, since a
-	// real pipeline cannot render/report a position for which the
-	// corresponding video frame has never arrived.  A track with no horizon
-	// entry at all (nothing committed since the last reset) clamps to
-	// m_horizonFloorNs rather than being exempted: by the time m_playing is
-	// true every required track has already passed the readiness gate (see
-	// markSourceReadyForPlay()), so "no data since reset" here is a genuine
-	// stall, not startup preroll.  Pops any now-matured samples from every
+	// The nominal master track (audio if attached, else video; see
+	// attachSource()) stops being a usable clock reference once it has EOS'd
+	// without new data since (e.g. audio sends a zero-duration EOS at the
+	// start of video-only trickplay - see markSourceReadyForPlay() - and
+	// produces nothing further for the rest of the trick session).  Mirrors
+	// a real pipeline reselecting its clock provider once the previous one
+	// can no longer provide one.  Falls back to any other attached,
+	// non-EOS'd, non-subtitle source; if none exists, returns the nominal
+	// master anyway (nothing better available).
+	// Caller must hold m_trackMutex.
+	std::optional<int32_t> effectiveMasterSourceIdLocked() const
+	{
+		if (m_masterSourceId && m_eosSources.find(*m_masterSourceId) == m_eosSources.end())
+		{
+			return m_masterSourceId;
+		}
+		for (int32_t sourceId : m_attachedSources)
+		{
+			auto typeIt = m_sourceTypes.find(sourceId);
+			if (typeIt != m_sourceTypes.end() && typeIt->second != MediaSourceType::SUBTITLE &&
+				m_eosSources.find(sourceId) == m_eosSources.end())
+			{
+				return sourceId;
+			}
+		}
+		return m_masterSourceId;
+	}
+
+	// Computes the current master clock estimate, clamped to the effective
+	// master track's own horizon only (see effectiveMasterSourceIdLocked()),
+	// so it stalls instead of free-running when the reference track hasn't
+	// delivered expected data.  This mirrors real GStreamer/Rialto: the
+	// reported pipeline position is driven by a single reference clock
+	// (commonly audio) and advances independently of a sibling track's
+	// buffer state - video can visually freeze/lag behind while audio (and
+	// therefore the reported position) continues normally.  Clamping by the
+	// minimum horizon across every track instead is NOT faithful to that
+	// model and was tried and reverted: it broke ordinary transient A/V
+	// horizon skew (e.g. audio and video segments simply having different
+	// durations/counts) into a permanent position freeze, well before any
+	// genuine stall occurred.  Pops any now-matured samples from every
 	// track, and re-anchors.  Returns the (possibly unchanged) master clock
 	// value in nanoseconds.
 	//
 	// Also detects per-track underflow: a track is starved once the
 	// free-running (pre-clamp) estimate has passed the furthest point it has
-	// real data for.  Newly-starved sources are queued in
-	// m_pendingUnderflowNotifications for refreshAndGetPositionNs() to
-	// dispatch via notifyBufferUnderflow() after releasing the lock,
-	// mirroring real Rialto (see AampRialtoMediaPipelineClient); debounced
-	// via m_underflowNotifiedSources so it fires once per stall, not on
-	// every poll.  A source that has legitimately reached EOS is finished,
-	// not starved (e.g. audio sends a zero-duration EOS at the start of
-	// video-only trickplay - see markSourceReadyForPlay() - and produces
-	// nothing further for the rest of the trick session), and is excluded
-	// from both the clamp and the starvation check.
+	// real data for.  This is independent of what clockNs is clamped to -
+	// e.g. video can be flagged as starved (and notifyBufferUnderflow()
+	// dispatched for it) even while the reported position, driven by a
+	// healthy audio track, keeps advancing normally.  Newly-starved sources
+	// are queued in m_pendingUnderflowNotifications for
+	// refreshAndGetPositionNs() to dispatch via notifyBufferUnderflow()
+	// after releasing the lock, mirroring real Rialto (see
+	// AampRialtoMediaPipelineClient); debounced via
+	// m_underflowNotifiedSources so it fires once per stall, not on every
+	// poll.  A source that has legitimately reached EOS is finished, not
+	// starved (e.g. audio during video-only trickplay), and a source with no
+	// horizon entry yet has never received any data - that's preroll, not a
+	// stall - so both are excluded from the check.
 	// Caller must hold m_trackMutex.
 	int64_t refreshMasterClockLocked()
 	{
@@ -893,29 +923,19 @@ private:
 		int64_t estimate = m_masterClockAnchorNs +
 			static_cast<int64_t>(elapsedNs * m_rate.load(std::memory_order_relaxed));
 
+		const std::optional<int32_t> effectiveMaster = effectiveMasterSourceIdLocked();
 		int64_t clockNs = estimate;
-		for (int32_t sourceId : m_attachedSources)
+		if (effectiveMaster)
 		{
-			auto typeIt = m_sourceTypes.find(sourceId);
-			if (typeIt == m_sourceTypes.end() || typeIt->second == MediaSourceType::SUBTITLE ||
-				m_eosSources.find(sourceId) != m_eosSources.end())
+			auto horizonIt = m_trackHorizonNs.find(*effectiveMaster);
+			if (horizonIt != m_trackHorizonNs.end())
 			{
-				continue;
+				// Never clamp below the floor: a horizon entry left over from
+				// data whose PTS predates the last position reset (e.g. a
+				// mid-fragment seek re-delivering the start of a segment) is
+				// not a real stall and must not freeze the clock.
+				clockNs = std::min(estimate, std::max(horizonIt->second, m_horizonFloorNs));
 			}
-			// m_playing only becomes true once every required track has met
-			// the readiness gate (see markSourceReadyForPlay()), so a track
-			// with no horizon entry here hasn't delivered anything SINCE the
-			// last reset (e.g. stalled on a slow download) - that's a real
-			// stall, not preroll, so it must clamp to the floor rather than
-			// being skipped.  Never clamp below the floor itself: a horizon
-			// entry left over from data whose PTS predates the last position
-			// reset (e.g. a mid-fragment seek re-delivering the start of a
-			// segment) is not a real stall either.
-			auto horizonIt = m_trackHorizonNs.find(sourceId);
-			int64_t horizon = (horizonIt != m_trackHorizonNs.end())
-				? std::max(horizonIt->second, m_horizonFloorNs)
-				: m_horizonFloorNs;
-			clockNs = std::min(clockNs, horizon);
 		}
 
 		for (int32_t sourceId : m_attachedSources)
@@ -933,17 +953,16 @@ private:
 			{
 				continue;
 			}
-			// See the clamp loop above: once playing, a missing horizon
-			// entry means stalled-since-reset, not preroll, so treat it as
-			// the floor rather than exempting the track from the check.
 			auto trackHorizonIt = m_trackHorizonNs.find(sourceId);
-			int64_t horizon = (trackHorizonIt != m_trackHorizonNs.end())
-				? std::max(trackHorizonIt->second, m_horizonFloorNs)
-				: m_horizonFloorNs;
+			if (trackHorizonIt == m_trackHorizonNs.end())
+			{
+				// Never received any data yet - that's preroll, not underflow.
+				continue;
+			}
 			// Compare against the free-running estimate (not the clamped
 			// clockNs) so each track's starvation is judged independently of
-			// whichever other track is currently the tightest constraint.
-			bool starved = estimate > horizon;
+			// whichever other track is currently the effective master.
+			bool starved = estimate > std::max(trackHorizonIt->second, m_horizonFloorNs);
 			bool alreadyNotified = m_underflowNotifiedSources.count(sourceId) > 0;
 			if (starved && !alreadyNotified)
 			{
