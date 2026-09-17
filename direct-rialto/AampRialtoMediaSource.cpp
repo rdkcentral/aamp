@@ -1071,11 +1071,10 @@ void AampRialtoMediaSource::flushSource(
 			AAMPLOG_WARN("flush failed for sourceId=%d", m_sourceId);
 		}
 		// NOTE: setSourcePosition() is intentionally NOT called here.
-		// It is called from AampRialtoPlayer::OnSourceFlushed() after
-		// the server confirms the flush via SourceFlushedEvent.  Calling
-		// it here (while the server is still flushing) risks the SEGMENT
-		// event being discarded, leaving Rialto's EOS state un-cleared
-		// and causing an immediate END_OF_STREAM on the next play().
+		// It is applied once the server confirms the flush (SEEK_DONE).
+		// Calling it here, while the server is still flushing, risks the
+		// SEGMENT event being discarded, leaving Rialto's EOS state
+		// un-cleared and causing an immediate END_OF_STREAM on next play().
 	}
 }
 

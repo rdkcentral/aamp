@@ -381,9 +381,15 @@ bool AampRialtoPlayer::ShouldRecreatePipeline(
 	const int rate = m_rate.load(std::memory_order_relaxed);
 	if(rate == AAMP_NORMAL_PLAY_RATE)
 	{
+		// Audio-only content never creates a subtitle source, so the log
+		// must tolerate subtitleSrc being null here.
 		if ((subtitleSrc == nullptr) || (subtitleSrc->format() != subFormat))
 		{
-			AAMPLOG_INFO("subFormat=%d, subtitleSrc->format()=%d. ShouldRecreatePipeline true", subFormat, subtitleSrc->format());
+			AAMPLOG_INFO("Subtitle %s (subFormat=%d, existing=%d): ShouldRecreatePipeline true",
+				subtitleSrc ? "codec changed" : "source missing",
+				static_cast<int>(subFormat),
+				static_cast<int>(subtitleSrc ? subtitleSrc->format()
+				                             : FORMAT_INVALID));
 			return true;
 		}
 	}
@@ -2852,15 +2858,6 @@ double AampRialtoPlayer::computeAppliedRate(int candidateRate, AampMediaType typ
 		}
 	}
 	return AAMP_NORMAL_PLAY_RATE;
-}
-
-void AampRialtoPlayer::OnSourceFlushed(int32_t sourceId)
-{
-	// Flush() now uses pipeline-level setPosition(); flush completion is
-	// driven by PlaybackState::SEEK_DONE, not per-source SourceFlushedEvents.
-	// This callback should not be reached.
-	AAMPLOG_WARN("OnSourceFlushed called unexpectedly for sourceId=%d "
-		"- flush is driven by setPosition/SEEK_DONE", sourceId);
 }
 
 void AampRialtoPlayer::StartProgressTimer()

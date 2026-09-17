@@ -437,8 +437,8 @@ private:
 	/// Mutex guarding the flush-complete condition variable.
 	std::mutex m_flushMutex;
 
-	/// Signalled by OnSourceFlushed() when all sources have finished
-	/// flushing, allowing Configure() to proceed safely.
+	/// Signalled when the flush cycle leaves FLUSHING (SEEK_DONE, or an
+	/// early exit), allowing Configure()/Stop() to proceed safely.
 	std::condition_variable m_flushCv;
 
 	/**
@@ -652,14 +652,6 @@ private:
 
 	/// @brief Called when Rialto reports a non-fatal playback error.
 	void OnPlaybackError(int32_t sourceId, firebolt::rialto::PlaybackError error);
-
-	/// @brief Called when Rialto confirms a source flush is complete.
-	///
-	/// Clears the flushing flag on the source and calls
-	/// setSourcePosition() now that the server has confirmed the flush.
-	/// This ensures the SEGMENT event is not discarded while the server
-	/// is still processing the flush.
-	void OnSourceFlushed(int32_t sourceId);
 
 	/**
 	 * @brief Attach a source via its polymorphic attachOrUpdate method.

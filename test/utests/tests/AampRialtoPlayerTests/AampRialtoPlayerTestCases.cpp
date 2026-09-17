@@ -4324,6 +4324,25 @@ TEST_F(AampRialtoPlayerTest,
 }
 
 TEST_F(AampRialtoPlayerTest,
+	Configure_AudioOnlyNoSubtitleSource_SecondCallDoesNotDereferenceNull)
+{
+	/**
+	 * @brief Audio-only content creates no subtitle source: the sidecar
+	 *        branch needs a subtitle subFormat and the inband-CC fallback
+	 *        only runs when a video source exists.  A second Configure()
+	 *        must therefore evaluate the subtitle branch of
+	 *        ShouldRecreatePipeline() against a null subtitle source
+	 *        without dereferencing it, and still report that the pipeline
+	 *        needs recreating.
+	 */
+	EXPECT_CALL(*m_mockFactory, createMediaPipeline(_, _)).Times(2);
+	Configure(FORMAT_INVALID, FORMAT_ISO_BMFF, FORMAT_INVALID);
+	ASSERT_EQ(m_mockSources[eMEDIATYPE_SUBTITLE], nullptr);
+
+	Configure(FORMAT_INVALID, FORMAT_ISO_BMFF, FORMAT_INVALID);
+}
+
+TEST_F(AampRialtoPlayerTest,
 	Configure_Trickplay_EosPersistsThroughFlush)
 {
 	/**
