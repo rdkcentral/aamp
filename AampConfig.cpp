@@ -264,7 +264,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false,"forceHttp",eAAMPConfig_ForceHttp,false},
 	{true,"internalRetune",eAAMPConfig_InternalReTune,false},
 	{false,"audioOnlyPlayback",eAAMPConfig_AudioOnlyPlayback,false},
-	{false,"miniWindowAudioOnly",eAAMPConfig_MiniWindowAudioOnly,false},
+	{true,"miniWindowAudioOnly",eAAMPConfig_MiniWindowAudioOnly,false},
 	{false,"b64LicenseWrapping",eAAMPConfig_Base64LicenseWrapping,false},
 	{true,"gstBufferAndPlay",eAAMPConfig_GStreamerBufferingBeforePlay,false},
 	{false,"playreadyOutputProtection",eAAMPConfig_EnablePROutputProtection,false},

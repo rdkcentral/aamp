@@ -1256,6 +1256,7 @@ public:
 	bool mAudioOnlyPb;
 	std::atomic_bool mMiniWindowAudioOnlyActive;
 	std::atomic_bool mMiniWindowAudioOnlyOwnsPlayback;
+	guint mMiniWindowFileCheckTimerId;
 	double mSubtitleDelta;
 	double mAudioDelta;					/** To indicate audio playlist delta */
 	bool mVideoOnlyPb;					/**< To indicate Video Only Playback */
