@@ -150,17 +150,18 @@ constexpr unsigned int kNeedDataFrameCount = 24;
 // tolerates ~2-2.4s fetch-side gaps between segments without ever
 // signalling underflow.
 //
-// 500ms (public GStreamer buffering/queue slack) and 600ms (500ms
-// manifest-unchanged retry hold + measured pipeline overhead) were both
-// tried and both still fired underflow against AAMP-CONFIG-2033_live -
-// the real fetch-side gaps there run up to ~2.7s (see the manifest-poll
-// analysis for that test), far beyond anything decode-ahead buffering
-// alone would justify.  2000ms is a temporary diagnostic value to confirm
-// the fetch-side gap is indeed the whole story before designing a proper
-// fix; it is not a principled tolerance (at this size it stops modelling
-// decode-ahead slack and starts masking genuine stalls window-6002 relies
-// on detecting) and must not be left at this value.
-constexpr int64_t kUnderflowToleranceNs = 2000000000LL; // 2000ms - TEMPORARY, see comment
+// 500ms and 600ms were both tried and both still fired underflow against
+// AAMP-CONFIG-2033_live - the real fetch-side gaps there run up to ~2.7s
+// (see the manifest-poll analysis for that test), far beyond anything
+// decode-ahead buffering alone would justify.  2000ms confirmed the
+// fetch-side gap is the whole story (AAMP-CONFIG-2033_live passes) but is
+// too large: it masks the genuine stall AAMP-BUFFER-6002_UnderflowMonitor
+// relies on detecting.  700ms is the current attempt at a middle ground;
+// still provisional pending a proper fix (see comment history above) -
+// a flat added slack cannot simultaneously survive multi-second fetch
+// gaps and still catch genuine stalls, so this constant alone may not be
+// resolvable and a different mechanism may be needed.
+constexpr int64_t kUnderflowToleranceNs = 700000000LL; // 700ms - provisional
 
 // One queued unit of media: the fields the master-clock/backpressure model
 // needs from a MediaSegment. Ingestion order for video is decode order, not
