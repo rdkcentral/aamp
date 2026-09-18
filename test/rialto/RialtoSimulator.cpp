@@ -142,6 +142,17 @@ constexpr int64_t kBufferHighWaterNs = 40000000000LL; // 40 seconds
 // defeating the backpressure model.
 constexpr unsigned int kNeedDataFrameCount = 24;
 
+// Slack applied before a track is declared starved in
+// refreshMasterClockLocked().  Real pipelines (decoder lookahead, audio
+// ring-buffer depth, etc.) keep rendering for a while after fresh data
+// stops arriving rather than stalling the instant the horizon is passed -
+// confirmed against a real-GStreamer L2 log (AAMP-CONFIG-2033_live) that
+// tolerates ~2-2.4s fetch-side gaps between segments without ever
+// signalling underflow. Public sources on GStreamer's own internal
+// buffering/queue tolerances put typical slack around 300-400ms; 500ms
+// gives a small safety margin over that.
+constexpr int64_t kUnderflowToleranceNs = 500000000LL; // 500ms
+
 // One queued unit of media: the fields the master-clock/backpressure model
 // needs from a MediaSegment. Ingestion order for video is decode order, not
 // presentation order (see ComparePts below); audio/subtitle ingestion order
@@ -868,7 +879,8 @@ private:
 	// Returns the (possibly unchanged) master clock value in nanoseconds.
 	//
 	// Still detects per-track underflow: a track is starved once the clock
-	// has passed the furthest point it has real data for.  This is a
+	// has passed the furthest point it has real data for, plus
+	// kUnderflowToleranceNs slack. This is a
 	// narrower, purely informational signal - dispatched via
 	// notifyBufferUnderflow(), mirroring real Rialto (see
 	// AampRialtoMediaPipelineClient) - and does not affect the reported
@@ -913,7 +925,7 @@ private:
 				// Never received any data yet - that's preroll, not underflow.
 				continue;
 			}
-			bool starved = clockNs > std::max(trackHorizonIt->second, m_horizonFloorNs);
+			bool starved = clockNs > std::max(trackHorizonIt->second, m_horizonFloorNs) + kUnderflowToleranceNs;
 			bool alreadyNotified = m_underflowNotifiedSources.count(sourceId) > 0;
 			if (starved && !alreadyNotified)
 			{
