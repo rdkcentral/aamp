@@ -2113,7 +2113,7 @@ bool PrivateCDAIObjectMPD::FetchAndCacheInitHeaders(std::string& manifestStr, st
 							continue;
 						}
 						std::string fragmentUrl;
-						std::unique_ptr<FragmentDescriptor> fragmentDescriptor = aamp_utils::make_unique<FragmentDescriptor>();
+						auto fragmentDescriptor = std::make_unique<FragmentDescriptor>();
 						fragmentDescriptor->manifestUrl = manifestUrl;
 						fragmentDescriptor->Bandwidth = static_cast<uint32_t>(representation->getBandwidth());
 						fragmentDescriptor->RepresentationID = representation->getId();
