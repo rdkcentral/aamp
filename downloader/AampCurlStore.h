@@ -103,7 +103,7 @@ class CurlStore
 private:
 	std::mutex mCurlInstLock{};
 	int MaxCurlSockStore;
-	// mSharedCurlLock removed (VPAAMP-558): each curlstorestruct now embeds its own
+	// mSharedCurlLock removed : each curlstorestruct now embeds its own
 	// CurlDataShareLock (mShareLock), restoring per-host DNS/SSL lock granularity.
 
 	typedef std::unordered_map <std::string, CurlSocketStoreStruct*> CurlSockData ;

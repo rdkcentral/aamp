@@ -20,16 +20,16 @@
 /**
  * @file CurlStoreTests.cpp
  *
- * Regression tests for VPAAMP-139 / follow-up optimisation VPAAMP-558.
+ * Regression tests / follow-up optimisation.
  *
- * VPAAMP-139 root cause: old code heap-allocated a CurlDataShareLock per host
+ * Root cause: old code heap-allocated a CurlDataShareLock per host
  * and passed its address as CURLSHOPT_USERDATA.  Cleanup freed the object while
  * libcurl could still invoke the lock callbacks with the stale pointer.
- * VPAAMP-139 fix: a single static CurlStore::mSharedCurlLock with process
+ * A single static CurlStore::mSharedCurlLock with process
  * lifetime replaced per-host heap allocations — eliminating the UAF but
  * serialising DNS/SSL cache operations for every CDN hostname on one mutex.
  *
- * VPAAMP-558 optimisation: replace the single static lock with a per-host
+ * Safety invariant: replace the single static lock with a per-host
  * CurlDataShareLock embedded directly in curlstorestruct (mShareLock).
  * Lifetime safety is preserved because every cleanup path calls
  * curl_share_cleanup before SAFE_DELETE(CurlSock), so the embedded lock is
@@ -40,7 +40,7 @@
  * Test strategy:
  *   T1 - Two different hostname entries must receive DISTINCT CURLSHOPT_USERDATA
  *        pointers.  If they share the same pointer, DNS/SSL cache operations
- *        for different CDNs serialise (the VPAAMP-139 state).
+ *        for different CDNs serialise (the previous state).
  *
  *   T2 - Lock/unlock callbacks work correctly while the store entry is alive
  *        (mCurlStoreUserCount > 0).  The embedded lock is valid; no crash.
@@ -173,10 +173,10 @@ protected:
 // ---------------------------------------------------------------------------
 // T1: Two different hostname entries must receive DISTINCT CURLSHOPT_USERDATA pointers.
 //
-// VPAAMP-558: each curlstorestruct embeds its own CurlDataShareLock (mShareLock)
+// Safety invariant: each curlstorestruct embeds its own CurlDataShareLock (mShareLock)
 // so DNS/SSL cache operations for different CDN hosts use independent mutexes.
 //
-// Regression: if all hosts share one lock (VPAAMP-139 state), the addresses
+// Regression: if all hosts share one lock (previous state), the addresses
 // are equal and this test would FAIL.
 // ---------------------------------------------------------------------------
 TEST_F(CurlStoreTests, CreateCurlStore_UserDataDiffersAcrossHosts)
@@ -196,7 +196,7 @@ TEST_F(CurlStoreTests, CreateCurlStore_UserDataDiffersAcrossHosts)
     ASSERT_NE(userDataA, nullptr);
     ASSERT_NE(userDataB, nullptr);
     EXPECT_NE(userDataA, userDataB)
-        << "Each host must have its own per-host lock (VPAAMP-558 regression)";
+        << "Each host must have its own per-host lock (safety invariant)";
 
     // Return handles so mCurlStoreUserCount drops to 0; prevents cross-test
     // coupling via the process-lifetime singleton CurlStore.
@@ -247,7 +247,7 @@ TEST_F(CurlStoreTests, LockCallback_WorksWhileEntryIsAlive)
 // ---------------------------------------------------------------------------
 // T3: curl_share_cleanup is called for the evicted entry's CURLSH handle.
 //
-// VPAAMP-558 safety invariant: in every cleanup path the order is
+// Safety invariant: in every cleanup path the order is
 //   (1) curl_share_cleanup(mCurlShared)   — share teardown, lock may fire
 //   (2) SAFE_DELETE(CurlSock)             — destroys embedded mShareLock
 // This test verifies step (1) actually happens (via mock expectation) so that

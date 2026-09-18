@@ -5273,7 +5273,7 @@ TEST_F(AdManagerMPDTests, StaticManifest_AdDownloadFails_NotifyComplete_DoesNotP
 }
 
 // ---------------------------------------------------------------------------
-// VOD CDAI stitching path tests (VPAAMP-657)
+// VOD CDAI stitching path tests
 // These tests exercise PrivateCDAIObjectMPD state changes driven by
 // RegisterVodAdBreak + SetAlternateContents without any network access.
 // They verify that:
