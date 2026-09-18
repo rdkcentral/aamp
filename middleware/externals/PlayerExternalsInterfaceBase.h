@@ -79,7 +79,7 @@ class PlayerExternalsInterfaceBase
             g_object_get(m_gstElement, "video_width", &sourceWidth, NULL);
 
             if(sourceWidth != m_sourceWidth || sourceHeight != m_sourceHeight) {
-                MW_LOG_WARN("viddec (%p) --> says width %d, height %d", m_gstElement, sourceWidth, sourceHeight);
+                MW_LOG_WARN("viddec --> says width %d, height %d", sourceWidth, sourceHeight);
                 m_sourceWidth   = sourceWidth;
                 m_sourceHeight  = sourceHeight;
             }
