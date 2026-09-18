@@ -142,6 +142,16 @@ constexpr int64_t kBufferHighWaterNs = 40000000000LL; // 40 seconds
 // defeating the backpressure model.
 constexpr unsigned int kNeedDataFrameCount = 24;
 
+// Allowance for ordinary A/V injection-cadence skew when clamping the
+// shared clock to a stalled sibling's horizon (see refreshMasterClockLocked()).
+// Segments for different tracks are rarely injected in perfect lockstep even
+// during completely healthy playback, so a raw min-across-tracks clamp with
+// no slack falsely treats normal skew as a stall; this is not modelling
+// decode-ahead buffering (that would need to be unbounded, see
+// kUnderflowToleranceNs removal history) - it only needs to cover the small,
+// bounded jitter between sibling tracks' own injection timing.
+constexpr int64_t kSiblingSkewToleranceNs = 200000000LL; // 200ms
+
 // One queued unit of media: the fields the master-clock/backpressure model
 // needs from a MediaSegment. Ingestion order for video is decode order, not
 // presentation order (see ComparePts below); audio/subtitle ingestion order
@@ -852,34 +862,40 @@ private:
 		}
 	}
 
-	// Computes the current master clock estimate as a pure continuous
-	// wall-clock projection from the last anchor - deliberately NOT clamped
-	// to any track's horizon.  Clamping was tried twice (once to a single
-	// master track's horizon, once to the minimum across every track) and
-	// reverted both times: real GStreamer/Rialto's reported position is
-	// driven by a wall-clock/audio reference and keeps advancing even once
-	// a track's downloadable content is exhausted (e.g. a live stream tuned
-	// to the edge of a manifest snapshot that stops publishing new
-	// segments, or ordinary A/V segment-duration skew) - freezing the
-	// reported position in that case is not what a real pipeline does, and
-	// broke real L2 scenarios (AAMP-CONFIG-2033_live, AAMP-CONFIG-2029) that
-	// rely on position continuing to advance while paced samples simply run
-	// out.  Pops any now-matured samples from every track, and re-anchors.
-	// Returns the (possibly unchanged) master clock value in nanoseconds.
+	// Computes the current master clock estimate as a wall-clock projection
+	// from the last anchor, gated (not flatly tolerance-padded) against a
+	// stalled sibling track: if the MASTER track's own horizon is still
+	// ahead of the projection, a sibling that has fallen behind clamps the
+	// clock, mirroring real GStreamer's single shared pipeline clock (its
+	// buffering_timeout/queued_frames mechanism pauses the whole pipeline
+	// when one decoder queue starves while another keeps flowing - see
+	// InterfacePlayerRDK.cpp).  But once the MASTER's own horizon is also
+	// behind the projection (e.g. a live stream tuned to the edge of a
+	// manifest snapshot that has stopped publishing new segments for every
+	// track together), there is no sibling to defer to - GStreamer tolerates
+	// that case too (confirmed against a real-GStreamer L2 log,
+	// AAMP-CONFIG-2033_live) - so the clock is left unclamped, exactly as it
+	// was before this gating existed.  Flat-clamping to any track's horizon
+	// unconditionally, or padding the starvation check with a fixed added
+	// tolerance, were both tried and reverted: neither can distinguish
+	// "master ran dry too" from "one sibling stalled while master is fine"
+	// (see git history / AAMP-CONFIG-2033_live and AAMP-BUFFER-6002_UnderflowMonitor).
+	// Pops any now-matured samples from every track, and re-anchors.
+	// Returns the (possibly clamped) master clock value in nanoseconds.
 	//
 	// Still detects per-track underflow: a track is starved once the clock
 	// has passed the furthest point it has real data for.  This is a
 	// narrower, purely informational signal - dispatched via
 	// notifyBufferUnderflow(), mirroring real Rialto (see
-	// AampRialtoMediaPipelineClient) - and does not affect the reported
-	// clock.  Newly-starved sources are queued in
-	// m_pendingUnderflowNotifications for refreshAndGetPositionNs() to
-	// dispatch after releasing the lock; debounced via
-	// m_underflowNotifiedSources so it fires once per stall, not on every
-	// poll.  A source that has legitimately reached EOS is finished, not
-	// starved (e.g. audio during video-only trickplay), and a source with no
-	// horizon entry yet has never received any data - that's preroll, not a
-	// stall - so both are excluded from the check.
+	// AampRialtoMediaPipelineClient) - computed from the raw (unclamped)
+	// projection, independently of whatever gets reported as position.
+	// Newly-starved sources are queued in m_pendingUnderflowNotifications
+	// for refreshAndGetPositionNs() to dispatch after releasing the lock;
+	// debounced via m_underflowNotifiedSources so it fires once per stall,
+	// not on every poll.  A source that has legitimately reached EOS is
+	// finished, not starved (e.g. audio during video-only trickplay), and a
+	// source with no horizon entry yet has never received any data - that's
+	// preroll, not a stall - so both are excluded from the check.
 	// Caller must hold m_trackMutex.
 	int64_t refreshMasterClockLocked()
 	{
@@ -889,7 +905,7 @@ private:
 		}
 		auto elapsed = std::chrono::steady_clock::now() - m_masterClockAnchorWallTime;
 		auto elapsedNs = std::chrono::duration_cast<std::chrono::nanoseconds>(elapsed).count();
-		int64_t clockNs = m_masterClockAnchorNs +
+		int64_t projectedClockNs = m_masterClockAnchorNs +
 			static_cast<int64_t>(elapsedNs * m_rate.load(std::memory_order_relaxed));
 
 		for (int32_t sourceId : m_attachedSources)
@@ -913,7 +929,7 @@ private:
 				// Never received any data yet - that's preroll, not underflow.
 				continue;
 			}
-			bool starved = clockNs > std::max(trackHorizonIt->second, m_horizonFloorNs);
+			bool starved = projectedClockNs > std::max(trackHorizonIt->second, m_horizonFloorNs);
 			bool alreadyNotified = m_underflowNotifiedSources.count(sourceId) > 0;
 			if (starved && !alreadyNotified)
 			{
@@ -923,6 +939,39 @@ private:
 			else if (!starved && alreadyNotified)
 			{
 				m_underflowNotifiedSources.erase(sourceId);
+			}
+		}
+
+		// Gate the reported clock: only clamp to a stalled sibling's horizon
+		// while the master track itself still has real data ahead of us
+		// (see comment above this function).
+		int64_t clockNs = projectedClockNs;
+		auto masterHorizonIt = m_trackHorizonNs.find(*m_masterSourceId);
+		if (masterHorizonIt != m_trackHorizonNs.end() &&
+			projectedClockNs <= std::max(masterHorizonIt->second, m_horizonFloorNs))
+		{
+			for (int32_t sourceId : m_attachedSources)
+			{
+				if (sourceId == *m_masterSourceId)
+				{
+					continue;
+				}
+				auto typeIt = m_sourceTypes.find(sourceId);
+				if (typeIt == m_sourceTypes.end() || typeIt->second == MediaSourceType::SUBTITLE)
+				{
+					continue;
+				}
+				if (m_eosSources.find(sourceId) != m_eosSources.end())
+				{
+					continue;
+				}
+				auto horizonIt = m_trackHorizonNs.find(sourceId);
+				if (horizonIt == m_trackHorizonNs.end())
+				{
+					continue;
+				}
+				int64_t siblingLimitNs = std::max(horizonIt->second, m_horizonFloorNs) + kSiblingSkewToleranceNs;
+				clockNs = std::min(clockNs, siblingLimitNs);
 			}
 		}
 
