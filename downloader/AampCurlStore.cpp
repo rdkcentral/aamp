@@ -25,6 +25,7 @@
 #include "AampCurlStore.h"
 #include "AampDefine.h"
 #include "AampUtils.h"
+#include <cinttypes>
 #include <mutex>
 
 // Curl callback functions
@@ -555,14 +556,16 @@ CurlStore::~CurlStore()
 	for( auto& it : umCurlSockDataStore )
 	{
 		CurlSocketStoreStruct *CurlSock {it.second};
-		AAMPLOG_INFO("Removing host:%s lastused:%lld UserCount:%d", (it.first).c_str(), CurlSock->timestamp, CurlSock->mCurlStoreUserCount);
+		AAMPLOG_INFO("Removing host:%s lastused:%lld UserCount:%d Hits:%" PRIu64 " Misses:%" PRIu64,
+		             (it.first).c_str(), CurlSock->timestamp, CurlSock->mCurlStoreUserCount,
+		             CurlSock->mCacheHits, CurlSock->mCacheMisses);
 
-		for( auto& itFreeQ : CurlSock->mFreeQ )
+		for (auto &[slotId, slotDeque] : CurlSock->mFreeSlots)
 		{
-			if(itFreeQ.curl)
+			for (auto &[hdl, ts] : slotDeque)
 			{
-				curl_easy_cleanup(itFreeQ.curl);
-				// no field reset needed: CurlSock is deleted immediately after this loop
+				if (hdl) curl_easy_cleanup(hdl);
+				// no field reset needed: CurlSock is deleted immediately after
 			}
 		}
 
@@ -588,48 +591,55 @@ CurlStore& CurlStore::GetCurlStoreInstance ( PrivateInstanceAAMP *aamp )
 }
 
 /**
- * @fn GetCurlHandleFromFreeQ
- * @brief GetCurlHandleFromFreeQ - Get curl handle from free queue
+ * @fn GetCurlHandleFromSlot
+ * @brief GetCurlHandleFromSlot - Get a curl easy handle from the per-curlId slot
+ *
+ * O(1) per-slot lookup.  Stale handles (inserted before eCURL_MAX_AGE_TIME ago)
+ * are evicted from the front of the slot deque before attempting retrieval.
+ * On success, CURLOPT_SHARE is re-applied so recycled handles always reference
+ * the current (live) mCurlShared pointer.
+ *
+ * Replaces the old GetCurlHandleFromFreeQ which used a single mixed-curlId
+ * deque and required an O(n) linear scan to find a handle for the requested
+ * curlId, and left non-matching front elements stuck in place indefinitely.
  */
-CURL *CurlStore::GetCurlHandleFromFreeQ ( CurlSocketStoreStruct *CurlSock, int instId )
+CURL *CurlStore::GetCurlHandleFromSlot ( CurlSocketStoreStruct *CurlSock, int curlId )
 {
-	CURL *curlhdl = NULL;
-	long long MaxAge = CurlSock->timestamp-eCURL_MAX_AGE_TIME;
-
-	for (int i = instId; i < instId+1 && !CurlSock->mFreeQ.empty(); )
+	auto slotIt = CurlSock->mFreeSlots.find(curlId);
+	if (slotIt == CurlSock->mFreeSlots.end() || slotIt->second.empty())
 	{
-		CurlHandleStruct mObj = CurlSock->mFreeQ.front();
-
-		if( MaxAge > mObj.eHdlTimestamp )
-		{
-			CurlSock->mFreeQ.pop_front();
-			AAMPLOG_TRACE("Remove old curl hdl:%p", mObj.curl);
-			curl_easy_cleanup(mObj.curl);
-			mObj.curl = NULL;
-			continue;
-		}
-
-		if ( mObj.curlId == i )
-		{
-			CurlSock->mFreeQ.pop_front();
-			curlhdl = mObj.curl;
-			break;
-		}
-
-		for(auto it=CurlSock->mFreeQ.begin()+1; it!=CurlSock->mFreeQ.end(); ++it)
-		{
-			if (( MaxAge < it->eHdlTimestamp ) && ( it->curlId == i ))
-			{
-				curlhdl=it->curl;
-				CurlSock->mFreeQ.erase(it);
-				break;
-			}
-		}
-
-		++i;
+		return nullptr;
 	}
 
-	return curlhdl;
+	auto &slot = slotIt->second;
+	long long maxAgeThreshold = CurlSock->timestamp - eCURL_MAX_AGE_TIME;
+
+	// Evict stale entries from the front (oldest entries pushed first → oldest at front)
+	while (!slot.empty() && slot.front().second < maxAgeThreshold)
+	{
+		AAMPLOG_TRACE("Evicting stale curl hdl:%p age:%lld", slot.front().first, slot.front().second);
+		curl_easy_cleanup(slot.front().first);
+		slot.pop_front();
+	}
+
+	if (slot.empty())
+	{
+		return nullptr;
+	}
+
+	// Retrieve from the back (newest entry) so the most-recently-used handle
+	// is reused first — LIFO gives the best chance of reusing a still-warm
+	// TCP connection.
+	CURL *hdl = slot.back().first;
+	slot.pop_back();
+
+	// Re-apply CURLOPT_SHARE: ensures the recycled handle always binds to the
+	// current live mCurlShared pointer, guarding against any future
+	// flush/recreate cycle that might change the pointer.
+	CURL_EASY_SETOPT_POINTER(hdl, CURLOPT_SHARE, CurlSock->mCurlShared);
+
+	AAMPLOG_TRACE("Recycled curl hdl:%p for slot:%d", hdl, curlId);
+	return hdl;
 }
 
 /**
@@ -652,7 +662,7 @@ AampCurlStoreErrorCode CurlStore::GetFromCurlStoreBulk ( const std::string &host
 		CurlSock->timestamp = aamp_GetCurrentTimeMS();
 		aamp->mCurlShared = CurlSock->mCurlShared;
 
-		for( loop = (int)CurlIndex; loop < count; )
+		for( loop = (int)CurlIndex; loop < count; ++loop )
 		{
 			if(CurlFdHost)
 			{
@@ -663,31 +673,23 @@ AampCurlStoreErrorCode CurlStore::GetFromCurlStoreBulk ( const std::string &host
 				CurlFd=&aamp->curl[loop];
 			}
 
-			if (!CurlSock->mFreeQ.empty())
+			*CurlFd = GetCurlHandleFromSlot ( CurlSock, loop );
+			if(NULL != *CurlFd)
 			{
-				*CurlFd= GetCurlHandleFromFreeQ ( CurlSock, loop );
-				if(NULL!=*CurlFd)
-				{
-					CURL_EASY_SETOPT_POINTER(*CurlFd, CURLOPT_SSL_CTX_DATA, aamp);
-					++CurlFdCount;
-				}
-				else
-				{
-					ret = eCURL_STORE_SOCK_NOT_AVAILABLE;
-				}
-				++loop;
+				CURL_EASY_SETOPT_POINTER(*CurlFd, CURLOPT_SSL_CTX_DATA, aamp);
+				++CurlFdCount;
+				++CurlSock->mCacheHits;
 			}
 			else
 			{
-				AAMPLOG_TRACE("Queue is empty");
+				++CurlSock->mCacheMisses;
 				ret = eCURL_STORE_SOCK_NOT_AVAILABLE;
-				break;
 			}
 		}
 
 		AAMPLOG_INFO ("%d fd(s) got from CurlStore User count:%d", CurlFdCount, CurlSock->mCurlStoreUserCount);
 
-		if ( umCurlSockDataStore.size() > MaxCurlSockStore )
+		if ( umCurlSockDataStore.size() > (size_t)MaxCurlSockStore )
 		{
 			// Remove not recently used handle.
 			RemoveCurlSock();
@@ -728,24 +730,16 @@ AampCurlStoreErrorCode CurlStore::GetFromCurlStore ( const std::string &hostname
 		CurlSock->mCurlStoreUserCount += 1;
 		CurlSock->timestamp = aamp_GetCurrentTimeMS();
 
-		for( int loop = (int)CurlIndex; loop < CurlIndex+1; )
+		*curl = GetCurlHandleFromSlot ( CurlSock, (int)CurlIndex );
+		if (NULL == *curl)
 		{
-			if (!CurlSock->mFreeQ.empty())
-			{
-				*curl = GetCurlHandleFromFreeQ ( CurlSock, loop);
-
-				if(NULL==*curl)
-				{
-					ret = eCURL_STORE_SOCK_NOT_AVAILABLE;
-				}
-				++loop;
-			}
-			else
-			{
-				AAMPLOG_TRACE("Queue is empty");
-				ret = eCURL_STORE_SOCK_NOT_AVAILABLE;
-				break;
-			}
+			++CurlSock->mCacheMisses;
+			ret = eCURL_STORE_SOCK_NOT_AVAILABLE;
+			AAMPLOG_TRACE("Slot %d empty for %s", (int)CurlIndex, hostname.c_str());
+		}
+		else
+		{
+			++CurlSock->mCacheHits;
 		}
 	}
 
@@ -773,39 +767,70 @@ AampCurlStoreErrorCode CurlStore::GetFromCurlStore ( const std::string &hostname
  */
 void CurlStore::KeepInCurlStoreBulk ( const std::string &hostname, AampCurlInstance CurlIndex, int count, PrivateInstanceAAMP *aamp, bool CurlFdHost )
 {
-	CurlSocketStoreStruct *CurlSock = NULL;
-
 	const std::lock_guard<std::mutex> lock(mCurlInstLock);
 	CurlSockDataIter it = umCurlSockDataStore.find(hostname);
 
 	if(it != umCurlSockDataStore.end())
 	{
-		CurlSock = it->second;
-		CurlSock->timestamp = aamp_GetCurrentTimeMS();
+		CurlSocketStoreStruct *CurlSock = it->second;
+		long long now = aamp_GetCurrentTimeMS();
+		CurlSock->timestamp = now;
 		CurlSock->mCurlStoreUserCount -= 1;
+		if (CurlSock->mCurlStoreUserCount < 0)
+		{
+			AAMPLOG_WARN("mCurlStoreUserCount underflow for host %s; clamping to 0", hostname.c_str());
+			CurlSock->mCurlStoreUserCount = 0;
+		}
 
 		for( int loop = (int)CurlIndex; loop < count; ++loop)
 		{
-			CurlHandleStruct mObj;
+			CURL *hdl = nullptr;
 			if(CurlFdHost)
 			{
-				mObj.curl = aamp->curlhost[loop]->curl;
-				aamp->curlhost[loop]->curl = NULL;
+				hdl = aamp->curlhost[loop]->curl;
+				aamp->curlhost[loop]->curl = nullptr;
 			}
 			else
 			{
-				mObj.curl = aamp->curl[loop];
-				aamp->curl[loop] = NULL;
+				hdl = aamp->curl[loop];
+				aamp->curl[loop] = nullptr;
 			}
 
-			mObj.eHdlTimestamp = CurlSock->timestamp;
-			mObj.curlId = loop;
-			CurlSock->mFreeQ.push_back(mObj);
-			AAMPLOG_TRACE("Curl Inst %d CurlCtx:%p stored at %zu", loop, mObj.curl, CurlSock->mFreeQ.size());
+			if (!hdl) continue;
+
+			if (CurlSock->mPendingFlush)
+			{
+				// This entry was flushed due to a network error while handles were
+				// in flight.  Dispose the returned handle instead of re-pooling it
+				// so that poisoned connections are never reused.
+				AAMPLOG_TRACE("PendingFlush: disposing returned curl hdl:%p slot:%d host:%s",
+				              hdl, loop, hostname.c_str());
+				curl_easy_cleanup(hdl);
+			}
+			else
+			{
+				CurlSock->mFreeSlots[loop].push_back({hdl, now});
+				AAMPLOG_TRACE("Curl Inst %d CurlCtx:%p stored in slot, total:%zu",
+				              loop, hdl, CurlSock->mFreeSlots[loop].size());
+			}
 		}
 
-		AAMPLOG_TRACE ("CurlStore User count:%d for:%s", CurlSock->mCurlStoreUserCount, hostname.c_str());
-		if ( umCurlSockDataStore.size() > MaxCurlSockStore )
+		if (CurlSock->mPendingFlush && CurlSock->mCurlStoreUserCount <= 0)
+		{
+			// All in-flight users have returned — complete the deferred flush now
+			AAMPLOG_WARN("PendingFlush: completing deferred cleanup for host %s", hostname.c_str());
+			if (CurlSock->mCurlShared)
+			{
+				curl_share_cleanup(CurlSock->mCurlShared);
+				CurlSock->mCurlShared = nullptr;
+			}
+			SAFE_DELETE(CurlSock);
+			umCurlSockDataStore.erase(it);
+			return;
+		}
+
+		AAMPLOG_TRACE("CurlStore User count:%d for:%s", CurlSock->mCurlStoreUserCount, hostname.c_str());
+		if ( umCurlSockDataStore.size() > (size_t)MaxCurlSockStore )
 		{
 			// Remove not recently used handle.
 			RemoveCurlSock();
@@ -813,7 +838,7 @@ void CurlStore::KeepInCurlStoreBulk ( const std::string &hostname, AampCurlInsta
 	}
 	else
 	{
-		AAMPLOG_INFO("Host %s not in store, Curl Inst %d-%d", hostname.c_str(), CurlIndex,count);
+		AAMPLOG_INFO("Host %s not in store, Curl Inst %d-%d", hostname.c_str(), CurlIndex, count);
 	}
 }
 
@@ -823,22 +848,44 @@ void CurlStore::KeepInCurlStoreBulk ( const std::string &hostname, AampCurlInsta
  */
 void CurlStore::KeepInCurlStore ( const std::string &hostname, AampCurlInstance CurlIndex, CURL *curl )
 {
-	CurlSocketStoreStruct *CurlSock = NULL;
 	const std::lock_guard<std::mutex> lock(mCurlInstLock);
 	CurlSockDataIter it = umCurlSockDataStore.find(hostname);
 	if(it != umCurlSockDataStore.end())
 	{
-		CurlSock = it->second;
-		CurlSock->timestamp = aamp_GetCurrentTimeMS();
+		CurlSocketStoreStruct *CurlSock = it->second;
+		long long now = aamp_GetCurrentTimeMS();
+		CurlSock->timestamp = now;
 		CurlSock->mCurlStoreUserCount -= 1;
+		if (CurlSock->mCurlStoreUserCount < 0)
+		{
+			AAMPLOG_WARN("mCurlStoreUserCount underflow for host %s; clamping to 0", hostname.c_str());
+			CurlSock->mCurlStoreUserCount = 0;
+		}
 
-		CurlHandleStruct mObj;
-		mObj.curl = curl;
-		mObj.eHdlTimestamp = CurlSock->timestamp;
-		mObj.curlId = (int)CurlIndex;
-		CurlSock->mFreeQ.push_back(mObj);
-		AAMPLOG_TRACE("Curl Inst %d for %s CurlCtx:%p stored at %zu, User:%d", CurlIndex, hostname.c_str(),
-						curl,CurlSock->mFreeQ.size(), CurlSock->mCurlStoreUserCount);
+		if (CurlSock->mPendingFlush)
+		{
+			AAMPLOG_TRACE("PendingFlush: disposing returned curl hdl:%p slot:%d host:%s",
+			              curl, (int)CurlIndex, hostname.c_str());
+			curl_easy_cleanup(curl);
+
+			if (CurlSock->mCurlStoreUserCount <= 0)
+			{
+				AAMPLOG_WARN("PendingFlush: completing deferred cleanup for host %s", hostname.c_str());
+				if (CurlSock->mCurlShared)
+				{
+					curl_share_cleanup(CurlSock->mCurlShared);
+					CurlSock->mCurlShared = nullptr;
+				}
+				SAFE_DELETE(CurlSock);
+				umCurlSockDataStore.erase(it);
+			}
+			return;
+		}
+
+		CurlSock->mFreeSlots[(int)CurlIndex].push_back({curl, now});
+		AAMPLOG_TRACE("Curl Inst %d for %s CurlCtx:%p stored in slot, slots total:%zu, User:%d",
+		              CurlIndex, hostname.c_str(), curl,
+		              CurlSock->mFreeSlots[(int)CurlIndex].size(), CurlSock->mCurlStoreUserCount);
 	}
 	else
 	{
@@ -870,18 +917,18 @@ void CurlStore::RemoveCurlSock ( void )
 	if( umCurlSockDataStore.end() != RemIt )
 	{
 		CurlSocketStoreStruct *RmCurlSock = RemIt->second;
-		AAMPLOG_INFO("Removing host:%s lastused:%lld UserCount:%d", (RemIt->first).c_str(), RmCurlSock->timestamp, RmCurlSock->mCurlStoreUserCount);
+		AAMPLOG_INFO("Removing host:%s lastused:%lld UserCount:%d Hits:%" PRIu64 " Misses:%" PRIu64,
+		             (RemIt->first).c_str(), RmCurlSock->timestamp, RmCurlSock->mCurlStoreUserCount,
+		             RmCurlSock->mCacheHits, RmCurlSock->mCacheMisses);
 
-		for(auto it = RmCurlSock->mFreeQ.begin(); it != RmCurlSock->mFreeQ.end(); )
+		for (auto &[slotId, slotDeque] : RmCurlSock->mFreeSlots)
 		{
-			if(it->curl)
+			for (auto &[hdl, ts] : slotDeque)
 			{
-				curl_easy_cleanup(it->curl);
-				// no field reset needed: element is erased immediately below
+				if (hdl) curl_easy_cleanup(hdl);
 			}
-			it=RmCurlSock->mFreeQ.erase(it);
 		}
-		std::deque<CurlHandleStruct>().swap(RmCurlSock->mFreeQ);
+		RmCurlSock->mFreeSlots.clear();
 
 		if(RmCurlSock->mCurlShared)
 		{
@@ -906,6 +953,13 @@ void CurlStore::RemoveCurlSock ( void )
 /**
  * @fn FlushCurlSockForHost
  * @brief FlushCurlSockForHost - remove entry of host upon certain network error
+ *
+ * Clears all pooled (idle) handles for the host immediately.  If there are
+ * active users (mCurlStoreUserCount > 0), the CURLSH cannot be cleaned up yet
+ * because in-flight easy handles still reference it via CURLOPT_SHARE.
+ * In that case mPendingFlush is set so that handles returned by in-flight
+ * downloads are disposed (not re-pooled) and cleanup is completed automatically
+ * when the last user calls KeepInCurlStore*.
  */
 void CurlStore::FlushCurlSockForHost(const std::string &hostname)
 {
@@ -914,38 +968,50 @@ void CurlStore::FlushCurlSockForHost(const std::string &hostname)
 	if( umCurlSockDataStore.end() != removeIter )
 	{
 		CurlSocketStoreStruct *RmCurlSock = removeIter->second;
-		AAMPLOG_WARN("Removing host:%s UserCount:%d", (removeIter->first).c_str(), RmCurlSock->mCurlStoreUserCount);
+		AAMPLOG_WARN("Flushing host:%s UserCount:%d Hits:%" PRIu64 " Misses:%" PRIu64,
+		             hostname.c_str(), RmCurlSock->mCurlStoreUserCount,
+		             RmCurlSock->mCacheHits, RmCurlSock->mCacheMisses);
 
-		for(auto it = RmCurlSock->mFreeQ.begin(); it != RmCurlSock->mFreeQ.end(); )
+		// Dispose all idle (pooled) handles
+		for (auto &[slotId, slotDeque] : RmCurlSock->mFreeSlots)
 		{
-			if(it->curl)
+			for (auto &[hdl, ts] : slotDeque)
 			{
-				AAMPLOG_INFO("Removing host:%s curlInstance:%d:%p", (removeIter->first).c_str(), it->curlId,it->curl);
-				curl_easy_cleanup(it->curl);
-				// no field reset needed: element is erased immediately below
+				if (hdl)
+				{
+					AAMPLOG_INFO("Flushing host:%s curlSlot:%d hdl:%p", hostname.c_str(), slotId, hdl);
+					curl_easy_cleanup(hdl);
+				}
 			}
-			it=RmCurlSock->mFreeQ.erase(it);
 		}
-		std::deque<CurlHandleStruct>().swap(RmCurlSock->mFreeQ);
+		RmCurlSock->mFreeSlots.clear();
 
-		if(RmCurlSock->mCurlStoreUserCount <=  0 ) 
+		if(RmCurlSock->mCurlStoreUserCount <= 0)
 		{
+			// No live users — safe to fully clean up
 			if(RmCurlSock->mCurlShared)
 			{
-				AAMPLOG_INFO("cleaning up curl shared context %p",RmCurlSock->mCurlShared);
+				AAMPLOG_INFO("Cleaning up curl shared context %p for host %s",
+				             RmCurlSock->mCurlShared, hostname.c_str());
 				curl_share_cleanup(RmCurlSock->mCurlShared);
 				RmCurlSock->mCurlShared = nullptr;
 			}
 			else
 			{
-				AAMPLOG_WARN("no curl shared context available for %s",(removeIter->first).c_str());
+				AAMPLOG_WARN("No curl shared context for host %s", hostname.c_str());
 			}
 			SAFE_DELETE(RmCurlSock);
 			umCurlSockDataStore.erase(removeIter);
 		}
 		else
 		{
-			AAMPLOG_WARN("mCurlStoreUserCount is still %d.someone is using wait for them to complete the task",RmCurlSock->mCurlStoreUserCount);
+			// In-flight handles reference mCurlShared — defer cleanup.
+			// KeepInCurlStore* will dispose returned handles and finish cleanup
+			// when mCurlStoreUserCount reaches 0.
+			RmCurlSock->mPendingFlush = true;
+			AAMPLOG_WARN("PendingFlush set for host %s (%d live users); "
+			             "deferred cleanup when they return handles",
+			             hostname.c_str(), RmCurlSock->mCurlStoreUserCount);
 		}
 	}
 	else
@@ -956,7 +1022,7 @@ void CurlStore::FlushCurlSockForHost(const std::string &hostname)
 
 /**
  * @fn ShowCurlStoreData
- * @brief ShowCurlStoreData - Print curl store details
+ * @brief ShowCurlStoreData - Print curl store details including hit/miss telemetry
  */
 void CurlStore::ShowCurlStoreData ( bool trace )
 {
@@ -968,12 +1034,23 @@ void CurlStore::ShowCurlStoreData ( bool trace )
 		for(int loop=1; it != umCurlSockDataStore.end(); ++it,++loop )
 		{
 			CurlSocketStoreStruct *CurlSock = it->second;
-			AAMPLOG_INFO("%d.Host:%s ShHdl:%p LastUsed:%lld UserCount:%d", loop, (it->first).c_str(), CurlSock->mCurlShared, CurlSock->timestamp, CurlSock->mCurlStoreUserCount);
-			AAMPLOG_INFO("%d.Total Curl fds:%zu,", loop, CurlSock->mFreeQ.size());
+			uint64_t total = CurlSock->mCacheHits + CurlSock->mCacheMisses;
+			double hitRate = total ? (100.0 * CurlSock->mCacheHits / total) : 0.0;
+			AAMPLOG_INFO("%d.Host:%s ShHdl:%p LastUsed:%lld UserCount:%d PendingFlush:%s",
+			             loop, (it->first).c_str(), CurlSock->mCurlShared,
+			             CurlSock->timestamp, CurlSock->mCurlStoreUserCount,
+			             CurlSock->mPendingFlush ? "yes" : "no");
+			AAMPLOG_INFO("%d.CacheHits:%" PRIu64 " Misses:%" PRIu64 " HitRate:%.1f%%",
+			             loop, CurlSock->mCacheHits, CurlSock->mCacheMisses, hitRate);
 
-			for(auto it = CurlSock->mFreeQ.begin(); it != CurlSock->mFreeQ.end(); ++it)
+			// Log per-slot handle counts
+			for (const auto &[slotId, slotDeque] : CurlSock->mFreeSlots)
 			{
-				AAMPLOG_INFO("CurlFd:%p Time:%lld Inst:%d", it->curl, it->eHdlTimestamp, it->curlId);
+				AAMPLOG_INFO("  Slot:%d PooledHandles:%zu", slotId, slotDeque.size());
+				for (const auto &[hdl, ts] : slotDeque)
+				{
+					AAMPLOG_INFO("    CurlFd:%p InsertedAt:%lld", hdl, ts);
+				}
 			}
 		}
 	}
