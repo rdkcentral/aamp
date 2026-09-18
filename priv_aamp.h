@@ -617,6 +617,60 @@ class PrivateInstanceAAMP : public DrmCallbacks, public std::enable_shared_from_
 	                       const TextTrackInfo& target) const;
 
 public:
+	class SetRateProtect
+	{
+		public:
+			SetRateProtect(PrivateInstanceAAMP *aamp): mAamp(aamp)
+			{
+				mAamp->mSetRateActiveMutex.lock(); // protect the gap between setting the flag and the stream lock
+				mAamp->mSetRateActive = true; // prevent MonitorProgress() running while doing trick mode
+				mAamp->AcquireStreamLock();
+				mAamp->mSetRateActiveMutex.unlock();
+			}
+			~SetRateProtect()
+			{
+				mAamp->ReleaseStreamLock();
+	AAMPLOG_WARN("JLDBG SetRateProtect destructor, resetting mSetRateActive flag");
+				mAamp->mSetRateActive = false; // allow MonitorProgress() to run again
+			}
+		private:
+			PrivateInstanceAAMP *mAamp;
+	};
+	class SetRateMonitor
+	{
+		public:
+			SetRateMonitor(PrivateInstanceAAMP *aamp)
+				: mAamp(aamp), locked(false)
+			{
+				locked = mAamp->mSetRateActiveMutex.try_lock();
+			}
+			~SetRateMonitor()
+			{
+				if (locked)
+				{
+					mAamp->mSetRateActiveMutex.unlock();
+				}
+			}
+			bool active()
+			{
+				if  (!locked)
+				{
+					return true; // could not acquire the mutex so a SetRate is starting
+				}
+				return mAamp->mSetRateActive.load();
+			}
+		private:
+			PrivateInstanceAAMP *mAamp;
+			bool locked;
+	};
+
+
+
+
+
+
+
+
 	/* @fn RecalculatePTS
 	 * @param[in] mediaType stream type
 	 * @param[in] ptr buffer pointer
@@ -1219,6 +1273,8 @@ public:
 
 	bool mIsFlushFdsInCurlStore;	/**< Mark to clear curl store instance in case of playback stopped due to download Error */
 	bool mIsFlushOperationInProgress;		/**< Flag to indicate pipeline flush operation is going on */
+	std::atomic<bool> mSetRateActive;
+	std::mutex mSetRateActiveMutex;
 
 	/**
 	 * @fn ProcessID3Metadata
@@ -4189,7 +4245,7 @@ protected:
 	bool mTunedEventPending;
 	bool mSeekOperationInProgress;
 	bool mTrickplayInProgress;
-	std::map<guint, bool> mPendingAsyncEvents;
+	std::map<guint, bool> mPendingAsyncEvents;	
 	std::unordered_map<std::string, std::vector<std::string>> mCustomHeaders;
 	bool mIsFirstRequestToFOG;
 	// VSS license parameters
