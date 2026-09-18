@@ -363,54 +363,57 @@ TEST_F(CurlStoreTests, LockCallback_HandlesAllLockDataTypes)
 }
 
 // ---------------------------------------------------------------------------
-// T5: Per-slot storage and retrieval correctness.
+// T5: LIFO recycling within a slot — the most-recently-returned handle is
+// recycled first by the new per-slot deque (pop_back).
 //
-// Verifies the API contract: a handle stored for slot N is returned when
-// slot N is requested, and a handle stored for slot M is returned when slot M
-// is requested.  Both slots are independent — returning a handle to one slot
-// does not affect the other.
+// The old single-deque mFreeQ always popped from the FRONT (pop_front / FIFO),
+// reusing the oldest pooled handle first.  The new mFreeSlots[slot] pops from
+// the BACK (pop_back / LIFO), so the most-recently-returned — and therefore
+// most likely still-warm — TCP connection is reused first.
 //
-// Note: the O(1) lookup improvement over the old linear-scan mFreeQ is a
-// structural property of the unordered_map<int, deque<...>> design and
-// cannot be verified by a unit test.  This test only covers the correctness
-// contract (right handle in, right handle out), not performance or
-// the former mFreeQ cross-slot blocking behaviour.
+// Regression: with the old mFreeQ, after storing kHdlFirst then kHdlSecond
+// for the same slot, GetCurlHandleFromFreeQ returns kHdlFirst (front/FIFO).
+// The new GetCurlHandleFromSlot returns kHdlSecond (back/LIFO).  The
+// EXPECT_EQ assertions below therefore FAIL against the old implementation.
 // ---------------------------------------------------------------------------
-TEST_F(CurlStoreTests, PerSlotRetrieval_NoCrossSlotContamination)
+TEST_F(CurlStoreTests, PerSlotRetrieval_LIFORecyclingWithinSlot)
 {
     const std::string hostname = "t5-host.example.com";
 
-    // Assign distinct sentinel handles to each curl_easy_init call so we can
-    // identify which slot they came from when the handles are recycled.
-    CURL *const kHdlSlot0 = reinterpret_cast<CURL *>(0xA001);
-    CURL *const kHdlSlot1 = reinterpret_cast<CURL *>(0xA002);
+    // Two distinct sentinel handles allocated for the same VIDEO slot.
+    CURL *const kHdlFirst  = reinterpret_cast<CURL *>(0xA001);
+    CURL *const kHdlSecond = reinterpret_cast<CURL *>(0xA002);
     EXPECT_CALL(*g_mockCurl, curl_easy_init())
-        .WillOnce(Return(kHdlSlot0))   // first miss  → slot VIDEO (0)
-        .WillOnce(Return(kHdlSlot1))   // second miss → slot AUDIO (1)
+        .WillOnce(Return(kHdlFirst))    // 1st miss → VIDEO slot, 1st session
+        .WillOnce(Return(kHdlSecond))   // 2nd miss → VIDEO slot, 2nd session
         .WillRepeatedly(Return(kFakeCurlHandle));
 
-    // Two cache misses: pool is empty, new handles created for each slot.
+    // Two concurrent cache misses on the same slot (two sessions, same host).
+    // Pool[VIDEO] is empty for both calls, so new handles are allocated.
     CURL *h0 = GetHandleForHostSlot(this, mAamp, hostname, eCURLINSTANCE_VIDEO);
-    CURL *h1 = GetHandleForHostSlot(this, mAamp, hostname, eCURLINSTANCE_AUDIO);
-    // h0 == kHdlSlot0, h1 == kHdlSlot1 (first two curl_easy_init calls)
-    ASSERT_EQ(h0, kHdlSlot0);
-    ASSERT_EQ(h1, kHdlSlot1);
+    CURL *h1 = GetHandleForHostSlot(this, mAamp, hostname, eCURLINSTANCE_VIDEO);
+    ASSERT_EQ(h0, kHdlFirst);
+    ASSERT_EQ(h1, kHdlSecond);
 
-    // Return both handles → pool now has kHdlSlot0 in slot VIDEO, kHdlSlot1 in slot AUDIO.
+    // Return h0 first, then h1.
+    // Pool[VIDEO] deque becomes [kHdlFirst, kHdlSecond]: kHdlFirst oldest (front),
+    // kHdlSecond newest (back).
     ReturnHandleForHostSlot(this, mAamp, hostname, eCURLINSTANCE_VIDEO, h0);
-    ReturnHandleForHostSlot(this, mAamp, hostname, eCURLINSTANCE_AUDIO, h1);
+    ReturnHandleForHostSlot(this, mAamp, hostname, eCURLINSTANCE_VIDEO, h1);
 
-    // Now request AUDIO first — must recycle kHdlSlot1, not kHdlSlot0.
-    CURL *recycled1 = GetHandleForHostSlot(this, mAamp, hostname, eCURLINSTANCE_AUDIO);
-    EXPECT_EQ(recycled1, kHdlSlot1);  // Slot AUDIO: no cross-slot contamination
+    // LIFO first get: must recycle kHdlSecond (newest entry, at the back).
+    // Old mFreeQ (pop_front / FIFO) would return kHdlFirst (at front) here,
+    // causing this assertion to FAIL on the old implementation.
+    CURL *recycledFirst = GetHandleForHostSlot(this, mAamp, hostname, eCURLINSTANCE_VIDEO);
+    EXPECT_EQ(recycledFirst, kHdlSecond);
 
-    // Then VIDEO — must recycle kHdlSlot0.
-    CURL *recycled0 = GetHandleForHostSlot(this, mAamp, hostname, eCURLINSTANCE_VIDEO);
-    EXPECT_EQ(recycled0, kHdlSlot0);  // Slot VIDEO: no cross-slot contamination
+    // Pool is now [kHdlFirst] only.  Second consecutive get returns kHdlFirst.
+    CURL *recycledSecond = GetHandleForHostSlot(this, mAamp, hostname, eCURLINSTANCE_VIDEO);
+    EXPECT_EQ(recycledSecond, kHdlFirst);
 
     // Restore balance (userCount → 0) so the entry is evictable.
-    ReturnHandleForHostSlot(this, mAamp, hostname, eCURLINSTANCE_AUDIO,  recycled1);
-    ReturnHandleForHostSlot(this, mAamp, hostname, eCURLINSTANCE_VIDEO, recycled0);
+    ReturnHandleForHostSlot(this, mAamp, hostname, eCURLINSTANCE_VIDEO, recycledFirst);
+    ReturnHandleForHostSlot(this, mAamp, hostname, eCURLINSTANCE_VIDEO, recycledSecond);
 }
 
 // ---------------------------------------------------------------------------
