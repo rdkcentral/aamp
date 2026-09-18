@@ -142,27 +142,6 @@ constexpr int64_t kBufferHighWaterNs = 40000000000LL; // 40 seconds
 // defeating the backpressure model.
 constexpr unsigned int kNeedDataFrameCount = 24;
 
-// Slack applied before a track is declared starved in
-// refreshMasterClockLocked().  Real pipelines (decoder lookahead, audio
-// ring-buffer depth, etc.) keep rendering for a while after fresh data
-// stops arriving rather than stalling the instant the horizon is passed -
-// confirmed against a real-GStreamer L2 log (AAMP-CONFIG-2033_live) that
-// tolerates ~2-2.4s fetch-side gaps between segments without ever
-// signalling underflow.
-//
-// 500ms and 600ms were both tried and both still fired underflow against
-// AAMP-CONFIG-2033_live - the real fetch-side gaps there run up to ~2.7s
-// (see the manifest-poll analysis for that test), far beyond anything
-// decode-ahead buffering alone would justify.  2000ms confirmed the
-// fetch-side gap is the whole story (AAMP-CONFIG-2033_live passes) but is
-// too large: it masks the genuine stall AAMP-BUFFER-6002_UnderflowMonitor
-// relies on detecting.  700ms is the current attempt at a middle ground;
-// still provisional pending a proper fix (see comment history above) -
-// a flat added slack cannot simultaneously survive multi-second fetch
-// gaps and still catch genuine stalls, so this constant alone may not be
-// resolvable and a different mechanism may be needed.
-constexpr int64_t kUnderflowToleranceNs = 700000000LL; // 700ms - provisional
-
 // One queued unit of media: the fields the master-clock/backpressure model
 // needs from a MediaSegment. Ingestion order for video is decode order, not
 // presentation order (see ComparePts below); audio/subtitle ingestion order
@@ -889,8 +868,7 @@ private:
 	// Returns the (possibly unchanged) master clock value in nanoseconds.
 	//
 	// Still detects per-track underflow: a track is starved once the clock
-	// has passed the furthest point it has real data for, plus
-	// kUnderflowToleranceNs slack. This is a
+	// has passed the furthest point it has real data for.  This is a
 	// narrower, purely informational signal - dispatched via
 	// notifyBufferUnderflow(), mirroring real Rialto (see
 	// AampRialtoMediaPipelineClient) - and does not affect the reported
@@ -935,7 +913,7 @@ private:
 				// Never received any data yet - that's preroll, not underflow.
 				continue;
 			}
-			bool starved = clockNs > std::max(trackHorizonIt->second, m_horizonFloorNs) + kUnderflowToleranceNs;
+			bool starved = clockNs > std::max(trackHorizonIt->second, m_horizonFloorNs);
 			bool alreadyNotified = m_underflowNotifiedSources.count(sourceId) > 0;
 			if (starved && !alreadyNotified)
 			{
