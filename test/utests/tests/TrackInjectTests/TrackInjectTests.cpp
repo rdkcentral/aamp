@@ -307,6 +307,69 @@ TEST_F(TrackInjectTests, RunInjectLoopTestNonLLD)
 	mMediaTrack->RunInjectLoop();
 }
 
+/**
+ * Verify that InjectFragment() does NOT call BlockUntilGstreamerWantsData()
+ * during fast-forward trickplay (rate > AAMP_NORMAL_PLAY_RATE).
+ *
+ * BlockUntilGstreamerWantsData() blocks on AampBufferControl's time-based
+ * buffer-full heuristic (target scaled by abs(rate)), which can flip to
+ * eBUFFER_FULL after just one or two injected I-frames during trickplay,
+ * even though GStreamer's actual appsrc queue is still starved. Since
+ * AampUnderflowMonitor deliberately suppresses underflow detection at
+ * trickplay rates, that self-healing path never kicks in, so the injector
+ * can be left blocked while the pipeline underflows for real. Skipping the
+ * gstreamer-side wait during trickplay avoids that false blocking.
+ */
+TEST_F(TrackInjectTests, RunInjectLoopTestTrickplayFF_SkipsGstreamerBlock)
+{
+	AampLLDashServiceData llDashData;
+	llDashData.availabilityTimeOffset = 0.0;
+	llDashData.lowLatencyMode = false;
+	mPrivateInstanceAAMP->rate = 30.0; // fast-forward trickplay
+
+	this->mPrivateInstanceAAMP->SetLLDashServiceData(llDashData);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(false));
+	Initialize();
+
+	mMediaTrack->fillCachedFragment(false, false);
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
+		.WillOnce(Return(true))
+		.WillOnce(Return(false));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(eMEDIATYPE_VIDEO, _, _, _, _, _, false, false));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, BlockUntilGstreamerWantsData(_, _, _)).Times(0);
+
+	mMediaTrack->RunInjectLoop();
+}
+
+/**
+ * Same as RunInjectLoopTestTrickplayFF_SkipsGstreamerBlock but for rewind
+ * trickplay (rate < 0), matching the -30x case reported alongside 30x.
+ */
+TEST_F(TrackInjectTests, RunInjectLoopTestTrickplayRW_SkipsGstreamerBlock)
+{
+	AampLLDashServiceData llDashData;
+	llDashData.availabilityTimeOffset = 0.0;
+	llDashData.lowLatencyMode = false;
+	mPrivateInstanceAAMP->rate = -30.0; // rewind trickplay
+
+	this->mPrivateInstanceAAMP->SetLLDashServiceData(llDashData);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(false));
+	Initialize();
+
+	mMediaTrack->fillCachedFragment(false, false);
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
+		.WillOnce(Return(true))
+		.WillOnce(Return(false));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(eMEDIATYPE_VIDEO, _, _, _, _, _, false, false));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, BlockUntilGstreamerWantsData(_, _, _)).Times(0);
+
+	mMediaTrack->RunInjectLoop();
+}
+
 TEST_F(TrackInjectTests, RunInjectLoopTestNonLLDInit)
 {
 	AampLLDashServiceData llDashData;

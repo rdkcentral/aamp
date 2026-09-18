@@ -1199,7 +1199,7 @@ bool MediaTrack::InjectFragment()
 	bool lowLatency = aamp->GetLLDashServiceData()->lowLatencyMode;
 	StreamAbstractionAAMP* pContext = GetContext();
 
-	if(!isChunkMode)
+	if(!isChunkMode && aamp->rate == AAMP_NORMAL_PLAY_RATE)
 	{
 		aamp->BlockUntilGstreamerWantsData(NULL, 0, type);
 	}
