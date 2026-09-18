@@ -149,9 +149,13 @@ constexpr unsigned int kNeedDataFrameCount = 24;
 // confirmed against a real-GStreamer L2 log (AAMP-CONFIG-2033_live) that
 // tolerates ~2-2.4s fetch-side gaps between segments without ever
 // signalling underflow. Public sources on GStreamer's own internal
-// buffering/queue tolerances put typical slack around 300-400ms; 500ms
-// gives a small safety margin over that.
-constexpr int64_t kUnderflowToleranceNs = 500000000LL; // 500ms
+// buffering/queue tolerances put typical slack around 300-400ms.  500ms
+// measured 46ms short of covering an observed manifest-unchanged retry
+// (MIN_DELAY_BETWEEN_PLAYLIST_UPDATE_MS) plus the subsequent fetch/inject
+// pipeline (AAMP-CONFIG-2033_live, aamp (15).log: horizon reached at
+// 396.727, next segment injected at 397.273 - a 546ms gap); 600ms gives
+// headroom over that 500ms retry hold plus pipeline overhead.
+constexpr int64_t kUnderflowToleranceNs = 600000000LL; // 600ms
 
 // One queued unit of media: the fields the master-clock/backpressure model
 // needs from a MediaSegment. Ingestion order for video is decode order, not
