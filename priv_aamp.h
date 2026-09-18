@@ -4027,6 +4027,15 @@ public:
 	 */
 	double GetFormatPositionOffsetInMSecs();
 
+	void SetBlockProgressMonitorOnTune(bool block = true)
+	{
+		mBlockProgressMonitorOnTune.store(block);
+	}
+	bool GetBlockProgressMonitorOnTune()
+	{
+		return mBlockProgressMonitorOnTune.load();
+	}
+
 protected:
 
 	/**
@@ -4189,6 +4198,7 @@ protected:
 	bool mTunedEventPending;
 	bool mSeekOperationInProgress;
 	bool mTrickplayInProgress;
+	std::atomic<bool> mBlockProgressMonitorOnTune;
 	std::map<guint, bool> mPendingAsyncEvents;
 	std::unordered_map<std::string, std::vector<std::string>> mCustomHeaders;
 	bool mIsFirstRequestToFOG;

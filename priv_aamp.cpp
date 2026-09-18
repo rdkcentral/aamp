@@ -1110,7 +1110,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	m_fd(-1), mIsLive(false), mIsAudioContextSkipped(false), mLogTune(false), mTuneCompleted(false), mFirstTune(true), mfirstTuneFmt(-1), mTuneAttempts(0), mPlayerLoadTime(0),
 	mState(eSTATE_RELEASED), mMediaFormat(eMEDIAFORMAT_HLS), mPersistedProfileIndex(0), mAvailableBandwidth(0),
 	mDiscontinuityTuneOperationInProgress(false), mContentType(ContentType_UNKNOWN), mTunedEventPending(false),
-	mSeekOperationInProgress(false), mTrickplayInProgress(false), mPendingAsyncEvents(), mCustomHeaders(),
+	mSeekOperationInProgress(false), mTrickplayInProgress(false), mBlockProgressMonitorOnTune(false), mPendingAsyncEvents(), mCustomHeaders(),
 	mManifestUrl(""), mTunedManifestUrl(""), mOrigManifestUrl(), mServiceZone(), mVssVirtualStreamId(),
 	mCurrentLanguageIndex(0),
 	preferredLanguagesString(), preferredLanguagesList(), preferredLabelList(),mhAbrManager(),
@@ -2086,7 +2086,8 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 		(state != eSTATE_IDLE) &&
 		(state != eSTATE_RELEASED) &&
 		(state != eSTATE_COMPLETE) &&
-		(state != eSTATE_SEEKING))
+		(state != eSTATE_SEEKING) &&
+		!GetBlockProgressMonitorOnTune())
 	{
 		// set position to 0 if the rewind operation has reached Beginning Of Stream
 		double position = beginningOfStream? 0: GetPositionMilliseconds();
@@ -2155,7 +2156,6 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 				videoBufferedDuration = mpStreamAbstractionAAMP->GetBufferedVideoDurationSec() * 1000.0;
 				audioBufferedDuration = mpStreamAbstractionAAMP->GetBufferedAudioDurationSec() * 1000.0;
 			}
-
 		}
 		if ((mReportProgressPosn == position) && !pipeline_paused && beginningOfStream != true)
 		{
@@ -8436,6 +8436,11 @@ void PrivateInstanceAAMP::SetState(AAMPPlayerState state, bool sendStateChangeEv
 	if (mState == state)
 	{ // noop
 		return;
+	}
+
+	if (state == eSTATE_PLAYING || state == eSTATE_BUFFERING || state == eSTATE_PAUSED)
+	{
+		SetBlockProgressMonitorOnTune(false);
 	}
 
 	if ( (state == eSTATE_PLAYING || state == eSTATE_BUFFERING || state == eSTATE_PAUSED)
