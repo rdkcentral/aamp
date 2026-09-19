@@ -26,9 +26,12 @@
 #include "MockAampConfig.h"
 #include "MockPrivateInstanceAAMP.h"
 #include "MockAampUtils.h"
+#include "MockInterfacePlayerRDK.h"
 
+using ::testing::DoAll;
 using ::testing::NiceMock;
 using ::testing::Return;
+using ::testing::SetArgReferee;
 using ::testing::StrEq;
 using ::testing::Eq;
 using ::testing::_;
@@ -51,11 +54,14 @@ protected:
 		g_mockGLib = std::make_shared<NiceMock<MockGLib>>();
 		g_mockAampConfig = std::make_shared<NiceMock<MockAampConfig>>();
 		g_mockPrivateInstanceAAMP = std::make_shared<NiceMock<MockPrivateInstanceAAMP>>();
+		g_mockInterfacePlayerRDK = std::make_shared<NiceMock<MockInterfacePlayerRDK>>();
 		mPrivateInstanceAAMP = new PrivateInstanceAAMP{};
 	}
 
 	void TearDown() override
 	{
+		g_mockInterfacePlayerRDK.reset();
+
 		g_mockPrivateInstanceAAMP.reset();
 
 		g_mockAampConfig.reset();
@@ -128,5 +134,102 @@ TEST_F(AAMPGstPlayerTests, SetVideoMute_NoSink)
 	mAAMPGstPlayer->SetVideoMute(mute);
 
 	//Tidy Up
+	DestroyAMPGstPlayer();
+}
+
+// ---------------------------------------------------------------------------
+// Discontinuity — VPAAMP-1050: PTS-restamp path with mp4demux
+// ---------------------------------------------------------------------------
+
+/**
+ * @test VPAAMP-1050: When CheckDiscontinuity() sets unblockDiscProcess=true
+ *       (CompleteDiscontinuityDataDeliverForPTSRestamp path) and useMp4Demux
+ *       is enabled, Discontinuity() must:
+ *         (a) call aamp->CompleteDiscontinuityDataDeliverForPTSRestamp(type), and
+ *         (b) return false so the inject-loop keeps running.
+ *
+ *       With mp4demux the PTS offset is absorbed by AampMp4Demuxer's restamp
+ *       layer; stopping injection here would stall the pipeline permanently.
+ */
+TEST_F(AAMPGstPlayerTests, Discontinuity_Mp4Demux_PtsRestamp_ReturnsFalseAndCompletesRestamp)
+{
+	ConstructAMPGstPlayer();
+
+	// Arrange: CheckDiscontinuity signals the PTS-restamp path.
+	EXPECT_CALL(*g_mockInterfacePlayerRDK, CheckDiscontinuity(_, _, _, _, _))
+		.WillOnce(DoAll(SetArgReferee<3>(true),   // unblockDiscProcess = true
+		                SetArgReferee<4>(false),  // shouldHaltBuffering = false
+		                Return(true)));
+
+	// useMp4Demux enabled → the new early-return branch must fire.
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseMp4Demux))
+		.WillRepeatedly(Return(true));
+
+	// The restamp latch must be released exactly once.
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+	            CompleteDiscontinuityDataDeliverForPTSRestamp(eMEDIATYPE_VIDEO))
+		.Times(1);
+
+	// UnblockWaitForDiscontinuityProcessToComplete must NOT be called on
+	// this path — only CompleteDiscontinuityDataDeliverForPTSRestamp is.
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+	            UnblockWaitForDiscontinuityProcessToComplete())
+		.Times(0);
+
+	// Act
+	bool result = mAAMPGstPlayer->Discontinuity(eMEDIATYPE_VIDEO);
+
+	// Assert: injection must continue — false means "do not stop".
+	EXPECT_FALSE(result);
+
+	DestroyAMPGstPlayer();
+}
+
+// ---------------------------------------------------------------------------
+// Discontinuity — VPAAMP-1051: no-flag (period-boundary) path with mp4demux
+// ---------------------------------------------------------------------------
+
+/**
+ * @test VPAAMP-1051: When CheckDiscontinuity() returns true but sets neither
+ *       output flag (elementary-stream period boundary treated as a no-op by
+ *       the player library) and useMp4Demux is enabled, Discontinuity() must:
+ *         (a) call aamp->UnblockWaitForDiscontinuityProcessToComplete() so the
+ *             FetcherLoop is not left waiting on a latch nobody will release, and
+ *         (b) return false so the inject-loop keeps running.
+ *
+ *       Without this fix downloads stop, the buffer starves, and position freezes.
+ */
+TEST_F(AAMPGstPlayerTests, Discontinuity_Mp4Demux_NeitherFlag_UnblocksAndReturnsFalse)
+{
+	ConstructAMPGstPlayer();
+
+	// Arrange: CheckDiscontinuity returns true but sets neither output flag —
+	// the period-boundary no-op case for elementary streams with mp4demux.
+	EXPECT_CALL(*g_mockInterfacePlayerRDK, CheckDiscontinuity(_, _, _, _, _))
+		.WillOnce(DoAll(SetArgReferee<3>(false),  // unblockDiscProcess = false
+		                SetArgReferee<4>(false),  // shouldHaltBuffering = false
+		                Return(true)));
+
+	// useMp4Demux enabled → the new else-if branch must fire.
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseMp4Demux))
+		.WillRepeatedly(Return(true));
+
+	// The FetcherLoop latch must be released exactly once.
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+	            UnblockWaitForDiscontinuityProcessToComplete())
+		.Times(1);
+
+	// CompleteDiscontinuityDataDeliverForPTSRestamp must NOT be called —
+	// neither flag was set.
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+	            CompleteDiscontinuityDataDeliverForPTSRestamp(_))
+		.Times(0);
+
+	// Act
+	bool result = mAAMPGstPlayer->Discontinuity(eMEDIATYPE_VIDEO);
+
+	// Assert: injection must continue — false means "do not stop".
+	EXPECT_FALSE(result);
+
 	DestroyAMPGstPlayer();
 }
