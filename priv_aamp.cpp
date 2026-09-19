@@ -13611,9 +13611,84 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param)
 				discardEnteringLiveEvt = true;
 				mOffsetFromTunetimeForSAPWorkaround = (double)(aamp_GetCurrentTimeMS() / 1000) - mLiveOffset;
 				mLanguageChangeInProgress = true;
-				if (ISCONFIGSET_PRIV(eAAMPConfig_SeamlessAudioSwitch) && !mFirstTune && ((mMediaFormat == eMEDIAFORMAT_HLS_MP4) || (mMediaFormat == eMEDIAFORMAT_DASH)))
+
+				// Determine whether the target subtitle track uses the same codec/format as
+				// the current track.  Only computed when the seamless path is actually possible
+				// (config enabled, not first tune, supported format) to avoid calling
+				// GetCurrentTextTrack() in unrelated retune scenarios (VPAAMP-1195 defect b).
+				// Default pessimistic (true = format changes → retune required); only cleared
+				// when a single requested language unambiguously maps to a track whose codec
+				// matches the currently active track — mirrors the audio codecChange logic in
+				// SetPreferredLanguages.
+				bool subtitleFormatChange = true;
+				if (ISCONFIGSET_PRIV(eAAMPConfig_SeamlessTextSwitch) && !mFirstTune &&
+					((mMediaFormat == eMEDIAFORMAT_HLS_MP4) || (mMediaFormat == eMEDIAFORMAT_DASH)) &&
+					preferredTextLanguagesList.size() == 1)
+				{
+					TextTrackInfo currentTextTrack;
+					if (mpStreamAbstractionAAMP->GetCurrentTextTrack(currentTextTrack))
+					{
+						const std::string &currentCodec = currentTextTrack.codec;
+						const std::string  firstLanguage = preferredTextLanguagesList.at(0);
+						const TextTrackInfo *target = nullptr;
+						bool ambiguousCodec = false;
+						for (const auto &trk : trackInfo)
+						{
+							if (trk.language == firstLanguage && trk.isAvailable)
+							{
+								if (target != nullptr && target->codec != trk.codec)
+								{
+									// Same language offered in more than one codec; cannot predict
+									// which representation SelectSubtitleTrack() will choose.
+									ambiguousCodec = true;
+									break;
+								}
+								if (target == nullptr)
+								{
+									target = &trk;
+								}
+							}
+						}
+						if (target != nullptr && !ambiguousCodec)
+						{
+							subtitleFormatChange = (target->codec != currentCodec);
+						}
+						AAMPLOG_INFO("SetPreferredTextLanguages: target lang=%s codec=%s current codec=%s ambiguous=%d subtitleFormatChange=%d",
+									 firstLanguage.c_str(),
+									 target ? target->codec.c_str() : "(not found)",
+									 currentCodec.c_str(), (int)ambiguousCodec, (int)subtitleFormatChange);
+					}
+				}
+
+				// IsSeamlessTrackSwitchPossible is evaluated last: the flag it guards is
+				// serviced by the fetcher loop.  If the fetcher has already exited (EOS),
+				// the flag is silently cleared by the VPAAMP-1166 EOS guard and the
+				// subtitle change is dropped.  Retuning is the only way to honour it then.
+				// Evaluated last so the cheap checks short-circuit first (VPAAMP-1195 defect a).
+				if (ISCONFIGSET_PRIV(eAAMPConfig_SeamlessTextSwitch) && !mFirstTune &&
+					((mMediaFormat == eMEDIAFORMAT_HLS_MP4) || (mMediaFormat == eMEDIAFORMAT_DASH)) &&
+					!subtitleFormatChange &&
+					mpStreamAbstractionAAMP->IsSeamlessTrackSwitchPossible(eMEDIATYPE_SUBTITLE))
 				{
 					AAMPLOG_WARN("Seamless Text switch has been enabled");
+					// HLS_MP4: mirror the track-bookkeeping the retune branch performs so
+					// mPreferredTextTrack, closedCaptionTrackId, and SetCurrentTextTrackIndex
+					// stay consistent (VPAAMP-1195 defect b).
+					if (mMediaFormat == eMEDIAFORMAT_HLS_MP4)
+					{
+						TextTrackInfo selectedTextTrack;
+						if (mpStreamAbstractionAAMP->SelectPreferredTextTrack(selectedTextTrack))
+						{
+							closedCaptionTrackId = FindTextTrackIndex(trackInfo, selectedTextTrack);
+							AAMPLOG_INFO("Seamless text switch: selected track index %d (lang=%s)",
+										 closedCaptionTrackId, selectedTextTrack.language.c_str());
+							SetPreferredTextTrack(std::move(selectedTextTrack));
+						}
+						else
+						{
+							AAMPLOG_WARN("SelectPreferredTextTrack failed during seamless text switch");
+						}
+					}
 					mpStreamAbstractionAAMP->RefreshTrack(eMEDIATYPE_SUBTITLE);
 				}
 				else
