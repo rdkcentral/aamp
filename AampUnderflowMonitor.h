@@ -166,6 +166,7 @@ private:
     bool                    mDeadlineArmed{false}; ///< False while pipeline is paused for buffering.
     double                  mCurrentPlayRate{1.0}; ///< Cached for resume re-arm.
     double                  mCurrentEndPosition{0.0}; ///< Cached for resume re-arm.
+    TimePoint               mUnderflowStartTime{}; ///< Steady-clock instant when the current underflow episode began.
 };
 
 #endif // AAMP_UNDERFLOW_MONITOR_H
