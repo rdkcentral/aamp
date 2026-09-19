@@ -264,6 +264,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false,"forceHttp",eAAMPConfig_ForceHttp,false},
 	{true,"internalRetune",eAAMPConfig_InternalReTune,false},
 	{false,"audioOnlyPlayback",eAAMPConfig_AudioOnlyPlayback,false},
+	{true,"miniWindowAudioOnly",eAAMPConfig_MiniWindowAudioOnly,false},
 	{false,"b64LicenseWrapping",eAAMPConfig_Base64LicenseWrapping,false},
 	{true,"gstBufferAndPlay",eAAMPConfig_GStreamerBufferingBeforePlay,false},
 	{false,"playreadyOutputProtection",eAAMPConfig_EnablePROutputProtection,false},
@@ -486,6 +487,8 @@ static const ConfigLookupEntryInt mConfigLookupTableInt[AAMPCONFIG_INT_COUNT+CON
 	{DEFAULT_UNDERFLOW_LOW_BUFFER_POLL_MS, "underflowLowBufferPollMs", eAAMPConfig_UnderflowLowBufferPollMs, true},
 	{DEFAULT_UNDERFLOW_MEDIUM_BUFFER_POLL_MS, "underflowMediumBufferPollMs", eAAMPConfig_UnderflowMediumBufferPollMs, true},
 	{DEFAULT_UNDERFLOW_HIGH_BUFFER_POLL_MS, "underflowHighBufferPollMs", eAAMPConfig_UnderflowHighBufferPollMs, true},
+	{320, "miniWindowWidthThreshold", eAAMPConfig_MiniWindowWidthThreshold, false},
+	{240, "miniWindowHeightThreshold", eAAMPConfig_MiniWindowHeightThreshold, false},
 	// Add new integer config entries above this line, before the aliases section.
 	//
 	// Aliases, kept for backwards compatibility
