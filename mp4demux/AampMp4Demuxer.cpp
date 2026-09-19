@@ -26,6 +26,7 @@
 #include "AampLogManager.h"
 #include "AampUtils.h"
 #include "AampConfig.h"
+#include "isobmffbuffer.h"
 #include <cmath>
 #include <cinttypes>
 
@@ -432,4 +433,96 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>&& buffer, double position,
 bool AampMp4Demuxer::getPTSRestampStatus() const
 {
 	return mEnablePtsRestamp;
+}
+
+/**
+ * @brief Reset PTS on audio track switch and flush the audio pipeline.
+ *
+ * Parses the first PTS from the fragment buffer, converts it to seconds
+ * using the current timescale, adds the PTS offset, and calls FlushTrack()
+ * on the audio appsrc so the sink discards the pre-buffered old-language
+ * audio immediately.
+ *
+ * This fixes VPAAMP-1193: with useMp4Demux=true the base-class no-op was
+ * inherited, so FlushTrack() was never called and playback continued in the
+ * old language for the duration of the already-buffered audio.
+ */
+void AampMp4Demuxer::resetPTSOnAudioSwitch(std::vector<uint8_t>& fragment, double position, double ptsOffset)
+{
+	IsoBmffBuffer buffer;
+	buffer.setBuffer(fragment);
+	buffer.parseBuffer();
+	uint64_t currentPTS = 0;
+	if (buffer.getFirstPTS(currentPTS))
+	{
+		// Use GetEffectiveTimeScale(): returns the box-derived timescale when an init
+		// segment has been parsed, otherwise the manifest-declared fallback set via
+		// SetFallbackTimeScale().  GetTimeScale() alone returns 0 for data-only
+		// fragments even when the fallback is configured, which would wrongly prevent
+		// FlushTrack from being called (VPAAMP-1193 review).
+		const uint32_t timeScale = mMp4Demux->GetEffectiveTimeScale();
+		double pos;
+		if (timeScale > 0)
+		{
+			pos = ((double)currentPTS / (double)timeScale) + ptsOffset;
+			AAMPLOG_INFO("AampMp4Demuxer %s First PTS from buffer is %" PRIu64 " with offset %lf",
+				GetMediaTypeName(mMediaType), currentPTS, ptsOffset);
+			AAMPLOG_MIL("Curr PTS %" PRIu64 " TS: %u", currentPTS, timeScale);
+		}
+		else
+		{
+			// Neither box-derived nor manifest fallback timescale is available.
+			// Use the caller-supplied playback position so FlushTrack is still called
+			// and the audio pipeline is flushed rather than silently leaving old-
+			// language audio buffered.
+			pos = position;
+			AAMPLOG_WARN("AampMp4Demuxer %s no effective timescale; falling back to caller position %lf for FlushTrack",
+				GetMediaTypeName(mMediaType), position);
+		}
+		mAamp->FlushTrack(mMediaType, pos);
+	}
+	else
+	{
+		AAMPLOG_WARN("AampMp4Demuxer %s no PTS found in fragment, skipping FlushTrack",
+			GetMediaTypeName(mMediaType));
+	}
+}
+
+/**
+ * @brief Reset PTS on subtitle track switch and flush the subtitle pipeline.
+ *
+ * Symmetric companion to resetPTSOnAudioSwitch() for the subtitle track.
+ * Parses the first PTS from the fragment buffer and calls FlushTrack() to
+ * discard already-buffered old-language subtitle data.
+ */
+void AampMp4Demuxer::resetPTSOnSubtitleSwitch(std::vector<uint8_t>& fragment, double position)
+{
+	IsoBmffBuffer buffer;
+	buffer.setBuffer(fragment);
+	buffer.parseBuffer();
+	uint64_t currentPTS = 0;
+	if (buffer.getFirstPTS(currentPTS))
+	{
+		const uint32_t timeScale = mMp4Demux->GetEffectiveTimeScale();
+		double pos;
+		if (timeScale > 0)
+		{
+			pos = (double)currentPTS / (double)timeScale;
+			AAMPLOG_INFO("AampMp4Demuxer %s First PTS from buffer is %" PRIu64,
+				GetMediaTypeName(mMediaType), currentPTS);
+			AAMPLOG_MIL("Curr PTS %" PRIu64 " TS: %u", currentPTS, timeScale);
+		}
+		else
+		{
+			pos = position;
+			AAMPLOG_WARN("AampMp4Demuxer %s no effective timescale; falling back to caller position %lf for FlushTrack",
+				GetMediaTypeName(mMediaType), position);
+		}
+		mAamp->FlushTrack(mMediaType, pos);
+	}
+	else
+	{
+		AAMPLOG_WARN("AampMp4Demuxer %s no PTS found in fragment, skipping FlushTrack",
+			GetMediaTypeName(mMediaType));
+	}
 }
