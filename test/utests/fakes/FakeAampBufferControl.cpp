@@ -46,6 +46,10 @@ void AampBufferControl::BufferControlMaster::needData(const AAMPGstPlayer *playe
 {
 }
 
+void AampBufferControl::BufferControlMaster::forceResume(const AampMediaType mediaType)
+{
+}
+
 void AampBufferControl::BufferControlMaster::enoughData(const AAMPGstPlayer *player,
 														AampMediaType mediaType)
 {

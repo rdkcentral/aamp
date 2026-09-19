@@ -366,6 +366,20 @@ void AampBufferControl::BufferControlMaster::needData(const AAMPGstPlayer *playe
 	BufferControlExternalData::actionDownloads(player, mediaType, mDownloadShouldBeEnabled);
 }
 
+void AampBufferControl::BufferControlMaster::forceResume(const AampMediaType mediaType)
+{
+	mMediaType = mediaType;
+	std::lock_guard<std::mutex> lock(mMutex);
+	if (!mTeardownInProgress)
+	{
+		if (mpBufferingStrategy)
+		{
+			mpBufferingStrategy->forceResume();
+		}
+	}
+	mDownloadShouldBeEnabled = true;
+}
+
 void AampBufferControl::BufferControlMaster::enoughData(const AAMPGstPlayer *player, const AampMediaType mediaType)
 {
 	try
