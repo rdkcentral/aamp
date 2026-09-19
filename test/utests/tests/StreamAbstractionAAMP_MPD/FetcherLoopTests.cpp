@@ -2878,7 +2878,7 @@ INSTANTIATE_TEST_SUITE_P(
 	::testing::ValuesIn(testCases));
 
 /**
- * @brief VPAAMP-342: HandleSeekEOSAndPeriodTransition must not trigger a forward period
+ * @brief HandleSeekEOSAndPeriodTransition must not trigger a forward period
  * transition when EOS is reported only on disabled tracks.
  *
  * Scenario: after init at period 0, mark all initialized non-NULL tracks disabled and set
@@ -2918,7 +2918,7 @@ TEST_F(FetcherLoopTests, HandleSeekEOS_DisabledTrack_NoPeriodTransition)
 }
 
 /**
- * @brief VPAAMP-345: SeekInPeriod must not let the subtitle track's SkipFragments
+ * @brief SeekInPeriod must not let the subtitle track's SkipFragments
  * return value overwrite the A/V remaining-seek that drives period transition.
  *
  * Setup: two-period A/V VOD (mAVVodManifest — video + audio, 2 s segments,
@@ -2988,7 +2988,7 @@ TEST_F(FetcherLoopTests, SeekInPeriod_SubtitleResultNotUsedForPeriodTransition)
 }
 
 /**
- * @brief VPAAMP-346: HandleSeekEOSAndPeriodTransition must restore period state when
+ * @brief HandleSeekEOSAndPeriodTransition must restore period state when
  * UpdateTrackInfo fails after a period switch attempt.
  *
  * Scenario:
@@ -3110,7 +3110,7 @@ TEST_F(FetcherLoopTests, HandleSeekEOS_UpdateTrackInfoFails_PeriodStateRestored)
 }
 
 // ===========================================================================
-// VPAAMP-444 — SegmentBase regression tests
+// SegmentBase regression tests
 // ===========================================================================
 
 // A minimal static 4-second VOD stream delivered via SegmentBase.
@@ -3145,7 +3145,7 @@ static constexpr const char *kSegmentBaseVodManifest = R"(<?xml version="1.0" en
 static const std::string kSegBaseVideoUrl{"http://host/asset/video.m4s"};
 
 /**
- * @brief VPAAMP-444 Fix 1: PushNextFragment advances fragmentDescriptor.Time.
+ * @brief PushNextFragment advances fragmentDescriptor.Time.
  *
  * Before the fix, the SegmentBase code path in PushNextFragment never updated
  * fragmentDescriptor.Time after downloading a data segment.  The fix adds:
@@ -3196,7 +3196,7 @@ TEST_F(FetcherLoopTests, SegmentBase_PushNextFragment_AdvancesDescriptorTime)
 }
 
 /**
- * @brief VPAAMP-444 Fix 2: SkipFragments resets stale fragmentTime before forward seek.
+ * @brief SkipFragments resets stale fragmentTime before forward seek.
  *
  * After a rate change, UpdateTrackInfo resets fragmentIndex to 0 but leaves
  * fragmentTime at the current playback position.  SeekInPeriod then calls
@@ -3245,7 +3245,7 @@ TEST_F(FetcherLoopTests, SegmentBase_SkipFragments_ForwardSeek_ResetsStaleFragme
 }
 
 /**
- * @brief VPAAMP-444 Fix 3: SkipFragments backs off to the correct fragment after rewind.
+ * @brief SkipFragments backs off to the correct fragment after rewind.
  *
  * The SIDX walk exits as soon as fragmentTime >= targetTime, meaning
  * fragmentIndex already points one entry past the fragment that contains the
@@ -3352,7 +3352,7 @@ TEST_F(FetcherLoopTests, SegmentBase_SkipFragments_FloatingPointEpsilon_CrossesF
 extern int g_submitJobCallCount;
 
 /**
- * @brief VPAAMP-614: SegmentBase init fragment must NOT be submitted via
+ * @brief SegmentBase init fragment must NOT be submitted via
  * AampTrackWorkerManager::SubmitJob when DashParallelFragDownload is enabled.
  *
  * The SegmentBase init segment is a byte-range request.  Submitting it
@@ -3395,15 +3395,15 @@ TEST_F(FetcherLoopTests, SegmentBase_InitFragment_NotSubmittedViaSubmitJob)
 }
 
 /**
- * @brief VPAAMP-614: SegmentBase media fragments must NOT be submitted via
+ * @brief SegmentBase media fragments must NOT be submitted via
  * AampTrackWorkerManager::SubmitJob when DashParallelFragDownload is enabled.
  *
  * All SegmentBase downloads (init and media) use byte-range requests against a
  * single file.  Submitting media segments asynchronously allows the FetcherLoop
  * to race ahead: it loads IDX and submits the next segment before the previous
  * download has completed.  During ABR switches this produces a stale (URL, IDX,
- * range) triple that confuses the IsoBmff parser with a bogus box-size error
- * (VPAAMP-614).  The segmentBaseContent guard forces all SegmentBase downloads
+ * range) triple that confuses the IsoBmff parser with a bogus box-size error.
+ * The segmentBaseContent guard forces all SegmentBase downloads
  * through the synchronous Execute() path regardless of
  * eAAMPConfig_DashParallelFragDownload.
  *
@@ -3442,7 +3442,7 @@ TEST_F(FetcherLoopTests, SegmentBase_MediaFragment_ExecutesSynchronously)
 	// A SegmentBase media fragment must go through Execute(), not SubmitJob, so
 	// the FetcherLoop cannot race ahead and produce a stale (URL, IDX, range)
 	// triple during ABR switches.  Narrowing the guard to init-only would leave
-	// this at 1, re-exposing the VPAAMP-614 parse error.
+	// this at 1, re-exposing the old parse error.
 	EXPECT_EQ(g_submitJobCallCount, 0)
 		<< "SegmentBase media fragment must execute via Execute(), not SubmitJob. "
 		   "Async submission allows the FetcherLoop to race ahead of IDX loading "

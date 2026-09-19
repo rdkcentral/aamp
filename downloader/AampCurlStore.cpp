@@ -30,13 +30,13 @@
 
 // Curl callback functions
 //
-// VPAAMP-558: per-host embedded lock (curlstorestruct::mShareLock).
+// Per-host embedded lock (curlstorestruct::mShareLock).
 //
 // Each curlstorestruct embeds a CurlDataShareLock as a value member.
 // CURLSHOPT_USERDATA is set to &CurlSock->mShareLock so that DNS, SSL, and
 // general libcurl-share operations for each CDN hostname use independent
 // per-host mutexes, restoring the parallelism lost by the
-// VPAAMP-139 single-static-lock fix.
+// single-static-lock fix.
 //
 // Safety: every cleanup path (RemoveCurlSock, ~CurlStore, FlushCurlSockForHost)
 // follows the order:
@@ -264,7 +264,7 @@ static int eas_curl_debug_callback(CURL *handle, curl_infotype type, char *data,
 CurlSocketStoreStruct *CurlStore::CreateCurlStore ( const std::string &hostname )
 {
 	CurlSocketStoreStruct *CurlSock = new curlstorestruct(); // throws std::bad_alloc on failure; no NULL check needed
-	CurlDataShareLock *locks = &CurlSock->mShareLock; // per-host embedded lock (VPAAMP-558)
+	CurlDataShareLock *locks = &CurlSock->mShareLock; // per-host embedded lock
 
 	CurlSock->timestamp = aamp_GetCurrentTimeMS();
 	CurlSock->mCurlStoreUserCount += 1;

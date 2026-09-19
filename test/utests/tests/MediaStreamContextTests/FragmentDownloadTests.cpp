@@ -928,7 +928,7 @@ TEST_F(FragmentDownloadTests, OnFragmentDownloadSuccess_UnderflowRecoveryRace_Fr
 }
 
 // ---------------------------------------------------------------------------
-// Shared SIDX test fixture data (used by VPAAMP-614 and VPAAMP-363 tests below)
+// Shared SIDX test fixture data
 // ---------------------------------------------------------------------------
 // Minimal SIDX box with 2 references.
 // Reference 0: referenced_size = 0x4000 = 16384 bytes, duration 2000 ticks
@@ -953,7 +953,7 @@ static const uint8_t kSidxBoxForABRTest[] = {
 };
 
 // ---------------------------------------------------------------------------
-// VPAAMP-614 regression: three additional SegmentBase race-condition fixes
+// Regression: three additional SegmentBase race-condition fixes
 // ---------------------------------------------------------------------------
 
 /**
@@ -1026,7 +1026,7 @@ TEST_F(FragmentDownloadTests, SegmentBase_FetchAndInjectInit_ResetsAreAtomic)
  * holding mIdxMutex.  A concurrent ClearAndRelease under the mutex between
  * that read and the subsequent snapshot (line ~1709) caused idxSnapshot to be
  * empty, which set eos=true prematurely — reproducing the repeated tune-fail
- * loop seen in VPAAMP-614.
+ * loop.
  *
  * This test verifies the fix: when IDX is cleared between the shouldLoadIdx
  * gate and the snapshot, the code detects the empty snapshot and sets eos
@@ -1128,9 +1128,9 @@ TEST_F(FragmentDownloadTests, SegmentBase_StopPath_ClearAndRelease_IsLocked)
 }
 
 // ---------------------------------------------------------------------------
-// VPAAMP-363 regression: SegmentBase ABR switch byte-range uses mIdxBaseOffset
+// Regression: SegmentBase ABR switch byte-range uses mIdxBaseOffset
 // ---------------------------------------------------------------------------
-// Root cause: VPAAMP-363 removed the SETCONFIGVALUE(...DashParallelFragDownload,
+// Root cause: Previously removed SETCONFIGVALUE(...DashParallelFragDownload,
 // false) guard from SkipFragments for SegmentBase streams, enabling parallel
 // downloads.  DownloadFragment's ABR-switch branch previously recomputed the
 // range as (0 + 1 + first_offset), which lands inside the moov/SIDX prefix and
@@ -1146,10 +1146,10 @@ TEST_F(FragmentDownloadTests, SegmentBase_StopPath_ClearAndRelease_IsLocked)
 // ---------------------------------------------------------------------------
 
 /**
- * @brief Regression test for VPAAMP-363: DownloadFragment ABR switch must use
+ * @brief Regression test: DownloadFragment ABR switch must use
  *        mIdxBaseOffset as the byte base for SegmentBase range computation.
  *
- * Setup mimics the race window exposed by VPAAMP-363:
+ * Setup mimics the race window exposed:
  *   - fragmentDescriptor.Bandwidth = 5000000 (current 1080p profile)
  *   - IDX holds the 1080p SIDX; mIdxBaseOffset = 1000 (segment 0 start)
  *   - dlInfo->bandwidth = 1400000 (stale 480p job queued before ABR switch)

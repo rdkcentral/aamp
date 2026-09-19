@@ -26,13 +26,13 @@ using namespace testing;
  * @class ErrorCodeMappingTests
  * @brief Tests that specific tune failures map to their documented error codes.
  *
- * Purpose: Lock in the backward-compatible error code contract (VPAAMP-918).
+ * Purpose: Lock in the backward-compatible error code contract.
  * These tests verify that the three error codes (51, 52, 53) that were
  * inadvertently shifted by commit bda30014 are now restored to their
  * original values, allowing external clients to match on these codes.
  *
  * Specification: See AAMP-UVE-API.md error code table for documented values.
- * Related: Commit bda30014 (VPLAY-11225) caused regression by consolidating
+ * Related: Commit bda30014 caused regression by consolidating
  * CORRUPT_DRM_DATA into the DRM group (50/10), cascading shifts to codes
  * 52 and 53. This PR restores codes 51, 52, 53 while keeping subCode for
  * fine-grained categorization.
