@@ -4783,7 +4783,13 @@ AAMPStatusType StreamAbstractionAAMP_MPD::IndexNewMPDDocument(bool updateTrackIn
 	if( mpd )
 	{
 		int deltaInPeriodIndex = mCurrentPeriodIdx;
-		mNumberOfPeriods = 	mMPDParseHelper->GetNumberOfPeriods();
+		mNumberOfPeriods = mMPDParseHelper->GetNumberOfPeriods();
+		if (mNumberOfPeriods == 0)
+		{
+			AAMPLOG_ERR("Cannot index MPD with no periods");
+			return eAAMPSTATUS_MANIFEST_CONTENT_ERROR;
+		}
+
 		if(mIsLiveStream && updateTrackInfo)
 		{
 			//Periods could be added or removed, So select period based on periodID
