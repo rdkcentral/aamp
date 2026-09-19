@@ -1297,6 +1297,14 @@ public:
 	virtual double GetFirstPeriodStartTime() { return 0; }
 	virtual double GetFirstPeriodDynamicStartTime() { return 0; }
 	virtual void RefreshTrack(AampMediaType type) {};
+
+	/**
+	 *   @fn IsSeamlessAudioSwitchPossible
+	 *
+	 *   @return true if a RefreshTrack(eMEDIATYPE_AUDIO) request can still be serviced
+	 */
+	virtual bool IsSeamlessAudioSwitchPossible();
+
 	virtual uint32_t GetCurrPeriodTimeScale()  { return 0; }
 	/**
 	 *   @fn CheckForRampDownLimitReached
