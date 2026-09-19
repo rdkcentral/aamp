@@ -272,6 +272,13 @@ The `.github/instructions/` directory contains deeper rules:
 - `testing.instructions.md`  
   General testing philosophy, Python/JS patterns, and integration testing.
 
+- `direct-rialto.instructions.md`
+  **Scoped to `direct-rialto/` only.** Mandates the TDD Red→Green→Refactor cycle
+  for every change, applies SOLID principles to new code in this directory, and
+  explicitly forbids cascading refactors into the rest of AAMP to avoid merge
+  conflicts. Consult this file before modifying any file in `direct-rialto/` the
+  directory.
+
 ### L1 Unit Testing (read all five for any L1 work)
 - `l1-build-run.instructions.md`  
   Mandatory build/run workflow. Do not skip or improvise.

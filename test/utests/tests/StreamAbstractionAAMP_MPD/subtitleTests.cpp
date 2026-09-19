@@ -130,6 +130,7 @@ public:
 		{eAAMPConfig_EnableIFrameTrackExtract, false},
 		{eAAMPConfig_GstSubtecEnabled, false},
 		{eAAMPConfig_useRialtoSink, false},
+		{eAAMPConfig_useDirectRialto, false},
 		{eAAMPConfig_UseMp4Demux, false},
 		{eAAMPConfig_ProcessLicenseFromEAP, false},
 	};
@@ -264,6 +265,8 @@ public:
 		EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
 		EXPECT_CALL(*g_mockAampMPDDownloader, GetManifest(_, _, _))
 			.WillOnce(WithoutArgs(Invoke(this, &SubtitleTrackTests::GetManifestForMPDDownloader)));
+		EXPECT_CALL(*g_mockPrivateInstanceAAMP, ResumeTrackDownloads(eMEDIATYPE_SUBTITLE))
+			.Times(AnyNumber());
 		status = mStreamAbstractionAAMP_MPD->Init(tuneType);
 		return status;
 	}
@@ -309,6 +312,73 @@ TEST_F(SubtitleTrackTests, selectsubtitleTrack)
 	bool newTune = true;
 	EXPECT_EQ(tTrackIdx, "");
 	CallSelectSubtitleTrack(newTune, tTracks, tTrackIdx);
+	EXPECT_EQ(tTrackIdx, "0-0");
+}
+/**
+ * @brief Regression test: SelectSubtitleTrack() must not call
+ * StopTrackDownloads(SUBTITLE) when direct-rialto is in use, since
+ * nothing else reliably resumes it there and the injector thread would
+ * stay gated forever (see AampRialtoPlayer::OnNeedMediaData fix).
+ */
+TEST_F(SubtitleTrackTests, SelectSubtitleTrack_DirectRialto_DoesNotStopTrackDownloads)
+{
+	static const char *manifest =
+    R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" profiles="urn:mpeg:dash:profile:isoff-live:2011" type="static" mediaPresentationDuration="PT2M0.0S" minBufferTime="PT4.0S">
+    <Period id="0" start="PT0.0S">
+        <AdaptationSet id="16" contentType="text" segmentAlignment="true" lang="ger">
+            <Role schemeIdUri="urn:mpeg:dash:role:2011" value="caption"/>
+            <Representation id="Germany TTML captions" mimeType="application/mp4" codecs="stpp" bandwidth="400">
+                <SegmentTemplate timescale="48000" media="dash/ttml_de_$Number%03d$.mp4" startNumber="1">
+                    <SegmentTimeline>
+                        <S t="0" d="96000" r="449"/>
+                    </SegmentTimeline>
+                </SegmentTemplate>
+            </Representation>
+        </AdaptationSet>
+    </Period>
+</MPD>
+)";
+	mBoolConfigSettings[eAAMPConfig_useDirectRialto] = true;
+	AAMPStatusType status = InitializeMPD(manifest);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+	std::vector<TextTrackInfo> tTracks;
+	std::string tTrackIdx;
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, StopTrackDownloads(eMEDIATYPE_SUBTITLE)).Times(0);
+	CallSelectSubtitleTrack(/*newTune=*/true, tTracks, tTrackIdx);
+	EXPECT_EQ(tTrackIdx, "0-0");
+}
+/**
+ * @brief Regression counterpart: SelectSubtitleTrack() must still call
+ * StopTrackDownloads(SUBTITLE) for the non-direct-rialto (gstreamer) path,
+ * where StopTrackDownloads/ResumeTrackDownloads are paired via the
+ * appsrc need-data/enough-data signals.
+ */
+TEST_F(SubtitleTrackTests, SelectSubtitleTrack_NonDirectRialto_StopsTrackDownloads)
+{
+	static const char *manifest =
+    R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" profiles="urn:mpeg:dash:profile:isoff-live:2011" type="static" mediaPresentationDuration="PT2M0.0S" minBufferTime="PT4.0S">
+    <Period id="0" start="PT0.0S">
+        <AdaptationSet id="16" contentType="text" segmentAlignment="true" lang="ger">
+            <Role schemeIdUri="urn:mpeg:dash:role:2011" value="caption"/>
+            <Representation id="Germany TTML captions" mimeType="application/mp4" codecs="stpp" bandwidth="400">
+                <SegmentTemplate timescale="48000" media="dash/ttml_de_$Number%03d$.mp4" startNumber="1">
+                    <SegmentTimeline>
+                        <S t="0" d="96000" r="449"/>
+                    </SegmentTimeline>
+                </SegmentTemplate>
+            </Representation>
+        </AdaptationSet>
+    </Period>
+</MPD>
+)";
+	AAMPStatusType status = InitializeMPD(manifest);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+	std::vector<TextTrackInfo> tTracks;
+	std::string tTrackIdx;
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, StopTrackDownloads(eMEDIATYPE_SUBTITLE)).Times(1);
+	CallSelectSubtitleTrack(/*newTune=*/true, tTracks, tTrackIdx);
 	EXPECT_EQ(tTrackIdx, "0-0");
 }
 /**

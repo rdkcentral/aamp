@@ -20,6 +20,8 @@
 # Assumes AAMP_ROOT and UTESTS_ROOT are set before including this file
 
 include_directories(${AAMP_ROOT} 
+                    ${AAMP_ROOT}/direct-rialto
+                    ${AAMP_ROOT}/.libs/include/rialto
                     ${AAMP_ROOT}/drm 
                     ${AAMP_ROOT}/drm/helper 
                     ${AAMP_ROOT}/downloader 
@@ -59,6 +61,7 @@ elseif(EXISTS "${MIDDLEWARE_REPO_ABS_PATH}")
 	                    ${MIDDLEWARE_REPO_ABS_PATH}/subtec/libsubtec
 	                    ${MIDDLEWARE_REPO_ABS_PATH}/playerjsonobject
 	                    ${MIDDLEWARE_REPO_ABS_PATH}/closedcaptions
+	                    ${MIDDLEWARE_REPO_ABS_PATH}/closedcaptions/direct-rialto
 	                    ${MIDDLEWARE_REPO_ABS_PATH}/drm
 	                    ${MIDDLEWARE_REPO_ABS_PATH}/drm/helper
 	                    ${MIDDLEWARE_REPO_ABS_PATH}/externals
