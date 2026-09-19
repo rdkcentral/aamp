@@ -32,6 +32,7 @@
 #include "PlayerExternalsInterface.h"
 #include "PlayerSecInterface.h"
 #include "abr.h"
+#include "AampFlightDataRecorder.h"
 #include <time.h>
 #include <map>
 //////////////// CAUTION !!!! STOP !!! Read this before you proceed !!!!!!! /////////////
@@ -384,6 +385,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false, "logFilename", eAAMPConfig_LogFilename, false},
 	{false, "processLicenseFromEAP", eAAMPConfig_ProcessLicenseFromEAP, false},
 	{false, "enableProducerReferenceDelay", eAAMPConfig_EnableProducerReferenceDelay, false},
+	{true, "enableFlightDataRecorder", eAAMPConfig_EnableFlightDataRecorder, false},
 };
 
 #define CONFIG_INT_ALIAS_COUNT 2
@@ -486,6 +488,8 @@ static const ConfigLookupEntryInt mConfigLookupTableInt[AAMPCONFIG_INT_COUNT+CON
 	{DEFAULT_UNDERFLOW_LOW_BUFFER_POLL_MS, "underflowLowBufferPollMs", eAAMPConfig_UnderflowLowBufferPollMs, true},
 	{DEFAULT_UNDERFLOW_MEDIUM_BUFFER_POLL_MS, "underflowMediumBufferPollMs", eAAMPConfig_UnderflowMediumBufferPollMs, true},
 	{DEFAULT_UNDERFLOW_HIGH_BUFFER_POLL_MS, "underflowHighBufferPollMs", eAAMPConfig_UnderflowHighBufferPollMs, true},
+	{5000, "flightDataRecorderMaxLines", eAAMPConfig_FlightDataRecorderMaxLines, false},
+	{15, "flightDataRecorderMaxSeconds", eAAMPConfig_FlightDataRecorderMaxSeconds, false},
 	// Add new integer config entries above this line, before the aliases section.
 	//
 	// Aliases, kept for backwards compatibility
@@ -1862,6 +1866,19 @@ void AampConfig::ConfigureLogSettings()
 	}
 
 	AampLogManager::logFilename = configValueBool[eAAMPConfig_LogFilename].value;
+	
+	bool fdrEnabled = configValueBool[eAAMPConfig_EnableFlightDataRecorder].value &&
+		AampLogManager::aampLoglevel.load(std::memory_order_relaxed) > eLOGLEVEL_INFO;
+	int rawMaxLines = configValueInt[eAAMPConfig_FlightDataRecorderMaxLines].value;
+	int rawMaxSeconds = configValueInt[eAAMPConfig_FlightDataRecorderMaxSeconds].value;
+	
+	size_t fdrMaxLines = (rawMaxLines > 0) ? (size_t)rawMaxLines : 5000;
+	if (fdrMaxLines > 100000) fdrMaxLines = 100000;
+	
+	uint64_t fdrMaxSeconds = (rawMaxSeconds > 0) ? (uint64_t)rawMaxSeconds : 15;
+	if (fdrMaxSeconds > 3600) fdrMaxSeconds = 3600;
+	
+	AampFlightDataRecorder::GetInstance().Initialize(fdrEnabled, fdrMaxLines, fdrMaxSeconds);
 }
 
 /**
