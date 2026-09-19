@@ -34,6 +34,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) :
 	profiler(),
 	licenceFromManifest(false),
 	previousAudioType(eAUDIO_UNKNOWN),
+	previousVideoType(eVIDEO_UNKNOWN),
 	isPreferredDRMConfigured(false),
 	mFogTSBEnabled(false),
 	mLiveOffset(AAMP_LIVE_OFFSET),
