@@ -160,6 +160,20 @@ constexpr unsigned int kNeedDataFrameCount = 24;
 // for AampUnderflowMonitor's deadline to expire.
 constexpr int64_t kClockClampToleranceNs = 3000000000LL; // 3000ms
 
+// Tolerance used in place of kClockClampToleranceNs for a track that has
+// NEVER delivered any data at all (true preroll, not merely a track that
+// primed once and has since stalled - see refreshMasterClockLocked()).
+// kClockClampToleranceNs can exceed a stream's very first segment duration
+// (e.g. 3000ms tolerance vs a 2000ms first segment), which let the clock
+// reach a position ahead of that first segment's own end before
+// AampUnderflowMonitor ever saw it, producing a spurious one-off negative
+// bufferSec that disarmed its deadline before a real stall could ever be
+// timed (AAMP-BUFFER-6002_UnderflowMonitor).  Real GStreamer's pipeline
+// clock does not advance before every sink has actually prerolled, so a
+// track with zero data should not let the clock advance ahead of the
+// other tracks' own real horizon at all.
+constexpr int64_t kPrerollClockClampToleranceNs = 0LL; // 0ms
+
 // One queued unit of media: the fields the master-clock/backpressure model
 // needs from a MediaSegment. Ingestion order for video is decode order, not
 // presentation order (see ComparePts below); audio/subtitle ingestion order
@@ -965,7 +979,9 @@ private:
 		// ahead of the slowest active track's horizon than
 		// kClockClampToleranceNs (see comment above this function).  A
 		// track that has never delivered any data yet is treated as
-		// horizon zero (relative to m_horizonFloorNs) rather than skipped -
+		// horizon zero (relative to m_horizonFloorNs), bounded by
+		// kPrerollClockClampToleranceNs rather than skipped or given
+		// the full kClockClampToleranceNs (see that constant's comment) -
 		// otherwise playback starting on just one ready source (see
 		// maybeStartPlayback()) lets the clock free-run on that source
 		// alone for however long a sibling takes to prime, which is
@@ -973,9 +989,7 @@ private:
 		// the clock raced ahead unclamped while video had zero data, then
 		// had to be corrected backward once video's first sample arrived,
 		// tripping AAMP's own position-monotonicity guard (see comment
-		// above this function).  Treating it as horizon zero from the
-		// start means the clock is capped at kClockClampToleranceNs until
-		// the track primes, so no backward correction is ever needed.
+		// above this function).
 		int64_t clockNs = projectedClockNs;
 		for (int32_t sourceId : m_attachedSources)
 		{
@@ -989,8 +1003,14 @@ private:
 				continue;
 			}
 			auto horizonIt = m_trackHorizonNs.find(sourceId);
-			int64_t horizonNs = (horizonIt != m_trackHorizonNs.end()) ? horizonIt->second : 0;
-			int64_t limitNs = std::max(horizonNs, m_horizonFloorNs) + kClockClampToleranceNs;
+			int64_t horizonNs = 0;
+			int64_t toleranceNs = kPrerollClockClampToleranceNs;
+			if (horizonIt != m_trackHorizonNs.end())
+			{
+				horizonNs = horizonIt->second;
+				toleranceNs = kClockClampToleranceNs;
+			}
+			int64_t limitNs = std::max(horizonNs, m_horizonFloorNs) + toleranceNs;
 			clockNs = std::min(clockNs, limitNs);
 		}
 
