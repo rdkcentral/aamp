@@ -74,6 +74,17 @@ bool IsoBmffBuffer::parseBuffer(bool correctBoxSize, int newTrackId)
     }
 }
 
+bool IsoBmffBuffer::TrimToDuration(uint64_t maximumDuration, uint64_t tolerance,
+    uint64_t& retainedDuration)
+{
+    if (g_mockIsoBmffBuffer)
+    {
+        return g_mockIsoBmffBuffer->TrimToDuration(maximumDuration, tolerance,
+            retainedDuration);
+    }
+    return false;
+}
+
 bool IsoBmffBuffer::ParseChunkData(const char* name, uint8_t* &unParsedBuffer, uint32_t timeScale,
 	size_t & parsedBufferSize, size_t &unParsedBufferSize, double& fpts, double &fduration)
 {

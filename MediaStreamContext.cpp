@@ -25,6 +25,7 @@
 #include "MediaStreamContext.h"
 #include "AampUtils.h"
 #include "isobmff/isobmffbuffer.h"
+#include "isobmff/isobmffhelper.h"
 #include "AampCacheHandler.h"
 #include "AampTSBSessionManager.h"
 #include "AampMPDUtils.h"
@@ -205,6 +206,27 @@ bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, const uint
 		AAMPLOG_WARN("[%s] Null fragment pointer with non-zero size %zu", name, size);
 		return false;
 	}
+	const bool isAudio = actualType == eMEDIATYPE_AUDIO;
+	const double chunkDurationSec = static_cast<double>(durationInTicks) /
+		mActiveDownloadInfo->timeScale;
+	const double chunkStart = mActiveDownloadInfo->absolutePosition +
+		mActiveDownloadInfo->chunkDurationSec;
+	mActiveDownloadInfo->chunkDurationSec += chunkDurationSec;
+	if (isAudio && mActiveDownloadInfo->audioPeriodTailReached)
+	{
+		return true;
+	}
+	if (isAudio && mActiveDownloadInfo->periodEndPosition > 0.0)
+	{
+		if (chunkStart >= mActiveDownloadInfo->periodEndPosition +
+			AAMP_DASH_AUDIO_PERIOD_TAIL_TOLERANCE_SEC)
+		{
+			mActiveDownloadInfo->audioPeriodTailReached = true;
+			AAMPLOG_WARN("[%s] Discarding audio chunk at %fs beyond Period end %fs",
+				name, chunkStart, mActiveDownloadInfo->periodEndPosition);
+			return true;
+		}
+	}
 	bool ret = true;
 	if (WaitForCachedFragmentInjected())
 	{
@@ -218,32 +240,54 @@ bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, const uint
 		PopulateCommonMetadata(cachedFragment, std::move(remoteUrl), actualType, 0, false, false);
 		TransferFragmentBuffer(cachedFragment, ptr, nullptr, size, true);
 		cachedFragment->downloadStartTime = dnldStartTime;
+		bool trimApplied = false;
+		if (isAudio && mActiveDownloadInfo->periodEndPosition > chunkStart &&
+			chunkStart + chunkDurationSec > mActiveDownloadInfo->periodEndPosition +
+			AAMP_DASH_AUDIO_PERIOD_TAIL_TOLERANCE_SEC)
+		{
+			const uint64_t remainingTicks = static_cast<uint64_t>(
+				(mActiveDownloadInfo->periodEndPosition - chunkStart) *
+				mActiveDownloadInfo->timeScale);
+			uint64_t retainedDurationTicks = 0;
+			if (mIsoBmffHelper->TrimToDuration(cachedFragment->fragment,
+				remainingTicks, 0, retainedDurationTicks))
+			{
+				cachedFragment->duration = static_cast<double>(retainedDurationTicks) /
+					mActiveDownloadInfo->timeScale;
+				mActiveDownloadInfo->audioPeriodTailReached = true;
+				trimApplied = true;
+			}
+		}
 
 		cachedFragment->absPosition = mActiveDownloadInfo->absolutePosition;
 		cachedFragment->timeScale = mActiveDownloadInfo->timeScale;
-		cachedFragment->duration = (double)durationInTicks / (double)cachedFragment->timeScale;
+		if (!trimApplied)
+		{
+			cachedFragment->duration = chunkDurationSec;
+		}
 		// Position of this chunk, before chunkDurationSec advances past it - required by the
 		// SLD restamping path (RestampPts/TrickModePtsRestamp), which chunk mode now also uses.
-		cachedFragment->position = mActiveDownloadInfo->pts + mActiveDownloadInfo->chunkDurationSec;
+		cachedFragment->position = mActiveDownloadInfo->pts + chunkStart -
+			mActiveDownloadInfo->absolutePosition;
 		if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp))
 		{
 			cachedFragment->position += mActiveDownloadInfo->ptsOffset.inSeconds();
 		}
-		mActiveDownloadInfo->chunkDurationSec += cachedFragment->duration;
+		mActiveDownloadInfo->cachedChunkDurationSec += cachedFragment->duration;
 		// Only update when absPosition is set to avoid messing up the values.
 		if (cachedFragment->absPosition > 0)
 		{
 			AAMPLOG_DEBUG("[%s] Updating last downloaded position[chunkDuration:%f]. Previous: %f, New: %f",
-				name, mActiveDownloadInfo->chunkDurationSec, lastDownloadedPosition.load(),
-				cachedFragment->absPosition + mActiveDownloadInfo->chunkDurationSec);
-			lastDownloadedPosition.store(cachedFragment->absPosition + mActiveDownloadInfo->chunkDurationSec);
+				name, mActiveDownloadInfo->cachedChunkDurationSec, lastDownloadedPosition.load(),
+				cachedFragment->absPosition + mActiveDownloadInfo->cachedChunkDurationSec);
+			lastDownloadedPosition.store(cachedFragment->absPosition + mActiveDownloadInfo->cachedChunkDurationSec);
 			if (eTRACK_VIDEO == type)
 			{
 				// Notify the underflow monitor for LL-DASH chunks.
 				// Paused-state gating to 0.0f is handled inside
 				// NotifyVideoFragmentToUnderflowMonitor under its mutex.
 				GetContext()->NotifyVideoFragmentToUnderflowMonitor(
-					cachedFragment->absPosition + mActiveDownloadInfo->chunkDurationSec,
+					cachedFragment->absPosition + mActiveDownloadInfo->cachedChunkDurationSec,
 					aamp->rate);
 				const double videoBufferMs = GetContext()->GetBufferedVideoDurationSec() * 1000.0;
 				if (videoBufferMs >= 0.0)
@@ -700,6 +744,32 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 	CachedFragment *cachedFragment = &mStagingFragment;
 	mActiveDownloadInfo = nullptr;
 	AampTSBSessionManager *tsbSessionManager = aamp->GetTSBSessionManager();
+	if (dlInfo->mediaType == eMEDIATYPE_AUDIO && !dlInfo->isInitSegment &&
+		dlInfo->periodEndPosition > dlInfo->absolutePosition &&
+		dlInfo->absolutePosition + dlInfo->fragmentDurationSec >
+			dlInfo->periodEndPosition + AAMP_DASH_AUDIO_PERIOD_TAIL_TOLERANCE_SEC)
+	{
+		const double maximumDurationSec = dlInfo->periodEndPosition -
+			dlInfo->absolutePosition;
+		uint64_t retainedDurationTicks = 0;
+		const uint64_t maximumDurationTicks = static_cast<uint64_t>(
+			maximumDurationSec * dlInfo->timeScale);
+		const uint64_t toleranceTicks = static_cast<uint64_t>(
+			AAMP_DASH_AUDIO_PERIOD_TAIL_TOLERANCE_SEC * dlInfo->timeScale);
+		if (mIsoBmffHelper->TrimToDuration(cachedFragment->fragment,
+			maximumDurationTicks, toleranceTicks, retainedDurationTicks))
+		{
+			dlInfo->fragmentDurationSec = static_cast<double>(retainedDurationTicks) /
+				dlInfo->timeScale;
+			AAMPLOG_WARN("[%s] Trimmed audio fragment at Period end %fs to %fs",
+				name, dlInfo->periodEndPosition, dlInfo->fragmentDurationSec);
+		}
+		else
+		{
+			AAMPLOG_WARN("[%s] Unable to trim audio fragment at Period end %fs",
+				name, dlInfo->periodEndPosition);
+		}
+	}
 
 	auto CheckEos = [this, &tsbSessionManager]()
 	{

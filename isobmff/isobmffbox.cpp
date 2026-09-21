@@ -1009,7 +1009,8 @@ TrunBox::TrunBox(uint32_t sz, uint64_t sampleDuration,uint32_t sampleCount, uint
 		sample_count_loc(sampleCountLoc),
 		first_sample_duration_loc(firstSampleDurationLoc),
 		mFirstSampleSize(firstSampleSize),
-		mFlags(flags)
+		mFlags(flags),
+		mEntries()
 {
 }
 
@@ -1023,7 +1024,8 @@ TrunBox::TrunBox(FullBox &fbox, uint64_t sampleDuration,uint32_t sampleCount, ui
 		sample_count_loc(sampleCountLoc),
 		first_sample_duration_loc(firstSampleDurationLoc),
 		mFirstSampleSize(firstSampleSize),
-		mFlags(flags)
+		mFlags(flags),
+		mEntries()
 {
 }
 
@@ -1073,6 +1075,7 @@ TrunBox* TrunBox::constructTrunBox(uint32_t sz, uint8_t *ptr)
 	uint32_t record_fields_count = 0;
 
 	uint32_t firstSampleSize{};
+	std::vector<TrunBox::Entry> entries{};
 
 	// count the number of bits set to 1 in the second byte of the flags
 	for (unsigned int i=0; i<8; i++)
@@ -1108,6 +1111,7 @@ TrunBox* TrunBox::constructTrunBox(uint32_t sz, uint8_t *ptr)
 
 	for (unsigned int i=0; i<sample_count; i++)
 	{
+		Entry entry{};
 		if (flags & TRUN_FLAG_SAMPLE_DURATION_PRESENT)
 		{
 			if (i==0)
@@ -1115,11 +1119,13 @@ TrunBox* TrunBox::constructTrunBox(uint32_t sz, uint8_t *ptr)
 				firstSampleDurationLoc = ptr;
 			}
 			sample_duration = READ_U32(ptr);
+			entry.sample_duration = sample_duration;
 			totalSampleDuration += sample_duration;
 		}
 		if (flags & TRUN_FLAG_SAMPLE_SIZE_PRESENT)
 		{
 			sample_size = READ_U32(ptr);
+			entry.sample_size = sample_size;
 			// Will be unhelpful for truncating if this is not present
 			if (i==0)
 			{
@@ -1134,10 +1140,84 @@ TrunBox* TrunBox::constructTrunBox(uint32_t sz, uint8_t *ptr)
 		{
 			ptr += sizeof(uint32_t);   // skip sample composition time offset
 		}
+		entries.push_back(entry);
 	}
 	FullBox fbox(sz, Box::TRUN, version, flags);
 	fbox.setBase(start);
-	return new TrunBox(fbox, totalSampleDuration, sample_count, sampleCountLoc, firstSampleDurationLoc, firstSampleSize, flags);
+	auto trun = new TrunBox(fbox, totalSampleDuration, sample_count, sampleCountLoc, firstSampleDurationLoc, firstSampleSize, flags);
+	trun->SetEntries(std::move(entries));
+	return trun;
+}
+
+void TrunBox::SetEntries(std::vector<Entry> entries)
+{
+	mEntries = std::move(entries);
+}
+
+bool TrunBox::GetLeadingSamplesWithinDuration(uint64_t maximumDuration,
+	uint32_t& retainedSampleCount, uint64_t& retainedDuration,
+	uint64_t& retainedPayloadSize) const
+{
+	if (!(mFlags & TRUN_FLAG_SAMPLE_DURATION_PRESENT) ||
+		!(mFlags & TRUN_FLAG_SAMPLE_SIZE_PRESENT) || mEntries.empty())
+	{
+		return false;
+	}
+
+	retainedSampleCount = 0;
+	retainedDuration = 0;
+	retainedPayloadSize = 0;
+	for (const auto& entry : mEntries)
+	{
+		if (entry.sample_duration > maximumDuration - retainedDuration)
+		{
+			break;
+		}
+		retainedDuration += entry.sample_duration;
+		retainedPayloadSize += entry.sample_size;
+		++retainedSampleCount;
+	}
+	return retainedSampleCount > 0;
+}
+
+bool TrunBox::dataOffsetPresent(void) const
+{
+	return (mFlags & TRUN_FLAG_DATA_OFFSET_PRESENT) != 0;
+}
+
+bool TrunBox::TruncateToSampleCount(uint32_t retainedSampleCount)
+{
+	if (retainedSampleCount == 0 || retainedSampleCount > sample_count)
+	{
+		return false;
+	}
+	if (retainedSampleCount == sample_count)
+	{
+		return true;
+	}
+
+	const uint32_t bytesPerSample = ((mFlags & TRUN_FLAG_SAMPLE_DURATION_PRESENT) ? 4 : 0) +
+		((mFlags & TRUN_FLAG_SAMPLE_SIZE_PRESENT) ? 4 : 0) +
+		((mFlags & TRUN_FLAG_SAMPLE_FLAGS_PRESENT) ? 4 : 0) +
+		((mFlags & TRUN_FLAG_SAMPLE_COMPOSITION_TIME_OFFSET_PRESENT) ? 4 : 0);
+	const uint32_t removedSize = (sample_count - retainedSampleCount) * bytesPerSample;
+	if (removedSize < SIZEOF_SIZE_AND_TAG)
+	{
+		return false;
+	}
+
+	const uint32_t newSize = getSize() - removedSize;
+	setSize(newSize);
+	SkipBox skip{removedSize, getBase() + newSize};
+	WRITE_U32(sample_count_loc, retainedSampleCount);
+	sample_count = retainedSampleCount;
+	mEntries.resize(retainedSampleCount);
+	duration = 0;
+	for (const auto& entry : mEntries)
+	{
+		duration += entry.sample_duration;
+	}
+	return true;
 }
 
 /**

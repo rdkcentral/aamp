@@ -655,7 +655,8 @@ bool StreamAbstractionAAMP_MPD::FetchFragment(MediaStreamContext *pMediaStreamCo
 		pMediaStreamContext->fragmentDescriptor.TimeScale,
 		pMediaStreamContext->fragmentDescriptor.Bandwidth,
 		mPTSOffset,
-		uriList);
+		uriList,
+		mPeriodEndTime);
 
 	// Wrap the lambda in a JobWrapper
 	auto downloadJob = std::make_shared<aamp::MediaSegmentDownloadJob>(downloadInfo, [this, pMediaStreamContext, downloadInfo]() {
@@ -9805,6 +9806,14 @@ void StreamAbstractionAAMP_MPD::GetStartAndDurationForPtsRestamping(AampTime &st
 	 */
 	if ((audioDuration != 0.0) && (videoDuration != 0.0))
 	{
+		if (mPeriodEndTime > audioStart.inSeconds() &&
+			audioStart + audioDuration >
+				mPeriodEndTime + AAMP_DASH_AUDIO_PERIOD_TAIL_TOLERANCE_SEC)
+		{
+			AAMPLOG_WARN("Capping audio timeline end %fs at Period end %fs",
+				(audioStart + audioDuration).inSeconds(), mPeriodEndTime);
+			audioDuration = mPeriodEndTime - audioStart;
+		}
 		// for cases where 2 tracks have slightly different durations, take the maximum to avoid injecting overlapping media
 		duration = std::max(audioDuration, videoDuration);
 		mAudioSurplus = 0;

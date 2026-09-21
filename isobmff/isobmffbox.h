@@ -844,6 +844,11 @@ public:
 	uint32_t sample_composition_time_offset;
 	};
 
+private:
+	std::vector<Entry> mEntries;
+
+public:
+
 	/**
  	 * @fn TrunBox
  	 *
@@ -905,6 +910,11 @@ public:
 	static TrunBox* constructTrunBox(uint32_t sz, uint8_t *ptr);
 
 	/**
+	 * @brief Store parsed sample entries for duration-based trimming.
+	 */
+	void SetEntries(std::vector<Entry> entries);
+
+	/**
 	 * @fn truncate
 	 */
 	void truncate(void) override;
@@ -922,6 +932,22 @@ public:
 	 * @return true if SAMPLE_DURATION_PRESENT is enabled, false otherwise
 	 */
 	bool sampleDurationPresent(void);
+
+	/**
+	 * @brief Return whether the trun contains an explicit data offset.
+	 */
+	bool dataOffsetPresent(void) const;
+
+	/**
+	 * @brief Get the duration and payload size of the leading complete samples.
+	 */
+	bool GetLeadingSamplesWithinDuration(uint64_t maximumDuration,
+		uint32_t& sampleCount, uint64_t& duration, uint64_t& payloadSize) const;
+
+	/**
+	 * @brief Retain only the specified leading samples.
+	 */
+	bool TruncateToSampleCount(uint32_t sampleCount);
 };
 
 /**

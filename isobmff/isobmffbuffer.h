@@ -289,6 +289,15 @@ public:
 	void setPtsAndDuration(uint64_t pts, uint32_t duration);
 
 	/**
+	 * @brief Trim a simple media fragment to complete leading samples.
+	 *
+	 * Supports one clear moof/traf/trun/mdat fragment with explicit sample
+	 * durations and sizes. Unsupported layouts are not modified.
+	 */
+	bool TrimToDuration(uint64_t maximumDuration, uint64_t tolerance,
+		uint64_t& retainedDuration);
+
+	/**
 	 * @fn getFirstPTS
 	 *
 	 * @param[out] pts - pts value

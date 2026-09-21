@@ -55,6 +55,18 @@ bool IsoBmffHelper::SetPtsAndDuration(std::vector<uint8_t> &buffer, uint64_t pts
     return true;
 }
 
+bool IsoBmffHelper::TrimToDuration(std::vector<uint8_t> &buffer,
+	uint64_t maximumDurationTicks, uint64_t toleranceTicks,
+	uint64_t &retainedDurationTicks)
+{
+	if (g_mockIsoBmffHelper)
+	{
+		return g_mockIsoBmffHelper->TrimToDuration(buffer, maximumDurationTicks,
+			toleranceTicks, retainedDurationTicks);
+	}
+	return false;
+}
+
 bool IsoBmffHelper::ClearMediaHeaderDuration(std::vector<uint8_t> &buffer)
 {
 	if (g_mockIsoBmffHelper)

@@ -30,6 +30,7 @@
 #include "MockStreamAbstractionAAMP.h"
 #include "MockPrivateInstanceAAMP.h"
 #include "MockAampTimeBasedBufferManager.h"
+#include "MockIsoBmffHelper.h"
 #include "MockTSBSessionManager.h"
 #include "MockTSBReader.h"
 #include "MockStreamAbstractionAAMP_MPD.h"
@@ -76,6 +77,7 @@ protected:
 		g_mockStreamAbstractionAAMP = std::make_shared<NiceMock<MockStreamAbstractionAAMP>>(mPrivateInstanceAAMP);
 		g_mockPrivateInstanceAAMP = std::make_shared<StrictMock<MockPrivateInstanceAAMP>>();
 		g_mockAampTimeBasedBufferManager = std::make_shared<StrictMock<aamp::MockAampTimeBasedBufferManager>>();
+		g_mockIsoBmffHelper = std::make_shared<NiceMock<MockIsoBmffHelper>>();
 		// GetVideo/AudioBufferedDurationSecs() are called for every fragment via
 		// NotifyBufferLevelToLatencyMonitor.  Allow any number of calls so all tests
 		// in this fixture pass without needing per-test EXPECT_CALL boilerplate.
@@ -104,6 +106,7 @@ protected:
 	void TearDown() override
 	{
 		g_mockStreamAbstractionAAMP_MPD.reset();
+		g_mockIsoBmffHelper.reset();
 		mMockStreamAbstractionAAMP_MPD.reset();
 		g_mockTSBReader.reset();
 		mTsbReader.reset();
@@ -153,6 +156,109 @@ TEST_F(FragmentDownloadTests, OnFragmentDownloadSuccess_NullActiveDownloadInfo)
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Return(true));
 	mMediaStreamContext->OnFragmentDownloadSuccess(dlInfo);
 	// Expect no crash or exception
+}
+
+/**
+ * @brief Verify an audio tail beyond tolerance is trimmed before caching.
+ */
+TEST_F(FragmentDownloadTests,
+	OnFragmentDownloadSuccess_AudioOverhang_UsesRetainedDuration)
+{
+	mMediaStreamContext->mActiveDownloadInfo = std::make_shared<DownloadInfo>();
+	auto downloadInfo = std::make_shared<DownloadInfo>();
+	downloadInfo->mediaType = eMEDIATYPE_AUDIO;
+	downloadInfo->absolutePosition = 8.0;
+	downloadInfo->fragmentDurationSec = 3.0;
+	downloadInfo->periodEndPosition = 10.0;
+	downloadInfo->timeScale = 1000;
+	static constexpr uint8_t kFragment[] = {0x01, 0x02, 0x03, 0x04};
+	mMediaStreamContext->mStagingFragment.fragment.assign(kFragment,
+		kFragment + sizeof(kFragment));
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
+		.WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager())
+		.WillRepeatedly(Return(nullptr));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection())
+		.WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode())
+		.WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp))
+		.WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockIsoBmffHelper, TrimToDuration(_, 2000, 100, _))
+		.WillOnce([](std::vector<uint8_t>&, uint64_t, uint64_t,
+			uint64_t& retainedDuration)
+		{
+			retainedDuration = 1920;
+			return true;
+		});
+
+	auto chunkSlot = std::make_shared<CachedFragment>();
+	EXPECT_CALL(*g_mockMediaTrack, GetFetchBuffer(true))
+		.WillOnce(Return(chunkSlot.get()));
+	EXPECT_CALL(*g_mockMediaTrack, UpdateTSAfterFetch());
+
+	mMediaStreamContext->OnFragmentDownloadSuccess(downloadInfo);
+
+	EXPECT_DOUBLE_EQ(downloadInfo->fragmentDurationSec, 1.92);
+	EXPECT_DOUBLE_EQ(chunkSlot->duration, 1.92);
+	aamp_utils::ClearAndRelease(chunkSlot->fragment);
+}
+
+/**
+ * @brief Verify LL-DASH audio chunks beyond the Period boundary are not cached.
+ */
+TEST_F(FragmentDownloadTests, CacheFragmentChunk_AudioPastPeriodEnd_IsDiscarded)
+{
+	mMediaStreamContext->mActiveDownloadInfo = std::make_shared<DownloadInfo>();
+	mMediaStreamContext->mActiveDownloadInfo->absolutePosition = 10.2;
+	mMediaStreamContext->mActiveDownloadInfo->periodEndPosition = 10.0;
+	mMediaStreamContext->mActiveDownloadInfo->timeScale = 1000;
+	static constexpr uint8_t kChunk[] = {0x01, 0x02};
+
+	EXPECT_CALL(*g_mockMediaTrack, GetFetchBuffer(_)).Times(0);
+	EXPECT_TRUE(mMediaStreamContext->CacheFragmentChunk(eMEDIATYPE_AUDIO,
+		kChunk, sizeof(kChunk), "audio.m4s", 0, 1024));
+	EXPECT_EQ(mMediaStreamContext->mActiveDownloadInfo->chunkDurationSec, 1.024);
+
+	EXPECT_CALL(*g_mockMediaTrack, GetFetchBuffer(_)).Times(0);
+	EXPECT_TRUE(mMediaStreamContext->CacheFragmentChunk(eMEDIATYPE_AUDIO,
+		kChunk, sizeof(kChunk), "audio.m4s", 0, 1024));
+	EXPECT_EQ(mMediaStreamContext->mActiveDownloadInfo->chunkDurationSec, 2.048);
+}
+
+/**
+ * @brief Verify a crossing audio chunk is trimmed and later chunks are dropped.
+ */
+TEST_F(FragmentDownloadTests, CacheFragmentChunk_AudioCrossesPeriodEnd_TrimsTail)
+{
+	mMediaStreamContext->mActiveDownloadInfo = std::make_shared<DownloadInfo>();
+	mMediaStreamContext->mActiveDownloadInfo->absolutePosition = 9.0;
+	mMediaStreamContext->mActiveDownloadInfo->periodEndPosition = 10.0;
+	mMediaStreamContext->mActiveDownloadInfo->timeScale = 1000;
+	static constexpr uint8_t kChunk[] = {0x01, 0x02};
+	auto cachedFragment = std::make_shared<CachedFragment>();
+
+	EXPECT_CALL(*g_mockMediaTrack, GetFetchBuffer(true))
+		.WillOnce(Return(cachedFragment.get()));
+	EXPECT_CALL(*g_mockMediaTrack, UpdateTSAfterFetch());
+	EXPECT_CALL(*g_mockIsoBmffHelper, TrimToDuration(_, 1000, 0, _))
+		.WillOnce([](std::vector<uint8_t>&, uint64_t, uint64_t,
+			uint64_t& retainedDuration)
+		{
+			retainedDuration = 1000;
+			return true;
+		});
+
+	EXPECT_TRUE(mMediaStreamContext->CacheFragmentChunk(eMEDIATYPE_AUDIO,
+		kChunk, sizeof(kChunk), "audio.m4s", 0, 2000));
+	EXPECT_DOUBLE_EQ(cachedFragment->duration, 1.0);
+	EXPECT_TRUE(mMediaStreamContext->mActiveDownloadInfo->audioPeriodTailReached);
+
+	EXPECT_CALL(*g_mockMediaTrack, GetFetchBuffer(_)).Times(0);
+	EXPECT_TRUE(mMediaStreamContext->CacheFragmentChunk(eMEDIATYPE_AUDIO,
+		kChunk, sizeof(kChunk), "audio.m4s", 0, 1000));
+	EXPECT_EQ(mMediaStreamContext->mActiveDownloadInfo->chunkDurationSec, 3.0);
 }
 
 /**

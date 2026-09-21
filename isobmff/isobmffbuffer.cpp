@@ -434,6 +434,61 @@ void IsoBmffBuffer::setPtsAndDuration(uint64_t pts, uint32_t duration)
 	}
 }
 
+bool IsoBmffBuffer::TrimToDuration(uint64_t maximumDuration, uint64_t tolerance,
+	uint64_t& retainedDuration)
+{
+	retainedDuration = 0;
+	if (readOnlyBuffer || boxes.empty() || maximumDuration > UINT64_MAX - tolerance)
+	{
+		return false;
+	}
+
+	size_t moofIndex = 0;
+	auto moof = getBox(Box::MOOF, moofIndex);
+	if (!moof || getBox(Box::MOOF, ++moofIndex) != nullptr)
+	{
+		return false;
+	}
+	size_t trafIndex = 0;
+	auto traf = getChildBox(moof, Box::TRAF, trafIndex);
+	if (!traf || getChildBox(moof, Box::TRAF, ++trafIndex) != nullptr)
+	{
+		return false;
+	}
+	if (findBoxInVector(Box::SENC, traf->getChildren()) ||
+		findBoxInVector(Box::SAIZ, traf->getChildren()))
+	{
+		return false;
+	}
+	auto trun = dynamic_cast<TrunBox *>(findBoxInVector(Box::TRUN, traf->getChildren()));
+	if (!trun || trun->dataOffsetPresent())
+	{
+		return false;
+	}
+
+	uint32_t retainedSampleCount = 0;
+	uint64_t retainedPayloadSize = 0;
+	uint64_t totalDuration = trun->getSampleDuration();
+	if (totalDuration <= maximumDuration + tolerance ||
+		!trun->GetLeadingSamplesWithinDuration(maximumDuration, retainedSampleCount,
+		retainedDuration, retainedPayloadSize))
+	{
+		return false;
+	}
+
+	size_t mdatIndex = 0;
+	auto mdat = dynamic_cast<MdatBox *>(getBox(Box::MDAT, mdatIndex));
+	if (!mdat || getBox(Box::MDAT, ++mdatIndex) != nullptr ||
+		retainedPayloadSize > mdat->getSize() - SIZEOF_SIZE_AND_TAG ||
+		!trun->TruncateToSampleCount(retainedSampleCount))
+	{
+		return false;
+	}
+	mdat->truncate(static_cast<uint32_t>(retainedPayloadSize + SIZEOF_SIZE_AND_TAG));
+	bufSize = mdat->getOffset() + mdat->getSize();
+	return true;
+}
+
 /**
  *  @brief Release ISOBMFF boxes parsed
  */

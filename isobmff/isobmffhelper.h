@@ -89,6 +89,19 @@ class IsoBmffHelper
 		bool SetPtsAndDuration(std::vector<uint8_t> &buffer, uint64_t pts, uint32_t duration);
 
 		/**
+		 * @brief Retain only complete leading samples within a duration limit.
+		 *
+		 * @param[in,out] buffer ISOBMFF media fragment to trim
+		 * @param[in] maximumDurationTicks Maximum retained duration in track ticks
+		 * @param[in] toleranceTicks Allowed overhang before trimming in track ticks
+		 * @param[out] retainedDurationTicks Retained duration in track ticks
+		 * @return true when the fragment was safely trimmed
+		 */
+		bool TrimToDuration(std::vector<uint8_t> &buffer,
+			uint64_t maximumDurationTicks, uint64_t toleranceTicks,
+			uint64_t &retainedDurationTicks);
+
+		/**
 		 * @fn ClearMediaHeaderDuration
 		 *
 		 * @brief Clear the sample duration in the mdhd box

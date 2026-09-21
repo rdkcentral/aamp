@@ -211,3 +211,30 @@ TEST_F(IsoBmffHelperTests, clearMediaHeaderDurationNegativeTest_2)
 	EXPECT_CALL(*g_mockIsoBmffBuffer, setMediaHeaderDuration(0)).WillOnce(Return(false));
 	EXPECT_FALSE(helper->ClearMediaHeaderDuration(buffer));
 }
+
+/**
+ * @brief Verify a successful tail trim delegates the supplied tick limits.
+ */
+TEST_F(IsoBmffHelperTests, TrimToDuration_TrimSucceeds_ReturnsRetainedDuration)
+{
+	static constexpr auto BUFFER = "IsoBmff buffer content"sv;
+	std::vector<uint8_t> buffer(BUFFER.begin(), BUFFER.end());
+	uint64_t retainedDuration{0};
+	const uint64_t maximumDuration{48000};
+	const uint64_t tolerance{1024};
+	auto expectedPtr = buffer.data();
+
+	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(expectedPtr, buffer.size()));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(false, -1)).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockIsoBmffBuffer,
+		TrimToDuration(maximumDuration, tolerance, _))
+		.WillOnce([](uint64_t, uint64_t, uint64_t& retained)
+		{
+			retained = 47000;
+			return true;
+		});
+
+	EXPECT_TRUE(helper->TrimToDuration(buffer, maximumDuration, tolerance,
+		retainedDuration));
+	EXPECT_EQ(retainedDuration, 47000U);
+}
