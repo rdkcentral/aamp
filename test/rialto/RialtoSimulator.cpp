@@ -897,11 +897,17 @@ private:
 	// Returns the (possibly clamped) master clock value in nanoseconds.
 	//
 	// Still detects per-track underflow: a track is starved once the clock
-	// has passed the furthest point it has real data for.  This is a
-	// narrower, purely informational signal - dispatched via
-	// notifyBufferUnderflow(), mirroring real Rialto (see
-	// AampRialtoMediaPipelineClient) - computed from the raw (unclamped)
-	// projection, independently of whatever gets reported as position.
+	// has passed the furthest point it has real data for, plus
+	// kClockClampToleranceNs slack (the same tolerance the clamp above
+	// uses, so the two signals stay consistent - a track within tolerance
+	// of the clock isn't reported starved either).  This is a narrower,
+	// purely informational signal - dispatched via notifyBufferUnderflow(),
+	// mirroring real Rialto (see AampRialtoMediaPipelineClient).  Without
+	// this tolerance, notifyBufferUnderflow() fired the instant the clock
+	// passed a track's horizon at all, which for AAMP-CONFIG-2033_live
+	// (enableAampUnderflowMonitor=false) triggers PrivateInstanceAAMP's
+	// real auto-pause-for-buffering path on every ordinary live-edge
+	// manifest gap, not just genuine stalls.
 	// Newly-starved sources are queued in m_pendingUnderflowNotifications
 	// for refreshAndGetPositionNs() to dispatch after releasing the lock;
 	// debounced via m_underflowNotifiedSources so it fires once per stall,
@@ -942,7 +948,7 @@ private:
 				// Never received any data yet - that's preroll, not underflow.
 				continue;
 			}
-			bool starved = projectedClockNs > std::max(trackHorizonIt->second, m_horizonFloorNs);
+			bool starved = projectedClockNs > std::max(trackHorizonIt->second, m_horizonFloorNs) + kClockClampToleranceNs;
 			bool alreadyNotified = m_underflowNotifiedSources.count(sourceId) > 0;
 			if (starved && !alreadyNotified)
 			{
@@ -957,7 +963,19 @@ private:
 
 		// Unconditional clamp: the reported clock can never run further
 		// ahead of the slowest active track's horizon than
-		// kClockClampToleranceNs (see comment above this function).
+		// kClockClampToleranceNs (see comment above this function).  A
+		// track that has never delivered any data yet is treated as
+		// horizon zero (relative to m_horizonFloorNs) rather than skipped -
+		// otherwise playback starting on just one ready source (see
+		// maybeStartPlayback()) lets the clock free-run on that source
+		// alone for however long a sibling takes to prime, which is
+		// exactly the overshoot AAMP-BUFFER-6002_UnderflowMonitor exposed:
+		// the clock raced ahead unclamped while video had zero data, then
+		// had to be corrected backward once video's first sample arrived,
+		// tripping AAMP's own position-monotonicity guard (see comment
+		// above this function).  Treating it as horizon zero from the
+		// start means the clock is capped at kClockClampToleranceNs until
+		// the track primes, so no backward correction is ever needed.
 		int64_t clockNs = projectedClockNs;
 		for (int32_t sourceId : m_attachedSources)
 		{
@@ -971,11 +989,8 @@ private:
 				continue;
 			}
 			auto horizonIt = m_trackHorizonNs.find(sourceId);
-			if (horizonIt == m_trackHorizonNs.end())
-			{
-				continue;
-			}
-			int64_t limitNs = std::max(horizonIt->second, m_horizonFloorNs) + kClockClampToleranceNs;
+			int64_t horizonNs = (horizonIt != m_trackHorizonNs.end()) ? horizonIt->second : 0;
+			int64_t limitNs = std::max(horizonNs, m_horizonFloorNs) + kClockClampToleranceNs;
 			clockNs = std::min(clockNs, limitNs);
 		}
 
