@@ -1939,6 +1939,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
  */
 PrivateInstanceAAMP::~PrivateInstanceAAMP()
 {
+	StopMiniWindowMonitor();
 	mAampTrackWorkerManager.reset();
 	StopPausePositionMonitoring("AAMP destroyed");
 	PlayerCCManager::GetInstance()->Release(mCCId);
@@ -6824,6 +6825,9 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 
 	CreateTsbSessionManager();
 
+	// Mini tile handling: start watching the trigger file for this session.
+	StartMiniWindowMonitor();
+
 	std::string sTraceId = (pTraceID?pTraceID:"unknown");
 	//CMCD to be enabled for player direct downloads, not for Fog . All downloads in Fog , CMCD response to be done in Fog.
 	mCMCDCollector->Initialize((ISCONFIGSET_PRIV(eAAMPConfig_EnableCMCD) && !mFogTSBEnabled),sTraceId);
@@ -8036,6 +8040,18 @@ void PrivateInstanceAAMP::UpdateVideoRectangle (int x, int y, int w, int h)
 void PrivateInstanceAAMP::SetVideoRectangle(int x, int y, int w, int h)
 {
 	AAMPPlayerState state = GetState();
+	// Mini tile handling: only record the verdict here. The monitor thread is the single
+	// place that applies a mode change, which debounces resize storms and keeps the
+	// transition on one thread.
+	if (ISCONFIGSET_PRIV(eAAMPConfig_MiniWindowAudioOnly))
+	{
+		bool isMini = IsMiniWindowRect(w, h);
+		if (isMini != mMiniWindowRectIsMini.exchange(isMini))
+		{
+			AAMPLOG_MIL("MiniWindow: rect %dx%d isMiniWindow=%d", w, h, isMini);
+			mMiniWindowCV.notify_all();
+		}
+	}
 	{
 		std::unique_lock<std::recursive_mutex> lock(mStreamLock, std::try_to_lock);
 		if( lock.owns_lock() )
@@ -8075,6 +8091,209 @@ void PrivateInstanceAAMP::SetVideoRectangle(int x, int y, int w, int h)
 		}
 	}
 }
+
+/**
+ * @brief Rectangle based mini tile detection.
+ *        Disabled (always false) unless both thresholds are configured > 0, because the
+ *        trigger file is the primary mechanism on platforms that raise no mini tile event.
+ */
+bool PrivateInstanceAAMP::IsMiniWindowRect(int w, int h) const
+{
+	const int widthThreshold  = GETCONFIGVALUE_PRIV(eAAMPConfig_MiniWindowWidthThreshold);
+	const int heightThreshold = GETCONFIGVALUE_PRIV(eAAMPConfig_MiniWindowHeightThreshold);
+	// Both dimensions must be small: a wide banner or a tall sidebar is not a mini tile.
+	return ((widthThreshold > 0) && (heightThreshold > 0) &&
+	        (w > 0) && (h > 0) &&
+	        (w <= widthThreshold) && (h <= heightThreshold));
+}
+
+/**
+ * @brief Request/clear mini tile audio-only playback explicitly.
+ */
+void PrivateInstanceAAMP::SetMiniWindowMode(bool enable)
+{
+	if (!ISCONFIGSET_PRIV(eAAMPConfig_MiniWindowAudioOnly))
+	{
+		AAMPLOG_WARN("MiniWindow: miniWindowAudioOnly is not enabled, ignoring request %d", enable);
+		return;
+	}
+	ApplyMiniWindowAudioOnly(enable);
+}
+
+/**
+ * @brief Start the mini tile trigger-file monitor thread.
+ */
+void PrivateInstanceAAMP::StartMiniWindowMonitor(void)
+{
+	if (!ISCONFIGSET_PRIV(eAAMPConfig_MiniWindowAudioOnly))
+	{
+		return;
+	}
+	// IP playback only; OTA/HDMI/COMPOSITE/RMF have no AAMP managed video track to drop.
+	if ((mMediaFormat != eMEDIAFORMAT_DASH) && (mMediaFormat != eMEDIAFORMAT_HLS) &&
+	    (mMediaFormat != eMEDIAFORMAT_HLS_MP4))
+	{
+		AAMPLOG_INFO("MiniWindow: not applicable for mediaFormat %d", mMediaFormat);
+		return;
+	}
+	if (mMiniWindowMonitorThreadID.joinable())
+	{
+		// Already running for this session.
+		return;
+	}
+	mMiniWindowMonitorStop.store(false);
+	try
+	{
+		mMiniWindowMonitorThreadID = std::thread(&PrivateInstanceAAMP::RunMiniWindowMonitor, this);
+		AAMPLOG_MIL("MiniWindow: monitor started, file[%s] pollMs[%d]",
+		            GETCONFIGVALUE_PRIV(eAAMPConfig_MiniWindowFlagFile).c_str(),
+		            GETCONFIGVALUE_PRIV(eAAMPConfig_MiniWindowPollIntervalMs));
+	}
+	catch (const std::exception &e)
+	{
+		mMiniWindowMonitorStop.store(true);
+		AAMPLOG_ERR("MiniWindow: failed to create monitor thread: %s", e.what());
+	}
+}
+
+/**
+ * @brief Stop and join the mini tile trigger-file monitor thread.
+ */
+void PrivateInstanceAAMP::StopMiniWindowMonitor(void)
+{
+	if (mMiniWindowMonitorThreadID.joinable())
+	{
+		{
+			std::lock_guard<std::mutex> lock(mMiniWindowMutex);
+			mMiniWindowMonitorStop.store(true);
+		}
+		mMiniWindowCV.notify_all();
+		mMiniWindowMonitorThreadID.join();
+		AAMPLOG_MIL("MiniWindow: monitor stopped");
+	}
+}
+
+/**
+ * @brief Mini tile monitor thread body.
+ *        Polls the trigger file (and the last rectangle verdict, when rectangle detection
+ *        is configured) and applies the resulting mode. Running every change through this
+ *        one thread gives natural debouncing and keeps the transition single threaded.
+ */
+void PrivateInstanceAAMP::RunMiniWindowMonitor(void)
+{
+	UsingPlayerId playerId(mPlayerId);
+	int pollMs = GETCONFIGVALUE_PRIV(eAAMPConfig_MiniWindowPollIntervalMs);
+	if (pollMs < AAMP_MINI_WINDOW_MIN_POLL_INTERVAL_MS)
+	{
+		pollMs = AAMP_MINI_WINDOW_MIN_POLL_INTERVAL_MS;
+	}
+	const std::string flagFile = GETCONFIGVALUE_PRIV(eAAMPConfig_MiniWindowFlagFile);
+
+	std::unique_lock<std::mutex> lock(mMiniWindowMutex);
+	while (!mMiniWindowMonitorStop.load())
+	{
+		mMiniWindowCV.wait_for(lock, std::chrono::milliseconds(pollMs),
+		                       [this]() { return mMiniWindowMonitorStop.load(); });
+		if (mMiniWindowMonitorStop.load())
+		{
+			break;
+		}
+
+		const bool filePresent = (!flagFile.empty() && (0 == access(flagFile.c_str(), F_OK)));
+		const bool desired = (filePresent || mMiniWindowRectIsMini.load());
+		if (desired != mMiniWindowAudioOnlyActive.load())
+		{
+			AAMPLOG_MIL("MiniWindow: trigger file[%s] present=%d rect=%d -> audioOnly=%d",
+			            flagFile.c_str(), filePresent, mMiniWindowRectIsMini.load(), desired);
+			lock.unlock();
+			ApplyMiniWindowAudioOnly(desired);
+			lock.lock();
+		}
+	}
+}
+
+/**
+ * @brief Apply or clear mini tile audio-only playback.
+ *        Sets audioOnlyPlayback/mAudioOnlyPb and raises a retune, so the pipeline is torn
+ *        down and rebuilt with the new track set. Position is preserved by TuneHelper,
+ *        which captures GetPositionSeconds() for eTUNETYPE_RETUNE.
+ */
+void PrivateInstanceAAMP::ApplyMiniWindowAudioOnly(bool enable)
+{
+	std::lock_guard<std::mutex> transitionLock(mMiniWindowMutex);
+
+	if (enable == mMiniWindowAudioOnlyActive.load())
+	{
+		AAMPLOG_INFO("MiniWindow: already in requested mode %d, ignoring", enable);
+		return;
+	}
+
+	const bool audioOnlyPlayback = ISCONFIGSET_PRIV(eAAMPConfig_AudioOnlyPlayback);
+	if (enable)
+	{
+		if (audioOnlyPlayback)
+		{
+			// The app already asked for audio-only; nothing to change and nothing to restore later.
+			AAMPLOG_WARN("MiniWindow: audioOnlyPlayback already set externally, marking active without taking ownership");
+			mMiniWindowAudioOnlyActive.store(true);
+			mMiniWindowOwnsAudioOnly = false;
+			return;
+		}
+	}
+	else if (!mMiniWindowOwnsAudioOnly)
+	{
+		// We never turned audioOnlyPlayback on, so leave the app's setting alone.
+		AAMPLOG_WARN("MiniWindow: exiting mini tile, audioOnlyPlayback owned externally, leaving it untouched");
+		mMiniWindowAudioOnlyActive.store(false);
+		return;
+	}
+
+	if (!SETCONFIGVALUE_PRIV(AAMP_APPLICATION_SETTING, eAAMPConfig_AudioOnlyPlayback, enable))
+	{
+		// A higher priority owner (aamp.cfg for instance) holds this setting; our write was rejected.
+		AAMPLOG_WARN("MiniWindow: audioOnlyPlayback held by owner[%d], mode change not applied",
+		             GETCONFIGOWNER_PRIV(eAAMPConfig_AudioOnlyPlayback));
+		mMiniWindowAudioOnlyActive.store(ISCONFIGSET_PRIV(eAAMPConfig_AudioOnlyPlayback));
+		mMiniWindowOwnsAudioOnly = false;
+		return;
+	}
+
+	mMiniWindowAudioOnlyActive.store(enable);
+	mMiniWindowOwnsAudioOnly = enable;
+	// Consumed by the gstreamer sink (audioOnlyMode) and by the position query path.
+	mAudioOnlyPb = enable;
+
+	// Only retune from a state where there is a live pipeline to rebuild. In every other
+	// state the config alone is enough: the next StreamSelection() picks it up.
+	const AAMPPlayerState state = GetState();
+	if ((state != eSTATE_PREPARED) && (state != eSTATE_BUFFERING) && (state != eSTATE_PAUSED) &&
+	    (state != eSTATE_SEEKING) && (state != eSTATE_PLAYING))
+	{
+		AAMPLOG_WARN("MiniWindow: audioOnly=%d applied to config only, state[%d]", enable, state);
+		return;
+	}
+
+	{
+		std::lock_guard<std::mutex> lock(gMutex);
+		if (mIsRetuneInProgress)
+		{
+			// The in-flight retune re-runs StreamSelection() and will read the config we just set.
+			AAMPLOG_WARN("MiniWindow: retune already in progress, audioOnly=%d will be picked up by it", enable);
+			return;
+		}
+		for (gActivePrivAAMP_t &instance : gActivePrivAAMPs)
+		{
+			if (instance.pAAMP == this)
+			{
+				instance.reTune = true;
+				break;
+			}
+		}
+	}
+	AAMPLOG_MIL("MiniWindow: scheduling retune to %s video track", enable ? "drop" : "restore");
+	ScheduleAsyncTask(PrivateInstanceAAMP_Retune, (void *)this, "PrivateInstanceAAMP_MiniWindowRetune");
+}
+
 /**
  *   @brief Set video zoom.
  */
@@ -8578,6 +8797,8 @@ bool PrivateInstanceAAMP::IsLiveStream()
 void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 {
 	auto stopStartTime = NOW_STEADY_TS_MS;
+	// Stop the mini tile monitor before the pipeline is torn down so no retune is raised during stop.
+	StopMiniWindowMonitor();
 	mApplyCachedCCStatus = false;
 	// Clear all the player events in the queue and sets its state to RELEASED as everything is done
 	mEventManager->FlushPendingEvents();

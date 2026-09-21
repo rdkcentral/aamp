@@ -236,6 +236,7 @@ typedef enum
 	eAAMPConfig_LogFilename,				/**< Config to include source filename in log output */
 	eAAMPConfig_ProcessLicenseFromEAP,			/**< Config to enable non-VSS early available period DRM prefetch */
 	eAAMPConfig_EnableProducerReferenceDelay,		/**< Add PRT-derived encoder delay (from CalculateProducerReferenceTimeOffset) to DASH live latency calculation; default false */
+	eAAMPConfig_MiniWindowAudioOnly,			/**< Master gate for mini-tile audio-only playback; default false */
 	eAAMPConfig_BoolMaxValue				/**< Max value of bool config always last element */	
 
 } AAMPConfigSettingBool;
@@ -335,6 +336,9 @@ typedef enum
 	eAAMPConfig_UnderflowLowBufferPollMs,			/**< Underflow monitor polling interval for low buffer condition in milliseconds */
 	eAAMPConfig_UnderflowMediumBufferPollMs,		/**< Underflow monitor polling interval for medium buffer condition in milliseconds */
 	eAAMPConfig_UnderflowHighBufferPollMs,			/**< Underflow monitor polling interval for high buffer condition in milliseconds */
+	eAAMPConfig_MiniWindowPollIntervalMs,			/**< Poll period in ms for the mini-window trigger file */
+	eAAMPConfig_MiniWindowWidthThreshold,			/**< Optional rectangle width threshold in px; 0 disables rectangle detection */
+	eAAMPConfig_MiniWindowHeightThreshold,			/**< Optional rectangle height threshold in px; 0 disables rectangle detection */
 	eAAMPConfig_IntMaxValue							/**< Max value of int config always last element*/
 } AAMPConfigSettingInt;
 #define AAMPCONFIG_INT_COUNT (eAAMPConfig_IntMaxValue)
@@ -408,6 +412,7 @@ typedef enum
 	eAAMPConfig_TsbType,
 	eAAMPConfig_TsbLocation,                                                        /**< tsbType location for local TSB storage*/
 	eAAMPConfig_NetworkPersonaFile,                                                 /**< Path to network persona JSON for simulated latency injection (test only) */
+	eAAMPConfig_MiniWindowFlagFile,                                                 /**< Path of the mini-window audio-only trigger file */
 	eAAMPConfig_StringMaxValue						/**< Max value for string config always last element */
 } AAMPConfigSettingString;
 #define AAMPCONFIG_STRING_COUNT (eAAMPConfig_StringMaxValue)

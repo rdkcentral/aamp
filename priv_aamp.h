@@ -1254,6 +1254,15 @@ public:
 	bool mAudioComponentCount;
 	bool mVideoComponentCount;
 	bool mAudioOnlyPb;
+	/** Mini-window (mini tile) audio-only playback state. All of these are guarded by
+	 * mMiniWindowMutex except where an atomic is used for a lock-free read. */
+	std::atomic<bool> mMiniWindowAudioOnlyActive{false};	/**< true when audio-only is currently applied for mini window */
+	bool mMiniWindowOwnsAudioOnly{false};			/**< true when this feature, not the app, turned audioOnlyPlayback on */
+	std::atomic<bool> mMiniWindowRectIsMini{false};		/**< last verdict from SetVideoRectangle (rectangle detection) */
+	std::atomic<bool> mMiniWindowMonitorStop{true};		/**< monitor thread exit request */
+	std::mutex mMiniWindowMutex;				/**< serialises mode transitions and the monitor CV */
+	std::condition_variable mMiniWindowCV;			/**< wakes the monitor thread early on stop */
+	std::thread mMiniWindowMonitorThreadID;			/**< trigger-file monitor thread */
 	double mSubtitleDelta;
 	double mAudioDelta;					/** To indicate audio playlist delta */
 	bool mVideoOnlyPb;					/**< To indicate Video Only Playback */
@@ -2365,6 +2374,54 @@ public:
 	 *   @return void
 	 */
 	void SetVideoRectangle(int x, int y, int w, int h);
+
+	/**
+	 *   @fn SetMiniWindowMode
+	 *   @brief Request/clear mini-tile audio-only playback explicitly.
+	 *          Ignored unless the miniWindowAudioOnly config is enabled.
+	 *   @param[in] enable - true to drop video and play audio only
+	 *   @return void
+	 */
+	void SetMiniWindowMode(bool enable);
+
+	/**
+	 *   @fn StartMiniWindowMonitor
+	 *   @brief Start the trigger-file monitor thread. No-op when the feature is
+	 *          disabled, when the media format is not IP playback, or when already running.
+	 *   @return void
+	 */
+	void StartMiniWindowMonitor(void);
+
+	/**
+	 *   @fn StopMiniWindowMonitor
+	 *   @brief Stop and join the trigger-file monitor thread. Safe to call when not running.
+	 *   @return void
+	 */
+	void StopMiniWindowMonitor(void);
+
+	/**
+	 *   @fn RunMiniWindowMonitor
+	 *   @brief Monitor thread body; polls the trigger file and applies mode changes.
+	 *   @return void
+	 */
+	void RunMiniWindowMonitor(void);
+
+	/**
+	 *   @fn ApplyMiniWindowAudioOnly
+	 *   @brief Apply or clear audio-only playback and retune so the pipeline is reconfigured.
+	 *   @param[in] enable - requested mode
+	 *   @return void
+	 */
+	void ApplyMiniWindowAudioOnly(bool enable);
+
+	/**
+	 *   @fn IsMiniWindowRect
+	 *   @brief Rectangle based mini-tile detection. Disabled unless both thresholds are > 0.
+	 *   @param[in] w - rectangle width
+	 *   @param[in] h - rectangle height
+	 *   @return true when the rectangle is a mini tile
+	 */
+	bool IsMiniWindowRect(int w, int h) const;
 
 	/**
 	 *   @fn Discontinuity

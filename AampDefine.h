@@ -30,6 +30,15 @@
 #define AAMP_CFG_PATH "/opt/aamp.cfg"
 #define AAMP_JSON_PATH "/opt/aampcfg.json"
 
+/**
+ * Mini-window (mini tile) audio-only trigger file.
+ * Presence of this file switches an IP playback session to audio-only;
+ * removing it restores full A/V. Overridable with the "miniWindowFlagFile" config.
+ */
+#define AAMP_MINI_WINDOW_FLAG_FILE "/tmp/non_vid_only_audio.txt"
+#define AAMP_MINI_WINDOW_POLL_INTERVAL_MS 1000      /**< Default poll period for the trigger file */
+#define AAMP_MINI_WINDOW_MIN_POLL_INTERVAL_MS 200   /**< Lower clamp, avoids a busy poll loop */
+
 #define AAMP_VERSION "8.09"
 #define AAMP_TUNETIME_VERSION 8
 

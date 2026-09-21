@@ -184,6 +184,11 @@ Network timeout configurations control how long AAMP waits for various network o
 | `disableATMOS` | Boolean | false | Disable Dolby ATMOS |
 | `stereoOnly` | Boolean | false | Select stereo audio only (overrides EC3/ATMOS) |
 | `audioOnlyPlayback` | Boolean | false | Audio-only playback without video |
+| `miniWindowAudioOnly` | Boolean | false | Master gate for mini-tile audio-only playback. When enabled, AAMP watches `miniWindowFlagFile` and drops the video track while the file is present, restoring it when the file is removed. IP playback (DASH/HLS) only. |
+| `miniWindowFlagFile` | String | /tmp/non_vid_only_audio.txt | Path of the trigger file. Its presence means "mini tile": play audio only. |
+| `miniWindowPollIntervalMs` | Number | 1000 | How often the trigger file is polled, in milliseconds. Clamped to a 200 ms minimum. Read once when the monitor starts. |
+| `miniWindowWidthThreshold` | Number | 0 | Optional rectangle-based detection. When both thresholds are > 0, a `SetVideoRectangle()` whose width **and** height are at or below them also triggers mini-tile mode. 0 disables rectangle detection. |
+| `miniWindowHeightThreshold` | Number | 0 | See `miniWindowWidthThreshold`. Both must be > 0 for rectangle detection to be active. |
 
 ### Video Profile
 
