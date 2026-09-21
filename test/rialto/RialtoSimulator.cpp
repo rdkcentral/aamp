@@ -142,15 +142,23 @@ constexpr int64_t kBufferHighWaterNs = 40000000000LL; // 40 seconds
 // defeating the backpressure model.
 constexpr unsigned int kNeedDataFrameCount = 24;
 
-// Allowance for ordinary A/V injection-cadence skew when clamping the
-// shared clock to a stalled sibling's horizon (see refreshMasterClockLocked()).
-// Segments for different tracks are rarely injected in perfect lockstep even
-// during completely healthy playback, so a raw min-across-tracks clamp with
-// no slack falsely treats normal skew as a stall; this is not modelling
-// decode-ahead buffering (that would need to be unbounded, see
-// kUnderflowToleranceNs removal history) - it only needs to cover the small,
-// bounded jitter between sibling tracks' own injection timing.
-constexpr int64_t kSiblingSkewToleranceNs = 200000000LL; // 200ms
+// Slack applied when clamping the shared clock to the slowest attached
+// track's horizon (see refreshMasterClockLocked()). Covers two distinct,
+// legitimate cases without a flat "disable the clamp" escape hatch:
+//   - ordinary A/V injection-cadence skew during healthy playback (tracks
+//     are rarely injected in perfect lockstep, so a zero-slack clamp
+//     falsely treats normal skew as a stall);
+//   - the live-edge manifest-refresh gap (AAMP-CONFIG-2033_live): segments
+//     become available in bursts on the backend's own ~1.9s grid, not one
+//     per AAMP poll, and measured worst-case gaps between successive
+//     segments reached ~2.72s (see the manifest-poll analysis for that
+//     test) before content resumed.
+// 3000ms gives headroom over that measured 2.72s worst case. This is
+// deliberately much shorter than a genuine stall (AAMP-BUFFER-6002_UnderflowMonitor
+// delays fragments by 9s) so a real stall still holds the reported clock
+// back for several seconds after the tolerance is exhausted - long enough
+// for AampUnderflowMonitor's deadline to expire.
+constexpr int64_t kClockClampToleranceNs = 3000000000LL; // 3000ms
 
 // One queued unit of media: the fields the master-clock/backpressure model
 // needs from a MediaSegment. Ingestion order for video is decode order, not
@@ -863,23 +871,28 @@ private:
 	}
 
 	// Computes the current master clock estimate as a wall-clock projection
-	// from the last anchor, gated (not flatly tolerance-padded) against a
-	// stalled sibling track: if the MASTER track's own horizon is still
-	// ahead of the projection, a sibling that has fallen behind clamps the
-	// clock, mirroring real GStreamer's single shared pipeline clock (its
-	// buffering_timeout/queued_frames mechanism pauses the whole pipeline
-	// when one decoder queue starves while another keeps flowing - see
-	// InterfacePlayerRDK.cpp).  But once the MASTER's own horizon is also
-	// behind the projection (e.g. a live stream tuned to the edge of a
-	// manifest snapshot that has stopped publishing new segments for every
-	// track together), there is no sibling to defer to - GStreamer tolerates
-	// that case too (confirmed against a real-GStreamer L2 log,
-	// AAMP-CONFIG-2033_live) - so the clock is left unclamped, exactly as it
-	// was before this gating existed.  Flat-clamping to any track's horizon
-	// unconditionally, or padding the starvation check with a fixed added
-	// tolerance, were both tried and reverted: neither can distinguish
-	// "master ran dry too" from "one sibling stalled while master is fine"
-	// (see git history / AAMP-CONFIG-2033_live and AAMP-BUFFER-6002_UnderflowMonitor).
+	// from the last anchor, clamped to the slowest attached (non-subtitle,
+	// non-EOS) track's horizon plus kClockClampToleranceNs - mirroring real
+	// GStreamer's single shared pipeline clock, which cannot let one sink
+	// outrun another's real progress (its buffering_timeout/queued_frames
+	// mechanism pauses the whole pipeline when one decoder queue starves
+	// while another keeps flowing - see InterfacePlayerRDK.cpp).  This
+	// clamp is applied unconditionally (not gated on the master track's own
+	// state) so the returned value is always monotonic non-decreasing:
+	// AAMP's own PrivateInstanceAAMP::GetPositionMilliseconds() silently
+	// discards and re-substitutes the previous position whenever it sees a
+	// backward jump ("restore prev-pos as current-pos!!" in priv_aamp.cpp),
+	// so a clamp that first lets the clock overshoot and then corrects it
+	// backward gets permanently stuck at the overshot value client-side -
+	// this happened when the clamp was gated on the master track's horizon
+	// (see git history) and broke AAMP-BUFFER-6002_UnderflowMonitor even
+	// though the simulator's own reported value was correct at each step.
+	// kClockClampToleranceNs absorbs ordinary A/V injection-cadence skew and
+	// the live-edge manifest-refresh gap (AAMP-CONFIG-2033_live measured up
+	// to ~2.72s) without a flat "disable the clamp" branch, while staying
+	// far shorter than a genuine stall (AAMP-BUFFER-6002_UnderflowMonitor's
+	// deliberate 9s fragment delay), so a real stall still holds the clock
+	// back long enough for AampUnderflowMonitor's deadline to expire.
 	// Pops any now-matured samples from every track, and re-anchors.
 	// Returns the (possibly clamped) master clock value in nanoseconds.
 	//
@@ -942,37 +955,28 @@ private:
 			}
 		}
 
-		// Gate the reported clock: only clamp to a stalled sibling's horizon
-		// while the master track itself still has real data ahead of us
-		// (see comment above this function).
+		// Unconditional clamp: the reported clock can never run further
+		// ahead of the slowest active track's horizon than
+		// kClockClampToleranceNs (see comment above this function).
 		int64_t clockNs = projectedClockNs;
-		auto masterHorizonIt = m_trackHorizonNs.find(*m_masterSourceId);
-		if (masterHorizonIt != m_trackHorizonNs.end() &&
-			projectedClockNs <= std::max(masterHorizonIt->second, m_horizonFloorNs))
+		for (int32_t sourceId : m_attachedSources)
 		{
-			for (int32_t sourceId : m_attachedSources)
+			auto typeIt = m_sourceTypes.find(sourceId);
+			if (typeIt == m_sourceTypes.end() || typeIt->second == MediaSourceType::SUBTITLE)
 			{
-				if (sourceId == *m_masterSourceId)
-				{
-					continue;
-				}
-				auto typeIt = m_sourceTypes.find(sourceId);
-				if (typeIt == m_sourceTypes.end() || typeIt->second == MediaSourceType::SUBTITLE)
-				{
-					continue;
-				}
-				if (m_eosSources.find(sourceId) != m_eosSources.end())
-				{
-					continue;
-				}
-				auto horizonIt = m_trackHorizonNs.find(sourceId);
-				if (horizonIt == m_trackHorizonNs.end())
-				{
-					continue;
-				}
-				int64_t siblingLimitNs = std::max(horizonIt->second, m_horizonFloorNs) + kSiblingSkewToleranceNs;
-				clockNs = std::min(clockNs, siblingLimitNs);
+				continue;
 			}
+			if (m_eosSources.find(sourceId) != m_eosSources.end())
+			{
+				continue;
+			}
+			auto horizonIt = m_trackHorizonNs.find(sourceId);
+			if (horizonIt == m_trackHorizonNs.end())
+			{
+				continue;
+			}
+			int64_t limitNs = std::max(horizonIt->second, m_horizonFloorNs) + kClockClampToleranceNs;
+			clockNs = std::min(clockNs, limitNs);
 		}
 
 		for (int32_t sourceId : m_attachedSources)
