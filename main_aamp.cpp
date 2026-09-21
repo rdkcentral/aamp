@@ -2665,6 +2665,18 @@ void PlayerInstanceAAMP::SetAudioOnlyPlayback(bool audioOnlyPlayback)
 }
 
 /**
+ *   @brief Explicitly enter/exit mini tile audio-only playback
+ */
+void PlayerInstanceAAMP::SetMiniWindowMode(bool enable)
+{
+	if( aamp )
+	{
+		UsingPlayerId playerId(aamp->mPlayerId);
+		aamp->SetMiniWindowMode(enable);
+	}
+}
+
+/**
  *  @brief Set audio track by audio parameters like language , rendition, codec etc..
  */
 void PlayerInstanceAAMP::SetAudioTrackInternal(std::string language,  std::string rendition, std::string type, std::string codec, unsigned int channel, std::string label)

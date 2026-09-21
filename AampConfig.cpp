@@ -234,6 +234,7 @@ static const ConfigLookupEntryString mConfigLookupTableString[AAMPCONFIG_STRING_
 	{"","tsbType", eAAMPConfig_TsbType, false},
 	{DEFAULT_TSB_LOCATION,"tsbLocation",eAAMPConfig_TsbLocation, true},
 	{"","networkPersonaFile", eAAMPConfig_NetworkPersonaFile, false},
+	{AAMP_MINI_WINDOW_FLAG_FILE,"miniWindowFlagFile",eAAMPConfig_MiniWindowFlagFile,true},
 };
 
 /**
@@ -384,6 +385,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false, "logFilename", eAAMPConfig_LogFilename, false},
 	{false, "processLicenseFromEAP", eAAMPConfig_ProcessLicenseFromEAP, false},
 	{false, "enableProducerReferenceDelay", eAAMPConfig_EnableProducerReferenceDelay, false},
+	{false, "miniWindowAudioOnly", eAAMPConfig_MiniWindowAudioOnly, true},
 };
 
 #define CONFIG_INT_ALIAS_COUNT 2
@@ -486,6 +488,10 @@ static const ConfigLookupEntryInt mConfigLookupTableInt[AAMPCONFIG_INT_COUNT+CON
 	{DEFAULT_UNDERFLOW_LOW_BUFFER_POLL_MS, "underflowLowBufferPollMs", eAAMPConfig_UnderflowLowBufferPollMs, true},
 	{DEFAULT_UNDERFLOW_MEDIUM_BUFFER_POLL_MS, "underflowMediumBufferPollMs", eAAMPConfig_UnderflowMediumBufferPollMs, true},
 	{DEFAULT_UNDERFLOW_HIGH_BUFFER_POLL_MS, "underflowHighBufferPollMs", eAAMPConfig_UnderflowHighBufferPollMs, true},
+	// Mini-window (mini tile) audio-only playback
+	{AAMP_MINI_WINDOW_POLL_INTERVAL_MS, "miniWindowPollIntervalMs", eAAMPConfig_MiniWindowPollIntervalMs, true},
+	{0, "miniWindowWidthThreshold", eAAMPConfig_MiniWindowWidthThreshold, true},
+	{0, "miniWindowHeightThreshold", eAAMPConfig_MiniWindowHeightThreshold, true},
 	// Add new integer config entries above this line, before the aliases section.
 	//
 	// Aliases, kept for backwards compatibility

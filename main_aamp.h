@@ -1150,6 +1150,16 @@ public:
 	void SetAudioOnlyPlayback(bool audioOnlyPlayback);
 
 	/**
+	 *   @fn SetMiniWindowMode
+	 *   @brief Explicitly enter/exit mini tile audio-only playback.
+	 *          Requires the miniWindowAudioOnly config to be enabled. Applications that
+	 *          cannot call this may instead create/remove the miniWindowFlagFile.
+	 *
+	 *   @param[in] enable - true to play audio only, false to restore video
+	 */
+	void SetMiniWindowMode(bool enable);
+
+	/**
 	 *   @fn GetAudioTrack
 	 *
 	 *   @return int - index of current audio track in available track list
