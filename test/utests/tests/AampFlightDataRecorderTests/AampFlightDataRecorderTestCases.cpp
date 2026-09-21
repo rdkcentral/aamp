@@ -33,6 +33,7 @@
 
 #include <atomic>
 #include <chrono>
+#include <ctime>
 #include <iomanip>
 #include <sstream>
 #include <thread>
@@ -569,21 +570,39 @@ TEST_F(AampFlightDataRecorderTest, Flush_PrefixIsEmitTime_TsIsRecordTime)
 }
 
 /**
- * @test AampFlightDataRecorder_Flush_NoTimestampTagUnderLogRedirection
- * @brief In journald/Ethan mode (disableLogRedirection == false) the sink
- *        stamps the emit time, so FDR must not embed its own {record} tag.
+ * @test AampFlightDataRecorder_Flush_UnderLogRedirection_UsesIsoRecordTag
+ * @brief In journald/Ethan mode (disableLogRedirection == false) the sink stamps
+ *        the emit time, so FDR drops the epoch prefix and shows the record time
+ *        as an ISO-8601 UTC {tag}.
  */
-TEST_F(AampFlightDataRecorderTest, Flush_NoTimestampTagUnderLogRedirection)
+TEST_F(AampFlightDataRecorderTest, Flush_UnderLogRedirection_UsesIsoRecordTag)
 {
     AampLogManager::disableLogRedirection = false;
-    fdr().AddEntry(MakeEntry("no-ts-entry"));
+    const uint64_t recordMs = AampFlightDataRecorder::GetCurrentTimeMilliseconds();
+    fdr().AddEntry(MakeEntry("iso-entry", recordMs));
 
     testing::internal::CaptureStdout();
-    fdr().Flush(eLOGLEVEL_ERROR, "NO_TS_TEST");
+    fdr().Flush(eLOGLEVEL_ERROR, "ISO_TS_TEST");
     std::string output = testing::internal::GetCapturedStdout();
 
-    EXPECT_THAT(output, testing::HasSubstr("no-ts-entry"));
-    EXPECT_THAT(output, testing::Not(testing::HasSubstr("{")));
+    auto isoUtc = [](uint64_t ms) {
+        std::time_t secs = static_cast<std::time_t>(ms / 1000);
+        std::tm tmv{};
+        gmtime_r(&secs, &tmv);
+        char buf[32];
+        std::strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%S", &tmv);
+        std::ostringstream o;
+        o << buf << "." << std::setfill('0') << std::setw(3) << ms % 1000 << "Z";
+        return o.str();
+    };
+
+    // Record time appears as an ISO-8601 UTC {tag}.
+    EXPECT_THAT(output, testing::HasSubstr("{" + isoUtc(recordMs) + "}"));
+    // The epoch prefix must NOT be present in journald mode.
+    std::ostringstream epoch;
+    epoch << recordMs / 1000 << "." << std::setfill('0') << std::setw(3) << recordMs % 1000;
+    EXPECT_THAT(output, testing::Not(testing::HasSubstr(epoch.str() + ": ")));
+    EXPECT_THAT(output, testing::HasSubstr("iso-entry"));
 }
 
 TEST_F(AampFlightDataRecorderTest, Initialize_ReconfiguresCapacityAndEnabledState)
