@@ -5273,7 +5273,7 @@ TEST_F(AdManagerMPDTests, StaticManifest_AdDownloadFails_NotifyComplete_DoesNotP
 }
 
 // ---------------------------------------------------------------------------
-// VOD CDAI stitching path tests (VPAAMP-657)
+// VOD CDAI stitching path tests
 // These tests exercise PrivateCDAIObjectMPD state changes driven by
 // RegisterVodAdBreak + SetAlternateContents without any network access.
 // They verify that:
@@ -5445,4 +5445,63 @@ TEST_F(AdManagerMPDTests, VodCdai_BreakRegistrationOrder_Preserved)
   EXPECT_EQ(order[0], "zzz-post");
   EXPECT_EQ(order[1], "aaa-pre");
   EXPECT_EQ(order[2], "mmm-mid");
+}
+
+/**
+ * @brief Regression test: GetAdMPD must propagate 302 redirect
+ *        effective URL back to the caller's manifestUrl parameter.
+ *
+ * This test ensures that when an ad manifest download encounters a 302 redirect,
+ * the effective URL (CDN hostname) is propagated back to the caller via the
+ * manifestUrl parameter. This prevents fragment requests from using the origin
+ * URL and triggering additional 302 redirects.
+ */
+TEST_F(AdManagerMPDTests, GetAdMPD_RedirectPropagation)
+{
+  const char *manifest = kSharedTenSecondAdManifest;
+  mManifest = manifest;
+  
+  const std::string originUrl = "http://origin.example.com/ad/manifest.mpd";
+  const std::string cdnUrl = "http://cdn.example.com/ad/manifest.mpd";
+  
+  // Mock GetFile to simulate a 302 redirect by returning a different effective URL
+  // We use a more permissive matcher to catch all GetFile calls since GetAdMPD makes multiple calls
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _))
+      .WillRepeatedly(WithArgs<0, 2, 3, 4>(Invoke([this, originUrl, cdnUrl](std::string remoteUrl, std::vector<uint8_t> &buffer, 
+                                                       std::string& effectiveUrl, int& httpError) {
+        // For the manifest URL, simulate redirect
+        if (remoteUrl == originUrl) {
+          buffer.clear();
+          buffer.assign(mManifest, mManifest + strlen(mManifest));
+          effectiveUrl = cdnUrl;  // Simulate 302 redirect to CDN
+          httpError = 200;
+          return true;
+        }
+        // For other URLs (init headers, etc.), just return success
+        effectiveUrl = remoteUrl;
+        httpError = 200;
+        return true;
+      })));
+  
+  std::string manifestUrl = originUrl;
+  bool finalManifest = false;
+  int http_error = 0;
+  double downloadTime = 0.0;
+  AAMPCDAIError errorCode = eCDAI_ERROR_NONE;
+  
+  // Call GetAdMPD with the origin URL
+  MPD* adMpd = mPrivateCDAIObjectMPD->GetAdMPD(manifestUrl, finalManifest, http_error, downloadTime, errorCode, false);
+  
+  // Verify that the manifestUrl parameter was updated to the effective URL
+  EXPECT_EQ(manifestUrl, cdnUrl) 
+      << "GetAdMPD must propagate effective URL back to manifestUrl parameter after 302 redirect";
+  
+  // Verify that the MPD was successfully parsed
+  EXPECT_NE(adMpd, nullptr) << "GetAdMPD should return valid MPD after redirect";
+  
+  // Clean up
+  if (adMpd)
+  {
+    delete adMpd;
+  }
 }

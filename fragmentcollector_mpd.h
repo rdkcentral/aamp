@@ -129,7 +129,7 @@ public:
 	 */
 	aamp::AampTrackWorkerJobUniquePtr Clone() const override
 	{
-		return aamp_utils::make_unique<AampDashWorkerJob>(mJobFunction);
+		return std::make_unique<AampDashWorkerJob>(mJobFunction);
 	}
 };
 

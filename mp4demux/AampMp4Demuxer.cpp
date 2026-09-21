@@ -37,7 +37,7 @@
  * @param[in] enablePtsRestamp - Flag to enable PTS restamping
  */
 AampMp4Demuxer::AampMp4Demuxer(PrivateInstanceAAMP* aamp, AampMediaType type, bool enablePtsRestamp) :
-	MediaProcessor(), mMp4Demux(aamp_utils::make_unique<Mp4Demux>()), mAamp(aamp), mMediaType(type), mEnablePtsRestamp(enablePtsRestamp)
+	MediaProcessor(), mMp4Demux(std::make_unique<Mp4Demux>()), mAamp(aamp), mMediaType(type), mEnablePtsRestamp(enablePtsRestamp)
 {
 	AAMPLOG_MIL("Created AampMp4Demuxer(%p) for type %d, PTS restamp: %s", this, type, enablePtsRestamp ? "enabled" : "disabled");
 	// TODO: Should we limit the media types here to only video/audio?
@@ -374,7 +374,7 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>&& buffer, double position,
 					// (PtsRestampUtils.LOG_LINE in the L2 pts-restamp checker)
 					// anchors on \[RestampPts\], so dropping the tag makes it silently stop
 					// matching and every restamp continuity assertion is skipped rather than
-					// failed. See VPAAMP-1027.
+					// failed.
 					//
 					// Deliberately not gated on eAAMPConfig_EnablePTSReStampLogging. The legacy
 					// line is always emitted even when the offset is zero (see the comment in

@@ -682,7 +682,7 @@ bool StreamAbstractionAAMP_MPD::FetchFragment(MediaStreamContext *pMediaStreamCo
 	// then runs with the new profile's IDX it gets a start offset that matches
 	// the new profile but an end offset from the old profile's range, producing
 	// a partial fragment download that confuses the IsoBmff parser with a
-	// declared box size exceeding the available bytes (VPAAMP-614).  Run ALL
+	// declared box size exceeding the available bytes.  Run ALL
 	// SegmentBase downloads synchronously so that each (URL, IDX, range) triple
 	// is consistent at execution time.
 	const auto* representation = pMediaStreamContext->representation;
@@ -11793,7 +11793,7 @@ void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutpu
 		// the real caps only arrive from SetStreamCaps() after the init segment is parsed, on an
 		// already-running pipeline. That forces gstreamer to re-link downstream while the first
 		// data push is already in flight, and when the autoplug loses that race the push lands on
-		// an unlinked pad and the pipeline dies with "not-linked (-1)". See VPAAMP-1039.
+		// an unlinked pad and the pipeline dies with "not-linked (-1)".
 		//
 		// FORMAT_UNKNOWN is still the fallback whenever the codec cannot be predicted, which
 		// keeps the previous behaviour for anything this cannot cover:
@@ -15084,7 +15084,7 @@ void StreamAbstractionAAMP_MPD::GenerateFragmentURLList(URLBitrateMap &uriList, 
 				for (auto &representation : adaptationSet->GetRepresentation())
 				{
 					URIInfo uriInfo;
-					auto fragmentDescriptor = aamp_utils::make_unique<FragmentDescriptor>();
+					auto fragmentDescriptor = std::make_unique<FragmentDescriptor>();
 					fragmentDescriptor->Bandwidth = representation->GetBandwidth();
 					fragmentDescriptor->RepresentationID = representation->GetId();
 					fragmentDescriptor->bUseMatchingBaseUrl = ISCONFIGSET(eAAMPConfig_MatchBaseUrl);
