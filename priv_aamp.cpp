@@ -2530,10 +2530,7 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 				// yields how far (in ms) the player is behind the live edge.
 				// Add mEncoderDelay to account for the encoder's contribution to latency.
 				latency = (mNewSeekInfo.GetInfo().getUpdateTime() - mNewSeekInfo.GetInfo().getPosition()) + mEncoderDelay;
-				if(latency < 0)
-				{
-					AAMPLOG_ERR("DASH negative live latency = %ldms, getUpdateTime() = %lldms, getPosition() = %lfms, mEncoderDelay = %ldms", latency, mNewSeekInfo.GetInfo().getUpdateTime(), mNewSeekInfo.GetInfo().getPosition(), mEncoderDelay);
-				}
+				AAMPLOG_ERR("DASH negative live latency = %ldms, getUpdateTime() = %lldms, getPosition() = %lfms, mEncoderDelay = %ldms", latency, mNewSeekInfo.GetInfo().getUpdateTime(), mNewSeekInfo.GetInfo().getPosition(), mEncoderDelay);
 			}
 			else
 			{
