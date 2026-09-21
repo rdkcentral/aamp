@@ -5647,7 +5647,12 @@ bool PrivateInstanceAAMP::IsAsyncTuneAbortRequired(const char* manifestUrl, cons
  */
 void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 {
+	auto teardownLockStartTime = NOW_STEADY_TS_MS;
+	AAMPLOG_MIL("TeardownStream: waiting for mLock newTune=%d disableDownloads=%d",
+		newTune, disableDownloads);
 	std::unique_lock<std::recursive_mutex> lock(mLock);
+	AAMPLOG_MIL("TeardownStream: acquired mLock after %lld ms",
+		static_cast<long long>(NOW_STEADY_TS_MS - teardownLockStartTime));
 	//Have to perform this for trick and stop operations but avoid ad insertion related ones
 	AAMPLOG_MIL(" mProgressReportFromProcessDiscontinuity:%d mDiscontinuityTuneOperationId:%d newTune:%d", mProgressReportFromProcessDiscontinuity, mDiscontinuityTuneOperationId, newTune);
 	if ((mDiscontinuityTuneOperationId != 0) && (!newTune || mState == eSTATE_IDLE))
@@ -8633,8 +8638,11 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 	auto licenseAcquisitionLockStopTime = licenseAcquisitionLockStartTime;
 	// Stopping the playback, release all DRM context
 	{
+		AAMPLOG_MIL("Stop: waiting for mStreamLock");
 		std::lock_guard<std::recursive_mutex> lock(mStreamLock);
 		streamLockStopTime = NOW_STEADY_TS_MS;
+		AAMPLOG_MIL("Stop: acquired mStreamLock after %lld ms",
+			static_cast<long long>(streamLockStopTime - streamLockStartTime));
 		if (mpStreamAbstractionAAMP)
 		{
 			if(DownloadsAreEnabled())
@@ -8653,19 +8661,30 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 				// lead to crash as PreFetchThread can call UpdateFailedDRMStatus
 				// of StreamAbstractionAamp.
 				licenseAcquisitionLockStartTime = NOW_STEADY_TS_MS;
+				AAMPLOG_MIL("Stop: waiting to clear DRM license fetcher");
 				mDRMLicenseManager->SetLicenseFetcher(nullptr);
 				licenseAcquisitionLockStopTime = NOW_STEADY_TS_MS;
+				AAMPLOG_MIL("Stop: cleared DRM license fetcher after %lld ms",
+					static_cast<long long>(licenseAcquisitionLockStopTime - licenseAcquisitionLockStartTime));
 			}
 			if (HasSidecarData())
 			{ // has sidecar data
+				AAMPLOG_MIL("Stop: resetting sidecar subtitle data");
 				mpStreamAbstractionAAMP->ResetSubtitle();
+				AAMPLOG_MIL("Stop: sidecar subtitle data reset complete");
 			}
 		}
 	}
+	AAMPLOG_MIL("Stop: released mStreamLock");
+	AAMPLOG_MIL("Stop: resetting LL-DASH chunk mode");
 	SetLLDashChunkMode(false); //Reset ChunkMode before curl handles are torn down
+	AAMPLOG_MIL("Stop: LL-DASH chunk mode reset complete");
 	auto tearDownStartTime = NOW_STEADY_TS_MS;
+	AAMPLOG_MIL("Stop: entering TeardownStream");
 	TeardownStream(true,true); //disable download as well
 	auto tearDownEndTime = NOW_STEADY_TS_MS;
+	AAMPLOG_MIL("Stop: TeardownStream completed after %lld ms",
+		static_cast<long long>(tearDownEndTime - tearDownStartTime));
 
 	// Moved the tsb delete request from XRE to AAMP to avoid the HTTP-404 errors
 	// Moved the Fog TSB delete to avoid the delay in MPDDownloaderInstance release which results in HTTP-404
