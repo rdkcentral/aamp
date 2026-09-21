@@ -17,6 +17,11 @@
 
 file(GLOB fakes_SRC "*.cpp")
 
+# FakeAampRialtoPlayer constructs a real AampRialtoPlaybackController, which
+# has no fake of its own.
+list(APPEND fakes_SRC
+	"${CMAKE_CURRENT_SOURCE_DIR}/../../../direct-rialto/AampRialtoPlaybackController.cpp")
+
 set(AAMP_ROOT "../../../")
 set(UTESTS_ROOT "..")
 

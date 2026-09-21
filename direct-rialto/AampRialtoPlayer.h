@@ -39,6 +39,7 @@
 #include "IRialtoControlBackend.h"
 #include "IStreamSinkNotifiable.h"
 #include "AampRialtoMediaSource.h"
+#include "AampRialtoPlaybackController.h"
 #include "IDirectRialtoCC.h"
 #include "AampRialtoMonitorAV.h"
 
@@ -484,27 +485,38 @@ private:
 	/// own PTS, since a flush/seek position can land mid-fragment.
 	std::atomic<int64_t> m_segmentStartPositionNs{0};
 
-	/// Set by Stream(); cleared once play() is issued.  Lets us defer the
-	/// play() call until after allSourcesAttached() so the Rialto server
-	/// transitions PAUSED→PLAYING only after all sources are registered.
-	std::atomic<bool> m_playRequested{false};
+	/// Single decision point for when play() may be issued.  Stream()
+	/// records the request; the PlayHold values describe why playback
+	/// cannot start yet.  See AampRialtoPlaybackController.
+	AampRialtoPlaybackController m_playbackController;
 
-	/// Tracks whether allSourcesAttached() was successfully sent for the
-	/// current pipeline session.  Reset to false on pipeline rebuild.
+	/// Ungate every source and issue play().  Invoked by the playback
+	/// controller once a play request has no remaining holds.
+	void IssuePlay(const char *reason);
+
+	/// Mirrors the positionIsAuthoritative argument of the most recent
+	/// Flush() call (e.g. true for AampStreamSinkManager::SetActive()
+	/// driving a single-pipeline-mode ad transition's real resume
+	/// position; false for a same-session discard-to-0 teardown
+	/// placeholder). Stored unconditionally on every Flush() so a later
+	/// non-authoritative call cannot leave a stale true from an earlier
+	/// authoritative one. Consulted (and cleared) by Configure() to decide
+	/// whether re-applying PlayHold::PositionPending would be redundant.
+	std::atomic<bool> m_lastFlushPositionAuthoritative{false};
+
+	/// Claimed by the first sample that drives the deferred implicit Flush(),
+	/// so that concurrent video/audio injector threads cannot both trigger
+	/// it.  Reset whenever PlayHold::PositionPending is (re)armed.
+	std::atomic<bool> m_pendingPositionFlushClaimed{false};
+
+	/// Arms the deferred-flush window: resets the claim so the next elected
+	/// sample may drive MaybeFlushForPendingPosition(), then applies
+	/// PlayHold::PositionPending.  Shared by every call site that needs to
+	/// mark a position as not-yet-established for the current segment.
 	///
-	/// IMPORTANT — seq_cst rendezvous with m_playRequested:
-	///   Stream() stores m_playRequested=true (seq_cst) THEN loads this flag
-	///   (seq_cst).  CheckAllSourcesAttached() stores this flag=true (seq_cst)
-	///   THEN loads m_playRequested (seq_cst).  The seq_cst total order
-	///   guarantees one side always observes the other's write and calls
-	///   play().  A mutex-based state read does NOT participate in that total
-	///   order and cannot substitute for this atomic.
-	std::atomic<bool> m_allSourcesAttachedFlag{false};
-
-	/// True when the player has no established position for the current
-	/// period. Cleared once a position is (re)established: either
+	/// The hold is released once a position is (re)established: either
 	/// AttachSource() commits a definitive baseline for a newly-attached
-	/// video source, or Flush() commits to one - cleared synchronously as
+	/// video source, or Flush() commits to one - released synchronously as
 	/// soon as Flush() enters (flushable or staging-only path), not
 	/// deferred until SEEK_DONE, so a sample injected while that flush is
 	/// still resolving does not try to resolve it a second time.
@@ -520,39 +532,16 @@ private:
 	/// no sample can be in flight yet at any Configure() call site (always
 	/// preceded by StopInjection()/not-yet-Start()), so arming there is
 	/// never racy, even when an explicit Flush() immediately follows and
-	/// clears it again.
+	/// releases it again.
 	/// Discontinuity() only arms this when m_aamp->WillFlushOnDiscontinuity()
 	/// is false - PTS-restamped content keeps injecting across that call, so
 	/// arming when an explicit Flush() is guaranteed would let the
 	/// still-flowing samples race an early implicit Flush() ahead of it.
-	/// Either arm site gates every source until an AttachSource() or a
-	/// Flush() resolves the real position.
-	std::atomic<bool> m_positionPending{false};
-
-	/// Mirrors the positionIsAuthoritative argument of the most recent
-	/// Flush() call (e.g. true for AampStreamSinkManager::SetActive()
-	/// driving a single-pipeline-mode ad transition's real resume
-	/// position; false for a same-session discard-to-0 teardown
-	/// placeholder). Stored unconditionally on every Flush() so a later
-	/// non-authoritative call cannot leave a stale true from an earlier
-	/// authoritative one. Consulted (and cleared) by Configure() to decide
-	/// whether re-arming m_positionPending would be redundant.
-	std::atomic<bool> m_lastFlushPositionAuthoritative{false};
-
-	/// Claimed by the first sample that drives the deferred implicit Flush(),
-	/// so that concurrent video/audio injector threads cannot both trigger
-	/// it.  Reset whenever m_positionPending is (re)armed.
-	std::atomic<bool> m_pendingPositionFlushClaimed{false};
-
-	/// Arms the deferred-flush window: resets the claim so the next elected
-	/// sample may drive MaybeFlushForPendingPosition(), then sets
-	/// m_positionPending.  Shared by every call site that needs to mark a
-	/// position as not-yet-established for the current segment.
 	void ArmPositionPending(const char *reason);
 
 	/// Issue the deferred Flush() using @p position, if this sample is the
 	/// first from the track elected to supply the new period's PTS.  No-op
-	/// unless m_positionPending is true.
+	/// unless PlayHold::PositionPending is applied.
 	void MaybeFlushForPendingPosition(AampMediaType mediaType, double position);
 
 	/// Cached subtitle mute state.  Set by SetSubtitleMute() and re-applied
@@ -571,11 +560,6 @@ private:
 	/// Backing storage for the pointer returned by GetVideoPlaybackQuality().
 	/// Overwritten on each call; not re-applied anywhere (read-only query).
 	PlaybackQualityStruct m_playbackQuality{};
-
-	/// Set by NotifyFragmentCachingOngoing(); cleared by Pause(true) or
-	/// NotifyFragmentCachingComplete(). Mirrors GSTPlayer's pendingPlayState:
-	/// when true, NotifyFragmentCachingComplete() issues play() to resume.
-	bool m_pendingPlayOnFragCaching{false};
 
 	/// @brief Embedded progress timer with immediate-start and kick capability.
 	///

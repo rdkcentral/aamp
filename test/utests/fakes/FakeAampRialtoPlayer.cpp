@@ -37,6 +37,7 @@ AampRialtoPlayer::AampRialtoPlayer(
 	, m_controlBackend(nullptr)
 	, m_client(nullptr)
 	, m_pipeline(nullptr)
+	, m_playbackController([](const char *) {})
 {
 }
 
