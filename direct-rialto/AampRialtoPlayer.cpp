@@ -206,6 +206,42 @@ namespace {
 	constexpr int kRialtoRunningTimeoutMs = 2000;
 
 	constexpr unsigned int kMsPerSecond = 1000;
+
+	const char *PlaybackStateName(firebolt::rialto::PlaybackState state)
+	{
+		const char *name = "UNKNOWN";
+		switch (state)
+		{
+			case firebolt::rialto::PlaybackState::IDLE:
+				name = "IDLE";
+				break;
+			case firebolt::rialto::PlaybackState::PLAYING:
+				name = "PLAYING";
+				break;
+			case firebolt::rialto::PlaybackState::PAUSED:
+				name = "PAUSED";
+				break;
+			case firebolt::rialto::PlaybackState::SEEKING:
+				name = "SEEKING";
+				break;
+			case firebolt::rialto::PlaybackState::SEEK_DONE:
+				name = "SEEK_DONE";
+				break;
+			case firebolt::rialto::PlaybackState::STOPPED:
+				name = "STOPPED";
+				break;
+			case firebolt::rialto::PlaybackState::END_OF_STREAM:
+				name = "END_OF_STREAM";
+				break;
+			case firebolt::rialto::PlaybackState::FAILURE:
+				name = "FAILURE";
+				break;
+			case firebolt::rialto::PlaybackState::UNKNOWN:
+			default:
+				break;
+		}
+		return name;
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -1246,6 +1282,33 @@ void AampRialtoPlayer::UngateAllSources(const char *reason)
 	}
 }
 
+void AampRialtoPlayer::LogSourceSnapshot(const char *context)
+{
+	if (m_pipeline)
+	{
+		for (auto &source : m_sources)
+		{
+			if (source && source->isAttached())
+			{
+				uint32_t queuedFrames = 0;
+				const bool haveFrames = m_pipeline->getQueuedFrames(
+					source->sourceId(), queuedFrames);
+				const int64_t firstPts = source->firstPtsMs();
+				// firstPtsMs stays unset until Rialto has accepted a
+				// segment, so it distinguishes "injected nothing yet"
+				// from "injected at PTS 0".
+				AAMPLOG_INFO("%s mediaType=%d sourceId=%d eos=%d "
+					"firstPtsMs=%s queuedFrames=%s%u",
+					context, static_cast<int>(source->mediaType()),
+					source->sourceId(), source->state().eos,
+					(firstPts == AampRialtoMediaSource::kFirstPtsNotSet)
+						? "none" : std::to_string(firstPts).c_str(),
+					haveFrames ? "" : "unavailable:", queuedFrames);
+			}
+		}
+	}
+}
+
 void AampRialtoPlayer::IssuePlay(const char *reason)
 {
 	if (!m_pipeline)
@@ -1254,11 +1317,14 @@ void AampRialtoPlayer::IssuePlay(const char *reason)
 	}
 	else
 	{
+		LogSourceSnapshot("pre-play");
+
 		// Ungate unconditionally: this is the point at which playback is
 		// genuinely about to (re)start, regardless of what the state
 		// machine currently reports.
 		UngateAllSources(reason);
 		bool async = false;
+		AAMPLOG_MIL("issuing play() (%s)", reason);
 		if (!m_pipeline->play(async))
 		{
 			AAMPLOG_ERR("play() failed (%s)", reason);
@@ -1291,6 +1357,17 @@ void AampRialtoPlayer::CheckAllSourcesAttached()
 	}
 
 	AAMPLOG_INFO("All sources attached - calling allSourcesAttached()");
+	for (auto &source : m_sources)
+	{
+		if (source)
+		{
+			// needData/haveData logs are keyed on sourceId only, so record
+			// the mapping once here.
+			AAMPLOG_INFO("  sourceId=%d -> mediaType=%d format=%d",
+				source->sourceId(), static_cast<int>(source->mediaType()),
+				static_cast<int>(source->format()));
+		}
+	}
 
 	if (!m_pipeline->allSourcesAttached())
 	{
@@ -2716,7 +2793,9 @@ void AampRialtoPlayer::HandleSeekDone()
 
 void AampRialtoPlayer::OnPlaybackState(firebolt::rialto::PlaybackState state)
 {
-	AAMPLOG_INFO("state=%d", static_cast<int>(state));
+	AAMPLOG_INFO("Rialto reported %s (state=%d), player state=%s",
+		PlaybackStateName(state), static_cast<int>(state),
+		m_stateMachine.currentStateName());
 
 	switch (state)
 	{
@@ -2900,6 +2979,7 @@ void AampRialtoPlayer::OnProgressTimerTick()
 	}
 	else
 	{
+		LogSourceSnapshot("steady-state");
 		m_notifiable->MonitorProgress(/*sync=*/false,
 			/*beginningOfStream=*/false);
 	}

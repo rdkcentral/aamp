@@ -480,6 +480,11 @@ private:
 	/// controller once a play request has no remaining holds.
 	void IssuePlay(const char *reason);
 
+	/// Log one line per attached source recording attach/EOS state, whether
+	/// anything has been injected yet, and the decoder's queued frame count.
+	/// @param[in] context  Short tag identifying the sample point.
+	void LogSourceSnapshot(const char *context);
+
 	/// Arms the deferred-flush window: re-opens the flush-driver election so
 	///
 	/// The hold is released once a position is (re)established: either

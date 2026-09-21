@@ -275,7 +275,7 @@ bool AampRialtoMediaSource::sendHaveData(
 {
 	if (batch.hasFirstPts)
 	{
-		AAMPLOG_TRACE("sourceId=%d mediaType=%d status=%d requestId=%u "
+		AAMPLOG_INFO("sourceId=%d mediaType=%d status=%d requestId=%u "
 			"frameCount=%zu firstPtsSec=%.3f durationSecSum=%.3f "
 			"mediaBytes=%zu metadataBytes=%zu",
 			m_sourceId, static_cast<int>(mediaType()),
@@ -285,7 +285,7 @@ bool AampRialtoMediaSource::sendHaveData(
 	}
 	else
 	{
-		AAMPLOG_TRACE("sourceId=%d mediaType=%d status=%d requestId=%u "
+		AAMPLOG_INFO("sourceId=%d mediaType=%d status=%d requestId=%u "
 			"frameCount=%zu mediaBytes=%zu metadataBytes=%zu",
 			m_sourceId, static_cast<int>(mediaType()),
 			static_cast<int>(status), requestId, batch.frameCount,
@@ -817,9 +817,16 @@ void AampRialtoMediaSource::handleAddSegmentNoSpace(
 			AAMPLOG_WARN("haveData failed requestId=%u", reqId);
 		}
 	}
-	AAMPLOG_INFO("addSegment NO_SPACE sourceId=%d requestId=%u "
+	uint32_t queuedFrames = 0;
+	// Capacity ceiling: what the decoder was holding at the moment Rialto
+	// refused the segment.
+	const bool haveFrames = pipeline.getQueuedFrames(m_sourceId, queuedFrames);
+	AAMPLOG_INFO("addSegment NO_SPACE sourceId=%d mediaType=%d requestId=%u "
+		"acceptedThisBatch=%zu mediaBytes=%zu queuedFrames=%s%u "
 		"— waiting for next needData",
-		m_sourceId, reqId);
+		m_sourceId, static_cast<int>(mediaType()), reqId,
+		batch.frameCount, batch.mediaBytes,
+		haveFrames ? "" : "unavailable:", queuedFrames);
 }
 
 void AampRialtoMediaSource::handleAddSegmentCompletion(
