@@ -40,6 +40,7 @@
 #include "IStreamSinkNotifiable.h"
 #include "AampRialtoMediaSource.h"
 #include "AampRialtoPlaybackController.h"
+#include "AampRialtoSegmentPosition.h"
 #include "IDirectRialtoCC.h"
 #include "AampRialtoMonitorAV.h"
 
@@ -340,10 +341,6 @@ private:
 	/// giving a negative delta for reverse trickplay (rate < 0).
 	std::atomic<int> m_rate{1};
 
-	/// Pending playback rate staged by Flush() for the current flush cycle.
-	/// Becomes active in m_rate once all sources report SourceFlushedEvent.
-	std::atomic<int> m_pendingFlushRate{1};
-
 	/// Set to true once the first PLAYING playback state is forwarded to
 	/// the notifiable.  Reset to false on each Configure() call so that
 	/// re-tunes correctly forward the first-frame notification again.
@@ -461,8 +458,8 @@ private:
 	 *
 	 * @param[in] keepLastFrame        Forwarded to the pipeline stop() call.
 	 * @param[in] preservePendingPosition  When false (the normal Stop()
-	 *            case), resets m_pendingPositionNs/m_segmentStartPositionNs
-	 *            so a stale prior-session position cannot leak into the next
+	 *            case), discards the staged position and segment baseline so
+	 *            a stale prior-session position cannot leak into the next
 	 *            session's AttachSource().  When true, used only by Flush()'s
 	 *            "not in a flushable state and shouldTearDown" branch, which
 	 *            has just staged those values moments earlier for the
@@ -470,20 +467,9 @@ private:
 	 */
 	void StopInternal(bool keepLastFrame, bool preservePendingPosition);
 
-	/// Position (ns) stored by Flush(); used to set the initial GStreamer
-	/// segment via setSourcePosition() once each source is attached.
-	/// -1 means no flush position has been set yet.
-	std::atomic<int64_t> m_pendingPositionNs{-1};
-
-	/// Position (ns) the current segment actually started at: either the
-	/// value consumed by AttachSource() when the video source newly attaches
-	/// (covers the first tune, and content types where Flush() pre-stages a
-	/// position before any source is attached - see DoStreamSinkFlushOnDiscontinuity
-	/// in priv_aamp.cpp), or the value committed by the SEEK_DONE handler for
-	/// a later mid-playback Flush()/seek.  Used by GetPositionMilliseconds()
-	/// as the segment-start baseline instead of the first injected sample's
-	/// own PTS, since a flush/seek position can land mid-fragment.
-	std::atomic<int64_t> m_segmentStartPositionNs{0};
+	/// Staged flush position/rate and the current segment-start baseline.
+	/// See AampRialtoSegmentPosition.
+	AampRialtoSegmentPosition m_segmentPosition;
 
 	/// Single decision point for when play() may be issued.  Stream()
 	/// records the request; the PlayHold values describe why playback
@@ -494,25 +480,7 @@ private:
 	/// controller once a play request has no remaining holds.
 	void IssuePlay(const char *reason);
 
-	/// Mirrors the positionIsAuthoritative argument of the most recent
-	/// Flush() call (e.g. true for AampStreamSinkManager::SetActive()
-	/// driving a single-pipeline-mode ad transition's real resume
-	/// position; false for a same-session discard-to-0 teardown
-	/// placeholder). Stored unconditionally on every Flush() so a later
-	/// non-authoritative call cannot leave a stale true from an earlier
-	/// authoritative one. Consulted (and cleared) by Configure() to decide
-	/// whether re-applying PlayHold::PositionPending would be redundant.
-	std::atomic<bool> m_lastFlushPositionAuthoritative{false};
-
-	/// Claimed by the first sample that drives the deferred implicit Flush(),
-	/// so that concurrent video/audio injector threads cannot both trigger
-	/// it.  Reset whenever PlayHold::PositionPending is (re)armed.
-	std::atomic<bool> m_pendingPositionFlushClaimed{false};
-
-	/// Arms the deferred-flush window: resets the claim so the next elected
-	/// sample may drive MaybeFlushForPendingPosition(), then applies
-	/// PlayHold::PositionPending.  Shared by every call site that needs to
-	/// mark a position as not-yet-established for the current segment.
+	/// Arms the deferred-flush window: re-opens the flush-driver election so
 	///
 	/// The hold is released once a position is (re)established: either
 	/// AttachSource() commits a definitive baseline for a newly-attached
@@ -527,8 +495,8 @@ private:
 	/// DoStreamSinkFlushOnDiscontinuity() are both false for ISO BMFF), so
 	/// MaybeFlushForPendingPosition() must supply one once the new period's
 	/// first sample is demuxed. Armed by every Configure() UNLESS the
-	/// Flush() that settled FLUSHED was called with
-	/// positionIsAuthoritative=true (see m_lastFlushPositionAuthoritative) -
+	/// Flush() that settled FLUSHED staged an authoritative position (see
+	/// AampRialtoSegmentPosition::ConsumeAuthoritative()) -
 	/// no sample can be in flight yet at any Configure() call site (always
 	/// preceded by StopInjection()/not-yet-Start()), so arming there is
 	/// never racy, even when an explicit Flush() immediately follows and
