@@ -26,6 +26,7 @@
 #include <chrono>
 #include <cstdio>
 #include <cstring>
+#include <ctime>
 #include <iomanip>
 #include <inttypes.h>
 #include <sstream>
@@ -268,28 +269,39 @@ std::string AampFlightDataRecorder::FormatLogEntry(const FDRLogEntry& entry,
 	std::chrono::steady_clock::time_point flushTime) const
 {
 	std::ostringstream oss;
-	// In aamp-cli (no log redirection) the buffered dump has no external stamp,
-	// so the prefix uses the emit time (record time + buffered lag) to stay
-	// chronological with surrounding live logs, and {record} carries the true
-	// record time. Under journal/Ethan the sink stamps the emit time itself.
-	bool emitStamped = flushTime != std::chrono::steady_clock::time_point{} &&
-		entry.recorded_at != std::chrono::steady_clock::time_point{} &&
-		AampLogManager::disableLogRedirection;
-	int64_t lagMs = 0;
-	uint64_t prefixMs = entry.timestamp_ms;
-	if (emitStamped)
+	// Under the FDR dump (flushTime set) the record and emit times differ by the
+	// buffered lag. aamp-cli has no external stamp, so the prefix carries the emit
+	// time (epoch) and {record} the epoch record time. Under journald/Ethan the
+	// sink already stamps the emit time, so the epoch prefix is dropped and the
+	// record time is shown as an ISO-8601 UTC {tag}. Eviction (no flushTime) is
+	// unchanged.
+	bool underDump = flushTime != std::chrono::steady_clock::time_point{} &&
+		entry.recorded_at != std::chrono::steady_clock::time_point{};
+	if (underDump && AampLogManager::disableLogRedirection)
 	{
-		lagMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+		int64_t lagMs = std::chrono::duration_cast<std::chrono::milliseconds>(
 			flushTime - entry.recorded_at).count();
 		if (lagMs < 0) { lagMs = 0; }
-		prefixMs = entry.timestamp_ms + static_cast<uint64_t>(lagMs);
-	}
-	oss << prefixMs / 1000 << "." << std::setfill('0') << std::setw(3)
-		<< prefixMs % 1000 << ": ";
-	if (emitStamped)
-	{
+		uint64_t emitMs = entry.timestamp_ms + static_cast<uint64_t>(lagMs);
+		oss << emitMs / 1000 << "." << std::setfill('0') << std::setw(3)
+			<< emitMs % 1000 << ": ";
 		oss << "{" << entry.timestamp_ms / 1000 << "."
 			<< std::setfill('0') << std::setw(3) << entry.timestamp_ms % 1000 << "}";
+	}
+	else if (underDump)
+	{
+		std::time_t secs = static_cast<std::time_t>(entry.timestamp_ms / 1000);
+		std::tm tmUtc{};
+		gmtime_r(&secs, &tmUtc);
+		char isoBuf[32];
+		std::strftime(isoBuf, sizeof(isoBuf), "%Y-%m-%dT%H:%M:%S", &tmUtc);
+		oss << "{" << isoBuf << "." << std::setfill('0') << std::setw(3)
+			<< entry.timestamp_ms % 1000 << "Z}";
+	}
+	else
+	{
+		oss << entry.timestamp_ms / 1000 << "." << std::setfill('0')
+			<< std::setw(3) << entry.timestamp_ms % 1000 << ": ";
 	}
 	oss << "[" << entry.source << "]";
 	oss << "[" << std::setfill('0') << std::setw(3) << entry.seq_num << "]";
