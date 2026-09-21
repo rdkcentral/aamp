@@ -2577,9 +2577,6 @@ void AampRialtoPlayer::OnPlaybackState(firebolt::rialto::PlaybackState state)
 			{
 				m_notifiable->NotifyFirstBufferProcessed(GetVideoRectangle());
 				m_notifiable->NotifyFirstFrameReceived(ccHandle);
-				//notifiable->NotifySpeedChanged(
-				//	static_cast<float>(m_rate.load(std::memory_order_relaxed)), // actual rate
-				//	/*changeState=*/true);
 			}
 			StartProgressTimer();
 
