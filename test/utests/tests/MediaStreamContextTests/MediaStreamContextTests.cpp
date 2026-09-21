@@ -273,7 +273,7 @@ TEST_F(MediaStreamContextTest, CacheFragmentChunkUsesDownloadInfoPTSOffsetNotCon
     EXPECT_NE(cachedFragment.PTSOffsetSec, kContextPtsOffsetAtDownloadTimeSec);
 
     // Simulate a manifest-driven update to the context's PTS offset arriving
-    // after this chunk was cached (the exact race VPAAMP-1073 fixes).
+    // after this chunk was cached (the exact race fixes).
     mMediaStreamContext->context->mPTSOffset = AampTime(99.0);
 
     // The already-cached fragment's PTSOffsetSec must remain unaffected.

@@ -374,7 +374,7 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>&& buffer, double position,
 					// (PtsRestampUtils.LOG_LINE in the L2 pts-restamp checker)
 					// anchors on \[RestampPts\], so dropping the tag makes it silently stop
 					// matching and every restamp continuity assertion is skipped rather than
-					// failed. See VPAAMP-1027.
+					// failed.
 					//
 					// Deliberately not gated on eAAMPConfig_EnablePTSReStampLogging. The legacy
 					// line is always emitted even when the offset is zero (see the comment in
