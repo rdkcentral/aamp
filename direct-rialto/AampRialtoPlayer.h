@@ -605,6 +605,77 @@ private:
 	/// @brief Called when Rialto reports a non-fatal playback error.
 	void OnPlaybackError(int32_t sourceId, firebolt::rialto::PlaybackError error);
 
+	// -------------------------------------------------------------------
+	// Configure() steps
+	// -------------------------------------------------------------------
+
+	/// Mark the position as not-yet-established for the new Configure() and
+	/// gate existing sources, unless the flush that settled FLUSHED already
+	/// staged an authoritative position.
+	void ArmPositionPendingForConfigure();
+
+	/// Update the existing sources in place when the source set is
+	/// unchanged.  Returns true when the pipeline was reused, meaning
+	/// Configure() must not tear anything down.
+	bool TryReuseExistingPipeline(
+		StreamOutputFormat videoFormat,
+		StreamOutputFormat audioFormat,
+		StreamOutputFormat subFormat,
+		bool bESChangeStatus,
+		bool setReadyAfterPipelineCreation);
+
+	/// Reset the per-session state a rebuilt pipeline starts from.
+	void BeginNewSession();
+
+	/// Register the Rialto -> AAMP log bridge.  Idempotent.
+	void RegisterRialtoLogHandler();
+
+	/// Lazily create the control backend, pipeline factory and capabilities.
+	void EnsureRialtoFactories();
+
+	/// Create the Rialto pipeline, load it, and wire up its callbacks and
+	/// monitors.  Leaves m_pipeline null if any step fails.
+	void CreateAndLoadPipeline();
+
+	/// Route the pipeline client's notifications to this player.
+	void RegisterPipelineCallbacks();
+
+	/// Create the AV health monitor when eAAMPConfig_MonitorAV is set.
+	void CreateMonitorAV();
+
+	/// Create the per-track source objects for the configured formats.
+	void CreateSources(
+		StreamOutputFormat videoFormat,
+		StreamOutputFormat audioFormat,
+		StreamOutputFormat subFormat);
+
+	/// Create one gated audio or video source and resume its downloads.
+	void CreateMediaSource(AampMediaType type, StreamOutputFormat format);
+
+	/// Create either the sidecar subtitle source or, when there is none,
+	/// the inband closed-caption source that accompanies video.
+	void CreateSubtitleSource(
+		StreamOutputFormat subFormat,
+		StreamOutputFormat videoFormat);
+
+	// -------------------------------------------------------------------
+	// OnPlaybackState() handlers
+	// -------------------------------------------------------------------
+
+	/// Handle PlaybackState::PLAYING.
+	void HandlePlaybackStarted();
+
+	/// Handle PlaybackState::SEEK_DONE, completing the flush cycle.
+	void HandleSeekDone();
+
+	/// Re-apply the video segment position so its GStreamer segment event
+	/// carries the trickplay applied_rate.  No-op at normal play rate.
+	void ApplyTrickplaySegmentPosition(int64_t positionNs, int rate);
+
+	/// Re-apply the subtitle segment position so the text-track sink knows
+	/// where to render from before the pipeline reaches PLAYING.
+	void ApplySubtitleSegmentPosition(int64_t positionNs);
+
 	/**
 	 * @brief Attach a source via its polymorphic attachOrUpdate method.
 	 *
