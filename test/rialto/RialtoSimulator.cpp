@@ -324,6 +324,7 @@ public:
 			{
 				entry.second = 0;
 			}
+			m_injectedFrameCount.clear();
 			m_readySources.clear();
 			m_eosSources.clear();
 			m_pendingSegments.clear();
@@ -376,6 +377,14 @@ public:
 
 	bool setImmediateOutput(int32_t, bool) override { return true; }
 	bool getImmediateOutput(int32_t, bool &io) override { io = false; return true; }
+	bool setReportDecodeErrors(int32_t, bool) override { return true; }
+
+	bool getQueuedFrames(int32_t sourceId, uint32_t &queuedFrames) override
+	{
+		std::lock_guard<std::mutex> lock(m_trackMutex);
+		queuedFrames = queuedFramesLocked(sourceId);
+		return true;
+	}
 
 	bool setVideoWindow(uint32_t x, uint32_t y,
 		uint32_t width, uint32_t height) override
@@ -453,7 +462,7 @@ public:
 			if (pending.sourceId >= 0 && pending.totalDurationNs > 0)
 			{
 				accumulateInjectedDuration(pending.sourceId,
-					pending.totalDurationNs);
+					pending.totalDurationNs, pending.segmentCount);
 			}
 			maybeStartPlayback();
 		}
@@ -565,6 +574,7 @@ public:
 			PendingSegmentData &pending = m_pendingSegments[needDataRequestId];
 			pending.sourceId = mediaSegment->getId();
 			pending.totalDurationNs += mediaSegment->getDuration();
+			pending.segmentCount++;
 			if (pending.firstTimeStampNs < 0)
 			{
 				int64_t pts = mediaSegment->getTimeStamp();
@@ -636,6 +646,7 @@ public:
 			{
 				entry.second = 0;
 			}
+			m_injectedFrameCount.clear();
 			m_readySources.clear();
 			m_eosSources.clear();
 			m_pendingSegments.clear();
@@ -714,6 +725,7 @@ private:
 		int32_t sourceId = -1;
 		int64_t totalDurationNs = 0;
 		int64_t firstTimeStampNs = -1;
+		uint32_t segmentCount = 0;
 	};
 
 	// Bookkeeping for an outstanding notifyNeedMediaData() request, tagged
@@ -784,6 +796,35 @@ private:
 			elapsed).count();
 		int64_t buffered = it->second - playedNs;
 		return buffered > 0 ? buffered : 0;
+	}
+
+	// Number of injected-but-not-yet-played frames held for a single
+	// source, derived from bufferedAheadNsLocked() and this source's
+	// average frame duration (total injected duration / total injected
+	// frame count).  Mirrors the duration-based backpressure model rather
+	// than tracking a separate drain timer per frame.
+	// Caller must hold m_trackMutex.
+	uint32_t queuedFramesLocked(int32_t sourceId) const
+	{
+		auto countIt = m_injectedFrameCount.find(sourceId);
+		if (countIt == m_injectedFrameCount.end() || countIt->second == 0)
+		{
+			return 0;
+		}
+		auto durIt = m_injectedDurationNs.find(sourceId);
+		if (durIt == m_injectedDurationNs.end() || durIt->second <= 0)
+		{
+			return 0;
+		}
+		int64_t avgFrameDurationNs =
+			durIt->second / static_cast<int64_t>(countIt->second);
+		if (avgFrameDurationNs <= 0)
+		{
+			return 0;
+		}
+		int64_t bufferedNs = bufferedAheadNsLocked(sourceId);
+		int64_t frames = bufferedNs / avgFrameDurationNs;
+		return frames > 0 ? static_cast<uint32_t>(frames) : 0;
 	}
 
 	void startEosDrain(int64_t maxBufferedAheadNs)
@@ -975,7 +1016,8 @@ private:
 		});
 	}
 
-	void accumulateInjectedDuration(int32_t sourceId, int64_t durationNs)
+	void accumulateInjectedDuration(int32_t sourceId, int64_t durationNs,
+		uint32_t frameCount)
 	{
 		std::lock_guard<std::mutex> lock(m_trackMutex);
 		auto typeIt = m_sourceTypes.find(sourceId);
@@ -987,6 +1029,7 @@ private:
 		if (durationNs > 0)
 		{
 			m_injectedDurationNs[sourceId] += durationNs;
+			m_injectedFrameCount[sourceId] += frameCount;
 			m_eosSources.erase(sourceId);
 			m_eosSourceCount.store(
 				static_cast<int>(m_eosSources.size()),
@@ -1181,6 +1224,7 @@ private:
 	mutable std::mutex m_trackMutex;
 	std::map<int32_t, MediaSourceType> m_sourceTypes;
 	std::map<int32_t, int64_t> m_injectedDurationNs;
+	std::map<int32_t, uint32_t> m_injectedFrameCount;
 	std::set<int32_t> m_readySources;
 	std::set<int32_t> m_eosSources;
 	std::map<uint32_t, RequestInfo> m_requestIdToSource;
