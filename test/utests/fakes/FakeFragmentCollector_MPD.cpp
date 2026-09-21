@@ -327,28 +327,6 @@ bool StreamAbstractionAAMP_MPD::ExtractAndAddSubtitleMediaHeader()
 }
 
 
-void StreamAbstractionAAMP_MPD::WaitForManifestUpdate()
-{
-}
-
-void StreamAbstractionAAMP_MPD::WaitForManifestUpdate(uint32_t counter)
-{
-}
-
-void StreamAbstractionAAMP_MPD::AbortWaitForManifestUpdate()
-{
-	MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
-	if (video)
-	{
-		video->AbortWaitForManifestUpdate();
-	}
-}
-
-uint32_t StreamAbstractionAAMP_MPD::GetManifestUpdateCounter()
-{
-	return 0;
-}
-
 AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, bool resetTimeLineIndex, bool isInit)
 {
 	return eAAMPSTATUS_OK;
