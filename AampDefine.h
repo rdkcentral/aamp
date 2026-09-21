@@ -30,7 +30,7 @@
 #define AAMP_CFG_PATH "/opt/aamp.cfg"
 
 // Presence of this file forces audio-only playback (mini-window CPU saving); absence restores video.
-#define AAMP_MINI_WINDOW_AUDIO_ONLY_FLAG_FILE "/opt/non_vid_only_audio.txt"
+#define AAMP_MINI_WINDOW_AUDIO_ONLY_FLAG_FILE "/opt/test/non_vid_only_audio.txt"
 #define AAMP_MINI_WINDOW_AUDIO_ONLY_FILE_POLL_MS 5000
 #define AAMP_JSON_PATH "/opt/aampcfg.json"
 
