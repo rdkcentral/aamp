@@ -2007,6 +2007,13 @@ public:
 	 */	
 	void ReinitializeInjection(double rate);
 
+	/**
+	 *   @fn ReselectTracksForAudioOnlyChange
+	 *   @brief Re-run track selection on an already-initialized StreamAbstraction so an
+	 *          audio-only mode change takes effect without recreating the object (e.g. Local AAMP TSB).
+	 */
+	virtual void ReselectTracksForAudioOnlyChange() {}
+
 protected:
 	/**
 	 * Mutex used to serialize UnderflowMonitor lifecycle in const methods.

@@ -249,6 +249,11 @@ public:
 	 * @param[in] secondsRelativeToTuneTime - can be the offset (seconds from tune time) or absolute position (seconds from 1970)
 	 */
 	void SeekPosUpdate(double secondsRelativeToTuneTime) override;
+	/**
+	 * @fn ReselectTracksForAudioOnlyChange
+	 * @return void
+	 */
+	void ReselectTracksForAudioOnlyChange() override;
 	virtual void SetCDAIObject(CDAIObject *cdaiObj) override;
 	/**
 	 * @fn GetAvailableAudioTracks

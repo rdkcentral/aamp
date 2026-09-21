@@ -7596,6 +7596,15 @@ void StreamAbstractionAAMP_MPD::SwitchAudioTrack()
 }
 
 /**
+ * @brief Re-runs track selection to apply an audioOnlyPlayback mode change without a full re-tune
+ */
+void StreamAbstractionAAMP_MPD::ReselectTracksForAudioOnlyChange()
+{
+	AAMPLOG_WARN("Re-running StreamSelection, audioOnlyPlayback=%d", ISCONFIGSET(eAAMPConfig_AudioOnlyPlayback));
+	StreamSelection(false);
+}
+
+/**
  * @brief Does stream selection
  */
 void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsChangedEvent)
