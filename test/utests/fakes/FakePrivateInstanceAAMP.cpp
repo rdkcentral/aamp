@@ -444,8 +444,8 @@ bool PrivateInstanceAAMP::IsAsyncTuneAbortRequired(const char* manifestUrl, cons
 	// Map the content-type string to enum — the only type that supports abort is LINEAR_TV.
 	ContentType contentType = (contentTypeString && !strncmp(contentTypeString, "LINEAR_TV", 9))
 	                 ? ContentType_LINEAR : ContentType_UNKNOWN;
-	// tune type as derrived in PrivateInstanceAAMP::Tune()
-	TuneType tuneType = ((AAMP_DEFAULT_PLAYBACK_OFFSET == seek_pos) || (-1 == seek_pos)) ? eTUNETYPE_NEW_NORMAL : eTUNETYPE_SEEK;
+	// tune type as derived in PrivateInstanceAAMP::Tune()
+	TuneType tuneType = ((AAMP_DEFAULT_PLAYBACK_OFFSET == seek_pos) || (-1 == seek_pos)) ? eTUNETYPE_NEW_NORMAL : eTUNETYPE_NEW_SEEK;
 	return IsAsyncTuneSupportedForType(format, contentType, tuneType);
 }
 

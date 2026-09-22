@@ -200,6 +200,7 @@ TEST_F(AsyncTuneAbortTests, IsAsyncTuneAbortRequired_UrlArg_DashLinear_AbortFlag
 	mAamp->mAsyncTuneEnabled = true;
 	mAamp->SetEarlyAbortRequestFlag(true);
 	EXPECT_TRUE(mAamp->IsAsyncTuneAbortRequired(kDashUrl, "LINEAR_TV", -1));
+ 	EXPECT_TRUE(mAamp->IsAsyncTuneAbortRequired(kDashUrl, "LINEAR_TV", 10.0));
 }
 
 /**

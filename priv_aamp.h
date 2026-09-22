@@ -716,7 +716,7 @@ public:
 	 *
 	 * @param[in] manifestUrl       - manifest URL of the incoming tune
 	 * @param[in] contentTypeString - content-type string of the incoming tune (e.g. "LINEAR_TV")
-	 * @param[in] seekPos           - seek position that is set of the incoming tune (e.g. "LINEAR_TV")
+	 * @param[in] seek_pos           - seek position that is set of the incoming tune (e.g. "LINEAR_TV")
 	 * @return bool  true if SetEarlyAbortRequestFlag(true) has been called and the incoming
 	 *               tune type supports early abort
 	 */
@@ -4472,7 +4472,7 @@ private:
 	 *
 	 * @param[in] format  - media format to evaluate
 	 * @param[in] type    - content type to evaluate
-	 * @param[in] type    - tune type to evaluate
+	 * @param[in] tuneType    - tune type to evaluate
 	 * @return bool true if async abort is supported for the given format/type
 	 */
 	bool IsAsyncTuneSupportedForType(MediaFormat format, ContentType type, TuneType tuneType) const;
