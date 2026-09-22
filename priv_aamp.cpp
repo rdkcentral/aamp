@@ -6203,13 +6203,6 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		else
 		{
 			mpStreamAbstractionAAMP->ReinitializeInjection(rate);
-			// ReinitializeInjection() only updates rate; force a track reselect here so a pending
-			// mini-window audio-only mode change actually takes effect on the reused StreamAbstraction.
-			if (mMiniWindowAudioOnlyForceReselect.load())
-			{
-				mpStreamAbstractionAAMP->ReselectTracksForAudioOnlyChange();
-				mMiniWindowAudioOnlyForceReselect.store(false);
-			}
 		}
 	}
 	else if (mMediaFormat == eMEDIAFORMAT_HLS || mMediaFormat == eMEDIAFORMAT_HLS_MP4)
@@ -6307,6 +6300,10 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			// Update StreamAbstraction object seek position to the absolute position (seconds since 1970)
 			mpStreamAbstractionAAMP->SeekPosUpdate(seek_pos_seconds);
 			retVal = mpStreamAbstractionAAMP->InitTsbReader(tuneType);
+			if (retVal == eAAMPSTATUS_OK && mMiniWindowAudioOnlyForceReselect.load())
+			{
+				mMiniWindowAudioOnlyForceReselect.store(false);
+			}
 		}
 		else
 		{

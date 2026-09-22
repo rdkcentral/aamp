@@ -7594,16 +7594,6 @@ void StreamAbstractionAAMP_MPD::SwitchAudioTrack()
 	/*Fetch and injecting initialization params*/
 	FetchAndInjectInitialization(eMEDIATYPE_AUDIO, false);
 }
-
-/**
- * @brief Re-runs track selection to apply an audioOnlyPlayback mode change without a full re-tune
- */
-void StreamAbstractionAAMP_MPD::ReselectTracksForAudioOnlyChange()
-{
-	AAMPLOG_WARN("Re-running StreamSelection, audioOnlyPlayback=%d", ISCONFIGSET(eAAMPConfig_AudioOnlyPlayback));
-	StreamSelection(false);
-}
-
 /**
  * @brief Does stream selection
  */
@@ -11131,6 +11121,12 @@ void StreamAbstractionAAMP_MPD::TsbReader()
 				for (int trackIdx = (mNumberOfTracks - 1); trackIdx >= 0; trackIdx--)
 				{
 					cacheFullStatus[trackIdx] = true;
+					if ((trackIdx == eMEDIATYPE_VIDEO) && ISCONFIGSET(eAAMPConfig_AudioOnlyPlayback))
+					{
+						// Keep video in TSB for rewind, but do not inject it during audio-only playback.
+						cacheFullStatus[trackIdx] = false;
+						continue;
+					}
 					if (!tsbSessionManager->GetTsbReader((AampMediaType) trackIdx)->IsEos())
 					{
 						bool trackSegmentFound = AdvanceTsbFetch(trackIdx, trickPlay, delta, waitForFreeFrag, cacheFullStatus[trackIdx]);
