@@ -1245,6 +1245,16 @@ TEST_F(FragmentDownloadTests, SynthesizeAbort_TrickplayVOD_FlagIsTrue)
 	// Trickplay at 4x forward — triggers synthesis abort.
 	mPrivateInstanceAAMP->rate = 4;
 
+	// IsVODSynthesisActive() must return true so doSynthesizeAbort=true.
+	// The default mStreamAbstractionAAMP_MPD has mVODSynthesisIframeActive=false,
+	// so rebuild mMediaStreamContext with the mock MPD as context and configure
+	// the virtual override to return true.
+	delete mMediaStreamContext;
+	ON_CALL(*mMockStreamAbstractionAAMP_MPD, IsVODSynthesisActive())
+		.WillByDefault(Return(true));
+	mMediaStreamContext = new TestableMediaStreamContext(
+		eTRACK_VIDEO, mMockStreamAbstractionAAMP_MPD.get(), mPrivateInstanceAAMP, "SAMPLETEXT");
+
 	// mIsLive and mLocalAAMPTsb are both false by default in the fake, so
 	// IsVODIframeSynthesisEnabled() will return true when the config flag is set.
 	// NiceMock returns false for all IsConfigSet calls by default; override only
