@@ -11655,6 +11655,7 @@ bool PrivateInstanceAAMP::SetStateBufferingIfRequired()
 			if(sink)
 			{
 				sink->NotifyFragmentCachingOngoing();
+				mpStreamAbstractionAAMP->NotifyPipelinePausedToUnderflowMonitor();
 			}
 			SetState(eSTATE_BUFFERING);
 		}
