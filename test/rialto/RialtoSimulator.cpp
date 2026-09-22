@@ -1314,8 +1314,7 @@ private:
 		{
 			{
 				std::lock_guard<std::mutex> lock(m_trackMutex);
-				m_masterClockAnchorNs = m_basePositionNs.load(std::memory_order_relaxed);
-				m_masterClockAnchorWallTime = std::chrono::steady_clock::now();
+				anchorClockLocked(m_basePositionNs.load(std::memory_order_relaxed));
 			}
 			if (auto client = m_client.lock())
 			{
