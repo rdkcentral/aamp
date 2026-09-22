@@ -128,17 +128,17 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 			}
 
 			// VOD iframe synthesis (Phase 2): abort the CURL transfer as soon as the
-		// first I-frame payload has been received, saving the bandwidth cost of
-		// downloading the remainder of the segment.  The caller still runs
-		// ConvertToKeyFrame() afterwards to fix the MOOF metadata.
-		// Restricted to VOD/non-TSB streams via IsVODIframeSynthesisEnabled().
-		const bool doSynthesizeAbort = !initSegment
-			&& iCurrentRate != AAMP_NORMAL_PLAY_RATE
-			&& iCurrentRate != AAMP_RATE_PAUSE
-			&& mediaType == eMEDIATYPE_VIDEO
-			&& aamp->IsVODIframeSynthesisEnabled();
+			// first I-frame payload has been received, saving the bandwidth cost of
+			// downloading the remainder of the segment.  The caller still runs
+			// ConvertToKeyFrame() afterwards to fix the MOOF metadata.
+			// Restricted to VOD/non-TSB streams via IsVODIframeSynthesisEnabled().
+			const bool doSynthesizeAbort = !initSegment
+				&& iCurrentRate != AAMP_NORMAL_PLAY_RATE
+				&& iCurrentRate != AAMP_RATE_PAUSE
+				&& mediaType == eMEDIATYPE_VIDEO
+				&& aamp->IsVODIframeSynthesisEnabled();
 
-		ret = aamp->GetFile(fragmentUrl, actualType, mTempFragment, effectiveUrl, httpErrorCode, &downloadTimeS, range, curlInstance, true/*resetBuffer*/,  &bitrate, &iFogError, fragmentDurationS, bucketType, maxInitDownloadTimeMS, doSynthesizeAbort);
+			ret = aamp->GetFile(fragmentUrl, actualType, mTempFragment, effectiveUrl, httpErrorCode, &downloadTimeS, range, curlInstance, true/*resetBuffer*/,  &bitrate, &iFogError, fragmentDurationS, bucketType, maxInitDownloadTimeMS, doSynthesizeAbort);
 			if (initSegment && ret)
 			{
 				aamp->getAampCacheHandler()->InsertToInitFragCache(fragmentUrl, mTempFragment, effectiveUrl, actualType);

@@ -97,19 +97,21 @@ bool IsoBmffHelper::InitAndParse(IsoBmffBuffer& isoBmffBuffer, std::vector<uint8
 			{
 				uint32_t boxSize = readBE32(buf + trafPos);
 				if (boxSize < 8 || trafPos + boxSize > trafEnd) break;
+				// Bound all field reads to this specific child box, not the enclosing TRAF.
+				size_t boxEnd = trafPos + boxSize;
 
 				if (buf[trafPos+4]=='t' && buf[trafPos+5]=='f' &&
 				    buf[trafPos+6]=='h' && buf[trafPos+7]=='d')
 				{
 					// Track Fragment Header (FullBox): size(4)+type(4)+version(1)+flags(3)+track_id(4) = 16 bytes minimum.
-					if (trafPos + 16 <= trafEnd)
+					if (trafPos + 16 <= boxEnd)
 					{
 						uint32_t tfhdFlags = readBE24(buf + trafPos + 9); // flags after version byte
 						size_t p = trafPos + 16; // after size+type+version+flags+track_id
 						if (tfhdFlags & kTfhdBaseDataOffsetPresent)         p += 8;
 						if (tfhdFlags & kTfhdSampleDescIndexPresent)        p += 4;
 						if (tfhdFlags & kTfhdDefaultSampleDurationPresent)  p += 4;
-						if ((tfhdFlags & kTfhdDefaultSampleSizePresent) && p + 4 <= trafEnd)
+						if ((tfhdFlags & kTfhdDefaultSampleSizePresent) && p + 4 <= boxEnd)
 							tfhdDefaultSampleSize = readBE32(buf + p);
 					}
 				}
@@ -117,7 +119,7 @@ bool IsoBmffHelper::InitAndParse(IsoBmffBuffer& isoBmffBuffer, std::vector<uint8
 				         buf[trafPos+6]=='u' && buf[trafPos+7]=='n')
 				{
 					// Track Fragment Run (FullBox): size(4)+type(4)+version(1)+flags(3)+sample_count(4) = 16 bytes minimum.
-					if (trafPos + 16 <= trafEnd)
+					if (trafPos + 16 <= boxEnd)
 					{
 						uint32_t trunFlags   = readBE24(buf + trafPos + 9);
 						uint32_t sampleCount = readBE32(buf + trafPos + 12);
@@ -126,7 +128,7 @@ bool IsoBmffHelper::InitAndParse(IsoBmffBuffer& isoBmffBuffer, std::vector<uint8
 						{
 							// data_offset is relative to the base-data-offset (start of MOOF).
 							// Validate: must point past the complete MOOF + at least the 8-byte MDAT header.
-							if (p + 4 <= trafEnd)
+							if (p + 4 <= boxEnd)
 							{
 								int32_t rawOffset = static_cast<int32_t>(readBE32(buf + p));
 								if (rawOffset > static_cast<int32_t>(moofSize + 8u))
@@ -141,8 +143,8 @@ bool IsoBmffHelper::InitAndParse(IsoBmffBuffer& isoBmffBuffer, std::vector<uint8
 						// Now at the start of the first sample's per-sample fields.
 						if (sampleCount > 0)
 						{
-							if ((trunFlags & kTrunSampleDurationPresent) && p + 4 <= trafEnd) p += 4;
-							if ((trunFlags & kTrunSampleSizePresent) && p + 4 <= trafEnd)
+							if ((trunFlags & kTrunSampleDurationPresent) && p + 4 <= boxEnd) p += 4;
+							if ((trunFlags & kTrunSampleSizePresent) && p + 4 <= boxEnd)
 								trunFirstSampleSize = readBE32(buf + p);
 						}
 					}

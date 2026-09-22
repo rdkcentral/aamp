@@ -7795,7 +7795,7 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 				   the DRM license/protection event is raised for encrypted VOD assets
 				   using synthesis trickplay (mirrors the encrypted-iframe path below). */
 				QueueContentProtection(period, selAdaptationSetIndex, (AampMediaType)i);
-				AAMPLOG_WARN("StreamAbstractionAAMP_MPD: VOD iframe synthesis - video-only"
+				AAMPLOG_INFO("StreamAbstractionAAMP_MPD: VOD iframe synthesis - video-only"
 						 " trickplay track enabled (adaptation [%d])", selAdaptationSetIndex);
 			}
 			else if (encryptedIframeTrackPresent) //Process content protection for encrypted Iframe

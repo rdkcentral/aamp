@@ -1209,3 +1209,144 @@ TEST_F(FragmentDownloadTests, DownloadFragment_SegmentBase_ABRSwitch_UsesIdxBase
 	EXPECT_DOUBLE_EQ(dlInfo->fragmentDurationSec, 2.0)
 		<< "fragmentDurationSec must be set from the SIDX reference duration.";
 }
+
+// ============================================================================
+// VOD iframe synthesis abort flag tests
+// ============================================================================
+
+/**
+ * @brief Helper: set up the minimum mocks needed for a non-LLD DownloadFragment
+ *        that reaches the GetFile call.
+ *
+ * The caller should set EXPECT_CALL for GetFile itself with whatever argument
+ * matchers are needed for the specific test.
+ */
+static void SetupDownloadFragmentBaseMocks()
+{
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
+		.WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection())
+		.WillRepeatedly(Return(false));
+}
+
+/**
+ * @brief Verify synthesizeIframeAbort=true when trickplay rate + synthesizeIframeForVOD is enabled.
+ *
+ * Conditions that should produce doSynthesizeAbort=true:
+ *   - Non-init video segment
+ *   - rate != AAMP_NORMAL_PLAY_RATE (trickplay, e.g. 4x)
+ *   - rate != AAMP_RATE_PAUSE (not paused)
+ *   - mediaType == eMEDIATYPE_VIDEO  (track is VIDEO)
+ *   - IsVODIframeSynthesisEnabled() == true
+ *       => eAAMPConfig_SynthesizeIframeForVOD set AND !mIsLive AND !mLocalAAMPTsb
+ */
+TEST_F(FragmentDownloadTests, SynthesizeAbort_TrickplayVOD_FlagIsTrue)
+{
+	// Trickplay at 4x forward — triggers synthesis abort.
+	mPrivateInstanceAAMP->rate = 4;
+
+	// mIsLive and mLocalAAMPTsb are both false by default in the fake, so
+	// IsVODIframeSynthesisEnabled() will return true when the config flag is set.
+	// NiceMock returns false for all IsConfigSet calls by default; override only
+	// the synthesis flag so IsVODIframeSynthesisEnabled() returns true.
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_SynthesizeIframeForVOD))
+		.WillRepeatedly(Return(true));
+
+	SetupDownloadFragmentBaseMocks();
+
+	// The 15th argument (synthesizeIframeAbort) must be true.
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+		GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _, true))
+		.WillOnce(Return(true));
+
+	DownloadInfoPtr dlInfo = std::make_shared<DownloadInfo>();
+	dlInfo->uriList[0].url = "http://example.com/segment.mp4";
+	dlInfo->url            = "http://example.com/segment.mp4";
+	dlInfo->isInitSegment  = false;
+
+	EXPECT_TRUE(mMediaStreamContext->DownloadFragment(dlInfo));
+}
+
+/**
+ * @brief Verify synthesizeIframeAbort=false at normal play rate even when the
+ *        synthesizeIframeForVOD config flag is enabled.
+ *
+ * doSynthesizeAbort requires iCurrentRate != AAMP_NORMAL_PLAY_RATE.
+ */
+TEST_F(FragmentDownloadTests, SynthesizeAbort_NormalRate_FlagIsFalse)
+{
+	// Normal play rate — synthesis abort must not be requested.
+	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
+
+	// Even with the config flag set, normal rate must not trigger synthesis abort.
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_SynthesizeIframeForVOD))
+		.WillRepeatedly(Return(true));
+
+	SetupDownloadFragmentBaseMocks();
+
+	// synthesizeIframeAbort must be false.
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+		GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _, false))
+		.WillOnce(Return(true));
+
+	DownloadInfoPtr dlInfo = std::make_shared<DownloadInfo>();
+	dlInfo->uriList[0].url = "http://example.com/segment.mp4";
+	dlInfo->url            = "http://example.com/segment.mp4";
+	dlInfo->isInitSegment  = false;
+
+	EXPECT_TRUE(mMediaStreamContext->DownloadFragment(dlInfo));
+}
+
+/**
+ * @brief Verify synthesizeIframeAbort=false when synthesizeIframeForVOD config is disabled,
+ *        even when playing at a trickplay rate.
+ */
+TEST_F(FragmentDownloadTests, SynthesizeAbort_ConfigDisabled_FlagIsFalse)
+{
+	// Trickplay rate but feature disabled.
+	mPrivateInstanceAAMP->rate = 4;
+
+	// NiceMock default: all IsConfigSet calls return false — synthesis disabled.
+
+	SetupDownloadFragmentBaseMocks();
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+		GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _, false))
+		.WillOnce(Return(true));
+
+	DownloadInfoPtr dlInfo = std::make_shared<DownloadInfo>();
+	dlInfo->uriList[0].url = "http://example.com/segment.mp4";
+	dlInfo->url            = "http://example.com/segment.mp4";
+	dlInfo->isInitSegment  = false;
+
+	EXPECT_TRUE(mMediaStreamContext->DownloadFragment(dlInfo));
+}
+
+/**
+ * @brief Verify synthesizeIframeAbort=false for init segments even at trickplay rate
+ *        with synthesizeIframeForVOD enabled.
+ *
+ * doSynthesizeAbort has a !initSegment guard; init segments must never be aborted.
+ */
+TEST_F(FragmentDownloadTests, SynthesizeAbort_InitSegment_FlagIsFalse)
+{
+	mPrivateInstanceAAMP->rate = 4;
+
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_SynthesizeIframeForVOD))
+		.WillRepeatedly(Return(true));
+
+	SetupDownloadFragmentBaseMocks();
+
+	// synthesizeIframeAbort must be false for init segments.
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+		GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _, false))
+		.WillOnce(Return(true));
+
+	DownloadInfoPtr dlInfo = std::make_shared<DownloadInfo>();
+	dlInfo->uriList[0].url = "http://example.com/init.mp4";
+	dlInfo->url            = "http://example.com/init.mp4";
+	dlInfo->isInitSegment  = true;
+
+	EXPECT_TRUE(mMediaStreamContext->DownloadFragment(dlInfo));
+}
+
