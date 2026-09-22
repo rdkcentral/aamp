@@ -241,6 +241,10 @@ TEST_F(PlayerStateTests, PlayerState_VerifyBuffering_Playing)
 	// fake base class to g_mockStreamAbstractionAAMP.
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, IsInitialCachingSupported())
 		.WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP,
+		NotifyPipelinePausedToUnderflowMonitor()).Times(1);
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP,
+		NotifyPipelineResumedToUnderflowMonitor(AAMP_NORMAL_PLAY_RATE)).Times(1);
 
 	g_mockStreamAbstractionAAMP_MPD = std::make_shared<MockStreamAbstractionAAMP_MPD>(
 		mPrivateInstanceAAMP, 0, AAMP_NORMAL_PLAY_RATE);
