@@ -3848,6 +3848,11 @@ AAMPStatusType StreamAbstractionAAMP_MPD::InitTsbReader(TuneType tuneType)
 			seekPosition = position;
 			mFirstPTS = tsbSessionManager->GetTsbReader(eMEDIATYPE_VIDEO)->GetFirstPTS();
 			AAMPLOG_MIL("Updated position: %lfs, pts:%lfs", seekPosition, mFirstPTS);
+			if (mMediaStreamContext[eMEDIATYPE_VIDEO])
+			{
+				mMediaStreamContext[eMEDIATYPE_VIDEO]->enabled =
+					!ISCONFIGSET(eAAMPConfig_AudioOnlyPlayback);
+			}
 			if (aamp->IsLocalAAMPTsbInjection())
 			{
 				for (int i = 0; i < mNumberOfTracks; i++)
@@ -11181,6 +11186,10 @@ void StreamAbstractionAAMP_MPD::TsbReader()
 					{
 						aamp->interruptibleMsSleep(50);				//To Avoid tight loop adding a small delay
 					}
+					else if (ISCONFIGSET(eAAMPConfig_AudioOnlyPlayback))
+					{
+						tsbSessionManager->WaitForVideoTsbContentOrAbort();
+					}
 					// AAMP could reach the end of the TSB only when doing FF (rate > AAMP_NORMAL_PLAY_RATE)
 					else if (aamp->rate > AAMP_NORMAL_PLAY_RATE)
 					{
@@ -11568,6 +11577,14 @@ void StreamAbstractionAAMP_MPD::StartFromAampLocalTsb(void)
 	mTrackState = eDISCONTINUITY_FREE;
 	for (int i = 0; i < mNumberOfTracks; i++)
 	{
+		const bool isVideoAudioOnly = (i == eMEDIATYPE_VIDEO) &&
+			ISCONFIGSET(eAAMPConfig_AudioOnlyPlayback);
+		if (isVideoAudioOnly ||
+			(!mMediaStreamContext[i]->enabled && !aamp->IsLocalAAMPTsbInjection()))
+		{
+			continue;
+		}
+
 		// Flush fragments cached during Live SLD
 		mMediaStreamContext[i]->FlushFetchedFragments();
 
@@ -11812,7 +11829,10 @@ void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutpu
 			audioFormat = GetMp4DemuxAudioFormatForCodec(GetCurrentCodec(eMEDIATYPE_AUDIO).c_str());
 		}
 	}
-	if(mMediaStreamContext[eMEDIATYPE_VIDEO] && mMediaStreamContext[eMEDIATYPE_VIDEO]->enabled )
+	const bool isLocalTsbAudioOnly = aamp->IsLocalAAMPTsbInjection() &&
+		ISCONFIGSET(eAAMPConfig_AudioOnlyPlayback);
+	if(mMediaStreamContext[eMEDIATYPE_VIDEO] && !isLocalTsbAudioOnly &&
+		(mMediaStreamContext[eMEDIATYPE_VIDEO]->enabled || aamp->IsLocalAAMPTsbInjection()))
 	{
 		primaryOutputFormat = videoFormat;
 	}
