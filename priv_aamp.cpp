@@ -5647,6 +5647,11 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			std::lock_guard<std::recursive_mutex> guard(mFragmentCachingLock);
 			mFirstVideoFrameDisplayedEnabled = true;
 			mFragmentCachingRequired = true;
+			AAMPLOG_WARN("TuneHelper: fragment caching ENABLED tuneType=%d initialBufferDuration=%d", tuneType, GetInitialBufferDuration());
+		}
+		else
+		{
+			AAMPLOG_WARN("TuneHelper: fragment caching SKIPPED tuneType=%d initialBufferDuration=%d rate=%f initialCachingSupported=%d mFragmentCachingRequired(unchanged)=%d",tuneType, GetInitialBufferDuration(), rate, mpStreamAbstractionAAMP->IsInitialCachingSupported(), mFragmentCachingRequired);
 		}
 
 		AAMPLOG_INFO("TuneHelper - seek_pos: %f", seek_pos_seconds);
@@ -8608,10 +8613,16 @@ void PrivateInstanceAAMP::NotifyFragmentCachingComplete()
 	std::lock_guard<std::recursive_mutex> guard(mFragmentCachingLock);
 	mFragmentCachingRequired = false;
 	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+	AAMPLOG_WARN("NotifyFragmentCachingComplete: called, sink=%p, state=%d", sink, (int)GetState());
 	if (sink)
 	{
 		sink->NotifyFragmentCachingComplete();
 	}
+	else
+	{
+		AAMPLOG_ERR("NotifyFragmentCachingComplete: no StreamSink available, pipeline cannot be released to PLAYING");
+	}
+
 	AAMPPlayerState state = GetState();
 	if (state == eSTATE_BUFFERING)
 	{

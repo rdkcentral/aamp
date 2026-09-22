@@ -1333,10 +1333,35 @@ void InterfacePlayerRDK::TearDownStream(int type)
 			/* set the playbin state to NULL before detach it */
 			if (stream->sinkbin)
 			{
-				if (GST_STATE_CHANGE_FAILURE == SetStateWithWarnings(GST_ELEMENT(stream->sinkbin), GST_STATE_NULL))
+				//if (GST_STATE_CHANGE_FAILURE == SetStateWithWarnings(GST_ELEMENT(stream->sinkbin), GST_STATE_NULL))
+				GstStateChangeReturn nullRc = SetStateWithWarnings(GST_ELEMENT(stream->sinkbin), GST_STATE_NULL);
+				if (GST_STATE_CHANGE_FAILURE == nullRc)
 				{
 					MW_LOG_ERR("InterfacePlayerRDK::TearDownStream: Failed to set NULL state for sinkbin");
 				}
+				else if (GST_STATE_CHANGE_ASYNC == nullRc)
+				{
+					/* NULL was requested asynchronously; a new decoder created before this sinkbin
+					 * actually releases its resources can end up stuck (e.g. never emits
+					 * "first-video-frame-callback"). Block here, with a bounded retry, so the
+					 * decoder/HW resource is confirmed released before we start fresh. */
+					GstState current, pending;
+					gint retryCnt = GST_ELEMENT_GET_STATE_RETRY_CNT_MAX;
+					GstStateChangeReturn waitRc;
+					do
+					{
+						waitRc = gst_element_get_state(GST_ELEMENT(stream->sinkbin), &current, &pending, 100 * GST_MSECOND);
+					}
+					while ((current != GST_STATE_NULL) && (--retryCnt > 0));
+
+					if (current != GST_STATE_NULL)
+					{
+						MW_LOG_ERR("InterfacePlayerRDK::TearDownStream: sinkbin stopped abruptly, did not reach NULL (current=%s) - forcing synchronous reset before next decoder configuration",gst_element_state_get_name(current));
+						gst_element_set_state(GST_ELEMENT(stream->sinkbin), GST_STATE_NULL);
+					}
+				}
+					
+
 				if (!gst_bin_remove(GST_BIN(interfacePlayerPriv->gstPrivateContext->pipeline), GST_ELEMENT(stream->sinkbin)))			/* Removes the sinkbin element from the pipeline */
 				{
 					MW_LOG_ERR("InterfacePlayerRDK::TearDownStream:  Unable to remove sinkbin from pipeline");
