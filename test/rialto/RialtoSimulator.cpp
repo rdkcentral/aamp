@@ -320,20 +320,12 @@ public:
 	bool setPlaybackRate(double rate) override
 	{
 		RIALTO_SIM_LOG("setPlaybackRate: rate=%f", rate);
-		// Snapshot the current position before changing rate so that
-		// subsequent elapsed-time calculations use the new rate from
-		// this point onward.
-		if (m_playing.load(std::memory_order_relaxed))
-		{
-			std::lock_guard<std::mutex> lock(m_trackMutex);
-			refreshMasterClockLocked();
-		}
-		m_rate.store(rate, std::memory_order_relaxed);
 		if (!m_playbackRateEnabled)
 		{
 			RIALTO_SIM_LOG("setPlaybackRate: rate simulation disabled (set RIALTO_SIM_ENABLE_PLAYBACK_RATE=1 to enable)");
 			return false;
 		}
+		m_rate.store(rate, std::memory_order_relaxed);
 		return true;
 	}
 
@@ -907,8 +899,9 @@ private:
 		}
 		auto elapsed = std::chrono::steady_clock::now() - m_masterClockAnchorWallTime;
 		auto elapsedNs = std::chrono::duration_cast<std::chrono::nanoseconds>(elapsed).count();
-		int64_t projectedClockNs = m_masterClockAnchorNs +
-			static_cast<int64_t>(elapsedNs * m_rate.load(std::memory_order_relaxed));
+		// Position advances at 1x wall-clock; the Rialto player applies any
+		// rate multiplier in GetPositionMilliseconds().
+		int64_t projectedClockNs = m_masterClockAnchorNs + static_cast<int64_t>(elapsedNs);
 
 		for (int32_t sourceId : m_attachedSources)
 		{
