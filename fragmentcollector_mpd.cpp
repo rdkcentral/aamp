@@ -11188,7 +11188,8 @@ void StreamAbstractionAAMP_MPD::TsbReader()
 					}
 					else if (ISCONFIGSET(eAAMPConfig_AudioOnlyPlayback))
 					{
-						tsbSessionManager->WaitForVideoTsbContentOrAbort();
+						// Video writes do not signal the availability of audio fragments.
+						aamp->interruptibleMsSleep(50);
 					}
 					// AAMP could reach the end of the TSB only when doing FF (rate > AAMP_NORMAL_PLAY_RATE)
 					else if (aamp->rate > AAMP_NORMAL_PLAY_RATE)
