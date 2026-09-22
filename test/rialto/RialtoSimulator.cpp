@@ -142,36 +142,17 @@ constexpr int64_t kBufferHighWaterNs = 40000000000LL; // 40 seconds
 // defeating the backpressure model.
 constexpr unsigned int kNeedDataFrameCount = 24;
 
-// Slack applied when clamping the shared clock to the slowest attached
-// track's horizon (see refreshMasterClockLocked()). Covers two distinct,
-// legitimate cases without a flat "disable the clamp" escape hatch:
-//   - ordinary A/V injection-cadence skew during healthy playback (tracks
-//     are rarely injected in perfect lockstep, so a zero-slack clamp
-//     falsely treats normal skew as a stall);
-//   - the live-edge manifest-refresh gap (AAMP-CONFIG-2033_live): segments
-//     become available in bursts on the backend's own ~1.9s grid, not one
-//     per AAMP poll, and measured worst-case gaps between successive
-//     segments reached ~2.72s (see the manifest-poll analysis for that
-//     test) before content resumed.
-// 3000ms gives headroom over that measured 2.72s worst case. This is
-// deliberately much shorter than a genuine stall (AAMP-BUFFER-6002_UnderflowMonitor
-// delays fragments by 9s) so a real stall still holds the reported clock
-// back for several seconds after the tolerance is exhausted - long enough
-// for AampUnderflowMonitor's deadline to expire.
+// Slack allowed between the reported clock and the slowest track's horizon
+// before that track is treated as stalled (see refreshMasterClockLocked()).
+// Absorbs ordinary A/V injection skew and live-edge manifest-refresh gaps
+// (up to ~2.7s) while staying well short of a genuine multi-second stall, so
+// real underflows are still detected.
 constexpr int64_t kClockClampToleranceNs = 3000000000LL; // 3000ms
 
-// Tolerance used in place of kClockClampToleranceNs for a track that has
-// NEVER delivered any data at all (true preroll, not merely a track that
-// primed once and has since stalled - see refreshMasterClockLocked()).
-// kClockClampToleranceNs can exceed a stream's very first segment duration
-// (e.g. 3000ms tolerance vs a 2000ms first segment), which let the clock
-// reach a position ahead of that first segment's own end before
-// AampUnderflowMonitor ever saw it, producing a spurious one-off negative
-// bufferSec that disarmed its deadline before a real stall could ever be
-// timed (AAMP-BUFFER-6002_UnderflowMonitor).  Real GStreamer's pipeline
-// clock does not advance before every sink has actually prerolled, so a
-// track with zero data should not let the clock advance ahead of the
-// other tracks' own real horizon at all.
+// Clamp slack for a track that has never delivered any data (true preroll,
+// as opposed to a primed track that has since stalled). Zero: like a real
+// pipeline clock, the reported clock must not advance past a track that has
+// not yet prerolled. See refreshMasterClockLocked().
 constexpr int64_t kPrerollClockClampToleranceNs = 0LL; // 0ms
 
 // One queued unit of media: the fields the master-clock/backpressure model
@@ -384,15 +365,7 @@ public:
 		m_playing = false;
 		{
 			std::lock_guard<std::mutex> lock(m_trackMutex);
-			m_fifoQueue.clear();
-			m_videoQueue.clear();
-			m_totalEnqueuedDurationNs.clear();
-			m_trackHorizonNs.clear();
-			m_underflowNotifiedSources.clear();
-			m_pendingUnderflowNotifications.clear();
-			m_readySources.clear();
-			m_eosSources.clear();
-			m_pendingSegments.clear();
+			resetTrackStateLocked();
 
 			// As with flush(), any needData request issued before this seek
 			// is now stale.  Bump the generation and drop the outstanding
@@ -402,9 +375,7 @@ public:
 			m_requestIdToSource.clear();
 
 			// Apply the new position, as setSourcePosition() would after a flush.
-			m_masterClockAnchorNs = position;
-			m_horizonFloorNs = position;
-			m_masterClockAnchorWallTime = std::chrono::steady_clock::now();
+			anchorClockLocked(position);
 		}
 
 		// Restart the needData pump immediately, as flush() does, instead of
@@ -702,15 +673,7 @@ public:
 		// first trickplay progress event from appearing.
 		{
 			std::lock_guard<std::mutex> lock(m_trackMutex);
-			m_fifoQueue.clear();
-			m_videoQueue.clear();
-			m_totalEnqueuedDurationNs.clear();
-			m_trackHorizonNs.clear();
-			m_underflowNotifiedSources.clear();
-			m_pendingUnderflowNotifications.clear();
-			m_readySources.clear();
-			m_eosSources.clear();
-			m_pendingSegments.clear();
+			resetTrackStateLocked();
 
 			// Any needData request issued before this flush is now stale: a
 			// real Rialto server abandons in-flight requests on a flushing
@@ -751,9 +714,7 @@ public:
 			std::lock_guard<std::mutex> lock(m_trackMutex);
 			m_basePositionNs.store(position, std::memory_order_relaxed);
 			m_basePositionSet.store(true, std::memory_order_relaxed);
-			m_masterClockAnchorNs = position;
-			m_horizonFloorNs = position;
-			m_masterClockAnchorWallTime = std::chrono::steady_clock::now();
+			anchorClockLocked(position);
 		}
 		return true;
 	}
@@ -797,6 +758,31 @@ private:
 		int32_t sourceId = -1;
 		uint64_t generation = 0;
 	};
+
+	// Clears all per-track queue/readiness/EOS/underflow state. Used by the
+	// pipeline-wide flushing paths (flush(), setPosition()); every source must
+	// re-buffer afterwards. Caller must hold m_trackMutex.
+	void resetTrackStateLocked()
+	{
+		m_fifoQueue.clear();
+		m_videoQueue.clear();
+		m_totalEnqueuedDurationNs.clear();
+		m_trackHorizonNs.clear();
+		m_underflowNotifiedSources.clear();
+		m_pendingUnderflowNotifications.clear();
+		m_readySources.clear();
+		m_eosSources.clear();
+		m_pendingSegments.clear();
+	}
+
+	// Anchors the master clock at position and sets the horizon-clamp floor to
+	// it, as a post-flush reposition does. Caller must hold m_trackMutex.
+	void anchorClockLocked(int64_t position)
+	{
+		m_masterClockAnchorNs = position;
+		m_horizonFloorNs = position;
+		m_masterClockAnchorWallTime = std::chrono::steady_clock::now();
+	}
 
 	// Commits every sample staged by addSegment() for a completed request:
 	// enqueues it into the appropriate per-track structure (FIFO for audio/
@@ -847,12 +833,9 @@ private:
 		}
 	}
 
-	// Pops the head of a track's queue while a real successor exists whose
-	// PTS has cleared clockNs (3.2.2 of the design doc): a sample's own
-	// duration only defines the horizon (used when it's still the tail with
-	// no successor yet); once a successor is known, that successor's PTS is
-	// the authoritative completion boundary for the previous sample.  The
-	// current tail is never popped here.
+	// Pops the head of a track's queue while its successor's PTS has cleared
+	// clockNs: a sample is treated as still presenting until the next sample's
+	// PTS arrives, so the tail (no known successor) is never popped here.
 	// Caller must hold m_trackMutex.
 	void popMaturedSamplesLocked(int32_t sourceId, int64_t clockNs)
 	{
@@ -884,51 +867,37 @@ private:
 		}
 	}
 
-	// Computes the current master clock estimate as a wall-clock projection
-	// from the last anchor, clamped to the slowest attached (non-subtitle,
-	// non-EOS) track's horizon plus kClockClampToleranceNs - mirroring real
-	// GStreamer's single shared pipeline clock, which cannot let one sink
-	// outrun another's real progress (its buffering_timeout/queued_frames
-	// mechanism pauses the whole pipeline when one decoder queue starves
-	// while another keeps flowing - see InterfacePlayerRDK.cpp).  This
-	// clamp is applied unconditionally (not gated on the master track's own
-	// state) so the returned value is always monotonic non-decreasing:
-	// AAMP's own PrivateInstanceAAMP::GetPositionMilliseconds() silently
-	// discards and re-substitutes the previous position whenever it sees a
-	// backward jump ("restore prev-pos as current-pos!!" in priv_aamp.cpp),
-	// so a clamp that first lets the clock overshoot and then corrects it
-	// backward gets permanently stuck at the overshot value client-side -
-	// this happened when the clamp was gated on the master track's horizon
-	// (see git history) and broke AAMP-BUFFER-6002_UnderflowMonitor even
-	// though the simulator's own reported value was correct at each step.
-	// kClockClampToleranceNs absorbs ordinary A/V injection-cadence skew and
-	// the live-edge manifest-refresh gap (AAMP-CONFIG-2033_live measured up
-	// to ~2.72s) without a flat "disable the clamp" branch, while staying
-	// far shorter than a genuine stall (AAMP-BUFFER-6002_UnderflowMonitor's
-	// deliberate 9s fragment delay), so a real stall still holds the clock
-	// back long enough for AampUnderflowMonitor's deadline to expire.
-	// Pops any now-matured samples from every track, and re-anchors.
-	// Returns the (possibly clamped) master clock value in nanoseconds.
+	// True if sourceId is an attached track that participates in the shared
+	// clock: a known, non-subtitle source that has not reached EOS. An EOS
+	// source is finished, not starved; subtitles are never gated.
+	// Caller must hold m_trackMutex.
+	bool isActiveClockTrackLocked(int32_t sourceId) const
+	{
+		auto typeIt = m_sourceTypes.find(sourceId);
+		if (typeIt == m_sourceTypes.end() || typeIt->second == MediaSourceType::SUBTITLE)
+		{
+			return false;
+		}
+		return m_eosSources.find(sourceId) == m_eosSources.end();
+	}
+
+	// Computes the current master clock as a wall-clock projection from the
+	// last anchor, clamped so it never runs more than kClockClampToleranceNs
+	// ahead of the slowest attached (non-subtitle, non-EOS) track's horizon -
+	// modelling a real pipeline's single shared clock, which cannot let one
+	// sink outrun another's decoded data. The clamp is unconditional so the
+	// returned value is monotonic non-decreasing, as AAMP's
+	// GetPositionMilliseconds() requires (it discards any backward jump). A
+	// track that has never delivered data is bounded by
+	// kPrerollClockClampToleranceNs instead. Pops any matured samples from
+	// every track, re-anchors, and returns the clamped clock in nanoseconds.
 	//
-	// Still detects per-track underflow: a track is starved once the clock
-	// has passed the furthest point it has real data for, plus
-	// kClockClampToleranceNs slack (the same tolerance the clamp above
-	// uses, so the two signals stay consistent - a track within tolerance
-	// of the clock isn't reported starved either).  This is a narrower,
-	// purely informational signal - dispatched via notifyBufferUnderflow(),
-	// mirroring real Rialto (see AampRialtoMediaPipelineClient).  Without
-	// this tolerance, notifyBufferUnderflow() fired the instant the clock
-	// passed a track's horizon at all, which for AAMP-CONFIG-2033_live
-	// (enableAampUnderflowMonitor=false) triggers PrivateInstanceAAMP's
-	// real auto-pause-for-buffering path on every ordinary live-edge
-	// manifest gap, not just genuine stalls.
-	// Newly-starved sources are queued in m_pendingUnderflowNotifications
-	// for refreshAndGetPositionNs() to dispatch after releasing the lock;
-	// debounced via m_underflowNotifiedSources so it fires once per stall,
-	// not on every poll.  A source that has legitimately reached EOS is
-	// finished, not starved (e.g. audio during video-only trickplay), and a
-	// source with no horizon entry yet has never received any data - that's
-	// preroll, not a stall - so both are excluded from the check.
+	// Also flags per-track underflow: a track is starved once the clock passes
+	// its horizon by more than kClockClampToleranceNs. Newly-starved sources are
+	// queued in m_pendingUnderflowNotifications for refreshAndGetPositionNs() to
+	// dispatch outside the lock, and debounced via m_underflowNotifiedSources so
+	// each stall notifies once. EOS sources (finished, not starved) and sources
+	// with no horizon yet (preroll) are excluded.
 	// Caller must hold m_trackMutex.
 	int64_t refreshMasterClockLocked()
 	{
@@ -943,16 +912,7 @@ private:
 
 		for (int32_t sourceId : m_attachedSources)
 		{
-			auto typeIt = m_sourceTypes.find(sourceId);
-			if (typeIt == m_sourceTypes.end() || typeIt->second == MediaSourceType::SUBTITLE)
-			{
-				continue;
-			}
-			// A source that has legitimately reached EOS is finished, not
-			// starved - don't report underflow for it (e.g. audio during
-			// video-only trickplay must not spuriously fire on every trick
-			// session once the video-driven clock passes its frozen horizon).
-			if (m_eosSources.find(sourceId) != m_eosSources.end())
+			if (!isActiveClockTrackLocked(sourceId))
 			{
 				continue;
 			}
@@ -975,30 +935,14 @@ private:
 			}
 		}
 
-		// Unconditional clamp: the reported clock can never run further
-		// ahead of the slowest active track's horizon than
-		// kClockClampToleranceNs (see comment above this function).  A
-		// track that has never delivered any data yet is treated as
-		// horizon zero (relative to m_horizonFloorNs), bounded by
-		// kPrerollClockClampToleranceNs rather than skipped or given
-		// the full kClockClampToleranceNs (see that constant's comment) -
-		// otherwise playback starting on just one ready source (see
-		// maybeStartPlayback()) lets the clock free-run on that source
-		// alone for however long a sibling takes to prime, which is
-		// exactly the overshoot AAMP-BUFFER-6002_UnderflowMonitor exposed:
-		// the clock raced ahead unclamped while video had zero data, then
-		// had to be corrected backward once video's first sample arrived,
-		// tripping AAMP's own position-monotonicity guard (see comment
-		// above this function).
+		// Clamp the clock to each active track's horizon plus tolerance. A track
+		// that has never delivered data is treated as horizon zero with
+		// kPrerollClockClampToleranceNs, so the clock cannot advance past a
+		// sibling that has not yet prerolled (see maybeStartPlayback()).
 		int64_t clockNs = projectedClockNs;
 		for (int32_t sourceId : m_attachedSources)
 		{
-			auto typeIt = m_sourceTypes.find(sourceId);
-			if (typeIt == m_sourceTypes.end() || typeIt->second == MediaSourceType::SUBTITLE)
-			{
-				continue;
-			}
-			if (m_eosSources.find(sourceId) != m_eosSources.end())
+			if (!isActiveClockTrackLocked(sourceId))
 			{
 				continue;
 			}
@@ -1065,19 +1009,13 @@ private:
 		m_playing = false;
 	}
 
-	// Amount of injected-but-not-yet-played media held for a single
-	// non-subtitle source, i.e. how far the track's horizon (furthest PTS +
-	// duration it has real data for; see refreshMasterClockLocked()) is
-	// ahead of the master clock.  popMaturedSamplesLocked() only ever pops
-	// from the low-PTS end, so the horizon always equals the still-queued
-	// maximum-PTS entry's own pts+duration - using it here (rather than
-	// re-reading the queue tail) also means this reflects the tail sample's
-	// full duration, not just its PTS.  Backpressure is only meaningful
-	// while the pipeline is PLAYING: during preroll/seek/flush the pipeline
-	// buffers freely to (re)reach the play threshold, so report no
-	// backpressure when not playing to avoid starving the pipeline (and
-	// deadlocking, since buffered would never drain while paused).  Subtitle
-	// sources are never gated (see kMinPlayDurationNs).
+	// How far a non-subtitle source's horizon (furthest PTS + duration it has
+	// real data for; see refreshMasterClockLocked()) is ahead of the master
+	// clock, modelling per-track buffer-fill backpressure. Backpressure is
+	// only meaningful while PLAYING: during preroll/seek/flush the pipeline
+	// buffers freely to reach the play threshold, so report none when not
+	// playing to avoid starving the pipeline (buffered would never drain while
+	// paused). Subtitle sources are never gated (see kMinPlayDurationNs).
 	// Caller must hold m_trackMutex, and should have called
 	// refreshMasterClockLocked() recently so m_masterClockAnchorNs is current.
 	int64_t bufferedAheadNsLocked(int32_t sourceId) const
