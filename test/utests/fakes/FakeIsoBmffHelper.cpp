@@ -22,6 +22,10 @@ std::shared_ptr<MockIsoBmffHelper> g_mockIsoBmffHelper{};
 
 bool IsoBmffHelper::ConvertToKeyFrame(std::vector<uint8_t> &buffer)
 {
+    if (g_mockIsoBmffHelper)
+    {
+        return g_mockIsoBmffHelper->ConvertToKeyFrame(buffer);
+    }
     return true;
 }
 

@@ -1390,6 +1390,19 @@ protected:
 
 public:
 	/**
+	 * @brief Returns true when VOD iframe synthesis is active for the current
+	 *        period — i.e. StreamSelection chose a regular video adaptation for
+	 *        trickplay because no real iframe AdaptationSet was present.
+	 *        Returns false when a real iframe track was selected, preventing
+	 *        the early-abort and ConvertToKeyFrame() paths in
+	 *        MediaStreamContext::CacheFragment from being applied to real
+	 *        iframe-track segments.
+	 *        Virtual so that MockStreamAbstractionAAMP_MPD can override it
+	 *        in L1 tests.
+	 */
+	virtual bool IsVODSynthesisActive() const { return mVODSynthesisIframeActive; }
+
+	/**
 	 * @brief Client used for server time synchronization.
 	 *
 	 * @note TimeSyncClient maintains internal mutable state (e.g. mLastSync,

@@ -132,11 +132,15 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 			// downloading the remainder of the segment.  The caller still runs
 			// ConvertToKeyFrame() afterwards to fix the MOOF metadata.
 			// Restricted to VOD/non-TSB streams via IsVODIframeSynthesisEnabled().
+			// context->IsVODSynthesisActive() is false when a real iframe track was
+			// selected in StreamSelection, preventing synthesis transforms from
+			// being applied to real iframe-track segments.
 			const bool doSynthesizeAbort = !initSegment
 				&& iCurrentRate != AAMP_NORMAL_PLAY_RATE
 				&& iCurrentRate != AAMP_RATE_PAUSE
 				&& mediaType == eMEDIATYPE_VIDEO
-				&& aamp->IsVODIframeSynthesisEnabled();
+				&& aamp->IsVODIframeSynthesisEnabled()
+				&& context->IsVODSynthesisActive();
 
 			ret = aamp->GetFile(fragmentUrl, actualType, mTempFragment, effectiveUrl, httpErrorCode, &downloadTimeS, range, curlInstance, true/*resetBuffer*/,  &bitrate, &iFogError, fragmentDurationS, bucketType, maxInitDownloadTimeMS, doSynthesizeAbort);
 			if (initSegment && ret)
@@ -152,12 +156,15 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 				 * mirrors the behaviour of AampTSBSessionManager for the AAMP-Managed Local
 				 * TSB path and allows VCR-style FF/REW on VOD DASH assets (including JITT ads)
 				 * that do not advertise a dedicated iframe AdaptationSet.
-				 * IsVODIframeSynthesisEnabled() already gates on !live && !local-TSB. */
+				 * IsVODIframeSynthesisEnabled() already gates on !live && !local-TSB.
+				 * context->IsVODSynthesisActive() ensures this is skipped when a real iframe
+				 * track was selected in StreamSelection. */
 				if (!initSegment
 					&& iCurrentRate != AAMP_NORMAL_PLAY_RATE
 					&& iCurrentRate != AAMP_RATE_PAUSE
 					&& mediaType == eMEDIATYPE_VIDEO
-					&& aamp->IsVODIframeSynthesisEnabled())
+					&& aamp->IsVODIframeSynthesisEnabled()
+					&& context->IsVODSynthesisActive())
 				{
 					IsoBmffHelper isoBmffHelper;
 					if (!isoBmffHelper.ConvertToKeyFrame(cachedFragment->fragment))

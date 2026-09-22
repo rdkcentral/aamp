@@ -29,6 +29,7 @@
 #include "AampTSBSessionManager.h"
 #include "MockAampConfig.h"
 #include "MockIsoBmffBuffer.h"
+#include "MockIsoBmffHelper.h"
 #include "StreamAbstractionAAMP.h"
 #include "AampDownloadInfo.hpp"
 #include "MockPrivateInstanceAAMP.h"
@@ -389,4 +390,139 @@ INSTANTIATE_TEST_SUITE_P(
 		::testing::ValuesIn(testCases)
 		);
 
+// ---------------------------------------------------------------------------
+// VOD iframe synthesis guard tests
+//
+// These non-parameterised tests verify that context->IsVODSynthesisActive()
+// correctly gates the two synthesis paths in CacheFragment():
+//
+//  1. doSynthesizeAbort — passed as the last arg to GetFile(); true only when
+//     synthesis is active (no real iframe track), false when a real iframe
+//     track was selected in StreamSelection.
+//
+//  2. ConvertToKeyFrame() — called after GetFile() returns; similarly gated.
+//
+// Both tests use:
+//  - NiceMock<MockStreamAbstractionAAMP_MPD> as the MediaStreamContext context
+//    so IsVODSynthesisActive() can be controlled via ON_CALL.
+//  - NiceMock<MockPrivateInstanceAAMP> (from SetUp) — only GetFile() needs an
+//    explicit expectation; all other calls are silently consumed.
+//  - MockIsoBmffHelper to verify ConvertToKeyFrame() call count.
+//  - rate=4.0 (trickplay), non-init VIDEO segment — the conditions under which
+//    both synthesis paths can fire.
+// ---------------------------------------------------------------------------
+
+/**
+ * @brief Helper shared by the two synthesis guard tests.
+ *        Creates a MediaStreamContext whose `context` pointer is the mock
+ *        MPD object, pre-populates mTempFragment with dummy data, and sets
+ *        the aamp rate to trickplay.  Returns the new (caller-owned) context.
+ */
+static MediaStreamContext *MakeSynthesisTestContext(
+    StreamAbstractionAAMP_MPD *mpdContext,
+    PrivateInstanceAAMP        *aamp)
+{
+    static const uint8_t kDummyData[] = {0xAA, 0xBB, 0xCC, 0xDD};
+    aamp->rate = 4.0f;   // trickplay — enables synthesis paths
+
+    auto *msc = new MediaStreamContext(eTRACK_VIDEO, mpdContext, aamp, "SynthTest");
+    msc->mTempFragment.assign(std::begin(kDummyData), std::end(kDummyData));
+
+    URIInfo uriInfo;
+    uriInfo.url = "http://test/segment.m4s";
+    URLBitrateMap urlList = { {0, uriInfo} };
+    msc->mActiveDownloadInfo = std::make_shared<DownloadInfo>(
+        eMEDIATYPE_VIDEO, eCURLINSTANCE_VIDEO,
+        /*position=*/10.0, /*duration=*/2.0,
+        /*url=*/"", /*http_error=*/-1, /*curlInstance=*/0,
+        /*initSegment=*/false, /*discontinuity=*/false,
+        /*playingAd=*/false, /*isLive=*/false,
+        /*absolutePosition=*/0.0, /*timeScale=*/0,
+        /*ptsOffset=*/1, /*segDLFailCount=*/0, /*nextSegmentPeriod=*/0,
+        urlList);
+    return msc;
+}
+
+/**
+ * @test CacheFragment_SynthesisActive_AbortsEarlyAndConvertsToKeyFrame
+ * @brief When IsVODIframeSynthesisEnabled()=true AND IsVODSynthesisActive()=true
+ *        (no real iframe track found in StreamSelection), CacheFragment must:
+ *          - pass doSynthesizeAbort=true to GetFile() (early CURL abort)
+ *          - call ConvertToKeyFrame() on the downloaded segment
+ *
+ * Regression guard: confirms the optimisation does NOT accidentally skip
+ * synthesis when it is legitimately needed.
+ */
+TEST_F(MediaStreamContextTest,
+    CacheFragment_SynthesisActive_AbortsEarlyAndConvertsToKeyFrame)
+{
+    // Config: synthesizeIframeForVOD=true overrides the SetUp default (false).
+    // LIFO ordering ensures this expectation is tried first.
+    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_SynthesizeIframeForVOD))
+        .WillRepeatedly(Return(true));
+
+    // Synthesis active: StreamSelection found no real iframe track.
+    ON_CALL(*g_mockStreamAbstractionAAMP_MPD, IsVODSynthesisActive())
+        .WillByDefault(Return(true));
+
+    // Oracle 1: GetFile() receives doSynthesizeAbort=true.
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+                GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _, /*synthesizeAbort=*/true))
+        .WillOnce(Return(true));
+
+    // Oracle 2: ConvertToKeyFrame() is called exactly once on the downloaded segment.
+    g_mockIsoBmffHelper = std::make_shared<NiceMock<MockIsoBmffHelper>>();
+    EXPECT_CALL(*g_mockIsoBmffHelper, ConvertToKeyFrame(_))
+        .Times(1).WillOnce(Return(true));
+
+    mMediaStreamContext = MakeSynthesisTestContext(
+        g_mockStreamAbstractionAAMP_MPD.get(), mPrivateInstanceAAMP);
+
+    mMediaStreamContext->CacheFragment("http://test/segment.m4s", 0, 10.0, 2.0,
+                                       nullptr, /*initSegment=*/false,
+                                       false, false, 0);
+
+    g_mockIsoBmffHelper.reset();
+}
+
+/**
+ * @test CacheFragment_RealIframeTrack_SynthesisInactive_NoAbortNoConvert
+ * @brief When IsVODIframeSynthesisEnabled()=true BUT IsVODSynthesisActive()=false
+ *        (a real iframe track was selected in StreamSelection), CacheFragment must:
+ *          - pass doSynthesizeAbort=false to GetFile() (full segment downloaded)
+ *          - NOT call ConvertToKeyFrame() (segment is already an I-frame)
+ *
+ * Regression guard for VPAAMP-1139 follow-up optimisation: confirms that the
+ * fix does not apply synthesis transforms to real iframe-track segments.
+ */
+TEST_F(MediaStreamContextTest,
+    CacheFragment_RealIframeTrack_SynthesisInactive_NoAbortNoConvert)
+{
+    // Config: synthesizeIframeForVOD=true — flag is set, but a real iframe
+    // track takes precedence so synthesis should be bypassed.
+    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_SynthesizeIframeForVOD))
+        .WillRepeatedly(Return(true));
+
+    // Synthesis inactive: StreamSelection selected a real iframe AdaptationSet.
+    ON_CALL(*g_mockStreamAbstractionAAMP_MPD, IsVODSynthesisActive())
+        .WillByDefault(Return(false));
+
+    // Oracle 1: GetFile() receives doSynthesizeAbort=false — full download.
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+                GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _, /*synthesizeAbort=*/false))
+        .WillOnce(Return(true));
+
+    // Oracle 2: ConvertToKeyFrame() must NOT be called.
+    g_mockIsoBmffHelper = std::make_shared<NiceMock<MockIsoBmffHelper>>();
+    EXPECT_CALL(*g_mockIsoBmffHelper, ConvertToKeyFrame(_)).Times(0);
+
+    mMediaStreamContext = MakeSynthesisTestContext(
+        g_mockStreamAbstractionAAMP_MPD.get(), mPrivateInstanceAAMP);
+
+    mMediaStreamContext->CacheFragment("http://test/segment.m4s", 0, 10.0, 2.0,
+                                       nullptr, /*initSegment=*/false,
+                                       false, false, 0);
+
+    g_mockIsoBmffHelper.reset();
+}
 
