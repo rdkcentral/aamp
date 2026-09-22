@@ -57,9 +57,13 @@ class IsoBmffHelper
 		 *
 		 * @param[in] buf  Raw bytes received so far (segment start = offset 0)
 		 * @param[in] len  Valid byte count in buf
-		 * @return Total bytes needed (moofSize + 8 + firstSampleSize), or 0 if the
+		 * @return Total bytes needed to cover the first sample
+		 *         (trun data_offset + firstSampleSize when a valid data_offset is
+		 *         present; moofSize + 8 + firstSampleSize otherwise), or 0 if the
 		 *         MOOF is not yet fully buffered or the first-sample size cannot be
 		 *         determined (caller should fall back to full download).
+		 *         Using the data_offset correctly accounts for auxiliary CENC data
+		 *         that may precede the sample payload in encrypted CMAF fragments.
 		 */
 		static size_t GetIframeByteCap(const uint8_t *buf, size_t len);
 

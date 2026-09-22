@@ -76,6 +76,8 @@ bool IsoBmffHelper::InitAndParse(IsoBmffBuffer& isoBmffBuffer, std::vector<uint8
 
 	uint32_t tfhdDefaultSampleSize = 0;
 	uint32_t trunFirstSampleSize   = 0;
+	int32_t  trunDataOffset        = 0;  // parsed trun data_offset (from MOOF start)
+	bool     trunDataOffsetValid   = false;
 
 	// Walk the MOOF children.  Each box: [4-byte size][4-byte type][...].
 	size_t pos = 8; // skip MOOF size+type
@@ -120,7 +122,21 @@ bool IsoBmffHelper::InitAndParse(IsoBmffBuffer& isoBmffBuffer, std::vector<uint8
 						uint32_t trunFlags   = readBE24(buf + trafPos + 9);
 						uint32_t sampleCount = readBE32(buf + trafPos + 12);
 						size_t p = trafPos + 16; // after size+type+version+flags+count
-						if (trunFlags & kTrunDataOffsetPresent)       p += 4;
+						if (trunFlags & kTrunDataOffsetPresent)
+						{
+							// data_offset is relative to the base-data-offset (start of MOOF).
+							// Validate: must point past the complete MOOF + at least the 8-byte MDAT header.
+							if (p + 4 <= trafEnd)
+							{
+								int32_t rawOffset = static_cast<int32_t>(readBE32(buf + p));
+								if (rawOffset > static_cast<int32_t>(moofSize + 8u))
+								{
+									trunDataOffset      = rawOffset;
+									trunDataOffsetValid = true;
+								}
+							}
+							p += 4;
+						}
 						if (trunFlags & kTrunFirstSampleFlagsPresent) p += 4;
 						// Now at the start of the first sample's per-sample fields.
 						if (sampleCount > 0)
@@ -139,8 +155,15 @@ bool IsoBmffHelper::InitAndParse(IsoBmffBuffer& isoBmffBuffer, std::vector<uint8
 			                                                      : tfhdDefaultSampleSize;
 			if (firstSampleSize > 0)
 			{
-				// Total bytes needed: complete MOOF + MDAT box header (8 bytes) + first sample payload.
-				return static_cast<size_t>(moofSize) + 8u + static_cast<size_t>(firstSampleSize);
+				// Compute base offset of first sample data.
+				// When trun data_offset is present and valid (> moofSize+8), it already
+				// accounts for any auxiliary CENC data that precedes the sample in the
+				// MDAT (e.g. subsample encryption info). Fall back to moofSize+8 (plain
+				// unencrypted layout) when no valid data_offset was parsed.
+				size_t baseOffset = trunDataOffsetValid
+				                    ? static_cast<size_t>(trunDataOffset)
+				                    : static_cast<size_t>(moofSize) + 8u;
+				return baseOffset + static_cast<size_t>(firstSampleSize);
 			}
 			break; // TRAF found but size undeterminable — fall back to full download.
 		}

@@ -238,8 +238,10 @@ typedef enum
 	eAAMPConfig_EnableProducerReferenceDelay,		/**< Add PRT-derived encoder delay (from CalculateProducerReferenceTimeOffset) to DASH live latency calculation; default false */
 	eAAMPConfig_SynthesizeIframeForVOD,			/**< When true, synthesize an I-frame-only segment from the regular video track
 	                                                         to support VOD trickplay on assets/ads that lack a dedicated iframe adaptation
-	                                                         set. Downloads the full video segment then strips it to the leading key frame
-	                                                         using IsoBmffHelper::ConvertToKeyFrame(). Default: false. */
+	                                                         set. The download is intentionally aborted after the first sample payload has
+	                                                         been received (using GetIframeByteCap() to derive the byte cap), then
+	                                                         IsoBmffHelper::ConvertToKeyFrame() fixes the MOOF metadata. Has no effect
+	                                                         outside VOD (live and local-TSB streams are not eligible). Default: false. */
 	eAAMPConfig_BoolMaxValue				/**< Max value of bool config always last element */	
 
 } AAMPConfigSettingBool;

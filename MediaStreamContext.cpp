@@ -131,11 +131,12 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 		// first I-frame payload has been received, saving the bandwidth cost of
 		// downloading the remainder of the segment.  The caller still runs
 		// ConvertToKeyFrame() afterwards to fix the MOOF metadata.
+		// Restricted to VOD/non-TSB streams via IsVODIframeSynthesisEnabled().
 		const bool doSynthesizeAbort = !initSegment
 			&& iCurrentRate != AAMP_NORMAL_PLAY_RATE
 			&& iCurrentRate != AAMP_RATE_PAUSE
 			&& mediaType == eMEDIATYPE_VIDEO
-			&& ISCONFIGSET(eAAMPConfig_SynthesizeIframeForVOD);
+			&& aamp->IsVODIframeSynthesisEnabled();
 
 		ret = aamp->GetFile(fragmentUrl, actualType, mTempFragment, effectiveUrl, httpErrorCode, &downloadTimeS, range, curlInstance, true/*resetBuffer*/,  &bitrate, &iFogError, fragmentDurationS, bucketType, maxInitDownloadTimeMS, doSynthesizeAbort);
 			if (initSegment && ret)
@@ -146,16 +147,17 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 			{
 				TransferFragmentBuffer(cachedFragment, nullptr, &mTempFragment, 0, false);
 
-				/* VOD iframe synthesis: when the feature is enabled, strip each non-init
-				 * video segment to its leading I-frame during trickplay.  This mirrors the
-				 * behaviour of AampTSBSessionManager for the AAMP-Managed Local TSB path and
-				 * allows VCR-style FF/REW on VOD DASH assets (including JITT ads) that do not
-				 * advertise a dedicated iframe AdaptationSet. */
+				/* VOD iframe synthesis: when the feature is enabled (VOD/non-TSB only), strip
+				 * each non-init video segment to its leading I-frame during trickplay.  This
+				 * mirrors the behaviour of AampTSBSessionManager for the AAMP-Managed Local
+				 * TSB path and allows VCR-style FF/REW on VOD DASH assets (including JITT ads)
+				 * that do not advertise a dedicated iframe AdaptationSet.
+				 * IsVODIframeSynthesisEnabled() already gates on !live && !local-TSB. */
 				if (!initSegment
 					&& iCurrentRate != AAMP_NORMAL_PLAY_RATE
 					&& iCurrentRate != AAMP_RATE_PAUSE
 					&& mediaType == eMEDIATYPE_VIDEO
-					&& ISCONFIGSET(eAAMPConfig_SynthesizeIframeForVOD))
+					&& aamp->IsVODIframeSynthesisEnabled())
 				{
 					IsoBmffHelper isoBmffHelper;
 					if (!isoBmffHelper.ConvertToKeyFrame(cachedFragment->fragment))

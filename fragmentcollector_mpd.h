@@ -1381,6 +1381,12 @@ protected:
 	bool mShortAdOffsetCalc;
 	AampTime mNextPts;					/*For PTS restamping*/
 	bool mIsFinalFirstPTS; /**< Flag to indicate if the first PTS is final or not */
+	bool mVODSynthesisIframeActive; /**< True only when the synthesis trickplay branch
+	                                     activated in StreamSelection (no real iframe
+	                                     adaptation was selected for the current period).
+	                                     Guards UseIframeTrack() and
+	                                     ShouldCheckOnlyIframeAdaptation() so that they
+	                                     do not bypass a real iframe adaptation. */
 
 public:
 	/**

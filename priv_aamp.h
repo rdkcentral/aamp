@@ -3691,12 +3691,16 @@ public:
 	 *          When true, AAMP downloads the regular video segment during trickplay
 	 *          and strips it to a single I-frame via IsoBmffHelper::ConvertToKeyFrame(),
 	 *          providing trickplay even when no iframe AdaptationSet is advertised.
+	 *          The feature is intentionally limited to VOD (non-live, non-local-TSB)
+	 *          streams; calling this on a live or local-TSB session always returns false.
 	 *
-	 *   @return bool
+	 *   @return bool — true only when the config flag is set AND the stream is VOD/non-TSB.
 	 */
 	bool IsVODIframeSynthesisEnabled()
 	{
-		return ISCONFIGSET_PRIV(eAAMPConfig_SynthesizeIframeForVOD);
+		return ISCONFIGSET_PRIV(eAAMPConfig_SynthesizeIframeForVOD)
+		       && !mIsLive
+		       && !mLocalAAMPTsb;
 	}
 
 	/**

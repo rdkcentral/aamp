@@ -5466,7 +5466,7 @@ TEST_F(AdManagerMPDTests, GetAdMPD_RedirectPropagation)
   
   // Mock GetFile to simulate a 302 redirect by returning a different effective URL
   // We use a more permissive matcher to catch all GetFile calls since GetAdMPD makes multiple calls
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _))
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _))
       .WillRepeatedly(WithArgs<0, 2, 3, 4>(Invoke([this, originUrl, cdnUrl](std::string remoteUrl, std::vector<uint8_t> &buffer, 
                                                        std::string& effectiveUrl, int& httpError) {
         // For the manifest URL, simulate redirect

@@ -169,6 +169,7 @@ StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(class PrivateInstanceAAMP *
 	,mShortAdOffsetCalc(false)
 	,mNextPts(0.0)
 	,mPrevFirstPeriodStart(0.0f)
+	,mVODSynthesisIframeActive(false)
 	,mAudioSurplus(0)
 	,mVideoSurplus(0)
 	,mIsSegmentTimelineEnabled(false)
@@ -7605,6 +7606,7 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 	std::string aTrackIdx;
 	std::string tTrackIdx;
 	mNumberOfTracks = 0;
+	mVODSynthesisIframeActive = false; // re-evaluated each StreamSelection call
 	IPeriod *period = mCurrentPeriod;
 	int audioRepresentationIndex = -1;
 	int audioAdaptationSetIndex = -1;
@@ -7788,6 +7790,11 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 				pMediaStreamContext->representationIndex = -1; // ABR will select profile
 				pMediaStreamContext->profileChanged = true;
 				mNumberOfTracks = 1; // video-only track during trickplay synthesis
+				mVODSynthesisIframeActive = true;
+				/* Queue content protection for the selected regular adaptation so that
+				   the DRM license/protection event is raised for encrypted VOD assets
+				   using synthesis trickplay (mirrors the encrypted-iframe path below). */
+				QueueContentProtection(period, selAdaptationSetIndex, (AampMediaType)i);
 				AAMPLOG_WARN("StreamAbstractionAAMP_MPD: VOD iframe synthesis - video-only"
 						 " trickplay track enabled (adaptation [%d])", selAdaptationSetIndex);
 			}
@@ -15291,10 +15298,14 @@ bool StreamAbstractionAAMP_MPD::UseIframeTrack(void)
 	{
 		useIframe = false;
 	}
-	else if (aamp->IsVODIframeSynthesisEnabled())
+	else if (aamp->IsVODIframeSynthesisEnabled() && mVODSynthesisIframeActive)
 	{
 		/* VOD iframe synthesis: download regular video segments and synthesize
-		   I-frame via ConvertToKeyFrame(). No dedicated iframe track is used. */
+		   I-frame via ConvertToKeyFrame(). No dedicated iframe track is used.
+		   mVODSynthesisIframeActive ensures this path is skipped when a real
+		   iframe adaptation was selected in StreamSelection, preventing a mismatch
+		   between the adaptation context and the adaptations enumerated by
+		   UpdateStreamInfo / GenerateFragmentURLList. */
 		useIframe = false;
 	}
 	return useIframe;
@@ -15403,10 +15414,12 @@ bool StreamAbstractionAAMP_MPD::ShouldCheckOnlyIframeAdaptation() const
 	{
 		checkOnlyIframeAdaptation = false;
 	}
-	else if (aamp->IsVODIframeSynthesisEnabled())
+	else if (aamp->IsVODIframeSynthesisEnabled() && mVODSynthesisIframeActive)
 	{
 		/* Synthesis mode: select regular video adaptation even during trickplay;
-		   ConvertToKeyFrame() will strip it to an I-frame after download. */
+		   ConvertToKeyFrame() will strip it to an I-frame after download.
+		   mVODSynthesisIframeActive prevents bypassing a real iframe adaptation
+		   that StreamSelection may have selected for the current period. */
 		checkOnlyIframeAdaptation = false;
 	}
 
