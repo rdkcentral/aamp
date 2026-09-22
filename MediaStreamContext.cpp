@@ -212,16 +212,11 @@ bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, const uint
 	const double chunkStart = mActiveDownloadInfo->absolutePosition +
 		mActiveDownloadInfo->chunkDurationSec;
 	mActiveDownloadInfo->chunkDurationSec += chunkDurationSec;
-	if (isAudio && mActiveDownloadInfo->audioPeriodTailReached)
-	{
-		return true;
-	}
 	if (isAudio && mActiveDownloadInfo->periodEndPosition > 0.0)
 	{
 		if (chunkStart >= mActiveDownloadInfo->periodEndPosition +
 			AAMP_DASH_AUDIO_PERIOD_TAIL_TOLERANCE_SEC)
 		{
-			mActiveDownloadInfo->audioPeriodTailReached = true;
 			AAMPLOG_WARN("[%s] Discarding audio chunk at %fs beyond Period end %fs",
 				name, chunkStart, mActiveDownloadInfo->periodEndPosition);
 			return true;
@@ -254,7 +249,6 @@ bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, const uint
 			{
 				cachedFragment->duration = static_cast<double>(retainedDurationTicks) /
 					mActiveDownloadInfo->timeScale;
-				mActiveDownloadInfo->audioPeriodTailReached = true;
 				trimApplied = true;
 			}
 		}

@@ -104,7 +104,6 @@ struct DownloadInfo
 	URLBitrateMap uriList;		   /**< List of all possible URLs with their respective bitrates */
 	double chunkDurationSec;	   /**< Duration of the chunks processed from the fragment in seconds, used for chunked transfer */
 	double cachedChunkDurationSec; /**< Duration of audio chunks retained for injection */
-	bool audioPeriodTailReached; /**< True after the audio Period tail is trimmed or discarded */
 
 	/**
 	 * @brief Default constructor
@@ -130,8 +129,7 @@ struct DownloadInfo
 		  periodEndPosition(0),
 		  uriList(),
 		  chunkDurationSec(0),
-		  cachedChunkDurationSec(0),
-		  audioPeriodTailReached(false)
+		  cachedChunkDurationSec(0)
 	{
 	}
 
@@ -177,8 +175,7 @@ struct DownloadInfo
 		  uriList(std::move(uriList)),
 		  url(""),
 		  chunkDurationSec(0),
-		  cachedChunkDurationSec(0),
-		  audioPeriodTailReached(false)
+		  cachedChunkDurationSec(0)
 	{
 	}
 };

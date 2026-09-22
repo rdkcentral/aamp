@@ -253,7 +253,6 @@ TEST_F(FragmentDownloadTests, CacheFragmentChunk_AudioCrossesPeriodEnd_TrimsTail
 	EXPECT_TRUE(mMediaStreamContext->CacheFragmentChunk(eMEDIATYPE_AUDIO,
 		kChunk, sizeof(kChunk), "audio.m4s", 0, 2000));
 	EXPECT_DOUBLE_EQ(cachedFragment->duration, 1.0);
-	EXPECT_TRUE(mMediaStreamContext->mActiveDownloadInfo->audioPeriodTailReached);
 
 	EXPECT_CALL(*g_mockMediaTrack, GetFetchBuffer(_)).Times(0);
 	EXPECT_TRUE(mMediaStreamContext->CacheFragmentChunk(eMEDIATYPE_AUDIO,
