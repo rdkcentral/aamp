@@ -52,10 +52,10 @@ void ethanlog(int level, const char *filename, const char *function, int line, c
 
 #define MAX_DEBUG_LOG_BUFF_SIZE 1024
 
-VideoZoomMode MapZoomMode( const char *zoomStr )
+VideoZoomMode MapZoomMode( const std::string& zoomStr )
 {
 	VideoZoomMode zoom = VIDEO_ZOOM_FULL; // default
-	if( zoomStr )
+	if( !zoomStr.empty() )
 	{
 		static const char *name[]
 		{
@@ -69,7 +69,7 @@ VideoZoomMode MapZoomMode( const char *zoomStr )
 		};
 		for( int i=0; i<ARRAY_SIZE(name); i++ )
 		{
-			if (0 == strcmp(zoomStr, name[i]) )
+			if (zoomStr == name[i])
 			{
 				zoom = (VideoZoomMode)i;
 			}
@@ -209,27 +209,43 @@ JSValueRef aamp_CStringToJSValue(JSContextRef context, const char* sz)
 /**
  * @brief Convert JSString to C string
  */
-char* aamp_JSValueToCString(JSContextRef context, JSValueRef value, JSValueRef* exception)
+std::string aamp_JSValueToCString(JSContextRef context, JSValueRef value, JSValueRef* exception)
 {
 	JSStringRef jsstr = JSValueToStringCopy(context, value, exception);
+	if (!jsstr)
+	{
+		// conversion raised an exception; caller inspects *exception
+		LOG_ERROR_EX("Error: exception converting JS string to C string.");
+		return std::string();
+	}
 	size_t len = JSStringGetMaximumUTF8CStringSize(jsstr);
-	char* src = new char[len];
-	JSStringGetUTF8CString(jsstr, src, len);
+	std::string src(len, '\0');
+	size_t written = JSStringGetUTF8CString(jsstr, src.data(), len);
 	JSStringRelease(jsstr);
+	// JSStringGetUTF8CString() returns the size including the null terminator
+	src.resize(written > 0 ? written - 1 : 0);
 	return src;
 }
 
 /**
  * @brief Convert JSString to JSON C string
  */
-char* aamp_JSValueToJSONCString(JSContextRef context, JSValueRef value, JSValueRef* exception)
+std::string aamp_JSValueToJSONCString(JSContextRef context, JSValueRef value, JSValueRef* exception)
 {
-        JSStringRef jsstr = JSValueCreateJSONString(context, value, 0, exception);
-        size_t len = JSStringGetMaximumUTF8CStringSize(jsstr);
-        char* src = new char[len];
-        JSStringGetUTF8CString(jsstr, src, len);
-        JSStringRelease(jsstr);
-        return src;
+	JSStringRef jsstr = JSValueCreateJSONString(context, value, 0, exception);
+	if (!jsstr)
+	{
+		// conversion raised an exception; caller inspects *exception
+		LOG_ERROR_EX("Error: exception creating JSON string.");
+		return std::string();
+	}
+	size_t len = JSStringGetMaximumUTF8CStringSize(jsstr);
+	std::string src(len, '\0');
+	size_t written = JSStringGetUTF8CString(jsstr, src.data(), len);
+	JSStringRelease(jsstr);
+	// JSStringGetUTF8CString() returns the size including the null terminator
+	src.resize(written > 0 ? written - 1 : 0);
+	return src;
 }
 
 /**
@@ -308,10 +324,9 @@ std::vector<std::string> aamp_StringArrayToCStringArray(JSContextRef context, JS
         if(exception)
             continue;
 
-        char* str = aamp_JSValueToCString(context, strRef, NULL);
-        LOG_TRACE("array[%d] = '%s'.",i,str);
+        std::string str = aamp_JSValueToCString(context, strRef, NULL);
+        LOG_TRACE("array[%d] = '%s'.",i,str.c_str());
         retval.push_back(str);
-        SAFE_DELETE_ARRAY(str);
     }
 
     JSStringRelease(lengthStrRef);
@@ -369,14 +384,14 @@ JSValueRef aamp_GetException(JSContextRef context, ErrorCode error, const char *
 /**
  * @brief Convert JS event name to AAMP event type
  */
-AAMPEventType aamp_getEventTypeFromName(const char* szName)
+AAMPEventType aamp_getEventTypeFromName(const std::string& szName)
 {
 	AAMPEventType eventType = AAMP_MAX_NUM_EVENTS;
 	int numEvents = sizeof(aamp_eventTypes) / sizeof(aamp_eventTypes[0]);
 
 	for (int i=0; i<numEvents; i++)
 	{
-		if (strcasecmp(aamp_eventTypes[i].szName, szName) == 0)
+		if (strcasecmp(aamp_eventTypes[i].szName, szName.c_str()) == 0)
 		{
 			eventType = aamp_eventTypes[i].eventType;
 			break;
@@ -401,7 +416,7 @@ void aamp_dispatchEventToJS(JSContextRef context, JSObjectRef callback, JSObject
 /**
  * @brief Convert JS event name to AAMP event type (AAMPMediaPlayer)
  */
-AAMPEventType aampPlayer_getEventTypeFromName(const char* szName)
+AAMPEventType aampPlayer_getEventTypeFromName(const std::string& szName)
 {
 //TODO: Need separate event list for now to avoid breaking existing viper impl. Unify later
 	AAMPEventType eventType = AAMP_MAX_NUM_EVENTS;
@@ -409,7 +424,7 @@ AAMPEventType aampPlayer_getEventTypeFromName(const char* szName)
 
 	for (int i=0; i<numEvents; i++)
 	{
-		if (strcasecmp(aampPlayer_eventTypes[i].szName, szName) == 0)
+		if (strcasecmp(aampPlayer_eventTypes[i].szName, szName.c_str()) == 0)
 		{
 			eventType = aampPlayer_eventTypes[i].eventType;
 			break;
