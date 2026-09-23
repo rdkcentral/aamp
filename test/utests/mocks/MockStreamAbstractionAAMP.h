@@ -110,9 +110,9 @@ public:
 
 	MOCK_METHOD(void, StopUnderflowMonitor, (), (override));
 
-	MOCK_METHOD(void, NotifyPipelinePausedToUnderflowMonitor, (), (override));
+	MOCK_METHOD(void, NotifyPipelinePausedToUnderflowMonitor, ());
 
-	MOCK_METHOD(void, NotifyPipelineResumedToUnderflowMonitor, (float rate), (override));
+	MOCK_METHOD(void, NotifyPipelineResumedToUnderflowMonitor, (float rate));
 };
 
 extern std::shared_ptr<MockStreamAbstractionAAMP> g_mockStreamAbstractionAAMP;
