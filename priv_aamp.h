@@ -957,7 +957,8 @@ public:
 	bool mInitSuccess;				/**< TODO: Need to replace with player state */
 	StreamOutputFormat mVideoFormat;
 	StreamOutputFormat mAudioFormat;
-	StreamOutputFormat mPreviousAudioType; 		/**< Used to maintain previous audio type of HLS playback */
+	StreamOutputFormat mCurrentAudioFormat{FORMAT_INVALID}; /**< Currently selected audio format (DASH or HLS); used for event metadata (e.g. isAtmos) */
+	StreamOutputFormat mLastConfiguredAudioFormat{FORMAT_INVALID};    /**< Audio format last passed to StreamSink::Configure() */
 	StreamOutputFormat mSubtitleFormat{FORMAT_UNKNOWN};
 	std::condition_variable_any mDownloadsDisabled;
 	bool mDownloadsEnabled;
@@ -965,7 +966,6 @@ public:
 	ABRManager mhAbrManager;                 /**< Pointer to Hybrid abr manager*/
 	ProfileEventAAMP profiler;
 	bool licenceFromManifest;
-	AudioType previousAudioType; 			/**< Used to maintain previous audio type */
 
 	CURL *curl[eCURLINSTANCE_MAX];
 	eCurlHostMapStruct *curlhost[eCURLINSTANCE_MAX];

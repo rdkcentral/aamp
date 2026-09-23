@@ -76,6 +76,9 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 	AampMediaType actualType = (AampMediaType)(initSegment ? (eMEDIATYPE_INIT_VIDEO + mediaType) : mediaType); // Need to revisit the logic
 
 	PopulateCommonMetadata(cachedFragment, fragmentUrl, actualType, 0, initSegment, discontinuity);
+	// Consume any pending track-selection codec/format change onto this fragment.
+	cachedFragment->codecChanged = this->codecChanged;
+	this->codecChanged = false;
 	cachedFragment->timeScale = fragmentDescriptor.TimeScale;
 	cachedFragment->absPosition = 0;
 	if (mActiveDownloadInfo)
