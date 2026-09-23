@@ -105,6 +105,8 @@ CURLcode curl_easy_setopt(CURL *handle, CURLoption option, ...)
         {
             case CURLOPT_PROGRESSDATA:
             case CURLOPT_WRITEDATA:
+            case CURLOPT_SHARE:          // pooled-handle re-bind (CurlStore refactor)
+            case CURLOPT_SSL_CTX_DATA:   // per-request aamp* context (CurlStore)
             {
                 const void *ptr = va_arg(arg, void *);
                 curl_code = g_mockCurl->curl_easy_setopt_ptr(handle, option, ptr);

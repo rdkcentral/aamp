@@ -860,6 +860,10 @@ TEST_F(PlayerInstanceAAMPTests,SetRateAndSeekvalidTest1)
 	double secondsRelativeToTuneTime = AAMP_SEEK_TO_LIVE_POSITION;
 	TuneType tuneType = eTUNETYPE_SEEKTOLIVE;
 
+	// Wildcard first (tried second in LIFO order) to absorb any additional
+	// IsConfigSet calls introduced by the iframe-guard fix (e.g.
+	// eAAMPConfig_SynthesizeIframeForVOD), then the specific override.
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_RepairIframes))
 		.WillOnce(Return(true));
 	mPlayerInstance->SetRateAndSeek(rate,secondsRelativeToTuneTime);
@@ -870,6 +874,8 @@ TEST_F(PlayerInstanceAAMPTests,SetRateAndSeekvalidTest2)
 	double secondsRelativeToTuneTime = AAMP_SEEK_TO_LIVE_POSITION;
 	TuneType tuneType = eTUNETYPE_SEEKTOLIVE;
 
+	// Same wildcard pattern as SetRateAndSeekvalidTest1.
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_RepairIframes))
 		.WillOnce(Return(true));
 	mPlayerInstance->SetRateAndSeek(rate,secondsRelativeToTuneTime);
