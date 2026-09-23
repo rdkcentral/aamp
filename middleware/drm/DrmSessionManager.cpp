@@ -26,6 +26,7 @@
 #include "DrmSessionManager.h"
 #include "_base64.h"
 #include <iostream>
+#include <chrono>
 #include "DrmHelper.h"
 #include <inttypes.h>
 #include "PlayerUtils.h"
@@ -77,12 +78,60 @@ DrmSessionManager::DrmSessionManager(int maxDrmSessions, void *player, std::func
  */
 DrmSessionManager::~DrmSessionManager()
 {
+	/* DELIA-70726-style fix: block here until any in-flight callback invocation
+	 * (e.g. gstcdmidecryptor calling laprofileBeginCb/laprofileEndCb/etc. from the
+	 * streaming thread on a cached raw pointer) has finished, so this object isn't
+	 * freed out from under it. */
+	{
+		std::unique_lock<std::mutex> lock(mLifecycleMutex);
+		mMarkedForDestruction = true;
+		if (mActiveCallbackOps > 0)
+		{
+			MW_LOG_WARN("DrmSessionManager::~DrmSessionManager : waiting for %d in-flight callback op(s) to complete before delete", mActiveCallbackOps);
+			mLifecycleCV.wait_for(lock, std::chrono::milliseconds(3000), [this]() { return mActiveCallbackOps == 0; });
+			if (mActiveCallbackOps > 0)
+			{
+				MW_LOG_ERR("DrmSessionManager::~DrmSessionManager : timed out waiting for in-flight callback op(s); proceeding with destruction");
+			}
+		}
+	}
 	clearAccessToken();
 	clearSessionData();
 	MW_SAFE_DELETE_ARRAY(drmSessionContexts);
 	MW_SAFE_DELETE_ARRAY(cachedKeyIDs);
 	MW_SAFE_DELETE(playerSecInstance);
 	ContentSecurityManager::setWatermarkSessionEvent_CB(nullptr);
+}
+
+/**
+* @brief DELIA-70726-style fix: acquire lifecycle guard before invoking a callback
+*        on a DrmSessionManager reached via a raw/cached pointer.
+*/
+bool DrmSessionManager::AcquireForCallback()
+{
+	std::lock_guard<std::mutex> lock(mLifecycleMutex);
+	if (mMarkedForDestruction)
+	{
+		return false;
+	}
+	mActiveCallbackOps++;
+	return true;
+}
+
+/**
+ * @brief Release lifecycle guard acquired via AcquireForCallback().
+ */
+void DrmSessionManager::ReleaseAfterCallback()
+{
+	std::lock_guard<std::mutex> lock(mLifecycleMutex);
+	if (mActiveCallbackOps > 0)
+	{
+		mActiveCallbackOps--;
+	}
+	if (mActiveCallbackOps == 0)
+	{
+		mLifecycleCV.notify_all();
+	}
 }
 void DrmSessionManager::UpdateDRMConfig(
                 bool useSecManager,
