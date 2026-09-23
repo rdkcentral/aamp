@@ -87,8 +87,18 @@ void ClearKeySession::setKeyId(const char* keyId, int32_t keyIDLen)
 		free(m_keyId);
 	}
 	m_keyId = (unsigned char*) malloc(sizeof(unsigned char) * keyIDLen);
-	memcpy(m_keyId, keyId, keyIDLen);
-	m_keyIdLen = keyIDLen;
+	
+	if (m_keyId != NULL)
+	{
+		memcpy(m_keyId, keyId, keyIDLen);
+		m_keyIdLen = keyIDLen;
+	}
+	else
+	{
+		MW_LOG_ERR("ClearKeySession: ERROR : Failed to allocate m_keyId");
+		m_keyIdLen = 0;
+	}	
+
 }
 
 /**
@@ -407,12 +417,20 @@ int ClearKeySession::decrypt(GstBuffer* keyIDBuffer, GstBuffer* ivBuffer, GstBuf
 				uint8_t *pbCurrTarget = (uint8_t *) pbData;
 				uint32_t iCurrSource = 0;
 
-		        for (int i = 0; i < subSampleCount; i++)
+		        for (int i = 0; pbData != NULL && i < subSampleCount; i++)
 		        {
 					if (!gst_byte_reader_get_uint16_be(reader, &nBytesClear)
 							|| !gst_byte_reader_get_uint32_be(reader, &nBytesEncrypted))
 					{
 						MW_LOG_ERR("ClearKeySession: ERROR : Failed to read from subsamples reader");
+						cbData = 0;
+						break;
+					}
+					// Reject subsample sizes that would read/write past the mapped buffer bounds.
+					if ((uint64_t)iCurrSource + nBytesClear + nBytesEncrypted > bufferMap.size ||
+						(uint64_t)cbData + nBytesEncrypted > bufferMap.size)
+					{
+						MW_LOG_ERR("ClearKeySession: ERROR : Subsample size exceeds buffer bounds");
 						cbData = 0;
 						break;
 					}
@@ -451,6 +469,7 @@ int ClearKeySession::decrypt(GstBuffer* keyIDBuffer, GstBuffer* ivBuffer, GstBuf
 					gst_byte_reader_set_pos(reader, 0);
 					uint8_t *pbCurrTarget = bufferMap.data;
 					uint32_t iCurrSource = 0;
+					uint32_t iCurrTarget = 0;
 
 			        for (int i = 0; i < subSampleCount; i++)
 			        {
@@ -461,12 +480,24 @@ int ClearKeySession::decrypt(GstBuffer* keyIDBuffer, GstBuffer* ivBuffer, GstBuf
 							retVal = 1;
 							break;
 						}
+						
+						// Reject subsample sizes that would read/write past the mapped buffer bounds.
+						if ((uint64_t)iCurrTarget + nBytesClear + nBytesEncrypted > bufferMap.size ||
+							(uint64_t)iCurrSource + nBytesEncrypted > cbData)
+						{
+							MW_LOG_ERR("ClearKeySession: ERROR : Subsample size exceeds buffer bounds");
+							retVal = 1;
+							break;
+						}
+
 						// Skip the clear byte range from target buffer.
 						pbCurrTarget += nBytesClear;
+						iCurrTarget += nBytesClear;
 						memcpy(pbCurrTarget, pbData + iCurrSource, nBytesEncrypted);
 
 						// Adjust current pointer of target buffer.
 						pbCurrTarget += nBytesEncrypted;
+						iCurrTarget += nBytesEncrypted;
 
 						// Adjust current offset of source buffer.
 						iCurrSource += nBytesEncrypted;
