@@ -435,7 +435,7 @@ TEST_F(FragmentDownloadTests, DownloadFragment_ValidDownloadInfo)
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(true));
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _)).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _)).WillOnce(Return(true));
 
 	EXPECT_NO_THROW({
 		bool result = mMediaStreamContext->DownloadFragment(dlInfo);
@@ -476,7 +476,7 @@ TEST_F(FragmentDownloadTests, DownloadFragment_LLD_TrackDownloadsDisabled_DoesNo
 		.WillRepeatedly(Return(false));
 
 	// Verify no caching/download is attempted.
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _))
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _))
 		.Times(0);
 
 	// Force the low-latency wait loop to execute once and then stop:
@@ -523,7 +523,7 @@ TEST_F(FragmentDownloadTests, DownloadFragment_CacheFull_DoesNotCache)
 		.WillRepeatedly(Return(maxCache));
 
 	// Verify no caching/download is attempted because cache is full.
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _))
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _))
 		.Times(0);
 
 	// Allow the initial entry check to proceed, then disable downloads to
@@ -578,7 +578,7 @@ TEST_F(FragmentDownloadTests, DownloadFragment_LLD_LocalTSBInjection_Caches)
 		.WillRepeatedly(Return(true));
 
 	// Expect exactly one successful "download".
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _))
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _))
 		.WillOnce(Return(true));
 
 	// Build a minimal valid download request.
@@ -623,7 +623,7 @@ TEST_F(FragmentDownloadTests, DownloadFragment_NotBlocked_CachesExpected)
 		.WillRepeatedly(Return(false));
 
 	// Expect one successful "download" per call.
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _))
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _))
 		.Times(numCalls)
 		.WillRepeatedly(Return(true));
 
@@ -928,7 +928,7 @@ TEST_F(FragmentDownloadTests, OnFragmentDownloadSuccess_UnderflowRecoveryRace_Fr
 }
 
 // ---------------------------------------------------------------------------
-// Shared SIDX test fixture data (used by VPAAMP-614 and VPAAMP-363 tests below)
+// Shared SIDX test fixture data
 // ---------------------------------------------------------------------------
 // Minimal SIDX box with 2 references.
 // Reference 0: referenced_size = 0x4000 = 16384 bytes, duration 2000 ticks
@@ -953,7 +953,7 @@ static const uint8_t kSidxBoxForABRTest[] = {
 };
 
 // ---------------------------------------------------------------------------
-// VPAAMP-614 regression: three additional SegmentBase race-condition fixes
+// Regression: three additional SegmentBase race-condition fixes
 // ---------------------------------------------------------------------------
 
 /**
@@ -1026,7 +1026,7 @@ TEST_F(FragmentDownloadTests, SegmentBase_FetchAndInjectInit_ResetsAreAtomic)
  * holding mIdxMutex.  A concurrent ClearAndRelease under the mutex between
  * that read and the subsequent snapshot (line ~1709) caused idxSnapshot to be
  * empty, which set eos=true prematurely — reproducing the repeated tune-fail
- * loop seen in VPAAMP-614.
+ * loop.
  *
  * This test verifies the fix: when IDX is cleared between the shouldLoadIdx
  * gate and the snapshot, the code detects the empty snapshot and sets eos
@@ -1128,9 +1128,9 @@ TEST_F(FragmentDownloadTests, SegmentBase_StopPath_ClearAndRelease_IsLocked)
 }
 
 // ---------------------------------------------------------------------------
-// VPAAMP-363 regression: SegmentBase ABR switch byte-range uses mIdxBaseOffset
+// Regression: SegmentBase ABR switch byte-range uses mIdxBaseOffset
 // ---------------------------------------------------------------------------
-// Root cause: VPAAMP-363 removed the SETCONFIGVALUE(...DashParallelFragDownload,
+// Root cause: Previously removed SETCONFIGVALUE(...DashParallelFragDownload,
 // false) guard from SkipFragments for SegmentBase streams, enabling parallel
 // downloads.  DownloadFragment's ABR-switch branch previously recomputed the
 // range as (0 + 1 + first_offset), which lands inside the moov/SIDX prefix and
@@ -1146,10 +1146,10 @@ TEST_F(FragmentDownloadTests, SegmentBase_StopPath_ClearAndRelease_IsLocked)
 // ---------------------------------------------------------------------------
 
 /**
- * @brief Regression test for VPAAMP-363: DownloadFragment ABR switch must use
+ * @brief Regression test: DownloadFragment ABR switch must use
  *        mIdxBaseOffset as the byte base for SegmentBase range computation.
  *
- * Setup mimics the race window exposed by VPAAMP-363:
+ * Setup mimics the race window exposed:
  *   - fragmentDescriptor.Bandwidth = 5000000 (current 1080p profile)
  *   - IDX holds the 1080p SIDX; mIdxBaseOffset = 1000 (segment 0 start)
  *   - dlInfo->bandwidth = 1400000 (stale 480p job queued before ABR switch)
@@ -1209,3 +1209,154 @@ TEST_F(FragmentDownloadTests, DownloadFragment_SegmentBase_ABRSwitch_UsesIdxBase
 	EXPECT_DOUBLE_EQ(dlInfo->fragmentDurationSec, 2.0)
 		<< "fragmentDurationSec must be set from the SIDX reference duration.";
 }
+
+// ============================================================================
+// VOD iframe synthesis abort flag tests
+// ============================================================================
+
+/**
+ * @brief Helper: set up the minimum mocks needed for a non-LLD DownloadFragment
+ *        that reaches the GetFile call.
+ *
+ * The caller should set EXPECT_CALL for GetFile itself with whatever argument
+ * matchers are needed for the specific test.
+ */
+static void SetupDownloadFragmentBaseMocks()
+{
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
+		.WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection())
+		.WillRepeatedly(Return(false));
+}
+
+/**
+ * @brief Verify synthesizeIframeAbort=true when trickplay rate + synthesizeIframeForVOD is enabled.
+ *
+ * Conditions that should produce doSynthesizeAbort=true:
+ *   - Non-init video segment
+ *   - rate != AAMP_NORMAL_PLAY_RATE (trickplay, e.g. 4x)
+ *   - rate != AAMP_RATE_PAUSE (not paused)
+ *   - mediaType == eMEDIATYPE_VIDEO  (track is VIDEO)
+ *   - IsVODIframeSynthesisEnabled() == true
+ *       => eAAMPConfig_SynthesizeIframeForVOD set AND !mIsLive AND !mLocalAAMPTsb
+ */
+TEST_F(FragmentDownloadTests, SynthesizeAbort_TrickplayVOD_FlagIsTrue)
+{
+	// Trickplay at 4x forward — triggers synthesis abort.
+	mPrivateInstanceAAMP->rate = 4;
+
+	// IsVODSynthesisActive() must return true so doSynthesizeAbort=true.
+	// The default mStreamAbstractionAAMP_MPD has mVODSynthesisIframeActive=false,
+	// so rebuild mMediaStreamContext with the mock MPD as context and configure
+	// the virtual override to return true.
+	delete mMediaStreamContext;
+	ON_CALL(*mMockStreamAbstractionAAMP_MPD, IsVODSynthesisActive())
+		.WillByDefault(Return(true));
+	mMediaStreamContext = new TestableMediaStreamContext(
+		eTRACK_VIDEO, mMockStreamAbstractionAAMP_MPD.get(), mPrivateInstanceAAMP, "SAMPLETEXT");
+
+	// mIsLive and mLocalAAMPTsb are both false by default in the fake, so
+	// IsVODIframeSynthesisEnabled() will return true when the config flag is set.
+	// NiceMock returns false for all IsConfigSet calls by default; override only
+	// the synthesis flag so IsVODIframeSynthesisEnabled() returns true.
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_SynthesizeIframeForVOD))
+		.WillRepeatedly(Return(true));
+
+	SetupDownloadFragmentBaseMocks();
+
+	// The 15th argument (synthesizeIframeAbort) must be true.
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+		GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _, true))
+		.WillOnce(Return(true));
+
+	DownloadInfoPtr dlInfo = std::make_shared<DownloadInfo>();
+	dlInfo->uriList[0].url = "http://example.com/segment.mp4";
+	dlInfo->url            = "http://example.com/segment.mp4";
+	dlInfo->isInitSegment  = false;
+
+	EXPECT_TRUE(mMediaStreamContext->DownloadFragment(dlInfo));
+}
+
+/**
+ * @brief Verify synthesizeIframeAbort=false at normal play rate even when the
+ *        synthesizeIframeForVOD config flag is enabled.
+ *
+ * doSynthesizeAbort requires iCurrentRate != AAMP_NORMAL_PLAY_RATE.
+ */
+TEST_F(FragmentDownloadTests, SynthesizeAbort_NormalRate_FlagIsFalse)
+{
+	// Normal play rate — synthesis abort must not be requested.
+	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
+
+	// Even with the config flag set, normal rate must not trigger synthesis abort.
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_SynthesizeIframeForVOD))
+		.WillRepeatedly(Return(true));
+
+	SetupDownloadFragmentBaseMocks();
+
+	// synthesizeIframeAbort must be false.
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+		GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _, false))
+		.WillOnce(Return(true));
+
+	DownloadInfoPtr dlInfo = std::make_shared<DownloadInfo>();
+	dlInfo->uriList[0].url = "http://example.com/segment.mp4";
+	dlInfo->url            = "http://example.com/segment.mp4";
+	dlInfo->isInitSegment  = false;
+
+	EXPECT_TRUE(mMediaStreamContext->DownloadFragment(dlInfo));
+}
+
+/**
+ * @brief Verify synthesizeIframeAbort=false when synthesizeIframeForVOD config is disabled,
+ *        even when playing at a trickplay rate.
+ */
+TEST_F(FragmentDownloadTests, SynthesizeAbort_ConfigDisabled_FlagIsFalse)
+{
+	// Trickplay rate but feature disabled.
+	mPrivateInstanceAAMP->rate = 4;
+
+	// NiceMock default: all IsConfigSet calls return false — synthesis disabled.
+
+	SetupDownloadFragmentBaseMocks();
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+		GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _, false))
+		.WillOnce(Return(true));
+
+	DownloadInfoPtr dlInfo = std::make_shared<DownloadInfo>();
+	dlInfo->uriList[0].url = "http://example.com/segment.mp4";
+	dlInfo->url            = "http://example.com/segment.mp4";
+	dlInfo->isInitSegment  = false;
+
+	EXPECT_TRUE(mMediaStreamContext->DownloadFragment(dlInfo));
+}
+
+/**
+ * @brief Verify synthesizeIframeAbort=false for init segments even at trickplay rate
+ *        with synthesizeIframeForVOD enabled.
+ *
+ * doSynthesizeAbort has a !initSegment guard; init segments must never be aborted.
+ */
+TEST_F(FragmentDownloadTests, SynthesizeAbort_InitSegment_FlagIsFalse)
+{
+	mPrivateInstanceAAMP->rate = 4;
+
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_SynthesizeIframeForVOD))
+		.WillRepeatedly(Return(true));
+
+	SetupDownloadFragmentBaseMocks();
+
+	// synthesizeIframeAbort must be false for init segments.
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+		GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _, false))
+		.WillOnce(Return(true));
+
+	DownloadInfoPtr dlInfo = std::make_shared<DownloadInfo>();
+	dlInfo->uriList[0].url = "http://example.com/init.mp4";
+	dlInfo->url            = "http://example.com/init.mp4";
+	dlInfo->isInitSegment  = true;
+
+	EXPECT_TRUE(mMediaStreamContext->DownloadFragment(dlInfo));
+}
+

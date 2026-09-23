@@ -115,6 +115,7 @@ protected:
 				{eAAMPConfig_EnablePTSReStamp, false},
 				{eAAMPConfig_LocalTSBEnabled, false},
 				{eAAMPConfig_EnableIFrameTrackExtract, false},
+				{eAAMPConfig_SynthesizeIframeForVOD, false},
 				{eAAMPConfig_useRialtoSink, false},
 				{eAAMPConfig_UseMp4Demux, false},
 				{eAAMPConfig_ProcessLicenseFromEAP, false},
