@@ -107,6 +107,7 @@ typedef enum
 	eAAMPConfig_ForceHttp,							/**< Force HTTP*/
 	eAAMPConfig_InternalReTune, 						/**< Internal re-tune on underflows/ pts errors*/
 	eAAMPConfig_AudioOnlyPlayback,						/**< AAMP Audio Only Playback*/
+	eAAMPConfig_MiniWindowAudioOnly,					/**< Enable audio-only playback for mini windows */
 	eAAMPConfig_Base64LicenseWrapping,					/**< Encode and decode the license data in base64 format*/
 	eAAMPConfig_GStreamerBufferingBeforePlay,				/**< Enable pre buffering logic which ensures minimum buffering is done before pipeline play*/
 	eAAMPConfig_EnablePROutputProtection,					/**< Playready output protection config */
@@ -341,6 +342,8 @@ typedef enum
 	eAAMPConfig_UnderflowLowBufferPollMs,			/**< Underflow monitor polling interval for low buffer condition in milliseconds */
 	eAAMPConfig_UnderflowMediumBufferPollMs,		/**< Underflow monitor polling interval for medium buffer condition in milliseconds */
 	eAAMPConfig_UnderflowHighBufferPollMs,			/**< Underflow monitor polling interval for high buffer condition in milliseconds */
+	eAAMPConfig_MiniWindowWidthThreshold,			/**< Mini-window width threshold in pixels */
+	eAAMPConfig_MiniWindowHeightThreshold,			/**< Mini-window height threshold in pixels */
 	eAAMPConfig_IntMaxValue							/**< Max value of int config always last element*/
 } AAMPConfigSettingInt;
 #define AAMPCONFIG_INT_COUNT (eAAMPConfig_IntMaxValue)

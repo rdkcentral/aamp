@@ -1254,6 +1254,10 @@ public:
 	bool mAudioComponentCount;
 	bool mVideoComponentCount;
 	bool mAudioOnlyPb;
+	std::atomic_bool mMiniWindowAudioOnlyActive;
+	std::atomic_bool mMiniWindowAudioOnlyOwnsPlayback;
+	std::atomic_bool mMiniWindowAudioOnlyForceReselect; /**< Set when a mode change still needs to be realized in the pipeline */
+	guint mMiniWindowFileCheckTimerId;
 	double mSubtitleDelta;
 	double mAudioDelta;					/** To indicate audio playlist delta */
 	bool mVideoOnlyPb;					/**< To indicate Video Only Playback */
@@ -2372,6 +2376,7 @@ public:
 	 *   @return void
 	 */
 	void SetVideoRectangle(int x, int y, int w, int h);
+	void SetMiniWindowAudioOnly(bool enable);
 
 	/**
 	 *   @fn Discontinuity
@@ -4483,6 +4488,8 @@ private:
 	void SetCMCDTrackData(AampMediaType mediaType);
 	std::vector<float> getSupportedPlaybackSpeeds(void);
 	bool IsFogUrl(const char *mainManifestUrl);
+	void StartMiniWindowFileCheckTimer();
+	void StopMiniWindowFileCheckTimer();
 
 	/**
 	 *   @fn SetVideoMuteInternal

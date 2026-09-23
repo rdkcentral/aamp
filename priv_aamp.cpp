@@ -1864,6 +1864,10 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	, mSubtitleDelta(0)
 	, mVideoComponentCount(-1)
 	, mAudioOnlyPb(false)
+	, mMiniWindowAudioOnlyActive(false)
+	, mMiniWindowAudioOnlyOwnsPlayback(false)
+	, mMiniWindowAudioOnlyForceReselect(false)
+	, mMiniWindowFileCheckTimerId(0)
 	, mVideoOnlyPb(false)
 	, mCurrentAudioTrackIndex(-1)
 	, mCurrentTextTrackIndex(-1)
@@ -1986,6 +1990,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	mAsyncTuneEnabled = ISCONFIGSET_PRIV(eAAMPConfig_AsyncTune);
 	mLastTelemetryTimeMS = aamp_GetCurrentTimeMS();
 	mAampTrackWorkerManager = std::make_shared<aamp::AampTrackWorkerManager>();
+	StartMiniWindowFileCheckTimer();
 }
 
 /**
@@ -1993,6 +1998,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
  */
 PrivateInstanceAAMP::~PrivateInstanceAAMP()
 {
+	StopMiniWindowFileCheckTimer();
 	mAampTrackWorkerManager.reset();
 	StopPausePositionMonitoring("AAMP destroyed");
 	PlayerCCManager::GetInstance()->Release(mCCId);
@@ -6242,6 +6248,8 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 						std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5)
 					);
 			AAMPLOG_MIL("New stream abstraction object created");
+			// A fresh object runs Init()/StreamSelection() below with the current config, so no reselect pending.
+			mMiniWindowAudioOnlyForceReselect.store(false);
 			if (NULL == mCdaiObject)
 			{
 				mCdaiObject = new CDAIObjectMPD(this); // special version for DASH
@@ -6280,6 +6288,8 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			std::bind(&PrivateInstanceAAMP::UpdatePTSOffsetFromTune, this,
 				std::placeholders::_1, std::placeholders::_2)
 		);
+		// A fresh object runs Init() below with the current config, so no reselect pending.
+		mMiniWindowAudioOnlyForceReselect.store(false);
 		if(NULL == mCdaiObject)
 		{
 			mCdaiObject = new CDAIObject(this);    //Placeholder to reject the SetAlternateContents()
@@ -6365,6 +6375,10 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			// Update StreamAbstraction object seek position to the absolute position (seconds since 1970)
 			mpStreamAbstractionAAMP->SeekPosUpdate(seek_pos_seconds);
 			retVal = mpStreamAbstractionAAMP->InitTsbReader(tuneType);
+			if (retVal == eAAMPSTATUS_OK && mMiniWindowAudioOnlyForceReselect.load())
+			{
+				mMiniWindowAudioOnlyForceReselect.store(false);
+			}
 		}
 		else
 		{
@@ -6896,6 +6910,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 
 	AAMPLOG_MIL("ContentType(%d) EnablePTSReStamp(%d)", mContentType, GETCONFIGVALUE_PRIV(eAAMPConfig_EnablePTSReStamp));
 #endif
+	AAMPLOG_WARN("miniWindowAudioOnly=%d (owner=%d)", GETCONFIGVALUE_PRIV(eAAMPConfig_MiniWindowAudioOnly), GETCONFIGOWNER_PRIV(eAAMPConfig_MiniWindowAudioOnly));
 
 	CreateTsbSessionManager();
 
@@ -8111,6 +8126,25 @@ void PrivateInstanceAAMP::UpdateVideoRectangle (int x, int y, int w, int h)
 void PrivateInstanceAAMP::SetVideoRectangle(int x, int y, int w, int h)
 {
 	AAMPPlayerState state = GetState();
+	const bool isIpPlayback = (mMediaFormat != eMEDIAFORMAT_OTA) &&
+		(mMediaFormat != eMEDIAFORMAT_HDMI) && (mMediaFormat != eMEDIAFORMAT_COMPOSITE) &&
+		(mMediaFormat != eMEDIAFORMAT_RMF) && (mMediaFormat != eMEDIAFORMAT_PROGRESSIVE);
+	if (isIpPlayback && (ISCONFIGSET_PRIV(eAAMPConfig_MiniWindowAudioOnly) ||
+		mMiniWindowAudioOnlyActive.load()))
+	{
+		const int widthThreshold = GETCONFIGVALUE_PRIV(eAAMPConfig_MiniWindowWidthThreshold);
+		const int heightThreshold = GETCONFIGVALUE_PRIV(eAAMPConfig_MiniWindowHeightThreshold);
+		const bool isMiniWindow = ISCONFIGSET_PRIV(eAAMPConfig_MiniWindowAudioOnly) &&
+			(widthThreshold > 0) && (heightThreshold > 0) &&
+			(w > 0) && (h > 0) && (w <= widthThreshold || h <= heightThreshold);
+		AAMPLOG_WARN("MiniWindow rect check: rect=%dx%d threshold=%dx%d isMiniWindow=%d activeNow=%d",
+			w, h, widthThreshold, heightThreshold, isMiniWindow, mMiniWindowAudioOnlyActive.load());
+		// Re-request even when isMiniWindow already matches activeNow, since a previous request may not have been realized yet (see mMiniWindowAudioOnlyForceReselect).
+		if (isMiniWindow != mMiniWindowAudioOnlyActive.load() || mMiniWindowAudioOnlyForceReselect.load())
+		{
+			SetMiniWindowAudioOnly(isMiniWindow);
+		}
+	}
 	{
 		std::unique_lock<std::recursive_mutex> lock(mStreamLock, std::try_to_lock);
 		if( lock.owns_lock() )
@@ -8148,6 +8182,115 @@ void PrivateInstanceAAMP::SetVideoRectangle(int x, int y, int w, int h)
 			AAMPLOG_INFO("StreamLock not available; state: %d", state );
 			UpdateVideoRectangle (x, y, w, h);
 		}
+	}
+}
+
+void PrivateInstanceAAMP::SetMiniWindowAudioOnly(bool enable)
+{
+	AAMPLOG_WARN("SetMiniWindowAudioOnly: requested=%d activeNow=%d ownsPlayback=%d pendingReselect=%d state=%d",
+		enable, mMiniWindowAudioOnlyActive.load(), mMiniWindowAudioOnlyOwnsPlayback.load(),
+		mMiniWindowAudioOnlyForceReselect.load(), GetState());
+
+	// Only a true no-op if the mode already matches AND a previous request was actually realized in the pipeline.
+	if ((enable == mMiniWindowAudioOnlyActive.load()) && !mMiniWindowAudioOnlyForceReselect.load())
+	{
+		AAMPLOG_WARN("SetMiniWindowAudioOnly: no-op, already in requested state");
+		return;
+	}
+
+	if (!enable && !mMiniWindowAudioOnlyOwnsPlayback.load())
+	{
+		AAMPLOG_WARN("SetMiniWindowAudioOnly: exiting mini-window, audioOnlyPlayback was set externally so leaving it untouched");
+		mMiniWindowAudioOnlyActive.store(false);
+		mMiniWindowAudioOnlyForceReselect.store(false);
+		return;
+	}
+
+	const bool audioOnlyPlayback = ISCONFIGSET_PRIV(eAAMPConfig_AudioOnlyPlayback);
+	if (enable && audioOnlyPlayback && !mMiniWindowAudioOnlyForceReselect.load())
+	{
+		AAMPLOG_WARN("SetMiniWindowAudioOnly: audioOnlyPlayback already true externally, marking active without taking ownership");
+		mMiniWindowAudioOnlyActive.store(true);
+		mMiniWindowAudioOnlyOwnsPlayback.store(false);
+		return;
+	}
+
+	mMiniWindowAudioOnlyActive.store(enable);
+	mMiniWindowAudioOnlyOwnsPlayback.store(enable);
+	if (!SETCONFIGVALUE_PRIV(AAMP_APPLICATION_SETTING, eAAMPConfig_AudioOnlyPlayback, enable))
+	{
+		// A higher-priority owner (e.g. aamp.cfg dev config) already holds this setting; our write was rejected,
+		// so reflect the actual config value rather than the one we tried to apply.
+		const bool actualValue = ISCONFIGSET_PRIV(eAAMPConfig_AudioOnlyPlayback);
+		AAMPLOG_WARN("SetMiniWindowAudioOnly: audioOnlyPlayback owned by higher-priority owner[%d], mode change will not take effect",
+			mConfig->GetConfigOwner(eAAMPConfig_AudioOnlyPlayback));
+		mMiniWindowAudioOnlyActive.store(actualValue);
+		mMiniWindowAudioOnlyOwnsPlayback.store(false);
+		mMiniWindowAudioOnlyForceReselect.store(false);
+		return;
+	}
+	mAudioOnlyPb = enable;
+	// Cleared only once TuneHelper actually re-runs track selection on the (possibly reused) StreamAbstraction.
+	mMiniWindowAudioOnlyForceReselect.store(true);
+	AAMPLOG_WARN("SetMiniWindowAudioOnly: audioOnlyPlayback and mAudioOnlyPb set to %d, pending pipeline reselect", enable);
+
+	const AAMPPlayerState state = GetState();
+	if (state <= eSTATE_PREPARING || state == eSTATE_ERROR || state == eSTATE_RELEASED)
+	{
+		AAMPLOG_WARN("SetMiniWindowAudioOnly: state=%d too early/invalid for retune, will retry once player is active", state);
+		return;
+	}
+
+	std::lock_guard<std::mutex> lock(gMutex);
+	if (mIsRetuneInProgress)
+	{
+		AAMPLOG_WARN("SetMiniWindowAudioOnly: retune already in progress, mode will apply after the current retune");
+		return;
+	}
+
+	for (gActivePrivAAMP_t &instance : gActivePrivAAMPs)
+	{
+		if (instance.pAAMP == this)
+		{
+			instance.reTune = true;
+			AAMPLOG_WARN("SetMiniWindowAudioOnly: scheduling retune to apply enable=%d", enable);
+			ScheduleAsyncTask(PrivateInstanceAAMP_Retune, this, "PrivateInstanceAAMP_MiniWindowRetune");
+			return;
+		}
+	}
+	AAMPLOG_WARN("SetMiniWindowAudioOnly: instance not found in active AAMP list, retune not scheduled");
+}
+
+static gboolean PrivateInstanceAAMP_MiniWindowFileCheck(gpointer ptr)
+{
+	PrivateInstanceAAMP* aamp = (PrivateInstanceAAMP*) ptr;
+	const bool filePresent = (access(AAMP_MINI_WINDOW_AUDIO_ONLY_FLAG_FILE, F_OK) == 0);
+	// Flag file overrides only apply to adaptive IP playback, same as the rectangle-based path.
+	const MediaFormat format = aamp->GetMediaFormatTypeEnum();
+	const bool isIpPlayback = (format != eMEDIAFORMAT_OTA) && (format != eMEDIAFORMAT_HDMI) &&
+		(format != eMEDIAFORMAT_COMPOSITE) && (format != eMEDIAFORMAT_RMF) && (format != eMEDIAFORMAT_PROGRESSIVE);
+	if (isIpPlayback && aamp->mConfig->IsConfigSet(eAAMPConfig_MiniWindowAudioOnly))
+	{
+		aamp->SetMiniWindowAudioOnly(filePresent);
+	}
+	return G_SOURCE_CONTINUE;
+}
+
+void PrivateInstanceAAMP::StartMiniWindowFileCheckTimer()
+{
+	if (mMiniWindowFileCheckTimerId == 0 && ISCONFIGSET_PRIV(eAAMPConfig_MiniWindowAudioOnly))
+	{
+		mMiniWindowFileCheckTimerId = g_timeout_add(AAMP_MINI_WINDOW_AUDIO_ONLY_FILE_POLL_MS, PrivateInstanceAAMP_MiniWindowFileCheck, this);
+		AAMPLOG_WARN("StartMiniWindowFileCheckTimer: watching %s every %dms", AAMP_MINI_WINDOW_AUDIO_ONLY_FLAG_FILE, AAMP_MINI_WINDOW_AUDIO_ONLY_FILE_POLL_MS);
+	}
+}
+
+void PrivateInstanceAAMP::StopMiniWindowFileCheckTimer()
+{
+	if (mMiniWindowFileCheckTimerId != 0)
+	{
+		g_source_remove(mMiniWindowFileCheckTimerId);
+		mMiniWindowFileCheckTimerId = 0;
 	}
 }
 /**

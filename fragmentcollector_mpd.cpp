@@ -3849,6 +3849,11 @@ AAMPStatusType StreamAbstractionAAMP_MPD::InitTsbReader(TuneType tuneType)
 			seekPosition = position;
 			mFirstPTS = tsbSessionManager->GetTsbReader(eMEDIATYPE_VIDEO)->GetFirstPTS();
 			AAMPLOG_MIL("Updated position: %lfs, pts:%lfs", seekPosition, mFirstPTS);
+			if (mMediaStreamContext[eMEDIATYPE_VIDEO])
+			{
+				mMediaStreamContext[eMEDIATYPE_VIDEO]->enabled =
+					!ISCONFIGSET(eAAMPConfig_AudioOnlyPlayback);
+			}
 			if (aamp->IsLocalAAMPTsbInjection())
 			{
 				for (int i = 0; i < mNumberOfTracks; i++)
@@ -7595,7 +7600,6 @@ void StreamAbstractionAAMP_MPD::SwitchAudioTrack()
 	/*Fetch and injecting initialization params*/
 	FetchAndInjectInitialization(eMEDIATYPE_AUDIO, false);
 }
-
 /**
  * @brief Does stream selection
  */
@@ -11165,6 +11169,12 @@ void StreamAbstractionAAMP_MPD::TsbReader()
 				for (int trackIdx = (mNumberOfTracks - 1); trackIdx >= 0; trackIdx--)
 				{
 					cacheFullStatus[trackIdx] = true;
+					if ((trackIdx == eMEDIATYPE_VIDEO) && ISCONFIGSET(eAAMPConfig_AudioOnlyPlayback))
+					{
+						// Keep video in TSB for rewind, but do not inject it during audio-only playback.
+						cacheFullStatus[trackIdx] = false;
+						continue;
+					}
 					if (!tsbSessionManager->GetTsbReader((AampMediaType) trackIdx)->IsEos())
 					{
 						bool trackSegmentFound = AdvanceTsbFetch(trackIdx, trickPlay, delta, waitForFreeFrag, cacheFullStatus[trackIdx]);
@@ -11218,6 +11228,11 @@ void StreamAbstractionAAMP_MPD::TsbReader()
 					if (segmentFound)
 					{
 						aamp->interruptibleMsSleep(50);				//To Avoid tight loop adding a small delay
+					}
+					else if (ISCONFIGSET(eAAMPConfig_AudioOnlyPlayback))
+					{
+						// Video writes do not signal the availability of audio fragments.
+						aamp->interruptibleMsSleep(50);
 					}
 					// AAMP could reach the end of the TSB only when doing FF (rate > AAMP_NORMAL_PLAY_RATE)
 					else if (aamp->rate > AAMP_NORMAL_PLAY_RATE)
@@ -11606,11 +11621,26 @@ void StreamAbstractionAAMP_MPD::StartFromAampLocalTsb(void)
 	mTrackState = eDISCONTINUITY_FREE;
 	for (int i = 0; i < mNumberOfTracks; i++)
 	{
+		const bool isVideoAudioOnly = (i == eMEDIATYPE_VIDEO) &&
+			ISCONFIGSET(eAAMPConfig_AudioOnlyPlayback);
+		if (!mMediaStreamContext[i]->enabled && !aamp->IsLocalAAMPTsbInjection())
+		{
+			continue;
+		}
+
 		// Flush fragments cached during Live SLD
 		mMediaStreamContext[i]->FlushFetchedFragments();
 
 		// Flush fragments from mCachedFragment
 		mMediaStreamContext[i]->FlushFragments();
+		if (isVideoAudioOnly)
+		{
+			auto timeBasedBuffer = mMediaStreamContext[i]->GetTimeBasedBufferManager();
+			if (timeBasedBuffer)
+			{
+				timeBasedBuffer->ClearBuffer();
+			}
+		}
 
 		// For seek to live, we will employ chunk cache and hence size has to be increased to max
 		// For other tune types, we don't need chunks so revert to max cache fragment size
@@ -11625,7 +11655,7 @@ void StreamAbstractionAAMP_MPD::StartFromAampLocalTsb(void)
 		}
 
 		mMediaStreamContext[i]->eosReached = false;
-		if(aamp->IsPlayEnabled())
+		if(aamp->IsPlayEnabled() && !isVideoAudioOnly)
 		{
 			aamp->ResumeTrackInjection((AampMediaType) i);
 			// TODO: This could be moved to StartInjectLoop, but due to lack of testing will keep it here for now
@@ -11850,7 +11880,10 @@ void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutpu
 			audioFormat = GetMp4DemuxAudioFormatForCodec(GetCurrentCodec(eMEDIATYPE_AUDIO).c_str());
 		}
 	}
-	if(mMediaStreamContext[eMEDIATYPE_VIDEO] && mMediaStreamContext[eMEDIATYPE_VIDEO]->enabled )
+	const bool isLocalTsbAudioOnly = aamp->IsLocalAAMPTsbInjection() &&
+		ISCONFIGSET(eAAMPConfig_AudioOnlyPlayback);
+	if(mMediaStreamContext[eMEDIATYPE_VIDEO] && !isLocalTsbAudioOnly &&
+		(mMediaStreamContext[eMEDIATYPE_VIDEO]->enabled || aamp->IsLocalAAMPTsbInjection()))
 	{
 		primaryOutputFormat = videoFormat;
 	}
