@@ -11580,8 +11580,7 @@ void StreamAbstractionAAMP_MPD::StartFromAampLocalTsb(void)
 	{
 		const bool isVideoAudioOnly = (i == eMEDIATYPE_VIDEO) &&
 			ISCONFIGSET(eAAMPConfig_AudioOnlyPlayback);
-		if (isVideoAudioOnly ||
-			(!mMediaStreamContext[i]->enabled && !aamp->IsLocalAAMPTsbInjection()))
+		if (!mMediaStreamContext[i]->enabled && !aamp->IsLocalAAMPTsbInjection())
 		{
 			continue;
 		}
@@ -11591,6 +11590,14 @@ void StreamAbstractionAAMP_MPD::StartFromAampLocalTsb(void)
 
 		// Flush fragments from mCachedFragment
 		mMediaStreamContext[i]->FlushFragments();
+		if (isVideoAudioOnly)
+		{
+			auto timeBasedBuffer = mMediaStreamContext[i]->GetTimeBasedBufferManager();
+			if (timeBasedBuffer)
+			{
+				timeBasedBuffer->ClearBuffer();
+			}
+		}
 
 		// For seek to live, we will employ chunk cache and hence size has to be increased to max
 		// For other tune types, we don't need chunks so revert to max cache fragment size
@@ -11605,7 +11612,7 @@ void StreamAbstractionAAMP_MPD::StartFromAampLocalTsb(void)
 		}
 
 		mMediaStreamContext[i]->eosReached = false;
-		if(aamp->IsPlayEnabled())
+		if(aamp->IsPlayEnabled() && !isVideoAudioOnly)
 		{
 			aamp->ResumeTrackInjection((AampMediaType) i);
 			// TODO: This could be moved to StartInjectLoop, but due to lack of testing will keep it here for now
