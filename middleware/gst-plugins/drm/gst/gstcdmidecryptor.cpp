@@ -781,6 +781,18 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 }
 #endif // USE_OPENCDM_ADAPTER
 
+/* RAII guard: releases a DrmSessionManager::AcquireForCallback() on scope exit,
+ * so every early `break;` in gst_cdmidecryptor_sink_event() below stays balanced. 
+ */
+class DrmSessionManagerCallbackGuard
+{
+public:
+	explicit DrmSessionManagerCallbackGuard(DrmSessionManager *mgr) : mMgr(mgr) {}
+	~DrmSessionManagerCallbackGuard() { if (mMgr) mMgr->ReleaseAfterCallback(); }
+private:
+	DrmSessionManager *mMgr;
+};
+
 
 /* sink event handlers */
 static gboolean gst_cdmidecryptor_sink_event(GstBaseTransform * trans,
@@ -842,6 +854,20 @@ static gboolean gst_cdmidecryptor_sink_event(GstBaseTransform * trans,
 		result = FALSE;
 		break;
 		}
+
+		/* DELIA-70726-style fix: guard against the DrmSessionManager being concurrently
+		 * torn down (e.g. AampDRMLicenseManager destruction during a back-to-back
+		 * channel change) while this streaming thread still holds cdmidecryptor's
+		 * cached raw sessionManager pointer. Without this, laprofileBeginCb/etc. below
+		 * could be invoked on an object mid-destruction. 
+		 * */
+		if (!cdmidecryptor->sessionManager->AcquireForCallback())
+		{
+			GST_ERROR_OBJECT(cdmidecryptor, "sessionManager is being destroyed, aborting\n");
+			result = FALSE;
+			break;
+		}
+		DrmSessionManagerCallbackGuard sessionManagerCallbackGuard(cdmidecryptor->sessionManager);
 
 
 		GST_DEBUG_OBJECT(cdmidecryptor,
@@ -922,7 +948,11 @@ static gboolean gst_cdmidecryptor_sink_event(GstBaseTransform * trans,
 			}
 		}
 
-		cdmidecryptor->sessionManager->laprofileBeginCb(cdmidecryptor->mediaType);
+		if (cdmidecryptor->sessionManager->laprofileBeginCb)
+		{
+			cdmidecryptor->sessionManager->laprofileBeginCb(cdmidecryptor->mediaType);
+		}
+
 		g_mutex_lock(&cdmidecryptor->mutex);
 		GST_DEBUG_OBJECT(cdmidecryptor, "\n acquired lock for mutex\n");
 		std::shared_ptr<void> e = cdmidecryptor->sessionManager->DrmMetaDataCb();
@@ -939,7 +969,7 @@ static gboolean gst_cdmidecryptor_sink_event(GstBaseTransform * trans,
 						reinterpret_cast<const unsigned char *>(mapInfo.data),
 						mapInfo.size, (int)cdmidecryptor->mediaType, cdmidecryptor->player, e.get(), nullptr, false);
 		}
-		if(err != -1)
+		if(err != -1 && cdmidecryptor->sessionManager->setfailureCb)
                 {
                        cdmidecryptor->sessionManager->setfailureCb(e.get(),err);
                 }
@@ -961,7 +991,10 @@ static gboolean gst_cdmidecryptor_sink_event(GstBaseTransform * trans,
 		 */
 		if(SessionMgrState::eSESSIONMGR_ACTIVE == cdmidecryptor->sessionManager->getSessionMgrState())
 		{
-			cdmidecryptor->sessionManager->laprofileErrorCb(e.get());
+			if (cdmidecryptor->sessionManager->laprofileErrorCb)
+			{
+				cdmidecryptor->sessionManager->laprofileErrorCb(e.get());
+			}
 			GST_ERROR_OBJECT(cdmidecryptor,"Failed to create DRM Session\n");
 		}
 			result = TRUE;
@@ -969,7 +1002,10 @@ static gboolean gst_cdmidecryptor_sink_event(GstBaseTransform * trans,
 	else
 		{
 			cdmidecryptor->streamReceived = TRUE;
-			cdmidecryptor->sessionManager->laprofileEndCb(cdmidecryptor->mediaType);
+			if (cdmidecryptor->sessionManager->laprofileEndCb)
+			{
+				cdmidecryptor->sessionManager->laprofileEndCb(cdmidecryptor->mediaType);
+			}
 			if (!cdmidecryptor->firstsegprocessed)
 			{
 
