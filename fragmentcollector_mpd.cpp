@@ -655,7 +655,8 @@ bool StreamAbstractionAAMP_MPD::FetchFragment(MediaStreamContext *pMediaStreamCo
 		pMediaStreamContext->fragmentDescriptor.TimeScale,
 		pMediaStreamContext->fragmentDescriptor.Bandwidth,
 		mPTSOffset,
-		uriList);
+		uriList,
+		mPeriodEndTime);
 
 	// Wrap the lambda in a JobWrapper
 	auto downloadJob = std::make_shared<aamp::MediaSegmentDownloadJob>(downloadInfo, [this, pMediaStreamContext, downloadInfo]() {

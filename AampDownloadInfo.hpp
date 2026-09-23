@@ -100,6 +100,7 @@ struct DownloadInfo
 	std::string url;			   /**< URL of the fragment */
 	BitsPerSecond bandwidth;	   /**< Bandwidth of the fragment at the time of job submission */
 	AampTime ptsOffset;			   /**< Period specific PTS offset used for restamping */
+	double periodEndPosition;	   /**< MPD Period end in fragment timeline seconds */
 	URLBitrateMap uriList;		   /**< List of all possible URLs with their respective bitrates */
 	double chunkDurationSec;	   /**< Duration of the chunks processed from the fragment in seconds, used for chunked transfer */
 
@@ -124,6 +125,7 @@ struct DownloadInfo
 		  timeScale(1),
 		  bandwidth(0),
 		  ptsOffset(0),
+		  periodEndPosition(0),
 		  uriList(),
 		  chunkDurationSec(0)
 	{
@@ -148,8 +150,9 @@ struct DownloadInfo
 	 * @param bandwidth Bandwidth of the fragment
 	 * @param ptsOffset PTS offset
 	 * @param uriList List of all possible URLs with their respective bitrates
+	 * @param periodEndPosition MPD Period end in fragment timeline seconds
 	 */
-	DownloadInfo(AampMediaType mediaType, AampCurlInstance curlInstance, double absolutePosition, double fragmentDurationSec, std::string range, int fragmentIndex, uint64_t fragmentOffset, bool isInitSegment, bool isDiscontinuity, bool isPlayingAd, bool failoverContentSegment, double pts, uint64_t fragmentNumber, uint32_t timeScale, uint32_t bandwidth, AampTime ptsOffset, URLBitrateMap uriList)
+	DownloadInfo(AampMediaType mediaType, AampCurlInstance curlInstance, double absolutePosition, double fragmentDurationSec, std::string range, int fragmentIndex, uint64_t fragmentOffset, bool isInitSegment, bool isDiscontinuity, bool isPlayingAd, bool failoverContentSegment, double pts, uint64_t fragmentNumber, uint32_t timeScale, uint32_t bandwidth, AampTime ptsOffset, URLBitrateMap uriList, double periodEndPosition = 0)
 		: mediaType(mediaType),
 		  curlInstance(curlInstance),
 		  absolutePosition(absolutePosition),
@@ -166,6 +169,7 @@ struct DownloadInfo
 		  timeScale(timeScale),
 		  bandwidth(bandwidth),
 		  ptsOffset(ptsOffset),
+		  periodEndPosition(periodEndPosition),
 		  uriList(std::move(uriList)),
 		  url(""),
 		  chunkDurationSec(0)

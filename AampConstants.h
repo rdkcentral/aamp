@@ -32,5 +32,8 @@
 #define CONSEC_AGNOSTIC_UUID "afbcb50e-bf74-3d13-be8f-13930c783962"
 #define VERIMATRIX_UUID "9a27dd82-fde2-4725-8cbc-4234aa06ec09"
 
+/**< Max overhang past a DASH Period end tolerated before AV output is clipped */
+constexpr double AAMP_DASH_PERIOD_TAIL_TOLERANCE_SEC = 0.1;
+
 #endif /* __AAMP_CONSTANTS_H__ */
 

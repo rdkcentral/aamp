@@ -31,6 +31,7 @@
 #include <map>
 #include <exception>
 #include <mutex>
+#include <optional>
 #include <utility>
 #include "StreamAbstractionAAMP.h"
 #include "abr.h"
@@ -175,6 +176,7 @@ private:
 	std::shared_ptr<TsbInitData> initFragData; /**< init Fragment of the current fragment*/
 	uint32_t timeScale; /**< timescale of the current fragment */
 	AampTime PTSOffset; /**< PTS offset of the current fragment */
+	std::optional<double> periodClipPts; /**< Presentation PTS to clip output at the Period end; nullopt = no clip */
 
 	/* data */
 public:
@@ -192,11 +194,12 @@ public:
 	 *   @param[in] initData - Pointer to initData
 	 *   @param[in] timeScale - timescale of the current fragment
 	 *   @param[in] PTSOffset - PTS offset of the current fragment
+	 *   @param[in] periodClipPts - Presentation PTS to clip at the Period end (nullopt = none)
 	 */
 	TsbFragmentData(std::string url, AampMediaType media, AampTime absolutePositionS, AampTime duration, AampTime pts, bool disc,
-		std::string prId, std::shared_ptr<TsbInitData> initData, uint32_t timeScale, AampTime PTSOffset)
+		std::string prId, std::shared_ptr<TsbInitData> initData, uint32_t timeScale, AampTime PTSOffset, std::optional<double> periodClipPts = std::nullopt)
 		: TsbSegment(std::move(url), media, absolutePositionS, std::move(prId)), duration(duration), mPTS(pts), isDiscontinuous(disc), initFragData(std::move(initData)),
-		timeScale(timeScale), PTSOffset(PTSOffset)
+		timeScale(timeScale), PTSOffset(PTSOffset), periodClipPts(periodClipPts)
 	{
 	}
 
@@ -247,6 +250,13 @@ public:
 	 * @return PTS offset of the fragment
 	 */
 	AampTime GetPTSOffset() const { return PTSOffset; }
+
+	/**
+	 * @fn GetPeriodClipPts
+	 *
+	 * @return Presentation PTS to clip output at the Period end (nullopt = no clip)
+	 */
+	std::optional<double> GetPeriodClipPts() const { return periodClipPts; }
 };
 
 typedef std::shared_ptr<TsbFragmentData> TsbFragmentDataPtr;

@@ -42,6 +42,7 @@
 #include <curl/curl.h>
 #include <string.h>
 #include <vector>
+#include <optional>
 #include <unordered_map>
 #include <map>
 #include <set>
@@ -1926,7 +1927,7 @@ public:
 	 *   @param[in]  discontinuity - flag for discontinuity
 	 *   @return void
 	 */
-	void SendStreamTransfer(AampMediaType mediaType, std::vector<uint8_t>& buffer, double fpts, double fdts, double fDuration, double fragmentPTSoffset, bool initFragment = false, bool discontinuity = false);
+	void SendStreamTransfer(AampMediaType mediaType, std::vector<uint8_t>& buffer, double fpts, double fdts, double fDuration, double fragmentPTSoffset, bool initFragment = false, bool discontinuity = false, std::optional<double> periodClipPts = std::nullopt);
 
 	/**
 	 *   @fn SendStreamTransfer

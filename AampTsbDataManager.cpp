@@ -366,7 +366,7 @@ bool AampTsbDataManager::AddFragment(TSBWriteData &writeData, AampMediaType medi
 					 GetMediaTypeName(media), position, duration, pts, mCurrentInitData->GetBandWidth(), discont, periodId.c_str(), timeScale, PTSOffsetSec,
 					 url.c_str(), mCurrentInitData->GetUrl().c_str());
 		mCurrentInitData->incrementUser();
-		TsbFragmentDataPtr fragmentData = std::make_shared<TsbFragmentData>(url, media, AampTime(position), duration, pts, discont, periodId, mCurrentInitData, timeScale, PTSOffsetSec);
+		TsbFragmentDataPtr fragmentData = std::make_shared<TsbFragmentData>(url, media, AampTime(position), duration, pts, discont, periodId, mCurrentInitData, timeScale, PTSOffsetSec, writeData.cachedFragment->periodClipPts);
 		if (mCurrHead != nullptr)
 		{
 			fragmentData->prev = mCurrHead;

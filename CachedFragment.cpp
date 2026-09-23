@@ -44,6 +44,7 @@ CachedFragment::CachedFragment()
 	, PTSOffsetSec(0)
 	, absPosition(0.0)
 	, discontinuityIndex(0)
+	, periodClipPts(std::nullopt)
 {
 }
 
@@ -67,6 +68,7 @@ void CachedFragment::Copy(const CachedFragment& other)
 	this->PTSOffsetSec = other.PTSOffsetSec;
 	this->absPosition = other.absPosition;
 	this->discontinuityIndex = other.discontinuityIndex;
+	this->periodClipPts = other.periodClipPts;
 	
 	// Copy fragment data
 	this->fragment = other.fragment;
@@ -92,6 +94,7 @@ void CachedFragment::Clear()
 	discontinuityIndex = 0;
 	PTSOffsetSec = 0;
 	absPosition = 0.0;
+	periodClipPts = std::nullopt;
 }
 
 /**
@@ -112,6 +115,7 @@ CachedFragment::CachedFragment(const CachedFragment& other)
 	, discontinuityIndex(other.discontinuityIndex)
 	, PTSOffsetSec(other.PTSOffsetSec)
 	, absPosition(other.absPosition)
+	, periodClipPts(other.periodClipPts)
 {
 }
 
@@ -133,6 +137,7 @@ CachedFragment::CachedFragment(CachedFragment&& other) noexcept
 	, discontinuityIndex(other.discontinuityIndex)
 	, PTSOffsetSec(other.PTSOffsetSec)
 	, absPosition(other.absPosition)
+	, periodClipPts(std::move(other.periodClipPts))
 {
 	// Reset moved-from object to default state
 	other.position = 0.0;
@@ -146,6 +151,7 @@ CachedFragment::CachedFragment(CachedFragment&& other) noexcept
 	other.discontinuityIndex = 0;
 	other.PTSOffsetSec = 0;
 	other.absPosition = 0.0;
+	other.periodClipPts.reset();
 }
 
 /**
@@ -168,6 +174,7 @@ CachedFragment& CachedFragment::operator=(const CachedFragment& other)
 		discontinuityIndex = other.discontinuityIndex;
 		PTSOffsetSec = other.PTSOffsetSec;
 		absPosition = other.absPosition;
+		periodClipPts = other.periodClipPts;
 	}
 	return *this;
 }
@@ -192,6 +199,7 @@ CachedFragment& CachedFragment::operator=(CachedFragment&& other) noexcept
 		discontinuityIndex = other.discontinuityIndex;
 		PTSOffsetSec = other.PTSOffsetSec;
 		absPosition = other.absPosition;
+		periodClipPts = std::move(other.periodClipPts);
 		
 		// Reset moved-from object to default state
 		other.position = 0.0;
@@ -205,6 +213,7 @@ CachedFragment& CachedFragment::operator=(CachedFragment&& other) noexcept
 		other.discontinuityIndex = 0;
 		other.PTSOffsetSec = 0;
 		other.absPosition = 0.0;
+		other.periodClipPts.reset();
 	}
 	return *this;
 }
@@ -230,6 +239,7 @@ void CachedFragment::swap(CachedFragment& other) noexcept
 	swap(discontinuityIndex, other.discontinuityIndex);
 	swap(PTSOffsetSec, other.PTSOffsetSec);
 	swap(absPosition, other.absPosition);
+	swap(periodClipPts, other.periodClipPts);
 }
 
 /**

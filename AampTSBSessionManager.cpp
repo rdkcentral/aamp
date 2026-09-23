@@ -261,6 +261,7 @@ std::shared_ptr<CachedFragment> AampTSBSessionManager::Read(TsbFragmentDataPtr f
 		cachedFragment->PTSOffsetSec = fragment->GetPTSOffset().inSeconds();
 		cachedFragment->timeScale = fragment->GetTimeScale();
 		cachedFragment->uri = std::move(url);
+		cachedFragment->periodClipPts = fragment->GetPeriodClipPts();
 		pts = fragment->GetPTS().inSeconds();
 		AAMPLOG_INFO("[%s] Read fragment from AAMP TSB: position (restamped PTS) %fs absPosition %fs pts %fs duration %fs discontinuity %d ptsOffset %fs timeScale %u url %s",
 			GetMediaTypeName(cachedFragment->type), cachedFragment->position, cachedFragment->absPosition, pts, cachedFragment->duration,

@@ -29,6 +29,7 @@
 #include "ID3Metadata.hpp"
 #include "VideoZoomMode.h"
 #include "AampDefine.h"
+#include <optional>
 
 class PrivateInstanceAAMP;
 
@@ -88,7 +89,7 @@ public:
      *   @param[in]  initFragment - flag for buffer type (init, data)
      *   @return void
      */
-    virtual bool SendTransfer( AampMediaType mediaType, std::vector<uint8_t>&& buffer, double fpts, double fdts, double fDuration, double fragmentPTSoffset, bool initFragment = false, bool discontinuity = false)= 0;
+    virtual bool SendTransfer( AampMediaType mediaType, std::vector<uint8_t>&& buffer, double fpts, double fdts, double fDuration, double fragmentPTSoffset, bool initFragment = false, bool discontinuity = false, std::optional<double> periodClipPts = std::nullopt)= 0;
 
     /**
      *   @brief  API to send audio/video sample into the sink.

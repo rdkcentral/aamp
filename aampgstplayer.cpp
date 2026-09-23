@@ -853,9 +853,10 @@ bool AAMPGstPlayer::SendCopy(AampMediaType mediaType, std::vector<uint8_t>&& buf
 /**
  *  @brief inject mp4 segment to gstreamer pipeline
  */
-bool AAMPGstPlayer::SendTransfer(AampMediaType mediaType, std::vector<uint8_t>&& buffer, double fpts, double fdts, double fDuration, double fragmentPTSoffset, bool initFragment, bool discontinuity)
+bool AAMPGstPlayer::SendTransfer(AampMediaType mediaType, std::vector<uint8_t>&& buffer, double fpts, double fdts, double fDuration, double fragmentPTSoffset, bool initFragment, bool discontinuity, std::optional<double> periodClipPts)
 {
 	MediaSample sample(std::move(buffer), fpts, fdts, fDuration, fragmentPTSoffset);
+	sample.mPeriodBoundaryPts = periodClipPts;
 	return SendHelper(mediaType, std::move(sample), initFragment, discontinuity);
 }
 

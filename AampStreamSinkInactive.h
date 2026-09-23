@@ -65,7 +65,7 @@ public:
      *   @fn SendTransfer
 	 *   @brief stub implementation for Inactive aamp instance
 	 */
-	virtual bool SendTransfer( AampMediaType mediaType, std::vector<uint8_t>&& buffer, double fpts, double fdts, double duration, double fragmentPTSoffset, bool initFragment = false, bool discontinuity = false)
+	virtual bool SendTransfer( AampMediaType mediaType, std::vector<uint8_t>&& buffer, double fpts, double fdts, double duration, double fragmentPTSoffset, bool initFragment = false, bool discontinuity = false, std::optional<double> periodClipPts = std::nullopt)
 	{
 		AAMPLOG_WARN("Called AAMPGstPlayer()::%s stub", __FUNCTION__);
 		// buffer will be automatically destroyed (RAII)

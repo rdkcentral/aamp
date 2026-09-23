@@ -28,6 +28,7 @@
 #include "AampMediaType.h"
 #include "priv_aamp.h"  // For BitsPerSecond and BitrateChangeReason definitions
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <utility>  // For std::swap and std::move
 #include <vector>
@@ -83,6 +84,9 @@ public:
 	uint64_t discontinuityIndex;		/**< Discontinuity index */
 	double PTSOffsetSec; 				/**< PTS offset to apply for this segment */
 	double absPosition;					/**< Absolute position in seconds */
+	/**< Presentation time (seconds) at which output must be clipped to the Period end.
+	 *   nullopt: no clip; >0: clip stop at this PTS; ==0: clear a previously applied clip. */
+	std::optional<double> periodClipPts;
 
 	/**
 	 * @brief Default constructor

@@ -24,6 +24,7 @@
 
 #include "MediaStreamContext.h"
 #include "AampUtils.h"
+#include "AampConstants.h"
 #include "isobmff/isobmffbuffer.h"
 #include "AampCacheHandler.h"
 #include "AampTSBSessionManager.h"
@@ -53,7 +54,7 @@ void MediaStreamContext::InjectFragmentInternal(CachedFragment* cachedFragment, 
 		aamp->ProcessID3Metadata(cachedFragment->fragment, (AampMediaType) type);
 		AAMPLOG_DEBUG("Type[%d] cachedFragment->position: %f cachedFragment->duration: %f cachedFragment->initFragment: %d", type, cachedFragment->position,cachedFragment->duration,cachedFragment->initFragment);
 		aamp->SendStreamTransfer((AampMediaType)type, cachedFragment->fragment,
-		cachedFragment->position, cachedFragment->position, cachedFragment->duration, cachedFragment->PTSOffsetSec, cachedFragment->initFragment, cachedFragment->discontinuity);
+		cachedFragment->position, cachedFragment->position, cachedFragment->duration, cachedFragment->PTSOffsetSec, cachedFragment->initFragment, cachedFragment->discontinuity, cachedFragment->periodClipPts);
 		fragmentDiscarded = false;
 	}
 } // InjectFragmentInternal
@@ -222,12 +223,32 @@ bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, const uint
 		cachedFragment->absPosition = mActiveDownloadInfo->absolutePosition;
 		cachedFragment->timeScale = mActiveDownloadInfo->timeScale;
 		cachedFragment->duration = (double)durationInTicks / (double)cachedFragment->timeScale;
+		// Absolute start of this chunk, before chunkDurationSec advances past it.
+		const double chunkStartAbs = mActiveDownloadInfo->absolutePosition +
+			mActiveDownloadInfo->chunkDurationSec;
 		// Position of this chunk, before chunkDurationSec advances past it - required by the
 		// SLD restamping path (RestampPts/TrickModePtsRestamp), which chunk mode now also uses.
 		cachedFragment->position = mActiveDownloadInfo->pts + mActiveDownloadInfo->chunkDurationSec;
 		if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp))
 		{
 			cachedFragment->position += mActiveDownloadInfo->ptsOffset.inSeconds();
+		}
+		// Clip AV output to the Period end for an overhanging LLD chunk (audio or video).
+		if ((eMEDIATYPE_VIDEO == actualType || eMEDIATYPE_AUDIO == actualType) &&
+			mActiveDownloadInfo->periodEndPosition > 0.0 &&
+			chunkStartAbs + cachedFragment->duration >
+				mActiveDownloadInfo->periodEndPosition + AAMP_DASH_PERIOD_TAIL_TOLERANCE_SEC)
+		{
+			double retained = mActiveDownloadInfo->periodEndPosition - chunkStartAbs;
+			if (retained < 0.0)
+			{
+				// Chunk starts entirely past the Period end - drop it whole.
+				retained = 0.0;
+			}
+			cachedFragment->periodClipPts = cachedFragment->position + retained;
+			AAMPLOG_WARN("[%s] Clipping Period tail (chunk): chunk end %fs > Period end %fs, clip PTS %fs",
+				name, chunkStartAbs + cachedFragment->duration,
+				mActiveDownloadInfo->periodEndPosition, cachedFragment->periodClipPts.value());
 		}
 		mActiveDownloadInfo->chunkDurationSec += cachedFragment->duration;
 		// Only update when absPosition is set to avoid messing up the values.
@@ -721,6 +742,19 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 		AAMPLOG_INFO("Type[%s] position after restamp = %fs", name, cachedFragment->position);
 	}
 	cachedFragment->duration = dlInfo->fragmentDurationSec;
+	// Clip AV output to the Period end when this (last) fragment overhangs it by more
+	// than tolerance. Applies to audio and video; the sink drops buffers past the stop.
+	if ((eMEDIATYPE_VIDEO == dlInfo->mediaType || eMEDIATYPE_AUDIO == dlInfo->mediaType) &&
+		!dlInfo->isInitSegment && dlInfo->periodEndPosition > dlInfo->absolutePosition &&
+		dlInfo->absolutePosition + dlInfo->fragmentDurationSec >
+			dlInfo->periodEndPosition + AAMP_DASH_PERIOD_TAIL_TOLERANCE_SEC)
+	{
+		cachedFragment->periodClipPts =
+			cachedFragment->position + (dlInfo->periodEndPosition - dlInfo->absolutePosition);
+		AAMPLOG_WARN("[%s] Clipping Period tail: fragment end %fs > Period end %fs, clip PTS %fs",
+			name, dlInfo->absolutePosition + dlInfo->fragmentDurationSec,
+			dlInfo->periodEndPosition, cachedFragment->periodClipPts.value());
+	}
 	cachedFragment->discontinuity = dlInfo->isDiscontinuity;
 	segDLFailCount = 0;
 	// Update the last downloaded position for buffered duration calculation

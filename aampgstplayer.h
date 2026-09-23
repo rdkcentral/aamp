@@ -133,14 +133,15 @@ public:
 		 * @param[in] initFragment flag for buffer type (init, data)
 		 * @param[in] discontinuity flag for discontinuity
 		 */
-	bool SendTransfer(AampMediaType mediaType, std::vector<uint8_t>&& buffer, double fpts, double fdts, double fDuration, double fragmentPTSoffset, bool initFragment = false, bool discontinuity = false) override;
+	bool SendTransfer(AampMediaType mediaType, std::vector<uint8_t>&& buffer, double fpts, double fdts, double fDuration, double fragmentPTSoffset, bool initFragment = false, bool discontinuity = false, std::optional<double> periodClipPts = std::nullopt) override;
 
 	/**
 	 * @fn SendSample
 	 * @param[in] mediaType stream type
 	 * @param[in] sample media sample
 	 */
-	bool SendSample(AampMediaType mediaType, AampMediaSample&& sample, bool morePending = false) override;
+	bool SendSample(AampMediaType mediaType, AampMediaSample&& sample, bool morePending = false) override;
+
 
 	/**
 		 * @fn PipelineConfiguredForMedia

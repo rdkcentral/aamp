@@ -50,7 +50,7 @@ bool AAMPGstPlayer::SendCopy( AampMediaType mediaType, std::vector<uint8_t>&& bu
 	return true;
 }
 
-bool AAMPGstPlayer::SendTransfer(AampMediaType mediaType, std::vector<uint8_t>&& buffer, double fpts, double fdts, double fDuration, double fragmentPTSoffset, bool initFragment, bool discontinuity)
+bool AAMPGstPlayer::SendTransfer(AampMediaType mediaType, std::vector<uint8_t>&& buffer, double fpts, double fdts, double fDuration, double fragmentPTSoffset, bool initFragment, bool discontinuity, std::optional<double> periodClipPts)
 {
 	return true;
 }
