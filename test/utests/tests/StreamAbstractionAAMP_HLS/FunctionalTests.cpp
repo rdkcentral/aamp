@@ -2050,12 +2050,6 @@ TEST_F(TrackStateTests, AbortWaitForCachedFragmentTests)
 	TrackStateobj->AbortWaitForCachedFragment();
 }
 
-TEST_F(TrackStateTests, ProcessFragmentChunkTests)
-{
-	double result = TrackStateobj->ProcessFragmentChunk();
-	ASSERT_FALSE(result);
-}
-
 TEST_F(TrackStateTests, GetTotalInjectedDurationtest)
 {
 	double result = TrackStateobj->GetTotalInjectedDuration();

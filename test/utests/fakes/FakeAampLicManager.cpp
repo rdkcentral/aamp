@@ -104,6 +104,11 @@ bool AampDRMLicenseManager::QueueContentProtection(DrmHelperPtr drmHelper, std::
 	return false;
 }
 
+bool AampDRMLicenseManager::IsKeyIdProcessed(const std::vector<uint8_t>&, bool&)
+{
+    return false;
+}
+
 void AampDRMLicenseManager::QueueProtectionEvent(DrmHelperPtr drmHelper, std::string periodId, uint32_t adapIdx, AampMediaType type)
 {
     if (g_mockAampLicenseManager)
@@ -138,6 +143,10 @@ void AampDRMLicenseManager::SetCommonKeyDuration(int keyDuration)
 
 void AampDRMLicenseManager::notifyCleanup()
 {
+    if (g_mockAampLicenseManager)
+    {
+        g_mockAampLicenseManager->notifyCleanup();
+    }
 }
 DrmSession* AampDRMLicenseManager::createDrmSession(char const*, MediaFormat, unsigned char const*, unsigned short, int, DrmCallbacks*, std::shared_ptr<DrmMetaDataEvent>, unsigned char const*, bool)
 {

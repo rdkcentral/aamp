@@ -70,8 +70,6 @@ const std::vector<TimedMetadata> & PlayerInstanceAAMP::GetTimedMetadata( void ) 
 	void PlayerInstanceAAMP::SetLanguage(const char*  language) {  }
 	void PlayerInstanceAAMP::SetSubscribedTags(std::vector<std::string> subscribedTags) {  }
 	void PlayerInstanceAAMP::SubscribeResponseHeaders(std::vector<std::string> responseHeaders) {  }
-	void PlayerInstanceAAMP::LoadJS(void* context) {  }
-	void PlayerInstanceAAMP::UnloadJS(void* context) {  }
 	void PlayerInstanceAAMP::AddEventListener(AAMPEventType eventType, std::shared_ptr<EventListener> eventListener) {  }
 	void PlayerInstanceAAMP::RemoveEventListener(AAMPEventType eventType, std::shared_ptr<EventListener> eventListener) {  }
 	void PlayerInstanceAAMP::InsertAd(const char *url, double  positionSeconds) {  }

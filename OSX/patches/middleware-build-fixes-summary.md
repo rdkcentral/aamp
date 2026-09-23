@@ -1,4 +1,9 @@
-# Middleware OSX Build Fixes
+# Middleware OSX Build Fixes (Historical)
+
+> **Note**: The patch described in this document is no longer applied during builds.
+> All fixes have been merged into HEAD of middleware-player-interface (as of commit `a55c02d`).
+> The patch file has been moved to `archive/middleware-fixes-4c1d90a.patch` for historical reference.
+> `install_middleware_interfaces.sh` now uses HEAD of middleware-player-interface directly.
 
 ## Summary
 The middleware-player-interface repository has four build issues on macOS that prevent successful compilation. These issues do not affect Linux/Ubuntu builds.
@@ -122,5 +127,5 @@ make install
 
 ## Related Work
 
-- **VPAAMP-725**: AAMP simulator builds migrated to external middleware
+- AAMP simulator builds migrated to external middleware
 - **Workaround**: AAMP's `install_middleware_interfaces.sh` now auto-applies this patch until upstream fix is merged

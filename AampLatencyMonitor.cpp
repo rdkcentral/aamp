@@ -279,11 +279,14 @@ void AampLatencyMonitor::Run()
 
 		// Collect measurements.
 		const long   latencyMs   = mAamp->GetCurrentLatencyMs();
-		const double bufferMs   = mAamp->GetBufferedDurationSecs() * 1000.0;
 
-		// A negative bufferMs is the sentinel returned by GetBufferedDurationSecs()
-		// when mStreamLock could not be acquired (std::try_to_lock contention).
-		// Skip the entire poll so a transient read failure cannot masquerade as
+		const double videoBufferMs = mAamp->GetVideoBufferedDurationSecs() * 1000.0;
+		const double audioBufferMs = mAamp->GetAudioBufferedDurationSecs() * 1000.0;
+		const double bufferMs      = std::min(videoBufferMs, audioBufferMs);
+
+		// A negative bufferMs is the sentinel (-1.0 * 1000) returned by
+		// GetVideo/AudioBufferedDurationSecs() on mStreamLock contention.
+		// Skip the poll so a transient read failure cannot masquerade as
 		// an empty buffer and trigger spurious threshold shifts or rate resets.
 		if (bufferMs < 0.0)
 		{
@@ -325,9 +328,9 @@ void AampLatencyMonitor::Run()
 			maxLatMs    = mMaxLatencyMs;
 		}
 
-		AAMPLOG_INFO("[LatencyMonitor] latency=%ldms buffer=%.3fms "
+		AAMPLOG_INFO("[LatencyMonitor] latency=%ldms videoBuffer=%.3fms audioBuffer=%.3fms "
 			"rate=%.2f min=%.0fms target=%.0fms max=%.0fms ",
-			latencyMs, bufferMs, mCurrentRate.load(),
+			latencyMs, videoBufferMs, audioBufferMs, mCurrentRate.load(),
 			minLatMs, targetLatMs, maxLatMs);
 
 		// Determine the desired rate based on current latency and buffer state.
@@ -466,13 +469,20 @@ void AampLatencyMonitor::ResetToNormalRate()
  */
 void AampLatencyMonitor::IncreaseThresholdsLocked()
 {
-	double newAccumulated = mLatencyIncrementAccumulatedMs
+	const double previousAccumulated = mLatencyIncrementAccumulatedMs;
+	double newAccumulated = previousAccumulated
 		+ mConfig.rebufferingLatencyStepMs;
 
 	if (mConfig.rebufferingLatencyMaxIncrementMs > 0.0)
 	{
 		newAccumulated = std::min(newAccumulated,
 			mConfig.rebufferingLatencyMaxIncrementMs);
+	}
+
+	const double appliedShiftMs = newAccumulated - previousAccumulated;
+	if (appliedShiftMs <= 0.0)
+	{
+		return;
 	}
 
 	mLatencyIncrementAccumulatedMs = newAccumulated;
@@ -482,7 +492,7 @@ void AampLatencyMonitor::IncreaseThresholdsLocked()
 
 	AAMPLOG_INFO("[LatencyMonitor] thresholds shifted +%.0fms "
 		"(accumulated=%.0fms) -> min=%.0fms target=%.0fms max=%.0fms",
-		mConfig.rebufferingLatencyStepMs, mLatencyIncrementAccumulatedMs,
+		appliedShiftMs, mLatencyIncrementAccumulatedMs,
 		mMinLatencyMs, mTargetLatencyMs, mMaxLatencyMs);
 }
 
@@ -564,21 +574,25 @@ void AampLatencyMonitor::UpdateDangerBufferState(double bufferMs)
  *   trigger a fresh wakeup and shift. Run() handles the restoration timer
  *   on its next poll.
  */
-void AampLatencyMonitor::OnBufferLevelUpdate(double bufferMs)
+void AampLatencyMonitor::OnBufferLevelUpdate(AampMediaType mediaType, double bufferMs)
 {
+	AAMPLOG_TRACE("[LatencyMonitor] %s buffer update: %dms",
+		(mediaType == eMEDIATYPE_VIDEO) ? "video" : "audio", static_cast<int>(bufferMs));
+		
 	if (mConfig.dangerBufferMs <= 0.0 || mConfig.rebufferingLatencyStepMs <= 0.0)
 	{
 		return;
 	}
 
-	// Ignore the invalid sentinel (-1.0 * 1000 = -1000 ms) that
-	// GetBufferedDurationSecs() returns on lock-contention so a transient
-	// read failure cannot trigger a spurious wakeup and episode shift.
+	// Ignore the invalid sentinel (-1.0 * 1000 = -1000 ms) returned on
+	// lock-contention so a transient read failure cannot trigger a spurious
+	// wakeup and episode shift.
 	if (bufferMs < 0.0)
 	{
 		return;
 	}
 
+	
 	// If correction is disabled (e.g. not at live point), the worker is
 	// sleeping indefinitely in WaitUntilSignalled(). Do not wake it on
 	// buffer events — it has nothing to act on and would immediately

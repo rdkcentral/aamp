@@ -93,6 +93,17 @@ TEST_F(AampMp4DemuxerTests, ConstructorDestructor)
 }
 
 /**
+ * @brief Test setFallbackTimeScale forwards the manifest-declared timescale
+ * to the underlying Mp4Demux, so it can be used when a track has no init
+ * segment (e.g. subtitle streams with no 'initialization' attribute).
+ */
+TEST_F(AampMp4DemuxerTests, SetFallbackTimeScaleForwardsToMp4Demux)
+{
+	EXPECT_CALL(*g_mockMp4Demux, SetFallbackTimeScale(48000)).Times(1);
+	mDemuxer->setFallbackTimeScale(48000);
+}
+
+/**
  * @brief Test sendSegment with valid buffer containing samples
  */
 TEST_F(AampMp4DemuxerTests, SendSegmentWithSamples)
@@ -124,7 +135,7 @@ TEST_F(AampMp4DemuxerTests, SendSegmentWithSamples)
 		});
 
 	// Set expectations for PrivateInstanceAAMP mock
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(eMEDIATYPE_VIDEO, _))
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(eMEDIATYPE_VIDEO, _, _))
 		.Times(2); // Should be called for each sample
 
 	// Test parameters
@@ -156,7 +167,7 @@ TEST_F(AampMp4DemuxerTests, SendSegmentWithEmptyBuffer)
 	// Verify no calls were made to the mocked dependencies
 	EXPECT_CALL(*g_mockMp4Demux, Parse(_))
 		.Times(0);
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(_, _))
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(_, _, _))
 		.Times(0);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetStreamCaps(_, _))
 		.Times(0);
@@ -192,7 +203,7 @@ TEST_F(AampMp4DemuxerTests, SendSegmentDifferentMediaTypes)
 			samples.push_back(std::move(sample));
 			return samples;
 		});
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(eMEDIATYPE_AUDIO, _));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(eMEDIATYPE_AUDIO, _, _));
 	bool ptsError = false;
 	bool result = audDemuxer->sendSegment(std::move(buffer), 2.0, 1.5, 0.0, false, false, nullptr, ptsError);
 
@@ -222,7 +233,7 @@ TEST_F(AampMp4DemuxerTests, SendInitSegmentWithValidCodecInfo)
 			return codecInfo;
 		}); // Return codec info
 	// No SendStreamTransfer calls expected for init segment
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(_, _)).Times(0);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(_, _, _)).Times(0);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetStreamCaps(eMEDIATYPE_VIDEO, _)).Times(1); // Should set stream caps
 	bool ptsError = false;
 	bool result = mDemuxer->sendSegment(std::move(initBuffer), 2.0, 0.0, 0.0, false, true, nullptr, ptsError);
@@ -253,7 +264,7 @@ TEST_F(AampMp4DemuxerTests, SendInitSegmentWithInvalidCodecInfo)
 			return codecInfo;
 		}); // Return explicit invalid codec info
 	// No SendStreamTransfer and SetStreamCaps calls expected for init segment
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(_, _)).Times(0);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(_, _, _)).Times(0);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetStreamCaps(eMEDIATYPE_VIDEO, _)).Times(0); // Should set stream caps
 	bool ptsError = false;
 	bool result = mDemuxer->sendSegment(std::move(initBuffer), 2.0, 0.0, 0.0, false, true, nullptr, ptsError);
@@ -278,7 +289,7 @@ TEST_F(AampMp4DemuxerTests, SendSegmentWithParseFailure)
 	// No calls to GetSamples or SendStreamTransfer should occur
 	EXPECT_CALL(*g_mockMp4Demux, GetSamples())
 		.Times(0);
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(_, _))
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(_, _, _))
 		.Times(0);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetStreamCaps(_, _))
 		.Times(0);
@@ -330,11 +341,11 @@ TEST_F(AampMp4DemuxerTests, SendSegmentWithPtsRestampEnabled)
 			return mockSamples;
 		});
 
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(eMEDIATYPE_VIDEO, _))
-		.WillOnce([kFragmentPtsOffset](AampMediaType /*mediaType*/, AampMediaSample&& sample) {
-			EXPECT_DOUBLE_EQ(sample.mPts, 10.0 + kFragmentPtsOffset);
-			EXPECT_DOUBLE_EQ(sample.mDts, 9.5 + kFragmentPtsOffset);
-		});
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(eMEDIATYPE_VIDEO, _, _))
+		.WillOnce(Invoke([=](AampMediaType /*mediaType*/, AampMediaSample&& sample, bool /*morePending*/) {
+			EXPECT_DOUBLE_EQ(sample.mPts, kBasePts + kFragmentPtsOffset);
+			EXPECT_DOUBLE_EQ(sample.mDts, kBaseDts + kFragmentPtsOffset);
+		}));
 
 	bool ptsError = false;
 	bool result = restampDemuxer.sendSegment(std::move(buffer), 10.0, 5.0, kFragmentPtsOffset,
@@ -402,14 +413,14 @@ TEST_F(AampMp4DemuxerTests, TrickplayPtsRestamp_InitFragmentStateReset)
 			return samples;
 		});
 
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(eMEDIATYPE_VIDEO, _))
-		.WillOnce([kExpectedDuration](AampMediaType, AampMediaSample&& sample) {
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(eMEDIATYPE_VIDEO, _, _))
+		.WillOnce(Invoke([kExpectedDuration](AampMediaType, AampMediaSample&& sample, bool) {
 			// FIRST_SAMPLE must restamp to 0 regardless of the original PTS
 			EXPECT_DOUBLE_EQ(sample.mPts, 0.0) << "First keyframe after init must be restamped to 0";
 			EXPECT_DOUBLE_EQ(sample.mDts, 0.0) << "First keyframe DTS after init must be restamped to 0";
 			EXPECT_NEAR(sample.mDuration, kExpectedDuration, 1e-9)
 				<< "Duration must equal MAX(fragDur/rate, 1/fps)";
-		});
+		}));
 
 	result = mDemuxer->sendSegment(std::move(mediaBuffer), 0.0, kFragmentDuration, 0.0,
 								  false, false, nullptr, ptsError);
@@ -471,14 +482,14 @@ TEST_F(AampMp4DemuxerTests, TrickplayPtsRestamp_FirstMediaFragment)
 			return samples;
 		});
 	
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(eMEDIATYPE_VIDEO, _))
-		.WillOnce([](AampMediaType /*mediaType*/, AampMediaSample&& sample) {
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(eMEDIATYPE_VIDEO, _, _))
+		.WillOnce(Invoke([](AampMediaType /*mediaType*/, AampMediaSample&& sample, bool /*morePending*/) {
 			// First sample should be restamped to 0.0
 			EXPECT_DOUBLE_EQ(sample.mPts, 0.0);
 			EXPECT_DOUBLE_EQ(sample.mDts, 0.0);
 			// Duration should be fragment_duration / rate, but capped to reasonable value
 			EXPECT_GT(sample.mDuration, 0.0);
-		});
+		}));
 	
 	bool result = mDemuxer->sendSegment(std::move(mediaBuffer), 0.0, kFragmentDuration, 0.0, false, false, nullptr, ptsError);
 	
@@ -551,8 +562,8 @@ TEST_F(AampMp4DemuxerTests, TrickplayPtsRestamp_RewindModeMultipleFragments)
 				return samples;
 			});
 		
-		EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(eMEDIATYPE_VIDEO, _))
-			.WillOnce([&actualPts, i, &kExpectedPts, kExpectedDuration](AampMediaType, AampMediaSample&& sample) {
+		EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(eMEDIATYPE_VIDEO, _, _))
+			.WillOnce(Invoke([&actualPts, i, &kExpectedPts, kExpectedDuration](AampMediaType, AampMediaSample&& sample, bool) {
 				actualPts.push_back(sample.mPts);
 				
 				// Verify expected PTS value (use NEAR for floating-point tolerance)
@@ -566,7 +577,7 @@ TEST_F(AampMp4DemuxerTests, TrickplayPtsRestamp_RewindModeMultipleFragments)
 				// Verify expected duration
 				EXPECT_NEAR(sample.mDuration, kExpectedDuration, 0.001) 
 					<< "Fragment " << i << ": Duration mismatch";
-			});
+			}));
 		
 		mDemuxer->sendSegment(std::move(mediaBuffer), 0.0, kFragmentDuration, 0.0, false, false, nullptr, ptsError);
 	}
@@ -608,11 +619,11 @@ TEST_F(AampMp4DemuxerTests, TrickplayPtsRestamp_NormalToTrickplayTransition)
 			return samples;
 		});
 	
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(_, _))
-		.WillOnce([](AampMediaType, AampMediaSample&& sample) {
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(_, _, _))
+		.WillOnce(Invoke([](AampMediaType, AampMediaSample&& sample, bool) {
 			// At normal rate, PTS should not be changed to 0
 			EXPECT_DOUBLE_EQ(sample.mPts, 1000.0);
-		});
+		}));
 	
 	bool ptsError = false;
 	mDemuxer->sendSegment(std::move(mediaBuffer), 0.0, 2.0, 0.0, false, false, nullptr, ptsError);
@@ -657,12 +668,12 @@ TEST_F(AampMp4DemuxerTests, TrickplayPtsRestamp_NormalToTrickplayTransition)
 			return samples;
 		});
 	
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(_, _))
-		.WillOnce([](AampMediaType, AampMediaSample&& sample) {
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(_, _, _))
+		.WillOnce(Invoke([](AampMediaType, AampMediaSample&& sample, bool) {
 			// First trickplay sample should reset to 0
 			EXPECT_DOUBLE_EQ(sample.mPts, 0.0);
 			EXPECT_DOUBLE_EQ(sample.mDts, 0.0);
-		});
+		}));
 	
 	mDemuxer->sendSegment(std::move(media2Buffer), 0.0, 2.0, 0.0, false, false, nullptr, ptsError);
 	
@@ -684,11 +695,11 @@ TEST_F(AampMp4DemuxerTests, TrickplayPtsRestamp_NormalToTrickplayTransition)
 			return samples;
 		});
 	
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(_, _))
-		.WillOnce([](AampMediaType, AampMediaSample&& sample) {
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(_, _, _))
+		.WillOnce(Invoke([](AampMediaType, AampMediaSample&& sample, bool) {
 			// Back to normal - should preserve original PTS
 			EXPECT_DOUBLE_EQ(sample.mPts, 5000.0);
-		});
+		}));
 	
 	mDemuxer->sendSegment(std::move(media3Buffer), 0.0, 2.0, 0.0, false, false, nullptr, ptsError);
 }
@@ -746,11 +757,11 @@ TEST_F(AampMp4DemuxerTests, TrickplayPtsRestamp_NoDuplicateInitAtSameRate)
 		});
 	
 	double firstMediaPts = 0.0;
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(_, _))
-		.WillOnce([&firstMediaPts](AampMediaType, AampMediaSample&& sample) {
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(_, _, _))
+		.WillOnce(Invoke([&firstMediaPts](AampMediaType, AampMediaSample&& sample, bool) {
 			firstMediaPts = sample.mPts;
 			EXPECT_DOUBLE_EQ(sample.mPts, 0.0); // First sample at 0
-		});
+		}));
 	
 	mDemuxer->sendSegment(std::move(media1Buffer), 0.0, 2.0, 0.0, false, false, nullptr, ptsError);
 	
@@ -790,12 +801,116 @@ TEST_F(AampMp4DemuxerTests, TrickplayPtsRestamp_NoDuplicateInitAtSameRate)
 			return samples;
 		});
 	
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(_, _))
-		.WillOnce([&firstMediaPts](AampMediaType, AampMediaSample&& sample) {
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(_, _, _))
+		.WillOnce(Invoke([&firstMediaPts](AampMediaType, AampMediaSample&& sample, bool) {
 			// Should NOT be 0 - should continue from previous state
 			EXPECT_GT(sample.mPts, 0.0) << "PTS should continue, not reset after init at same rate";
 			EXPECT_GT(sample.mPts, firstMediaPts) << "PTS should advance from previous sample";
-		});
+		}));
 	
 	mDemuxer->sendSegment(std::move(media2Buffer), 0.0, 2.0, 0.0, false, false, nullptr, ptsError);
+}
+
+/**
+ * @brief Verify TrickmodePtsRestamp produces continuous restampedPts across a
+ * DASH live content-to-ad boundary where the two streams have completely
+ * different PTS ranges.
+ *
+ * DASH live content carries large, epoch-based PTS values (~69760 s).
+ * Ad segments are independently timed and carry small, ad-relative PTS
+ * values starting near 0.  Without fragmentPTSoffset the STEADY delta for
+ * the first ad fragment is |0 - 69762| ≈ 69762 s, causing a massive jump
+ * in restampedPts.  With fragmentPTSoffset the effective timeline PTS is
+ * sample.mPts + fragmentPTSoffset, so the delta remains 2 s throughout.
+ *
+ * Timeline (rate=4, fps=4, fragDur=2 s, step=0.5 s):
+ *   Content seg 1 FIRST_SAMPLE: mPts=69760  offset=0      effPts=69760  restamped=0.0
+ *   Content seg 2 STEADY:       mPts=69762  offset=0      effPts=69762  delta=2  restamped=0.5
+ *   Ad      seg 1 STEADY:       mPts=0      offset=69764  effPts=69764  delta=2  restamped=1.0
+ *   Ad      seg 2 STEADY:       mPts=2      offset=69764  effPts=69766  delta=2  restamped=1.5
+ *
+ * Without the fix ad seg 1 would produce restampedPts ≈ 17441 s (abrupt jump).
+ */
+TEST_F(AampMp4DemuxerTests, TrickplayPtsRestamp_DashLive_ContentToAdContinuity)
+{
+	constexpr double kRate         = 4.0;
+	constexpr int    kFps          = 4;
+	constexpr double kFragDuration = 2.0;
+	// MAX(2.0/4.0, 1.0/4.0) = 0.5 for FIRST_SAMPLE; 2.0/4.0 = 0.5 for STEADY
+	constexpr double kStep         = 0.5;
+
+	// {mPts, fragmentPTSoffset} for each fragment after init
+	struct FragInfo { double mPts; double offset; };
+	const FragInfo kFrags[] = {
+		{69760.0,  0.0},    // content seg 1 — FIRST_SAMPLE
+		{69762.0,  0.0},    // content seg 2 — STEADY
+		{    0.0, 69764.0}, // ad seg 1      — STEADY, PTS jumps back to 0
+		{    2.0, 69764.0}, // ad seg 2      — STEADY
+	};
+	const double kExpectedPts[] = {0.0, 0.5, 1.0, 1.5};
+	constexpr int kNumFrags = 4;
+
+	mPrivateInstanceAAMP->rate = kRate;
+	mDemuxer->setRate(kRate, PlayMode_normal);
+	mDemuxer->setFrameRateForTM(kFps);
+
+	// --- init fragment ---
+	const char* initData = "init";
+	std::vector<uint8_t> initBuffer(initData, initData + strlen(initData));
+	EXPECT_CALL(*g_mockMp4Demux, Parse(_)).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockMp4Demux, GetSamples())
+		.WillOnce([]() { return std::vector<AampMediaSample>(); });
+	EXPECT_CALL(*g_mockMp4Demux, GetCodecInfo())
+		.WillOnce([]() {
+			MediaCodecInfo codecInfo;
+			codecInfo.mCodecFormat = GST_FORMAT_VIDEO_ES_H264;
+			return codecInfo;
+		});
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetStreamCaps(eMEDIATYPE_VIDEO, _)).Times(1);
+	bool ptsError = false;
+	mDemuxer->sendSegment(std::move(initBuffer), 0.0, 0.0, 0.0, false, true, nullptr, ptsError);
+
+	// --- content and ad media fragments ---
+	std::vector<double> capturedPts;
+	for (int i = 0; i < kNumFrags; ++i)
+	{
+		const char* mediaData = "media";
+		std::vector<uint8_t> buf(mediaData, mediaData + strlen(mediaData));
+		double samplePts = kFrags[i].mPts;
+		double offset    = kFrags[i].offset;
+
+		EXPECT_CALL(*g_mockMp4Demux, Parse(_)).WillOnce(Return(true));
+		EXPECT_CALL(*g_mockMp4Demux, GetSamples())
+			.WillOnce([samplePts]() {
+				std::vector<AampMediaSample> samples;
+				AampMediaSample s;
+				s.mPts = samplePts;
+				s.mDts = samplePts;
+				s.mDuration = kStep;
+				s.mIsKeyFrame = true;
+				samples.push_back(std::move(s));
+				return samples;
+			});
+		EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(eMEDIATYPE_VIDEO, _, _))
+			.WillOnce(Invoke([&capturedPts, i, &kExpectedPts](AampMediaType, AampMediaSample&& sample, bool) {
+				capturedPts.push_back(sample.mPts);
+				EXPECT_NEAR(sample.mPts, kExpectedPts[i], 1e-9)
+					<< "Fragment " << i << ": restampedPts incorrect";
+				EXPECT_NEAR(sample.mDuration, kStep, 1e-9)
+					<< "Fragment " << i << ": restamped duration incorrect";
+			}));
+
+		bool result = mDemuxer->sendSegment(std::move(buf), 0.0, kFragDuration, offset, false, false, nullptr, ptsError);
+		EXPECT_TRUE(result);
+		EXPECT_FALSE(ptsError);
+	}
+
+	// restampedPts must advance strictly — no abrupt jump at the content/ad boundary
+	ASSERT_EQ(capturedPts.size(), static_cast<size_t>(kNumFrags));
+	for (int i = 1; i < kNumFrags; ++i)
+	{
+		EXPECT_NEAR(capturedPts[i] - capturedPts[i - 1], kStep, 1e-9)
+			<< "Abrupt PTS jump at fragment " << i
+			<< " (content/ad boundary causes this without fragmentPTSoffset fix)";
+	}
 }

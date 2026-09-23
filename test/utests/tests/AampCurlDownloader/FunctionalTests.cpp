@@ -20,6 +20,8 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 #include <chrono>
+#include <condition_variable>
+#include <mutex>
 #include "AampCurlDownloader.h"
 
 #include "AampConfig.h"
@@ -336,7 +338,7 @@ TEST_F(FunctionalTests, AampCurlDownloader_DownloadTest_StallAtStart)
 		.Times(0); // This prevents the function from being called if CURL return value is not CURLE_OK
 	mAampCurlDownloader->Download(mUrl, respData);
 	respData->show();
-	EXPECT_EQ(progress_callback_return, -1);
+	EXPECT_EQ(progress_callback_return, 1);
 	EXPECT_EQ(CURLE_ABORTED_BY_CALLBACK, respData->iHttpRetValue);
 	EXPECT_EQ(eCURL_ABORT_REASON_START_TIMEDOUT ,respData->mAbortReason);
 
@@ -393,7 +395,7 @@ TEST_F(FunctionalTests, AampCurlDownloader_DownloadTest_Stall)
 	mAampCurlDownloader->Download(mUrl, respData);
 	respData->show();
 	EXPECT_EQ(write_func_return, (write_sz * write_nmemb));
-	EXPECT_EQ(progress_callback_return, -1);
+	EXPECT_EQ(progress_callback_return, 1);
 	EXPECT_EQ(CURLE_ABORTED_BY_CALLBACK, respData->iHttpRetValue);
 	EXPECT_EQ(eCURL_ABORT_REASON_STALL_TIMEDOUT ,respData->mAbortReason);
 	free(write_buffer);
@@ -508,6 +510,11 @@ TEST_F(FunctionalTests, Release_BeforeCleanupCurlHeaderResources_PreventRaceCond
 	ASSERT_NE(mCurlProgressCallback, nullptr);
 	
 	std::atomic<bool> downloadAborted(false);
+	std::mutex syncMutex;
+	std::condition_variable performEnteredCv;
+	std::condition_variable allowProgressCheckCv;
+	bool performEntered = false;
+	bool allowProgressCheck = false;
 	
 	// Simulate a download that will be interrupted by Release()
 	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_str(mCurlEasyHandle, CURLOPT_URL, mUrl.c_str()))
@@ -515,10 +522,20 @@ TEST_F(FunctionalTests, Release_BeforeCleanupCurlHeaderResources_PreventRaceCond
 	EXPECT_CALL(*g_mockCurl, curl_easy_perform(mCurlEasyHandle))
 		.WillOnce(DoAll(
 			InvokeWithoutArgs([&]() {
-				// Simulate ongoing download - progress callback should detect abort
-				std::this_thread::sleep_for(std::chrono::milliseconds(10));
+				{
+					std::lock_guard<std::mutex> lock(syncMutex);
+					performEntered = true;
+				}
+				performEnteredCv.notify_one();
+
+				std::unique_lock<std::mutex> lock(syncMutex);
+				allowProgressCheckCv.wait(lock, [&]() {
+					return allowProgressCheck;
+				});
+				lock.unlock();
+
 				int result = mCurlProgressCallback(mAampCurlDownloader, 0, 0, 0, 0);
-				if (result == -1) {
+				if (result == 1) {
 					downloadAborted.store(true);
 				}
 			}),
@@ -530,12 +547,33 @@ TEST_F(FunctionalTests, Release_BeforeCleanupCurlHeaderResources_PreventRaceCond
 	std::thread downloadThread([&]() {
 		mAampCurlDownloader->Download(mUrl, respData);
 	});
-	
-	// Allow download to start
-	std::this_thread::sleep_for(std::chrono::milliseconds(5));
+
+	bool enteredPerform = false;
+	{
+		std::unique_lock<std::mutex> lock(syncMutex);
+		enteredPerform = performEnteredCv.wait_for(
+			lock,
+			std::chrono::milliseconds(200),
+			[&]() { return performEntered; });
+	}
+	if (!enteredPerform)
+	{
+		{
+			std::lock_guard<std::mutex> lock(syncMutex);
+			allowProgressCheck = true;
+		}
+		allowProgressCheckCv.notify_one();
+		downloadThread.join();
+		FAIL() << "curl_easy_perform was not entered before Release()";
+	}
 	
 	// Step 1: Call Release() to abort the download
 	mAampCurlDownloader->Release();
+	{
+		std::lock_guard<std::mutex> lock(syncMutex);
+		allowProgressCheck = true;
+	}
+	allowProgressCheckCv.notify_one();
 	
 	// Wait for download thread to complete
 	downloadThread.join();
@@ -580,6 +618,97 @@ TEST_F(FunctionalTests, AampCurlDownloader_Retry_SendError)
 		.WillOnce(Return(CURLE_OK));
 	EXPECT_CALL(*g_mockCurl, curl_easy_perform(mCurlEasyHandle))
 		.WillOnce(Return(CURLE_SEND_ERROR))
+		.WillOnce(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_getinfo_int(mCurlEasyHandle, CURLINFO_RESPONSE_CODE, NotNull()))
+		.WillOnce(DoAll(SetArgPointee<2>(200), Return(CURLE_OK)));
+
+	mAampCurlDownloader->Download(mUrl, respData);
+
+	EXPECT_EQ(200, respData->iHttpRetValue);
+	EXPECT_FALSE(mAampCurlDownloader->IsDownloadActive());
+}
+
+/**
+ * @brief Verifies that AampCurlDownloader retries the download after a CURLE_RECV_ERROR on the first attempt.
+ *
+ * Configures the downloader with a retry count of 1 and simulates a
+ * CURLE_RECV_ERROR on the first curl_easy_perform call, followed by a
+ * successful CURLE_OK on the second attempt.
+ */
+TEST_F(FunctionalTests, AampCurlDownloader_Retry_RecvError)
+{
+	DownloadResponsePtr respData = std::make_shared<DownloadResponse>();
+	DownloadConfigPtr inpData = std::make_shared<DownloadConfig>();
+	inpData->bNeedDownloadMetrics = true;
+	inpData->bIgnoreResponseHeader = true;
+	inpData->iDownloadRetryCount = 1;
+
+	EXPECT_CALL(*g_mockCurl, curl_easy_init()).WillOnce(Return(mCurlEasyHandle));
+	/* The curl easy handle will be cleaned when AampCurlDownloader is destroyed. */
+	EXPECT_CALL(*g_mockCurl, curl_easy_cleanup(mCurlEasyHandle));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_ptr(mCurlEasyHandle, CURLOPT_PROGRESSDATA, mAampCurlDownloader))
+		.WillOnce(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_func_xferinfo(mCurlEasyHandle, CURLOPT_XFERINFOFUNCTION, NotNull()))
+		.WillOnce(DoAll(SaveArgPointee<2>(&mCurlProgressCallback), Return(CURLE_OK)));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_ptr(mCurlEasyHandle, CURLOPT_WRITEDATA, mAampCurlDownloader))
+		.WillOnce(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_func_write(mCurlEasyHandle, CURLOPT_WRITEFUNCTION, NotNull()))
+		.WillOnce(DoAll(SaveArgPointee<2>(&mCurlWriteFunc), Return(CURLE_OK)));
+	mAampCurlDownloader->Initialize(inpData);
+
+	ASSERT_NE(mCurlProgressCallback, nullptr);
+	ASSERT_NE(mCurlWriteFunc, nullptr);
+
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_str(mCurlEasyHandle, CURLOPT_URL, mUrl.c_str()))
+		.WillOnce(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_perform(mCurlEasyHandle))
+		.WillOnce(Return(CURLE_RECV_ERROR))
+		.WillOnce(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_getinfo_int(mCurlEasyHandle, CURLINFO_RESPONSE_CODE, NotNull()))
+		.WillOnce(DoAll(SetArgPointee<2>(200), Return(CURLE_OK)));
+
+	mAampCurlDownloader->Download(mUrl, respData);
+
+	EXPECT_EQ(200, respData->iHttpRetValue);
+	EXPECT_FALSE(mAampCurlDownloader->IsDownloadActive());
+}
+
+/**
+ * @brief Verifies that AampCurlDownloader retries the download after CURLE_COULDNT_RESOLVE_HOST.
+ *
+ * CURLE_COULDNT_RESOLVE_HOST (DNS resolution failure) is a retry-worthy error.
+ * This test verifies that AampCurlDownloader retries when the first attempt fails
+ * with CURLE_COULDNT_RESOLVE_HOST and succeeds on the second attempt.
+ *
+ * Regression guard for DNS resolution failures being treated as non-retryable.
+ */
+TEST_F(FunctionalTests, AampCurlDownloader_Retry_CouldntResolveHost)
+{
+	DownloadResponsePtr respData = std::make_shared<DownloadResponse>();
+	DownloadConfigPtr inpData = std::make_shared<DownloadConfig>();
+	inpData->bNeedDownloadMetrics = true;
+	inpData->bIgnoreResponseHeader = true;
+	inpData->iDownloadRetryCount = 1;
+
+	EXPECT_CALL(*g_mockCurl, curl_easy_init()).WillOnce(Return(mCurlEasyHandle));
+	EXPECT_CALL(*g_mockCurl, curl_easy_cleanup(mCurlEasyHandle));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_ptr(mCurlEasyHandle, CURLOPT_PROGRESSDATA, mAampCurlDownloader))
+		.WillOnce(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_func_xferinfo(mCurlEasyHandle, CURLOPT_XFERINFOFUNCTION, NotNull()))
+		.WillOnce(DoAll(SaveArgPointee<2>(&mCurlProgressCallback), Return(CURLE_OK)));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_ptr(mCurlEasyHandle, CURLOPT_WRITEDATA, mAampCurlDownloader))
+		.WillOnce(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_func_write(mCurlEasyHandle, CURLOPT_WRITEFUNCTION, NotNull()))
+		.WillOnce(DoAll(SaveArgPointee<2>(&mCurlWriteFunc), Return(CURLE_OK)));
+	mAampCurlDownloader->Initialize(inpData);
+
+	ASSERT_NE(mCurlProgressCallback, nullptr);
+	ASSERT_NE(mCurlWriteFunc, nullptr);
+
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_str(mCurlEasyHandle, CURLOPT_URL, mUrl.c_str()))
+		.WillOnce(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_perform(mCurlEasyHandle))
+		.WillOnce(Return(CURLE_COULDNT_RESOLVE_HOST))
 		.WillOnce(Return(CURLE_OK));
 	EXPECT_CALL(*g_mockCurl, curl_easy_getinfo_int(mCurlEasyHandle, CURLINFO_RESPONSE_CODE, NotNull()))
 		.WillOnce(DoAll(SetArgPointee<2>(200), Return(CURLE_OK)));
@@ -732,3 +861,59 @@ TEST_F(FunctionalTests, DnsCacheTimeout_PassedFromDownloadConfig_NotHardCoded)
 
 	mAampCurlDownloader->Initialize(inpData);
 }
+
+#if defined(CURL_HTTP_VERSION_3ONLY) || defined(AAMP_HTTP3_SUPPORTED)
+/**
+ * @brief Verify AampCurlDownloader sets CURLOPT_HTTP_VERSION to HTTP/3 when bEnableHTTP3 is true
+ */
+TEST_F(FunctionalTests, AampCurlDownloader_InitializeWithHTTP3Enabled)
+{
+	DownloadConfigPtr inpData = std::make_shared<DownloadConfig>();
+	inpData->pCurl = nullptr;
+	inpData->bEnableHTTP3 = true;
+
+	EXPECT_CALL(*g_mockCurl, curl_easy_init()).WillOnce(Return(mCurlEasyHandle));
+	EXPECT_CALL(*g_mockCurl, curl_easy_cleanup(mCurlEasyHandle));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_ptr(mCurlEasyHandle, CURLOPT_PROGRESSDATA, mAampCurlDownloader))
+		.WillOnce(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_func_xferinfo(mCurlEasyHandle, CURLOPT_XFERINFOFUNCTION, NotNull()))
+		.WillOnce(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_ptr(mCurlEasyHandle, CURLOPT_WRITEDATA, mAampCurlDownloader))
+		.WillOnce(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_func_write(mCurlEasyHandle, CURLOPT_WRITEFUNCTION, NotNull()))
+		.WillOnce(Return(CURLE_OK));
+
+	// Key assertion: HTTP/3 must be set when bEnableHTTP3 is true
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_long(mCurlEasyHandle, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_3ONLY))
+		.WillOnce(Return(CURLE_OK));
+
+	mAampCurlDownloader->Initialize(inpData);
+}
+
+/**
+ * @brief Verify AampCurlDownloader does NOT set HTTP/3 when bEnableHTTP3 is false
+ */
+TEST_F(FunctionalTests, AampCurlDownloader_InitializeWithHTTP3Disabled)
+{
+	DownloadConfigPtr inpData = std::make_shared<DownloadConfig>();
+	inpData->pCurl = nullptr;
+	inpData->bEnableHTTP3 = false;
+
+	EXPECT_CALL(*g_mockCurl, curl_easy_init()).WillOnce(Return(mCurlEasyHandle));
+	EXPECT_CALL(*g_mockCurl, curl_easy_cleanup(mCurlEasyHandle));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_ptr(mCurlEasyHandle, CURLOPT_PROGRESSDATA, mAampCurlDownloader))
+		.WillOnce(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_func_xferinfo(mCurlEasyHandle, CURLOPT_XFERINFOFUNCTION, NotNull()))
+		.WillOnce(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_ptr(mCurlEasyHandle, CURLOPT_WRITEDATA, mAampCurlDownloader))
+		.WillOnce(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_func_write(mCurlEasyHandle, CURLOPT_WRITEFUNCTION, NotNull()))
+		.WillOnce(Return(CURLE_OK));
+
+	// HTTP/3 should NOT be set
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_long(mCurlEasyHandle, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_3ONLY))
+		.Times(0);
+
+	mAampCurlDownloader->Initialize(inpData);
+}
+#endif // CURL_HTTP_VERSION_3ONLY || AAMP_HTTP3_SUPPORTED

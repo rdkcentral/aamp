@@ -97,9 +97,10 @@ public:
      *   @param[in]  sample - Media sample; ownership is transferred (consumed).
      *                        Callers must pass via std::move() and must not
      *                        access the sample after this call returns.
+     *   @param[in]  morePending - True if more samples are available to inject after this one (default: false).
      *   @return true if sample was accepted by the sink, false otherwise.
      */
-    virtual bool SendSample( AampMediaType mediaType, AampMediaSample&& sample ) = 0;
+    virtual bool SendSample( AampMediaType mediaType, AampMediaSample&& sample, bool morePending = false ) = 0;
 
     /**
      *   @brief  Checks pipeline is configured for media type

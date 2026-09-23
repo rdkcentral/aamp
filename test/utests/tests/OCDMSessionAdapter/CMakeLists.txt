@@ -21,12 +21,12 @@ set(AAMP_ROOT "../../../../")
 set(UTESTS_ROOT "../../")
 set(EXEC_NAME OCDMSessionAdapterTests)
 
-include_directories(${AAMP_ROOT} ${AAMP_ROOT}/drm ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/subtitle ${AAMP_ROOT}/middleware/subtitle ${AAMP_ROOT}/downloader ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/middleware/subtec/subtecparser ${AAMP_ROOT}/subtec/subtecparser ${AAMP_ROOT}/middleware/subtec/playerjsonobject ${AAMP_ROOT}/middleware/subtec/libsubtec ${AAMP_ROOT}/middleware ${AAMP_ROOT}/middleware/drm/ocdm ${AAMP_ROOT}/middleware/drm)
+include_directories(${AAMP_ROOT} ${AAMP_ROOT}/drm ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/subtitle ${MIDDLEWARE_REPO_ABS_PATH}/subtitle ${AAMP_ROOT}/downloader ${AAMP_ROOT}/isobmff ${MIDDLEWARE_REPO_ABS_PATH}/subtec/subtecparser ${AAMP_ROOT}/subtec/subtecparser ${MIDDLEWARE_REPO_ABS_PATH}/subtec/playerjsonobject ${MIDDLEWARE_REPO_ABS_PATH}/subtec/libsubtec ${MIDDLEWARE_REPO_ABS_PATH} ${MIDDLEWARE_REPO_ABS_PATH}/drm/ocdm ${MIDDLEWARE_REPO_ABS_PATH}/drm)
 include_directories(${AAMP_ROOT}/tsb/api)
-include_directories(${AAMP_ROOT}/middleware/externals)
+include_directories(${MIDDLEWARE_REPO_ABS_PATH}/externals)
 include_directories("fakes/.")
-include_directories(${AAMP_ROOT}/middleware/externals/contentsecuritymanager)
-include_directories(${AAMP_ROOT}/middleware/playerLogManager)
+include_directories(${MIDDLEWARE_REPO_ABS_PATH}/externals/contentsecuritymanager)
+include_directories(${MIDDLEWARE_REPO_ABS_PATH}/playerLogManager)
 
 if(CMAKE_SYSTEM_NAME STREQUAL Linux)
     include_directories(${AAMP_ROOT}/Linux/include)
@@ -43,9 +43,9 @@ include_directories(${UTESTS_ROOT}/ocdm)
 set(TEST_SOURCES FunctionalTests.cpp
 		 OCDMSessionAdapterTests.cpp)
 
-set(AAMP_SOURCES ${AAMP_ROOT}/middleware/drm/ocdm/opencdmsessionadapter.cpp
-                 ${AAMP_ROOT}/middleware/drm/helper/DrmHelper.cpp
-                 ${AAMP_ROOT}/middleware/drm/DrmSession.cpp
+set(AAMP_SOURCES ${MIDDLEWARE_REPO_ABS_PATH}/drm/ocdm/opencdmsessionadapter.cpp
+                 ${MIDDLEWARE_REPO_ABS_PATH}/drm/helper/DrmHelper.cpp
+                 ${MIDDLEWARE_REPO_ABS_PATH}/drm/DrmSession.cpp
                  ${AAMP_ROOT}/ProcessHandler.cpp)
 
 add_definitions(-DUSE_THUNDER_OCDM_API_0_2)

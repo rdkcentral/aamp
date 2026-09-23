@@ -1058,12 +1058,17 @@ lstring TrackState::GetNextFragmentUriFromPlaylist(bool& reloadUri, bool ignoreD
 								bool isDiffChkReq=true;
 								{
 									std::lock_guard<std::mutex> guard(context->mDiscoCheckMutex);
-									AAMPLOG_WARN("%s Checking HasDiscontinuity for position :%f, playposition :%f playtarget:%f", name, position.inSeconds(), playPosition.inSeconds(), playTarget.inSeconds());
+									// Demoted from WARN to INFO — the telemetry marker
+									// AAMP_ERR_audioDiscontinue is pattern-matched from this log line.
+									// Logging at WARN here fires the marker for every normal playlist-
+									// refresh-latency event (transient, always recovers within one cycle).
+									// Only log at WARN when the match genuinely fails after all tries.
+									AAMPLOG_INFO("%s Checking HasDiscontinuity for position :%f, playposition :%f playtarget:%f", name, position.inSeconds(), playPosition.inSeconds(), playTarget.inSeconds());
 									bool result = other->HasDiscontinuityAroundPosition(position.inSeconds(), (NULL != programDateTime), diff, playPosition.inSeconds(), iCulledSeconds.inSeconds(), iProgramDateTime.inSeconds(), isDiffChkReq);
 
 									if (false == result)
 									{
-										AAMPLOG_WARN("[%s] Ignoring discontinuity as %s track does not have discontinuity", name, other->name);
+										AAMPLOG_WARN("[%s] Ignoring discontinuity as %s track does not have discontinuity after all tries", name, other->name);
 										discontinuity = false;
 									}
 								}
@@ -5044,11 +5049,8 @@ void StreamAbstractionAAMP_HLS::Stop(bool clearChannelData)
 				sink->ClearProtectionEvent();
 			}
 		}
-		if(ISCONFIGSET(eAAMPConfig_UseSecManager) || ISCONFIGSET(eAAMPConfig_UseFireboltSDK))
-		{
-			aamp->mDRMLicenseManager->notifyCleanup();
-		}
 	}
+
 	if(!clearChannelData)
 	{
 		aamp->EnableDownloads();
@@ -5064,10 +5066,25 @@ void StreamAbstractionAAMP_HLS::GetStreamFormat(StreamOutputFormat &primaryOutpu
 		(aamp->mMediaFormat == eMEDIAFORMAT_HLS_MP4 ||
 		 trackState[eMEDIATYPE_VIDEO]->streamOutputFormat == FORMAT_ISO_BMFF))
 	{
-		// Mp4Demuxer will set the format later once the init fragment is parsed
-		// format is only used for video and audio formats. Subtitle should be unaffected
+		// AampMp4Demuxer consumes the container and feeds elementary streams, so report the codec
+		// format rather than FORMAT_ISO_BMFF. Predict it from the manifest so the appsrc is created
+		// with the correct caps and gstreamer autoplugs once during preroll; reporting
+		// FORMAT_UNKNOWN leaves the appsrc uncapped until SetStreamCaps() runs on an
+		// already-running pipeline, which races the first data push - see the full explanation in
+		// StreamAbstractionAAMP_MPD::GetStreamFormat.
 		primaryOutputFormat = FORMAT_UNKNOWN;
 		audioOutputFormat = FORMAT_UNKNOWN;
+		if (!hasDrm)
+		{
+			HlsStreamInfo *streamInfo = (HlsStreamInfo *)GetStreamInfo(currentProfileIndex);
+			if (streamInfo != NULL)
+			{
+				// A HLS video profile lists every codec it carries in one attribute, so the video
+				// and audio lookups are given the same string and each picks out its own.
+				primaryOutputFormat = GetMp4DemuxVideoFormatForCodec(streamInfo->codecs.c_str());
+				audioOutputFormat = GetMp4DemuxAudioFormatForCodec(streamInfo->codecs.c_str());
+			}
+		}
 	}
 	else
 	{
@@ -5557,14 +5574,14 @@ const std::unique_ptr<aamp::MetadataProcessorIntf> & StreamAbstractionAAMP_HLS::
 		if (fmt == FORMAT_MPEGTS)
 		{
 			auto video_processor = std::make_shared<TSProcessor>(aamp, eStreamOp_DEMUX_ALL, mID3Handler, eMEDIATYPE_DSM_CC);
-			mMetadataProcessor = aamp_utils::make_unique<aamp::TSMetadataProcessor>(mID3Handler, mPtsOffsetUpdate, std::move(video_processor));
+			mMetadataProcessor = std::make_unique<aamp::TSMetadataProcessor>(mID3Handler, mPtsOffsetUpdate, std::move(video_processor));
 		}
 		else if (fmt == FORMAT_ISO_BMFF)
 		{
 			auto video_processor = std::dynamic_pointer_cast<IsoBmffProcessor>(GetMediaTrack(eTRACK_VIDEO)->playContext);
 			if (video_processor)
 			{
-				mMetadataProcessor = aamp_utils::make_unique<aamp::IsoBMFFMetadataProcessor>(mID3Handler, mPtsOffsetUpdate, video_processor);
+				mMetadataProcessor = std::make_unique<aamp::IsoBMFFMetadataProcessor>(mID3Handler, mPtsOffsetUpdate, video_processor);
 			}
 			else
 			{

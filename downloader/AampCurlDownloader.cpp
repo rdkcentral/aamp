@@ -368,7 +368,9 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 				{
 					if(numDownloadAttempts <= numRetriesAllowed)
 					{ //Attempt retry for partial downloads, which have a higher chance to succeed
-						if (httpRetVal == CURLE_COULDNT_CONNECT || IsCurlTimeoutFailure (httpRetVal) || httpRetVal == CURLE_SEND_ERROR)
+						if (httpRetVal == CURLE_COULDNT_CONNECT || IsCurlTimeoutFailure (httpRetVal) ||
+							httpRetVal == CURLE_SEND_ERROR || httpRetVal == CURLE_RECV_ERROR ||
+							httpRetVal == CURLE_COULDNT_RESOLVE_HOST)
 						{
 							AAMPLOG_WARN("Download failed due to curl error %d numDownloadAttempts %d numRetriesAllowed %d", httpRetVal, numDownloadAttempts, numRetriesAllowed);
 							loopAgain = true;
@@ -626,6 +628,14 @@ void AampCurlDownloader::updateCurlParams()
 	}
 	CURL_EASY_SETOPT_LONG(mCurl, CURLOPT_SSLVERSION, mDnldCfg->lSupportedTLSVersion);
 
+#if defined(CURL_HTTP_VERSION_3ONLY) || defined(AAMP_HTTP3_SUPPORTED)
+	if(mDnldCfg->bEnableHTTP3)
+	{
+		CURL_EASY_SETOPT_LONG(mCurl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_3ONLY);
+		AAMPLOG_INFO("HTTP/3 (QUIC) enabled for manifest download");
+	}
+#endif
+
 	if (mDnldCfg->sCustomHeaders.size() > 0)
 	{
 		std::string customHeader;
@@ -757,7 +767,7 @@ int AampCurlDownloader::progress_callback(
 	std::lock_guard<std::mutex> lock(mCurlMutex);
 	if (!mDownloadActive)
 	{
-		rc = -1; // CURLE_ABORTED_BY_CALLBACK
+		rc = 1; // trigger curl to abort early and return CURLE_ABORTED_BY_CALLBACK
 		AAMPLOG_WARN("Abort download... Release called");
 	}
 	else
@@ -770,7 +780,7 @@ int AampCurlDownloader::progress_callback(
 			{
 				AAMPLOG_WARN("Abort download as no data received for %.2f seconds", timeElapsedInSec);
 				mDownloadResponse->mAbortReason = eCURL_ABORT_REASON_START_TIMEDOUT;
-				rc = -1;
+				rc = 1; // trigger curl to abort early and return CURLE_ABORTED_BY_CALLBACK
 			}
 
 		}
@@ -783,7 +793,7 @@ int AampCurlDownloader::progress_callback(
 				{ // no change for at least <stallTimeout> seconds - consider download stalled and abort
 					AAMPLOG_WARN("Abort download as mid-download stall detected for %.2f seconds, download size:%.2f bytes", timeElapsedSinceLastUpdate, dlnow);
 					mDownloadResponse->mAbortReason = eCURL_ABORT_REASON_STALL_TIMEDOUT;
-					rc = -1;
+					rc = 1; // trigger curl to abort early and return CURLE_ABORTED_BY_CALLBACK
 				}
 			}
 			if ( mDownloadResponse->progressMetrics.dlnow != dlnow)
@@ -807,7 +817,7 @@ int AampCurlDownloader::progress_callback(
 								predictedTotalDownloadTimeMs/1000.0,
 								mDnldCfg->iDownloadTimeout);
 						mDownloadResponse->mAbortReason = eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT;
-						rc = -1;
+						rc = 1; // trigger curl to abort early and return CURLE_ABORTED_BY_CALLBACK
 					}
 				}
 			}

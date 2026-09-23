@@ -50,7 +50,8 @@ public:
 	MOCK_METHOD(void, SendErrorEvent, (AAMPTuneFailure, const char *, bool, int32_t, int32_t, int32_t, const std::string &));
 	MOCK_METHOD(void, SendDownloadErrorEvent, (AAMPTuneFailure, long));
 	MOCK_METHOD(void, SendStreamTransfer, (AampMediaType, std::vector<uint8_t>&, double, double, double, double, bool, bool));
-	MOCK_METHOD(void, SendStreamTransfer, (AampMediaType, AampMediaSample&&));
+	MOCK_METHOD(void, SendStreamTransfer, (AampMediaType, AampMediaSample&&, bool));
+	MOCK_METHOD(void, QueueProtectionEvent, (AampMediaType, const std::vector<MediaProtectionInfo>&));
 	MOCK_METHOD(void, SetStreamCaps, (AampMediaType, MediaCodecInfo&&));
 	MOCK_METHOD(bool, SendStreamCopy, (AampMediaType mediaType, const std::vector<uint8_t>& buffer, double fpts, double fdts, double fDuration));
 	MOCK_METHOD(bool, SendStreamCopy, (AampMediaType mediaType, const void *ptr, size_t len, double fpts, double fdts, double fDuration));
@@ -102,6 +103,8 @@ public:
 	MOCK_METHOD(bool, TrackDownloadsAreEnabled, (AampMediaType type));
 	MOCK_METHOD(long, GetCurrentLatencyMs, ());
 	MOCK_METHOD(double, GetBufferedDurationSecs, ());
+	MOCK_METHOD(double, GetVideoBufferedDurationSecs, ());
+	MOCK_METHOD(double, GetAudioBufferedDurationSecs, ());
 	MOCK_METHOD(bool, IsAdPlaying, ());
 	MOCK_METHOD(bool, IsLatencyExceedingTrickplayThreshold, (), (const));
 	MOCK_METHOD(void, EnableLatencyMonitor, (bool enabled));

@@ -114,13 +114,39 @@ function aampcli_install_build_darwin_fn()
     elif [[ "$ARCH" == "arm64" ]]; then
         PKG_CONFIG="${PKG_CONFIG}:/opt/homebrew/lib/pkgconfig"
     fi
+    # openssl@3 is a keg-only Homebrew formula: its pkgconfig is NOT linked into
+    # /opt/homebrew/lib/pkgconfig.  Add its prefix explicitly so cmake always
+    # finds the current installed version (avoids stale Cellar-path cache issues
+    # after "brew upgrade openssl@3").
+    local _ssl_brew_prefix
+    _ssl_brew_prefix=$(brew --prefix openssl@3 2>/dev/null) || true
+    if [[ -n "${_ssl_brew_prefix}" && -d "${_ssl_brew_prefix}/lib/pkgconfig" ]]; then
+        PKG_CONFIG="${PKG_CONFIG}:${_ssl_brew_prefix}/lib/pkgconfig"
+    fi
     # MacOS provides a curl installation, but we'd like a newer version where was it installed?
     PKG_CONFIG_CURL=$(install_pkgs_pkgconfig_darwin_fn curl)
     if [ -n "${PKG_CONFIG_CURL}" ] ; then
         PKG_CONFIG="${PKG_CONFIG_CURL}:${PKG_CONFIG}"
     fi
 
-    cd build && PKG_CONFIG_PATH=${PKG_CONFIG}:${PKG_CONFIG_PATH} cmake \
+    cd build || { echo "Failed to change to build directory: ${AAMP_DIR}/build"; return 1; }
+    # Detect a stale cmake cache caused by a Homebrew OpenSSL upgrade.
+    # pkg_check_modules(OPENSSL) caches the resolved Cellar path.  After
+    # "brew upgrade openssl@3 && brew cleanup" that directory may be
+    # missing headers.  Clear the cache so cmake re-runs pkg_check_modules
+    # with the PKG_CONFIG_PATH set below, picking up the new version.
+    if [[ -f "CMakeCache.txt" ]]; then
+        local _cached_ssl_inc
+        _cached_ssl_inc=$(grep "^OPENSSL_INCLUDE_DIRS:INTERNAL=" CMakeCache.txt | cut -d= -f2) || true
+        if [[ -n "${_cached_ssl_inc}" && ! -f "${_cached_ssl_inc}/openssl/sha.h" ]]; then
+            echo "WARNING: Cached OpenSSL include path is stale:"
+            echo "         ${_cached_ssl_inc}/openssl/sha.h not found."
+            echo "         This typically means 'brew upgrade openssl@3' ran since the last"
+            echo "         cmake configure. Removing CMakeCache.txt so OpenSSL is re-detected."
+            rm -f CMakeCache.txt
+        fi
+    fi
+    PKG_CONFIG_PATH=${PKG_CONFIG}:${PKG_CONFIG_PATH} cmake \
         -DCMAKE_BUILD_TYPE=Debug \
         -DCOVERAGE_ENABLED=${OPTION_COVERAGE} \
         -DUTEST_ENABLED=ON \
@@ -129,7 +155,6 @@ function aampcli_install_build_darwin_fn()
         -DCMAKE_OSX_DEPLOYMENT_TARGET="${MACOSX_DEPLOYMENT_TARGET:-26.0}" \
         -DCMAKE_XCODE_ATTRIBUTE_SYMROOT="${AAMP_DIR}/build/XcodeDerivedData" \
         -DCMAKE_XCODE_ATTRIBUTE_OBJROOT="${AAMP_DIR}/build/XcodeDerivedData" \
-        $(if [ "${OPTION_PLAYER_INTERFACE_SOURCE}" = "external" ]; then echo "-DCMAKE_EXTERNAL_PLAYER_INTERFACE_DEPENDENCIES=ON"; fi) \
         ${OPTION_BUILD_ARGS} \
         -G Xcode ../
 
@@ -186,7 +211,7 @@ function aampcli_install_build_linux_fn
     # Local built dependencies
     PKG_CONFIG="${LOCAL_DEPS_BUILD_DIR}/lib/pkgconfig"
 
-    PKG_CONFIG_PATH="${PKG_CONFIG}" cmake --no-warn-unused-cli -DSANITIZER_ENABLED=${OPTION_UBUNTU_SANITIZER} -DCMAKE_INSTALL_PREFIX="${LOCAL_DEPS_BUILD_DIR}" -DCMAKE_PLATFORM_UBUNTU=1 -DCMAKE_LIBRARY_PATH="${LOCAL_DEPS_BUILD_DIR}/lib" -DCMAKE_EXPORT_COMPILE_COMMANDS:BOOL=TRUE -DCOVERAGE_ENABLED=${OPTION_COVERAGE} -DUTEST_ENABLED=ON -DCMAKE_INBUILT_AAMP_DEPENDENCIES=1 -DCMAKE_BUILD_TYPE:STRING=Debug -DCMAKE_ENABLE_PTS_RESTAMP:BOOL=TRUE -DCMAKE_C_COMPILER:FILEPATH=/usr/bin/gcc -DCMAKE_CXX_COMPILER:FILEPATH=/usr/bin/g++ ${OPTION_BUILD_ARGS} $(if [ "${OPTION_PLAYER_INTERFACE_SOURCE}" = "external" ]; then echo "-DCMAKE_EXTERNAL_PLAYER_INTERFACE_DEPENDENCIES=ON"; fi) -S$PWD -B"${AAMP_DIR}/build" -G "Unix Makefiles"
+    PKG_CONFIG_PATH="${PKG_CONFIG}" cmake --no-warn-unused-cli -DSANITIZER_ENABLED=${OPTION_UBUNTU_SANITIZER} -DCMAKE_INSTALL_PREFIX="${LOCAL_DEPS_BUILD_DIR}" -DCMAKE_PLATFORM_UBUNTU=1 -DCMAKE_LIBRARY_PATH="${LOCAL_DEPS_BUILD_DIR}/lib" -DCMAKE_EXPORT_COMPILE_COMMANDS:BOOL=TRUE -DCOVERAGE_ENABLED=${OPTION_COVERAGE} -DUTEST_ENABLED=ON -DCMAKE_INBUILT_AAMP_DEPENDENCIES=1 -DCMAKE_BUILD_TYPE:STRING=Debug -DCMAKE_ENABLE_PTS_RESTAMP:BOOL=TRUE -DCMAKE_C_COMPILER:FILEPATH=/usr/bin/gcc -DCMAKE_CXX_COMPILER:FILEPATH=/usr/bin/g++ ${OPTION_BUILD_ARGS} -S$PWD -B"${AAMP_DIR}/build" -G "Unix Makefiles"
 
    echo "Making aamp-cli..."
    cd build || { echo "Failed to change to build directory"; return 1; }

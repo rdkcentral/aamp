@@ -32,6 +32,7 @@ public:
     MOCK_METHOD(void, setSessionMgrState, (SessionMgrState state));
     MOCK_METHOD(bool, queueContentProtection, (DrmHelperPtr drmHelper, std::string periodId, uint32_t adapIdx, AampMediaType type, bool isVssPeriod));
     MOCK_METHOD(void, queueProtectionEvent, (DrmHelperPtr drmHelper, std::string periodId, uint32_t adapIdx, AampMediaType type));
+    MOCK_METHOD(void, notifyCleanup, ());
 };
 
 extern std::shared_ptr<MockAampLicenseManager> g_mockAampLicenseManager;

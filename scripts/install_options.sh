@@ -19,8 +19,7 @@
 
 # default values
 OPTION_AAMP_BRANCH="dev_sprint_25_2"
-OPTION_MIDDLEWARE_PLAYER_INTERFACE_COMMIT_ID="bd2b3b1"  # June 1 - latest before seekPausedState (June 4)
-OPTION_PLAYER_INTERFACE_SOURCE="external"
+OPTION_MIDDLEWARE_PLAYER_INTERFACE_COMMIT_ID=""  # Use HEAD of middleware-player-interface (no pinned commit)
 OPTION_MIDDLEWARE_PLAYER_INTERFACE_LOCAL_PATH=""
 OPTION_BUILD_DIR=""
 OPTION_BUILD_ARGS=""
@@ -48,14 +47,6 @@ function install_options_fn()
   local remaining_args=()
   while [[ $# -gt 0 ]]; do
     case $1 in
-      --player-interface-source=*)
-        OPTION_PLAYER_INTERFACE_SOURCE="${1#*=}"
-        if [[ "${OPTION_PLAYER_INTERFACE_SOURCE}" != "internal" && "${OPTION_PLAYER_INTERFACE_SOURCE}" != "external" ]]; then
-          echo "Error: --player-interface-source must be 'internal' or 'external'"
-          return 1
-        fi
-        echo "Player interface source: ${OPTION_PLAYER_INTERFACE_SOURCE}"
-        ;;
       --middleware-player-interface-commit-id=*)
         OPTION_MIDDLEWARE_PLAYER_INTERFACE_COMMIT_ID="${1#*=}"
         echo "Middleware player interface commit ID: ${OPTION_MIDDLEWARE_PLAYER_INTERFACE_COMMIT_ID}"
@@ -146,8 +137,7 @@ function install_options_fn()
         [-s] Skip subtec build and installation]"
         echo "        Note:  Subtec is built by default but can be rebuilt separately with the subtec
         [-k] Build aamp-cli Kotlin module (Linux and MacOS only)]
-        [--player-interface-source=internal|external] Choose player interface source (default: external)
-        [--middleware-player-interface-commit-id=<commit>] Specify commit ID when using external source (cloned from GitHub)
+        [--middleware-player-interface-commit-id=<commit>] Specify commit ID for middleware-player-interface (cloned from GitHub)
         [--middleware-player-interface-local-path=<path>] Use a local directory instead of cloning (default: auto-detect sibling ../middleware-player-interface)
         [-t] Remove .libs and build directories before build (full rebuild)
         [-u] Enable Ubuntu address sanitizer (Linux only)"

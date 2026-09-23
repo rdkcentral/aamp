@@ -23,11 +23,72 @@
  */
 
 #include <iomanip>
+#include <string>
+#include <map>
+#include <vector>
+#include <type_traits>
 #include "Aampcli.h"
 #include "AampcliSet.h"
 #include "AampcliSubtecSimulator.h"
 
 #define AAMPCLI_MAX_WEBVTT_SIZE	(500 * 1024)
+
+/**
+ * @brief Apply configuration to PlayerInstanceAAMP using InitAAMPConfig
+ * 
+ * Template function that handles bool, numeric, and string types automatically.
+ * Uses if constexpr (C++17) for compile-time type dispatch.
+ * 
+ * @tparam T Type of the value (bool, int, long, double, const char*, std::string)
+ * @param player Pointer to PlayerInstanceAAMP instance
+ * @param configName Configuration parameter name
+ * @param value Value to set
+ * @return true if configuration was applied successfully
+ * 
+ * Examples:
+ *   ApplyConfig(player, "abr", true);
+ *   ApplyConfig(player, "networkTimeout", 10.5);
+ *   ApplyConfig(player, "userAgent", "MyAgent/1.0");
+ */
+template<typename T>
+inline bool ApplyConfig(PlayerInstanceAAMP* player, const char* configName, T value)
+{
+	if (!player || !configName)
+	{
+		return false;
+	}
+
+	std::string config;
+
+	// C++17 if constexpr for compile-time type dispatch
+	if constexpr (std::is_same_v<T, bool>)
+	{
+		// Boolean: convert to "true" or "false"
+		config = std::string(configName) + "=" + (value ? "true" : "false");
+	}
+	else if constexpr (std::is_integral_v<T> || std::is_floating_point_v<T>)
+	{
+		// Numeric types (int, long, double, etc.): convert to string
+		config = std::string(configName) + "=" + std::to_string(value);
+	}
+	else if constexpr (std::is_same_v<T, const char*> || std::is_same_v<T, char*>)
+	{
+		// C-string: use directly
+		config = std::string(configName) + "=" + std::string(value);
+	}
+	else if constexpr (std::is_same_v<T, std::string>)
+	{
+		// std::string: use directly
+		config = std::string(configName) + "=" + value;
+	}
+	else
+	{
+		// Unsupported type - compile-time error
+		static_assert(sizeof(T) == 0, "Unsupported type for ApplyConfig");
+	}
+
+	return player->InitAAMPConfig(config.c_str());
+}
 
 std::map<std::string,setCommandInfo> Set::setCommands = std::map<std::string,setCommandInfo>();
 std::vector<std::string> Set::commands(0);
@@ -239,7 +300,8 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 						int isAnonym;
 						AAMPCLI_PRINTF("[AAMPCLI] Matched Command AnonymousRequest - %s\n", cmd);
 						if (sscanf(cmd, "set %s %d", command, &isAnonym) == 2){
-							playerInstanceAamp->SetAnonymousRequest((isAnonym == 1)?true:false);
+							// Deprecated : playerInstanceAamp->SetAnonymousRequest((isAnonym == 1)?true:false);
+							ApplyConfig(playerInstanceAamp, "licenseAnonymousRequest", isAnonym == 1);
 						}
 						else
 						{
@@ -254,7 +316,8 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 						int vodTFps;
 						AAMPCLI_PRINTF("[AAMPCLI] Matched Command VodTrickplayFps - %s\n", cmd);
 						if (sscanf(cmd, "set %s %d", command, &vodTFps) == 2){
-							playerInstanceAamp->SetVODTrickplayFPS(vodTFps);
+							// Deprecated : playerInstanceAamp->SetVODTrickplayFPS(vodTFps);
+							ApplyConfig(playerInstanceAamp, "vodTrickPlayFps", vodTFps);
 						}
 						else
 						{
@@ -269,7 +332,8 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 						int linearTFps;
 						AAMPCLI_PRINTF("[AAMPCLI] Matched Command LinearTrickplayFps - %s\n", cmd);
 						if (sscanf(cmd, "set %s %d", command, &linearTFps) == 2){
-							playerInstanceAamp->SetLinearTrickplayFPS(linearTFps);
+							// Deprecated : playerInstanceAamp->SetLinearTrickplayFPS(linearTFps);
+							ApplyConfig(playerInstanceAamp, "linearTrickPlayFps", linearTFps);
 						}
 						else
 						{
@@ -284,7 +348,8 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 						double liveOffset;
 						AAMPCLI_PRINTF("[AAMPCLI] Matched Command LiveOffset - %s\n", cmd);
 						if (sscanf(cmd, "set %s %lf", command, &liveOffset) == 2){
-							playerInstanceAamp->SetLiveOffset(liveOffset);
+							// Deprecated : playerInstanceAamp->SetLiveOffset(liveOffset);
+							ApplyConfig(playerInstanceAamp, "liveOffset", liveOffset);
 						}
 						else
 						{
@@ -298,7 +363,8 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 						double liveOffset;
 						AAMPCLI_PRINTF("[AAMPCLI] Matched Command LiveOffset4K - %s\n", cmd);
 						if (sscanf(cmd, "set %s %lf", command, &liveOffset) == 2){
-							playerInstanceAamp->SetLiveOffset4K(liveOffset);
+							// Deprecated : playerInstanceAamp->SetLiveOffset4K(liveOffset);
+							ApplyConfig(playerInstanceAamp, "liveOffset4K", liveOffset);
 						}
 						else
 						{
@@ -313,7 +379,8 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 						int stallErrorCode;
 						AAMPCLI_PRINTF("[AAMPCLI] Matched Command StallErrorCode - %s\n", cmd);
 						if (sscanf(cmd, "set %s %d", command, &stallErrorCode) == 2){
-							playerInstanceAamp->SetStallErrorCode(stallErrorCode);
+							// Deprecated: playerInstanceAamp->SetStallErrorCode(stallErrorCode);
+							ApplyConfig(playerInstanceAamp, "stallErrorCode", stallErrorCode);
 						}
 						else
 						{
@@ -328,7 +395,8 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 						int stallTimeout;
 						AAMPCLI_PRINTF("[AAMPCLI] Matched Command StallTimeout - %s\n", cmd);
 						if (sscanf(cmd, "set %s %d", command, &stallTimeout) == 2){
-							playerInstanceAamp->SetStallTimeout(stallTimeout);
+							// Deprecated: playerInstanceAamp->SetStallTimeout(stallTimeout);
+							ApplyConfig(playerInstanceAamp, "stallTimeout", stallTimeout);
 						}
 						break;
 					}
@@ -338,7 +406,8 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 						int reportInterval;
 						AAMPCLI_PRINTF("[AAMPCLI] Matched Command ReportInterval - %s\n", cmd);
 						if (sscanf(cmd, "set %s %d", command, &reportInterval) == 2){
-							playerInstanceAamp->SetReportInterval(reportInterval);
+							// Deprecated: playerInstanceAamp->SetReportInterval(reportInterval);
+							ApplyConfig(playerInstanceAamp, "progressReportingInterval", reportInterval);
 						}
 						else
 						{
@@ -368,7 +437,8 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 						long initialBitrate;
 						AAMPCLI_PRINTF("[AAMPCLI] Matched Command InitialBitrate - %s\n", cmd);
 						if (sscanf(cmd, "set %s %ld", command, &initialBitrate) == 2){
-							playerInstanceAamp->SetInitialBitrate(initialBitrate);
+							// Deprecated: playerInstanceAamp->SetInitialBitrate(initialBitrate);
+							ApplyConfig(playerInstanceAamp, "initialBitrate", initialBitrate);
 						}
 						else
 						{
@@ -383,7 +453,8 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 						long initialBitrate4k;
 						AAMPCLI_PRINTF("[AAMPCLI] Matched Command InitialBitrate4k - %s\n", cmd);
 						if (sscanf(cmd, "set %s %ld", command, &initialBitrate4k) == 2){
-							playerInstanceAamp->SetInitialBitrate4K(initialBitrate4k);
+							// Deprecated: playerInstanceAamp->SetInitialBitrate4K(initialBitrate4k);
+							ApplyConfig(playerInstanceAamp, "initialBitrate4K", initialBitrate4k);
 						}
 						else
 						{
@@ -398,7 +469,9 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 						double networkTimeout;
 						AAMPCLI_PRINTF("[AAMPCLI] Matched Command NetworkTimeout - %s\n", cmd);
 						if (sscanf(cmd, "set %s %lf", command, &networkTimeout) == 2){
-							playerInstanceAamp->SetNetworkTimeout(networkTimeout);
+							// Deprecated: playerInstanceAamp->SetNetworkTimeout(networkTimeout);
+							ApplyConfig(playerInstanceAamp, "networkTimeout", networkTimeout);
+
 						}
 						else
 						{
@@ -413,7 +486,8 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 						double manifestTimeout;
 						AAMPCLI_PRINTF("[AAMPCLI] Matched Command ManifestTimeout - %s\n", cmd);
 						if (sscanf(cmd, "set %s %lf", command, &manifestTimeout) == 2){
-							playerInstanceAamp->SetManifestTimeout(manifestTimeout);
+							// Deprecated: playerInstanceAamp->SetManifestTimeout(manifestTimeout);
+							ApplyConfig(playerInstanceAamp, "manifestTimeout", manifestTimeout);
 						}
 						else
 						{
@@ -428,7 +502,8 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 						int downloadBufferSize;
 						AAMPCLI_PRINTF("[AAMPCLI] Matched Command DownloadBufferSize - %s\n", cmd);
 						if (sscanf(cmd, "set %s %d", command, &downloadBufferSize) == 2){
-							playerInstanceAamp->SetDownloadBufferSize(downloadBufferSize);
+							// Deprecated: playerInstanceAamp->SetDownloadBufferSize(downloadBufferSize);
+							ApplyConfig(playerInstanceAamp, "downloadBuffer", downloadBufferSize);
 						}
 						else
 						{
@@ -443,7 +518,8 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 						int preferredDrm;
 						AAMPCLI_PRINTF("[AAMPCLI] Matched Command PreferredDrm - %s\n", cmd);
 						if (sscanf(cmd, "set %s %d", command, &preferredDrm) == 2){
-							playerInstanceAamp->SetPreferredDRM((DRMSystems)preferredDrm);
+							// Deprecated: playerInstanceAamp->SetPreferredDRM((DRMSystems)preferredDrm);
+							ApplyConfig(playerInstanceAamp, "preferredDrm", preferredDrm);
 						}
 						else
 						{
@@ -458,8 +534,8 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 						int stereoOnlyPlayback;
 						AAMPCLI_PRINTF("[AAMPCLI] Matched Command StereoOnlyPlayback - %s\n", cmd);
 						if (sscanf(cmd, "set %s %d", command, &stereoOnlyPlayback) == 2){
-							playerInstanceAamp->SetStereoOnlyPlayback(
-									(stereoOnlyPlayback == 1 )? true:false);
+							// Deprecated: playerInstanceAamp->SetStereoOnlyPlayback((stereoOnlyPlayback == 1 )? true:false);
+							ApplyConfig(playerInstanceAamp, "stereoOnly", stereoOnlyPlayback == 1);
 						}
 						else
 						{
@@ -522,7 +598,8 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 						char networkProxy[128];
 						AAMPCLI_PRINTF("[AAMPCLI] Matched Command NetworkProxy - %s\n", cmd);
 						if (sscanf(cmd, "set %s %s", command, networkProxy) == 2){
-							playerInstanceAamp->SetNetworkProxy(networkProxy);
+							// Deprecated: playerInstanceAamp->SetNetworkProxy(networkProxy);
+							ApplyConfig(playerInstanceAamp, "networkProxy", networkProxy);
 						}
 						else
 						{
@@ -537,7 +614,8 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 						char licenseReqProxy[128];
 						AAMPCLI_PRINTF("[AAMPCLI] Matched Command LicenseReqProxy - %s\n", cmd);
 						if (sscanf(cmd, "set %s %s", command, licenseReqProxy) == 2){
-							playerInstanceAamp->SetLicenseReqProxy(licenseReqProxy);
+							// Deprecated: playerInstanceAamp->SetLicenseReqProxy(licenseReqProxy);
+							ApplyConfig(playerInstanceAamp, "licenseProxy", licenseReqProxy);
 						}
 						else
 						{
@@ -552,7 +630,8 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 						long downloadStallTimeout;
 						AAMPCLI_PRINTF("[AAMPCLI] Matched Command DownloadStallTimeout - %s\n", cmd);
 						if (sscanf(cmd, "set %s %ld", command, &downloadStallTimeout) == 2){
-							playerInstanceAamp->SetDownloadStallTimeout((int)downloadStallTimeout);
+							// Deprecated: playerInstanceAamp->SetDownloadStallTimeout((int)downloadStallTimeout);
+							ApplyConfig(playerInstanceAamp, "downloadStallTimeout", downloadStallTimeout);
 						}
 						else
 						{
@@ -567,7 +646,8 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 						long downloadStartTimeout;
 						AAMPCLI_PRINTF("[AAMPCLI] Matched Command DownloadStartTimeout - %s\n", cmd);
 						if (sscanf(cmd, "set %s %ld", command, &downloadStartTimeout) == 2){
-							playerInstanceAamp->SetDownloadStartTimeout((int)downloadStartTimeout);
+							// Deprecated: playerInstanceAamp->SetDownloadStartTimeout((int)downloadStartTimeout);
+							ApplyConfig(playerInstanceAamp, "downloadStartTimeout", downloadStartTimeout);
 						}
 						else
 						{
@@ -582,7 +662,8 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 						long downloadLowBWTimeout;
 						AAMPCLI_PRINTF("[AAMPCLI] Matched Command DownloadLowBWTimeout - %s\n", cmd);
 						if (sscanf(cmd, "set %s %ld", command, &downloadLowBWTimeout) == 2){
-							playerInstanceAamp->SetDownloadLowBWTimeout((int)downloadLowBWTimeout);
+							// Deprecated: playerInstanceAamp->SetDownloadLowBWTimeout((int)downloadLowBWTimeout);
+							ApplyConfig(playerInstanceAamp, "downloadLowBWTimeout", downloadLowBWTimeout);
 						}
 						else
 						{
@@ -813,7 +894,8 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 						int rampDownLimit;
 						AAMPCLI_PRINTF("[AAMPCLI] Matched Command InitRampdownLimit - %s\n", cmd);
 						if (sscanf(cmd, "set %s %d", command, &rampDownLimit) == 2){
-							playerInstanceAamp->SetInitRampdownLimit(rampDownLimit);
+							// Deprecated: playerInstanceAamp->SetInitRampdownLimit(rampDownLimit);
+							ApplyConfig(playerInstanceAamp, "initRampdownLimit", rampDownLimit);
 						}
 						else
 						{
@@ -828,7 +910,8 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 						int rampDownLimit;
 						AAMPCLI_PRINTF("[AAMPCLI] Matched Command RampDownLimit - %s\n", cmd);
 						if (sscanf(cmd, "set %s %d", command, &rampDownLimit) == 2){
-							playerInstanceAamp->SetRampDownLimit(rampDownLimit);
+							// Deprecated: playerInstanceAamp->SetRampDownLimit(rampDownLimit);
+							ApplyConfig(playerInstanceAamp, "fragmentRetryLimit", rampDownLimit);
 						}
 						else
 						{
@@ -843,7 +926,8 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 						long minBitrate;
 						AAMPCLI_PRINTF("[AAMPCLI] Matched Command MinimumBitrate - %s\n", cmd);
 						if (sscanf(cmd, "set %s %ld", command, &minBitrate) == 2){
-							playerInstanceAamp->SetMinimumBitrate(minBitrate);
+							// Deprecated: playerInstanceAamp->SetMinimumBitrate(minBitrate);
+							ApplyConfig(playerInstanceAamp, "minBitrate", minBitrate);
 						}
 						else
 						{
@@ -858,7 +942,8 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 						long maxBitrate;
 						AAMPCLI_PRINTF("[AAMPCLI] Matched Command MaximumBitrate - %s\n", cmd);
 						if (sscanf(cmd, "set %s %ld", command, &maxBitrate) == 2){
-							playerInstanceAamp->SetMaximumBitrate(maxBitrate);
+							// Deprecated: playerInstanceAamp->SetMaximumBitrate(maxBitrate);
+							ApplyConfig(playerInstanceAamp, "maxBitrate", maxBitrate);
 						}
 						else
 						{
@@ -890,7 +975,8 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 						int failCount;
 						AAMPCLI_PRINTF("[AAMPCLI] Matched Command MaximumSegmentInjFailCount - %s\n", cmd);
 						if (sscanf(cmd, "set %s %d", command, &failCount) == 2){
-							playerInstanceAamp->SetSegmentInjectFailCount(failCount);
+							// Deprecated: playerInstanceAamp->SetSegmentInjectFailCount(failCount);
+							ApplyConfig(playerInstanceAamp, "segmentInjectFailThreshold", failCount);
 						}
 						else
 						{
@@ -920,7 +1006,8 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 						int failCount;
 						AAMPCLI_PRINTF("[AAMPCLI] Matched Command MaximumDrmDecryptFailCount - %s\n", cmd);
 						if (sscanf(cmd, "set %s %d", command, &failCount) == 2){
-							playerInstanceAamp->SetSegmentDecryptFailCount(failCount);
+							// Deprecated: playerInstanceAamp->SetSegmentDecryptFailCount(failCount);
+							ApplyConfig(playerInstanceAamp, "drmDecryptFailThreshold", failCount);
 						}
 						else
 						{
@@ -983,7 +1070,8 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 						if (sscanf(cmd, "set %s %d %d", command, &preferenceInt, &bDescriptiveAudioTrack  ) >= 2)
 						{
 							preference = (LangCodePreference) preferenceInt;
-							playerInstanceAamp->SetLanguageFormat(preference, bDescriptiveAudioTrack!=0 );
+							//Deprecated: playerInstanceAamp->SetLanguageFormat(preference, bDescriptiveAudioTrack!=0 );
+							ApplyConfig(playerInstanceAamp, "langCodePreference", preferenceInt);
 						}
 						else
 						{
@@ -999,7 +1087,8 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 						AAMPCLI_PRINTF("[AAMPCLI] Matched Command InitialBufferDuration - %s\n", cmd);
 						if (sscanf(cmd, "set %s %d", command, &duration) == 2)
 						{
-							playerInstanceAamp->SetInitialBufferDuration(duration);
+							// Deprecated: playerInstanceAamp->SetInitialBufferDuration(duration);
+							ApplyConfig(playerInstanceAamp, "initialBuffer", duration);
 						}
 						else
 						{
@@ -1179,7 +1268,8 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 						int propagateUriParam;
 						AAMPCLI_PRINTF("[AAMPCLI] Matched Command PropagateUriParam - %s\n", cmd);
 						if (sscanf(cmd, "set %s %d", command, &propagateUriParam) == 2){
-							playerInstanceAamp->SetPropagateUriParameters((bool) propagateUriParam);
+							// Deprecated: playerInstanceAamp->SetPropagateUriParameters((bool) propagateUriParam);
+							ApplyConfig(playerInstanceAamp, "propagateUriParameters", propagateUriParam == 1);
 						}
 						else
 						{
@@ -1218,7 +1308,8 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 						AAMPCLI_PRINTF("[AAMPCLI] Matched Command PausedBehavior - %s\n", cmd);
 						if(sscanf(cmd, "set %s %d", command, &rate) == 2)
 						{
-							playerInstanceAamp->SetPausedBehavior(rate);
+							//Deprecated: playerInstanceAamp->SetPausedBehavior(rate);
+							ApplyConfig(playerInstanceAamp, "livePauseBehavior", rate);
 						}
 						else
 						{
@@ -1234,8 +1325,9 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 						if (sscanf(cmd, "set %s %d", command, &timeout) == 2)
 						{
 							AAMPCLI_PRINTF("[AAMPCLI] Enabling AAMP_EVENT_CONTENT_PROTECTION_DATA_UPDATE event registration");
+							ApplyConfig(playerInstanceAamp, "contentProtectionDataUpdateTimeout", timeout);
 							playerInstanceAamp->AddEventListener(AAMP_EVENT_CONTENT_PROTECTION_DATA_UPDATE, std::shared_ptr<EventListener>(lAampcli.mEventListener));
-							playerInstanceAamp->SetContentProtectionDataUpdateTimeout(timeout);
+							// Deprecated: playerInstanceAamp->SetContentProtectionDataUpdateTimeout(timeout);
 						}
 						else
 						{

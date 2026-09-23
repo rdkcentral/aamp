@@ -392,6 +392,13 @@ public:
 	 * @param[in] f - flag value
 	 */
 	FullBox(uint32_t sz, const char btype[4], uint8_t ver, uint32_t f);
+	
+	/**
+	 * @fn getVersion
+	 *
+	 * @return version value
+	 */
+	uint8_t getVersion() { return version; }
 };
 
 /**

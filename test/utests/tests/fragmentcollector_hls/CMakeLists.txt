@@ -25,7 +25,8 @@ set(EXEC_NAME fragmentcollector_hls)
 include(${CMAKE_CURRENT_LIST_DIR}/../CommonTestIncludes.cmake)
 
 set(TEST_SOURCES byteRangeTests.cpp
-		 fragmentCollector_hls.cpp)
+		 fragmentCollector_hls.cpp
+		 HasDiscontinuityAroundPositionTests.cpp)
 
 set(AAMP_SOURCES ${AAMP_ROOT}/streamabstraction.cpp ${AAMP_ROOT}/CachedFragment.cpp ${AAMP_ROOT}/fragmentcollector_hls.cpp ${AAMP_ROOT}/lstring.cpp)
 

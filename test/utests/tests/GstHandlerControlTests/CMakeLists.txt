@@ -28,7 +28,7 @@ set(EXEC_NAME GstHandlerControlTests)
 set(TEST_SOURCES GstHandlerControlTests.cpp
   GstHandlerControlAampTests.cpp)
 
-set(AAMP_SOURCES ${AAMP_ROOT}/middleware/GstHandlerControl.cpp)
+set(AAMP_SOURCES ${MIDDLEWARE_REPO_ABS_PATH}/GstHandlerControl.cpp)
 
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}

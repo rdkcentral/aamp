@@ -29,10 +29,10 @@ if (CMAKE_SYSTEM_NAME STREQUAL Darwin)
 endif()
 include_directories(${AAMP_ROOT}/support/aampabr)
 include_directories(${AAMP_ROOT}/support/aampmetrics)
-# Note: Middleware include paths are now handled conditionally in:
+# Note: Middleware include paths are handled in:
 # - fakes/CMakeLists.txt (for fakes library)
 # - tests/CommonTestIncludes.cmake (for individual test targets)
-# This allows using external middleware-player-interface when available
+# These use external middleware-player-interface (pkg-config or sibling repo)
 
 find_package(PkgConfig REQUIRED)
 
@@ -48,9 +48,9 @@ set(PKG_GMOCK_INCLUDE_DIRS ${GMOCK_INCLUDE_DIRS})
 set(PKG_GTEST_LINK_LIBRARIES ${GTEST_LINK_LIBRARIES})
 set(PKG_GMOCK_LINK_LIBRARIES ${GMOCK_LINK_LIBRARIES})
 
-# Middleware headers are now provided via:
-# - External middleware-player-interface pkg-config (for CI builds)
-# - Internal aamp/middleware paths (for local builds)
+# Middleware headers are provided via:
+# - External middleware-player-interface pkg-config (preferred)
+# - middleware-player-interface repo cloned alongside aamp (GitHub Actions CI)
 # See fakes/CMakeLists.txt and tests/CommonTestIncludes.cmake
 # NOTE: .libs/include is NOT used because it contains gtest/gmock that conflict with FetchContent
 
@@ -61,12 +61,28 @@ pkg_check_modules(LIBDASH REQUIRED libdash)
 pkg_check_modules(LibXml2 REQUIRED libxml-2.0)
 pkg_check_modules(LIBCJSON REQUIRED libcjson)
 
-# External middleware-player-interface libraries (optional for backward compatibility)
-# When available via pkg-config, these are preferred over internal aamp/middleware
+# External middleware-player-interface libraries
+# When available via pkg-config, these are preferred over the sibling repo fallback
 pkg_check_modules(PLAYERFBINTERFACE libplayerfbinterface)
 pkg_check_modules(BASECONVERSION libbaseconversion)
 pkg_check_modules(PLAYERLOGMANAGER libplayerlogmanager)
 pkg_check_modules(SUBTEC libsubtec)
+
+# Detect which middleware headers will be used and propagate a compile definition
+# so that subdirectory CMake files and source files can conditionally compile
+# against features only present in the external middleware-player-interface repo.
+# We do this once here using CMAKE_CURRENT_SOURCE_DIR (always absolute) to avoid
+# the fragile relative-path EXISTS checks in fakes/CMakeLists.txt and
+# tests/CommonTestIncludes.cmake.
+get_filename_component(MIDDLEWARE_REPO_ABS_PATH
+	"${CMAKE_CURRENT_SOURCE_DIR}/../../middleware-player-interface" ABSOLUTE)
+if(PLAYERFBINTERFACE_INCLUDE_DIRS OR EXISTS "${MIDDLEWARE_REPO_ABS_PATH}")
+	message(STATUS "Middleware develop headers detected — enabling DRMSESSION_HAS_LIFECYCLE_GUARD")
+	add_compile_definitions(DRMSESSION_HAS_LIFECYCLE_GUARD)
+endif()
+# Cache the absolute path so subdirectory cmake files (CommonTestIncludes.cmake,
+# fakes/CMakeLists.txt) can use it reliably instead of fragile relative EXISTS checks.
+set(MIDDLEWARE_REPO_ABS_PATH "${MIDDLEWARE_REPO_ABS_PATH}" CACHE INTERNAL "")
 
 if (NOT CMAKE_SYSTEM_NAME STREQUAL Darwin)
 	pkg_search_module(JSCORE REQUIRED javascriptcoregtk-4.1 javascriptcoregtk-4.0)
@@ -76,6 +92,16 @@ endif()
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DUSE_GST1 -ggdb")
+
+# Enable HTTP/3 test coverage.  The production code gates HTTP/3 behind
+# #if defined(CURL_HTTP_VERSION_3ONLY) || defined(AAMP_HTTP3_SUPPORTED).
+# On macOS the SDK exposes CURL_HTTP_VERSION_3ONLY only as an enum value,
+# so #ifdef alone wouldn't fire.  AAMP_HTTP3_SUPPORTED is a build-system
+# feature flag that enables the HTTP/3 code paths regardless of how curl
+# exposes the constant.  When you later switch to HTTP/3 with fallback,
+# only the curl option value changes — the gate stays the same.
+add_compile_definitions(AAMP_HTTP3_SUPPORTED)
+add_compile_definitions(AAMP_TEST_BUILD)
 if(NOT CMAKE_SYSTEM_NAME MATCHES "Linux")
 	add_compile_options(-fsanitize=address)
 	add_link_options(-fsanitize=address)

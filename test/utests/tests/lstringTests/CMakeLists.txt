@@ -21,16 +21,16 @@ set(AAMP_ROOT "../../../../")
 set(UTESTS_ROOT "../../")
 set(EXEC_NAME lstringTests)
 
-# lstringTests is intentionally self-contained: lstring.hpp has no GStreamer,
-# middleware, or priv_aamp dependency.  We do NOT include CommonTestIncludes.cmake
-# here because that file adds ${AAMP_ROOT}/middleware to the include path, which
-# transitively pulls in middleware/GstUtils.h → gst/gst.h.  On Mac developer
+# lstringTests is intentionally self-contained: lstring.hpp has no GStreamer
+# or priv_aamp dependency.  We do NOT include CommonTestIncludes.cmake
+# here because that file adds middleware-player-interface to the include path, which
+# transitively pulls in GstUtils.h → gst/gst.h.  On Mac developer
 # machines without GStreamer installed this breaks the build even though lstring
 # itself never touches a GStreamer symbol.
 #
 # For the same reason we do NOT link against the `fakes` library:
 #   fakes/FakeAampLogManager.cpp → priv_aamp.h → AampDemuxDataTypes.h
-#   → middleware/DemuxDataTypes.h → middleware/GstUtils.h → gst/gst.h
+#   → DemuxDataTypes.h → GstUtils.h → gst/gst.h
 #
 # FakeLstringDeps.cpp (in this directory) provides the only AampLogManager
 # symbols that lstring.cpp actually needs at link time.
