@@ -109,6 +109,10 @@ public:
 	MOCK_METHOD(bool, IsCurrentProfileLowest, ());
 
 	MOCK_METHOD(void, StopUnderflowMonitor, (), (override));
+
+	MOCK_METHOD(void, NotifyPipelinePausedToUnderflowMonitor, ());
+
+	MOCK_METHOD(void, NotifyPipelineResumedToUnderflowMonitor, (float rate));
 };
 
 extern std::shared_ptr<MockStreamAbstractionAAMP> g_mockStreamAbstractionAAMP;

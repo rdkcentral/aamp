@@ -9529,6 +9529,7 @@ void PrivateInstanceAAMP::NotifyFragmentCachingComplete()
 		if(mpStreamAbstractionAAMP)
 		{
 			mpStreamAbstractionAAMP->NotifyPlaybackPaused(false);
+			mpStreamAbstractionAAMP->NotifyPipelineResumedToUnderflowMonitor(rate);
 		}
 		SetState(eSTATE_PLAYING);
 	}
@@ -11725,6 +11726,7 @@ bool PrivateInstanceAAMP::SetStateBufferingIfRequired()
 			if(mpStreamAbstractionAAMP)
 			{
 				mpStreamAbstractionAAMP->NotifyPlaybackPaused(true);
+				mpStreamAbstractionAAMP->NotifyPipelinePausedToUnderflowMonitor();
 			}
 			StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 			if(sink)
