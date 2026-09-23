@@ -469,7 +469,11 @@ void StreamAbstractionAAMP_HLS::InitiateDrmProcess()
 		if ((drmHelperToUse != nullptr) && (aamp->mDRMLicenseManager))
 		{
 			AampDRMLicenseManager *licenseManager = aamp->mDRMLicenseManager;
-			aamp->SetTrackEncrypted(eMEDIATYPE_VIDEO, true);
+			if (ISCONFIGSET(eAAMPConfig_UseMp4Demux))
+			{
+				aamp->SetTrackEncrypted(eMEDIATYPE_VIDEO, true);
+				aamp->SetTrackEncrypted(eMEDIATYPE_AUDIO, true);
+			}
 			/** Queue protection event to the pipeline **/
 			licenseManager->QueueProtectionEvent(drmHelperToUse, "1", 0, eMEDIATYPE_VIDEO);
 			/** Queue content protection in DRM license fetcher **/
