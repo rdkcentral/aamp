@@ -7065,6 +7065,26 @@ void StreamAbstractionAAMP_MPD::SelectSubtitleTrack(bool newTune, std::vector<Te
 	}
 }
 /**
+ * @brief Maps a DASH-selected AudioType to the equivalent StreamOutputFormat.
+ *        Used to compare the newly selected audio codec directly against
+ *        PrivateInstanceAAMP::mLastConfiguredAudioFormat (the format actually
+ *        configured in the pipeline), rather than a track-selection-time
+ *        snapshot that can go stale across seeks/period transitions.
+ */
+static StreamOutputFormat GetStreamFormatForAudioType(AudioType audioType)
+{
+	switch (audioType)
+	{
+		case eAUDIO_AAC:      return FORMAT_AUDIO_ES_AAC;
+		case eAUDIO_DDPLUS:   return FORMAT_AUDIO_ES_EC3;
+		case eAUDIO_ATMOS:    return FORMAT_AUDIO_ES_ATMOS;
+		case eAUDIO_DOLBYAC3: return FORMAT_AUDIO_ES_AC3;
+		case eAUDIO_DOLBYAC4: return FORMAT_AUDIO_ES_AC4;
+		default:              return FORMAT_UNKNOWN;
+	}
+}
+
+/**
  * @brief Selects the audio track based on the available audio tracks and updates the desired representation index.
  *
  * This function selects the audio track from the given vector of AC4 audio tracks based on audio track selection logic
@@ -7119,12 +7139,23 @@ void StreamAbstractionAAMP_MPD::SelectAudioTrack(std::vector<AudioTrackInfo> &aT
 	* so the player will choose AAC then start decoding, but in the forthcoming periods,
 	* if the stream has AAC and EC3 for the current decoding language then as per the EC3(default priority)
 	* the player will choose EC3 but the audio pipeline actually not configured in this case to affect this change.
+	*
+	* Compare against mLastConfiguredAudioFormat (the format actually configured in the
+	* pipeline by Configure()) instead of a track-selection-time snapshot, so a seek that
+	* flushes a pending period transition can't silently drop a still-needed reconfigure.
+	* Tag the audio track's own MediaStreamContext so the flag rides along with the actual
+	* fragment that needs it, instead of a global flag an unrelated track-selection pass
+	* elsewhere can clear.
 	*/
-	if (aamp->previousAudioType != selectedCodecType)
+	StreamOutputFormat selectedAudioFormat = GetStreamFormatForAudioType(selectedCodecType);
+	aamp->mCurrentAudioFormat = selectedAudioFormat;
+	if (aamp->mLastConfiguredAudioFormat != selectedAudioFormat)
 	{
-		AAMPLOG_MIL("StreamAbstractionAAMP_MPD: AudioType Changed %d -> %d", aamp->previousAudioType, selectedCodecType);
-		aamp->previousAudioType = selectedCodecType;
-		SetESChangeStatus();
+		AAMPLOG_MIL("StreamAbstractionAAMP_MPD: AudioType Changed %d -> %d", aamp->mLastConfiguredAudioFormat, selectedAudioFormat);
+		if (mMediaStreamContext[eMEDIATYPE_AUDIO])
+		{
+			mMediaStreamContext[eMEDIATYPE_AUDIO]->formatChanged = true;
+		}
 	}
 }
 
@@ -10424,8 +10455,12 @@ void StreamAbstractionAAMP_MPD::DetectDiscontinuityAndFetchInit(bool periodChang
 				/* Process the discontinuity,
 				* 1. If the next segment time is not matching with the next period segment start time.
 				* 2. To reconfigure the pipeline, if there is a change in the Audio Codec even if there is no change in segment start time in multi period content.
+				*   (mMediaStreamContext[eMEDIATYPE_AUDIO]->formatChanged is set moments earlier in this same
+				*    period-transition cycle by SelectAudioTrack(), and has not yet been consumed by a fragment fetch)
 				*/
-				if ((segmentTemplates.GetSegmentTimeline() != NULL && nextSegmentTime != segmentStartTime) || GetESChangeStatus() || ISCONFIGSET(eAAMPConfig_ForceMultiPeriodDiscontinuity))
+				bool audioFormatChanged = (mMediaStreamContext[eMEDIATYPE_AUDIO] && mMediaStreamContext[eMEDIATYPE_AUDIO]->enabled &&
+											mMediaStreamContext[eMEDIATYPE_AUDIO]->formatChanged);
+				if ((segmentTemplates.GetSegmentTimeline() != NULL && nextSegmentTime != segmentStartTime) || audioFormatChanged || ISCONFIGSET(eAAMPConfig_ForceMultiPeriodDiscontinuity))
 				{
 					AAMPLOG_WARN("StreamAbstractionAAMP_MPD: discontinuity detected nextSegmentTime %" PRIu64 " FirstSegmentStartTime %" PRIu64 " ", nextSegmentTime, segmentStartTime);
 					discontinuity = true;

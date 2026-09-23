@@ -801,7 +801,15 @@ bool MediaTrack::CheckForDiscontinuity(CachedFragment* cachedFragment, bool& fra
 			}
 			ptsError = false;
 
-			/* GetESChangeStatus() check is specifically added to fix an audio loss issue due to no reconfigure pipeline when there was an audio codec change for a very short period with no fragments.
+			if (cachedFragment->formatChanged)
+			{
+				// Fragment-scoped signal: raise the pending ES-change flag now, exactly when the
+				// fragment that actually needs the reconfigure reaches the injector - not at
+				// track-selection time, where it could be silently invalidated by a later seek/flush.
+				context->SetESChangeStatus();
+			}
+
+			/* cachedFragment->formatChanged check is specifically added to fix an audio loss issue due to no reconfigure pipeline when there was an audio codec change for a very short period with no fragments.
 			 * The totalInjectedDuration will be 0 for the very short duration periods if the single fragment is not injected or failed (due to fragment download failures).
 			 * In that case, if there is an audio codec change is detected for this period, it could cause audio loss since ignoring the discontinuity to be processed since totalInjectedDuration is 0.
 			 */
@@ -810,7 +818,7 @@ bool MediaTrack::CheckForDiscontinuity(CachedFragment* cachedFragment, bool& fra
 			 * to an appsrc that wasn't configured (very timing dependent). In this case we want to process the discontinuity and configure the pipeline.
 			 */
 			if ((std::fabs(injectedDuration) < epsilon) &&
-				!aamp->mpStreamAbstractionAAMP->GetESChangeStatus() &&
+				!cachedFragment->formatChanged &&
 				aamp->PipelineValid((AampMediaType)type))
 			{
 				stopInjection = false;
@@ -833,7 +841,7 @@ bool MediaTrack::CheckForDiscontinuity(CachedFragment* cachedFragment, bool& fra
 				}
 				AAMPLOG_WARN("ignoring %s discontinuity since no buffer pushed before!", name);
 			}
-			else if (isDiscoIgnoredForOtherTrack && !aamp->mpStreamAbstractionAAMP->GetESChangeStatus() && aamp->PipelineValid((AampMediaType)type))
+			else if (isDiscoIgnoredForOtherTrack && !cachedFragment->formatChanged && aamp->PipelineValid((AampMediaType)type))
 			{
 				AAMPLOG_WARN("discontinuity ignored for other AV track , no need to process %s track", name);
 				stopInjection = false;
@@ -860,7 +868,7 @@ bool MediaTrack::CheckForDiscontinuity(CachedFragment* cachedFragment, bool& fra
 				// discontinuity.
 				if(IsPTSRestampEnabled())
 				{
-					if (context->GetESChangeStatus() || context->GetPipelineFlushStatus())
+					if (cachedFragment->formatChanged || context->GetPipelineFlushStatus())
 					{
 						stopInjection = context->ProcessDiscontinuity(type);
 					}
@@ -1710,6 +1718,7 @@ MediaTrack::MediaTrack(TrackType type, PrivateInstanceAAMP* aamp, const char* na
 		,mLastFragmentPts(0), mRestampedPts(0), mRestampedDuration(0), mTrickmodeState(TrickmodeState::UNDEF)
 		,mTrackParamsMutex(), mCheckForRampdown(false), mTimeBasedBufferManager(nullptr)
 		,m_totalDurationForPtsRestamping(0.0)
+		,formatChanged(false)
 {
 	const int sldCacheSize = GETCONFIGVALUE(eAAMPConfig_MaxFragmentCached);
 
@@ -1804,7 +1813,7 @@ void StreamAbstractionAAMP::WaitForVideoTrackCatchup()
 StreamAbstractionAAMP::StreamAbstractionAAMP(PrivateInstanceAAMP* aamp, id3_callback_t mID3Handler):
 		trickplayMode(false), currentProfileIndex(0), mCurrentBandwidth(0),currentAudioProfileIndex(-1),currentTextTrackProfileIndex(-1),
 		mTsbBandwidth(0),mNwConsistencyBypass(true), profileIdxForBandwidthNotification(0),
-		hasDrm(false), mIsAtLivePoint(false), mESChangeStatus(false), mPipelineFlushStatus(false), mAudiostateChangeCount(0),
+		hasDrm(false), mIsAtLivePoint(false), mESChangeStatus(false), mPipelineFlushStatus(false),
 		mNetworkDownDetected(false), mTotalPausedDurationMS(0), mIsPaused(false), mProgramStartTime(-1),
 		mStartTimeStamp(-1),mLastPausedTimeStamp(-1), aamp(aamp),
 		mSavedLatencyMonitorState (false),

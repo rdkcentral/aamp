@@ -771,6 +771,7 @@ public:
 	bool seamlessAudioSwitchInProgress; /**< Flag to indicate seamless audio track switch in progress */
 	bool seamlessSubtitleSwitchInProgress;
 	bool mCheckForRampdown;		        /**< flag to indicate if the track is undergoing rampdown or not */
+	bool formatChanged;                 /**< Set by track selection when this track's codec/format changed */
 
 protected:
 	PrivateInstanceAAMP* aamp;          /**< Pointer to the PrivateInstanceAAMP*/
@@ -1051,19 +1052,14 @@ public:
 	 *
 	 *   @return void
 	 */
-	void SetESChangeStatus(void){mAudiostateChangeCount++; mESChangeStatus = true;}
+	void SetESChangeStatus(void){mESChangeStatus = true;}
 
 	/**
 	 *   @brief Reset elementary stream type change status once the pipeline reconfigured.
 	 *
 	 *   @return void
 	 */
-	void ResetESChangeStatus(void){
-		if( (mAudiostateChangeCount > 0) && !(--mAudiostateChangeCount) )
-		{
-			mESChangeStatus = false;
-		}
-	}
+	void ResetESChangeStatus(void){mESChangeStatus = false;}
 
 	/**
 	 *   @brief Get elementary stream type change status for reconfigure the pipeline..
@@ -2090,7 +2086,6 @@ protected:
 	int mABRNwConsistency;		    /**< ABR Network consistency*/
 	bool mESChangeStatus;               /**< flag value which is used to call pipeline configuration if the audio type changed in mid stream */
 	bool mPipelineFlushStatus;			/**< flag value which is used to call pipeline flush on PTS jumps or PTO */
-	unsigned int mAudiostateChangeCount;/**< variable to know how many times player need to reconfigure the pipeline for audio type change*/
 	double mLastVideoFragParsedTimeMS;  /**< timestamp when last video fragment was parsed */
 
 	bool mIsPaused;                     /**< paused state or not */

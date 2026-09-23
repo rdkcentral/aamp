@@ -828,6 +828,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 					if (sink)
 					{
 						sink->Configure(aamp->mVideoFormat, aamp->mAudioFormat, aamp->mSubtitleFormat, aamp->mpStreamAbstractionAAMP->GetESChangeStatus());
+						aamp->mLastConfiguredAudioFormat = aamp->mAudioFormat;
 						aamp->ResumeDownloads(); //To make sure that the playback resumes after a player switch if player was in paused state before being at background
 						aamp->mpStreamAbstractionAAMP->StartInjection();
 						sink->Stream();

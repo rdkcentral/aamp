@@ -1696,6 +1696,9 @@ void TrackState::FetchFragment()
 				cachedFragment->discontinuity = true;
 				AAMPLOG_TRACE("rate %f position %f", context->rate, position.inSeconds());
 			}
+			// Consume any pending track-selection codec/format change onto this fragment.
+			cachedFragment->formatChanged = this->formatChanged;
+			this->formatChanged = false;
 
 			if (context->trickplayMode && (0 != context->rate))
 			{
@@ -6133,6 +6136,9 @@ void TrackState::FetchInitFragment()
 				cachedFragment->duration = 0;
 				cachedFragment->position = playTarget.inSeconds() - playTargetOffset.inSeconds();
 				cachedFragment->discontinuity = discontinuity;
+				// Consume any pending track-selection codec/format change onto this fragment.
+				cachedFragment->formatChanged = this->formatChanged;
+				this->formatChanged = false;
 			}
 
 			// If forcePushEncryptedHeader, don't reset the playTarget as the original init header has to be pushed next
@@ -6893,13 +6899,17 @@ void StreamAbstractionAAMP_HLS::ConfigureVideoProfiles()
 				}
 			}
 
-			if (aamp->mPreviousAudioType != selectedAudioType)
+			if (aamp->mLastConfiguredAudioFormat != selectedAudioType)
 			{
 				AAMPLOG_WARN("AudioType Changed %d -> %d",
-						 aamp->mPreviousAudioType, selectedAudioType);
-				aamp->mPreviousAudioType = selectedAudioType;
-				SetESChangeStatus();
+						 aamp->mLastConfiguredAudioFormat, selectedAudioType);
+				// Tag the audio track formatChanged, so the flag rides along with the actual fragment
+				if (trackState[eTRACK_AUDIO])
+				{
+					trackState[eTRACK_AUDIO]->formatChanged = true;
+				}
 			}
+			aamp->mCurrentAudioFormat = selectedAudioType;
 
 			// Now comes next set of complex checks for bad streams
 			if(vProfileCountSelected)

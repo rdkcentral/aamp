@@ -76,6 +76,9 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 	AampMediaType actualType = (AampMediaType)(initSegment ? (eMEDIATYPE_INIT_VIDEO + mediaType) : mediaType); // Need to revisit the logic
 
 	PopulateCommonMetadata(cachedFragment, fragmentUrl, actualType, 0, initSegment, discontinuity);
+	// Consume any pending track-selection codec/format change onto this fragment.
+	cachedFragment->formatChanged = this->formatChanged;
+	this->formatChanged = false;
 	cachedFragment->timeScale = fragmentDescriptor.TimeScale;
 	cachedFragment->absPosition = 0;
 	if (mActiveDownloadInfo)
@@ -766,6 +769,9 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 	}
 	cachedFragment->duration = dlInfo->fragmentDurationSec;
 	cachedFragment->discontinuity = dlInfo->isDiscontinuity;
+	// Consume any pending track-selection codec/format change onto this fragment.
+	cachedFragment->formatChanged = this->formatChanged;
+	this->formatChanged = false;
 	segDLFailCount = 0;
 	// Update the last downloaded position for buffered duration calculation
 	lastDownloadedPosition.store(dlInfo->absolutePosition + dlInfo->fragmentDurationSec);
