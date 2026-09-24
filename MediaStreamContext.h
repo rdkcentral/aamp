@@ -163,15 +163,15 @@ public:
 	bool CacheFragmentChunk(AampMediaType actualType, const uint8_t *ptr, size_t size, std::string remoteUrl, uint64_t dnldStartTime, uint64_t durationInTicks);
 
 	/**
-		 * @fn TransferFragmentBuffer
-		 * @brief Transfer buffer data into a CachedFragment using the appropriate
-		 *        semantics for the caching mode.
-		 */
-		static void TransferFragmentBuffer(CachedFragment* cached,
-				const uint8_t* chunkPayload,
-				std::vector<uint8_t>* downloadBuffer,
-				size_t payloadSize,
-				bool isChunkMode);
+	 * @fn TransferFragmentBuffer
+	 * @brief Transfer buffer data into a CachedFragment using the appropriate
+	 *        semantics for the caching mode.
+	 */
+	static void TransferFragmentBuffer(CachedFragment* cached,
+			const uint8_t* chunkPayload,
+			std::vector<uint8_t>* downloadBuffer,
+			size_t payloadSize,
+			bool isChunkMode);
 
 	/**
 	 * @fn PopulateCommonMetadata
