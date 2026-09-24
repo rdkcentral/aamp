@@ -29,9 +29,10 @@ OPTION_NET_TRACE=false
 OPTION_DONT_RUN_AAMPCLI=false
 OPTION_PROTOBUF_REFERENCE="3.19.x"
 OPTION_QUICK=false
-OPTION_RIALTO_REFERENCE="v0.18.0"
-OPTION_RIALTO_GSTREAMER_REFERENCE="v0.17.0"
+OPTION_RIALTO_REFERENCE="v0.22.1"
+OPTION_RIALTO_GSTREAMER_REFERENCE="v0.20.1"
 OPTION_RIALTO_BUILD=false
+OPTION_RIALTO_FORCE_SIMULATOR=false
 OPTION_SUBTEC_SKIP=false
 OPTION_AAMPCLIKOTLIN_SKIP=true
 OPTION_SUBTEC_BUILD=true
@@ -54,6 +55,10 @@ function install_options_fn()
       --middleware-player-interface-local-path=*)
         OPTION_MIDDLEWARE_PLAYER_INTERFACE_LOCAL_PATH="${1#*=}"
         echo "Middleware player interface local path: ${OPTION_MIDDLEWARE_PLAYER_INTERFACE_LOCAL_PATH}"
+        ;;
+      --rialto-force-simulator)
+        OPTION_RIALTO_FORCE_SIMULATOR=true
+        echo "Force Rialto simulator: ${OPTION_RIALTO_FORCE_SIMULATOR}"
         ;;
       *)
         remaining_args+=("$1")
@@ -139,6 +144,7 @@ function install_options_fn()
         [-k] Build aamp-cli Kotlin module (Linux and MacOS only)]
         [--middleware-player-interface-commit-id=<commit>] Specify commit ID for middleware-player-interface (cloned from GitHub)
         [--middleware-player-interface-local-path=<path>] Use a local directory instead of cloning (default: auto-detect sibling ../middleware-player-interface)
+        [--rialto-force-simulator] Force simulator build instead of linking system Rialto client
         [-t] Remove .libs and build directories before build (full rebuild)
         [-u] Enable Ubuntu address sanitizer (Linux only)"
 

@@ -1090,9 +1090,13 @@ void PrivateInstanceAAMP::SetPreCacheDownloadList(PreCacheUrlList &dnldListInput
 
 void PrivateInstanceAAMP::StopTrackDownloads(AampMediaType type)
 {
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		g_mockPrivateInstanceAAMP->StopTrackDownloads(type);
+	}
 }
 
-void PrivateInstanceAAMP::StopTrackInjection(AampMediaType type)
+void PrivateInstanceAAMP::StopTrackInjection(AampMediaType type, bool discard)
 {
 }
 
@@ -1304,6 +1308,10 @@ void PrivateInstanceAAMP::UnblockWaitForDiscontinuityProcessToComplete(void)
 
 void PrivateInstanceAAMP::CompleteDiscontinuityDataDeliverForPTSRestamp(AampMediaType type)
 {
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		g_mockPrivateInstanceAAMP->CompleteDiscontinuityDataDeliverForPTSRestamp(type);
+	}
 }
 
 void PrivateInstanceAAMP::SendAnomalyEvent(AAMPAnomalyMessageType type, const char* format, ...)
@@ -1558,8 +1566,12 @@ void PrivateInstanceAAMP::SignalTrickModeDiscontinuity()
  * @brief Resume downloads for a track.
  * Called from StreamSink to control flow
  */
-void PrivateInstanceAAMP::ResumeTrackDownloads(AampMediaType)
+void PrivateInstanceAAMP::ResumeTrackDownloads(AampMediaType type)
 {
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		g_mockPrivateInstanceAAMP->ResumeTrackDownloads(type);
+	}
 }
 
 void PrivateInstanceAAMP::SetDiscontinuityParam()
@@ -1576,6 +1588,10 @@ void PrivateInstanceAAMP::SetLLDLowBufferParam(double latency, double buff, doub
 
 void PrivateInstanceAAMP::FlushStreamSink(double position, double rate)
 {
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		g_mockPrivateInstanceAAMP->FlushStreamSink(position, rate);
+	}
 }
 
 /**
@@ -1818,6 +1834,19 @@ std::string PrivateInstanceAAMP::GetLicenseServerUrlForDrm(DRMSystems type)
 
 bool PrivateInstanceAAMP::ReconfigureForElementaryStreamUpdate()
 {
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		return g_mockPrivateInstanceAAMP->ReconfigureForElementaryStreamUpdate();
+	}
+	return false;
+}
+
+bool PrivateInstanceAAMP::WillFlushOnDiscontinuity()
+{
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		return g_mockPrivateInstanceAAMP->WillFlushOnDiscontinuity();
+	}
 	return false;
 }
 

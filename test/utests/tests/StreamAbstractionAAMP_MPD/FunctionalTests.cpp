@@ -129,6 +129,7 @@ protected:
 		{eAAMPConfig_EnableIFrameTrackExtract, false},
 		{eAAMPConfig_SynthesizeIframeForVOD, false},
 		{eAAMPConfig_useRialtoSink, false},
+		{eAAMPConfig_useDirectRialto, false},
 		{eAAMPConfig_GstSubtecEnabled, false},
 		{eAAMPConfig_UseMp4Demux, false},
 		{eAAMPConfig_UTCSyncOnStartup, true},
@@ -3894,6 +3895,8 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
 	EXPECT_CALL(*g_mockAampStreamSinkManager, AddMediaHeader(2, _))
 		.Times(2);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, ResumeTrackDownloads(eMEDIATYPE_SUBTITLE))
+		.Times(AnyNumber());
 
 	//StreamAbstractionAAMP_MPD::Init() will internally call ExtractAndAddSubtitleMediaHeader()
 	status = InitializeMPD(manifest, eTUNETYPE_NEW_NORMAL, 0.0, AAMP_NORMAL_PLAY_RATE, true);

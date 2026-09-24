@@ -1,0 +1,1910 @@
+/*
+ * If not stated otherwise in this file or this component's license file the
+ * following copyright and licenses apply:
+ *
+ * Copyright 2026 RDK Management
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/**
+ * @file AampRialtoVideoSourceTestCases.cpp
+ * @brief L1 unit tests for AampRialtoVideoSource.
+ */
+
+#include <gtest/gtest.h>
+#include <gmock/gmock.h>
+
+#include "AampRialtoVideoSource.h"
+#include "MockIMediaPipeline.h"
+#include "MockDrmBridge.h"
+#include "MockMp4Demux.h"
+
+#include <atomic>
+#include <chrono>
+#include <thread>
+
+using ::testing::_;
+using ::testing::InSequence;
+using ::testing::Invoke;
+using ::testing::NiceMock;
+using ::testing::Return;
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+static MediaCodecInfo MakeH264CodecInfo(
+	uint16_t width = 1280, uint16_t height = 720,
+	bool naluLengthPrefixed = false)
+{
+	MediaCodecInfo ci{};
+	ci.mCodecFormat           = GST_FORMAT_VIDEO_ES_H264;
+	ci.mInfo.video.mWidth     = width;
+	ci.mInfo.video.mHeight    = height;
+	ci.mCodecData             = {0x01, 0x02, 0x03};
+	ci.mNaluLengthPrefixed    = naluLengthPrefixed;
+	return ci;
+}
+
+static MediaCodecInfo MakeHevcCodecInfo(
+	uint16_t width = 1920, uint16_t height = 1080)
+{
+	MediaCodecInfo ci{};
+	ci.mCodecFormat           = GST_FORMAT_VIDEO_ES_HEVC;
+	ci.mInfo.video.mWidth     = width;
+	ci.mInfo.video.mHeight    = height;
+	ci.mCodecData             = {0x01, 0x02};
+	return ci;
+}
+
+/**
+ * @class TestableAampRialtoVideoSourceNullSegment
+ * @brief Subclass allowing createSegment() to be forced to fail, for
+ *        exercising injectOneSample()'s createSegment()==nullptr path.
+ */
+class TestableAampRialtoVideoSourceNullSegment : public AampRialtoVideoSource
+{
+public:
+	bool mReturnNullSegment{false};
+
+	std::unique_ptr<firebolt::rialto::IMediaPipeline::MediaSegment>
+	createSegment(const AampMediaSample &sample) const override
+	{
+		if (mReturnNullSegment)
+		{
+			return nullptr;
+		}
+		return AampRialtoVideoSource::createSegment(sample);
+	}
+};
+
+
+
+
+// ---------------------------------------------------------------------------
+// Fixture
+// ---------------------------------------------------------------------------
+
+/**
+ * @class AampRialtoVideoSourceTest
+ * @brief Fixture for AampRialtoVideoSource unit tests.
+ */
+class AampRialtoVideoSourceTest : public ::testing::Test
+{
+protected:
+	void SetUp() override
+	{
+		m_mockPipeline = std::make_unique<NiceMock<MockIMediaPipeline>>();
+		m_pipelinePtr  = m_mockPipeline.get();
+
+		ON_CALL(*m_pipelinePtr, attachSource(_))
+			.WillByDefault(Invoke(
+				[this](const std::unique_ptr<
+					firebolt::rialto::IMediaPipeline::MediaSource> &src)
+				{
+					const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
+						*src).setId(m_nextSourceId++);
+					return true;
+				}));
+
+		ON_CALL(*m_pipelinePtr, setSourcePosition(_, _, _, _, _))
+			.WillByDefault(Return(true));
+	}
+
+	AampRialtoVideoSource m_source;
+	std::unique_ptr<MockIMediaPipeline> m_mockPipeline;
+	MockIMediaPipeline *m_pipelinePtr{nullptr};
+	int32_t m_nextSourceId{10};
+};
+
+// ---------------------------------------------------------------------------
+// mediaType
+// ---------------------------------------------------------------------------
+
+/**
+ * @test AampRialtoVideoSource_mediaType_ReturnsVideo
+ * @brief Verify mediaType() returns eMEDIATYPE_VIDEO.
+ */
+TEST_F(AampRialtoVideoSourceTest, AampRialtoVideoSource_mediaType_ReturnsVideo)
+{
+	EXPECT_EQ(m_source.mediaType(), eMEDIATYPE_VIDEO);
+}
+
+// ---------------------------------------------------------------------------
+// Initial state
+// ---------------------------------------------------------------------------
+
+/**
+ * @test AampRialtoVideoSource_InitialState_NotAttached
+ * @brief Verify source starts unattached.
+ */
+TEST_F(AampRialtoVideoSourceTest, AampRialtoVideoSource_InitialState_NotAttached)
+{
+	EXPECT_FALSE(m_source.isAttached());
+	EXPECT_EQ(m_source.sourceId(), -1);
+	EXPECT_EQ(m_source.mksId(), -1);
+	EXPECT_EQ(m_source.width(), 0);
+	EXPECT_EQ(m_source.height(), 0);
+}
+
+// ---------------------------------------------------------------------------
+// attachOrUpdate — H264
+// ---------------------------------------------------------------------------
+
+/**
+ * @test AampRialtoVideoSource_AttachH264_Success
+ * @brief Verify first attach with H264 codec succeeds.
+ */
+TEST_F(AampRialtoVideoSourceTest, AampRialtoVideoSource_AttachH264_Success)
+{
+	auto codecInfo = MakeH264CodecInfo(1280, 720);
+
+	EXPECT_CALL(*m_pipelinePtr, attachSource(_)).Times(1);
+
+	auto result = m_source.attachOrUpdate(
+		*m_pipelinePtr, codecInfo, nullptr, -1);
+
+	EXPECT_EQ(result, AampRialtoMediaSource::AttachResult::NEWLY_ATTACHED);
+	EXPECT_TRUE(m_source.isAttached());
+	EXPECT_EQ(m_source.sourceId(), 10);
+	EXPECT_EQ(m_source.width(), 1280);
+	EXPECT_EQ(m_source.height(), 720);
+}
+
+// ---------------------------------------------------------------------------
+// attachOrUpdate — HEVC
+// ---------------------------------------------------------------------------
+
+/**
+ * @test AampRialtoVideoSource_AttachHevc_Success
+ * @brief Verify first attach with HEVC codec succeeds.
+ */
+TEST_F(AampRialtoVideoSourceTest, AampRialtoVideoSource_AttachHevc_Success)
+{
+	auto codecInfo = MakeHevcCodecInfo(3840, 2160);
+
+	auto result = m_source.attachOrUpdate(
+		*m_pipelinePtr, codecInfo, nullptr, -1);
+
+	EXPECT_EQ(result, AampRialtoMediaSource::AttachResult::NEWLY_ATTACHED);
+	EXPECT_TRUE(m_source.isAttached());
+	EXPECT_EQ(m_source.width(), 3840);
+	EXPECT_EQ(m_source.height(), 2160);
+}
+
+// ---------------------------------------------------------------------------
+// attachOrUpdate — unknown codec
+// ---------------------------------------------------------------------------
+
+/**
+ * @test AampRialtoVideoSource_AttachUnknownCodec_Fails
+ * @brief Verify attach with unrecognised codec returns FAILED.
+ */
+TEST_F(AampRialtoVideoSourceTest, AampRialtoVideoSource_AttachUnknownCodec_Fails)
+{
+	MediaCodecInfo ci{};
+	ci.mCodecFormat = GST_FORMAT_INVALID;
+
+	auto result = m_source.attachOrUpdate(
+		*m_pipelinePtr, ci, nullptr, -1);
+
+	EXPECT_EQ(result, AampRialtoMediaSource::AttachResult::FAILED);
+	EXPECT_FALSE(m_source.isAttached());
+}
+
+// ---------------------------------------------------------------------------
+// attachOrUpdate — already attached (update)
+// ---------------------------------------------------------------------------
+
+/**
+ * @test AampRialtoVideoSource_AttachTwice_ReturnsUpdated
+ * @brief Verify second attach returns UPDATED and refreshes metadata.
+ */
+TEST_F(AampRialtoVideoSourceTest, AampRialtoVideoSource_AttachTwice_ReturnsUpdated)
+{
+	auto codecInfo1 = MakeH264CodecInfo(1280, 720);
+	m_source.attachOrUpdate(*m_pipelinePtr, codecInfo1, nullptr, -1);
+	ASSERT_TRUE(m_source.isAttached());
+
+	auto codecInfo2 = MakeH264CodecInfo(1920, 1080);
+
+	EXPECT_CALL(*m_pipelinePtr, attachSource(_)).Times(0);
+
+	auto result = m_source.attachOrUpdate(
+		*m_pipelinePtr, codecInfo2, nullptr, -1);
+
+	EXPECT_EQ(result, AampRialtoMediaSource::AttachResult::UPDATED);
+	EXPECT_EQ(m_source.width(), 1920);
+	EXPECT_EQ(m_source.height(), 1080);
+}
+
+// ---------------------------------------------------------------------------
+// attachOrUpdate — attachSource failure
+// ---------------------------------------------------------------------------
+
+/**
+ * @test AampRialtoVideoSource_AttachSourceFails_ReturnsFailed
+ * @brief Verify that when pipeline->attachSource returns false, result is FAILED.
+ */
+TEST_F(AampRialtoVideoSourceTest, AampRialtoVideoSource_AttachSourceFails_ReturnsFailed)
+{
+	ON_CALL(*m_pipelinePtr, attachSource(_))
+		.WillByDefault(Return(false));
+
+	auto codecInfo = MakeH264CodecInfo();
+
+	auto result = m_source.attachOrUpdate(
+		*m_pipelinePtr, codecInfo, nullptr, -1);
+
+	EXPECT_EQ(result, AampRialtoMediaSource::AttachResult::FAILED);
+	EXPECT_FALSE(m_source.isAttached());
+}
+
+// ---------------------------------------------------------------------------
+// attachOrUpdate — with DRM
+// ---------------------------------------------------------------------------
+
+/**
+ * @test AampRialtoVideoSource_AttachWithDRM_CreatesDrmSession
+ * @brief Verify DRM session is created when protection params are set, and
+ *        the resulting MediaSourceVideo reports hasDrm() true.
+ */
+TEST_F(AampRialtoVideoSourceTest, AampRialtoVideoSource_AttachWithDRM_CreatesDrmSession)
+{
+	NiceMock<MockDrmBridge> mockDrm;
+	EXPECT_CALL(mockDrm, createSession(_, _, _, eMEDIATYPE_VIDEO))
+		.WillOnce(Return(42));
+
+	AampRialtoMediaSource::ProtectionParams prot;
+	prot.systemId = "edef8ba9-79d6-4ace-a3c8-27dcd51d21ed";
+	prot.initData = {0xCA, 0xFE};
+	prot.type     = eMEDIATYPE_VIDEO;
+
+	auto codecInfo = MakeH264CodecInfo();
+
+	EXPECT_CALL(*m_pipelinePtr, attachSource(_))
+		.WillOnce(Invoke([this](const std::unique_ptr<
+			firebolt::rialto::IMediaPipeline::MediaSource> &src)
+		{
+			EXPECT_TRUE(src->getHasDrm());
+			const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
+				*src).setId(m_nextSourceId++);
+			return true;
+		}));
+
+	auto result = m_source.attachOrUpdate(
+		*m_pipelinePtr, codecInfo, &mockDrm, -1, prot);
+
+	EXPECT_EQ(result, AampRialtoMediaSource::AttachResult::NEWLY_ATTACHED);
+	EXPECT_EQ(m_source.mksId(), 42);
+}
+
+/**
+ * @test AampRialtoVideoSource_AttachWithoutDrmSession_CreatesSourceWithHasDrmTrue
+ * @brief Trip-wire test: createRialtoSource() currently hard-codes hasDrm=true
+ *        regardless of the mksId-derived hasDrm argument it receives (see
+ *        comment in AampRialtoVideoSource::createRialtoSource). No DRM
+ *        session is created here (no protection params supplied), yet the
+ *        resulting MediaSourceVideo must still report hasDrm() true. If this
+ *        starts failing, createRialtoSource's hard-coded value has changed —
+ *        update this test deliberately to match the new intended behaviour.
+ */
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_AttachWithoutDrmSession_CreatesSourceWithHasDrmTrue)
+{
+	auto codecInfo = MakeH264CodecInfo();
+
+	EXPECT_CALL(*m_pipelinePtr, attachSource(_))
+		.WillOnce(Invoke([this](const std::unique_ptr<
+			firebolt::rialto::IMediaPipeline::MediaSource> &src)
+		{
+			EXPECT_TRUE(src->getHasDrm());
+			const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
+				*src).setId(m_nextSourceId++);
+			return true;
+		}));
+
+	auto result = m_source.attachOrUpdate(
+		*m_pipelinePtr, codecInfo, nullptr, -1);
+
+	EXPECT_EQ(result, AampRialtoMediaSource::AttachResult::NEWLY_ATTACHED);
+	EXPECT_EQ(m_source.mksId(), -1);
+}
+
+// ---------------------------------------------------------------------------
+// attachOrUpdate — DRM session refresh on already-attached source
+// ---------------------------------------------------------------------------
+
+/**
+ * @test AampRialtoVideoSource_AttachTwice_UnchangedProtection_DoesNotRecreateSession
+ * @brief Verify that re-queuing the same protection params on a later
+ *        attachOrUpdate() call (e.g. every period's init segment) does not
+ *        trigger a redundant createSession() call.
+ */
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_AttachTwice_UnchangedProtection_DoesNotRecreateSession)
+{
+	NiceMock<MockDrmBridge> mockDrm;
+	EXPECT_CALL(mockDrm, createSession(_, _, _, eMEDIATYPE_VIDEO))
+		.Times(1)
+		.WillOnce(Return(42));
+
+	AampRialtoMediaSource::ProtectionParams prot;
+	prot.systemId = "edef8ba9-79d6-4ace-a3c8-27dcd51d21ed";
+	prot.initData = {0xCA, 0xFE};
+	prot.type     = eMEDIATYPE_VIDEO;
+
+	auto codecInfo1 = MakeH264CodecInfo();
+	EXPECT_CALL(*m_pipelinePtr, attachSource(_))
+		.WillOnce(Invoke([this](const std::unique_ptr<
+			firebolt::rialto::IMediaPipeline::MediaSource> &src)
+		{
+			const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
+				*src).setId(m_nextSourceId++);
+			return true;
+		}));
+	m_source.attachOrUpdate(*m_pipelinePtr, codecInfo1, &mockDrm, -1, prot);
+	ASSERT_EQ(m_source.mksId(), 42);
+
+	auto codecInfo2 = MakeH264CodecInfo(1920, 1080);
+	auto result = m_source.attachOrUpdate(
+		*m_pipelinePtr, codecInfo2, &mockDrm, -1, prot);
+
+	EXPECT_EQ(result, AampRialtoMediaSource::AttachResult::UPDATED);
+	EXPECT_EQ(m_source.mksId(), 42);
+}
+
+/**
+ * @test AampRialtoVideoSource_AttachTwice_ChangedProtection_RecreatesSession
+ * @brief Verify that different protection params (new PSSH/init data) on a
+ *        later attachOrUpdate() call refresh mksId via a new createSession()
+ *        call — this is the key-rotation-across-periods scenario.
+ */
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_AttachTwice_ChangedProtection_RecreatesSession)
+{
+	NiceMock<MockDrmBridge> mockDrm;
+	AampRialtoMediaSource::ProtectionParams protA;
+	protA.systemId = "edef8ba9-79d6-4ace-a3c8-27dcd51d21ed";
+	protA.initData = {0xCA, 0xFE};
+	protA.type     = eMEDIATYPE_VIDEO;
+
+	AampRialtoMediaSource::ProtectionParams protB;
+	protB.systemId = "edef8ba9-79d6-4ace-a3c8-27dcd51d21ed";
+	protB.initData = {0xBE, 0xEF};
+	protB.type     = eMEDIATYPE_VIDEO;
+
+	{
+		InSequence seq;
+		EXPECT_CALL(mockDrm, createSession(_, _, _, eMEDIATYPE_VIDEO))
+			.WillOnce(Return(42));
+		EXPECT_CALL(mockDrm, createSession(_, _, _, eMEDIATYPE_VIDEO))
+			.WillOnce(Return(99));
+	}
+
+	auto codecInfo1 = MakeH264CodecInfo();
+	EXPECT_CALL(*m_pipelinePtr, attachSource(_))
+		.WillOnce(Invoke([this](const std::unique_ptr<
+			firebolt::rialto::IMediaPipeline::MediaSource> &src)
+		{
+			const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
+				*src).setId(m_nextSourceId++);
+			return true;
+		}));
+	m_source.attachOrUpdate(*m_pipelinePtr, codecInfo1, &mockDrm, -1, protA);
+	ASSERT_EQ(m_source.mksId(), 42);
+
+	auto codecInfo2 = MakeH264CodecInfo();
+	auto result = m_source.attachOrUpdate(
+		*m_pipelinePtr, codecInfo2, &mockDrm, -1, protB);
+
+	EXPECT_EQ(result, AampRialtoMediaSource::AttachResult::UPDATED);
+	EXPECT_EQ(m_source.mksId(), 99);
+}
+
+/**
+ * @test AampRialtoVideoSource_AttachTwice_ProtectionArrivesLate_CreatesSession
+ * @brief Verify that protection params supplied for the first time on a
+ *        later attachOrUpdate() call (source already attached unencrypted)
+ *        still create a DRM session and populate mksId.
+ */
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_AttachTwice_ProtectionArrivesLate_CreatesSession)
+{
+	auto codecInfo1 = MakeH264CodecInfo();
+	EXPECT_CALL(*m_pipelinePtr, attachSource(_))
+		.WillOnce(Invoke([this](const std::unique_ptr<
+			firebolt::rialto::IMediaPipeline::MediaSource> &src)
+		{
+			const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
+				*src).setId(m_nextSourceId++);
+			return true;
+		}));
+	m_source.attachOrUpdate(*m_pipelinePtr, codecInfo1, nullptr, -1);
+	ASSERT_EQ(m_source.mksId(), -1);
+
+	NiceMock<MockDrmBridge> mockDrm;
+	EXPECT_CALL(mockDrm, createSession(_, _, _, eMEDIATYPE_VIDEO))
+		.WillOnce(Return(7));
+
+	AampRialtoMediaSource::ProtectionParams prot;
+	prot.systemId = "edef8ba9-79d6-4ace-a3c8-27dcd51d21ed";
+	prot.initData = {0xCA, 0xFE};
+	prot.type     = eMEDIATYPE_VIDEO;
+
+	auto codecInfo2 = MakeH264CodecInfo();
+	auto result = m_source.attachOrUpdate(
+		*m_pipelinePtr, codecInfo2, &mockDrm, -1, prot);
+
+	EXPECT_EQ(result, AampRialtoMediaSource::AttachResult::UPDATED);
+	EXPECT_EQ(m_source.mksId(), 7);
+}
+
+// ---------------------------------------------------------------------------
+// attachOrUpdate — with flush position
+// ---------------------------------------------------------------------------
+
+/**
+ * @test AampRialtoVideoSource_AttachWithFlushPosition_SetsSourcePosition
+ * @brief Verify setSourcePosition is called when flush position >= 0.
+ */
+TEST_F(AampRialtoVideoSourceTest, AampRialtoVideoSource_AttachWithFlushPosition_SetsSourcePosition)
+{
+	const int64_t flushPosNs = 5'000'000'000LL;
+
+	EXPECT_CALL(*m_pipelinePtr, setSourcePosition(10, flushPosNs, _, _, _))
+		.WillOnce(Return(true));
+
+	auto codecInfo = MakeH264CodecInfo();
+
+	auto result = m_source.attachOrUpdate(
+		*m_pipelinePtr, codecInfo, nullptr, flushPosNs);
+
+	EXPECT_EQ(result, AampRialtoMediaSource::AttachResult::NEWLY_ATTACHED);
+}
+
+// ---------------------------------------------------------------------------
+// reset
+// ---------------------------------------------------------------------------
+
+/**
+ * @test AampRialtoVideoSource_Reset_ClearsState
+ * @brief Verify reset clears source ID, mks ID and metadata.
+ */
+TEST_F(AampRialtoVideoSourceTest, AampRialtoVideoSource_Reset_ClearsState)
+{
+	auto codecInfo = MakeH264CodecInfo(1280, 720);
+	m_source.attachOrUpdate(*m_pipelinePtr, codecInfo, nullptr, -1);
+	ASSERT_TRUE(m_source.isAttached());
+
+	m_source.reset();
+
+	EXPECT_FALSE(m_source.isAttached());
+	EXPECT_EQ(m_source.sourceId(), -1);
+	EXPECT_EQ(m_source.mksId(), -1);
+}
+
+// ---------------------------------------------------------------------------
+// createSegment
+// ---------------------------------------------------------------------------
+
+/**
+ * @test AampRialtoVideoSource_CreateSegment_ReturnsVideoSegment
+ * @brief Verify createSegment produces a MediaSegmentVideo.
+ */
+TEST_F(AampRialtoVideoSourceTest, AampRialtoVideoSource_CreateSegment_AfterAttach)
+{
+	auto codecInfo = MakeH264CodecInfo(1920, 1080);
+	m_source.attachOrUpdate(*m_pipelinePtr, codecInfo, nullptr, -1);
+
+	// Access createSegment indirectly through injection
+	// (createSegment is protected — tested via injectOneSample)
+	EXPECT_TRUE(m_source.isAttached());
+	EXPECT_EQ(m_source.width(), 1920);
+	EXPECT_EQ(m_source.height(), 1080);
+}
+
+// ---------------------------------------------------------------------------
+// Codec data staging
+// ---------------------------------------------------------------------------
+
+/**
+ * @test AampRialtoVideoSource_TakePendingCodecData_ReturnsStagedData
+ * @brief Verify pending codec data is staged by attach and consumed by take.
+ */
+TEST_F(AampRialtoVideoSourceTest, AampRialtoVideoSource_TakePendingCodecData_ReturnsStagedData)
+{
+	auto codecInfo = MakeH264CodecInfo();
+	m_source.attachOrUpdate(*m_pipelinePtr, codecInfo, nullptr, -1);
+
+	auto cd = m_source.takePendingCodecData();
+	EXPECT_NE(cd, nullptr);
+	EXPECT_FALSE(cd->data.empty());
+
+	auto cd2 = m_source.takePendingCodecData();
+	EXPECT_EQ(cd2, nullptr);
+}
+
+// ---------------------------------------------------------------------------
+// unblockInjection
+// ---------------------------------------------------------------------------
+
+/**
+ * @test AampRialtoVideoSource_UnblockInjection_BumpsGeneration
+ * @brief Verify unblockInjection increments the generation counter.
+ */
+TEST_F(AampRialtoVideoSourceTest, AampRialtoVideoSource_UnblockInjection_BumpsGeneration)
+{
+	uint64_t gen1 = m_source.captureGeneration();
+	m_source.unblockInjection(m_pipelinePtr);
+	uint64_t gen2 = m_source.captureGeneration();
+
+	EXPECT_GT(gen2, gen1);
+}
+
+/**
+ * @test AampRialtoVideoSource_UnblockInjection_WithPendingRequestNoInjector_SendsNoAvailableSamples
+ * @brief Verify unblockInjection() closes out an abandoned needData
+ *        request with haveData(NO_AVAILABLE_SAMPLES) when no injector is
+ *        active to answer it (e.g. Flush()/Stop() racing a needData that
+ *        arrived just before the pipeline-level seek).
+ */
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_UnblockInjection_WithPendingRequestNoInjector_SendsNoAvailableSamples)
+{
+	auto codecInfo = MakeH264CodecInfo();
+	m_source.attachOrUpdate(*m_pipelinePtr, codecInfo, nullptr, -1);
+
+	m_source.handleNeedData(1, /*requestId=*/33, m_pipelinePtr);
+
+	EXPECT_CALL(*m_pipelinePtr,
+		haveData(firebolt::rialto::MediaSourceStatus::NO_AVAILABLE_SAMPLES, 33))
+		.WillOnce(Return(true));
+
+	m_source.unblockInjection(m_pipelinePtr);
+
+	auto &st = m_source.state();
+	std::lock_guard<std::mutex> lock(st.mu);
+	EXPECT_FALSE(st.hasPending);
+}
+
+/**
+ * @test AampRialtoVideoSource_UnblockInjection_WithInjectorActive_DoesNotRespondItself
+ * @brief Verify unblockInjection() does NOT send haveData itself when an
+ *        injector is active — the injector owns the request and must close
+ *        it out when it observes the generation change.
+ */
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_UnblockInjection_WithInjectorActive_DoesNotRespondItself)
+{
+	auto codecInfo = MakeH264CodecInfo();
+	m_source.attachOrUpdate(*m_pipelinePtr, codecInfo, nullptr, -1);
+
+	m_source.handleNeedData(1, /*requestId=*/44, m_pipelinePtr);
+	{
+		auto &st = m_source.state();
+		std::lock_guard<std::mutex> lock(st.mu);
+		st.injectorActive = true;
+	}
+
+	EXPECT_CALL(*m_pipelinePtr, haveData(_, _)).Times(0);
+
+	m_source.unblockInjection(m_pipelinePtr);
+
+	auto &st = m_source.state();
+	std::lock_guard<std::mutex> lock(st.mu);
+	EXPECT_TRUE(st.hasPending);
+	EXPECT_EQ(st.pendingRequestId, 44u);
+}
+
+/**
+ * @test AampRialtoVideoSource_InjectOneSample_GenerationInvalidatedWhileWaiting_ClosesOutRequest
+ * @brief Verify that when unblockInjection() defers to an active
+ *        injector (because a needData was staged concurrently), the
+ *        injector itself sends haveData(NO_AVAILABLE_SAMPLES) for the
+ *        abandoned request when it wakes and aborts.  This is the other
+ *        half of the handshake exercised by the "DoesNotRespondItself"
+ *        test above.
+ */
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_InjectOneSample_GenerationInvalidatedWhileWaiting_ClosesOutRequest)
+{
+	auto codecInfo = MakeH264CodecInfo();
+	m_source.attachOrUpdate(*m_pipelinePtr, codecInfo, nullptr, -1);
+
+	uint64_t gen = m_source.captureGeneration();
+
+	AampMediaSample sample;
+	uint8_t data[] = {0x55, 0x66};
+	sample.mData = std::shared_ptr<const uint8_t>(data, [](const uint8_t *){});
+	sample.mDataSize = 2;
+	sample.mPts = 5.0;
+	sample.mDuration = 0.033;
+
+	EXPECT_CALL(*m_pipelinePtr, addSegment(_, _)).Times(0);
+	EXPECT_CALL(*m_pipelinePtr,
+		haveData(firebolt::rialto::MediaSourceStatus::NO_AVAILABLE_SAMPLES, 66))
+		.WillOnce(Return(true));
+
+	std::atomic<bool> injected{true};
+	std::thread injector([&]{
+		injected = m_source.injectOneSample(
+			*m_pipelinePtr, gen, std::move(sample), nullptr);
+	});
+
+	// Poll for the injector to enter its wait (injectorActive is set) rather
+	// than relying on a fixed sleep duration.
+	{
+		auto &st = m_source.state();
+		const auto deadline = std::chrono::steady_clock::now() +
+			std::chrono::milliseconds(200);
+		bool active = false;
+		while (!active && std::chrono::steady_clock::now() < deadline)
+		{
+			{
+				std::lock_guard<std::mutex> lock(st.mu);
+				active = st.injectorActive;
+			}
+			if (!active)
+			{
+				std::this_thread::sleep_for(std::chrono::milliseconds(1));
+			}
+		}
+		ASSERT_TRUE(active);
+	}
+
+	// Stage a pending request as if a needData arrived just before the
+	// flush/seek, then invalidate the generation (as Flush()/Stop() would).
+	// Since the injector is active, unblockInjection() must defer the
+	// request to it rather than answering itself.
+	{
+		auto &st = m_source.state();
+		std::lock_guard<std::mutex> lock(st.mu);
+		st.hasPending        = true;
+		st.pendingRequestId  = 66;
+		st.pendingFrameCount = 1;
+	}
+	m_source.unblockInjection(m_pipelinePtr);
+
+	injector.join();
+	EXPECT_FALSE(injected.load());
+
+	auto &st = m_source.state();
+	std::lock_guard<std::mutex> lock(st.mu);
+	EXPECT_FALSE(st.hasPending);
+}
+
+/**
+ * @test AampRialtoVideoSource_InjectOneSample_GenerationChangedDuringAddSegment_RespondsAbandoned
+ * @brief Regression: if unblockInjection() runs while an injector is
+ *        blocked inside pipeline.addSegment() (injectorActive=true, so
+ *        unblockInjection() defers to the injector rather than
+ *        answering itself), handleAddSegmentCompletion() must still answer
+ *        the request with NO_AVAILABLE_SAMPLES once addSegment() returns -
+ *        previously this generation-mismatch case was silently dropped,
+ *        leaking the request forever since nothing else would ever
+ *        answer it.
+ */
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_InjectOneSample_GenerationChangedDuringAddSegment_RespondsAbandoned)
+{
+	auto codecInfo = MakeH264CodecInfo();
+	m_source.attachOrUpdate(*m_pipelinePtr, codecInfo, nullptr, -1);
+
+	uint64_t gen = m_source.captureGeneration();
+
+	{
+		auto &st = m_source.state();
+		std::lock_guard<std::mutex> lock(st.mu);
+		st.hasPending        = true;
+		st.pendingRequestId  = 55;
+		st.pendingFrameCount = 1;
+	}
+
+	std::atomic<bool> addSegmentEntered{false};
+	std::atomic<bool> releaseAddSegment{false};
+
+	EXPECT_CALL(*m_pipelinePtr, addSegment(55, _))
+		.WillOnce(Invoke([&](uint32_t,
+			const std::unique_ptr<firebolt::rialto::IMediaPipeline::MediaSegment> &)
+			{
+				addSegmentEntered.store(true, std::memory_order_release);
+				while (!releaseAddSegment.load(std::memory_order_acquire))
+				{
+					std::this_thread::sleep_for(std::chrono::milliseconds(1));
+				}
+				return firebolt::rialto::AddSegmentStatus::OK;
+			}));
+
+	EXPECT_CALL(*m_pipelinePtr,
+		haveData(firebolt::rialto::MediaSourceStatus::NO_AVAILABLE_SAMPLES, 55))
+		.WillOnce(Return(true));
+
+	AampMediaSample sample;
+	uint8_t data[] = {0x01, 0x02};
+	sample.mData = std::shared_ptr<const uint8_t>(data, [](const uint8_t *){});
+	sample.mDataSize = 2;
+	sample.mPts = 1.0;
+	sample.mDuration = 0.033;
+
+	std::thread injector([&] {
+		m_source.injectOneSample(*m_pipelinePtr, gen, std::move(sample), nullptr);
+	});
+
+	const auto deadline = std::chrono::steady_clock::now() +
+		std::chrono::milliseconds(200);
+	while (!addSegmentEntered.load(std::memory_order_acquire) &&
+		std::chrono::steady_clock::now() < deadline)
+	{
+		std::this_thread::sleep_for(std::chrono::milliseconds(1));
+	}
+	ASSERT_TRUE(addSegmentEntered.load(std::memory_order_acquire));
+
+	// Simulate Flush()/Stop() happening while addSegment() is in flight.
+	// injectorActive is true, so unblockInjection() must defer this
+	// request to the injector rather than answering it itself.
+	m_source.unblockInjection(m_pipelinePtr, "test-flush-race");
+
+	releaseAddSegment.store(true, std::memory_order_release);
+	injector.join();
+
+	auto &st = m_source.state();
+	std::lock_guard<std::mutex> lock(st.mu);
+	EXPECT_FALSE(st.hasPending);
+}
+
+// ---------------------------------------------------------------------------
+// EOS signaling
+// ---------------------------------------------------------------------------
+
+/**
+ * @test AampRialtoVideoSource_SignalEos_SetsEosFlag
+ * @brief Verify signalEos sets the EOS flag on the source state.
+ */
+TEST_F(AampRialtoVideoSourceTest, AampRialtoVideoSource_SignalEos_SetsEosFlag)
+{
+	m_source.signalEos(nullptr);
+
+	auto &st = m_source.state();
+	std::lock_guard<std::mutex> lock(st.mu);
+	EXPECT_TRUE(st.eos);
+}
+
+/**
+ * @test AampRialtoVideoSource_SignalEos_WithPendingRequest_SendsHaveDataEOS
+ * @brief Verify signalEos closes a pending needData request with EOS.
+ */
+TEST_F(AampRialtoVideoSourceTest, AampRialtoVideoSource_SignalEos_WithPendingRequest_SendsHaveDataEOS)
+{
+	auto codecInfo = MakeH264CodecInfo();
+	m_source.attachOrUpdate(*m_pipelinePtr, codecInfo, nullptr, -1);
+
+	m_source.handleNeedData(1, /*requestId=*/99, m_pipelinePtr);
+
+	EXPECT_CALL(*m_pipelinePtr,
+		haveData(firebolt::rialto::MediaSourceStatus::EOS, 99))
+		.WillOnce(Return(true));
+
+	m_source.signalEos(m_pipelinePtr);
+}
+
+// ---------------------------------------------------------------------------
+// handleNeedData / handleCancelNeedData
+// ---------------------------------------------------------------------------
+
+/**
+ * @test AampRialtoVideoSource_HandleNeedData_SetsPendingState
+ * @brief Verify handleNeedData sets the pending request state.
+ */
+TEST_F(AampRialtoVideoSourceTest, AampRialtoVideoSource_HandleNeedData_SetsPendingState)
+{
+	m_source.handleNeedData(5, /*requestId=*/42, nullptr);
+
+	auto &st = m_source.state();
+	std::lock_guard<std::mutex> lock(st.mu);
+	EXPECT_TRUE(st.hasPending);
+	EXPECT_EQ(st.pendingRequestId, 42u);
+	EXPECT_EQ(st.pendingFrameCount, 5u);
+}
+
+/**
+ * @test AampRialtoVideoSource_HandleNeedData_WhenEos_SendsEos
+ * @brief Verify handleNeedData replies with EOS when source is in EOS state.
+ */
+TEST_F(AampRialtoVideoSourceTest, AampRialtoVideoSource_HandleNeedData_WhenEos_SendsEos)
+{
+	auto codecInfo = MakeH264CodecInfo();
+	m_source.attachOrUpdate(*m_pipelinePtr, codecInfo, nullptr, -1);
+
+	m_source.signalEos(m_pipelinePtr);
+
+	EXPECT_CALL(*m_pipelinePtr,
+		haveData(firebolt::rialto::MediaSourceStatus::EOS, 55))
+		.WillOnce(Return(true));
+
+	m_source.handleNeedData(1, /*requestId=*/55, m_pipelinePtr);
+}
+
+/**
+ * @test AampRialtoVideoSource_HandleNeedData_SupersededByNewRequest_ClosesOutStaleRequest
+ * @brief Verify a second handleNeedData() call, arriving without an
+ *        intervening handleCancelNeedData(), closes out the previous
+ *        unclaimed request with haveData(NO_AVAILABLE_SAMPLES) instead of
+ *        silently overwriting it.  Silently dropping the old requestId
+ *        leaves Rialto's own bookkeeping for it unanswered, which can
+ *        desync AAMP and Rialto once the newer request is eventually served.
+ */
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_HandleNeedData_SupersededByNewRequest_ClosesOutStaleRequest)
+{
+	m_source.handleNeedData(1, /*requestId=*/42, m_pipelinePtr);
+
+	EXPECT_CALL(*m_pipelinePtr,
+		haveData(firebolt::rialto::MediaSourceStatus::NO_AVAILABLE_SAMPLES, 42))
+		.WillOnce(Return(true));
+
+	m_source.handleNeedData(1, /*requestId=*/43, m_pipelinePtr);
+
+	auto &st = m_source.state();
+	std::lock_guard<std::mutex> lock(st.mu);
+	EXPECT_TRUE(st.hasPending);
+	EXPECT_EQ(st.pendingRequestId, 43u);
+}
+
+/**
+ * @test AampRialtoVideoSource_HandleCancelNeedData_ClearsPending
+ * @brief Verify handleCancelNeedData clears the pending state.
+ */
+TEST_F(AampRialtoVideoSourceTest, AampRialtoVideoSource_HandleCancelNeedData_ClearsPending)
+{
+	m_source.handleNeedData(5, /*requestId=*/42, nullptr);
+
+	m_source.handleCancelNeedData();
+
+	auto &st = m_source.state();
+	std::lock_guard<std::mutex> lock(st.mu);
+	EXPECT_FALSE(st.hasPending);
+}
+
+// ---------------------------------------------------------------------------
+// flushSource
+// ---------------------------------------------------------------------------
+
+/**
+ * @test AampRialtoVideoSource_FlushSource_CallsPipelineFlush
+ * @brief Verify flushSource calls flush on the pipeline.
+ *
+ * setSourcePosition() is NOT called from flushSource() — it is deferred
+ * to OnSourceFlushed() after the server confirms the flush.
+ */
+TEST_F(AampRialtoVideoSourceTest, AampRialtoVideoSource_FlushSource_CallsPipelineFlush)
+{
+	auto codecInfo = MakeH264CodecInfo();
+	m_source.attachOrUpdate(*m_pipelinePtr, codecInfo, nullptr, -1);
+
+	const int64_t posNs = 3'000'000'000LL;
+	EXPECT_CALL(*m_pipelinePtr, flush(m_source.sourceId(), true, _))
+		.WillOnce(Return(true));
+	EXPECT_CALL(*m_pipelinePtr, setSourcePosition(_, _, _, _, _)).Times(0);
+
+	m_source.flushSource(*m_pipelinePtr, posNs);
+}
+
+/**
+ * @test AampRialtoVideoSource_FlushSource_NotAttached_NoOp
+ * @brief Verify flushSource does nothing when source is not attached.
+ */
+TEST_F(AampRialtoVideoSourceTest, AampRialtoVideoSource_FlushSource_NotAttached_NoOp)
+{
+	EXPECT_CALL(*m_pipelinePtr, flush(_, _, _)).Times(0);
+	EXPECT_CALL(*m_pipelinePtr, setSourcePosition(_, _, _, _, _)).Times(0);
+
+	m_source.flushSource(*m_pipelinePtr, 1'000'000'000LL);
+}
+
+// ---------------------------------------------------------------------------
+// signalEos — with segmentsAddedInBatch > 0
+// ---------------------------------------------------------------------------
+
+/**
+ * @test AampRialtoVideoSource_SignalEos_WithInjectorActive_DoesNotSendHaveData
+ * @brief Verify signalEos does NOT send haveData when an injector is active.
+ *        The injector owns the request and will send haveData(EOS) itself.
+ */
+TEST_F(AampRialtoVideoSourceTest, AampRialtoVideoSource_SignalEos_WithInjectorActive_DoesNotSendHaveData)
+{
+	auto codecInfo = MakeH264CodecInfo();
+	m_source.attachOrUpdate(*m_pipelinePtr, codecInfo, nullptr, -1);
+
+	m_source.handleNeedData(10, /*requestId=*/77, m_pipelinePtr);
+
+	// Simulate that injectOneSample is active and has pushed some segments.
+	{
+		auto &st = m_source.state();
+		std::lock_guard<std::mutex> lock(st.mu);
+		st.segmentsAddedInBatch  = 3;
+		st.injectorActive  = true;
+	}
+
+	// haveData should NOT be called — injectOneSample owns this request.
+	EXPECT_CALL(*m_pipelinePtr, haveData(_, _)).Times(0);
+
+	m_source.signalEos(m_pipelinePtr);
+
+	// EOS flag is set, hasPending remains true for injectOneSample.
+	auto &st = m_source.state();
+	std::lock_guard<std::mutex> lock(st.mu);
+	EXPECT_TRUE(st.eos);
+	EXPECT_TRUE(st.hasPending);
+}
+
+/**
+ * @test AampRialtoVideoSource_SignalEos_WithAddedSamplesNoInjector_SendsEos
+ * @brief Verify signalEos sends haveData(EOS) immediately when no injector is
+ *        active, even if some samples were already added for the request.
+ *        Rialto will deliver the buffered segments before propagating EOS.
+ */
+TEST_F(AampRialtoVideoSourceTest, AampRialtoVideoSource_SignalEos_WithAddedSamplesNoInjector_SendsEos)
+{
+	auto codecInfo = MakeH264CodecInfo();
+	m_source.attachOrUpdate(*m_pipelinePtr, codecInfo, nullptr, -1);
+
+	m_source.handleNeedData(10, /*requestId=*/88, m_pipelinePtr);
+
+	// Simulate that a previous injector added samples and exited
+	// (injectorActive is false).
+	{
+		auto &st = m_source.state();
+		std::lock_guard<std::mutex> lock(st.mu);
+		st.segmentsAddedInBatch = 3;
+		// injectorActive remains false (default)
+	}
+
+	// signalEos should fire immediately — no injector holds the slot.
+	EXPECT_CALL(*m_pipelinePtr,
+		haveData(firebolt::rialto::MediaSourceStatus::EOS, 88))
+		.WillOnce(Return(true));
+
+	m_source.signalEos(m_pipelinePtr);
+
+	auto &st = m_source.state();
+	std::lock_guard<std::mutex> lock(st.mu);
+	EXPECT_TRUE(st.eos);
+	EXPECT_FALSE(st.hasPending);
+}
+
+// ---------------------------------------------------------------------------
+// injectOneSample — EOS already set, returns immediately
+// ---------------------------------------------------------------------------
+
+/**
+ * @test AampRialtoVideoSource_InjectOneSample_EosAlreadySet_ReturnsFalse
+ * @brief Verify injectOneSample returns false immediately when EOS is already
+ *        set and no pending request is available.
+ */
+TEST_F(AampRialtoVideoSourceTest, AampRialtoVideoSource_InjectOneSample_EosAlreadySet_ReturnsFalse)
+{
+	auto codecInfo = MakeH264CodecInfo();
+	m_source.attachOrUpdate(*m_pipelinePtr, codecInfo, nullptr, -1);
+
+	// Signal EOS without a pending request.
+	m_source.signalEos(m_pipelinePtr);
+
+	uint64_t gen = m_source.captureGeneration();
+
+	AampMediaSample sample;
+	uint8_t data[] = {0xDE, 0xAD};
+	sample.mData = std::shared_ptr<const uint8_t>(data, [](const uint8_t *){});
+	sample.mDataSize = 2;
+	sample.mPts = 1.0;
+	sample.mDuration = 0.033;
+
+	bool result = m_source.injectOneSample(
+		*m_pipelinePtr, gen, std::move(sample), nullptr);
+
+	EXPECT_FALSE(result);
+}
+
+// ---------------------------------------------------------------------------
+// injectOneSample — EOS set during injection sends haveData(EOS)
+// ---------------------------------------------------------------------------
+
+/**
+ * @test AampRialtoVideoSource_InjectOneSample_EosDuringInjection_SendsEos
+ * @brief Verify that when EOS is set while a batch is in progress,
+ *        injectOneSample injects the sample and sends haveData(EOS).
+ */
+TEST_F(AampRialtoVideoSourceTest, AampRialtoVideoSource_InjectOneSample_EosDuringInjection_SendsEos)
+{
+	auto codecInfo = MakeH264CodecInfo();
+	m_source.attachOrUpdate(*m_pipelinePtr, codecInfo, nullptr, -1);
+
+	uint64_t gen = m_source.captureGeneration();
+
+	// Simulate mid-batch state: needData arrived, some samples already
+	// pushed, then signalEos was called (which saw injectorActive=true
+	// and did NOT steal the request).
+	{
+		auto &st = m_source.state();
+		std::lock_guard<std::mutex> lock(st.mu);
+		st.hasPending            = true;
+		st.pendingRequestId      = 42;
+		st.pendingFrameCount     = 10;
+		st.segmentsAddedInBatch  = 3;
+		st.eos                   = true;
+		st.injectorActive        = true;
+	}
+
+	// Expect addSegment to succeed, then haveData(EOS).
+	EXPECT_CALL(*m_pipelinePtr, addSegment(42, _))
+		.WillOnce(Return(firebolt::rialto::AddSegmentStatus::OK));
+	EXPECT_CALL(*m_pipelinePtr,
+		haveData(firebolt::rialto::MediaSourceStatus::EOS, 42))
+		.WillOnce(Return(true));
+
+	AampMediaSample sample;
+	uint8_t data[] = {0xCA, 0xFE};
+	sample.mData = std::shared_ptr<const uint8_t>(data, [](const uint8_t *){});
+	sample.mDataSize = 2;
+	sample.mPts = 2.0;
+	sample.mDuration = 0.033;
+
+	bool result = m_source.injectOneSample(
+		*m_pipelinePtr, gen, std::move(sample), nullptr);
+
+	EXPECT_TRUE(result);
+}
+
+// ---------------------------------------------------------------------------
+// injectOneSample — EOS set while waiting, needData arrives
+// ---------------------------------------------------------------------------
+
+/**
+ * @test AampRialtoVideoSource_InjectOneSample_EosSetThenNeedData_InjectsAndSendsEos
+ * @brief Verify that when EOS is set while waiting and then a needData slot
+ *        becomes available, the sample is still injected with EOS status.
+ */
+TEST_F(AampRialtoVideoSourceTest, AampRialtoVideoSource_InjectOneSample_EosSetThenNeedData_InjectsAndSendsEos)
+{
+	auto codecInfo = MakeH264CodecInfo();
+	m_source.attachOrUpdate(*m_pipelinePtr, codecInfo, nullptr, -1);
+
+	uint64_t gen = m_source.captureGeneration();
+
+	EXPECT_CALL(*m_pipelinePtr, addSegment(77, _))
+		.WillOnce(Return(firebolt::rialto::AddSegmentStatus::OK));
+	EXPECT_CALL(*m_pipelinePtr,
+		haveData(firebolt::rialto::MediaSourceStatus::EOS, 77))
+		.WillOnce(Return(true));
+
+	AampMediaSample sample;
+	uint8_t data[] = {0xBE, 0xEF};
+	sample.mData = std::shared_ptr<const uint8_t>(data, [](const uint8_t *){});
+	sample.mDataSize = 2;
+	sample.mPts = 3.0;
+	sample.mDuration = 0.033;
+
+	std::atomic<bool> injected{false};
+	std::thread injector([&]{
+		injected = m_source.injectOneSample(
+			*m_pipelinePtr, gen, std::move(sample), nullptr);
+	});
+
+	// Give the injector thread time to enter the wait.
+	std::this_thread::sleep_for(std::chrono::milliseconds(20));
+
+	// Simultaneously set eos and provide a needData slot (simulating
+	// both events arriving while the thread is waiting).
+	{
+		auto &st = m_source.state();
+		std::lock_guard<std::mutex> lock(st.mu);
+		st.eos                   = true;
+		st.hasPending            = true;
+		st.pendingRequestId      = 77;
+		st.pendingFrameCount     = 10;
+		st.segmentsAddedInBatch  = 0;
+		st.gateMode              = AampRialtoMediaSource::GateMode::NONE;
+	}
+	m_source.state().cv.notify_all();
+
+	injector.join();
+	EXPECT_TRUE(injected.load());
+}
+
+/**
+ * @test AampRialtoVideoSource_InjectOneSample_NoSpace_DoesNotSetFirstPts
+ * @brief Verify firstPtsMs remains unset when addSegment does not accept
+ *        the sample and the injection loop aborts.
+ */
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_InjectOneSample_NoSpace_DoesNotSetFirstPts)
+{
+	auto codecInfo = MakeH264CodecInfo();
+	m_source.attachOrUpdate(*m_pipelinePtr, codecInfo, nullptr, -1);
+
+	uint64_t gen = m_source.captureGeneration();
+
+	{
+		auto &st = m_source.state();
+		std::lock_guard<std::mutex> lock(st.mu);
+		st.hasPending            = true;
+		st.pendingRequestId      = 81;
+		st.pendingFrameCount     = 1;
+		st.segmentsAddedInBatch  = 0;
+		st.injectorActive        = true;
+	}
+
+	EXPECT_CALL(*m_pipelinePtr,
+		haveData(firebolt::rialto::MediaSourceStatus::NO_AVAILABLE_SAMPLES, 81))
+		.WillOnce(Return(true));
+
+	AampMediaSample sample;
+	uint8_t data[] = {0x10, 0x11};
+	sample.mData = std::shared_ptr<const uint8_t>(data, [](const uint8_t *){});
+	sample.mDataSize = 2;
+	sample.mPts = 4.0;
+	sample.mDuration = 0.033;
+
+	std::atomic<bool> injected{true};
+	std::atomic<bool> addSegmentReturned{false};
+
+	EXPECT_CALL(*m_pipelinePtr, addSegment(81, _))
+		.WillOnce(Invoke([&](uint32_t,
+			const std::unique_ptr<firebolt::rialto::IMediaPipeline::MediaSegment> &)
+			{
+				addSegmentReturned.store(true, std::memory_order_release);
+				return firebolt::rialto::AddSegmentStatus::NO_SPACE;
+			}));
+
+	std::thread injector([&] {
+		injected = m_source.injectOneSample(
+			*m_pipelinePtr, gen, std::move(sample), nullptr);
+	});
+
+	const auto deadline = std::chrono::steady_clock::now() +
+		std::chrono::milliseconds(200);
+	while (!addSegmentReturned.load(std::memory_order_acquire) &&
+		std::chrono::steady_clock::now() < deadline)
+	{
+		std::this_thread::sleep_for(std::chrono::milliseconds(1));
+	}
+	ASSERT_TRUE(addSegmentReturned.load(std::memory_order_acquire));
+	EXPECT_EQ(m_source.firstPtsMs(), AampRialtoMediaSource::kFirstPtsNotSet);
+
+	m_source.unblockInjection(m_pipelinePtr);
+
+	injector.join();
+
+	EXPECT_FALSE(injected.load());
+}
+
+/**
+ * @test AampRialtoVideoSource_InjectOneSample_CreateSegmentNull_RespondsNoAvailableSamples
+ * @brief Regression: when createSegment() returns nullptr for a non-EOS
+ *        request, the request must still be answered (with
+ *        NO_AVAILABLE_SAMPLES) rather than silently dropped - previously
+ *        only the EOS case was handled here, leaking the request in all
+ *        other createSegment() failures.
+ */
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_InjectOneSample_CreateSegmentNull_RespondsNoAvailableSamples)
+{
+	TestableAampRialtoVideoSourceNullSegment source;
+	source.mReturnNullSegment = true;
+
+	auto codecInfo = MakeH264CodecInfo();
+	source.attachOrUpdate(*m_pipelinePtr, codecInfo, nullptr, -1);
+
+	{
+		auto &st = source.state();
+		std::lock_guard<std::mutex> lock(st.mu);
+		st.hasPending        = true;
+		st.pendingRequestId  = 909;
+		st.pendingFrameCount = 1;
+	}
+
+	EXPECT_CALL(*m_pipelinePtr, addSegment(_, _)).Times(0);
+	EXPECT_CALL(*m_pipelinePtr,
+		haveData(firebolt::rialto::MediaSourceStatus::NO_AVAILABLE_SAMPLES, 909))
+		.WillOnce(Return(true));
+
+	uint64_t gen = source.captureGeneration();
+	AampMediaSample sample;
+	uint8_t data[] = {0x01};
+	sample.mData = std::shared_ptr<const uint8_t>(data, [](const uint8_t *){});
+	sample.mDataSize = 1;
+	sample.mPts = 1.0;
+	sample.mDuration = 0.033;
+
+	bool result = source.injectOneSample(
+		*m_pipelinePtr, gen, std::move(sample), nullptr);
+
+	EXPECT_FALSE(result);
+
+	auto &st = source.state();
+	std::lock_guard<std::mutex> lock(st.mu);
+	EXPECT_FALSE(st.hasPending);
+}
+
+// ===========================================================================
+// Fixture: AampRialtoVideoSourceWithDemuxTest
+// Extends AampRialtoVideoSourceTest with a fake Mp4Demux backed by
+// g_mockMp4Demux so that processInitFragment / processDataFragment /
+// injectSingleSample can be exercised.
+// ===========================================================================
+
+/**
+ * @class AampRialtoVideoSourceWithDemuxTest
+ * @brief Fixture for processInitFragment / processDataFragment /
+ *        injectSingleSample unit tests.
+ */
+class AampRialtoVideoSourceWithDemuxTest : public AampRialtoVideoSourceTest
+{
+protected:
+	void SetUp() override
+	{
+		AampRialtoVideoSourceTest::SetUp();
+		g_mockMp4Demux = std::make_shared<NiceMock<MockMp4Demux>>();
+		// Prime the demuxer lazily via processInitFragment so that
+		// subsequent processDataFragment tests have an initialised demuxer.
+		ON_CALL(*g_mockMp4Demux, Parse(_)).WillByDefault(Return(true));
+		auto buf = std::make_shared<std::vector<uint8_t>>(
+			std::vector<uint8_t>{0x00});
+		m_source.processInitFragment(std::move(buf));
+	}
+
+	void TearDown() override
+	{
+		g_mockMp4Demux.reset();
+		AampRialtoVideoSourceTest::TearDown();
+	}
+};
+
+// ---------------------------------------------------------------------------
+// processInitFragment — success
+// ---------------------------------------------------------------------------
+
+/**
+ * @test AampRialtoVideoSource_ProcessInitFragment_Success
+ * @brief Verify processInitFragment returns codec info when Parse succeeds.
+ */
+TEST_F(AampRialtoVideoSourceWithDemuxTest,
+	AampRialtoVideoSource_ProcessInitFragment_Success)
+{
+	ON_CALL(*g_mockMp4Demux, Parse(_)).WillByDefault(Return(true));
+	ON_CALL(*g_mockMp4Demux, GetCodecInfo())
+		.WillByDefault([]() { return MakeH264CodecInfo(1280, 720); });
+
+	auto buf = std::make_shared<std::vector<uint8_t>>(
+		std::vector<uint8_t>{0x00, 0x00, 0x00, 0x01});
+
+	auto result = m_source.processInitFragment(std::move(buf));
+
+	ASSERT_TRUE(result.has_value());
+	EXPECT_EQ(result->mCodecFormat, GST_FORMAT_VIDEO_ES_H264);
+	EXPECT_EQ(result->mInfo.video.mWidth, uint16_t{1280});
+	EXPECT_EQ(result->mInfo.video.mHeight, uint16_t{720});
+}
+
+// ---------------------------------------------------------------------------
+// processInitFragment — parse fails
+// ---------------------------------------------------------------------------
+
+/**
+ * @test AampRialtoVideoSource_ProcessInitFragment_ParseFails_ReturnsNullopt
+ * @brief Verify processInitFragment returns nullopt when the demuxer rejects
+ *        the buffer.
+ */
+TEST_F(AampRialtoVideoSourceWithDemuxTest,
+	AampRialtoVideoSource_ProcessInitFragment_ParseFails_ReturnsNullopt)
+{
+	ON_CALL(*g_mockMp4Demux, Parse(_)).WillByDefault(Return(false));
+
+	auto buf = std::make_shared<std::vector<uint8_t>>(
+		std::vector<uint8_t>{0xFF});
+
+	auto result = m_source.processInitFragment(std::move(buf));
+
+	EXPECT_FALSE(result.has_value());
+}
+
+// ---------------------------------------------------------------------------
+// processInitFragment — no demuxer
+// ---------------------------------------------------------------------------
+
+/**
+ * @test AampRialtoVideoSource_ProcessInitFragment_NoDemuxer_CreatesDemuxerLazily
+ * @brief Verify processInitFragment creates a demuxer lazily when none is
+ *        pre-installed, so the caller never needs to call setDemuxer.
+ */
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_ProcessInitFragment_NoDemuxer_CreatesDemuxerLazily)
+{
+	// No demuxer pre-installed (base fixture has no mock demux).
+	// g_mockMp4Demux is null, so the fake Mp4Demux returns true from Parse
+	// and a default (INVALID-format) MediaCodecInfo from GetCodecInfo.
+	ASSERT_FALSE(m_source.hasDemuxer());
+
+	auto buf = std::make_shared<std::vector<uint8_t>>(
+		std::vector<uint8_t>{0x00, 0x01});
+	m_source.processInitFragment(std::move(buf));
+
+	EXPECT_TRUE(m_source.hasDemuxer());
+}
+
+// ---------------------------------------------------------------------------
+// processDataFragment — parse fails
+// ---------------------------------------------------------------------------
+
+/**
+ * @test AampRialtoVideoSource_ProcessDataFragment_NoDemuxerNotAttached_ReturnsTrue
+ * @brief Verify processDataFragment returns true and performs no injection
+ *        in no-demuxer mode when the source is not attached.
+ */
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_ProcessDataFragment_NoDemuxerNotAttached_ReturnsTrue)
+{
+	ASSERT_FALSE(m_source.hasDemuxer());
+	ASSERT_FALSE(m_source.isAttached());
+
+	EXPECT_CALL(*m_pipelinePtr, addSegment(_, _)).Times(0);
+
+	auto buf = std::make_shared<std::vector<uint8_t>>(
+		std::vector<uint8_t>{0xAA, 0xBB, 0xCC});
+
+	bool result = m_source.processDataFragment(*m_pipelinePtr, std::move(buf),
+		1.25, 1.25, 0.04, 0.0);
+
+	EXPECT_TRUE(result);
+	EXPECT_EQ(m_source.firstPtsMs(), AampRialtoMediaSource::kFirstPtsNotSet);
+}
+
+/**
+ * @test AampRialtoVideoSource_ProcessDataFragment_NoDemuxerAttached_InjectsSingleSample
+ * @brief Verify processDataFragment injects one ES sample directly in
+ *        no-demuxer mode when attached and a needData slot is available.
+ */
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_ProcessDataFragment_NoDemuxerAttached_InjectsSingleSample)
+{
+	ASSERT_FALSE(m_source.hasDemuxer());
+	auto codecInfo = MakeH264CodecInfo();
+	m_source.attachOrUpdate(*m_pipelinePtr, codecInfo, nullptr, -1);
+
+	{
+		auto &st = m_source.state();
+		std::lock_guard<std::mutex> lock(st.mu);
+		st.hasPending            = true;
+		st.pendingRequestId      = 66;
+		st.pendingFrameCount     = 1;
+		st.segmentsAddedInBatch  = 0;
+		st.injectorActive        = true;
+	}
+
+	EXPECT_CALL(*m_pipelinePtr, addSegment(66, _))
+		.WillOnce(Return(firebolt::rialto::AddSegmentStatus::OK));
+
+	auto buf = std::make_shared<std::vector<uint8_t>>(
+		std::vector<uint8_t>{0x10, 0x20, 0x30, 0x40});
+
+	const double pts = 7.5;
+	bool result = m_source.processDataFragment(*m_pipelinePtr, std::move(buf),
+		pts, 7.4, 0.033, 0.0);
+
+	EXPECT_TRUE(result);
+	EXPECT_EQ(m_source.firstPtsMs(), static_cast<int64_t>(pts * 1000.0));
+}
+
+/**
+ * @test AampRialtoVideoSource_ProcessDataFragment_ParseFails_ReturnsFalse
+ * @brief Verify processDataFragment returns false when Parse fails.
+ */
+TEST_F(AampRialtoVideoSourceWithDemuxTest,
+	AampRialtoVideoSource_ProcessDataFragment_ParseFails_ReturnsFalse)
+{
+	ON_CALL(*g_mockMp4Demux, Parse(_)).WillByDefault(Return(false));
+
+	auto buf = std::make_shared<std::vector<uint8_t>>(
+		std::vector<uint8_t>{0xFF});
+
+	bool result = m_source.processDataFragment(*m_pipelinePtr, std::move(buf),
+		0.0, 0.0, 0.0, 0.0);
+
+	EXPECT_FALSE(result);
+}
+
+// ---------------------------------------------------------------------------
+// processDataFragment — empty sample list
+// ---------------------------------------------------------------------------
+
+/**
+ * @test AampRialtoVideoSource_ProcessDataFragment_EmptySamples_ReturnsTrue
+ * @brief Verify processDataFragment returns true and injects nothing when
+ *        the demuxer produces an empty sample list.
+ */
+TEST_F(AampRialtoVideoSourceWithDemuxTest,
+	AampRialtoVideoSource_ProcessDataFragment_EmptySamples_ReturnsTrue)
+{
+	ON_CALL(*g_mockMp4Demux, Parse(_)).WillByDefault(Return(true));
+	ON_CALL(*g_mockMp4Demux, GetSamples())
+		.WillByDefault([]() { return std::vector<AampMediaSample>{}; });
+
+	EXPECT_CALL(*m_pipelinePtr, addSegment(_, _)).Times(0);
+
+	auto buf = std::make_shared<std::vector<uint8_t>>(
+		std::vector<uint8_t>{0x01, 0x02});
+
+	bool result = m_source.processDataFragment(*m_pipelinePtr, std::move(buf),
+		0.0, 0.0, 0.0, 0.0);
+
+	EXPECT_TRUE(result);
+}
+
+// ---------------------------------------------------------------------------
+// processDataFragment — success (one sample injected)
+// ---------------------------------------------------------------------------
+
+/**
+ * @test AampRialtoVideoSource_ProcessDataFragment_Success_InjectsSample
+ * @brief Verify processDataFragment parses a data buffer and injects the
+ *        contained sample into the pipeline.
+ */
+TEST_F(AampRialtoVideoSourceWithDemuxTest,
+	AampRialtoVideoSource_ProcessDataFragment_Success_InjectsSample)
+{
+	auto codecInfo = MakeH264CodecInfo();
+	m_source.attachOrUpdate(*m_pipelinePtr, codecInfo, nullptr, -1);
+
+	// Provide one sample from the demuxer.
+	ON_CALL(*g_mockMp4Demux, Parse(_)).WillByDefault(Return(true));
+	ON_CALL(*g_mockMp4Demux, GetSamples())
+		.WillByDefault([]() {
+			AampMediaSample s;
+			static uint8_t rawData[] = {0x00, 0x01, 0x02};
+			s.mData = std::shared_ptr<const uint8_t>(
+				rawData, [](const uint8_t *){});
+			s.mDataSize = 3;
+			s.mPts      = 1.0;
+			s.mDuration = 0.033;
+			std::vector<AampMediaSample> v;
+			v.push_back(std::move(s));
+			return v;
+		});
+
+	// Set up a pending needData slot so injectOneSample can proceed.
+	{
+		auto &st = m_source.state();
+		std::lock_guard<std::mutex> lock(st.mu);
+		st.hasPending            = true;
+		st.pendingRequestId      = 55;
+		st.pendingFrameCount     = 10;
+		st.segmentsAddedInBatch  = 0;
+		st.injectorActive        = true;
+	}
+
+	EXPECT_CALL(*m_pipelinePtr, addSegment(_, _))
+		.WillOnce(Return(firebolt::rialto::AddSegmentStatus::OK));
+
+	auto buf = std::make_shared<std::vector<uint8_t>>(
+		std::vector<uint8_t>{0xAB, 0xCD});
+
+	bool result = m_source.processDataFragment(*m_pipelinePtr, std::move(buf),
+		0.0, 0.0, 0.0, 0.0);
+
+	EXPECT_TRUE(result);
+}
+
+// ---------------------------------------------------------------------------
+// injectSingleSample — source not attached
+// ---------------------------------------------------------------------------
+
+/**
+ * @test AampRialtoVideoSource_InjectSingleSample_NotAttached_ReturnsFalse
+ * @brief Verify injectSingleSample returns false when the source is not
+ *        attached (waitForAttach returns false immediately).
+ */
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_InjectSingleSample_NotAttached_ReturnsFalse)
+{
+	// Source is unattached by default; attachPending is false.
+	AampMediaSample sample;
+	uint8_t data[] = {0xDE, 0xAD};
+	sample.mData = std::shared_ptr<const uint8_t>(data, [](const uint8_t *){});
+	sample.mDataSize = 2;
+	sample.mPts      = 0.0;
+	sample.mDuration = 0.033;
+
+	bool result = m_source.injectSingleSample(
+		*m_pipelinePtr, std::move(sample));
+
+	EXPECT_FALSE(result);
+}
+
+// ---------------------------------------------------------------------------
+// injectSingleSample — success
+// ---------------------------------------------------------------------------
+
+/**
+ * @test AampRialtoVideoSource_InjectSingleSample_Success
+ * @brief Verify injectSingleSample delivers a sample to the pipeline when
+ *        the source is attached and a needData slot is available.
+ */
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_InjectSingleSample_Success)
+{
+	auto codecInfo = MakeH264CodecInfo();
+	m_source.attachOrUpdate(*m_pipelinePtr, codecInfo, nullptr, -1);
+
+	// Provide a pending needData slot.
+	{
+		auto &st = m_source.state();
+		std::lock_guard<std::mutex> lock(st.mu);
+		st.hasPending            = true;
+		st.pendingRequestId      = 99;
+		st.pendingFrameCount     = 10;
+		st.segmentsAddedInBatch  = 0;
+		st.injectorActive        = true;
+	}
+
+	EXPECT_CALL(*m_pipelinePtr, addSegment(_, _))
+		.WillOnce(Return(firebolt::rialto::AddSegmentStatus::OK));
+
+	AampMediaSample sample;
+	uint8_t data[] = {0xBE, 0xEF};
+	sample.mData = std::shared_ptr<const uint8_t>(data, [](const uint8_t *){});
+	sample.mDataSize = 2;
+	sample.mPts      = 5.0;
+	sample.mDuration = 0.033;
+
+	bool result = m_source.injectSingleSample(
+		*m_pipelinePtr, std::move(sample));
+
+	EXPECT_TRUE(result);
+}
+
+// ---------------------------------------------------------------------------
+// format() / setFormat() — StreamOutputFormat base-class state
+// ---------------------------------------------------------------------------
+
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_format_InitiallyInvalid)
+{
+	/**
+	 * @brief format() must return FORMAT_INVALID before any setFormat() call.
+	 */
+	EXPECT_EQ(m_source.format(), FORMAT_INVALID);
+}
+
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_setFormat_RoundTrip)
+{
+	/**
+	 * @brief setFormat() stores the value and format() returns it.
+	 */
+	m_source.setFormat(FORMAT_ISO_BMFF);
+	EXPECT_EQ(m_source.format(), FORMAT_ISO_BMFF);
+
+	m_source.setFormat(FORMAT_VIDEO_ES_H264);
+	EXPECT_EQ(m_source.format(), FORMAT_VIDEO_ES_H264);
+}
+
+// ---------------------------------------------------------------------------
+// attachOrUpdate — codec format handling (mapCodecToMime integration)
+// ---------------------------------------------------------------------------
+
+/**
+ * @test AampRialtoVideoSource_AttachH264NoDemuxer_SucceedsWithByteStreamFormat
+ * @brief Verify attachOrUpdate succeeds with H.264 codec info that declares
+ *        Annex-B (non-length-prefixed) NAL units, e.g. HLS-TS ES delivered
+ *        via TSProcessor. Captures the MediaSource passed to attachSource()
+ *        and validates that mapCodecToMime() correctly computed
+ *        BYTE_STREAM format.
+ */
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_AttachH264NoDemuxer_SucceedsWithByteStreamFormat)
+{
+	auto codecInfo = MakeH264CodecInfo(1280, 720, /*naluLengthPrefixed=*/false);
+
+	// Capture the MediaSource to verify its stream format
+	firebolt::rialto::StreamFormat capturedStreamFormat =
+		firebolt::rialto::StreamFormat::UNDEFINED;
+
+	EXPECT_CALL(*m_pipelinePtr, attachSource(_))
+		.WillOnce(Invoke([&](const std::unique_ptr<
+			firebolt::rialto::IMediaPipeline::MediaSource> &src)
+		{
+			// Downcast to MediaSourceVideo to access stream format
+			auto videoSource = dynamic_cast<
+				firebolt::rialto::IMediaPipeline::MediaSourceVideo*>(src.get());
+			if (videoSource)
+			{
+				capturedStreamFormat = videoSource->getStreamFormat();
+			}
+			const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
+				*src).setId(m_nextSourceId++);
+			return true;
+		}));
+
+	auto result = m_source.attachOrUpdate(
+		*m_pipelinePtr, codecInfo, nullptr, -1);
+
+	// Verify attachment succeeded
+	EXPECT_EQ(result, AampRialtoMediaSource::AttachResult::NEWLY_ATTACHED);
+	EXPECT_TRUE(m_source.isAttached());
+	EXPECT_EQ(m_source.sourceId(), 10);
+	EXPECT_EQ(m_source.width(), 1280);
+	EXPECT_EQ(m_source.height(), 720);
+
+	// Verify the stream format was computed correctly by mapCodecToMime
+	// H.264, non-length-prefixed → BYTE_STREAM (Annex B raw ES)
+	EXPECT_EQ(capturedStreamFormat, firebolt::rialto::StreamFormat::BYTE_STREAM);
+}
+
+/**
+ * @test AampRialtoVideoSource_AttachH264WithDemuxer_SucceedsWithAVCFormat
+ * @brief Verify attachOrUpdate with H.264 codec info that declares
+ *        length-prefixed NAL units (as Mp4Demux always reports for avcC
+ *        sample entries) produces AVC stream format in the MediaSource
+ *        passed to attachSource(), regardless of whether this particular
+ *        source object owns an internal demuxer.
+ */
+TEST_F(AampRialtoVideoSourceWithDemuxTest,
+	AampRialtoVideoSource_AttachH264WithDemuxer_SucceedsWithAVCFormat)
+{
+	auto codecInfo = MakeH264CodecInfo(1280, 720, /*naluLengthPrefixed=*/true);
+
+	// Capture the MediaSource to verify its stream format
+	firebolt::rialto::StreamFormat capturedStreamFormat =
+		firebolt::rialto::StreamFormat::UNDEFINED;
+
+	EXPECT_CALL(*m_pipelinePtr, attachSource(_))
+		.WillOnce(Invoke([&](const std::unique_ptr<
+			firebolt::rialto::IMediaPipeline::MediaSource> &src)
+		{
+			auto videoSource = dynamic_cast<
+				firebolt::rialto::IMediaPipeline::MediaSourceVideo*>(src.get());
+			if (videoSource)
+			{
+				capturedStreamFormat = videoSource->getStreamFormat();
+			}
+			const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
+				*src).setId(m_nextSourceId++);
+			return true;
+		}));
+
+	auto result = m_source.attachOrUpdate(
+		*m_pipelinePtr, codecInfo, nullptr, -1);
+
+	EXPECT_EQ(result, AampRialtoMediaSource::AttachResult::NEWLY_ATTACHED);
+	EXPECT_TRUE(m_source.isAttached());
+
+	// Verify the stream format was computed correctly by mapCodecToMime
+	// H.264, length-prefixed → AVC (AVCC, fMP4/DASH path)
+	EXPECT_EQ(capturedStreamFormat, firebolt::rialto::StreamFormat::AVC);
+}
+
+/**
+ * @test AampRialtoVideoSource_AttachH264LengthPrefixedNoOwnDemuxer_SucceedsWithAVCFormat
+ * @brief Regression test: a source with NO internal demuxer of its own
+ *        (hasDemuxer()==false) must still produce AVC when the supplied
+ *        codecInfo declares length-prefixed NAL units. This is the
+ *        AampMp4Demuxer -> SetStreamCaps() path for DASH/fMP4 content,
+ *        where codec info is parsed by a separate Mp4Demux instance and
+ *        this object's own m_demuxer is never created.
+ */
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_AttachH264LengthPrefixedNoOwnDemuxer_SucceedsWithAVCFormat)
+{
+	ASSERT_FALSE(m_source.hasDemuxer());
+	auto codecInfo = MakeH264CodecInfo(1280, 720, /*naluLengthPrefixed=*/true);
+
+	firebolt::rialto::StreamFormat capturedStreamFormat =
+		firebolt::rialto::StreamFormat::UNDEFINED;
+
+	EXPECT_CALL(*m_pipelinePtr, attachSource(_))
+		.WillOnce(Invoke([&](const std::unique_ptr<
+			firebolt::rialto::IMediaPipeline::MediaSource> &src)
+		{
+			auto videoSource = dynamic_cast<
+				firebolt::rialto::IMediaPipeline::MediaSourceVideo*>(src.get());
+			if (videoSource)
+			{
+				capturedStreamFormat = videoSource->getStreamFormat();
+			}
+			const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
+				*src).setId(m_nextSourceId++);
+			return true;
+		}));
+
+	auto result = m_source.attachOrUpdate(
+		*m_pipelinePtr, codecInfo, nullptr, -1);
+
+	EXPECT_EQ(result, AampRialtoMediaSource::AttachResult::NEWLY_ATTACHED);
+	EXPECT_EQ(capturedStreamFormat, firebolt::rialto::StreamFormat::AVC);
+}
+
+
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_reset_PreservesFormat)
+{
+	/**
+	 * @brief reset() must not clear the stored stream format.
+	 *
+	 * AampRialtoPlayer::Configure() calls reset() at the start of each
+	 * full-recreation pass.  The format must survive this reset so that
+	 * the old format is still available for comparison before the source
+	 * is replaced.
+	 */
+	m_source.setFormat(FORMAT_ISO_BMFF);
+	m_source.reset();
+	EXPECT_EQ(m_source.format(), FORMAT_ISO_BMFF);
+}
+
+// ---------------------------------------------------------------------------
+// gateMode — consolidated ungate-timing design
+// ---------------------------------------------------------------------------
+
+/**
+ * @test AampRialtoVideoSource_Reset_DoesNotClearGateMode
+ * @brief reset() must NOT clear gateMode.
+ *
+ * AampRialtoPlayer::Configure() calls reset() mid-flight while a subsequent
+ * Flush() may still be pending in a multi-step trickplay sequence
+ * (Flush(pos=0) -> Configure() -> Flush(correctPos) -> Stream()). Clearing
+ * the gate here would let an early needData slip through with
+ * stale-position data. The gate must only be cleared by
+ * gateInjection(false)/UngateAllSources() at genuine play()-issuance points.
+ */
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_Reset_DoesNotClearGateMode)
+{
+	m_source.unblockInjection(m_pipelinePtr, "test-setup");
+	ASSERT_EQ(m_source.state().gateMode, AampRialtoMediaSource::GateMode::DROPPED);
+
+	m_source.reset();
+
+	EXPECT_EQ(m_source.state().gateMode, AampRialtoMediaSource::GateMode::DROPPED);
+}
+
+/**
+ * @test AampRialtoVideoSource_UnblockInjection_SetsGateModeDropped
+ * @brief unblockInjection() must set gateMode to DROPPED and bump generation.
+ */
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_UnblockInjection_SetsGateModeDropped)
+{
+	ASSERT_EQ(m_source.state().gateMode, AampRialtoMediaSource::GateMode::NONE);
+
+	uint64_t genBefore = m_source.state().generation;
+	m_source.unblockInjection(m_pipelinePtr, "test");
+
+	EXPECT_EQ(m_source.state().gateMode, AampRialtoMediaSource::GateMode::DROPPED);
+	EXPECT_GT(m_source.state().generation, genBefore);
+}
+
+/**
+ * @test AampRialtoVideoSource_GateInjection_False_ClearsGateAndNotifies
+ * @brief gateInjection(false) must clear gateMode to NONE regardless of the
+ *        prior value, and wake any thread waiting on the state cv.
+ */
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_GateInjection_False_ClearsGateAndNotifies)
+{
+	m_source.unblockInjection(m_pipelinePtr, "test-setup");
+	ASSERT_EQ(m_source.state().gateMode, AampRialtoMediaSource::GateMode::DROPPED);
+
+	m_source.gateInjection(m_pipelinePtr, false, "test");
+
+	EXPECT_EQ(m_source.state().gateMode, AampRialtoMediaSource::GateMode::NONE);
+}
+
+/**
+ * @test AampRialtoVideoSource_GateInjection_False_WhenAlreadyClear_IsNoop
+ * @brief gateInjection(false) must be safe to call when the gate is already
+ *        clear (no crash, remains NONE).
+ */
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_GateInjection_False_WhenAlreadyClear_IsNoop)
+{
+	ASSERT_EQ(m_source.state().gateMode, AampRialtoMediaSource::GateMode::NONE);
+
+	EXPECT_NO_THROW(m_source.gateInjection(m_pipelinePtr, false, "test"));
+
+	EXPECT_EQ(m_source.state().gateMode, AampRialtoMediaSource::GateMode::NONE);
+}
+
+/**
+ * @test AampRialtoVideoSource_GateInjection_False_ReplaysDeferredEos
+ * @brief Regression: gateInjection(false) must replay a deferred EOS
+ *        resolution for a request that was left pending (with eos already
+ *        set) while gateMode==BLOCKED, so the request is not left
+ *        hanging forever.
+ *
+ *        Only BLOCKED defers an EOS resolution (tryClaimEosLocked() claims
+ *        immediately when gateMode==DROPPED or NONE) - see the gateMode
+ *        field comment. handleNeedData() itself does NOT stage a request
+ *        while gated - it answers such requests immediately with
+ *        NO_AVAILABLE_SAMPLES instead of deferring them (see
+ *        AampRialtoVideoSource_HandleNeedData_DoesNotClearGateMode and the
+ *        handleNeedData() rejectGated branch). The pending+eos state
+ *        exercised here instead models the case where an active injector
+ *        owns the request when the gate is set (injectorActive), and is
+ *        prepared directly here to isolate gateInjection(false)'s own
+ *        deferred-EOS replay logic.
+ */
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_GateInjection_False_ReplaysDeferredEos)
+{
+	// Gate injection to BLOCKED, then seed a pending, EOS-eligible request
+	// as if an active injector had left it outstanding when the gate was set.
+	m_source.gateInjection(m_pipelinePtr, true, "test-setup");
+	ASSERT_EQ(m_source.state().gateMode, AampRialtoMediaSource::GateMode::BLOCKED);
+
+	{
+		auto &st = m_source.state();
+		std::lock_guard<std::mutex> lock(st.mu);
+		st.hasPending       = true;
+		st.pendingRequestId = 321;
+		st.eos              = true;
+	}
+
+	// Clearing the gate must replay the deferred EOS resolution.
+	EXPECT_CALL(*m_pipelinePtr,
+		haveData(firebolt::rialto::MediaSourceStatus::EOS, 321))
+		.WillOnce(Return(true));
+	m_source.gateInjection(m_pipelinePtr, false, "test");
+
+	auto &st = m_source.state();
+	std::lock_guard<std::mutex> lock(st.mu);
+	EXPECT_FALSE(st.hasPending);
+}
+
+/**
+ * @test AampRialtoVideoSource_HandleNeedData_DoesNotClearGateMode
+ * @brief handleNeedData() must NOT clear gateMode even though it
+ *        stages a pending request. The staged request is answered with
+ *        NO_AVAILABLE_SAMPLES (never silently dropped) once an injector
+ *        observes the gate, so it is safe for the gate to remain set until
+ *        a genuine play()-issuance point clears it.
+ */
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_HandleNeedData_DoesNotClearGateMode)
+{
+	m_source.unblockInjection(m_pipelinePtr, "test-setup");
+	ASSERT_EQ(m_source.state().gateMode, AampRialtoMediaSource::GateMode::DROPPED);
+
+	m_source.handleNeedData(1, /*requestId=*/123, m_pipelinePtr);
+
+	EXPECT_EQ(m_source.state().gateMode, AampRialtoMediaSource::GateMode::DROPPED);
+}

@@ -24,17 +24,43 @@
 option( RIALTO_VERBOSE_BUILD
         "Enable verbose FindRialto.cmake diagnostics"
         OFF )
+option( RIALTO_FORCE_SIMULATOR
+        "Force building the Rialto simulator instead of linking to system Rialto"
+        OFF )
 
-find_library( RIALTO_LIBRARY NAMES libRialtoClient.so RialtoClient )
+# Platforms that do not ship protobuf/Rialto (e.g. macOS) always use the
+# simulator.  Treat APPLE the same as an explicit RIALTO_FORCE_SIMULATOR=ON.
+if( RIALTO_FORCE_SIMULATOR OR APPLE )
+    if( RIALTO_VERBOSE_BUILD AND NOT RIALTO_FIND_QUIETLY )
+        if( APPLE )
+            message( STATUS
+                    "FindRialto: Apple platform — protobuf/Rialto not "
+                    "supported, using simulator" )
+        else()
+            message( STATUS
+                    "FindRialto: RIALTO_FORCE_SIMULATOR requested" )
+        endif()
+    endif()
+    # Skip all library/header searches; the simulator is built from
+    # test/rialto/ and headers are sourced from .libs/include/rialto/.
+    # Force-clear both cache variables so a stale value from a previous
+    # non-simulator configure cannot sneak back.
+    set( RIALTO_LIBRARY    "" CACHE FILEPATH "Rialto client library" FORCE )
+    set( RIALTO_INCLUDE_DIR "" CACHE PATH    "Rialto include directory" FORCE )
+else()
+    find_library( RIALTO_LIBRARY NAMES libRialtoClient.so RialtoClient )
+endif()
 if( RIALTO_VERBOSE_BUILD AND NOT RIALTO_FIND_QUIETLY )
     message( STATUS "FindRialto: RIALTO_LIBRARY = ${RIALTO_LIBRARY}" )
 endif()
 
-find_path( RIALTO_INCLUDE_DIR NAMES IMediaPipeline.h PATH_SUFFIXES rialto )
-if( RIALTO_VERBOSE_BUILD AND NOT RIALTO_FIND_QUIETLY )
-    message( STATUS
-            "FindRialto: RIALTO_INCLUDE_DIR (initial find_path) = "
-            "${RIALTO_INCLUDE_DIR}" )
+if( NOT RIALTO_FORCE_SIMULATOR AND NOT APPLE )
+    find_path( RIALTO_INCLUDE_DIR NAMES IMediaPipeline.h PATH_SUFFIXES rialto )
+    if( RIALTO_VERBOSE_BUILD AND NOT RIALTO_FIND_QUIETLY )
+        message( STATUS
+                "FindRialto: RIALTO_INCLUDE_DIR (initial find_path) = "
+                "${RIALTO_INCLUDE_DIR}" )
+    endif()
 endif()
 
 # Fallback for cross-compilation environments (e.g. Yocto) where find_path
