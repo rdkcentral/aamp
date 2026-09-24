@@ -2022,7 +2022,7 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 }
 
 TEST_F(AampRialtoPlayerWithDemuxTest,
-	OnPlaybackState_Playing_ResumeFromPause_CallsNotifySpeedChanged)
+	OnPlaybackState_Playing_ResumeFromPause_DoesNotCallNotifySpeedChanged)
 {
 	Configure();
 
@@ -2034,9 +2034,7 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 		.WillByDefault(Return(eSTATE_PAUSED));
 
 	EXPECT_CALL(m_mockNotifiable, NotifyFirstBufferProcessed(_)).Times(1);
-	EXPECT_CALL(m_mockNotifiable,
-		NotifySpeedChanged(AAMP_NORMAL_PLAY_RATE, /*changeState=*/true))
-		.Times(1);
+	EXPECT_CALL(m_mockNotifiable, NotifySpeedChanged(_, _)).Times(0);
 	EXPECT_CALL(m_mockNotifiable, NotifyFirstFrameReceived(_)).Times(1);
 
 	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
