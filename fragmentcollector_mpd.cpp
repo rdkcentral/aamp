@@ -7147,8 +7147,12 @@ void StreamAbstractionAAMP_MPD::RefreshTrack(AampMediaType type)
 		}
 		track->AbortWaitForCachedAndFreeFragment(true);
 		aamp->StopTrackInjection(type);
-		// Save the latency monitor state before disabling - it will be restored after the switch only if it was active prior
-		mSavedLatencyMonitorState  = aamp->IsLatencyMonitorEnabled();
+		// Save per-track latency monitor state before disabling so concurrent audio+subtitle
+		// switches do not overwrite each other's saved state (VPAAMP-1195).
+		if (type == eMEDIATYPE_AUDIO)
+			mSavedLatencyMonitorStateAudio = aamp->IsLatencyMonitorEnabled();
+		else
+			mSavedLatencyMonitorStateSubtitle = aamp->IsLatencyMonitorEnabled();
 		aamp->EnableLatencyMonitor(false);
 	}
 }
