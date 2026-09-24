@@ -8738,6 +8738,13 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 		}
 	}
 	SetLLDashChunkMode(false); //Reset ChunkMode before curl handles are torn down
+
+	// stop the mpd update before Stream abstraction delete
+	if(mMPDDownloaderInstance != nullptr)
+	{
+		mMPDDownloaderInstance->Release();
+	}
+
 	auto tearDownStartTime = NOW_STEADY_TS_MS;
 	TeardownStream(true,true); //disable download as well
 	auto tearDownEndTime = NOW_STEADY_TS_MS;
@@ -8758,12 +8765,6 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 	}
 	// Stop latency monitor and release resources.
 	StopLatencyMonitor();
-
-	// stop the mpd update immediately after Stream abstraction delete
-	if(mMPDDownloaderInstance != nullptr)
-	{
-		mMPDDownloaderInstance->Release();
-	}
 
 	if(mTSBSessionManager)
 	{
