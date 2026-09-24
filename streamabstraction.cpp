@@ -2904,6 +2904,20 @@ BitsPerSecond StreamAbstractionAAMP::GetVideoBitrate(void)
 	return bitrate;
 }
 
+void StreamAbstractionAAMP::GetCurrentVideoResolution(int &width, int &height)
+{
+	width = 0;
+	height = 0;
+	StreamInfo *streamInfo = GetStreamInfo(currentProfileIndex);
+	if (streamInfo)
+	{
+		width = streamInfo->resolution.width;
+		height = streamInfo->resolution.height;
+	}
+	AAMPLOG_DEBUG("mp4demux manifest video resolution=%dx%d profile=%d",
+		width, height, currentProfileIndex);
+}
+
 /**
  *  @brief Get the bitrate of current audio profile selected.
  */

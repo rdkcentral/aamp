@@ -1477,6 +1477,13 @@ public:
 	BitsPerSecond GetVideoBitrate(void);
 
 	/**
+	 * @brief Get the resolution of the currently selected video profile.
+	 * @param[out] width Video width in pixels, or zero when unavailable.
+	 * @param[out] height Video height in pixels, or zero when unavailable.
+	 */
+	void GetCurrentVideoResolution(int &width, int &height);
+
+	/**
 	 *   @fn GetAudioBitrate
 	 *
 	 *   @return bitrate of current audio profile.
