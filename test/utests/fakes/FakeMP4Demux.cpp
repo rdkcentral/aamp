@@ -71,6 +71,18 @@ uint32_t Mp4Demux::GetTimeScale() const
 }
 
 /**
+ * @brief Fake GetEffectiveTimeScale implementation
+ * @return Effective timescale (box-derived or manifest fallback)
+ */
+uint32_t Mp4Demux::GetEffectiveTimeScale() const
+{
+	if (g_mockMp4Demux) {
+		return g_mockMp4Demux->GetEffectiveTimeScale();
+	}
+	return 1;
+}
+
+/**
  * @brief Fake GetCodecInfo implementation
  * @return Default codec info
  */

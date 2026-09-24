@@ -1745,6 +1745,10 @@ long long PrivateInstanceAAMP::GetPositionRelativeToSeekMilliseconds(long long r
 
 void PrivateInstanceAAMP::FlushTrack(AampMediaType mediaType,double pos)
 {
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		g_mockPrivateInstanceAAMP->FlushTrack(mediaType, pos);
+	}
 }
 
 void PrivateInstanceAAMP::ReleaseDynamicDRMToUpdateWait(void)
