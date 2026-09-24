@@ -1925,7 +1925,7 @@ TEST_F(PrivAampTests, MonitorProgressBeginningOfTSBDetected)
 }
 
 /**
- * @brief Regression test for VPLAY-13206 / PR #1345.
+ * @brief Regression test for PR #1345.
  *
  * When rewinding reaches BoS during VoD ad playback, JSPP relies on the order
  * of the events. This test guarantees that the order is not altered.
@@ -2329,8 +2329,8 @@ TEST_F(PrivAampTests, Stop_ClearsInFlightBufferingStartTime)
 	p_aamp->SendBufferChangeEvent(true);
 	ASSERT_GE(p_aamp->GetBufferingStartTimeMS(), 0LL) << "Precondition: buffering start time must be set";
 
-	// Stop without a matching BufferChangeEvent(false) — simulates the race that
-	// caused VPAAMP-1105 (channel change / error path during underflow).
+	// Stop without a matching BufferChangeEvent(false) — simulates the race
+	// (channel change / error path during underflow).
 	p_aamp->Stop(false);
 
 	// The sentinel value -1 must be restored so the next tune starts clean.

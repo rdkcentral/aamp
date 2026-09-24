@@ -169,6 +169,7 @@ StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(class PrivateInstanceAAMP *
 	,mShortAdOffsetCalc(false)
 	,mNextPts(0.0)
 	,mPrevFirstPeriodStart(0.0f)
+	,mVODSynthesisIframeActive(false)
 	,mAudioSurplus(0)
 	,mVideoSurplus(0)
 	,mIsSegmentTimelineEnabled(false)
@@ -682,7 +683,7 @@ bool StreamAbstractionAAMP_MPD::FetchFragment(MediaStreamContext *pMediaStreamCo
 	// then runs with the new profile's IDX it gets a start offset that matches
 	// the new profile but an end offset from the old profile's range, producing
 	// a partial fragment download that confuses the IsoBmff parser with a
-	// declared box size exceeding the available bytes (VPAAMP-614).  Run ALL
+	// declared box size exceeding the available bytes.  Run ALL
 	// SegmentBase downloads synchronously so that each (URL, IDX, range) triple
 	// is consistent at execution time.
 	const auto* representation = pMediaStreamContext->representation;
@@ -7612,6 +7613,7 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 	std::string aTrackIdx;
 	std::string tTrackIdx;
 	mNumberOfTracks = 0;
+	mVODSynthesisIframeActive = false; // re-evaluated each StreamSelection call
 	IPeriod *period = mCurrentPeriod;
 	int audioRepresentationIndex = -1;
 	int audioAdaptationSetIndex = -1;
@@ -7741,6 +7743,19 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 							}
 							break;
 						}
+						else if (aamp->IsVODIframeSynthesisEnabled())
+						{
+							/* VOD synthesis mode: record the first usable non-iframe video adaptation.
+							   A real iframe track discovered later in the loop will still take
+							   precedence via the break above. */
+							int reprIdx = GetDesiredVideoCodecIndex(adaptationSet);
+							if (reprIdx != -1 && selAdaptationSetIndex < 0)
+							{
+								selAdaptationSetIndex = iAdaptationSet;
+								AAMPLOG_INFO("StreamAbstractionAAMP_MPD: VOD iframe synthesis - video"
+										 " adaptation [%d] recorded as trickplay source", iAdaptationSet);
+							}
+						}
 					}
 				}
 			}// next iAdaptationSet
@@ -7769,6 +7784,27 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 
 				mNumberOfTracks++;
 			}
+			else if (trickplayMode && aamp->IsVODIframeSynthesisEnabled()
+					 && !pMediaStreamContext->enabled
+					 && (selAdaptationSetIndex >= 0)
+					 && (i == eMEDIATYPE_VIDEO))
+			{
+				/* VOD iframe synthesis: enable the video track for trickplay, mirroring
+				   the iframe-track path but using the regular video adaptation.
+				   Audio is intentionally excluded (mNumberOfTracks stays at 1). */
+				pMediaStreamContext->enabled = true;
+				pMediaStreamContext->adaptationSetIdx = selAdaptationSetIndex;
+				pMediaStreamContext->representationIndex = -1; // ABR will select profile
+				pMediaStreamContext->profileChanged = true;
+				mNumberOfTracks = 1; // video-only track during trickplay synthesis
+				mVODSynthesisIframeActive = true;
+				/* Queue content protection for the selected regular adaptation so that
+				   the DRM license/protection event is raised for encrypted VOD assets
+				   using synthesis trickplay (mirrors the encrypted-iframe path below). */
+				QueueContentProtection(period, selAdaptationSetIndex, (AampMediaType)i);
+				AAMPLOG_INFO("StreamAbstractionAAMP_MPD: VOD iframe synthesis - video-only"
+						 " trickplay track enabled (adaptation [%d])", selAdaptationSetIndex);
+			}
 			else if (encryptedIframeTrackPresent) //Process content protection for encrypted Iframe
 			{
 				QueueContentProtection(period, pMediaStreamContext->adaptationSetIdx, (AampMediaType)i);
@@ -7786,6 +7822,13 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 			if( aamp->IsLocalAAMPTsbFromConfig() && aamp->IsIframeExtractionEnabled())
 			{
 				/** Fake the iframe track if AAMP TSB and i-frame extraction are enabled */
+				isIframeAdaptationAvailable = true;
+			}
+			else if (trickplayMode && aamp->IsVODIframeSynthesisEnabled() && pMediaStreamContext->enabled)
+			{
+				/** Fake iframe track availability when VOD synthesis is active.
+				    This sets mIsIframeTrackPresent = true and fires
+				    SendSupportedSpeedsChangedEvent so the player advertises trickplay speeds. */
 				isIframeAdaptationAvailable = true;
 			}
 
@@ -11800,7 +11843,7 @@ void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutpu
 		// the real caps only arrive from SetStreamCaps() after the init segment is parsed, on an
 		// already-running pipeline. That forces gstreamer to re-link downstream while the first
 		// data push is already in flight, and when the autoplug loses that race the push lands on
-		// an unlinked pad and the pipeline dies with "not-linked (-1)". See VPAAMP-1039.
+		// an unlinked pad and the pipeline dies with "not-linked (-1)".
 		//
 		// FORMAT_UNKNOWN is still the fallback whenever the codec cannot be predicted, which
 		// keeps the previous behaviour for anything this cannot cover:
@@ -15262,6 +15305,16 @@ bool StreamAbstractionAAMP_MPD::UseIframeTrack(void)
 	{
 		useIframe = false;
 	}
+	else if (aamp->IsVODIframeSynthesisEnabled() && mVODSynthesisIframeActive)
+	{
+		/* VOD iframe synthesis: download regular video segments and synthesize
+		   I-frame via ConvertToKeyFrame(). No dedicated iframe track is used.
+		   mVODSynthesisIframeActive ensures this path is skipped when a real
+		   iframe adaptation was selected in StreamSelection, preventing a mismatch
+		   between the adaptation context and the adaptations enumerated by
+		   UpdateStreamInfo / GenerateFragmentURLList. */
+		useIframe = false;
+	}
 	return useIframe;
 }
 
@@ -15366,6 +15419,14 @@ bool StreamAbstractionAAMP_MPD::ShouldCheckOnlyIframeAdaptation() const
 	// so check all adaptations regardless of playback rate.
 	if (aamp->IsLocalAAMPTsb())
 	{
+		checkOnlyIframeAdaptation = false;
+	}
+	else if (aamp->IsVODIframeSynthesisEnabled() && mVODSynthesisIframeActive)
+	{
+		/* Synthesis mode: select regular video adaptation even during trickplay;
+		   ConvertToKeyFrame() will strip it to an I-frame after download.
+		   mVODSynthesisIframeActive prevents bypassing a real iframe adaptation
+		   that StreamSelection may have selected for the current period. */
 		checkOnlyIframeAdaptation = false;
 	}
 

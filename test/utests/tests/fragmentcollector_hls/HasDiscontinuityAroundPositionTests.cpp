@@ -19,11 +19,11 @@
 
 /**
  * @file HasDiscontinuityAroundPositionTests.cpp
- * @brief L1 tests for TrackState::HasDiscontinuityAroundPosition (RDKEMW-22611).
+ * @brief L1 tests for TrackState::HasDiscontinuityAroundPosition.
  *
  * These tests verify the PDT-based discontinuity pairing logic used to
  * synchronise audio and video tracks across an #EXT-X-DISCONTINUITY boundary.
- * The fix under test (RDKEMW-22611) ensures the AAMP_ERR_audioDiscontinue
+ * The fix under test ensures the AAMP_ERR_audioDiscontinue
  * telemetry marker is not raised for transient playlist-refresh-latency events
  * that always self-recover within one refresh cycle.
  *
@@ -257,8 +257,8 @@ TEST_F(HasDiscontinuityAroundPositionTest, PdtWithinTolerance_ReturnsTrue)
  * @brief When PDT diff > targetDuration and the host playlist is already ahead,
  *        HasDiscontinuityAroundPosition must return false (genuine failure).
  *
- * This is the path that should fire the "Ignoring discontinuity" WARN log
- * (RDKEMW-22611). mProgramDateTime is set to kHighPdt so the break condition
+ * This is the path that should fire the "Ignoring discontinuity" WARN log.
+ * mProgramDateTime is set to kHighPdt so the break condition
  * `mProgramDateTime >= inputProgramDateTime + targetDurationSeconds` fires
  * immediately after the scan finds no match.
  *

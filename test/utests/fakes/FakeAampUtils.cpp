@@ -349,7 +349,7 @@ const FormatMap * GetVideoFormatForCodec( const char *codecs )
 StreamOutputFormat GetMp4DemuxVideoFormatForCodec( const char *codecs )
 {
     // Mirror AampUtils.cpp mMp4DemuxVideoFormatMap so tests that link fakes
-    // exercise the real codec->caps prediction introduced by VPAAMP-1039.
+    // exercise the real codec->caps prediction introduced.
     if( codecs )
     {
         if( strstr(codecs, "avc1.") ) return FORMAT_VIDEO_ES_H264;
@@ -362,7 +362,7 @@ StreamOutputFormat GetMp4DemuxVideoFormatForCodec( const char *codecs )
 StreamOutputFormat GetMp4DemuxAudioFormatForCodec( const char *codecs )
 {
     // Mirror AampUtils.cpp mMp4DemuxAudioFormatMap so tests that link fakes
-    // exercise the real codec->caps prediction introduced by VPAAMP-1039.
+    // exercise the real codec->caps prediction introduced.
     if( codecs )
     {
         if( strstr(codecs, "mp4a.40.2") )      return FORMAT_AUDIO_ES_AAC_RAW;

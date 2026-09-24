@@ -19,7 +19,7 @@
 
 /**
  * @file AsyncTuneAbortTests.cpp
- * @brief Unit tests for the async-tune early-abort API introduced in VPAAMP-965.
+ * @brief Unit tests for the async-tune early-abort API.
  *
  * Covers:
  *  - IsAsyncTuneAbortSupported(): DASH-linear with async enabled returns true;
