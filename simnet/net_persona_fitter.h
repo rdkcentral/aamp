@@ -85,21 +85,49 @@ public:
 
 	/**
 	 * @brief Record a completed HTTP request's metrics
+	 *
+	 * Streaming O(1) accumulators are always updated. The full RequestRecord is
+	 * appended (for the file-based persona) only when keepRecord is true.
+	 *
 	 * @param[in] ttfbS Time to first byte (seconds)
 	 * @param[in] connReused 1 if connection was reused, 0 otherwise
+	 * @param[in] keepRecord Append the full record for file-persona fitting
 	 */
-	void AddRequest(double ttfbS, int connReused);
+	void AddRequest(double ttfbS, int connReused, bool keepRecord = true);
 
 	/**
 	 * @brief Record a single burst from a completed request
+	 *
+	 * Streaming O(1) accumulators are always updated. The full BurstRecord is
+	 * appended (for the file-based persona) only when keepRecord is true.
+	 *
 	 * @param[in] reqId Parent request identifier
 	 * @param[in] burstIdx Burst index within the request
 	 * @param[in] durationS Burst duration (seconds)
 	 * @param[in] bytes Bytes received in this burst
 	 * @param[in] gapBeforeS Idle gap preceding this burst (seconds)
+	 * @param[in] keepRecord Append the full record for file-persona fitting
 	 */
 	void AddBurst(uint64_t reqId, int burstIdx,
-				  double durationS, std::size_t bytes, double gapBeforeS);
+				  double durationS, std::size_t bytes, double gapBeforeS,
+				  bool keepRecord = true);
+
+	/**
+	 * @brief Build a minimal persona JSON from O(1) streaming accumulators
+	 *
+	 * Purpose: Produces a single-line JSON string of the persona fields that
+	 * can be computed from running sums/counts (throughput, cadence, connection
+	 * reuse). Median/percentile-based fields are omitted. Intended for inline
+	 * logging without creating any file.
+	 *
+	 * @return Compact JSON string, or an empty string if no data was collected
+	 */
+	std::string BuildMinimalPersonaJson() const;
+
+	/**
+	 * @brief Reset the O(1) streaming accumulators to start a fresh session
+	 */
+	void ResetStreaming();
 
 	/**
 	 * @brief Fit persona model and write JSON to disk
@@ -149,6 +177,23 @@ private:
 	std::vector<BurstRecord> mBursts;		///< Consumed (swapped out) on first GeneratePersonaJson call
 	bool mAtExitRegistered{false};			///< True after atexit() has been registered
 	bool mGenerated{false};					///< True after GeneratePersonaJson has successfully run once
+
+	// O(1) streaming accumulators for the inline minimal persona (bounded space).
+	// Request-side: connection reuse fraction.
+	std::size_t mStreamReqCount{0};			///< Number of requests seen since last reset
+	std::size_t mStreamReuseCount{0};		///< Number of reused-connection requests
+	// Burst throughput: geometric mean and log-normal spread of per-burst rate.
+	std::size_t mStreamLnRateN{0};			///< Count of bursts with a positive rate
+	double mStreamLnRateSum{0.0};			///< Sum of ln(rate) over bursts
+	double mStreamLnRateSumSq{0.0};			///< Sum of ln(rate)^2 over bursts
+	// Inter-burst gaps within the guard band (0.10..0.50 s) for cadence.
+	std::size_t mStreamGuardGapN{0};		///< Count of guard-band gaps
+	double mStreamGuardGapSum{0.0};			///< Sum of guard-band gaps (seconds)
+	double mStreamGuardGapSumSq{0.0};		///< Sum of guard-band gaps^2
+	// All gaps — fallback cadence source when no guard-band gaps were seen.
+	std::size_t mStreamAllGapN{0};			///< Count of all gaps
+	double mStreamAllGapSum{0.0};			///< Sum of all gaps (seconds)
+	double mStreamAllGapSumSq{0.0};			///< Sum of all gaps^2
 };
 
 } // namespace aamptrace

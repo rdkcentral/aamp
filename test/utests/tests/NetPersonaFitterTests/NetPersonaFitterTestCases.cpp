@@ -250,3 +250,110 @@ TEST_F(NetPersonaFitterTest, OutputPathIncludesPid)
 	std::ifstream ifs{expectedPath};
 	EXPECT_TRUE(ifs.good()) << "Expected file at: " << expectedPath;
 }
+
+// ======================== Inline streaming persona (O(1)) ========================
+
+/**
+ * @brief With no streaming data, BuildMinimalPersonaJson returns an empty string
+ */
+TEST_F(NetPersonaFitterTest, StreamingEmptyReturnsEmptyJson)
+{
+	auto& fitter = aamptrace::NetPersonaFitter::GetInstance();
+	fitter.ResetStreaming();
+	EXPECT_TRUE(fitter.BuildMinimalPersonaJson().empty());
+}
+
+/**
+ * @brief Streaming accumulators produce the expected minimal persona values
+ *
+ * Feeds a deterministic set: 4 requests (3 reused, 1 fresh) and 2 bursts with
+ * a fixed rate (1e7 B/s -> 80 Mbps) and guard-band gaps {0.20, 0.30} s.
+ */
+TEST_F(NetPersonaFitterTest, StreamingComputesMinimalFields)
+{
+	auto& fitter = aamptrace::NetPersonaFitter::GetInstance();
+	fitter.ResetStreaming();
+
+	fitter.AddRequest(0.030, 1);
+	fitter.AddRequest(0.031, 1);
+	fitter.AddRequest(0.032, 1);
+	fitter.AddRequest(0.061, 0);
+
+	// Identical rate -> zero throughput spread; gaps 0.20 & 0.30 -> cadence 250ms
+	fitter.AddBurst(1, 0, 0.010, 100000, 0.20);
+	fitter.AddBurst(1, 1, 0.010, 100000, 0.30);
+
+	std::string json = fitter.BuildMinimalPersonaJson();
+	ASSERT_FALSE(json.empty());
+
+	EXPECT_NEAR(ExtractJsonDouble(json, "mean_thr_mbps"),     80.0, 1e-6);
+	EXPECT_NEAR(ExtractJsonDouble(json, "thr_sigma_ln"),       0.0, 1e-9);
+	EXPECT_NEAR(ExtractJsonDouble(json, "cadence_ms"),       250.0, 1e-6);
+	EXPECT_NEAR(ExtractJsonDouble(json, "cadence_jitter_ms"), 70.71067811865476, 1e-6);
+	EXPECT_DOUBLE_EQ(ExtractJsonDouble(json, "flush_jitter_ms"), 6.0);
+	EXPECT_NEAR(ExtractJsonDouble(json, "p_conn_reuse"),      0.75, 1e-9);
+
+	// Minimal JSON must omit median/percentile-based fields
+	EXPECT_EQ(json.find("base_rtt_ms"), std::string::npos);
+	EXPECT_EQ(json.find("bursts_per_segment"), std::string::npos);
+	EXPECT_EQ(json.find("late_chunk_p"), std::string::npos);
+}
+
+/**
+ * @brief keepRecord=false updates streaming only, leaving the O(N) vectors empty
+ */
+TEST_F(NetPersonaFitterTest, StreamingKeepRecordFalseDoesNotGrowVectors)
+{
+	auto& fitter = aamptrace::NetPersonaFitter::GetInstance();
+	fitter.ResetStreaming();
+
+	auto prevReq = fitter.GetRequestCount();
+	auto prevBur = fitter.GetBurstCount();
+
+	fitter.AddRequest(0.030, 1, /*keepRecord=*/false);
+	fitter.AddBurst(1, 0, 0.010, 100000, 0.20, /*keepRecord=*/false);
+	fitter.AddBurst(1, 1, 0.010, 100000, 0.30, /*keepRecord=*/false);
+
+	EXPECT_EQ(fitter.GetRequestCount(), prevReq);
+	EXPECT_EQ(fitter.GetBurstCount(), prevBur);
+	EXPECT_FALSE(fitter.BuildMinimalPersonaJson().empty());
+}
+
+/**
+ * @brief ResetStreaming clears the accumulators
+ */
+TEST_F(NetPersonaFitterTest, ResetStreamingClears)
+{
+	auto& fitter = aamptrace::NetPersonaFitter::GetInstance();
+	fitter.ResetStreaming();
+	fitter.AddRequest(0.030, 1, /*keepRecord=*/false);
+	fitter.AddBurst(1, 0, 0.010, 100000, 0.20, /*keepRecord=*/false);
+	ASSERT_FALSE(fitter.BuildMinimalPersonaJson().empty());
+
+	fitter.ResetStreaming();
+	EXPECT_TRUE(fitter.BuildMinimalPersonaJson().empty());
+}
+
+/**
+ * @brief GeneratePersonaJson (vector swap) leaves streaming aggregates intact
+ */
+TEST_F(NetPersonaFitterTest, StreamingSurvivesFilePersonaSwap)
+{
+	auto& fitter = aamptrace::NetPersonaFitter::GetInstance();
+	fitter.ResetStreaming();
+
+	fitter.AddRequest(0.030, 1, /*keepRecord=*/true);
+	fitter.AddBurst(1, 0, 0.010, 100000, 0.20, /*keepRecord=*/true);
+	fitter.AddBurst(1, 1, 0.010, 100000, 0.30, /*keepRecord=*/true);
+
+	std::string before = fitter.BuildMinimalPersonaJson();
+	ASSERT_FALSE(before.empty());
+
+	// Consuming (swapping out) the O(N) vectors must not disturb streaming scalars.
+	// The return value is ignored: the singleton's one-shot guard may have already
+	// fired in a prior test, in which case no swap occurs — either way streaming
+	// state must be unaffected.
+	(void)fitter.GeneratePersonaJson(kBasePath);
+
+	EXPECT_EQ(fitter.BuildMinimalPersonaJson(), before);
+}
