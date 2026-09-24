@@ -1804,7 +1804,7 @@ void StreamAbstractionAAMP::WaitForVideoTrackCatchup()
 StreamAbstractionAAMP::StreamAbstractionAAMP(PrivateInstanceAAMP* aamp, id3_callback_t mID3Handler):
 		trickplayMode(false), currentProfileIndex(0), mCurrentBandwidth(0),currentAudioProfileIndex(-1),currentTextTrackProfileIndex(-1),
 		mTsbBandwidth(0),mNwConsistencyBypass(true), profileIdxForBandwidthNotification(0),
-		hasDrm(false), mIsAtLivePoint(false), mESChangeStatus(false), mPipelineFlushStatus(false), mAudiostateChangeCount(0),
+		hasDrm(false), mIsAtLivePoint(false), mESChangeStatus(false), mPipelineFlushStatus(false), mESChangeCount(0),
 		mNetworkDownDetected(false), mTotalPausedDurationMS(0), mIsPaused(false), mProgramStartTime(-1),
 		mStartTimeStamp(-1),mLastPausedTimeStamp(-1), aamp(aamp),
 		mSavedLatencyMonitorState (false),
