@@ -13076,6 +13076,14 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 								trackIndexStr = temp.index;
 							}
 
+							if (preferredCodecString.empty())
+							{
+								// No explicit codec preference: derive the real codec
+								// change from the language-matched track, instead of
+								// defaulting to true and blocking seamless switch.
+								codecChange = (temp.codec != currentPrefCodec);
+							}
+
 							if (temp.isAvailable)
 							{
 								languageAvailabilityInManifest = true;
