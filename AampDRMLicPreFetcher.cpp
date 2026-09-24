@@ -544,9 +544,21 @@ bool AampLicensePreFetcher::CreateDRMSession(LicensePreFetchObjectPtr fetchObj)
 		 * mLicenseAcquisitionMutex. That contract is required to avoid recursive
 		 * locking and potential deadlocks.
 		 */
+		AAMPLOG_MIL("CreateDRMSession: waiting for mLicenseAcquisitionMutex type=%d",
+			fetchObj->mType);
 		std::lock_guard<std::mutex> lock(mLicenseAcquisitionMutex);
+		AAMPLOG_MIL("CreateDRMSession: acquired mLicenseAcquisitionMutex type=%d",
+			fetchObj->mType);
+		const auto drmSessionStartTime = NOW_STEADY_TS_MS;
+		AAMPLOG_MIL("CreateDRMSession: before createDrmSession type=%d",
+			fetchObj->mType);
 		drmSession = licenseManger->createDrmSession( fetchObj->mHelper, mPrivAAMP, e, (int)fetchObj->mType);
+		AAMPLOG_MIL("CreateDRMSession: after createDrmSession type=%d elapsed=%lld ms",
+			fetchObj->mType,
+			static_cast<long long>(NOW_STEADY_TS_MS - drmSessionStartTime));
 	}
+	AAMPLOG_MIL("CreateDRMSession: released mLicenseAcquisitionMutex type=%d",
+		fetchObj->mType);
 
 
 	//set failures here 

@@ -8613,25 +8613,42 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 	}
 	DisableDownloads();
 
+	AAMPLOG_MIL("Stop: before UnblockWaitForDiscontinuityProcessToComplete");
 	UnblockWaitForDiscontinuityProcessToComplete();
+	AAMPLOG_MIL("Stop: after UnblockWaitForDiscontinuityProcessToComplete");
 	if(mTelemetryInterval > 0)
 	{
+		AAMPLOG_MIL("Stop: telemetry cleanup started interval=%d",
+			mTelemetryInterval);
 		double bufferedDuration = 0.0;
 		if (mpStreamAbstractionAAMP)
 		{
+			AAMPLOG_MIL("Stop: before UnblockWaitForCachedFragmentInjected");
 			mpStreamAbstractionAAMP->UnblockWaitForCachedFragmentInjected(); // avoid mutex lock if waiting for cached fragments
+			AAMPLOG_MIL("Stop: after UnblockWaitForCachedFragmentInjected");
+			AAMPLOG_MIL("Stop: before GetBufferedVideoDurationSec");
 			bufferedDuration = mpStreamAbstractionAAMP->GetBufferedVideoDurationSec();
+			AAMPLOG_MIL("Stop: after GetBufferedVideoDurationSec value=%f",
+				bufferedDuration);
 		}
+		AAMPLOG_MIL("Stop: before GetCurrentLatencyMs");
 		double latency = GetCurrentLatencyMs();
+		AAMPLOG_MIL("Stop: after GetCurrentLatencyMs value=%f", latency);
+		AAMPLOG_MIL("Stop: before telemetry profile update");
 		profiler.SetLatencyParam(latency, bufferedDuration, rate, mhAbrManager.GetNetworkBandwidth());
 		profiler.GetTelemetryParam();
 		mTelemetryInterval = 0;
+		AAMPLOG_MIL("Stop: telemetry cleanup complete");
 	}
 
 	// AAMP TSB flags have to be cleared before the stream abstraction object is deleted
 	// so downloads are disabled among other things
+	AAMPLOG_MIL("Stop: before SetLocalAAMPTsb(false)");
 	SetLocalAAMPTsb(false);
+	AAMPLOG_MIL("Stop: after SetLocalAAMPTsb(false)");
+	AAMPLOG_MIL("Stop: before SetLocalAAMPTsbInjection(false)");
 	SetLocalAAMPTsbInjection(false);
+	AAMPLOG_MIL("Stop: after SetLocalAAMPTsbInjection(false)");
 	auto streamLockStartTime = NOW_STEADY_TS_MS;
 	decltype(NOW_STEADY_TS_MS) streamLockStopTime;
 	auto licenseAcquisitionLockStartTime = NOW_STEADY_TS_MS;
@@ -14873,7 +14890,9 @@ void PrivateInstanceAAMP::ReleaseDynamicDRMToUpdateWait()
 
 void PrivateInstanceAAMP::SetLocalAAMPTsbInjection(bool value)
 {
+	AAMPLOG_MIL("SetLocalAAMPTsbInjection: waiting for mLock value=%d", value);
 	std::lock_guard<std::recursive_mutex> guard(mLock);
+	AAMPLOG_MIL("SetLocalAAMPTsbInjection: acquired mLock value=%d", value);
 	mLocalAAMPInjectionEnabled = value;
 	AAMPLOG_INFO("Local AAMP TSB injection %d", mLocalAAMPInjectionEnabled);
 }
