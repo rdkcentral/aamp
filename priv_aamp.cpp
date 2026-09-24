@@ -13231,6 +13231,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 					mOffsetFromTunetimeForSAPWorkaround = (double)(aamp_GetCurrentTimeMS() / 1000) - mLiveOffset;
 					mLanguageChangeInProgress = true;
 					{
+						AAMPLOG_WARN("ANJ:eAAMPConfig_SeamlessAudioSwitch:%d, mFirstTune=%d, mMediaFormat=%d, codecChange=%d", ISCONFIGSET_PRIV(eAAMPConfig_SeamlessAudioSwitch), mFirstTune, mMediaFormat, codecChange);
 						std::lock_guard<std::recursive_mutex> lock(mStreamLock);
 						if(ISCONFIGSET_PRIV(eAAMPConfig_SeamlessAudioSwitch) && !mFirstTune && ( mMediaFormat == eMEDIAFORMAT_HLS_MP4 || mMediaFormat == eMEDIAFORMAT_DASH )  && !codecChange)
 						{
