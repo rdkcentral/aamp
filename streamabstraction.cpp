@@ -756,7 +756,11 @@ void MediaTrack::AbortWaitForCachedFragment()
  */
 void MediaTrack::AbortWaitForCachedFragmentInjected()
 {
+	AAMPLOG_MIL("AbortWaitForCachedFragmentInjected: waiting for track mutex track=%d",
+		type);
 	std::lock_guard<std::mutex> guard(mutex);
+	AAMPLOG_MIL("AbortWaitForCachedFragmentInjected: acquired track mutex track=%d",
+		type);
 	AAMPLOG_TRACE("[%s] signal fragmentInjected condition", name);
 	fragmentInjected.notify_all();
 }
@@ -3527,12 +3531,23 @@ void StreamAbstractionAAMP::UnblockWaitForCachedFragmentInjected()
 {
 	for ( int type = eTRACK_VIDEO; type <= eTRACK_SUBTITLE; type++)
 	{
+		AAMPLOG_MIL("UnblockWaitForCachedFragmentInjected: checking track=%d", type);
 		MediaTrack *track = GetMediaTrack((TrackType)type);
 		if(track)
 		{
+			AAMPLOG_MIL("UnblockWaitForCachedFragmentInjected: before abort track=%d",
+				type);
 			track->AbortWaitForCachedFragmentInjected();
+			AAMPLOG_MIL("UnblockWaitForCachedFragmentInjected: after abort track=%d",
+				type);
+		}
+		else
+		{
+			AAMPLOG_MIL("UnblockWaitForCachedFragmentInjected: track=%d unavailable",
+				type);
 		}
 	}
+	AAMPLOG_MIL("UnblockWaitForCachedFragmentInjected: complete");
 }
 
 /**
