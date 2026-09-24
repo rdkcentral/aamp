@@ -740,6 +740,15 @@ public:
 	bool CustomSearch( std::string url, int playerId , std::string appname);
 
 	std::string GetUserAgentString() const;
+
+	/**
+	 * @fn IsUsingRialto
+	 * @brief True if playback is going through Rialto, via either the Rialto
+	 *        GStreamer sink (eAAMPConfig_useRialtoSink) or direct Rialto
+	 *        (eAAMPConfig_useDirectRialto). Does not imply which of the two.
+	 * @return true if either Rialto config is enabled
+	 */
+	bool IsUsingRialto() const;
 private:
 
 	/**

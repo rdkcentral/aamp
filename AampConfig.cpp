@@ -904,6 +904,14 @@ std::string AampConfig::GetUserAgentString() const
 }
 
 /**
+ * @brief True if playback is going through Rialto, regardless of variant
+ */
+bool AampConfig::IsUsingRialto() const
+{
+	return IsConfigSet(eAAMPConfig_useRialtoSink) || IsConfigSet(eAAMPConfig_useDirectRialto);
+}
+
+/**
  * @brief Gets the boolean configuration value
  */
 bool AampConfig::IsConfigSet(AAMPConfigSettingBool cfg) const
