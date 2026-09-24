@@ -4588,17 +4588,19 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 			return (s==std::string::npos) ? u : u.substr(s);
 		};
 		static std::atomic<uint64_t> g_req_id{1};
-		std::unique_ptr<aamptrace::NetTrace> net_owner;
-		if (netTracerEnabled) {
-			const char* mt_str =
-			(mediaType==eMEDIATYPE_VIDEO)    ? "video" :
-			(mediaType==eMEDIATYPE_AUDIO)    ? "audio" :
-			(mediaType==eMEDIATYPE_SUBTITLE) ? "text"  :
-			(mediaType==eMEDIATYPE_MANIFEST) ? "manifest" : "other";
-			net_owner = std::make_unique<aamptrace::NetTrace>(
+		// Always instrument downloads so the inline persona (streaming, O(1)) has
+		// data regardless of netTraceCsvDump; CSV files are written only when the
+		// tracer is enabled via mKeepRecord below.
+		const char* mt_str =
+		(mediaType==eMEDIATYPE_VIDEO)    ? "video" :
+		(mediaType==eMEDIATYPE_AUDIO)    ? "audio" :
+		(mediaType==eMEDIATYPE_SUBTITLE) ? "text"  :
+		(mediaType==eMEDIATYPE_MANIFEST) ? "manifest" : "other";
+		std::unique_ptr<aamptrace::NetTrace> net_owner =
+			std::make_unique<aamptrace::NetTrace>(
 				g_req_id.fetch_add(1), pathOnly(remoteUrl), mt_str,
-				/*chunked=*/false, kNetTraceBurstGapThresholdS, kNetTraceLateGapThresholdS);
-		}
+				/*chunked=*/false, kNetTraceBurstGapThresholdS, kNetTraceLateGapThresholdS,
+				/*keep_record=*/netTracerEnabled);
 
 		// RAII guard: nulls context.net when net_owner goes out of scope,
 		// preventing a dangling pointer on all return paths (normal and early).
@@ -8812,11 +8814,20 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 	mProgressReportOffset = -1;
 	mProgressReportAvailabilityOffset = -1;
 	rate = 1;
-	// Generate persona JSON from accumulated NetTrace data before going idle
-	if (GETCONFIGVALUE_PRIV(eAAMPConfig_NetTraceCsvDump))
+	// Log a minimal network persona inline (no file) from O(1) streaming data,
+	// then generate the full file-based persona when netTraceCsvDump is enabled.
 	{
-		aamptrace::NetPersonaFitter::GetInstance().GeneratePersonaJson(
-			aamptrace::NetPersonaFitter::kDefaultBasePath);
+		auto& fitter = aamptrace::NetPersonaFitter::GetInstance();
+		std::string inlinePersona = fitter.BuildMinimalPersonaJson();
+		if (!inlinePersona.empty())
+		{
+			AAMPLOG_MIL("NET_PERSONA %s", inlinePersona.c_str());
+		}
+		if (GETCONFIGVALUE_PRIV(eAAMPConfig_NetTraceCsvDump))
+		{
+			fitter.GeneratePersonaJson(aamptrace::NetPersonaFitter::kDefaultBasePath);
+		}
+		fitter.ResetStreaming();
 	}
 	// Set state to IDLE irrespective of sending state change event or not
 	SetState(eSTATE_IDLE, sendStateChangeEvent);

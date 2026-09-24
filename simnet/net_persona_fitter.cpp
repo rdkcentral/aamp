@@ -31,6 +31,7 @@
 #include <iomanip>
 #include <map>
 #include <numeric>
+#include <sstream>
 #include <unistd.h>
 
 #include "../AampLogManager.h"
@@ -400,23 +401,141 @@ NetPersonaFitter& NetPersonaFitter::GetInstance()
 	return instance;
 }
 
-void NetPersonaFitter::AddRequest(double ttfbS, int connReused)
+void NetPersonaFitter::AddRequest(double ttfbS, int connReused, bool keepRecord)
 {
 	std::lock_guard<std::mutex> lock{mMutex};
-	mRequests.push_back({ttfbS, connReused});
-	if (!mAtExitRegistered)
+
+	// O(1) streaming update — always performed.
+	++mStreamReqCount;
+	if (connReused == 1)
 	{
-		std::atexit(AtExitHandler);
-		mAtExitRegistered = true;
+		++mStreamReuseCount;
+	}
+
+	if (keepRecord)
+	{
+		mRequests.push_back({ttfbS, connReused});
+		if (!mAtExitRegistered)
+		{
+			std::atexit(AtExitHandler);
+			mAtExitRegistered = true;
+		}
 	}
 }
 
 void NetPersonaFitter::AddBurst(uint64_t reqId, int burstIdx,
 								double durationS, std::size_t bytes,
-								double gapBeforeS)
+								double gapBeforeS, bool keepRecord)
+{
+	// Guard-band and duration floor constants mirror FitBursts().
+	constexpr double kGuardLow = 0.10;
+	constexpr double kGuardHigh = 0.50;
+	constexpr double kMinDuration = 1e-4;
+
+	std::lock_guard<std::mutex> lock{mMutex};
+
+	// O(1) streaming update — always performed.
+	double dur = std::max(kMinDuration, durationS);
+	double rateBps = static_cast<double>(bytes) / dur;
+	if (rateBps > 0.0)
+	{
+		double lnRate = std::log(rateBps);
+		++mStreamLnRateN;
+		mStreamLnRateSum += lnRate;
+		mStreamLnRateSumSq += lnRate * lnRate;
+	}
+	++mStreamAllGapN;
+	mStreamAllGapSum += gapBeforeS;
+	mStreamAllGapSumSq += gapBeforeS * gapBeforeS;
+	if (gapBeforeS >= kGuardLow && gapBeforeS <= kGuardHigh)
+	{
+		++mStreamGuardGapN;
+		mStreamGuardGapSum += gapBeforeS;
+		mStreamGuardGapSumSq += gapBeforeS * gapBeforeS;
+	}
+
+	if (keepRecord)
+	{
+		mBursts.push_back({reqId, burstIdx, durationS, bytes, gapBeforeS});
+	}
+}
+
+/// Sample standard deviation (ddof=1) from streaming sums. Returns 0 if n < 2.
+static double StreamSampleStd(std::size_t n, double sum, double sumSq)
+{
+	if (n < 2) return 0.0;
+	double dn = static_cast<double>(n);
+	double variance = (sumSq - (sum * sum) / dn) / (dn - 1.0);
+	return (variance > 0.0) ? std::sqrt(variance) : 0.0;
+}
+
+std::string NetPersonaFitter::BuildMinimalPersonaJson() const
 {
 	std::lock_guard<std::mutex> lock{mMutex};
-	mBursts.push_back({reqId, burstIdx, durationS, bytes, gapBeforeS});
+
+	// Nothing collected this session — signal caller to skip logging.
+	if (mStreamReqCount == 0 && mStreamLnRateN == 0 && mStreamAllGapN == 0)
+	{
+		return std::string{};
+	}
+
+	double meanThrMbps = 0.0;
+	double thrSigmaLn = 0.0;
+	if (mStreamLnRateN > 0)
+	{
+		double lnMean = mStreamLnRateSum / static_cast<double>(mStreamLnRateN);
+		meanThrMbps = std::exp(lnMean) * 8.0 / 1e6;
+		thrSigmaLn = StreamSampleStd(mStreamLnRateN, mStreamLnRateSum, mStreamLnRateSumSq);
+	}
+
+	// Prefer guard-band gaps for cadence; fall back to all gaps.
+	double cadenceMs = 0.0;
+	double cadenceJitterMs = 0.0;
+	if (mStreamGuardGapN > 0)
+	{
+		cadenceMs = (mStreamGuardGapSum / static_cast<double>(mStreamGuardGapN)) * 1000.0;
+		cadenceJitterMs = StreamSampleStd(mStreamGuardGapN, mStreamGuardGapSum, mStreamGuardGapSumSq) * 1000.0;
+	}
+	else if (mStreamAllGapN > 0)
+	{
+		cadenceMs = (mStreamAllGapSum / static_cast<double>(mStreamAllGapN)) * 1000.0;
+		cadenceJitterMs = StreamSampleStd(mStreamAllGapN, mStreamAllGapSum, mStreamAllGapSumSq) * 1000.0;
+	}
+
+	double pConnReuse = (mStreamReqCount > 0)
+		? static_cast<double>(mStreamReuseCount) / static_cast<double>(mStreamReqCount)
+		: 0.0;
+
+	// JSON does not allow NaN/Inf; clamp any non-finite value to 0.0.
+	auto jv = [](double v) -> double { return std::isfinite(v) ? v : 0.0; };
+
+	std::ostringstream oss;
+	oss << std::setprecision(15);
+	oss << "{"
+		<< "\"mean_thr_mbps\": "     << jv(meanThrMbps)     << ", "
+		<< "\"thr_sigma_ln\": "      << jv(thrSigmaLn)      << ", "
+		<< "\"cadence_ms\": "        << jv(cadenceMs)       << ", "
+		<< "\"cadence_jitter_ms\": " << jv(cadenceJitterMs) << ", "
+		<< "\"flush_jitter_ms\": "   << 6                   << ", "
+		<< "\"p_conn_reuse\": "      << jv(pConnReuse)
+		<< "}";
+	return oss.str();
+}
+
+void NetPersonaFitter::ResetStreaming()
+{
+	std::lock_guard<std::mutex> lock{mMutex};
+	mStreamReqCount = 0;
+	mStreamReuseCount = 0;
+	mStreamLnRateN = 0;
+	mStreamLnRateSum = 0.0;
+	mStreamLnRateSumSq = 0.0;
+	mStreamGuardGapN = 0;
+	mStreamGuardGapSum = 0.0;
+	mStreamGuardGapSumSq = 0.0;
+	mStreamAllGapN = 0;
+	mStreamAllGapSum = 0.0;
+	mStreamAllGapSumSq = 0.0;
 }
 
 std::size_t NetPersonaFitter::GetRequestCount() const
