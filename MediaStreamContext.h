@@ -126,7 +126,7 @@ public:
 	 * @param[in] cachedFragment - contains fragment to be processed and injected
 	 * @param[out] fragmentDiscarded - true if fragment is discarded.
 	 */
-	void InjectFragmentInternal(CachedFragment* cachedFragment, bool &fragmentDiscarded, bool isDiscontinuity = false) override;
+	void InjectFragmentInternal(CachedFragment *cachedFragment, bool &fragmentDiscarded, bool isDiscontinuity = false) override;
 
 	/**
 	 * @fn CacheFragment
@@ -149,7 +149,7 @@ public:
 	 * @param[in] fragment TSB fragment pointer (must be passed with std::move)
 	 * @retval true on success
 	 */
-	bool CacheTsbFragment(std::shared_ptr<CachedFragment>&& fragment);
+	bool CacheTsbFragment(std::shared_ptr<CachedFragment> &&fragment);
 
 	/**
 	 * @fn CacheFragmentChunk
@@ -167,9 +167,9 @@ public:
 	 * @brief Transfer buffer data into a CachedFragment using the appropriate
 	 *        semantics for the caching mode.
 	 */
-	static void TransferFragmentBuffer(CachedFragment* cached,
-			const uint8_t* chunkPayload,
-			std::vector<uint8_t>* downloadBuffer,
+	static void TransferFragmentBuffer(CachedFragment *cached,
+			const uint8_t *chunkPayload,
+			std::vector<uint8_t> *downloadBuffer,
 			size_t payloadSize,
 			bool isChunkMode);
 
