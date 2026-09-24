@@ -474,21 +474,11 @@ public:
 			{
 				sourceId = pending.sourceId;
 			}
-			if (!m_basePositionSet.load(std::memory_order_relaxed))
+			if (!m_basePositionSet.load(std::memory_order_relaxed) &&
+				!pending.samples.empty())
 			{
-				// Guard against a zero/negative PTS (treated as "not set"),
-				// matching the pre-rework firstTimeStampNs behaviour: scan
-				// for the first genuinely positive PTS in this batch rather
-				// than blindly taking the first sample.
-				for (const auto &sample : pending.samples)
-				{
-					if (sample.ptsNs > 0)
-					{
-						m_basePositionNs.store(sample.ptsNs, std::memory_order_relaxed);
-						m_basePositionSet.store(true, std::memory_order_relaxed);
-						break;
-					}
-				}
+				m_basePositionNs.store(pending.samples.front().ptsNs, std::memory_order_relaxed);
+				m_basePositionSet.store(true, std::memory_order_relaxed);
 			}
 			if (pending.sourceId >= 0 && !pending.samples.empty())
 			{
