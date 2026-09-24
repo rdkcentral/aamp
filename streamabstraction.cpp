@@ -390,7 +390,16 @@ void MediaTrack::UpdateSubtitleClockTask()
  */
 void MediaTrack::UpdateTSAfterInject()
 {
+	const bool traceAudioMutex = (type == eTRACK_AUDIO);
+	if (traceAudioMutex)
+	{
+		AAMPLOG_MIL("AudioMutex: UpdateTSAfterInject waiting");
+	}
 	std::lock_guard<std::mutex> guard(mutex);
+	if (traceAudioMutex)
+	{
+		AAMPLOG_MIL("AudioMutex: UpdateTSAfterInject acquired");
+	}
 	//Free cached fragment slot
 	aamp_utils::ClearAndRelease(mCachedFragment[fragmentIdxToInject].fragment);
 
@@ -405,6 +414,10 @@ void MediaTrack::UpdateTSAfterInject()
 				  name, fragmentIdxToInject, numberOfFragmentsCached);
 
 	fragmentInjected.notify_one();
+	if (traceAudioMutex)
+	{
+		AAMPLOG_MIL("AudioMutex: UpdateTSAfterInject releasing");
+	}
 }
 
 /**
@@ -450,7 +463,19 @@ void MediaTrack::UpdateTSAfterFetchStats(CachedFragment* cachedFragment, bool is
 {
 	bool notifyCacheCompleted = false;
 	auto* pContext = GetContext();
+	const bool traceAudioMutex = (type == eTRACK_AUDIO);
+	const long long mutexWaitStart = traceAudioMutex ? NOW_STEADY_TS_MS : 0;
+	if (traceAudioMutex)
+	{
+		AAMPLOG_MIL("AudioMutex: UpdateTSAfterFetchStats waiting init=%d",
+			isInitSegment);
+	}
 	std::unique_lock<std::mutex> lock(mutex);
+	if (traceAudioMutex)
+	{
+		AAMPLOG_MIL("AudioMutex: UpdateTSAfterFetchStats acquired wait=%lld ms",
+			static_cast<long long>(NOW_STEADY_TS_MS - mutexWaitStart));
+	}
 
 	if (pContext)
 	{
@@ -539,6 +564,10 @@ void MediaTrack::UpdateTSAfterFetchStats(CachedFragment* cachedFragment, bool is
 		totalFragmentsDownloaded++;
 	}
 	lock.unlock();
+	if (traceAudioMutex)
+	{
+		AAMPLOG_MIL("AudioMutex: UpdateTSAfterFetchStats released");
+	}
 	if (notifyCacheCompleted)
 	{
 		aamp->NotifyFragmentCachingComplete();
@@ -563,7 +592,16 @@ void MediaTrack::LoadNewSubtitle(bool val)
  */
 void MediaTrack::UpdateTSAfterFetch()
 {
+	const bool traceAudioMutex = (type == eTRACK_AUDIO);
+	if (traceAudioMutex)
+	{
+		AAMPLOG_MIL("AudioMutex: UpdateTSAfterFetch waiting");
+	}
 	std::lock_guard<std::mutex> guard(mutex);
+	if (traceAudioMutex)
+	{
+		AAMPLOG_MIL("AudioMutex: UpdateTSAfterFetch acquired");
+	}
 
 	numberOfFragmentsCached++;
 	AAMPLOG_DEBUG("[%s] numberOfFragmentsCached++ [%d]", name,numberOfFragmentsCached);
@@ -577,6 +615,10 @@ void MediaTrack::UpdateTSAfterFetch()
 				  name, fragmentIdxToFetch, numberOfFragmentsCached);
 
 	fragmentFetched.notify_one();
+	if (traceAudioMutex)
+	{
+		AAMPLOG_MIL("AudioMutex: UpdateTSAfterFetch releasing");
+	}
 }
 
 /**
@@ -628,11 +670,21 @@ bool MediaTrack::WaitForFreeFragmentAvailable( int timeoutMs)
 bool MediaTrack::WaitForCachedFragmentInjected(int timeoutMs)
 {
 	bool ret = true;
+	const bool traceAudioMutex = (type == eTRACK_AUDIO);
+	if (traceAudioMutex)
+	{
+		AAMPLOG_MIL("AudioMutex: WaitForCachedFragmentInjected waiting timeout=%d",
+			timeoutMs);
+	}
 	if(abort)
 	{
 		ret = false;
 	}
 	std::unique_lock<std::mutex> lock(mutex);
+	if (traceAudioMutex)
+	{
+		AAMPLOG_MIL("AudioMutex: WaitForCachedFragmentInjected acquired");
+	}
 	if (ret && (numberOfFragmentsCached == mCachedFragmentSize))
 	{
 		if (timeoutMs >= 0)
@@ -649,6 +701,10 @@ bool MediaTrack::WaitForCachedFragmentInjected(int timeoutMs)
 				return numberOfFragmentsCached < mCachedFragmentSize || abort;
 			});
 			AAMPLOG_DEBUG("[%s] wait complete for fragmentInjected", name);
+		}
+		if (traceAudioMutex)
+		{
+			AAMPLOG_MIL("AudioMutex: WaitForCachedFragmentInjected wait returned");
 		}
 		if (abort)
 		{
@@ -673,8 +729,17 @@ bool MediaTrack::WaitForCachedFragmentInjected(int timeoutMs)
 bool MediaTrack::WaitForCachedFragmentAvailable()
 {
 	bool ret = true;
+	const bool traceAudioMutex = (type == eTRACK_AUDIO);
 	AAMPLOG_TRACE("DEBUG Enter");
+	if (traceAudioMutex)
+	{
+		AAMPLOG_MIL("AudioMutex: WaitForCachedFragmentAvailable waiting");
+	}
 	std::unique_lock<std::mutex> lock(mutex);
+	if (traceAudioMutex)
+	{
+		AAMPLOG_MIL("AudioMutex: WaitForCachedFragmentAvailable acquired");
+	}
 
 	AAMPLOG_DEBUG("[%s] Acquired MUTEX ==> fragmentIdxToInject = %d numberOfFragmentsCached %d ret = %d abort = %d abortInject = %d ", name, fragmentIdxToInject, numberOfFragmentsCached, ret, abort, abortInject);
 
@@ -685,6 +750,10 @@ bool MediaTrack::WaitForCachedFragmentAvailable()
 		if (!eosReached)
 		{
 			fragmentFetched.wait(lock);
+			if (traceAudioMutex)
+			{
+				AAMPLOG_MIL("AudioMutex: WaitForCachedFragmentAvailable wait returned");
+			}
 			AAMPLOG_DEBUG("[%s] wait complete for fragmentFetched", name);
 		}
 	}
@@ -700,7 +769,17 @@ bool MediaTrack::WaitForCachedFragmentAvailable()
  */
 void MediaTrack::AbortWaitForCachedAndFreeFragment(bool immediate)
 {
+	const bool traceAudioMutex = (type == eTRACK_AUDIO);
+	if (traceAudioMutex)
+	{
+		AAMPLOG_MIL("AudioMutex: AbortWaitForCachedAndFreeFragment waiting immediate=%d",
+			immediate);
+	}
 	std::unique_lock<std::mutex> lock(mutex);
+	if (traceAudioMutex)
+	{
+		AAMPLOG_MIL("AudioMutex: AbortWaitForCachedAndFreeFragment acquired");
+	}
 	if (immediate)
 	{
 		abort = true;
@@ -712,6 +791,10 @@ void MediaTrack::AbortWaitForCachedAndFreeFragment(bool immediate)
 	fragmentFetched.notify_one();
 	aamp->waitforplaystart.notify_one();
 	lock.unlock();
+	if (traceAudioMutex)
+	{
+		AAMPLOG_MIL("AudioMutex: AbortWaitForCachedAndFreeFragment released");
+	}
 
 	// If a track-switch is pending the injector thread may be blocked in
 	// WaitForCachedAudioFragmentAvailable() / WaitForCachedSubtitleFragmentAvailable()
@@ -741,12 +824,25 @@ void MediaTrack::AbortWaitForCachedAndFreeFragment(bool immediate)
  */
 void MediaTrack::AbortWaitForCachedFragment()
 {
+	const bool traceAudioMutex = (type == eTRACK_AUDIO);
+	if (traceAudioMutex)
+	{
+		AAMPLOG_MIL("AudioMutex: AbortWaitForCachedFragment waiting");
+	}
 	std::unique_lock<std::mutex> lock(mutex);
+	if (traceAudioMutex)
+	{
+		AAMPLOG_MIL("AudioMutex: AbortWaitForCachedFragment acquired");
+	}
 	AAMPLOG_DEBUG("[%s] signal fragmentFetched condition", name);
 	fragmentFetched.notify_one();
 
 	abortInject = true;
 	lock.unlock();
+	if (traceAudioMutex)
+	{
+		AAMPLOG_MIL("AudioMutex: AbortWaitForCachedFragment released");
+	}
 
 	GetContext()?GetContext()->AbortWaitForDiscontinuity():void();
 }
@@ -756,9 +852,18 @@ void MediaTrack::AbortWaitForCachedFragment()
  */
 void MediaTrack::AbortWaitForCachedFragmentInjected()
 {
+	const bool traceAudioMutex = (type == eTRACK_AUDIO);
+	if (traceAudioMutex)
+	{
+		AAMPLOG_MIL("AudioMutex: AbortWaitForCachedFragmentInjected waiting");
+	}
 	AAMPLOG_MIL("AbortWaitForCachedFragmentInjected: waiting for track mutex track=%d",
 		type);
 	std::lock_guard<std::mutex> guard(mutex);
+	if (traceAudioMutex)
+	{
+		AAMPLOG_MIL("AudioMutex: AbortWaitForCachedFragmentInjected acquired");
+	}
 	AAMPLOG_MIL("AbortWaitForCachedFragmentInjected: acquired track mutex track=%d",
 		type);
 	AAMPLOG_TRACE("[%s] signal fragmentInjected condition", name);
@@ -1584,7 +1689,16 @@ CachedFragment* MediaTrack::GetFetchBuffer(bool initialize)
 bool MediaTrack::IsFragmentCacheFull()
 {
 	bool rc = false;
+	const bool traceAudioMutex = (type == eTRACK_AUDIO);
+	if (traceAudioMutex)
+	{
+		AAMPLOG_MIL("AudioMutex: IsFragmentCacheFull waiting");
+	}
 	std::lock_guard<std::mutex> guard(mutex);
+	if (traceAudioMutex)
+	{
+		AAMPLOG_MIL("AudioMutex: IsFragmentCacheFull acquired");
+	}
 	AAMPLOG_DEBUG("[%s] numberOfFragmentsCached %d mCachedFragmentSize %zu", name, numberOfFragmentsCached, mCachedFragmentSize);
 	rc = (numberOfFragmentsCached == mCachedFragmentSize);
 	return rc;
@@ -1621,7 +1735,16 @@ BitsPerSecond MediaTrack::GetCurrentBandWidth()
  */
 void MediaTrack::FlushFetchedFragments()
 {
+	const bool traceAudioMutex = (type == eTRACK_AUDIO);
+	if (traceAudioMutex)
+	{
+		AAMPLOG_MIL("AudioMutex: FlushFetchedFragments waiting");
+	}
 	std::lock_guard<std::mutex> guard(mutex);
+	if (traceAudioMutex)
+	{
+		AAMPLOG_MIL("AudioMutex: FlushFetchedFragments acquired");
+	}
 	while (numberOfFragmentsCached)
 	{
 		AAMPLOG_DEBUG("[%s] Free mCachedFragment[%d] numberOfFragmentsCached %d", name, fragmentIdxToInject, numberOfFragmentsCached);
@@ -1635,6 +1758,10 @@ void MediaTrack::FlushFetchedFragments()
 		numberOfFragmentsCached--;
 	}
 	fragmentInjected.notify_one();
+	if (traceAudioMutex)
+	{
+		AAMPLOG_MIL("AudioMutex: FlushFetchedFragments releasing");
+	}
 }
 
 /**
@@ -1645,13 +1772,22 @@ void MediaTrack::FlushFetchedFragments()
 void MediaTrack::FlushFragments()
 {
 	AAMPLOG_WARN("[%s]", name);
+	const bool traceAudioMutex = (type == eTRACK_AUDIO);
 	for (size_t i = 0; i < mCachedFragmentSize; i++)
 	{
 		mCachedFragment[i].Clear();
 	}
 	fragmentIdxToInject = 0;
 	fragmentIdxToFetch = 0;
+	if (traceAudioMutex)
+	{
+		AAMPLOG_MIL("AudioMutex: FlushFragments waiting");
+	}
 	std::lock_guard<std::mutex> guard(mutex);
+	if (traceAudioMutex)
+	{
+		AAMPLOG_MIL("AudioMutex: FlushFragments acquired");
+	}
 	numberOfFragmentsCached = 0;
 
 	// All fragment-injected/fetched duration counters live under mTrackParamsMutex.
@@ -3193,8 +3329,17 @@ bool MediaTrack::CheckForFutureDiscontinuity(double &cachedDuration)
 	int count = 0;
 	int maxFrags = 0;
 	CachedFragment *pCachedFragment = NULL;
+	const bool traceAudioMutex = (type == eTRACK_AUDIO);
 
+	if (traceAudioMutex)
+	{
+		AAMPLOG_MIL("AudioMutex: CheckForFutureDiscontinuity waiting");
+	}
 	std::lock_guard<std::mutex> guard(mutex);
+	if (traceAudioMutex)
+	{
+		AAMPLOG_MIL("AudioMutex: CheckForFutureDiscontinuity acquired");
+	}
 
 	index = fragmentIdxToInject;
 	count = numberOfFragmentsCached;
@@ -3228,6 +3373,7 @@ bool MediaTrack::CheckForFutureDiscontinuity(double &cachedDuration)
  */
 void MediaTrack::OnSinkBufferFull()
 {
+	const bool traceAudioMutex = (type == eTRACK_AUDIO);
 	//check if we should stop initial caching here
 	if(sinkBufferIsFull)
 	{
@@ -3238,7 +3384,15 @@ void MediaTrack::OnSinkBufferFull()
 	bool cachingCompletedFlag = false;
 	{
 		{
+			if (traceAudioMutex)
+			{
+				AAMPLOG_MIL("AudioMutex: OnSinkBufferFull first lock waiting");
+			}
 			std::lock_guard<std::mutex> guard(mutex);
+			if (traceAudioMutex)
+			{
+				AAMPLOG_MIL("AudioMutex: OnSinkBufferFull first lock acquired");
+			}
 			sinkBufferIsFull = true;
 			cachingCompletedFlag = cachingCompleted;
 		}
@@ -3247,7 +3401,15 @@ void MediaTrack::OnSinkBufferFull()
 		if (IsFragmentCacheFull() && (eTRACK_VIDEO == type) &&
 			aamp->IsFragmentCachingRequired() && !cachingCompletedFlag)
 		{
+			if (traceAudioMutex)
+			{
+				AAMPLOG_MIL("AudioMutex: OnSinkBufferFull second lock waiting");
+			}
 			std::lock_guard<std::mutex> guard(mutex);
+			if (traceAudioMutex)
+			{
+				AAMPLOG_MIL("AudioMutex: OnSinkBufferFull second lock acquired");
+			}
 			AAMPLOG_WARN("## [%s] Cache is Full cacheDuration %d minInitialCacheSeconds %d, aborting caching!##",
 						name, currentInitialCacheDurationSeconds, aamp->GetInitialBufferDuration());
 			notifyCacheCompleted = true;
