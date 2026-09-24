@@ -81,20 +81,24 @@ public:
 	 * @param[in] chunked_hdr_seen True if Transfer-Encoding: chunked header is present
 	 * @param[in] gap_threshold_s Minimum idle time to split bursts (seconds)
 	 * @param[in] late_gap_extra_s_threshold Gap threshold to mark bursts as "late" (seconds)
+	 * @param[in] keep_record When true, FlushCsv() writes CSV rows; the persona
+	 *            fitter is fed in both cases (streaming accumulation is always on)
 	 */
 	explicit NetTrace(uint64_t req_id,
 					  std::string_view url_path,
 					  std::string_view media_type,
 					  bool chunked_hdr_seen,
 					  double gap_threshold_s,
-					  double late_gap_extra_s_threshold)
+					  double late_gap_extra_s_threshold,
+					  bool keep_record = true)
 	: mReqId(req_id),
 	mUrlPath(url_path),
 	mMediaType(media_type),
 	mGapThresholdS(gap_threshold_s),
 	mLateExtraThresholdS(late_gap_extra_s_threshold),
 	mT0(now_monotonic_s()),
-	mChunkedHdrSeen(chunked_hdr_seen) {}
+	mChunkedHdrSeen(chunked_hdr_seen),
+	mKeepRecord(keep_record) {}
 	
 	/**
 	 * @brief Mark this request as using chunked transfer encoding
@@ -198,8 +202,8 @@ public:
 	 * Thread Safety: Protected by mutex in shared FileState.
 	 */
 	void FlushCsv() {
-		EnsureFilesOpen();
-		{
+		if (mKeepRecord) {
+			EnsureFilesOpen();
 			auto& state = GetFileState();
 			std::lock_guard<std::mutex> g(state.mutex);
 
@@ -236,12 +240,13 @@ public:
 			state.burst_ofs.flush();
 		} // release FileState::mutex before acquiring NetPersonaFitter's mutex
 
-		// Forward data to persona fitter for in-memory accumulation
+		// Forward data to persona fitter. Streaming accumulation is always on;
+		// the full records are kept for the file persona only when mKeepRecord.
 		auto& fitter = NetPersonaFitter::GetInstance();
-		fitter.AddRequest(mStartXferS, mConnReused);
+		fitter.AddRequest(mStartXferS, mConnReused, mKeepRecord);
 		for (const auto& b : mBursts)
 		{
-			fitter.AddBurst(mReqId, b.index, b.duration, b.bytes, b.gapBefore);
+			fitter.AddBurst(mReqId, b.index, b.duration, b.bytes, b.gapBefore, mKeepRecord);
 		}
 	}
 	
@@ -399,6 +404,7 @@ private:
 	std::string mUrlPath, mMediaType;
 	double mT0;
 	bool mChunkedHdrSeen;
+	bool mKeepRecord = true;	///< Gate CSV file writes; fitter is fed regardless
 	
 	// write/burst state
 	bool   mInBurst = false;
