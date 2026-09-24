@@ -36,6 +36,7 @@
 #include "MockPrivateInstanceAAMP.h"
 #include "MockAampUtils.h"
 
+using ::testing::An;
 using ::testing::NiceMock;
 using ::testing::Return;
 using ::testing::StrEq;
@@ -212,6 +213,84 @@ TEST_F(AAMPGstPlayerNullGuardTests, StartMonitorAvTimer_NullAamp_NoTimerAdded)
 
 	// Restore aamp for safe destruction.
 	mPlayer->aamp = mAamp;
+
+	DestroyPlayer();
+}
+
+// ---------------------------------------------------------------------------
+// StartMonitorAvTimer – monitorAVReportingInterval is read at start time
+// ---------------------------------------------------------------------------
+
+/**
+ * @test A monitorAVReportingInterval applied after the sink was constructed must
+ *       be honoured.
+ *
+ * AAMPGstPlayer is created before the app applies its configuration, so the
+ * interval cached by the constructor is stale by the time the timer starts.
+ * StartMonitorAvTimer() must therefore re-read the config rather than use that
+ * snapshot, otherwise an app requesting sub-second AV monitoring silently gets
+ * the 1000 ms default.
+ */
+TEST_F(AAMPGstPlayerNullGuardTests, StartMonitorAvTimer_UsesIntervalAppliedAfterConstruction)
+{
+	/* Construct the sink first, with no config attached, mirroring production
+	 * ordering: the sink exists before the app calls initConfig(). */
+	ConstructPlayer();
+
+	constexpr int kRequestedIntervalMs = 100;
+	AampConfig config;
+	mAamp->mConfig = &config;
+
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_MonitorAV))
+		.WillRepeatedly(Return(true));
+	/* Interval requested by the app after construction. */
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(An<AAMPConfigSettingInt>()))
+		.WillRepeatedly(Return(kRequestedIntervalMs));
+
+	EXPECT_CALL(*g_mockGLib, g_timeout_add(kRequestedIntervalMs, _, _))
+		.WillOnce(Return(1));
+
+	mPlayer->StartMonitorAvTimer();
+
+	/* The cached member must reflect the applied value so that the timeInState
+	 * clamp in MonitorAvTimerCallback() uses the same interval. */
+	EXPECT_EQ(mPlayer->GetMonitorAVInterval(), kRequestedIntervalMs);
+
+	mPlayer->StopMonitorAvTimer();
+	mAamp->mConfig = nullptr;
+
+	DestroyPlayer();
+}
+
+// ---------------------------------------------------------------------------
+// StartMonitorAvTimer – default interval is unchanged
+// ---------------------------------------------------------------------------
+
+/**
+ * @test With no override applied, StartMonitorAvTimer() must still schedule at
+ *       the default reporting interval.
+ */
+TEST_F(AAMPGstPlayerNullGuardTests, StartMonitorAvTimer_DefaultIntervalUnchanged)
+{
+	ConstructPlayer();
+
+	AampConfig config;
+	mAamp->mConfig = &config;
+
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_MonitorAV))
+		.WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(An<AAMPConfigSettingInt>()))
+		.WillRepeatedly(Return(DEFAULT_MONITOR_AV_REPORTING_INTERVAL));
+
+	EXPECT_CALL(*g_mockGLib, g_timeout_add(DEFAULT_MONITOR_AV_REPORTING_INTERVAL, _, _))
+		.WillOnce(Return(1));
+
+	mPlayer->StartMonitorAvTimer();
+
+	EXPECT_EQ(mPlayer->GetMonitorAVInterval(), DEFAULT_MONITOR_AV_REPORTING_INTERVAL);
+
+	mPlayer->StopMonitorAvTimer();
+	mAamp->mConfig = nullptr;
 
 	DestroyPlayer();
 }

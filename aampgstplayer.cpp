@@ -1415,6 +1415,11 @@ void AAMPGstPlayer::StartMonitorAvTimer()
 	}
 	if (aamp->mConfig->IsConfigSet(eAAMPConfig_MonitorAV) && monitorAvTimerId == 0)
 	{
+		// Read the interval here rather than relying on the value cached at
+		// construction time.  This sink is created before the app applies its
+		// configuration, so a monitorAVReportingInterval set via initConfig would
+		// otherwise be ignored and the default used instead.
+		mMonitorAVInterval = GETCONFIGVALUE(eAAMPConfig_MonitorAVReportingInterval);
 		// mMonitorAVInterval is in milliseconds
 		monitorAvTimerId = g_timeout_add(mMonitorAVInterval, MonitorAvTimerCallback, this);
 		if (monitorAvTimerId == 0)
