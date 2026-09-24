@@ -1932,6 +1932,22 @@ void AampConfig::ShowAAMPConfiguration()
  */
 void AampConfig::DoCustomSetting(ConfigPriority owner)
 {
+	// useDirectRialto is only consumed once, in the PrivateInstanceAAMP constructor
+	// (PlayerCCManager/DRM session creator setup), so overriding it after the player
+	// instance exists (stream/app/tune settings) has no effect; revert such attempts.
+	if((owner == AAMP_STREAM_SETTING || owner == AAMP_APPLICATION_SETTING || owner == AAMP_TUNE_SETTING)
+		&& GetConfigOwner(eAAMPConfig_useDirectRialto) == owner)
+	{
+		AAMPLOG_WARN("Config[%s] cannot be changed dynamically after player creation; reverting", GetConfigName(eAAMPConfig_useDirectRialto));
+		RestoreConfiguration(owner, eAAMPConfig_useDirectRialto);
+	}
+
+	if(IsConfigSet(eAAMPConfig_useDirectRialto) && !IsConfigSet(eAAMPConfig_UseMp4Demux))
+	{
+		AAMPLOG_WARN("useDirectRialto requires useMp4Demux; forcing it on");
+		SetConfigValue(GetConfigOwner(eAAMPConfig_useDirectRialto), eAAMPConfig_UseMp4Demux, true);
+	}
+
 	if(IsConfigSet(eAAMPConfig_StereoOnly))
 	{
 		// If Stereo Only flag is set , it will override all other sub setting with audio
