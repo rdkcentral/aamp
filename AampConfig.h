@@ -215,7 +215,7 @@ typedef enum
 	eAAMPConfig_EarlyID3Processing,					/**< To enable/disable early ID3 processing */
 	eAAMPConfig_SeamlessAudioSwitch,					/**< To enable audio Restart - Currently supported for HLS_MP4 on same codec streams*/
 	eAAMPConfig_useRialtoSink,                      /**< Enable/Disable player to use Rialto sink based video and audio pipeline */
-	eAAMPConfig_useDirectRialto,                    /**< Enable/Disable direct AampRialtoPlayer usage instead of AAMPGstPlayer */
+	eAAMPConfig_useDirectRialto,                    /**< Enable/Disable direct AampRialtoPlayer usage instead of AAMPGstPlayer. Only takes effect via device config/env/operator settings read before player creation; cannot be changed dynamically via InitAAMPConfig. Forces eAAMPConfig_UseMp4Demux on */
 	eAAMPConfig_LocalTSBEnabled,                                            /**< To enable/disable Local TSB in LLD */
 	eAAMPConfig_EnableIFrameTrackExtract,			/**< Config to enable and disable iFrame extraction from video track*/
 	eAAMPConfig_ForceMultiPeriodDiscontinuity,		/**< Config to forcefully process multiperiod discontinuity even if they are continuous in PTS */
@@ -223,7 +223,7 @@ typedef enum
 	eAAMPConfig_MonitorAV,						/**< enable background monitoring of audio/video positions to infer video freeze, audio drop, or av sync issues */
 	eAAMPConfig_HlsTsEnablePTSReStamp,
 	eAAMPConfig_OverrideMediaHeaderDuration, /**< enable overriding media header duration for live streams to 0 */
-	eAAMPConfig_UseMp4Demux,
+	eAAMPConfig_UseMp4Demux,			/**< Demux fMP4 fragments internally; required (and auto-enabled) when eAAMPConfig_useDirectRialto is set */
 	eAAMPConfig_CurlThroughput,
 	eAAMPConfig_UseFireboltSDK,						/**< Config to use Firebolt SDK for license Acquisition */
 	eAAMPConfig_EnableChunkInjection,					/**< Config to enable chunk injection for low latency DASH */
@@ -740,6 +740,15 @@ public:
 	bool CustomSearch( std::string url, int playerId , std::string appname);
 
 	std::string GetUserAgentString() const;
+
+	/**
+	 * @fn IsUsingRialto
+	 * @brief True if playback is going through Rialto, via either the Rialto
+	 *        GStreamer sink (eAAMPConfig_useRialtoSink) or direct Rialto
+	 *        (eAAMPConfig_useDirectRialto). Does not imply which of the two.
+	 * @return true if either Rialto config is enabled
+	 */
+	bool IsUsingRialto() const;
 private:
 
 	/**

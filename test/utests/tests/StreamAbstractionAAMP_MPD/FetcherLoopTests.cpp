@@ -418,6 +418,7 @@ protected:
 			{eAAMPConfig_ForceMultiPeriodDiscontinuity, false},
 			{eAAMPConfig_SuppressDecode, false},
 			{eAAMPConfig_useRialtoSink, false},
+			{eAAMPConfig_useDirectRialto, false},
 			{eAAMPConfig_InterruptHandling, false},
 			{eAAMPConfig_UseMp4Demux, false},
 			{eAAMPConfig_ProcessLicenseFromEAP, false},

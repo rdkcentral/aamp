@@ -1092,6 +1092,59 @@ TEST_F(AampConfigTests, DoCustomSetting)
 }
 
 /*
+	useDirectRialto is only consumed once, in the PrivateInstanceAAMP constructor, so
+	it must not be settable dynamically (stream/app/tune priority) after the player
+	instance already exists. DoCustomSetting should revert such an override.
+*/
+TEST_F(AampConfigTests, DoCustomSettingRevertsDynamicUseDirectRialto)
+{
+	AampConfig aampConfig;
+	aampConfig.Initialize();
+
+	EXPECT_EQ(aampConfig.GetConfigValue(eAAMPConfig_useDirectRialto), false);
+
+	//Simulate an app attempting to enable it dynamically via InitAAMPConfig
+	EXPECT_TRUE(aampConfig.SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_useDirectRialto, true));
+	EXPECT_EQ(aampConfig.GetConfigValue(eAAMPConfig_useDirectRialto), true);
+
+	aampConfig.DoCustomSetting(AAMP_APPLICATION_SETTING);
+
+	EXPECT_EQ(aampConfig.GetConfigValue(eAAMPConfig_useDirectRialto), false) << "DoCustomSetting failed to revert a dynamic override of useDirectRialto";
+}
+
+/*
+	A useDirectRialto value set at device-config time (before the player instance is
+	constructed) must be left untouched by DoCustomSetting.
+*/
+TEST_F(AampConfigTests, DoCustomSettingKeepsUseDirectRialtoSetAtDeviceConfigTime)
+{
+	AampConfig aampConfig;
+	aampConfig.Initialize();
+
+	EXPECT_TRUE(aampConfig.SetConfigValue(AAMP_DEV_CFG_SETTING, eAAMPConfig_useDirectRialto, true));
+	aampConfig.DoCustomSetting(AAMP_DEV_CFG_SETTING);
+
+	EXPECT_EQ(aampConfig.GetConfigValue(eAAMPConfig_useDirectRialto), true) << "DoCustomSetting incorrectly reverted a device-config-time setting";
+}
+
+/*
+	useDirectRialto requires useMp4Demux (the only combination tested); DoCustomSetting
+	should force useMp4Demux on if it wasn't already set.
+*/
+TEST_F(AampConfigTests, DoCustomSettingUseDirectRialtoForcesMp4Demux)
+{
+	AampConfig aampConfig;
+	aampConfig.Initialize();
+
+	EXPECT_TRUE(aampConfig.SetConfigValue(AAMP_DEV_CFG_SETTING, eAAMPConfig_useDirectRialto, true));
+	EXPECT_EQ(aampConfig.IsConfigSet(eAAMPConfig_UseMp4Demux), false);
+
+	aampConfig.DoCustomSetting(AAMP_DEV_CFG_SETTING);
+
+	EXPECT_EQ(aampConfig.IsConfigSet(eAAMPConfig_UseMp4Demux), true) << "useDirectRialto did not force useMp4Demux on";
+}
+
+/*
 	Test IsConfigSet function without calling Initialize
 	It is expected to return false for any config
 */
