@@ -192,7 +192,7 @@ static std::tuple<void*, int, std::string> getImageBufferAndMetadata(JSContextRe
 		return errorRtn;
 	}
 
-	const char* localMetaData = aamp_JSValueToCString(ctx, arguments[1], exception);
+	char* localMetaData = aamp_JSValueToCString(ctx, arguments[1], exception);
 	LOG_WARN_EX("PersistentWatermark: supplied metadata: %s", localMetaData);
 
 	JSObjectRef ArrayBuffer = JSValueToObject(ctx, arguments[0], NULL);
@@ -204,6 +204,7 @@ static std::tuple<void*, int, std::string> getImageBufferAndMetadata(JSContextRe
 		{
 			msg+=". This is too small to be a valid .PNG file." ;
 			LOG_ERROR_EX(msg.c_str());
+			SAFE_DELETE_ARRAY(localMetaData);
 			return errorRtn;
 		}
 		else
@@ -217,6 +218,7 @@ static std::tuple<void*, int, std::string> getImageBufferAndMetadata(JSContextRe
 	if(memcmp(PNG_SIGNATURE, inputBuffer, PNG_SIGNATURE_SIZE))
 	{
 		LOG_ERROR_EX("PersistentWatermark: Buffer does not contain a valid PNG.");
+		SAFE_DELETE_ARRAY(localMetaData);
 		return errorRtn;
 	}
 	else
@@ -224,7 +226,9 @@ static std::tuple<void*, int, std::string> getImageBufferAndMetadata(JSContextRe
 		LOG_TRACE("PersistentWatermark: Buffer contains PNG header.");
 	}
 
-	return std::make_tuple(inputBuffer, size, localMetaData);
+	std::string localMetaDataStr(localMetaData);
+	SAFE_DELETE_ARRAY(localMetaData);
+	return std::make_tuple(inputBuffer, size, localMetaDataStr);
 }
 
 
