@@ -931,6 +931,8 @@ void AAMPGstPlayer::Stop(bool keepLastFrame)
 	auto syncLock = aamp->SyncLock();
 	AAMPLOG_MIL("entering AAMPGstPlayer_Stop keepLastFrame %d", keepLastFrame);
 	StopMonitorAvTimer();
+	// Prevent a stale/in-flight buffering-timeout callback from reactivating the pipeline during teardown
+	playerInstance->RegisterBufferingTimeoutCb(nullptr);
 	playerInstance->Stop(keepLastFrame);
 
 	aamp->seiTimecode.assign("");

@@ -798,7 +798,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 
 		if (aamp->mpStreamAbstractionAAMP && !(aamp->mbUsingExternalPlayer))
 		{
-			if ( AAMP_SLOWMOTION_RATE != rate && !aamp->mIsIframeTrackPresent && !aamp->IsVODIframeSynthesisEnabled() && rate != AAMP_NORMAL_PLAY_RATE && rate != 0 && aamp->mMediaFormat != eMEDIAFORMAT_PROGRESSIVE)
+			if ( AAMP_SLOWMOTION_RATE != rate && !aamp->mIsIframeTrackPresent && rate != AAMP_NORMAL_PLAY_RATE && rate != 0 && aamp->mMediaFormat != eMEDIAFORMAT_PROGRESSIVE)
 			{
 				AAMPLOG_WARN("Ignoring trickplay. No iframe tracks in stream");
 				aamp->NotifySpeedChanged(AAMP_NORMAL_PLAY_RATE); // Send speed change event to XRE to reset the speed to normal play since the trickplay ignored at player level.
@@ -1097,6 +1097,13 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 				}
 				aamp->mSinkPaused = false;
 				aamp->mSeekFromPausedState = false;
+				if (rate < AAMP_NORMAL_PLAY_RATE)
+				{
+					const double currentPositionSeconds = aamp->GetPositionSeconds();
+					AAMPLOG_WARN("Refreshing rewind seek position from current pipeline position: old=%f new=%f",
+						aamp->seek_pos_seconds, currentPositionSeconds);
+					aamp->seek_pos_seconds = currentPositionSeconds;
+				}
 				/* Clear setting playerrate flag */
 				aamp->mSetPlayerRateAfterFirstframe=false;
 				aamp->CalculateTrickModePositionEOS();
@@ -1591,7 +1598,7 @@ void PlayerInstanceAAMP::SetRateAndSeek(int rate, double secondsRelativeToTuneTi
 
 		if (aamp->mpStreamAbstractionAAMP)
 		{
-			if ((!aamp->mIsIframeTrackPresent && !aamp->IsVODIframeSynthesisEnabled() && rate != AAMP_NORMAL_PLAY_RATE && rate != 0))
+			if ((!aamp->mIsIframeTrackPresent && rate != AAMP_NORMAL_PLAY_RATE && rate != 0))
 			{
 				AAMPLOG_WARN("Ignoring trickplay. No iframe tracks in stream");
 				aamp->NotifySpeedChanged(AAMP_NORMAL_PLAY_RATE); // Send speed change event to XRE to reset the speed to normal play since the trickplay ignored at player level.

@@ -306,6 +306,34 @@ TEST_F(PlayerInstanceAAMPTests, SetRateInternal_AtLivePoint_RewindRate_AllowsOpe
 	mPlayerInstance->SetRate(rate, overshootcorrection);
 }
 
+TEST_F(PlayerInstanceAAMPTests, SetRateInternal_RewindRefreshesSeekPositionFromCurrentPlayback)
+{
+	float rate = -2.0f;
+	int overshootcorrection = TEST_OVERSHOOT_CORRECTION;
+	const double staleSeekPosSeconds = 600.0;
+	const long long currentPositionMs = 5000LL;
+
+	mPlayerInstance->aamp->mbDetached = false;
+	mPlayerInstance->aamp->mSinkPaused = false;
+	mPlayerInstance->aamp->rate = 1.0f;
+	mPrivateInstanceAAMP->mIsIframeTrackPresent = true;
+	mPrivateInstanceAAMP->seek_pos_seconds = staleSeekPosSeconds;
+	g_mockStreamAbstractionAAMP->mIsAtLivePoint = false;
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetPositionMilliseconds())
+		.WillRepeatedly(Return(currentPositionMs));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, TuneHelper(eTUNETYPE_SEEK, false))
+		.Times(1);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifySpeedChanged(rate, _))
+		.Times(1);
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_))
+		.WillRepeatedly(Return(false));
+
+	mPlayerInstance->SetRate(rate, overshootcorrection);
+
+	EXPECT_DOUBLE_EQ(mPrivateInstanceAAMP->seek_pos_seconds, 5.0);
+}
+
 /**
  * @brief Test SetRateInternal when mbDetached is true
  *
@@ -860,10 +888,6 @@ TEST_F(PlayerInstanceAAMPTests,SetRateAndSeekvalidTest1)
 	double secondsRelativeToTuneTime = AAMP_SEEK_TO_LIVE_POSITION;
 	TuneType tuneType = eTUNETYPE_SEEKTOLIVE;
 
-	// Wildcard first (tried second in LIFO order) to absorb any additional
-	// IsConfigSet calls introduced by the iframe-guard fix (e.g.
-	// eAAMPConfig_SynthesizeIframeForVOD), then the specific override.
-	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_RepairIframes))
 		.WillOnce(Return(true));
 	mPlayerInstance->SetRateAndSeek(rate,secondsRelativeToTuneTime);
@@ -874,8 +898,6 @@ TEST_F(PlayerInstanceAAMPTests,SetRateAndSeekvalidTest2)
 	double secondsRelativeToTuneTime = AAMP_SEEK_TO_LIVE_POSITION;
 	TuneType tuneType = eTUNETYPE_SEEKTOLIVE;
 
-	// Same wildcard pattern as SetRateAndSeekvalidTest1.
-	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_RepairIframes))
 		.WillOnce(Return(true));
 	mPlayerInstance->SetRateAndSeek(rate,secondsRelativeToTuneTime);
