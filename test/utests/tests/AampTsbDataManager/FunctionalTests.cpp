@@ -128,6 +128,49 @@ TEST_F(FunctionalTests, GetNearestFragment_MultipleFragments)
     EXPECT_EQ(fragmentAt15, fragmentAfter);
 }
 
+TEST_F(FunctionalTests, GetFragmentBefore_StrictPredecessor)
+{
+    mDataManager->AddInitFragment(url, eMEDIATYPE_VIDEO, streamInfo, period, absPosition);
+
+    writeData.url = url1;
+    writeData.cachedFragment->absPosition = 1005.0;
+    mDataManager->AddFragment(writeData, eMEDIATYPE_VIDEO, false);
+
+    writeData.url = url2;
+    writeData.cachedFragment->absPosition = 1010.0;
+    mDataManager->AddFragment(writeData, eMEDIATYPE_VIDEO, false);
+
+    writeData.url = url3;
+    writeData.cachedFragment->absPosition = 1015.0;
+    mDataManager->AddFragment(writeData, eMEDIATYPE_VIDEO, false);
+
+    // Position between entries -> nearest lower entry (1010, not 1015).
+    auto between = mDataManager->GetFragmentBefore(1012.0);
+    ASSERT_NE(between, nullptr);
+    EXPECT_DOUBLE_EQ(between->GetAbsolutePosition().inSeconds(), 1010.0);
+
+    // Exact entry position -> strict predecessor, not the entry itself.
+    auto atEntry = mDataManager->GetFragmentBefore(1010.0);
+    ASSERT_NE(atEntry, nullptr);
+    EXPECT_DOUBLE_EQ(atEntry->GetAbsolutePosition().inSeconds(), 1005.0);
+
+    // Position beyond the last entry -> the last fragment.
+    auto afterLast = mDataManager->GetFragmentBefore(1020.0);
+    ASSERT_NE(afterLast, nullptr);
+    EXPECT_DOUBLE_EQ(afterLast->GetAbsolutePosition().inSeconds(), 1015.0);
+
+    // First-entry boundary -> no predecessor.
+    EXPECT_EQ(mDataManager->GetFragmentBefore(1005.0), nullptr);
+
+    // Position below the first entry -> no predecessor.
+    EXPECT_EQ(mDataManager->GetFragmentBefore(1000.0), nullptr);
+}
+
+TEST_F(FunctionalTests, GetFragmentBefore_EmptyData)
+{
+    EXPECT_EQ(mDataManager->GetFragmentBefore(1005.0), nullptr);
+}
+
 TEST_F(FunctionalTests, TestAddFragment_MissingInitHeader)
 {
     std::string url = "http://example.com/fragment2";

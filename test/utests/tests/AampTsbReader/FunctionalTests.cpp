@@ -1431,3 +1431,96 @@ TEST_F(FunctionalTests, ReadNextPlayEOSFalse)
 	mTestableTsbReader->ReadNext(fragment);
 	EXPECT_EQ(mTestableTsbReader->mEosReached, false);
 }
+
+/**
+ * @test FunctionalTests::FindNext_ReverseRecoversSeveredPrevLink
+ * @brief During rewind, a null weak prev link while earlier content still
+ *        exists must not raise EOS; the reader recovers the predecessor from
+ *        the data manager instead of jumping to the start of the TSB.
+ *
+ * @expect FindNext returns the recovered predecessor and IsEos stays false.
+ */
+TEST_F(FunctionalTests, FindNext_ReverseRecoversSeveredPrevLink)
+{
+	float rate = -30.0f; // rewind
+	TuneType tuneType = eTUNETYPE_SEEK;
+
+	std::string url = "http://example.com";
+	AampMediaType media = eMEDIATYPE_VIDEO;
+	double duration = 5.0;
+	double pts = 0.0;
+	bool discont = false;
+	std::string periodId = "testPeriodId";
+	StreamInfo streamInfo;
+	int profileIdx = 0;
+	uint32_t timeScale = 240000;
+	double PTSOffsetSec = 0.0;
+
+	TsbInitDataPtr initFragment = std::make_shared<TsbInitData>(url, media, 1000.0, streamInfo, periodId, profileIdx);
+
+	// TSB start (1000), a still-present predecessor (1005) and the rewind
+	// start fragment (1010) whose weak prev link has been severed (left unset).
+	TsbFragmentDataPtr firstFragment = std::make_shared<TsbFragmentData>(url, media, 1000.0, duration, pts, discont, periodId, initFragment, timeScale, PTSOffsetSec);
+	TsbFragmentDataPtr recoveredPrev = std::make_shared<TsbFragmentData>(url, media, 1005.0, duration, pts, discont, periodId, initFragment, timeScale, PTSOffsetSec);
+	TsbFragmentDataPtr startFragment = std::make_shared<TsbFragmentData>(url, media, 1010.0, duration, pts, discont, periodId, initFragment, timeScale, PTSOffsetSec);
+
+	EXPECT_CALL(*g_mockTSBDataManager, GetFirstFragment()).WillRepeatedly(Return(firstFragment));
+	EXPECT_CALL(*g_mockTSBDataManager, GetLastFragment()).WillRepeatedly(Return(startFragment));
+	EXPECT_CALL(*g_mockTSBDataManager, GetNearestFragment(_)).WillRepeatedly(Return(startFragment));
+	// Recovery must query the predecessor at the current fragment's position (1010).
+	EXPECT_CALL(*g_mockTSBDataManager, GetFragmentBefore(startFragment->GetAbsolutePosition().inSeconds())).WillRepeatedly(Return(recoveredPrev));
+
+	double startPos = 1010.0;
+	EXPECT_EQ(mTestableTsbReader->Init(startPos, rate, tuneType, nullptr), eAAMPSTATUS_OK);
+
+	// First download returns the start fragment; committing it must not EOS.
+	EXPECT_EQ(mTestableTsbReader->FindNext(), startFragment);
+	mTestableTsbReader->ReadNext(startFragment);
+	EXPECT_FALSE(mTestableTsbReader->IsEos());
+
+	// Next reverse step recovers the severed link instead of declaring EOS.
+	EXPECT_EQ(mTestableTsbReader->FindNext(), recoveredPrev);
+	EXPECT_FALSE(mTestableTsbReader->IsEos());
+}
+
+/**
+ * @test FunctionalTests::FindNext_ReverseEosAtTrueStart
+ * @brief During rewind, a null prev link when the current fragment is the
+ *        first fragment in the TSB is a genuine beginning-of-stream and must
+ *        raise EOS (and must not attempt a predecessor recovery lookup).
+ *
+ * @expect IsEos becomes true; GetFragmentBefore is never called.
+ */
+TEST_F(FunctionalTests, FindNext_ReverseEosAtTrueStart)
+{
+	float rate = -30.0f; // rewind
+	TuneType tuneType = eTUNETYPE_SEEK;
+
+	std::string url = "http://example.com";
+	AampMediaType media = eMEDIATYPE_VIDEO;
+	double duration = 5.0;
+	double pts = 0.0;
+	bool discont = false;
+	std::string periodId = "testPeriodId";
+	StreamInfo streamInfo;
+	int profileIdx = 0;
+	uint32_t timeScale = 240000;
+	double PTSOffsetSec = 0.0;
+
+	TsbInitDataPtr initFragment = std::make_shared<TsbInitData>(url, media, 1000.0, streamInfo, periodId, profileIdx);
+	// The rewind start fragment is also the first fragment in the TSB.
+	TsbFragmentDataPtr firstFragment = std::make_shared<TsbFragmentData>(url, media, 1000.0, duration, pts, discont, periodId, initFragment, timeScale, PTSOffsetSec);
+
+	EXPECT_CALL(*g_mockTSBDataManager, GetFirstFragment()).WillRepeatedly(Return(firstFragment));
+	EXPECT_CALL(*g_mockTSBDataManager, GetLastFragment()).WillRepeatedly(Return(firstFragment));
+	EXPECT_CALL(*g_mockTSBDataManager, GetNearestFragment(_)).WillRepeatedly(Return(firstFragment));
+	// GetFragmentBefore intentionally has no expectation: StrictMock fails if the
+	// reader tries to recover a predecessor at the genuine start of the TSB.
+
+	double startPos = 1000.0;
+	EXPECT_EQ(mTestableTsbReader->Init(startPos, rate, tuneType, nullptr), eAAMPSTATUS_OK);
+
+	EXPECT_EQ(mTestableTsbReader->FindNext(), firstFragment);
+	mTestableTsbReader->ReadNext(firstFragment);
+	EXPECT_TRUE(mTestableTsbReader->IsEos());
+}
