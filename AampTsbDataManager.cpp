@@ -106,6 +106,32 @@ TsbFragmentDataPtr AampTsbDataManager::GetNearestFragment(double position)
 }
 
 /**
+ *  @brief GetFragmentBefore - get the fragment immediately before a position
+ */
+TsbFragmentDataPtr AampTsbDataManager::GetFragmentBefore(double position)
+{
+	TSB_DM_TIME_DATA();
+	TsbFragmentDataPtr fragmentData = nullptr;
+	try
+	{
+		std::lock_guard<std::mutex> lock(mTsbDataMutex);
+		// lower_bound returns the first element with key >= position; the element
+		// before it (if any) is the strict predecessor in playback order.
+		auto lower = mTsbFragmentData.lower_bound(position);
+		if (lower != mTsbFragmentData.begin())
+		{
+			fragmentData = std::prev(lower)->second;
+		}
+	}
+	catch (const std::exception &e)
+	{
+		AAMPLOG_WARN("Exception caught while getting fragment before pos %.02lf : %s ", position, e.what());
+	}
+
+	return fragmentData;
+}
+
+/**
  *  @brief RemoveFragment - remove fragment from the top
  */
 TsbFragmentDataPtr AampTsbDataManager::RemoveFragment(bool &deleteInit)

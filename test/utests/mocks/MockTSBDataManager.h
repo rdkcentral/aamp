@@ -32,6 +32,7 @@ public:
 	MOCK_METHOD(TsbFragmentDataPtr, GetFirstFragment, ());
 	MOCK_METHOD(TsbFragmentDataPtr, GetLastFragment, ());
 	MOCK_METHOD(TsbFragmentDataPtr, GetNearestFragment, (double position));
+	MOCK_METHOD(TsbFragmentDataPtr, GetFragmentBefore, (double position));
 };
 extern std::shared_ptr<MockTSBDataManager> g_mockTSBDataManager;
 #endif /* AAMP_MOCK_TSB_DATAMANAGER_H */

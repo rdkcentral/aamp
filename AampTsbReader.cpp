@@ -175,6 +175,40 @@ AAMPStatusType AampTsbReader::Init(double &startPosSec, float rate, TuneType tun
 }
 
 /**
+ * @fn GetPrevFragment - get the predecessor of a fragment for reverse playback
+ *
+ * @param[in] fragment - Current fragment
+ * @return Previous fragment, or nullptr only when genuinely at the start of the TSB
+ */
+TsbFragmentDataPtr AampTsbReader::GetPrevFragment(const TsbFragmentDataPtr &fragment)
+{
+	TsbFragmentDataPtr prevFragment = fragment ? fragment->prev.lock() : nullptr;
+
+	// prev is a weak_ptr: a null result can mean the predecessor object was
+	// released (e.g. culled or its owning link severed) while earlier content
+	// still exists in the store. Only that latter case must not raise EOS, so
+	// recover the real predecessor from the position-sorted store when the
+	// current fragment is not yet the first fragment in the TSB.
+	if (!prevFragment && fragment && mDataMgr)
+	{
+		TsbFragmentDataPtr firstFragment = mDataMgr->GetFirstFragment();
+		if (firstFragment &&
+			(fragment->GetAbsolutePosition() > firstFragment->GetAbsolutePosition()))
+		{
+			prevFragment = mDataMgr->GetFragmentBefore(fragment->GetAbsolutePosition().inSeconds());
+			if (prevFragment)
+			{
+				AAMPLOG_WARN("[%s] Recovered severed reverse link at %lfs, prev %lfs (TSB start %lfs)",
+					GetMediaTypeName(mMediaType), fragment->GetAbsolutePosition().inSeconds(),
+					prevFragment->GetAbsolutePosition().inSeconds(), firstFragment->GetAbsolutePosition().inSeconds());
+			}
+		}
+	}
+
+	return prevFragment;
+}
+
+/**
  * @fn FindNext - function to find the next fragment from TSB
  *
  * @param[in] offset - Offset from last read fragment
@@ -209,7 +243,7 @@ TsbFragmentDataPtr AampTsbReader::FindNext()
 			if (mCurrentRate < 0.0) // reverse playback
 			{
 				// For reverse playback, get the previous fragment in the linked list
-				ret = mCurrentFragment->prev.lock();
+				ret = GetPrevFragment(mCurrentFragment);
 			}
 			else // forward or normal playback
 			{
@@ -250,14 +284,18 @@ void AampTsbReader::ReadNext(TsbFragmentDataPtr nextFragmentData)
 	{
 		// Update current fragment pointer
 		mCurrentFragment = nextFragmentData;
-		
+
+		// For reverse playback resolve the predecessor once; it recovers a
+		// severed weak prev link and is reused for both EOS and next position.
+		TsbFragmentDataPtr reversePrev = (mCurrentRate < 0.0) ? GetPrevFragment(nextFragmentData) : nullptr;
+
 		if (mCurrentRate > AAMP_NORMAL_PLAY_RATE)
 		{
 			mEosReached = nextFragmentData->GetAbsolutePosition().inSeconds() >= mAamp->mTrickModePositionEOS;
 		}
 		else if (mCurrentRate < 0.0)
 		{
-			mEosReached = !nextFragmentData->prev.lock();
+			mEosReached = !reversePrev;
 		}
 		else
 		{
@@ -293,10 +331,10 @@ void AampTsbReader::ReadNext(TsbFragmentDataPtr nextFragmentData)
 		}
 		else
 		{ // read in reverse direction
-			// When nextFragmentData->prev becomes nullptr, eos will be set, and no more reads will happen for this rate as we reached the very first fragment in tsb and segments never gets added to the beginning of tsb.
-			if (auto prevFragment = nextFragmentData->prev.lock())
+			// When there is no predecessor, eos was set above as we reached the very first fragment in tsb and segments never gets added to the beginning of tsb.
+			if (reversePrev)
 			{
-				mUpcomingFragmentPosition = prevFragment->GetAbsolutePosition();
+				mUpcomingFragmentPosition = reversePrev->GetAbsolutePosition();
 			}
 			else
 			{
