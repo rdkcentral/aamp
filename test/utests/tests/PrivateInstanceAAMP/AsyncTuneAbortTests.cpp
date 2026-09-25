@@ -56,10 +56,21 @@ static constexpr const char* kHlsUrl  = "http://example.com/stream.m3u8";
  * abort eligibility (mMediaFormat, mContentType, mAsyncTuneEnabled) and use
  * SetEarlyAbortRequestFlag() for the abort flag.
  */
+class TestablePrivateInstanceAAMP : public PrivateInstanceAAMP
+{
+public:
+	using PrivateInstanceAAMP::PrivateInstanceAAMP;
+
+	void SetTuneTypeForTest(TuneType tuneType)
+	{
+		mTuneType = tuneType;
+	}
+};
+
 class AsyncTuneAbortTests : public ::testing::Test
 {
 protected:
-	PrivateInstanceAAMP *mAamp{};
+	TestablePrivateInstanceAAMP *mAamp{};
 
 	void SetUp() override
 	{
@@ -79,7 +90,7 @@ protected:
 			GetConfigValue(testing::Matcher<AAMPConfigSettingString>(_)))
 			.WillByDefault(Return(""));
 
-		mAamp = new PrivateInstanceAAMP(gpGlobalConfig);
+		mAamp = new TestablePrivateInstanceAAMP(gpGlobalConfig);
 	}
 
 	void TearDown() override
@@ -90,11 +101,12 @@ protected:
 	}
 
 	/** Helper: configure the instance as DASH-linear with async-tune on. */
-	void SetupDashLinearAsync()
+	void SetupDashLinearAsync(TuneType tuneType = eTUNETYPE_NEW_NORMAL)
 	{
 		mAamp->mMediaFormat    = eMEDIAFORMAT_DASH;
 		mAamp->SetContentType("LINEAR_TV");
 		mAamp->mAsyncTuneEnabled = true;
+		mAamp->SetTuneTypeForTest(tuneType);
 	}
 };
 
@@ -145,6 +157,34 @@ TEST_F(AsyncTuneAbortTests, IsAsyncTuneAbortSupported_DashVod_ReturnsFalse)
 	mAamp->mMediaFormat    = eMEDIAFORMAT_DASH;
 	mAamp->SetContentType("VOD");
 	mAamp->mAsyncTuneEnabled = true;
+	EXPECT_FALSE(mAamp->IsAsyncTuneAbortSupported());
+}
+
+/**
+ * @test IsAsyncTuneAbortSupported_CurrentTuneNewSeek_ReturnsTrue
+ * @brief The async-tune abort gate must allow a valid new-seek tune for the
+ *        active tune, while keeping aborts disabled for non-new tune types.
+ */
+TEST_F(AsyncTuneAbortTests, IsAsyncTuneAbortSupported_CurrentTuneNewSeek_ReturnsTrue)
+{
+	SetupDashLinearAsync(eTUNETYPE_NEW_SEEK);
+	EXPECT_TRUE(mAamp->IsAsyncTuneAbortSupported());
+}
+
+/**
+ * @test IsAsyncTuneAbortSupported_CurrentTuneSeek_ReturnsFalse
+ * @brief Existing seek/retune operations are not eligible for early async abort
+ *        even when the format and content type are otherwise supported.
+ */
+TEST_F(AsyncTuneAbortTests, IsAsyncTuneAbortSupported_CurrentTuneSeek_ReturnsFalse)
+{
+	SetupDashLinearAsync(eTUNETYPE_SEEK);
+	EXPECT_FALSE(mAamp->IsAsyncTuneAbortSupported());
+
+	mAamp->SetTuneTypeForTest(eTUNETYPE_SEEKTOLIVE);
+	EXPECT_FALSE(mAamp->IsAsyncTuneAbortSupported());
+
+	mAamp->SetTuneTypeForTest(eTUNETYPE_RETUNE);
 	EXPECT_FALSE(mAamp->IsAsyncTuneAbortSupported());
 }
 
@@ -199,7 +239,8 @@ TEST_F(AsyncTuneAbortTests, IsAsyncTuneAbortRequired_UrlArg_DashLinear_AbortFlag
 {
 	mAamp->mAsyncTuneEnabled = true;
 	mAamp->SetEarlyAbortRequestFlag(true);
-	EXPECT_TRUE(mAamp->IsAsyncTuneAbortRequired(kDashUrl, "LINEAR_TV"));
+	EXPECT_TRUE(mAamp->IsAsyncTuneAbortRequired(kDashUrl, "LINEAR_TV", -1));
+ 	EXPECT_TRUE(mAamp->IsAsyncTuneAbortRequired(kDashUrl, "LINEAR_TV", 10.0));
 }
 
 /**
@@ -210,7 +251,7 @@ TEST_F(AsyncTuneAbortTests, IsAsyncTuneAbortRequired_UrlArg_DashLinear_AbortFlag
 {
 	mAamp->mAsyncTuneEnabled = true;
 	mAamp->SetEarlyAbortRequestFlag(false);
-	EXPECT_FALSE(mAamp->IsAsyncTuneAbortRequired(kDashUrl, "LINEAR_TV"));
+	EXPECT_FALSE(mAamp->IsAsyncTuneAbortRequired(kDashUrl, "LINEAR_TV", -1));
 }
 
 /**
@@ -221,7 +262,7 @@ TEST_F(AsyncTuneAbortTests, IsAsyncTuneAbortRequired_UrlArg_HlsLinear_ReturnsFal
 {
 	mAamp->mAsyncTuneEnabled = true;
 	mAamp->SetEarlyAbortRequestFlag(true);
-	EXPECT_FALSE(mAamp->IsAsyncTuneAbortRequired(kHlsUrl, "LINEAR_TV"));
+	EXPECT_FALSE(mAamp->IsAsyncTuneAbortRequired(kHlsUrl, "LINEAR_TV", -1));
 }
 
 /**
@@ -232,7 +273,7 @@ TEST_F(AsyncTuneAbortTests, IsAsyncTuneAbortRequired_UrlArg_DashVod_ReturnsFalse
 {
 	mAamp->mAsyncTuneEnabled = true;
 	mAamp->SetEarlyAbortRequestFlag(true);
-	EXPECT_FALSE(mAamp->IsAsyncTuneAbortRequired(kDashUrl, "VOD"));
+	EXPECT_FALSE(mAamp->IsAsyncTuneAbortRequired(kDashUrl, "VOD", -1));
 }
 
 /**
@@ -243,7 +284,7 @@ TEST_F(AsyncTuneAbortTests, IsAsyncTuneAbortRequired_UrlArg_AsyncTuneDisabled_Re
 {
 	mAamp->mAsyncTuneEnabled = false;
 	mAamp->SetEarlyAbortRequestFlag(true);
-	EXPECT_FALSE(mAamp->IsAsyncTuneAbortRequired(kDashUrl, "LINEAR_TV"));
+	EXPECT_FALSE(mAamp->IsAsyncTuneAbortRequired(kDashUrl, "LINEAR_TV", -1));
 }
 
 // ---------------------------------------------------------------------------
@@ -264,7 +305,7 @@ TEST_F(AsyncTuneAbortTests, Consistency_BothOverloads_AgreeForDashLinear)
 	mAamp->SetEarlyAbortRequestFlag(true);
 
 	bool noArgResult  = mAamp->IsAsyncTuneAbortRequired();
-	bool urlArgResult = mAamp->IsAsyncTuneAbortRequired(kDashUrl, "LINEAR_TV");
+	bool urlArgResult = mAamp->IsAsyncTuneAbortRequired(kDashUrl, "LINEAR_TV", -1);
 
 	EXPECT_EQ(noArgResult, urlArgResult);
 	EXPECT_TRUE(noArgResult);
@@ -282,7 +323,7 @@ TEST_F(AsyncTuneAbortTests, Consistency_BothOverloads_AgreeForHlsLinear)
 	mAamp->SetEarlyAbortRequestFlag(true);
 
 	bool noArgResult  = mAamp->IsAsyncTuneAbortRequired();
-	bool urlArgResult = mAamp->IsAsyncTuneAbortRequired(kHlsUrl, "LINEAR_TV");
+	bool urlArgResult = mAamp->IsAsyncTuneAbortRequired(kHlsUrl, "LINEAR_TV", -1);
 
 	EXPECT_EQ(noArgResult, urlArgResult);
 	EXPECT_FALSE(noArgResult);
@@ -299,5 +340,5 @@ TEST_F(AsyncTuneAbortTests, Consistency_BothOverloads_AbortFlagClear)
 	mAamp->SetEarlyAbortRequestFlag(false);
 
 	EXPECT_FALSE(mAamp->IsAsyncTuneAbortRequired());
-	EXPECT_FALSE(mAamp->IsAsyncTuneAbortRequired(kDashUrl, "LINEAR_TV"));
+	EXPECT_FALSE(mAamp->IsAsyncTuneAbortRequired(kDashUrl, "LINEAR_TV", -1));
 }
