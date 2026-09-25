@@ -1467,7 +1467,8 @@ TEST_F(FunctionalTests, FindNext_ReverseRecoversSeveredPrevLink)
 	EXPECT_CALL(*g_mockTSBDataManager, GetFirstFragment()).WillRepeatedly(Return(firstFragment));
 	EXPECT_CALL(*g_mockTSBDataManager, GetLastFragment()).WillRepeatedly(Return(startFragment));
 	EXPECT_CALL(*g_mockTSBDataManager, GetNearestFragment(_)).WillRepeatedly(Return(startFragment));
-	EXPECT_CALL(*g_mockTSBDataManager, GetFragmentBefore(_)).WillRepeatedly(Return(recoveredPrev));
+	// Recovery must query the predecessor at the current fragment's position (1010).
+	EXPECT_CALL(*g_mockTSBDataManager, GetFragmentBefore(startFragment->GetAbsolutePosition().inSeconds())).WillRepeatedly(Return(recoveredPrev));
 
 	double startPos = 1010.0;
 	EXPECT_EQ(mTestableTsbReader->Init(startPos, rate, tuneType, nullptr), eAAMPSTATUS_OK);
