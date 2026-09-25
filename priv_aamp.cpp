@@ -1722,7 +1722,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	m_fd(-1), mIsLive(false), mIsAudioContextSkipped(false), mLogTune(false), mTuneCompleted(false), mFirstTune(true), mfirstTuneFmt(-1), mTuneAttempts(0), mPlayerLoadTime(0),
 	mState(eSTATE_RELEASED), mMediaFormat(eMEDIAFORMAT_HLS), mPersistedProfileIndex(0),
 	mDiscontinuityTuneOperationInProgress(false), mContentType(ContentType_UNKNOWN), mTunedEventPending(false),
-	mSeekOperationInProgress(false), mTrickplayInProgress(false), mPendingAsyncEvents(), mCustomHeaders(),
+	mSeekOperationInProgress(false), mTrickplayInProgress(false), mBlockProgressMonitor(false), mPendingAsyncEvents(), mCustomHeaders(),
 	initialManifestFetchInProgress(false), mManifestUrl(""), mTunedManifestUrl(""), mOrigManifestUrl(), mServiceZone(), mVssVirtualStreamId(),
 	mCurrentLanguageIndex(0),
 	preferredLanguagesString(), preferredLanguagesList(), preferredLabelList(),mhAbrManager(),
@@ -2463,13 +2463,18 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 	{
 		AAMPLOG_WARN("Progress reporting skipped whilst seeking.");
 	}
+	else if (ProgressMonitorBlocked())
+	{
+		AAMPLOG_WARN("Progress reporting blocked whilst tune (set rate).");
+	}
 
 	//Once GST_MESSAGE_EOS is received, AAMP does not want any stray progress to be sent to player. so added the condition state != eSTATE_COMPLETE
 	if (mDownloadsEnabled &&
 		(state != eSTATE_IDLE) &&
 		(state != eSTATE_RELEASED) &&
 		(state != eSTATE_COMPLETE) &&
-		(state != eSTATE_SEEKING))
+		(state != eSTATE_SEEKING) &&
+		!ProgressMonitorBlocked())
 	{
 		// mTuneMetricDataPending is checked inside SendTuneMetricsEvent()
 		if (state == eSTATE_PLAYING)
@@ -9432,6 +9437,11 @@ void PrivateInstanceAAMP::SetState(AAMPPlayerState state, bool sendStateChangeEv
 	// Atomically exchange the state and get the previous value in one operation
 	// This ensures only one thread observes each state transition, preventing duplicate events
 	AAMPPlayerState oldState = mState.exchange(state);
+
+	if (state == eSTATE_PLAYING || state == eSTATE_BUFFERING || state == eSTATE_PAUSED)
+	{
+		BlockProgressMonitor(false); // make sure MonitorProgress() is not blocked after tune
+	}
 
 	// Early return if state hasn't changed
 	if (oldState == state)
