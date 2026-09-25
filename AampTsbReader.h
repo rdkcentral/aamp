@@ -191,6 +191,18 @@ public:
 	 */
 	void SetEndFragmentInjected() { mIsEndFragmentInjected.store(true); }
 
+	/**
+	 * @fn GetPrevFragment
+	 * @brief Get the predecessor of a fragment for reverse playback.
+	 *        Recovers from the TSB data manager when the weak prev link has
+	 *        been severed while earlier content still exists, avoiding a
+	 *        premature reverse EOS.
+	 *
+	 * @param[in] fragment - Current fragment
+	 * @return Previous fragment, or nullptr only when genuinely at the start of the TSB
+	 */
+	TsbFragmentDataPtr GetPrevFragment(const TsbFragmentDataPtr &fragment);
+
 private:
 
 	bool mInitialized_;
@@ -218,18 +230,6 @@ protected:
 	 * @param[in] currFragment - Current fragment
 	 */
 	void CheckPeriodBoundary(TsbFragmentDataPtr currFragment);
-
-	/**
-	 * @fn GetPrevFragment
-	 * @brief Get the predecessor of a fragment for reverse playback.
-	 *        Recovers from the TSB data manager when the weak prev link has
-	 *        been severed while earlier content still exists, avoiding a
-	 *        premature reverse EOS.
-	 *
-	 * @param[in] fragment - Current fragment
-	 * @return Previous fragment, or nullptr only when genuinely at the start of the TSB
-	 */
-	TsbFragmentDataPtr GetPrevFragment(const TsbFragmentDataPtr &fragment);
 
 public:
 	PrivateInstanceAAMP *mAamp;

@@ -312,11 +312,12 @@ protected:
 
 	/**
 	 * @brief Navigate to next fragment based on playback rate
+	 * @param[in] reader - Reader object (provides predecessor recovery for reverse)
 	 * @param[in,out] fragment - Fragment data to navigate from; updated to next fragment if successful
 	 * @param[in] rate - Playback rate
 	 * @return true if navigation was successful, false if reached boundary
 	 */
-	bool NavigateToNextFragment(TsbFragmentDataPtr& fragment, float rate);
+	bool NavigateToNextFragment(const std::shared_ptr<AampTsbReader> &reader, TsbFragmentDataPtr& fragment, float rate);
 
 	/**
 	 * @brief Check if fragment skipping should be performed

@@ -840,7 +840,7 @@ AampTime AampTSBSessionManager::CalculateSkipDelta(float rate, int vodTrickplayF
 /**
  * @brief Navigate to next fragment based on playback rate
  */
-bool AampTSBSessionManager::NavigateToNextFragment(TsbFragmentDataPtr& fragment, float rate)
+bool AampTSBSessionManager::NavigateToNextFragment(const std::shared_ptr<AampTsbReader> &reader, TsbFragmentDataPtr& fragment, float rate)
 {
 	bool success = false;
 
@@ -862,7 +862,10 @@ bool AampTSBSessionManager::NavigateToNextFragment(TsbFragmentDataPtr& fragment,
 	}
 	else							// Rewind
 	{
-		if (auto prevShared = fragment->prev.lock()) 
+		// Use the reader's predecessor recovery so a severed weak prev link
+		// (predecessor object released while earlier content still exists)
+		// does not stop the skip short of the true beginning of the TSB.
+		if (auto prevShared = reader ? reader->GetPrevFragment(fragment) : fragment->prev.lock())
 		{
 			fragment = prevShared;
 			success = true;
@@ -916,7 +919,7 @@ void AampTSBSessionManager::SkipFragment(std::shared_ptr<AampTsbReader>& reader,
 				delta -= fragDuration;
 				skippedDuration += fragDuration;
 
-				if (!NavigateToNextFragment(nextFragmentData, rate))
+				if (!NavigateToNextFragment(reader, nextFragmentData, rate))
 				{
 					break;
 				}
