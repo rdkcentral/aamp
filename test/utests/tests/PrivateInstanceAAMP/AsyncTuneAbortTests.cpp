@@ -56,10 +56,21 @@ static constexpr const char* kHlsUrl  = "http://example.com/stream.m3u8";
  * abort eligibility (mMediaFormat, mContentType, mAsyncTuneEnabled) and use
  * SetEarlyAbortRequestFlag() for the abort flag.
  */
+class TestablePrivateInstanceAAMP : public PrivateInstanceAAMP
+{
+public:
+	using PrivateInstanceAAMP::PrivateInstanceAAMP;
+
+	void SetTuneTypeForTest(TuneType tuneType)
+	{
+		mTuneType = tuneType;
+	}
+};
+
 class AsyncTuneAbortTests : public ::testing::Test
 {
 protected:
-	PrivateInstanceAAMP *mAamp{};
+	TestablePrivateInstanceAAMP *mAamp{};
 
 	void SetUp() override
 	{
@@ -79,7 +90,7 @@ protected:
 			GetConfigValue(testing::Matcher<AAMPConfigSettingString>(_)))
 			.WillByDefault(Return(""));
 
-		mAamp = new PrivateInstanceAAMP(gpGlobalConfig);
+		mAamp = new TestablePrivateInstanceAAMP(gpGlobalConfig);
 	}
 
 	void TearDown() override
@@ -90,11 +101,12 @@ protected:
 	}
 
 	/** Helper: configure the instance as DASH-linear with async-tune on. */
-	void SetupDashLinearAsync()
+	void SetupDashLinearAsync(TuneType tuneType = eTUNETYPE_NEW_NORMAL)
 	{
 		mAamp->mMediaFormat    = eMEDIAFORMAT_DASH;
 		mAamp->SetContentType("LINEAR_TV");
 		mAamp->mAsyncTuneEnabled = true;
+		mAamp->SetTuneTypeForTest(tuneType);
 	}
 };
 
@@ -145,6 +157,34 @@ TEST_F(AsyncTuneAbortTests, IsAsyncTuneAbortSupported_DashVod_ReturnsFalse)
 	mAamp->mMediaFormat    = eMEDIAFORMAT_DASH;
 	mAamp->SetContentType("VOD");
 	mAamp->mAsyncTuneEnabled = true;
+	EXPECT_FALSE(mAamp->IsAsyncTuneAbortSupported());
+}
+
+/**
+ * @test IsAsyncTuneAbortSupported_CurrentTuneNewSeek_ReturnsTrue
+ * @brief The async-tune abort gate must allow a valid new-seek tune for the
+ *        active tune, while keeping aborts disabled for non-new tune types.
+ */
+TEST_F(AsyncTuneAbortTests, IsAsyncTuneAbortSupported_CurrentTuneNewSeek_ReturnsTrue)
+{
+	SetupDashLinearAsync(eTUNETYPE_NEW_SEEK);
+	EXPECT_TRUE(mAamp->IsAsyncTuneAbortSupported());
+}
+
+/**
+ * @test IsAsyncTuneAbortSupported_CurrentTuneSeek_ReturnsFalse
+ * @brief Existing seek/retune operations are not eligible for early async abort
+ *        even when the format and content type are otherwise supported.
+ */
+TEST_F(AsyncTuneAbortTests, IsAsyncTuneAbortSupported_CurrentTuneSeek_ReturnsFalse)
+{
+	SetupDashLinearAsync(eTUNETYPE_SEEK);
+	EXPECT_FALSE(mAamp->IsAsyncTuneAbortSupported());
+
+	mAamp->SetTuneTypeForTest(eTUNETYPE_SEEKTOLIVE);
+	EXPECT_FALSE(mAamp->IsAsyncTuneAbortSupported());
+
+	mAamp->SetTuneTypeForTest(eTUNETYPE_RETUNE);
 	EXPECT_FALSE(mAamp->IsAsyncTuneAbortSupported());
 }
 
