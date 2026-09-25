@@ -996,8 +996,10 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 						aamp->rate = AAMP_NORMAL_PLAY_RATE;
 						aamp->mSinkPaused = false;
 						{
+							aamp->BlockProgressMonitor(); // prevent MonitorProgress() running while doing trick mode
 							std::lock_guard<std::recursive_mutex> lock(aamp->GetStreamLock());
 							aamp->TuneHelper(eTUNETYPE_SEEK, false);
+							aamp->BlockProgressMonitor(false); // allow MonitorProgress() to run after trick mode
 						}
 						// Notify speed change without state transition (keeps eSTATE_SEEKING)
 						// State will naturally transition to PLAYING when NotifyFirstBufferProcessed() is called after fragments arrive
@@ -1103,8 +1105,10 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 				aamp->EnableDownloads();
 				aamp->ResumeDownloads();
 				{
+					aamp->BlockProgressMonitor(); // prevent MonitorProgress() running while doing trick mode
 					std::lock_guard<std::recursive_mutex> lock(aamp->GetStreamLock());
 					aamp->TuneHelper(tuneTypePlay); // this unpauses pipeline as side effect
+					aamp->BlockProgressMonitor(false); // allow MonitorProgress() to run after trick mode
 				}
 			}
 

@@ -4194,6 +4194,23 @@ public:
 	 */
 	bool IsAdPlaying();
 
+	/**
+	 * @brief Set flag to prevent MonitorProgress running
+	 */
+	void BlockProgressMonitor(bool block = true)
+	{
+		mBlockProgressMonitor.store(block);
+	}
+
+	/**
+	 * @brief Check if MonitorProgress is blocked
+	 * @return true if MonitorProgress is blocked
+	 */
+	bool ProgressMonitorBlocked()
+	{
+		return mBlockProgressMonitor.load();
+	}
+
 protected:
 
 	/**
@@ -4379,6 +4396,7 @@ protected:
 	bool mTunedEventPending;
 	bool mSeekOperationInProgress;
 	bool mTrickplayInProgress;
+	std::atomic<bool> mBlockProgressMonitor;
 	std::map<guint, bool> mPendingAsyncEvents;
 	std::unordered_map<std::string, std::vector<std::string>> mCustomHeaders;
 	bool mIsFirstRequestToFOG;
