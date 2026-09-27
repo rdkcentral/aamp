@@ -321,6 +321,11 @@ KeyState AampDRMLicenseManager::acquireLicense( int& responseCode, const std::sh
 				eventHandle->setFailure(AAMP_TUNE_DRM_SELF_ABORT);
 				eventHandle->setResponseCode(CURLE_ABORTED_BY_CALLBACK);
 				responseCode = int(CURLE_ABORTED_BY_CALLBACK);
+				// F3 (RDKEMW-24407): tune was torn down mid license-acquisition. Mark this
+				// slot's cached keyId as failed so the reuse/update path in getDrmSession()
+				// cannot later pick this half-provisioned session for a different channel
+				// (avoids the stale-session update that ends in Key State 3).
+				mDrmSessionManager->setFailedKeyIdStatus(sessionSlot, true);
 				return KEY_ERROR;
 			}
 
@@ -389,6 +394,11 @@ KeyState AampDRMLicenseManager::acquireLicense( int& responseCode, const std::sh
 					eventHandle->setFailure(AAMP_TUNE_DRM_SELF_ABORT);
 					eventHandle->setResponseCode(CURLE_ABORTED_BY_CALLBACK);
 					responseCode = int(CURLE_ABORTED_BY_CALLBACK);
+					// F3 (RDKEMW-24407): a valid license may have arrived after teardown.
+					// Mark this slot's cached keyId as failed so the reuse/update path in
+					// getDrmSession() cannot later reuse this session (bound to the torn-down
+					// tune's input data) for a different channel and end up in Key State 3.
+					mDrmSessionManager->setFailedKeyIdStatus(sessionSlot, true);
 					return KEY_ERROR;
 				}
 			}
