@@ -3083,6 +3083,39 @@ void PrivateInstanceAAMP::SendBufferChangeEvent(bool bufferingStarted)
 	at2.send(telemetryName, intData, {/*string data*/}, {/*float data*/});
 #endif //AAMP_TELEMETRY_SUPPORT
 	SendEvent(e,AAMP_EVENT_ASYNC_MODE);
+
+	// If rebuffering started, notify latency monitor to relax the latency band
+	if (bufferingStarted)
+	{
+		mLatencyMonitor->OnRebufferingStart();
+	}
+}
+
+/**
+ * @brief API to set buffering state and coordinate pipeline state + events.
+ */
+void PrivateInstanceAAMP::SetBufferingState(bool buffering)
+{
+	if (buffering)
+	{
+		SendBufferChangeEvent(true);
+		if (!mSinkPaused.load())
+		{
+			if (!PausePipeline(true, true))
+			{
+				AAMPLOG_ERR("Failed to pause the Pipeline");
+			}
+		}
+	}
+	else
+	{
+		if (mSinkPaused.load())
+		{
+			(void)PausePipeline(false, false);
+		}
+		UpdateSubtitleTimestamp();
+		SendBufferChangeEvent(false);
+	}
 }
 
 /**
