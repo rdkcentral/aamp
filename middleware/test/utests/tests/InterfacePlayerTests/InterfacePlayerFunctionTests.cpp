@@ -2471,6 +2471,23 @@ TEST_F(InterfacePlayerTests, InterfacePlayer_SetupStream_Success) //failure case
 	EXPECT_EQ(retvalue, 0);
 }
 
+TEST_F(InterfacePlayerTests, InterfacePlayer_SetupStream_RialtoSubtitleSinkCreationFailed)
+{
+	mPlayerConfigParams->gstreamerSubsEnabled = true;
+	mPlayerContext->usingRialtoSink = true;
+	mPlayerContext->stream[eGST_MEDIATYPE_SUBTITLE].format = GST_FORMAT_SUBTITLE_MP4;
+
+	EXPECT_CALL(*g_mockGStreamer, gst_element_factory_make(StrEq("rialtomsesubtitlesink"), NULL))
+		.WillOnce(Return(nullptr));
+
+	int retvalue = mInterfaceGstPlayer->InterfacePlayer_SetupStream(eGST_MEDIATYPE_SUBTITLE, "");
+
+	EXPECT_EQ(retvalue, -1);
+	EXPECT_EQ(mPlayerContext->stream[eGST_MEDIATYPE_SUBTITLE].source, nullptr);
+	EXPECT_EQ(mPlayerContext->stream[eGST_MEDIATYPE_SUBTITLE].sinkbin, nullptr);
+	EXPECT_EQ(mPlayerContext->subtitle_sink, nullptr);
+}
+
 TEST_F(InterfacePlayerTests, DisableDecoderHandleNotified)
 {
 	mPlayerContext->decoderHandleNotified = true;
