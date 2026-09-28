@@ -1526,14 +1526,13 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 			bool bProcessFragment = true;
 			// A server ad-splicer can leave a tail fragment/chunk whose start is within
 			// AAMP_DASH_PERIOD_TAIL_TOLERANCE_SEC of the Period end (e.g. the same audio
-			// segment duplicated across the base-content/ad Period boundary). This only
-			// affects live streams - VOD manifests are published up front and are not
-			// subject to this SSAI live-splicing artifact. Pull the effective Period-end
-			// boundary back by the tolerance so that sliver is excluded by the existing
-			// "reached Period end" check below, exactly like a fragment genuinely past
-			// the boundary.
+			// segment duplicated across the base-content/ad Period boundary). Applies to
+			// both live and VOD (server/client-stitched VOD ad breaks can have the same
+			// misalignment). Pull the effective Period-end boundary back by the tolerance
+			// so that sliver is excluded by the existing "reached Period end" check below,
+			// exactly like a fragment genuinely past the boundary.
 			double periodEndBoundary = mPeriodEndTime - AAMP_DASH_PERIOD_TAIL_TOLERANCE_SEC;
-			if(mIsLiveStream && pMediaStreamContext->fragmentDescriptor.Time >= periodEndBoundary && pMediaStreamContext->fragmentDescriptor.Time < mPeriodEndTime)
+			if(pMediaStreamContext->fragmentDescriptor.Time >= periodEndBoundary && pMediaStreamContext->fragmentDescriptor.Time < mPeriodEndTime)
 			{
 				AAMPLOG_WARN("Type[%d] dropping Period-tail fragment: only %fs remains before Period end (< %fs tolerance) fragmentDescriptor.Time=%f mPeriodEndTime=%f",
 					pMediaStreamContext->type, mPeriodEndTime - pMediaStreamContext->fragmentDescriptor.Time, AAMP_DASH_PERIOD_TAIL_TOLERANCE_SEC,
@@ -1554,7 +1553,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 				{
 					//Directly comparing two double values is unreliable because minor precision errors
 					// here we introduce a 1ms epsilon to compensate and avoid injecting one segment too many at period boundary
-					bProcessFragment = (pMediaStreamContext->fragmentDescriptor.Time+0.001 < mPeriodEndTime);
+					bProcessFragment = (pMediaStreamContext->fragmentDescriptor.Time+0.001 < periodEndBoundary);
 				}
 			}
 			if ((!mIsLiveStream && ((!bProcessFragment) || (mPlayRate < AAMP_RATE_PAUSE )))
