@@ -261,7 +261,6 @@ void IsoBmffBuffer::restampPTS(uint64_t offset, uint64_t basePts, uint8_t *segme
 	{
 		bufferEnd = segment + bufSz;
 	}
-	const uint32_t minHeaderSize = sizeof(uint32_t) + sizeof(uint32_t);
 	uint32_t curOffset = 0;
 	while (curOffset < bufSz)
 	{
@@ -355,7 +354,6 @@ void IsoBmffBuffer::restampPtsInternal(int64_t offset, uint8_t *segment, size_t 
 	// The whole fmp4 fragment is the member buffer/bufSize set via setBuffer();
 	// restampPts() enters this recursion with exactly that buffer, so its end
 	const uint8_t *bufferEnd = buffer + bufSize;// is the correct bound for the entire fragment even inside nested boxes.
-	const uint32_t minHeaderSize = sizeof(uint32_t) + sizeof(uint32_t);
 	
 	size_t curOffset = 0;
 	while (curOffset < bufSz)

@@ -114,12 +114,6 @@ uint64_t ReadUint64(const uint8_t *buf);
  *
  * @param[in] dst - buffer pointer
  * @param[in] val - value to write
- * @param[in] bufEnd - optional one-past-the-end pointer of the whole fmp4
- *                     fragment buffer; when non-null the 8-byte write is
- *                     rejected if it would overrun
- * @param[in] boxEnd - optional one-past-the-end pointer of the enclosing box
- *                     (e.g. tfdt); when non-null the 8-byte write is rejected
- *                     if it would write past the box boundary
  * @return true if written, false if skipped due to bounds
  */
 bool WriteUint64(uint8_t *dst, uint64_t val);
