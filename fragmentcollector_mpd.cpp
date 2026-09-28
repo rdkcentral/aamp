@@ -1225,9 +1225,23 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 										 firstStartTime, tScale, presentationTimeOffset, positionInPeriod, firstSegStartTime, endTime, mPeriodStartTime, mPeriodDuration);
 						}
 
+						// SegmentTimeline equivalent of the tail-tolerance drop applied to the
+						// SegmentTemplate-without-Timeline branch: a server ad-splicer can leave
+						// a tail fragment whose position is within AAMP_DASH_PERIOD_TAIL_TOLERANCE_SEC
+						// of the Period end. Pull the effective boundary back by the tolerance so
+						// that sliver is treated as beyond the Period, same as a fragment genuinely
+						// past it. Applies to live and VOD alike.
+						double periodEndBoundary = endTime - AAMP_DASH_PERIOD_TAIL_TOLERANCE_SEC;
+						if((firstSegStartTime + positionInPeriod) >= periodEndBoundary && (firstSegStartTime + positionInPeriod) < endTime)
+						{
+							AAMPLOG_WARN("Type[%d] dropping Period-tail fragment: only %fs remains before Period end (< %fs tolerance) fragmentPosition: %lf endTime: %lf",
+								pMediaStreamContext->type, endTime - (firstSegStartTime + positionInPeriod), AAMP_DASH_PERIOD_TAIL_TOLERANCE_SEC,
+								(firstSegStartTime + positionInPeriod), endTime);
+						}
+
 						if((mIsFogTSB ||
 								((0 != mPeriodDuration) &&
-									(((firstSegStartTime + positionInPeriod) < endTime) || liveEdgePeriodPlayback || mCdaiObject->mAdState == AdState::IN_ADBREAK_AD_PLAYING)))) //For split period ads, the position in the period doesn't need to be between the period's start and end
+									(((firstSegStartTime + positionInPeriod) < periodEndBoundary) || liveEdgePeriodPlayback || mCdaiObject->mAdState == AdState::IN_ADBREAK_AD_PLAYING)))) //For split period ads, the position in the period doesn't need to be between the period's start and end
 						{
 							/*
 							 * Avoid FetchFragment for following cases
