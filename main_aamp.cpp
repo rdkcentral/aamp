@@ -3389,7 +3389,7 @@ bool PlayerInstanceAAMP::InitAAMPConfig(const char *jsonStr)
 		}
 	}
 
-	AAMPLOG_WARN("ANJ: BEFORE:DoCustomSetting IsConfigSet(eAAMPConfig_useDirectRialto)=%d, IsConfigSet(eAAMPConfig_UseMp4Demux)=%d", IsConfigSet(eAAMPConfig_useDirectRialto), IsConfigSet(eAAMPConfig_UseMp4Demux));
+	AAMPLOG_WARN("ANJ: BEFORE:DoCustomSetting IsConfigSet(eAAMPConfig_useDirectRialto)=%d, IsConfigSet(eAAMPConfig_UseMp4Demux)=%d", mConfig.IsConfigSet(eAAMPConfig_useDirectRialto), mConfig.IsConfigSet(eAAMPConfig_UseMp4Demux));
 	// Common post-processing for both paths
 	mConfig.DoCustomSetting(AAMP_APPLICATION_SETTING);
 	if(GETCONFIGOWNER(eAAMPConfig_AsyncTune) == AAMP_APPLICATION_SETTING)
@@ -3430,7 +3430,7 @@ bool PlayerInstanceAAMP::InitAAMPConfig(const char *jsonStr)
 	// also enable Ethan log redirection if Rialto is enabled using initconfig option.
 	AampLogManager::enableEthanLogRedirection = aamp->UsingRialto();
 	PlayerLogManager::SetLoggerInfo(AampLogManager::disableLogRedirection, AampLogManager::enableEthanLogRedirection, AampLogManager::aampLoglevel, AampLogManager::locked);
-	AAMPLOG_WARN("ANJ: After DoCustomSetting IsConfigSet(eAAMPConfig_useDirectRialto)=%d, IsConfigSet(eAAMPConfig_UseMp4Demux)=%d", IsConfigSet(eAAMPConfig_useDirectRialto), IsConfigSet(eAAMPConfig_UseMp4Demux));
+	AAMPLOG_WARN("ANJ: AFTER:DoCustomSetting IsConfigSet(eAAMPConfig_useDirectRialto)=%d, IsConfigSet(eAAMPConfig_UseMp4Demux)=%d", mConfig.IsConfigSet(eAAMPConfig_useDirectRialto), mConfig.IsConfigSet(eAAMPConfig_UseMp4Demux));
 	return retVal;
 }
 
