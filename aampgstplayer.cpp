@@ -563,14 +563,7 @@ static void HandleOnGstBufferUnderflowCb(int mediaType, AAMPGstPlayer * _this)
 
 	bool isBufferFull = _this->privateContext->mBufferControl[type].isBufferFull(type);
 	_this->privateContext->mBufferControl[type].underflow(_this, type);
-	if (_this->aamp->mConfig->IsConfigSet(eAAMPConfig_EnableAampUnderflowMonitor))
-	{
-		AAMPLOG_INFO("Underflow will be handled in AampUnderflowMonitor, skipping retune for media type %d", type);
-	}
-	else
-	{
-		_this->aamp->ScheduleRetune(eGST_ERROR_UNDERFLOW, type, isBufferFull);		/* Schedule a retune */
-	}
+	_this->aamp->ScheduleRetune(eGST_ERROR_UNDERFLOW, type, isBufferFull);		/* Schedule a retune */
 }
 
 /**
@@ -833,10 +826,8 @@ bool AAMPGstPlayer::SendHelper(AampMediaType mediaType, MediaSample&& sample, bo
 		{
 			aamp->ResetTrickStartUTCTime();
 		}
-		if(!ISCONFIGSET(eAAMPConfig_EnableAampUnderflowMonitor))
-		{
-			StopBuffering(false);
-		}
+
+		StopBuffering(false);
 	}
 	return bPushBuffer;
 }

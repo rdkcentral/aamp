@@ -177,11 +177,6 @@ int PrivateInstanceAAMP::HandleSSLProgressCallback ( void *clientp, double dltot
 	return 0;
 }
 
-void PrivateInstanceAAMP::SetBufferingState(bool buffering)
-{
-	(void)buffering;
-}
-
 void PrivateInstanceAAMP::UpdateUseSinglePipeline( void )
 {
 }

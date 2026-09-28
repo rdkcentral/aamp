@@ -3086,58 +3086,6 @@ void PrivateInstanceAAMP::SendBufferChangeEvent(bool bufferingStarted)
 }
 
 /**
- * @brief Forward the current buffer level to the latency monitor.
- */
-void PrivateInstanceAAMP::NotifyBufferLevelToLatencyMonitor(double bufferMs)
-{
-	if (mLatencyMonitor)
-	{
-		mLatencyMonitor->OnBufferLevelUpdate(bufferMs);
-	}
-}
-
-/**
- * @brief API to set buffering state and coordinate pipeline state + events.
- */
-void PrivateInstanceAAMP::SetBufferingState(bool buffering)
-{
-	if (buffering)
-	{
-		SendBufferChangeEvent(true);
-		if (!mSinkPaused.load())
-		{
-			if (!PausePipeline(true, true))
-			{
-				AAMPLOG_ERR("Failed to pause the Pipeline");
-			}
-		}
-		// Inform the underflow monitor that the pipeline is now paused for
-		// buffering; it should disarm its deadline until resumed.
-		// Only notify if the pipeline is actually paused — if PausePipeline()
-		// failed mSinkPaused remains false and we must not disarm the monitor.
-		if (mSinkPaused.load() && mpStreamAbstractionAAMP)
-		{
-			mpStreamAbstractionAAMP->NotifyPipelinePausedToUnderflowMonitor();
-		}
-	}
-	else
-	{
-		if (mSinkPaused.load())
-		{
-			(void)PausePipeline(false, false);
-		}
-		UpdateSubtitleTimestamp();
-		SendBufferChangeEvent(false);
-		// NOTE: NotifyPipelineResumedToUnderflowMonitor is intentionally NOT called here.
-		// SetBufferingState(false) is only ever called from AampUnderflowMonitor::NotifyVideoFragment,
-		// which rearmed the monitor directly after this call returns.  Calling it here would
-		// cause a same-thread deadlock on macOS: NotifyVideoFragmentToUnderflowMonitor holds
-		// mUnderflowMonitorMutex while calling NotifyVideoFragment, and
-		// NotifyPipelineResumedToUnderflowMonitor also needs that same non-recursive mutex.
-	}
-}
-
-/**
  * @brief To change the the gstreamer pipeline to pause/play
  */
 bool PrivateInstanceAAMP::PausePipeline(bool pause, bool forceStopGstreamerPreBuffering)
@@ -5589,8 +5537,20 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 	lock.unlock();
 	{
 		// Using StreamLock to make sure this is not interfering with GetFile() from PreCachePlaylistDownloadTask
-		std::lock_guard<std::recursive_mutex> streamLock(mStreamLock);
-		if (mpStreamAbstractionAAMP)
+		AcquireStreamLock();
+		mpStreamAbstractionAAMP->Stop(disableDownloads);
+
+		if(mContentType == ContentType_HDMIIN)
+		{
+			StreamAbstractionAAMP_HDMIIN::ResetInstance();
+			mpStreamAbstractionAAMP = NULL;
+		}
+		else if(mContentType == ContentType_COMPOSITEIN)
+		{
+			StreamAbstractionAAMP_COMPOSITEIN::ResetInstance();
+			mpStreamAbstractionAAMP = NULL;
+		}
+		else
 		{
 			AAMPLOG_INFO("TeardownStream: Stopping StreamAbstraction");
 			mpStreamAbstractionAAMP->StopUnderflowMonitor();
@@ -6417,16 +6377,6 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		mpStreamAbstractionAAMP->ResetESChangeStatus();
 		mpStreamAbstractionAAMP->ReSetPipelineFlushStatus();
 		mpStreamAbstractionAAMP->Start();
-		
-		// Start underflow monitor after successful initialization and Start()
-		if (mpStreamAbstractionAAMP && ISCONFIGSET_PRIV(eAAMPConfig_EnableAampUnderflowMonitor))
-		{
-			mpStreamAbstractionAAMP->StartUnderflowMonitor();
-			if (!mpStreamAbstractionAAMP->IsUnderflowMonitorRunning())
-			{
-				AAMPLOG_WARN("UnderflowMonitor did not start; continuing without AampUnderflowMonitor");
-			}
-		}
 		if (!mbUsingExternalPlayer)
 		{
 			if (mbPlayEnabled)

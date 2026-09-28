@@ -62,7 +62,6 @@
 #include "SubtecFactory.hpp"
 #include "AampUtils.h"
 #include "AampMp4Demuxer.h"
-#include "AampUnderflowMonitor.h"
 
 // checks if current state is going to use IFRAME ( Fragment/Playlist )
 #define IS_FOR_IFRAME(rate, type) ((type == eTRACK_VIDEO) && (rate != AAMP_NORMAL_PLAY_RATE))
@@ -2862,6 +2861,7 @@ bool StreamAbstractionAAMP::UpdateProfileBasedOnFragmentCache()
 
 	return retVal;
 }
+<<<<<<< HEAD
 
 void StreamAbstractionAAMP::StartUnderflowMonitor()
 {
@@ -2972,6 +2972,8 @@ void StreamAbstractionAAMP::NotifyPipelineResumedToUnderflowMonitor(float playRa
 	}
 }
 
+=======
+>>>>>>> parent of fb2a04d6 (VPLAY-12294:underflow detection - avoid dependency on SoC signaling (#916))
 /**
  *  @brief Check if playback has stalled and update related flags.
  */

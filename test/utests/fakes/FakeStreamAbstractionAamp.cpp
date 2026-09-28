@@ -18,7 +18,6 @@
 */
 
 #include "StreamAbstractionAAMP.h"
-#include "AampUnderflowMonitor.h"
 #include "MockStreamAbstractionAAMP.h"
 #include "MockMediaTrack.h"
 #include <functional>
@@ -41,6 +40,7 @@ StreamAbstractionAAMP::~StreamAbstractionAAMP()
 {
 }
 
+<<<<<<< HEAD
 void StreamAbstractionAAMP::StartUnderflowMonitor()
 {
 }
@@ -83,6 +83,8 @@ void StreamAbstractionAAMP::NotifyRateChangeToUnderflowMonitor(float rate)
 {
 }
 
+=======
+>>>>>>> parent of fb2a04d6 (VPLAY-12294:underflow detection - avoid dependency on SoC signaling (#916))
 void StreamAbstractionAAMP::DisablePlaylistDownloads()
 {
 }

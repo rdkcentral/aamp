@@ -48,9 +48,6 @@
 #include "AampTimeBasedBufferManager.hpp"
 #include "CachedFragment.h"
 
-// Forward declaration to avoid including Underflow monitor header here
-class AampUnderflowMonitor;
-
 /**
  * @brief Media Track Types
  */
@@ -1678,27 +1675,6 @@ public:
 	 *   @return duration of currently buffered video in seconds
 	 */
 	double GetBufferedVideoDurationSec();
-	
-	/**
-	 * @fn StartUnderflowMonitor
-	 * @brief Start UnderflowMonitor Thread.
-	 * @return void
-	 */
-	void StartUnderflowMonitor();
-
-	/**
-	 * @fn StopUnderflowMonitor
-	 * @brief Stop UnderflowMonitor Thread.
-	 * @return void
-	 */
-	virtual void StopUnderflowMonitor();
-
-	/**
-	 * @fn IsUnderflowMonitorRunning
-	 * @brief Check if UnderflowMonitor thread is currently running.
-	 * @return true if running, false otherwise
-	 */
-	bool IsUnderflowMonitorRunning() const;
 
 	/**
 	 * @fn NotifyVideoFragmentToUnderflowMonitor
@@ -2036,18 +2012,6 @@ public:
 	void ReinitializeInjection(double rate);
 
 protected:
-	/**
-	 * Mutex used to serialize UnderflowMonitor lifecycle in const methods.
-	 * Declared mutable to allow locking within const functions such as
-	 * IsUnderflowMonitorRunning().
-	 */
-	mutable std::mutex mUnderflowMonitorMutex;
-
-	/**
-	 * Underflow monitor instance owned by Stream; manages detection and
-	 * handling of underflow conditions.
-	 */
-	std::unique_ptr<class AampUnderflowMonitor> mUnderflowMonitor;
 	/**
 	 *   @brief Get stream information of a profile from subclass.
 	 *

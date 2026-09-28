@@ -169,7 +169,6 @@ typedef enum
 	eAAMPConfig_WebVTTNative,						/**< Enable subtec-based subtitles */
 	eAAMPConfig_AsyncTune,						 	/**< To enable Asynchronous tune */
 	eAAMPConfig_DisableUnderflow,                                           /**< Enable/Disable Underflow processing*/
-	eAAMPConfig_EnableAampUnderflowMonitor,                                 /**< Enable AampUnderflowMonitor explicitly (preferred over DisableUnderflow gating) */
 	eAAMPConfig_LimitResolution,                                            /**< Flag to indicate if display resolution based profile selection to be done */
 	eAAMPConfig_UseAbsoluteTimeline,					/**< Enable Report Progress report position based on Availability Start Time **/
 	eAAMPConfig_EnableAccessAttributes,					/**< Usage of Access Attributes in VSS */
@@ -330,9 +329,6 @@ typedef enum
 	eAAMPConfig_UTCSyncMinIntervalSec,				/**< Minimum interval between sync attempts */
 	eAAMPConfig_ABRBandwidthEstimator,				/**< Select ABR bandwidth estimator: 0=ROLLING_MEDIAN_OUTLIER, 1=HARMONIC_EWMA */
 	eAAMPConfig_EarlyAbortProfileBandwidthPercent,	/**< Early abort threshold as percentage of profile bandwidth */
-	eAAMPConfig_UnderflowLowBufferPollMs,			/**< Underflow monitor polling interval for low buffer condition in milliseconds */
-	eAAMPConfig_UnderflowMediumBufferPollMs,		/**< Underflow monitor polling interval for medium buffer condition in milliseconds */
-	eAAMPConfig_UnderflowHighBufferPollMs,			/**< Underflow monitor polling interval for high buffer condition in milliseconds */
 	eAAMPConfig_IntMaxValue							/**< Max value of int config always last element*/
 } AAMPConfigSettingInt;
 #define AAMPCONFIG_INT_COUNT (eAAMPConfig_IntMaxValue)
@@ -356,18 +352,6 @@ typedef enum
 	eAAMPConfig_LowLatencyMinBuffer,                    /**< Low Latency minimum buffer value*/
 	eAAMPConfig_LowLatencyTargetBuffer,                 /**< Low Latency target buffer value; Buffer needed for rate correction to trigger*/
 	eAAMPConfig_BWToGstBufferFactor,				/**< Factor by multiply GST Base Buffer is multiplied to accommodate HiFi Content*/
-	eAAMPConfig_UnderflowDetectThresholdSec,		/**< Underflow detection threshold in seconds */
-	eAAMPConfig_UnderflowResumeThresholdSec,		/**< Underflow resume threshold in seconds */
-	eAAMPConfig_UnderflowLowBufferSec,				/**< Low buffer threshold in seconds */
-	eAAMPConfig_UnderflowHighBufferSec,				/**< High buffer threshold in seconds */
-	eAAMPConfig_BufferLevelToEnableCorrectionSec,   /**< Buffer level to enable latency correction in seconds */
-	eAAMPConfig_RebufferLatencyStepSec,				/**< Step value for latency increase when rebuffering occurs */
-	eAAMPConfig_RebufferLatencyMaxIncrementSec,		/**< Max latency increment allowed due to rebuffering */
-	eAAMPConfig_LatencyStableDurationSec,				/**< Duration (s) of consecutive healthy buffer required before one latency-threshold restoration step (default: DEFAULT_LATENCY_STABLE_DURATION_SEC) */
-	eAAMPConfig_LatencyDangerBufferSec,				/**< Buffer level (s) below which latency thresholds are increased; buffer must stay above this for latencyStableDurationSec before thresholds are restored (default: DEFAULT_LATENCY_DANGER_BUFFER_SEC) */
-	eAAMPConfig_LLMinLatency,						/**< Low Latency Min Latency Offset */
-	eAAMPConfig_LLTargetLatency,					/**< Low Latency Target Latency */
-	eAAMPConfig_LLMaxLatency,						/**< Low Latency Max Latency */
 	eAAMPConfig_FloatMaxValue						/**< Max value for float config always last element*/
 } AAMPConfigSettingFloat;
 #define AAMPCONFIG_FLOAT_COUNT (eAAMPConfig_FloatMaxValue)
