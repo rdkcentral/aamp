@@ -1010,19 +1010,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 					tuneTypePlay = eTUNETYPE_SEEKTOLIVE;
 					aamp->mJumpToLiveFromPause = false;
 				}
-				// Disable latency monitor immediately on trickplay to prevent
-				// stale Run() logs between rate change and TeardownStream.
-				aamp->EnableLatencyMonitor(false);
-				// Notify the underflow monitor of the new rate immediately — before
-				// TuneHelper starts downloading fragments at the new rate.  This
-				// prevents a stale normal-play deadline from firing and declaring a
-				// false underflow during the gap between the rate change and the first
-				// trickplay fragment arriving (AAMP-TSB-5016, AAMP-CDAI-8003).
-				if (ISCONFIGSET(eAAMPConfig_EnableAampUnderflowMonitor) &&
-					aamp->mpStreamAbstractionAAMP)
-				{
-					aamp->mpStreamAbstractionAAMP->NotifyRateChangeToUnderflowMonitor(rate);
-				}
+				aamp->rate = rate;
 				aamp->mSinkPaused = false;
 				aamp->mSeekFromPausedState = false;
 				/* Clear setting playerrate flag */

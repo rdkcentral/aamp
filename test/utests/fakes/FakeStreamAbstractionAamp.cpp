@@ -46,6 +46,22 @@ bool StreamAbstractionAAMP::IsUnderflowMonitorRunning() const
 	return false;
 }
 
+void StreamAbstractionAAMP::NotifyVideoFragmentToUnderflowMonitor(double endPosition, float playRate)
+{
+	if (g_notifyVideoFragmentSideEffect)
+	{
+		g_notifyVideoFragmentSideEffect();
+	}
+}
+
+void StreamAbstractionAAMP::NotifyPipelinePausedToUnderflowMonitor()
+{
+}
+
+void StreamAbstractionAAMP::NotifyPipelineResumedToUnderflowMonitor(float playRate)
+{
+}
+
 void StreamAbstractionAAMP::DisablePlaylistDownloads()
 {
 }

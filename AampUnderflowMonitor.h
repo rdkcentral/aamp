@@ -83,6 +83,40 @@ public:
      */
     bool IsRunning() const { return mRunning.load(); }
 
+    /**
+     * @fn NotifyVideoFragment
+     * @brief Called by the video track whenever a fragment (or LL-DASH chunk)
+     *        has been successfully downloaded and queued for injection.
+     *
+     * Re-arms the underflow deadline:
+     *   deadline = now + bufferSec / playRate
+     * where bufferSec = endPosition - currentPlaybackPositionSec.
+     *
+     * @param[in] endPosition   Absolute stream position (seconds) of the end of
+     *                          the newly queued content — i.e.
+     *                          absolutePosition + fragmentDuration.
+     * @param[in] playRate      Current play rate (1.0, 1.03, 0.97, …).
+     *                          Must be > 0.
+     */
+    void NotifyVideoFragment(double endPosition, float playRate);
+
+    /**
+     * @fn NotifyPipelinePaused
+     * @brief Suspend deadline tracking while the pipeline is paused for
+     *        buffering.  The underflow condition is already active; no further
+     *        timer firings are needed until playback resumes.
+     */
+    void NotifyPipelinePaused();
+
+    /**
+     * @fn NotifyPipelineResumed
+     * @brief Re-arm the deadline after buffering has ended.
+     *        Call this after the pipeline transitions back to PLAYING.
+     * @param[in] endPosition  Latest known end-of-buffer position (seconds).
+     * @param[in] playRate     Current play rate.
+     */
+    void NotifyPipelineResumed(double endPosition, float playRate);
+
 private:
     /**
      * @fn run

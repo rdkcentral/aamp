@@ -40,3 +40,15 @@ void AampUnderflowMonitor::Start()
 void AampUnderflowMonitor::Stop()
 {
 }
+
+void AampUnderflowMonitor::NotifyVideoFragment(double endPosition, float playRate)
+{
+}
+
+void AampUnderflowMonitor::NotifyPipelinePaused()
+{
+}
+
+void AampUnderflowMonitor::NotifyPipelineResumed(double endPosition, float playRate)
+{
+}

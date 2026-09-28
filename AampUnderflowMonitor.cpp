@@ -30,9 +30,12 @@
 #include "AampUtils.h"
 #include <stdexcept>
 
+// ---------------------------------------------------------------------------
+// Construction / destruction
+// ---------------------------------------------------------------------------
 
-AampUnderflowMonitor::AampUnderflowMonitor(StreamAbstractionAAMP* stream, PrivateInstanceAAMP* aamp)
-: mStream(stream), mAamp(aamp)
+AampUnderflowMonitor::AampUnderflowMonitor(PrivateInstanceAAMP* aamp)
+    : mAamp(aamp)
 {
     if (mAamp == nullptr)
     {
@@ -142,10 +145,46 @@ void AampUnderflowMonitor::Run()
         
         {
             std::lock_guard<std::mutex> lock(mMutex);
-            if (!mAamp) return;
-            mAamp->interruptibleMsSleep(100);
+            RearmDeadline(bufferSec, playRate);
         }
     }
+    else if (mAamp->GetBufUnderFlowStatus())
+    {
+        AAMPLOG_INFO("[video] waiting to end underflow. buffered=%.3f", bufferSec);
+    }
+
+    mCV.notify_one();
+}
+
+void AampUnderflowMonitor::NotifyPipelinePaused()
+{
+    {
+        std::lock_guard<std::mutex> lock(mMutex);
+        mDeadlineArmed = false;
+    }
+    mCV.notify_one();
+}
+
+void AampUnderflowMonitor::NotifyPipelineResumed(double endPosition, float playRate)
+{
+    {
+        std::lock_guard<std::mutex> lock(mMutex);
+        if (!mAamp) return;
+
+        const double positionSec = mAamp->GetPositionMs() / 1000.0;
+        double bufferSec = endPosition - positionSec;
+        if (bufferSec < 0.0) bufferSec = 0.0;
+
+        mCurrentEndPosition = endPosition;
+        mCurrentPlayRate    = playRate;
+        RearmDeadline(bufferSec, playRate);
+    }
+    mCV.notify_one();
+}
+
+// ---------------------------------------------------------------------------
+// Background thread
+// ---------------------------------------------------------------------------
 
     while (mRunning.load()) {
         // Check player state and underflow status under mutex
@@ -189,77 +228,7 @@ void AampUnderflowMonitor::Run()
                 sinkCacheEmpty = mAamp->IsSinkCacheEmpty(eMEDIATYPE_VIDEO);
             }
 
-            // Only evaluate buffer threshold when not in trickplay/seeking; still honor sink cache emptiness
-            const bool allowBufferCheck = (!isTrickplay && !isSeekingState);
-            if (((allowBufferCheck && bufferedTimeSec <= kUnderflowDetectThresholdSec && trackDownloadsEnabled)) || sinkCacheEmpty)
-            {
-                if (!underflowActive)
-                {
-                    AAMPLOG_INFO("[video] underflow detected. buffered=%.3f cacheEmpty=%d (rate=%.2f, trickplay=%d, seeking=%d)", bufferedTimeSec, (int)sinkCacheEmpty, currentRate, (int)isTrickplay, (int)isSeekingState);
-                    
-                    std::lock_guard<std::mutex> lock(mMutex);
-                    if (!mAamp) return;
-                    mAamp->SetBufferingState(true);
-                    PlaybackErrorType errorType = eGST_ERROR_UNDERFLOW;
-                    mAamp->SendAnomalyEvent(ANOMALY_WARNING, "%s %s", GetMediaTypeName(eMEDIATYPE_VIDEO), mAamp->getStringForPlaybackError(errorType));
-                }
-                else
-                {
-                    if (!trackDownloadsEnabled && sinkCacheEmpty)
-                    {
-                        AAMPLOG_WARN("[video] downloads blocked with empty cache during underflow; resuming");
-                        std::lock_guard<std::mutex> lock(mMutex);
-                        if (!mAamp) return;
-                        mAamp->ResumeTrackDownloads(eMEDIATYPE_VIDEO);
-                    }
-                }
-            }
-            else
-            {
-                if (!allowBufferCheck)
-                {
-                    // Informational: buffer-based underflow checks suppressed during trickplay/seeking
-                    AAMPLOG_TRACE("[video] skipping buffer-based underflow check (rate=%.2f, trickplay=%d, seeking=%d). cacheEmpty=%d buffered=%.3f",
-                                   currentRate, (int)isTrickplay, (int)isSeekingState, (int)sinkCacheEmpty, bufferedTimeSec);
-                }
-                
-                bool pipelinePaused = false;
-                {
-                    std::lock_guard<std::mutex> lock(mMutex);
-                    if (!mAamp) return;
-                    pipelinePaused = mAamp->mSinkPaused.load();
-                }
-                
-                if (underflowActive && pipelinePaused)
-                {
-                    if (bufferedTimeSec >= kUnderflowResumeThresholdSec && !sinkCacheEmpty)
-                    {
-                        AAMPLOG_INFO("[video] underflow ended. buffered=%.3f cacheEmpty=%d", bufferedTimeSec, (int)sinkCacheEmpty);
-                        std::lock_guard<std::mutex> lock(mMutex);
-                        if (!mAamp) return;
-                        mAamp->SetBufferingState(false);
-                    }
-                    else
-                    {
-                        AAMPLOG_INFO("[video] waiting to end underflow. buffered=%.3f cacheEmpty=%d", bufferedTimeSec, (int)sinkCacheEmpty);
-                    }
-                }
-                else if (underflowActive && !trackDownloadsEnabled && sinkCacheEmpty)
-                {
-                    AAMPLOG_WARN("[video] underflow ongoing, downloads blocked and cache empty; resuming track downloads");
-                    std::lock_guard<std::mutex> lock(mMutex);
-                    if (!mAamp) return;
-                    mAamp->ResumeTrackDownloads(eMEDIATYPE_VIDEO);
-                }
-            }
-            // Audio underflow is not handled currently as we are aligning with the existing behavior
-        }
-
-        // Choose sleep interval based on buffer level (branchless style)
-        const int sleepMs = (bufferedTimeSec < kLowBufferSec) ? kLowBufferPollMs
-                             : (bufferedTimeSec >= kHighBufferSec) ? kHighBufferPollMs
-                             : kMediumBufferPollMs;
-        
+        if (!mAamp->GetBufUnderFlowStatus())
         {
             std::lock_guard<std::mutex> lock(mMutex);
             if (!mAamp) return;
