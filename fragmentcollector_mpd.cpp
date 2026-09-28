@@ -1524,6 +1524,21 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 					mTimeSyncClient.GetServerUtcTime(),mTimeSyncClient.GetDelta(),currentTimeSeconds,fragmentRequestTime,pMediaStreamContext->fragmentDescriptor.nextfragmentTime);
 
 			bool bProcessFragment = true;
+			// A server ad-splicer can leave a tail fragment/chunk whose start is within
+			// AAMP_DASH_PERIOD_TAIL_TOLERANCE_SEC of the Period end (e.g. the same audio
+			// segment duplicated across the base-content/ad Period boundary). This only
+			// affects live streams - VOD manifests are published up front and are not
+			// subject to this SSAI live-splicing artifact. Pull the effective Period-end
+			// boundary back by the tolerance so that sliver is excluded by the existing
+			// "reached Period end" check below, exactly like a fragment genuinely past
+			// the boundary.
+			double periodEndBoundary = mPeriodEndTime - AAMP_DASH_PERIOD_TAIL_TOLERANCE_SEC;
+			if(mIsLiveStream && pMediaStreamContext->fragmentDescriptor.Time >= periodEndBoundary && pMediaStreamContext->fragmentDescriptor.Time < mPeriodEndTime)
+			{
+				AAMPLOG_WARN("Type[%d] dropping Period-tail fragment: only %fs remains before Period end (< %fs tolerance) fragmentDescriptor.Time=%f mPeriodEndTime=%f",
+					pMediaStreamContext->type, mPeriodEndTime - pMediaStreamContext->fragmentDescriptor.Time, AAMP_DASH_PERIOD_TAIL_TOLERANCE_SEC,
+					pMediaStreamContext->fragmentDescriptor.Time, mPeriodEndTime);
+			}
 			if(!mIsLiveStream)
 			{
 				if(ISCONFIGSET(eAAMPConfig_EnableIgnoreEosSmallFragment))
@@ -1544,7 +1559,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 			}
 			if ((!mIsLiveStream && ((!bProcessFragment) || (mPlayRate < AAMP_RATE_PAUSE )))
 			|| (mIsLiveStream && (
-				(mLowLatencyMode? pMediaStreamContext->fragmentDescriptor.Time>mPeriodEndTime+availabilityTimeOffset:pMediaStreamContext->fragmentDescriptor.Time >= mPeriodEndTime)
+				(mLowLatencyMode? pMediaStreamContext->fragmentDescriptor.Time>periodEndBoundary+availabilityTimeOffset:pMediaStreamContext->fragmentDescriptor.Time >= periodEndBoundary)
 			|| (pMediaStreamContext->fragmentDescriptor.Time < mPeriodStartTime))))  //CID:93022 - No effect
 			{
 				AAMPLOG_INFO("Type[%d] EOS. pMediaStreamContext->lastSegmentNumber %" PRIu64 " fragmentDescriptor.Time=%f mPeriodEndTime=%f mPeriodStartTime %f  currentTimeSeconds %f FTime=%f", pMediaStreamContext->type, pMediaStreamContext->lastSegmentNumber, pMediaStreamContext->fragmentDescriptor.Time, mPeriodEndTime, mPeriodStartTime, currentTimeSeconds, pMediaStreamContext->fragmentTime);
