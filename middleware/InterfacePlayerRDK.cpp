@@ -260,6 +260,18 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 										   int subFormat, bool bESChangeStatus, bool forwardAudioToAux, bool setReadyAfterPipelineCreation,
 										   bool isSubEnable, int32_t trackId, gint rate, const char *pipelineName, int PipelinePriority, bool FirstFrameFlag, std::string manifestUrl)
 {
+	
+	{
+		/* Don't let a new tune start reconfiguring this shared pipeline object while a prior
+		 * tune's TearDownStream() (on another thread) is still confirming resource release. */
+		std::unique_lock<std::mutex> teardownLock(interfacePlayerPriv->gstPrivateContext->mTeardownMutex);
+		if (!interfacePlayerPriv->gstPrivateContext->mTeardownCV.wait_for(teardownLock, std::chrono::milliseconds(3000),
+			[this]{ return !interfacePlayerPriv->gstPrivateContext->mTeardownInProgress; }))
+		{
+			MW_LOG_ERR("InterfacePlayerRDK::ConfigurePipeline: timed out waiting for prior TearDownStream to complete");
+		}
+	}
+
 	mFirstFrameRequired = FirstFrameFlag;
 	GstStreamOutputFormat gstFormat 	= static_cast<GstStreamOutputFormat>(format);
 	GstStreamOutputFormat gstAudioFormat 	= static_cast<GstStreamOutputFormat>(audioFormat);
@@ -1315,6 +1327,10 @@ static GstStateChangeReturn SetStateWithWarnings(GstElement *element, GstState t
 
 void InterfacePlayerRDK::TearDownStream(int type)
 {
+	{
+		std::lock_guard<std::mutex> teardownLock(interfacePlayerPriv->gstPrivateContext->mTeardownMutex);
+		interfacePlayerPriv->gstPrivateContext->mTeardownInProgress = true;
+	}
 	tearDownCb(true, type);
 	gst_media_stream* stream = &interfacePlayerPriv->gstPrivateContext->stream[type];
 	RemoveProbe(type);
@@ -1333,13 +1349,13 @@ void InterfacePlayerRDK::TearDownStream(int type)
 			/* set the playbin state to NULL before detach it */
 			if (stream->sinkbin)
 			{
-				//if (GST_STATE_CHANGE_FAILURE == SetStateWithWarnings(GST_ELEMENT(stream->sinkbin), GST_STATE_NULL))
 				GstStateChangeReturn nullRc = SetStateWithWarnings(GST_ELEMENT(stream->sinkbin), GST_STATE_NULL);
+	
 				if (GST_STATE_CHANGE_FAILURE == nullRc)
 				{
 					MW_LOG_ERR("InterfacePlayerRDK::TearDownStream: Failed to set NULL state for sinkbin");
 				}
-				else if (GST_STATE_CHANGE_ASYNC == nullRc)
+				else
 				{
 					/* NULL was requested asynchronously; a new decoder created before this sinkbin
 					 * actually releases its resources can end up stuck (e.g. never emits
@@ -1347,10 +1363,10 @@ void InterfacePlayerRDK::TearDownStream(int type)
 					 * decoder/HW resource is confirmed released before we start fresh. */
 					GstState current, pending;
 					gint retryCnt = GST_ELEMENT_GET_STATE_RETRY_CNT_MAX;
-					GstStateChangeReturn waitRc;
+				
 					do
 					{
-						waitRc = gst_element_get_state(GST_ELEMENT(stream->sinkbin), &current, &pending, 100 * GST_MSECOND);
+					   gst_element_get_state(GST_ELEMENT(stream->sinkbin), &current, &pending, 100 * GST_MSECOND);	
 					}
 					while ((current != GST_STATE_NULL) && (--retryCnt > 0));
 
@@ -1412,6 +1428,12 @@ void InterfacePlayerRDK::TearDownStream(int type)
 		pthread_mutex_unlock(&stream->sourceLock);
 	}
 	tearDownCb(false, mediaType);
+	{
+		std::lock_guard<std::mutex> teardownLock(interfacePlayerPriv->gstPrivateContext->mTeardownMutex);
+		interfacePlayerPriv->gstPrivateContext->mTeardownInProgress = false;
+	}
+	interfacePlayerPriv->gstPrivateContext->mTeardownCV.notify_all();
+
 	MW_LOG_MIL("InterfacePlayerRDK::TearDownStream: exit mediaType = %d", mediaType);
 }
 
