@@ -1770,7 +1770,7 @@ TEST_F(AampRialtoPlayerDrmTest,
 	const uint8_t initData[] = {0x01};
  	PrivateInstanceAAMP encryptedAamp{};
  	m_player->SetEncryptedAamp(&encryptedAamp);
-	
+
 	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
 	m_player->QueueProtectionEvent(
 		"com.widevine.alpha", initData, sizeof(initData), eMEDIATYPE_VIDEO);
@@ -2022,7 +2022,7 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 }
 
 TEST_F(AampRialtoPlayerWithDemuxTest,
-	OnPlaybackState_Playing_ResumeFromPause_DoesNotCallNotifySpeedChanged)
+	OnPlaybackState_Playing_ResumeFromPause_CallsNotifySpeedChanged)
 {
 	Configure();
 
@@ -2034,7 +2034,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 		.WillByDefault(Return(eSTATE_PAUSED));
 
 	EXPECT_CALL(m_mockNotifiable, NotifyFirstBufferProcessed(_)).Times(1);
-	EXPECT_CALL(m_mockNotifiable, NotifySpeedChanged(_, _)).Times(0);
+	EXPECT_CALL(m_mockNotifiable,
+		NotifySpeedChanged(AAMP_NORMAL_PLAY_RATE, /*changeState=*/true))
+		.Times(1);
 	EXPECT_CALL(m_mockNotifiable, NotifyFirstFrameReceived(_)).Times(1);
 
 	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
@@ -4504,7 +4506,7 @@ TEST_F(AampRialtoPlayerTest,
 	// Player is constructed in SetUp() but no pipeline is created yet.
 	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::IDLE)
 		<< "Precondition: player must be in IDLE state";
-	
+
 	// Flush() with shouldTearDown=true should call Stop() even in IDLE state.
 	m_player->Flush(/*position=*/10.0, /*rate=*/1, /*shouldTearDown=*/true);
 
@@ -4525,7 +4527,7 @@ TEST_F(AampRialtoPlayerTest,
 	 */
 	// Setup: DON'T call Configure() so player remains in IDLE state.
 	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::IDLE);
-	
+
 	// Flush() with shouldTearDown=false should NOT change state.
 	EXPECT_NO_FATAL_FAILURE(
 		m_player->Flush(/*position=*/5.0, /*rate=*/1, /*shouldTearDown=*/false));
