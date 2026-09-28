@@ -1932,6 +1932,7 @@ void AampConfig::ShowAAMPConfiguration()
  */
 void AampConfig::DoCustomSetting(ConfigPriority owner)
 {
+	AAMPLOG_WARN("ANJ: IN: DoCustomSetting");
 	// useDirectRialto is only consumed once, in the PrivateInstanceAAMP constructor
 	// (PlayerCCManager/DRM session creator setup), so overriding it after the player
 	// instance exists (stream/app/tune settings) has no effect; revert such attempts.
@@ -1942,10 +1943,16 @@ void AampConfig::DoCustomSetting(ConfigPriority owner)
 		RestoreConfiguration(owner, eAAMPConfig_useDirectRialto);
 	}
 
+	AAMPLOG_WARN("ANJ: BEFORE: IsConfigSet(eAAMPConfig_useDirectRialto)=%d, IsConfigSet(eAAMPConfig_UseMp4Demux)=%d", IsConfigSet(eAAMPConfig_useDirectRialto), IsConfigSet(eAAMPConfig_UseMp4Demux));
+
 	if(IsConfigSet(eAAMPConfig_useDirectRialto) && !IsConfigSet(eAAMPConfig_UseMp4Demux))
 	{
 		AAMPLOG_WARN("useDirectRialto requires useMp4Demux; forcing it on");
 		SetConfigValue(GetConfigOwner(eAAMPConfig_useDirectRialto), eAAMPConfig_UseMp4Demux, true);
+	}
+	else
+	{
+		AAMPLOG_WARN("ANJ: else: IsConfigSet(eAAMPConfig_useDirectRialto)=%d, IsConfigSet(eAAMPConfig_UseMp4Demux)=%d", IsConfigSet(eAAMPConfig_useDirectRialto), IsConfigSet(eAAMPConfig_UseMp4Demux));
 	}
 
 	if(IsConfigSet(eAAMPConfig_StereoOnly))
@@ -1993,6 +2000,7 @@ void AampConfig::DoCustomSetting(ConfigPriority owner)
 		SetConfigValue(owner, eAAMPConfig_GStreamerBufferingBeforePlay, false);
 	}
 	ConfigureLogSettings();
+	AAMPLOG_WARN("ANJ: OUT: DoCustomSetting");
 }
 
 const char * AampConfig::GetConfigName(AAMPConfigSettingBool cfg ) const
