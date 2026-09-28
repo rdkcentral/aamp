@@ -85,6 +85,7 @@ void ClearKeySession::setKeyId(const char* keyId, int32_t keyIDLen)
 	if (m_keyId != NULL)
 	{
 		free(m_keyId);
+		m_keyId = NULL;   // avoid a dangling pointer if the malloc below fails
 	}
 	m_keyId = (unsigned char*) malloc(sizeof(unsigned char) * keyIDLen);
 	

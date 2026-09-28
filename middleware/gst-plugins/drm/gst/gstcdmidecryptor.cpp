@@ -962,7 +962,16 @@ static gboolean gst_cdmidecryptor_sink_event(GstBaseTransform * trans,
 
 		g_mutex_lock(&cdmidecryptor->mutex);
 		GST_DEBUG_OBJECT(cdmidecryptor, "\n acquired lock for mutex\n");
-		std::shared_ptr<void> e = cdmidecryptor->sessionManager->DrmMetaDataCb();
+		std::shared_ptr<void> e;
+		if (cdmidecryptor->sessionManager->DrmMetaDataCb)
+		{
+			e = cdmidecryptor->sessionManager->DrmMetaDataCb();
+		}
+		else
+		{
+			GST_ERROR_OBJECT(cdmidecryptor, "DrmMetaDataCb is not registered\n");
+		}
+
                 int err = -1;
 		int responseCode =-1;
 		if (cdmidecryptor->sessionManager->m_drmConfigParam->mIsWVKIDWorkaround){
