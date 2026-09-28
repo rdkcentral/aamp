@@ -322,8 +322,6 @@ int64_t AampRialtoSubtitleSource::refineDisplayOffset(
 	const int64_t ptsMs      = static_cast<int64_t>(sample.mPts      * 1000.0);
 	const int64_t durationMs = static_cast<int64_t>(sample.mDuration * 1000.0);
 
-	// --- inlined AampTextTransform::compute() ---
-
 	if (m_transformContentType == ContentType::PASSTHROUGH)
 	{
 		AAMPLOG_TRACE("refineDisplayOffset: PASSTHROUGH → 0");

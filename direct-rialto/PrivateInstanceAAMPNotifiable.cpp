@@ -30,7 +30,7 @@
 #include <cinttypes>
 
 // ---------------------------------------------------------------------------
-// Parameter structs for async task dispatch.
+// Parameter structures for async task dispatch.
 //
 // Each void IStreamSinkNotifiable method schedules its work on the AAMP
 // scheduler thread via ScheduleAsyncTask rather than calling PrivateInstanceAAMP
