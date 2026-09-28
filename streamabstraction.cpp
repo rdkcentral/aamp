@@ -62,7 +62,6 @@
 #include "SubtecFactory.hpp"
 #include "AampUtils.h"
 #include "AampMp4Demuxer.h"
-#include "AampUnderflowMonitor.h"
 
 // checks if current state is going to use IFRAME ( Fragment/Playlist )
 #define IS_FOR_IFRAME(rate, type) ((type == eTRACK_VIDEO) && (rate != AAMP_NORMAL_PLAY_RATE))
@@ -1490,13 +1489,6 @@ bool MediaTrack::SignalIfEOSReached()
 			{
 				aamp->EndOfStreamReached(eMEDIATYPE_AUDIO);
 			}
-			// Stop underflow monitor when video EOS is reached on VOD.
-			// EOS can be signalled from both normal sentinel and aborted-wait
-			// paths, so centralize monitor shutdown here.
-			if (!aamp->IsLive() && type == eTRACK_VIDEO)
-			{
-				pContext->StopUnderflowMonitor();
-			}
 			ret = true;
 		}
 		else
@@ -2865,72 +2857,19 @@ bool StreamAbstractionAAMP::UpdateProfileBasedOnFragmentCache()
 
 void StreamAbstractionAAMP::StartUnderflowMonitor()
 {
-	std::lock_guard<std::mutex> lock(mUnderflowMonitorMutex);
-	// Run underflow monitor only when explicitly enabled via config
-	if (!GETCONFIGVALUE(eAAMPConfig_EnableAampUnderflowMonitor))
-	{
-		AAMPLOG_TRACE("UnderflowMonitor gated off by config; skipping");
-		return;
-	}
-	if (!GetMediaTrack(eTRACK_VIDEO))
-	{
-		AAMPLOG_WARN("StartUnderflowMonitor: video track unavailable");
-		return;
-	}
-	if (!mUnderflowMonitor)
-	{
-		try
-		{
-			mUnderflowMonitor = std::make_unique<AampUnderflowMonitor>(aamp);
-			mUnderflowMonitor->Start();
-		}
-		catch (const std::exception &e)
-		{
-			AAMPLOG_ERR("Failed to create/start AampUnderflowMonitor: %s", e.what());
-			// Ensure future calls can attempt creation again
-			mUnderflowMonitor.reset();
-		}
-	}
-	else
-	{
-		// Attempt to start existing monitor; Start() is idempotent
-		try
-		{
-			mUnderflowMonitor->Start();
-		}
-		catch (const std::exception &e)
-		{
-			AAMPLOG_ERR("Failed to start existing AampUnderflowMonitor: %s", e.what());
-			// Reset to allow recreation on next call
-			mUnderflowMonitor.reset();
-		}
-	}
 }
 
 void StreamAbstractionAAMP::StopUnderflowMonitor()
 {
-	std::lock_guard<std::mutex> lock(mUnderflowMonitorMutex);
-	if (mUnderflowMonitor)
-	{
-		mUnderflowMonitor->Stop();
-		mUnderflowMonitor.reset();
-		AAMPLOG_INFO("Stopped AampUnderflowMonitor for video");
-	}
 }
 
 bool StreamAbstractionAAMP::IsUnderflowMonitorRunning() const
 {
-	std::lock_guard<std::mutex> lock(mUnderflowMonitorMutex);
-	return (mUnderflowMonitor && mUnderflowMonitor->IsRunning());
+	return false;
 }
 
 void StreamAbstractionAAMP::NotifyVideoFragmentToUnderflowMonitor(double endPosition, float playRate)
 {
-	std::lock_guard<std::mutex> lock(mUnderflowMonitorMutex);
-	if (mUnderflowMonitor)
-	{
-		mUnderflowMonitor->NotifyVideoFragment(endPosition, playRate);
-	}
 }
 
 void StreamAbstractionAAMP::NotifyBufferLevelToLatencyMonitor(double bufferMs)
@@ -2943,33 +2882,14 @@ void StreamAbstractionAAMP::NotifyBufferLevelToLatencyMonitor(double bufferMs)
 
 void StreamAbstractionAAMP::NotifyPipelinePausedToUnderflowMonitor()
 {
-	std::lock_guard<std::mutex> lock(mUnderflowMonitorMutex);
-	if (mUnderflowMonitor)
-	{
-		mUnderflowMonitor->NotifyPipelinePaused();
-	}
 }
 
 void StreamAbstractionAAMP::NotifyRateChangeToUnderflowMonitor(float rate)
 {
-	std::lock_guard<std::mutex> lock(mUnderflowMonitorMutex);
-	if (mUnderflowMonitor)
-	{
-		mUnderflowMonitor->NotifyRateChange(rate);
-	}
 }
 
 void StreamAbstractionAAMP::NotifyPipelineResumedToUnderflowMonitor(float playRate)
 {
-	std::lock_guard<std::mutex> lock(mUnderflowMonitorMutex);
-	if (mUnderflowMonitor)
-	{
-		// Reconstruct end-of-buffer position: currentPosition + bufferedDuration.
-		const double positionSec = aamp->GetPositionMs() / 1000.0;
-		const double buffered    = GetBufferedVideoDurationSec();
-		const double endPosition = positionSec + (buffered > 0.0 ? buffered : 0.0);
-		mUnderflowMonitor->NotifyPipelineResumed(endPosition, playRate);
-	}
 }
 
 /**

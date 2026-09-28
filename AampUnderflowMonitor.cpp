@@ -63,6 +63,8 @@
 #include "AampUtils.h"
 #include <stdexcept>
 
+#if 0 // Retained for reference; the unit-test fake owns this implementation.
+
 // Minimum buffered content remaining (seconds) below which a deadline expiry is
 // treated as a genuine underflow.  If more than this much content is still ahead
 // of the current playback position when the deadline fires, the expiry is a false
@@ -367,3 +369,5 @@ void AampUnderflowMonitor::Run()
 
     mRunning.store(false);
 }
+
+#endif

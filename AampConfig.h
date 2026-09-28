@@ -169,7 +169,6 @@ typedef enum
 	eAAMPConfig_WebVTTNative,						/**< Enable subtec-based subtitles */
 	eAAMPConfig_AsyncTune,						 	/**< To enable Asynchronous tune */
 	eAAMPConfig_DisableUnderflow,                                           /**< Enable/Disable Underflow processing*/
-	eAAMPConfig_EnableAampUnderflowMonitor,                                 /**< Enable AampUnderflowMonitor explicitly (preferred over DisableUnderflow gating) */
 	eAAMPConfig_LimitResolution,                                            /**< Flag to indicate if display resolution based profile selection to be done */
 	eAAMPConfig_UseAbsoluteTimeline,					/**< Enable Report Progress report position based on Availability Start Time **/
 	eAAMPConfig_EnableAccessAttributes,					/**< Usage of Access Attributes in VSS */

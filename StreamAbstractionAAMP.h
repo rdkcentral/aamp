@@ -49,7 +49,6 @@
 #include "CachedFragment.h"
 
 // Forward declaration to avoid including Underflow monitor header here
-class AampUnderflowMonitor;
 
 /**
  * @brief Media Track Types
@@ -2036,18 +2035,6 @@ public:
 	void ReinitializeInjection(double rate);
 
 protected:
-	/**
-	 * Mutex used to serialize UnderflowMonitor lifecycle in const methods.
-	 * Declared mutable to allow locking within const functions such as
-	 * IsUnderflowMonitorRunning().
-	 */
-	mutable std::mutex mUnderflowMonitorMutex;
-
-	/**
-	 * Underflow monitor instance owned by Stream; manages detection and
-	 * handling of underflow conditions.
-	 */
-	std::unique_ptr<class AampUnderflowMonitor> mUnderflowMonitor;
 	/**
 	 *   @brief Get stream information of a profile from subclass.
 	 *
