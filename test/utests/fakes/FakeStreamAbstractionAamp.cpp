@@ -40,51 +40,6 @@ StreamAbstractionAAMP::~StreamAbstractionAAMP()
 {
 }
 
-<<<<<<< HEAD
-void StreamAbstractionAAMP::StartUnderflowMonitor()
-{
-}
-
-void StreamAbstractionAAMP::StopUnderflowMonitor()
-{
-	if (g_mockStreamAbstractionAAMP != nullptr)
-	{
-		g_mockStreamAbstractionAAMP->StopUnderflowMonitor();
-	}
-
-}
-
-bool StreamAbstractionAAMP::IsUnderflowMonitorRunning() const
-{
-	return false;
-}
-
-void StreamAbstractionAAMP::NotifyVideoFragmentToUnderflowMonitor(double endPosition, float playRate)
-{
-	if (g_notifyVideoFragmentSideEffect)
-	{
-		g_notifyVideoFragmentSideEffect();
-	}
-}
-
-void StreamAbstractionAAMP::NotifyBufferLevelToLatencyMonitor(double bufferMs)
-{
-}
-
-void StreamAbstractionAAMP::NotifyPipelinePausedToUnderflowMonitor()
-{
-}
-
-void StreamAbstractionAAMP::NotifyPipelineResumedToUnderflowMonitor(float playRate)
-{
-}
-
-void StreamAbstractionAAMP::NotifyRateChangeToUnderflowMonitor(float rate)
-{
-}
-
-=======
->>>>>>> parent of fb2a04d6 (VPLAY-12294:underflow detection - avoid dependency on SoC signaling (#916))
 void StreamAbstractionAAMP::DisablePlaylistDownloads()
 {
 }

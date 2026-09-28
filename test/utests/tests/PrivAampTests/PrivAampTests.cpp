@@ -984,13 +984,8 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackPipelinePausedNoUnderflow)
 	context.remoteUrl = "http://example.com/video.m3u8";
 	context.downloadStartTime = 0;
 
-<<<<<<< HEAD
-	AAMPLOG_INFO("Test: HandleSSLWriteCallbackPipelinePausedNoUnderflow - Setup complete, mSinkPaused=%d, mBufUnderFlowStatus=%d",
-		p_aamp->mSinkPaused.load(), p_aamp->mBufUnderFlowStatus.load());
-=======
 	AAMPLOG_INFO("Test: HandleSSLWriteCallbackPipelinePausedNoUnderflow - Setup complete, pipeline_paused=%d, mBufUnderFlowStatus=%d",
 		p_aamp->pipeline_paused, p_aamp->mBufUnderFlowStatus);
->>>>>>> parent of fb2a04d6 (VPLAY-12294:underflow detection - avoid dependency on SoC signaling (#916))
 
 	// Simulate paused from live, not AAMP TSB
 	EXPECT_CALL(*g_mockMediaStreamContext, IsLocalTSBInjection())
@@ -1052,13 +1047,8 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackPipelinePausedWithUnderflow)
 	context.downloadStartTime = 0;
 	context.chunkBoundary = buffer.size(); // Simulate end of chunk
 
-<<<<<<< HEAD
-	AAMPLOG_INFO("Test: HandleSSLWriteCallbackPipelinePausedWithUnderflow - Setup complete, mSinkPaused=%d, mBufUnderFlowStatus=%d",
-		p_aamp->mSinkPaused.load(), p_aamp->mBufUnderFlowStatus.load());
-=======
 	AAMPLOG_INFO("Test: HandleSSLWriteCallbackPipelinePausedWithUnderflow - Setup complete, pipeline_paused=%d, mBufUnderFlowStatus=%d",
 		p_aamp->pipeline_paused, p_aamp->mBufUnderFlowStatus);
->>>>>>> parent of fb2a04d6 (VPLAY-12294:underflow detection - avoid dependency on SoC signaling (#916))
 
 	// Simulate paused from live, not AAMP TSB
 	EXPECT_CALL(*g_mockMediaStreamContext, IsLocalTSBInjection())
