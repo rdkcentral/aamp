@@ -29,6 +29,7 @@
 #include "MockGstUtils.h"
 #include <gst/gstplugin.h>
 #include <gst/gstpluginfeature.h>
+#include <gst/app/gstappsrc.h>
 
 
 using ::testing::NiceMock;
@@ -46,6 +47,8 @@ using ::testing::SaveArg;
 using ::testing::Pointer;
 using ::testing::Matcher;
 using ::testing::AnyNumber;
+using ::testing::AtLeast;
+using ::testing::InvokeWithoutArgs;
 
 #define GST_NORMAL_PLAY_RATE		1
 
@@ -1495,15 +1498,17 @@ TEST_F(InterfacePlayerTests, SendNewSegmentEvent_RialtoSink_PushSampleSuccess)
 	mPlayerContext->usingRialtoSink = true;
 
 	GstCaps fakeCaps = {};
-	GstSample fakeSample = {};
+	// GstSample is an opaque type; use a sentinel pointer rather than a
+	// stack instance so the mock can match the pointer across calls.
+	GstSample *fakeSample = reinterpret_cast<GstSample*>(0x1234);
 
 	EXPECT_CALL(*g_mockGStreamer, gst_segment_init(_, GST_FORMAT_TIME))
 		.Times(1);
 	EXPECT_CALL(*g_mockGStreamer, gst_app_src_get_caps(_))
 		.WillOnce(Return(&fakeCaps));
 	EXPECT_CALL(*g_mockGStreamer, gst_sample_new(nullptr, &fakeCaps, _, nullptr))
-		.WillOnce(Return(&fakeSample));
-	EXPECT_CALL(*g_mockGStreamer, gst_app_src_push_sample(_, &fakeSample))
+		.WillOnce(Return(fakeSample));
+	EXPECT_CALL(*g_mockGStreamer, gst_app_src_push_sample(_, fakeSample))
 		.WillOnce(Return(GST_FLOW_OK));
 	// gst_sample_unref and gst_caps_unref expand to gst_mini_object_unref
 	EXPECT_CALL(*g_mockGStreamer, gst_mini_object_unref(_))
@@ -1521,15 +1526,17 @@ TEST_F(InterfacePlayerTests, SendNewSegmentEvent_RialtoSink_PushSampleFailure)
 	mPlayerContext->usingRialtoSink = true;
 
 	GstCaps fakeCaps = {};
-	GstSample fakeSample = {};
+	// GstSample is an opaque type; use a sentinel pointer rather than a
+	// stack instance so the mock can match the pointer across calls.
+	GstSample *fakeSample = reinterpret_cast<GstSample*>(0x5678);
 
 	EXPECT_CALL(*g_mockGStreamer, gst_segment_init(_, GST_FORMAT_TIME))
 		.Times(1);
 	EXPECT_CALL(*g_mockGStreamer, gst_app_src_get_caps(_))
 		.WillOnce(Return(&fakeCaps));
 	EXPECT_CALL(*g_mockGStreamer, gst_sample_new(nullptr, &fakeCaps, _, nullptr))
-		.WillOnce(Return(&fakeSample));
-	EXPECT_CALL(*g_mockGStreamer, gst_app_src_push_sample(_, &fakeSample))
+		.WillOnce(Return(fakeSample));
+	EXPECT_CALL(*g_mockGStreamer, gst_app_src_push_sample(_, fakeSample))
 		.WillOnce(Return(GST_FLOW_ERROR));
 	// gst_sample_unref and gst_caps_unref still called even on push failure
 	EXPECT_CALL(*g_mockGStreamer, gst_mini_object_unref(_))
@@ -2607,4 +2614,74 @@ TEST_F(InterfacePlayerTests, SetVolumeOrMuteUnMute_UsingRialtoSink)
 	EXPECT_CALL(*g_mockGLib, g_object_set(&gst_element_audio_sink, StrEq("volume"), Matcher<double>(0.5)));
 
 	mInterfaceGstPlayer->SetVolumeOrMuteUnMute();
+}
+
+/**
+ * Regression test: when transitioning a Rialto pipeline from video-only (trickplay,
+ * single-path-stream=true) back to audio+video playback, ConfigurePipeline must write
+ * single-path-stream=false on the video sink BEFORE InterfacePlayer_SetupStream adds the
+ * audio appsrc (gst_bin_add). If the write comes after, the Rialto server has already
+ * committed to a video-only session via allSourcesAttached() and will never deliver audio.
+ */
+TEST_F(InterfacePlayerTests, ConfigurePipeline_RialtoSinglePathStreamFalseBeforeAudioSetup)
+{
+	// Pre-condition: Rialto, non-progressive, video stream already configured (no audio yet,
+	// simulating the state after an iframe trickplay pipeline was established video-only).
+	mPlayerConfigParams->useRialtoSink = true;
+	mPlayerConfigParams->media = eGST_MEDIAFORMAT_DASH;
+	mPlayerContext->stream[eGST_MEDIATYPE_VIDEO].format = GST_FORMAT_ISO_BMFF;
+	mPlayerContext->stream[eGST_MEDIATYPE_AUDIO].format = GST_FORMAT_INVALID;
+
+	// Provide a pre-existing pipeline and bus so ConfigurePipeline skips CreatePipeline.
+	GstElement fake_pipeline  = {.object = {.name = (gchar *)"testpipeline"}};
+	GstBus      fake_bus      = {};
+	mPlayerContext->pipeline  = &fake_pipeline;
+	mPlayerContext->bus       = &fake_bus;
+
+	// Video sinkbin is already in place (left over from the trickplay pipeline).
+	GstElement fake_video_sinkbin = {.object = {.name = (gchar *)"videosinkbin0"}};
+	GstElement fake_vidsink       = {.object = {.name = (gchar *)"rialtomsevideosink0"}};
+	mPlayerContext->stream[eGST_MEDIATYPE_VIDEO].sinkbin = &fake_video_sinkbin;
+
+	// g_object_get("video-sink") on the video sinkbin returns fake_vidsink.
+	// Use typed matchers to select the gpointer* overload unambiguously.
+	EXPECT_CALL(*g_mockGLib, g_object_get(Matcher<gpointer>(&fake_video_sinkbin),
+	                                       StrEq("video-sink"),
+	                                       Matcher<gpointer*>(_)))
+		.WillRepeatedly(SetArgPointee<2>((gpointer)&fake_vidsink));
+
+	// Track call ordering between single-path-stream write and the first gst_bin_add
+	// (which is issued inside InterfacePlayer_SetupStream for the audio sinkbin).
+	int callCounter          = 0;
+	int singlePathSetOrder   = -1;
+	int binAddOrder          = -1;
+
+	// Use typed matchers to select the (gpointer, const gchar*, int) overload and
+	// assert the value written is FALSE (0), not just any integer.
+	EXPECT_CALL(*g_mockGLib, g_object_set(Matcher<gpointer>(_),
+	                                       StrEq("single-path-stream"),
+	                                       Matcher<int>(Eq((int)FALSE))))
+		.Times(AtLeast(1))
+		.WillRepeatedly(InvokeWithoutArgs([&]{
+			if (singlePathSetOrder < 0) singlePathSetOrder = callCounter++;
+		}));
+
+	EXPECT_CALL(*g_mockGStreamer, gst_bin_add(_, _))
+		.Times(AtLeast(1))
+		.WillRepeatedly(DoAll(
+			InvokeWithoutArgs([&]{
+				if (binAddOrder < 0) binAddOrder = callCounter++;
+			}),
+			Return(TRUE)));
+
+	// Call ConfigurePipeline with audio enabled: transitioning from video-only to AV.
+	mInterfaceGstPlayer->ConfigurePipeline(
+		GST_FORMAT_ISO_BMFF, GST_FORMAT_AUDIO_ES_AC3, GST_FORMAT_INVALID, GST_FORMAT_INVALID,
+		false, false, false, false, 0, GST_NORMAL_PLAY_RATE,
+		"testPipeline", 0, false, "testManifest");
+
+	EXPECT_GE(singlePathSetOrder, 0) << "single-path-stream=false was never written to the video sink";
+	EXPECT_GE(binAddOrder, 0)        << "gst_bin_add was never called; audio SetupStream did not run";
+	EXPECT_LT(singlePathSetOrder, binAddOrder)
+		<< "single-path-stream=false must be set before audio SetupStream adds the sinkbin to the pipeline";
 }

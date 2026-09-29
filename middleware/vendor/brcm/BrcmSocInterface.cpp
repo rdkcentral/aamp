@@ -131,7 +131,7 @@ bool BrcmSocInterface::IsVideoSink(const char* name)
  */
 bool BrcmSocInterface::IsAudioSinkOrAudioDecoder(const char* name)
 {
-	return name && StartsWith(name, "brcmaudiodecoder");
+	return name && (StartsWith(name, "brcmaudiodecoder") || StartsWith(name, "rialtomseaudiosink"));
 }
 
 /**
