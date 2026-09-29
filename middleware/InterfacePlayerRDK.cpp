@@ -2667,6 +2667,15 @@ GstPlaybackQualityStruct* InterfacePlayerRDK::GetVideoPlaybackQuality(void)
 				interfacePlayerPriv->gstPrivateContext->playbackQuality.dropped= g_value_get_uint64( value );
 			}
 			MW_LOG_MIL("rendered %lld dropped %lld", interfacePlayerPriv->gstPrivateContext->playbackQuality.rendered, interfacePlayerPriv->gstPrivateContext->playbackQuality.dropped);
+#if 1
+			if( interfacePlayerPriv->gstPrivateContext->playbackQuality.rendered < 4 )
+			{
+				std::system("echo \"============================================================\" >> /opt/logs/decoderlogs.txt ");
+				std::system("date >> /opt/logs/decoderlogs.txt");
+				std::system("cat /proc/brcm/transport >> /opt/logs/decoderlogs.txt ");
+				std::system("cat /proc/brcm/video_decoder >> /opt/logs/decoderlogs.txt");
+			}
+#endif
 			gst_structure_free( stats );
 			return &interfacePlayerPriv->gstPrivateContext->playbackQuality;
 		}
