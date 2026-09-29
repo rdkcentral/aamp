@@ -127,6 +127,7 @@
 #define EAS_CURL_CONNECTTIMEOUT 2L      /**< Curl timeout for EAS connection */
 #define DEFAULT_INTERVAL_BETWEEN_PLAYLIST_UPDATES_MS (6*1000)   /**< Interval between playlist refreshes */
 #define DEFAULT_INTERVAL_BETWEEN_MPD_UPDATES_MS 3000
+#define DEFAULT_MANIFEST_REFRESH_FAILURE_THRESHOLD 2		/**< Number of consecutive identical manifest refresh failures required before reporting a manifest error during buffering */
 #define MAX_DELAY_BETWEEN_MPD_UPDATE_MS (6000)
 #define MIN_DELAY_BETWEEN_MPD_UPDATE_MS (500) // 500mSec
 #define SAFE_LATENCY_VALUE_FOR_SLOW_REFRESH (20000) // 20 sec
@@ -163,7 +164,8 @@
 #define DEFAULT_REBUFFER_LATENCY_STEP_SEC 1.0			/*< Step value for latency increase when rebuffering occurs in seconds */
 #define DEFAULT_REBUFFER_LATENCY_MAX_INCREMENT_SEC 8.0	/*< LiveOffset(15s) - MaxLatency(7s) */
 #define DEFAULT_LATENCY_STABLE_DURATION_SEC 300.0		/*< Duration (s) of consecutive healthy buffer (latencyStableDurationSec) required before one restoration step */
-#define DEFAULT_LATENCY_DANGER_BUFFER_SEC 1.0			/*< Buffer level (s) below which latency thresholds are increased; buffer must stay above this level for latencyStableDurationSec before thresholds are restored */
+#define DEFAULT_LATENCY_DANGER_BUFFER_SEC 1.0			/*< Buffer level (s) below which latency thresholds are increased */
+#define DEFAULT_LATENCY_RESTORATION_BUFFER_SEC 2.0	/*< Buffer level (s) required to sustain the restoration window for reducing latency thresholds */
 
 
 // We can enable the following once we have a thread monitoring video PTS progress and triggering subtec clock fast update when we detect video freeze. Disabled it for now for brute force fast refresh..
