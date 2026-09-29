@@ -533,7 +533,10 @@ void AampMPDDownloader::downloadMPDThread1()
 			{
 				ManifestRefreshStatus previousStatus = mManifestRefreshStatus.load();
 				bool sameAsPreviousFailure = (previousStatus == refreshStatus);
-				mManifestRefreshRetryFailureCount.store(sameAsPreviousFailure ? mManifestRefreshRetryFailureCount.load() + 1 : 1);
+				if (sameAsPreviousFailure)
+					mManifestRefreshRetryFailureCount.fetch_add(1);
+				else
+					mManifestRefreshRetryFailureCount.store(1);
 			}
 			mManifestRefreshStatus.store(refreshStatus);
 		}

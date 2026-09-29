@@ -109,6 +109,11 @@ static const char *kMalformedMpdManifest =
 *
 * Polls GetManifest() until a new manifest is available, a null response is
 * received, or the specified timeout expires.
+*
+* Note: sleep_for is used deliberately here. These tests exercise real downloader
+* threads and must wait for asynchronous results. There is no condvar or callback
+* API exposed on AampMPDDownloader that would let us block without polling, so
+* the brief sleep avoids busy-spinning while staying within the deadline.
 */
 static ManifestDownloadResponsePtr WaitForNextManifest(
 	AampMPDDownloader *downloader,
@@ -759,7 +764,7 @@ TEST_F(FunctionalTests, AampMPDDownloader_RefreshStatus_FailureTypeChanges_DoesN
 	{
 		{std::string(kLiveMpdManifestForRefreshStatusTests), 200},
 		{std::string(), CURLE_RECV_ERROR},
-		{std::string(kMalformedMpdManifest), 200}
+		{std::string(), CURLE_COULDNT_CONNECT}
 	};
 
 	std::atomic<size_t> callbackIndex(0);
@@ -793,6 +798,8 @@ TEST_F(FunctionalTests, AampMPDDownloader_RefreshStatus_FailureTypeChanges_DoesN
 		WaitForNextManifest(mAampMPDDownloader, secondManifest, 2000);
 	ASSERT_TRUE(thirdManifest != nullptr);
 	ASSERT_TRUE(thirdManifest.get() != secondManifest.get());
+	EXPECT_EQ(thirdManifest->mMPDDownloadResponse->iHttpRetValue,
+		CURLE_COULDNT_CONNECT);
 	EXPECT_NE(thirdManifest->mMPDStatus, AAMPStatusType::eAAMPSTATUS_OK);
 
 	ManifestRefreshStatus statusAfterChangedFailure =
