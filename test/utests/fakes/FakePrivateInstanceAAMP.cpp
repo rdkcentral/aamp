@@ -420,6 +420,7 @@ void PrivateInstanceAAMP::SetEarlyAbortRequestFlag(bool enableAbort)
 
 bool PrivateInstanceAAMP::IsAsyncTuneSupportedForType(MediaFormat format, ContentType type, TuneType tuneType) const
 {
+	// Note: eTUNETYPE_NEW_END excluded to mirror the production predicate (priv_aamp.cpp).
 	return (eMEDIAFORMAT_DASH == format) &&
 	       (ContentType_LINEAR == type)  &&
 	       ((eTUNETYPE_NEW_NORMAL == tuneType) || (eTUNETYPE_NEW_SEEK == tuneType)) &&
