@@ -123,6 +123,12 @@ void StreamAbstractionAAMP::RefreshSubtitles()
 {
 }
 
+bool StreamAbstractionAAMP::IsSeamlessTrackSwitchPossible(AampMediaType type)
+{
+	// Default: always possible; individual tests set mock expectations to override.
+	return true;
+}
+
 void StreamAbstractionAAMP::UnblockWaitForCachedFragmentInjected()
 {
 }

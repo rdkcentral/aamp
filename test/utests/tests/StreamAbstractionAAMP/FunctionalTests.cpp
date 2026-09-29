@@ -56,7 +56,8 @@ protected:
 		TestableStreamAbstractionAAMP(PrivateInstanceAAMP* aamp)
 			: StreamAbstractionAAMP(aamp),
 			mMockAudioTrack(nullptr),
-			mMockVideoTrack(nullptr)
+			mMockVideoTrack(nullptr),
+			mMockSubtitleTrack(nullptr)
 		{
 		}
 
@@ -72,10 +73,16 @@ protected:
 				delete mMockVideoTrack;
 				mMockVideoTrack = nullptr;
 			}
+			if (mMockSubtitleTrack)
+			{
+				delete mMockSubtitleTrack;
+				mMockSubtitleTrack = nullptr;
+			}
 		}
 
 		MockMediaTrack *mMockAudioTrack;
 		MockMediaTrack *mMockVideoTrack;
+		MockMediaTrack *mMockSubtitleTrack;
 
 		virtual AAMPStatusType Init(TuneType tuneType) override {return eAAMPSTATUS_OK;}
 		virtual void Start() override {}
@@ -86,8 +93,10 @@ protected:
 		{
 			if (type == eTRACK_AUDIO)
 				return mMockAudioTrack;
-			else if  (type == eTRACK_VIDEO)
+			else if (type == eTRACK_VIDEO)
 				return mMockVideoTrack;
+			else if (type == eTRACK_SUBTITLE)
+				return mMockSubtitleTrack;
 			else
 				return nullptr;
 		}
@@ -135,16 +144,17 @@ protected:
 			.Times(AnyNumber())
 			.WillRepeatedly(Return(0));
 
-		mStreamAbstractionAAMP->mMockAudioTrack = new MockMediaTrack(eTRACK_AUDIO, mPrivateInstanceAAMP, "audio");
-		mStreamAbstractionAAMP->mMockVideoTrack = new MockMediaTrack(eTRACK_VIDEO, mPrivateInstanceAAMP, "video");
+		mStreamAbstractionAAMP->mMockAudioTrack    = new MockMediaTrack(eTRACK_AUDIO,    mPrivateInstanceAAMP, "audio");
+		mStreamAbstractionAAMP->mMockVideoTrack    = new MockMediaTrack(eTRACK_VIDEO,    mPrivateInstanceAAMP, "video");
+		mStreamAbstractionAAMP->mMockSubtitleTrack = new MockMediaTrack(eTRACK_SUBTITLE, mPrivateInstanceAAMP, "subtitle");
 
 		mMockMediaProcessor = std::make_shared<NiceMock<MockMediaProcessor>>();
 		mStreamAbstractionAAMP->mMockVideoTrack->playContext = mMockMediaProcessor;
 		mStreamAbstractionAAMP->mMockVideoTrack->enabled = true;
 
-
-		mStreamAbstractionAAMP->mMockAudioTrack->fragmentDurationSeconds = 1.92;
-		mStreamAbstractionAAMP->mMockVideoTrack->fragmentDurationSeconds = 1.92;
+		mStreamAbstractionAAMP->mMockAudioTrack->fragmentDurationSeconds    = 1.92;
+		mStreamAbstractionAAMP->mMockVideoTrack->fragmentDurationSeconds    = 1.92;
+		mStreamAbstractionAAMP->mMockSubtitleTrack->fragmentDurationSeconds = 1.92;
 
 	}
 
@@ -238,7 +248,7 @@ TEST_F(StreamAbstractionAAMP_Test, ReinitializeInjection_LLDashChunkModeDisabled
 }
 /**
  * @brief Verify UpdateTSAfterFetchStats() re-enables the latency monitor after
- *        an audio track switch when mSavedLatencyMonitorState was true.
+ *        an audio track switch when mSavedLatencyMonitorStateAudio was true.
  */
 TEST_F(StreamAbstractionAAMP_Test, UpdateTSAfterFetchStats_RestoresLatencyMonitor_WhenSavedStateTrue)
 {
@@ -246,12 +256,12 @@ TEST_F(StreamAbstractionAAMP_Test, UpdateTSAfterFetchStats_RestoresLatencyMonito
         cachedFragment.duration = 1.0;
 
         // Set GetContext() to return our StreamAbstractionAAMP so
-        // pContext->mSavedLatencyMonitorState is accessible.
+        // pContext->mSavedLatencyMonitorStateAudio is accessible.
         ON_CALL(*mStreamAbstractionAAMP->mMockAudioTrack, GetContext())
                 .WillByDefault(Return(mStreamAbstractionAAMP));
 
         // Simulate: latency monitor was active before the audio track switch.
-        mStreamAbstractionAAMP->mSavedLatencyMonitorState = true;
+        mStreamAbstractionAAMP->mSavedLatencyMonitorStateAudio = true;
         mStreamAbstractionAAMP->mMockAudioTrack->LoadNewAudio(true);
 
         // Expect EnableLatencyMonitor(true) called once to restore the monitor.
@@ -259,13 +269,13 @@ TEST_F(StreamAbstractionAAMP_Test, UpdateTSAfterFetchStats_RestoresLatencyMonito
 
         mStreamAbstractionAAMP->mMockAudioTrack->UpdateTSAfterFetchStats(&cachedFragment, false);
 
-        // mSavedLatencyMonitorState must be cleared after restoration.
-        EXPECT_FALSE(mStreamAbstractionAAMP->mSavedLatencyMonitorState);
+        // mSavedLatencyMonitorStateAudio must be cleared after restoration.
+        EXPECT_FALSE(mStreamAbstractionAAMP->mSavedLatencyMonitorStateAudio);
 }
 
 /**
  * @brief Verify UpdateTSAfterFetchStats() does NOT re-enable the latency monitor
- *        after an audio track switch when mSavedLatencyMonitorState was false.
+ *        after an audio track switch when mSavedLatencyMonitorStateAudio was false.
  */
 TEST_F(StreamAbstractionAAMP_Test, UpdateTSAfterFetchStats_DoesNotRestoreLatencyMonitor_WhenSavedStateFalse)
 {
@@ -276,7 +286,7 @@ TEST_F(StreamAbstractionAAMP_Test, UpdateTSAfterFetchStats_DoesNotRestoreLatency
                 .WillByDefault(Return(mStreamAbstractionAAMP));
 
         // Simulate: latency monitor was NOT active before the audio track switch.
-        mStreamAbstractionAAMP->mSavedLatencyMonitorState = false;
+        mStreamAbstractionAAMP->mSavedLatencyMonitorStateAudio = false;
         mStreamAbstractionAAMP->mMockAudioTrack->LoadNewAudio(true);
 
         // EnableLatencyMonitor(true) must NOT be called.
@@ -284,7 +294,82 @@ TEST_F(StreamAbstractionAAMP_Test, UpdateTSAfterFetchStats_DoesNotRestoreLatency
 
         mStreamAbstractionAAMP->mMockAudioTrack->UpdateTSAfterFetchStats(&cachedFragment, false);
 
-        EXPECT_FALSE(mStreamAbstractionAAMP->mSavedLatencyMonitorState);
+        EXPECT_FALSE(mStreamAbstractionAAMP->mSavedLatencyMonitorStateAudio);
+}
+
+/**
+ * @brief Verify that concurrent audio+subtitle switches each restore the latency
+ *        monitor independently, using their own per-track saved-state flag
+ *        (VPAAMP-1195 defect c).
+ *
+ *        Repro: with a single shared flag, the second RefreshTrack() call reads
+ *        IsLatencyMonitorEnabled() as false (already disabled) and overwrites the
+ *        first switch's saved state with false.  EnableLatencyMonitor(true) is
+ *        never called and LLD latency-rate correction remains permanently disabled.
+ */
+TEST_F(StreamAbstractionAAMP_Test, LatencyMonitor_ConcurrentAudioAndSubtitleSwitch_BothRestored)
+{
+        CachedFragment cachedFragment;
+        cachedFragment.duration = 1.0;
+
+        ON_CALL(*mStreamAbstractionAAMP->mMockAudioTrack, GetContext())
+                .WillByDefault(Return(mStreamAbstractionAAMP));
+        ON_CALL(*mStreamAbstractionAAMP->mMockSubtitleTrack, GetContext())
+                .WillByDefault(Return(mStreamAbstractionAAMP));
+
+        // Latency monitor was active before both switches started.
+        mStreamAbstractionAAMP->mSavedLatencyMonitorStateAudio    = true;
+        mStreamAbstractionAAMP->mSavedLatencyMonitorStateSubtitle = true;
+        mStreamAbstractionAAMP->mMockAudioTrack->LoadNewAudio(true);
+        mStreamAbstractionAAMP->mMockSubtitleTrack->LoadNewSubtitle(true);
+
+        // EnableLatencyMonitor(true) must be called once per completed switch.
+        EXPECT_CALL(*g_mockPrivateInstanceAAMP, EnableLatencyMonitor(true)).Times(2);
+
+        // Audio switch completes first.
+        mStreamAbstractionAAMP->mMockAudioTrack->UpdateTSAfterFetchStats(&cachedFragment, false);
+        EXPECT_FALSE(mStreamAbstractionAAMP->mSavedLatencyMonitorStateAudio);
+        // Subtitle flag must still be set — it has its own independent bool.
+        EXPECT_TRUE(mStreamAbstractionAAMP->mSavedLatencyMonitorStateSubtitle);
+
+        // Subtitle switch completes.
+        mStreamAbstractionAAMP->mMockSubtitleTrack->UpdateTSAfterFetchStats(&cachedFragment, false);
+        EXPECT_FALSE(mStreamAbstractionAAMP->mSavedLatencyMonitorStateSubtitle);
+}
+
+/**
+ * @brief Verify that a subtitle RefreshTrack() (latency monitor was OFF when the
+ *        subtitle switch started) does not corrupt the audio switch's saved state.
+ *
+ *        With the old shared flag the second RefreshTrack() would have set the
+ *        shared flag to false, preventing the audio restore from firing.
+ */
+TEST_F(StreamAbstractionAAMP_Test, LatencyMonitor_SubtitleSwitchLLDOff_DoesNotCorruptAudioState)
+{
+        CachedFragment cachedFragment;
+        cachedFragment.duration = 1.0;
+
+        ON_CALL(*mStreamAbstractionAAMP->mMockAudioTrack, GetContext())
+                .WillByDefault(Return(mStreamAbstractionAAMP));
+        ON_CALL(*mStreamAbstractionAAMP->mMockSubtitleTrack, GetContext())
+                .WillByDefault(Return(mStreamAbstractionAAMP));
+
+        // Audio switch: LLD was ON.  Subtitle switch: LLD was already OFF.
+        mStreamAbstractionAAMP->mSavedLatencyMonitorStateAudio    = true;
+        mStreamAbstractionAAMP->mSavedLatencyMonitorStateSubtitle = false;
+        mStreamAbstractionAAMP->mMockAudioTrack->LoadNewAudio(true);
+        mStreamAbstractionAAMP->mMockSubtitleTrack->LoadNewSubtitle(true);
+
+        // Only the audio restore should call EnableLatencyMonitor(true).
+        EXPECT_CALL(*g_mockPrivateInstanceAAMP, EnableLatencyMonitor(true)).Times(1);
+
+        // Subtitle switch completes first — must not touch the audio flag.
+        mStreamAbstractionAAMP->mMockSubtitleTrack->UpdateTSAfterFetchStats(&cachedFragment, false);
+        EXPECT_TRUE(mStreamAbstractionAAMP->mSavedLatencyMonitorStateAudio);
+
+        // Audio switch completes — monitor restored.
+        mStreamAbstractionAAMP->mMockAudioTrack->UpdateTSAfterFetchStats(&cachedFragment, false);
+        EXPECT_FALSE(mStreamAbstractionAAMP->mSavedLatencyMonitorStateAudio);
 }
 
 /**

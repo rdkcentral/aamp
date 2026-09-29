@@ -214,6 +214,7 @@ typedef enum
 	eAAMPConfig_UseSinglePipeline,					/**< To enable/disable using a single gstreamer pipeline */
 	eAAMPConfig_EarlyID3Processing,					/**< To enable/disable early ID3 processing */
 	eAAMPConfig_SeamlessAudioSwitch,					/**< To enable audio Restart - Currently supported for HLS_MP4 on same codec streams*/
+	eAAMPConfig_SeamlessTextSwitch,						/**< Enable seamless subtitle-track switch (HLS_MP4/DASH, same codec only); independent of seamlessAudioSwitch */
 	eAAMPConfig_useRialtoSink,                      /**< Enable/Disable player to use Rialto sink based video and audio pipeline */
 	eAAMPConfig_useDirectRialto,                    /**< Enable/Disable direct AampRialtoPlayer usage instead of AAMPGstPlayer */
 	eAAMPConfig_LocalTSBEnabled,                                            /**< To enable/disable Local TSB in LLD */

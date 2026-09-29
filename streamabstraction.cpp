@@ -507,10 +507,10 @@ void MediaTrack::UpdateTSAfterFetchStats(CachedFragment* cachedFragment, bool is
 		NotifyCachedAudioFragmentAvailable();
 		loadNewAudio = false;
 		// Re-enable latency rate correction after audio track switch only if it was previously enabled.
-		if (pContext && pContext->mSavedLatencyMonitorState )
+		if (pContext && pContext->mSavedLatencyMonitorStateAudio)
 		{
 			aamp->EnableLatencyMonitor(true);
-			pContext->mSavedLatencyMonitorState  = false;
+			pContext->mSavedLatencyMonitorStateAudio = false;
 		}
 	}
 	if (loadNewSubtitle && (eTRACK_SUBTITLE == type) && !isInitSegment)
@@ -527,10 +527,12 @@ void MediaTrack::UpdateTSAfterFetchStats(CachedFragment* cachedFragment, bool is
 		NotifyCachedSubtitleFragmentAvailable();
 		loadNewSubtitle = false;
 		// Re-enable latency rate correction after subtitle track switch only if it was previously enabled.
-		if (pContext && pContext->mSavedLatencyMonitorState )
+		// Uses a separate flag from the audio path so concurrent audio+subtitle switches do not
+		// overwrite each other's saved state (VPAAMP-1195).
+		if (pContext && pContext->mSavedLatencyMonitorStateSubtitle)
 		{
 			aamp->EnableLatencyMonitor(true);
-			pContext->mSavedLatencyMonitorState  = false;
+			pContext->mSavedLatencyMonitorStateSubtitle = false;
 		}
 	}
 	if (!isInitSegment)
@@ -1807,7 +1809,8 @@ StreamAbstractionAAMP::StreamAbstractionAAMP(PrivateInstanceAAMP* aamp, id3_call
 		hasDrm(false), mIsAtLivePoint(false), mESChangeStatus(false), mPipelineFlushStatus(false), mAudiostateChangeCount(0),
 		mNetworkDownDetected(false), mTotalPausedDurationMS(0), mIsPaused(false), mProgramStartTime(-1),
 		mStartTimeStamp(-1),mLastPausedTimeStamp(-1), aamp(aamp),
-		mSavedLatencyMonitorState (false),
+		mSavedLatencyMonitorStateAudio (false),
+		mSavedLatencyMonitorStateSubtitle (false),
 		mIsPlaybackStalled(false), mTuneType(), mLock(),
 		mCond(), mLastVideoFragCheckedForABR(0), mLastVideoFragParsedTimeMS(0),
 		mSubCond(), mAudioTracks(), mTextTracks(),mABRHighBufferCounter(0),mABRLowBufferCounter(0),mMaxBufferCountCheck(0),
@@ -3052,6 +3055,34 @@ bool StreamAbstractionAAMP::IsEOSReached()
 		}
 	}
 	return eos;
+}
+
+/**
+ *  @brief Checks if a seamless track switch can still be serviced
+ *
+ *  RefreshTrack(type) only raises the track's refresh flag; the switch itself
+ *  is carried out by the fetcher loop, which polls that flag once per iteration.
+ *  Once the fetcher has reached end of stream it exits, so the flag is never
+ *  acted upon and the injector's EOS guard subsequently clears it (VPAAMP-1166)
+ *  — the track change is silently dropped.  This is easily hit on short VOD
+ *  assets and towards the end of any VOD.  Callers must fall back to a retune
+ *  when this returns false.
+ */
+bool StreamAbstractionAAMP::IsSeamlessTrackSwitchPossible(AampMediaType type)
+{
+	bool possible = false;
+	MediaTrack *track = GetMediaTrack((TrackType)type);
+	if (track && track->enabled)
+	{
+		possible = !track->IsAtEndOfTrack();
+	}
+	if (!possible)
+	{
+		AAMPLOG_WARN("Seamless %s switch not possible (track %s); retune required",
+					 (type == eMEDIATYPE_AUDIO) ? "audio" : "subtitle",
+					 track ? (track->enabled ? "at EOS" : "disabled") : "unavailable");
+	}
+	return possible;
 }
 
 /**

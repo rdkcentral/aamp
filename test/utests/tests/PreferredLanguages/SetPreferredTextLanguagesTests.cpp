@@ -51,6 +51,8 @@ using ::testing::AtLeast;
 using ::testing::AnyOf;
 using ::testing::StrEq;
 using ::testing::Invoke;
+using ::testing::DoAll;
+using ::testing::SetArgReferee;
 
 class SetPreferredTextLanguagesTests : public ::testing::Test
 {
@@ -166,6 +168,21 @@ public:
         	mTSBSessionManager = nullptr;
     	}
 	}
+};
+
+/**
+ * @brief Thin subclass of PrivateInstanceAAMP that exposes the protected
+ *        mFirstTune flag for seamless-switch tests (VPAAMP-1195).
+ *
+ *        mFirstTune=true (the default after construction) prevents the
+ *        seamless path from being entered.  Tests that exercise that path
+ *        must clear the flag via SetFirstTune(false).
+ */
+class SeamlessTestableAamp : public PrivateInstanceAAMP
+{
+public:
+	SeamlessTestableAamp(AampConfig *cfg) : PrivateInstanceAAMP(cfg) {}
+	void SetFirstTune(bool val) { mFirstTune = val; }
 };
 
 /**
@@ -1043,4 +1060,189 @@ TEST_F(SetPreferredTextLanguagesTests, CrashWhenPopulateTracksRacesWithSetPrefer
 
 	/* If we reach here, the bounds check prevented the crash */
 	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextLanguagesString.c_str(), "eng,");
+}
+
+// ── VPAAMP-1195 defect (a): fetcher-liveness guard ─────────────────────────
+
+/**
+ * @brief Verify that SetPreferredTextLanguages() falls back to a retune when the
+ *        subtitle fetcher has already reached EOS.
+ *
+ *        Repro: short VOD — fully downloaded seconds into playback.
+ *        IsSeamlessTrackSwitchPossible(SUBTITLE) returns false; RefreshTrack
+ *        must NOT be called (the flag would be immediately cleared by the EOS
+ *        guard in VPAAMP-1166), and a retune must be issued instead.
+ */
+TEST_F(SetPreferredTextLanguagesTests, SeamlessTextSwitch_FetcherAtEOS_Retuned)
+{
+	std::unique_ptr<SeamlessTestableAamp> aamp(new SeamlessTestableAamp(gpGlobalConfig));
+	aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
+	aamp->SetState(eSTATE_PLAYING, true);
+	/* Simulate a post-first-tune state so the seamless condition's !mFirstTune is true. */
+	aamp->SetFirstTune(false);
+
+	std::vector<TextTrackInfo> tracks;
+	tracks.push_back(TextTrackInfo("idx0", "spa", false, "rend0", "Spanish", "wvtt", "cha0", "typ0", "lab0", "type0", Accessibility(), true));
+	tracks.push_back(TextTrackInfo("idx1", "eng", false, "rend1", "English", "wvtt", "cha1", "typ1", "lab1", "type1", Accessibility(), true));
+
+	/* Currently on Spanish; switching to English (same codec → no format change). */
+	aamp->preferredTextLanguagesString = "spa";
+	aamp->preferredTextLanguagesList.clear();
+	aamp->preferredTextLanguagesList.push_back("spa");
+	aamp->subtitles_muted = false;
+	aamp->mMediaFormat = eMEDIAFORMAT_DASH;
+
+	/* Override the catch-all false for the specific config key. */
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_SeamlessTextSwitch))
+		.WillRepeatedly(Return(true));
+
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableTextTracks(_))
+		.WillOnce(ReturnRef(tracks));
+
+	TextTrackInfo currentTrack = tracks[0]; /* currently playing: Spanish wvtt */
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetCurrentTextTrack(_))
+		.WillOnce(DoAll(SetArgReferee<0>(currentTrack), Return(true)));
+
+	/* Fetcher is at EOS — seamless switch impossible. */
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, IsSeamlessTrackSwitchPossible(eMEDIATYPE_SUBTITLE))
+		.WillOnce(Return(false));
+
+	/* RefreshTrack must NOT be called. */
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, RefreshTrack(_)).Times(0);
+
+	/* Retune path: Stop() will be called. */
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, StopUnderflowMonitor());
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
+		.WillOnce(Invoke(this, &SetPreferredTextLanguagesTests::Stop));
+	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_, _, _))
+		.Times(::testing::AnyNumber());
+
+	aamp->SetPreferredTextLanguages("eng");
+
+	EXPECT_STREQ(aamp->preferredTextLanguagesString.c_str(), "eng");
+
+	/* Manual teardown: same pattern as ChangePrefTextLangWithTSB. */
+	auto mockToDelete = g_mockStreamAbstractionAAMP;
+	g_mockStreamAbstractionAAMP.reset();
+	mPrivateInstanceAAMP->mpStreamAbstractionAAMP = nullptr;
+	aamp->mpStreamAbstractionAAMP = nullptr;
+	delete mockToDelete.get();
+}
+
+// ── VPAAMP-1195 defect (b): format guard ────────────────────────────────────
+
+/**
+ * @brief Verify that SetPreferredTextLanguages() falls back to a retune when the
+ *        target subtitle track uses a different codec/format than the current one.
+ *
+ *        Current track: WebVTT ("wvtt").  Target track: TTML ("stpp").
+ *        Even with the fetcher alive and seamlessTextSwitch=true, the incompatible
+ *        format must prevent RefreshTrack from being called.
+ */
+TEST_F(SetPreferredTextLanguagesTests, SeamlessTextSwitch_IncompatibleFormat_Retuned)
+{
+	std::unique_ptr<SeamlessTestableAamp> aamp(new SeamlessTestableAamp(gpGlobalConfig));
+	aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
+	aamp->SetState(eSTATE_PLAYING, true);
+	aamp->SetFirstTune(false);
+
+	std::vector<TextTrackInfo> tracks;
+	tracks.push_back(TextTrackInfo("idx0", "spa", false, "rend0", "Spanish", "wvtt", "cha0", "typ0", "lab0", "type0", Accessibility(), true));
+	tracks.push_back(TextTrackInfo("idx1", "eng", false, "rend1", "English", "stpp", "cha1", "typ1", "lab1", "type1", Accessibility(), true));
+
+	/* Currently on Spanish (wvtt); switching to English (stpp — incompatible format). */
+	aamp->preferredTextLanguagesString = "spa";
+	aamp->preferredTextLanguagesList.clear();
+	aamp->preferredTextLanguagesList.push_back("spa");
+	aamp->subtitles_muted = false;
+	aamp->mMediaFormat = eMEDIAFORMAT_DASH;
+
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_SeamlessTextSwitch))
+		.WillRepeatedly(Return(true));
+
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableTextTracks(_))
+		.WillOnce(ReturnRef(tracks));
+
+	TextTrackInfo currentTrack = tracks[0]; /* currently playing: Spanish wvtt */
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetCurrentTextTrack(_))
+		.WillOnce(DoAll(SetArgReferee<0>(currentTrack), Return(true)));
+
+	/* subtitleFormatChange=true causes the seamless condition to short-circuit before
+	 * calling IsSeamlessTrackSwitchPossible.  Allow it in case evaluation order changes. */
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, IsSeamlessTrackSwitchPossible(_))
+		.Times(::testing::AtMost(1))
+		.WillRepeatedly(Return(true));
+
+	/* RefreshTrack must NOT be called — format change mandates a retune. */
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, RefreshTrack(_)).Times(0);
+
+	/* Retune path. */
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, StopUnderflowMonitor());
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
+		.WillOnce(Invoke(this, &SetPreferredTextLanguagesTests::Stop));
+	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_, _, _))
+		.Times(::testing::AnyNumber());
+
+	aamp->SetPreferredTextLanguages("eng");
+
+	EXPECT_STREQ(aamp->preferredTextLanguagesString.c_str(), "eng");
+
+	auto mockToDelete = g_mockStreamAbstractionAAMP;
+	g_mockStreamAbstractionAAMP.reset();
+	mPrivateInstanceAAMP->mpStreamAbstractionAAMP = nullptr;
+	aamp->mpStreamAbstractionAAMP = nullptr;
+	delete mockToDelete.get();
+}
+
+/**
+ * @brief Verify that SetPreferredTextLanguages() calls RefreshTrack (seamless path)
+ *        when the target subtitle track has the same codec as the current track,
+ *        seamlessTextSwitch is enabled, and the fetcher is still running.
+ *
+ *        This is the happy-path for VPAAMP-1195 defects (a) and (b) together.
+ */
+TEST_F(SetPreferredTextLanguagesTests, SeamlessTextSwitch_CompatibleFormat_RefreshTrackCalled)
+{
+	std::unique_ptr<SeamlessTestableAamp> aamp(new SeamlessTestableAamp(gpGlobalConfig));
+	aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
+	aamp->SetState(eSTATE_PLAYING, true);
+	aamp->SetFirstTune(false);
+
+	std::vector<TextTrackInfo> tracks;
+	tracks.push_back(TextTrackInfo("idx0", "spa", false, "rend0", "Spanish", "wvtt", "cha0", "typ0", "lab0", "type0", Accessibility(), true));
+	tracks.push_back(TextTrackInfo("idx1", "eng", false, "rend1", "English", "wvtt", "cha1", "typ1", "lab1", "type1", Accessibility(), true));
+
+	/* Currently on Spanish (wvtt); switching to English (wvtt — same format). */
+	aamp->preferredTextLanguagesString = "spa";
+	aamp->preferredTextLanguagesList.clear();
+	aamp->preferredTextLanguagesList.push_back("spa");
+	aamp->subtitles_muted = false;
+	aamp->mMediaFormat = eMEDIAFORMAT_DASH;
+
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_SeamlessTextSwitch))
+		.WillRepeatedly(Return(true));
+
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableTextTracks(_))
+		.WillOnce(ReturnRef(tracks));
+
+	TextTrackInfo currentTrack = tracks[0]; /* currently playing: Spanish wvtt */
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetCurrentTextTrack(_))
+		.WillOnce(DoAll(SetArgReferee<0>(currentTrack), Return(true)));
+
+	/* Fetcher is alive — seamless switch is possible. */
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, IsSeamlessTrackSwitchPossible(eMEDIATYPE_SUBTITLE))
+		.WillOnce(Return(true));
+
+	/* RefreshTrack must be called exactly once with the subtitle type. */
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, RefreshTrack(eMEDIATYPE_SUBTITLE)).Times(1);
+
+	/* Retune path (Stop) must NOT be called. */
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_)).Times(0);
+
+	aamp->SetPreferredTextLanguages("eng");
+
+	EXPECT_STREQ(aamp->preferredTextLanguagesString.c_str(), "eng");
+
+	/* No retune: mock is still live, nullify before TearDown deletes it. */
+	aamp->mpStreamAbstractionAAMP = nullptr;
 }

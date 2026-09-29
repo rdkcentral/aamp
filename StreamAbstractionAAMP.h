@@ -1297,6 +1297,20 @@ public:
 	virtual double GetFirstPeriodStartTime() { return 0; }
 	virtual double GetFirstPeriodDynamicStartTime() { return 0; }
 	virtual void RefreshTrack(AampMediaType type) {};
+
+	/**
+	 *   @fn IsSeamlessTrackSwitchPossible
+	 *   @brief Reports whether a RefreshTrack(type) request can still be serviced.
+	 *
+	 *   RefreshTrack only sets a flag polled by the fetcher loop; once the fetcher
+	 *   reaches EOS it exits and the flag is silently cleared by the VPAAMP-1166
+	 *   EOS guard.  Callers must fall back to a retune when this returns false.
+	 *
+	 *   @param[in] type  eMEDIATYPE_AUDIO or eMEDIATYPE_SUBTITLE
+	 *   @return true if the track's fetcher is still running (not at EOS)
+	 */
+	virtual bool IsSeamlessTrackSwitchPossible(AampMediaType type);
+
 	virtual uint32_t GetCurrPeriodTimeScale()  { return 0; }
 	/**
 	 *   @fn CheckForRampDownLimitReached
@@ -1401,7 +1415,8 @@ public:
 	bool hasDrm;                            /**< denotes if the current asset is DRM protected*/
 
 	bool mIsAtLivePoint;                    /**< flag that denotes if playback is at live point*/
-	bool mSavedLatencyMonitorState ; /**< Saved latency monitor state before audio/subtitle track switch; used to restore only if it was active prior to the switch */
+	bool mSavedLatencyMonitorStateAudio ;    /**< Saved latency monitor state before audio track switch; restored only if it was active prior to the switch */
+	bool mSavedLatencyMonitorStateSubtitle ; /**< Saved latency monitor state before subtitle track switch; independent of audio to prevent LLD drift on concurrent switches (VPAAMP-1195) */
 
 	bool mIsPlaybackStalled;                /**< flag that denotes if playback was stalled or not*/
 	bool mNetworkDownDetected;              /**< Network down status indicator */
