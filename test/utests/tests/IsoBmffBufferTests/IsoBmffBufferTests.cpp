@@ -191,6 +191,28 @@ TEST_F(IsoBmffBufferTests, parseBufferTwiceTest)
 }
 
 /**
+ * @brief Verify that raw restamping skips a truncated version-0 TFDT.
+ */
+TEST_F(IsoBmffBufferTests, truncatedTfdtVersion0RestampDoesNotWritePastBox)
+{
+	std::vector<uint8_t> segment {
+		0x00, 0x00, 0x00, 0x1c, 'm', 'o', 'o', 'f',
+		0x00, 0x00, 0x00, 0x14, 't', 'r', 'a', 'f',
+		0x00, 0x00, 0x00, 0x0c, 't', 'f', 'd', 't',
+		0x00, 0x00, 0x00, 0x00,
+		0xa5, 0xa5, 0xa5, 0xa5
+	};
+	
+	mIsoBmffBuffer->setBuffer(segment.data(), 28);
+	mIsoBmffBuffer->restampPts(1);
+
+	EXPECT_EQ(segment[28], 0xa5);
+	EXPECT_EQ(segment[29], 0xa5);
+	EXPECT_EQ(segment[30], 0xa5);
+	EXPECT_EQ(segment[31], 0xa5);
+}
+
+/**
  * @brief Test PTS restamp with offset 0
  *        Test the PTS restamp method with an offset value of 0.
  */
