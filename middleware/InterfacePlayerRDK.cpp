@@ -2671,7 +2671,7 @@ GstPlaybackQualityStruct* InterfacePlayerRDK::GetVideoPlaybackQuality(void)
 			if( interfacePlayerPriv->gstPrivateContext->playbackQuality.rendered < 4 )
 			{
 				std::system("echo \"============================================================\" >> /opt/logs/decoderlogs.txt ");
-				std::system("date >> /opt/logs/decoderlogs.txt");
+				std::system("date -u +\"%Y-%m-%dT%H:%M:%S.%3NZ\">> /opt/logs/decoderlogs.txt");
 				std::system("cat /proc/brcm/transport >> /opt/logs/decoderlogs.txt ");
 				std::system("cat /proc/brcm/video_decoder >> /opt/logs/decoderlogs.txt");
 			}
