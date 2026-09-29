@@ -1212,7 +1212,7 @@ void Mp4Demux::ParseCodecConfigurationBox(uint32_t type, const uint8_t *next)
 	// avcC/hvcC configuration records imply ISO/IEC 14496-15 sample storage,
 	// i.e. NAL units are always length-prefixed (never Annex-B start codes).
 	// Reset for other codec config boxes (e.g. esds) so a prior avcC/hvcC
-	// parse on this same instance (e.g. a moov with multiple traks) cannot
+	// parse on this same instance (e.g. a moov with multiple trak boxes) cannot
 	// leak into a later, unrelated codec config.
 	codecInfo.mNaluLengthPrefixed =
 		(type == MultiChar_Constant("avcC") || type == MultiChar_Constant("hvcC"));

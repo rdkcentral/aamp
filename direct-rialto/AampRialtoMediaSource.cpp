@@ -534,7 +534,7 @@ bool AampRialtoMediaSource::injectOneSample(
 		bool     abortPending = false;
 		uint32_t abortReqId   = 0;
 		BatchSummary abortBatch;
-		bool     regated      = false;
+		bool     gateReasserted = false;
 
 		// Stage 1: block here — rather than dropping the sample — while
 		// gateMode is BLOCKED for the current generation (Stream() was
@@ -608,7 +608,7 @@ bool AampRialtoMediaSource::injectOneSample(
 			}
 			else
 			{
-				regated = true;
+				gateReasserted = true;
 			}
 		}
 
@@ -625,7 +625,7 @@ bool AampRialtoMediaSource::injectOneSample(
 			continue;
 		}
 
-		if (regated)
+		if (gateReasserted)
 		{
 			continue;
 		}
@@ -980,7 +980,7 @@ void AampRialtoMediaSource::handleNeedData(
 		// If a previous needData was staged but never claimed, it must be
 		// closed out here rather than silently overwritten.  Dropping it
 		// silently would leave Rialto's own bookkeeping for that requestId
-		// unanswered, which desyncs AAMP and Rialto once the newer request
+		// unanswered, which desynchronizes AAMP and Rialto once the newer request
 		// is eventually served.
 		if (m_state.hasPending)
 		{

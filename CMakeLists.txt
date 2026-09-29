@@ -64,17 +64,7 @@ if(NOT RIALTO_FOUND)
 	if(NOT RIALTO_INCLUDE_DIRS)
 		set(RIALTO_INCLUDE_DIRS "${CMAKE_SOURCE_DIR}/.libs/include/rialto")
 	endif()
-	# Simulator builds always enable the Direct Rialto DRM adapter.
-	# Production Yocto recipes that have the real RialtoClient and want the DRM
-	# path must pass -DCMAKE_USE_DIRECT_RIALTO_ADAPTER=TRUE explicitly.
-	set(CMAKE_USE_DIRECT_RIALTO_ADAPTER TRUE)
 endif()
-
-# TODO - Remove this code?
-# Production Yocto recipes that have the real RialtoClient and want the DRM
-# path must pass -DCMAKE_USE_DIRECT_RIALTO_ADAPTER=TRUE explicitly.
-set(CMAKE_USE_DIRECT_RIALTO_ADAPTER TRUE)
-
 
 # External middleware-player-interface dependencies (required)
 # Components are sourced from the external middleware-player-interface repository.

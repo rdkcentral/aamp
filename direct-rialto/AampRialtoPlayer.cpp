@@ -1023,10 +1023,11 @@ void AampRialtoPlayer::AttachSource(
 	//   "audsrc: not-linked (-1)"
 	// and transitioned SOURCES_ATTACHED -> ERROR.  In the passing second-tune
 	// log, video happened to attach first and no error occurred.  The
-	// hypothesis is that GStreamer's playbin/uridecodebin autoplugging requires
-	// video to be present before audio is added.  This has NOT been confirmed
-	// via Rialto documentation or a controlled experiment (e.g. forcing
-	// audio-first on the second tune to reproduce the failure).
+	// hypothesis is that the Rialto server's internal pipeline construction
+	// requires the video source to be attached before the audio source in
+	// order to correctly link the audio sink pad.  This has NOT been
+	// confirmed via Rialto documentation or a controlled experiment (e.g.
+	// forcing audio-first on the second tune to reproduce the failure).
 	// Alternative explanations: cold-start pipeline state, different DRM
 	// latency (mksId=0 vs mksId=1), or a first-pipeline-after-boot race.
 	if (type != eMEDIATYPE_VIDEO &&
