@@ -36,8 +36,8 @@
 #endif
 #include "PlayerUtils.h"
 
-#define DEFAULT_BUFFERING_TO_MS 10                       /**< TimeOut interval to check buffer fullness */
-#define DEFAULT_BUFFERING_MAX_MS (1000)                  /**< max buffering time */
+#define DEFAULT_BUFFERING_TO_MS 100                     /**< TimeOut interval to check buffer fullness */
+#define DEFAULT_BUFFERING_MAX_MS (2000)                  /**< max buffering time */
 #define DEFAULT_BUFFERING_MAX_CNT (DEFAULT_BUFFERING_MAX_MS/DEFAULT_BUFFERING_TO_MS)   /**< max buffering timeout count */
 #define NORMAL_PLAY_RATE 1
 #define DEFAULT_TIMEOUT_FOR_SOURCE_SETUP (1000)          /**< Default timeout value in milliseconds */
