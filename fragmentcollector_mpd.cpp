@@ -1144,7 +1144,9 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 						if((attributeMap.find("t") != attributeMap.end()) && (ret > 0))
 						{
 							// 't' in first timeline is expected.
-							positionInPeriod = (pMediaStreamContext->lastSegmentDuration - firstTimeline->GetStartTime()) / timeScale;
+							// Cast to double before dividing - integer division here truncates to whole
+							// seconds, which silently defeats any sub-second Period-boundary tolerance check.
+							positionInPeriod = (double)(pMediaStreamContext->lastSegmentDuration - firstTimeline->GetStartTime()) / timeScale;
 						}
 #if defined(DEBUG_TIMELINE) || defined(AAMP_SIMULATOR_BUILD)
 						AAMPLOG_INFO("Type[%d] presenting FDt%f Number(%" PRIu64 ") Last=%" PRIu64 " Duration(%d) FTime(%f) endTime:%f",
@@ -1216,7 +1218,9 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 
 						if (firstStartTime < presentationTimeOffset)
 						{
-							firstSegStartTime = (double)(firstStartTime / tScale);
+							// Cast to double before dividing - integer division here truncates to whole
+							// seconds, which silently defeats any sub-second Period-boundary tolerance check.
+							firstSegStartTime = (double)firstStartTime / tScale;
 							// Period end time also needs to be updated based on the PTO.
 							// Otherwise, there is a chance to skip the last few fragments from the period if there is a large delta between the  start time available in the manifest and the PTO.
 							endTime = (firstSegStartTime + (mPeriodDuration / 1000));
