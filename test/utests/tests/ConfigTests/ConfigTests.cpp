@@ -1145,6 +1145,30 @@ TEST_F(AampConfigTests, DoCustomSettingUseDirectRialtoForcesMp4Demux)
 }
 
 /*
+	IsUsingRialto() must report true if either the sink-based or direct Rialto
+	config flag is set, and false only when both are unset.
+*/
+TEST_F(AampConfigTests, IsUsingRialto)
+{
+	AampConfig aampConfig;
+	aampConfig.Initialize();
+
+	EXPECT_EQ(aampConfig.IsConfigSet(eAAMPConfig_useRialtoSink), false);
+	EXPECT_EQ(aampConfig.IsConfigSet(eAAMPConfig_useDirectRialto), false);
+	EXPECT_EQ(aampConfig.IsUsingRialto(), false) << "IsUsingRialto should be false when both flags are unset";
+
+	EXPECT_TRUE(aampConfig.SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_useRialtoSink, true));
+	EXPECT_EQ(aampConfig.IsUsingRialto(), true) << "IsUsingRialto should be true when only useRialtoSink is set";
+	EXPECT_TRUE(aampConfig.SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_useRialtoSink, false));
+
+	EXPECT_TRUE(aampConfig.SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_useDirectRialto, true));
+	EXPECT_EQ(aampConfig.IsUsingRialto(), true) << "IsUsingRialto should be true when only useDirectRialto is set";
+
+	EXPECT_TRUE(aampConfig.SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_useRialtoSink, true));
+	EXPECT_EQ(aampConfig.IsUsingRialto(), true) << "IsUsingRialto should be true when both flags are set";
+}
+
+/*
 	Test IsConfigSet function without calling Initialize
 	It is expected to return false for any config
 */
