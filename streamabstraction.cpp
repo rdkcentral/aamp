@@ -3055,6 +3055,35 @@ bool StreamAbstractionAAMP::IsEOSReached()
 }
 
 /**
+ *  @brief Checks if a seamless audio track switch can still be serviced
+ *
+ *  RefreshTrack(eMEDIATYPE_AUDIO) only raises the track's refreshAudio flag; the
+ *  switch itself is carried out by the fetcher loop, which polls that flag once per
+ *  iteration.  Once the fetcher has reached end of stream it exits, so the flag is
+ *  never acted upon and the injector's EOS guard subsequently clears it (VPAAMP-1166) -
+ *  the track change is silently dropped.  This is easily hit on short VOD assets, which
+ *  are fully downloaded long before playback completes, and towards the end of any VOD.
+ *  Callers must fall back to a retune when this returns false.
+ */
+bool StreamAbstractionAAMP::IsSeamlessAudioSwitchPossible()
+{
+	bool possible = false;
+	MediaTrack *audio = GetMediaTrack(eTRACK_AUDIO);
+
+	if (audio && audio->enabled)
+	{
+		possible = !audio->IsAtEndOfTrack();
+	}
+
+	if (!possible)
+	{
+		AAMPLOG_WARN("Seamless audio switch not possible (audio track %s); retune required",
+					 audio ? (audio->enabled ? "at end of track" : "disabled") : "unavailable");
+	}
+	return possible;
+}
+
+/**
  *  @brief Function to returns last injected fragment position
  */
 double StreamAbstractionAAMP::GetLastInjectedFragmentPosition()

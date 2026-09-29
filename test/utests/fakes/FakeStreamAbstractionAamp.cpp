@@ -201,6 +201,18 @@ bool StreamAbstractionAAMP::IsEOSReached()
 	return eos;
 }
 
+bool StreamAbstractionAAMP::IsSeamlessAudioSwitchPossible()
+{
+	// Defaults to true so that tests which are not concerned with fetcher liveness
+	// continue to exercise the seamless path driven by codecChange alone.
+	bool possible = true;
+	if (g_mockStreamAbstractionAAMP != nullptr)
+	{
+		possible = g_mockStreamAbstractionAAMP->IsSeamlessAudioSwitchPossible();
+	}
+	return possible;
+}
+
 bool StreamAbstractionAAMP::GetPreferredLiveOffsetFromConfig()
 {
 	return false;
