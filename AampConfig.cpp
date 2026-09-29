@@ -1670,6 +1670,7 @@ void AampConfig::ReadAampCfgFromEnv()
 	{
 		std::string strEnvConfig = envConf; // make sure we copy this as recommended by getEnv doc
 		AAMPLOG_MIL("ReadAampCfgFromEnv:Text ENV:%s len:%zu ",strEnvConfig.c_str(),strEnvConfig.length());
+		printf("ANJ:ReadAampCfgFromEnv:Text ENV:%s len:%zu \n",strEnvConfig.c_str(),strEnvConfig.length());
 		std::stringstream ss (strEnvConfig);
 		std::string item;
 
@@ -1689,6 +1690,7 @@ void AampConfig::ReadAampCfgFromEnv()
 		std::string strEnvConfig = envConf; // make sure we copy this as recommended by getEnv doc
 		size_t iConfigLen = strEnvConfig.length();
 		AAMPLOG_MIL("ReadAampCfgFromEnv:BASE64 ENV:%s len:%zu ", strEnvConfig.c_str(), iConfigLen);
+		printf("\nANJ: ReadAampCfgFromEnv:BASE64 ENV:%s len:%zu \n", strEnvConfig.c_str(), iConfigLen);
 		char *strConfig = (char *)base64_Decode(strEnvConfig.c_str(), &iConfigLen, strEnvConfig.length());
 		if (NULL != strConfig)
 		{
@@ -1932,6 +1934,8 @@ void AampConfig::ShowAAMPConfiguration()
  */
 void AampConfig::DoCustomSetting(ConfigPriority owner)
 {
+	AAMPLOG_WARN("ANJ: IN: DoCustomSetting");
+	printf("\nANJ: IN: DoCustomSetting\n");
 	// useDirectRialto is only consumed once, in the PrivateInstanceAAMP constructor
 	// (PlayerCCManager/DRM session creator setup), so overriding it after the player
 	// instance exists (stream/app/tune settings) has no effect; revert such attempts.
@@ -1942,10 +1946,19 @@ void AampConfig::DoCustomSetting(ConfigPriority owner)
 		RestoreConfiguration(owner, eAAMPConfig_useDirectRialto);
 	}
 
+	AAMPLOG_WARN("ANJ: BEFORE: IsConfigSet(eAAMPConfig_useDirectRialto)=%d, IsConfigSet(eAAMPConfig_UseMp4Demux)=%d", IsConfigSet(eAAMPConfig_useDirectRialto), IsConfigSet(eAAMPConfig_UseMp4Demux));
+	printf("\nANJ: BEFORE: IsConfigSet(eAAMPConfig_useDirectRialto)=%d, IsConfigSet(eAAMPConfig_UseMp4Demux)=%d\n", IsConfigSet(eAAMPConfig_useDirectRialto), IsConfigSet(eAAMPConfig_UseMp4Demux));
+
 	if(IsConfigSet(eAAMPConfig_useDirectRialto) && !IsConfigSet(eAAMPConfig_UseMp4Demux))
 	{
 		AAMPLOG_WARN("useDirectRialto requires useMp4Demux; forcing it on");
+		printf("\nANJ:useDirectRialto requires useMp4Demux; forcing it on\n");
 		SetConfigValue(GetConfigOwner(eAAMPConfig_useDirectRialto), eAAMPConfig_UseMp4Demux, true);
+	}
+	else
+	{
+		AAMPLOG_WARN("ANJ: else: IsConfigSet(eAAMPConfig_useDirectRialto)=%d, IsConfigSet(eAAMPConfig_UseMp4Demux)=%d", IsConfigSet(eAAMPConfig_useDirectRialto), IsConfigSet(eAAMPConfig_UseMp4Demux));
+		printf("\nANJ: else: IsConfigSet(eAAMPConfig_useDirectRialto)=%d, IsConfigSet(eAAMPConfig_UseMp4Demux)=%d\n", IsConfigSet(eAAMPConfig_useDirectRialto), IsConfigSet(eAAMPConfig_UseMp4Demux));
 	}
 
 	if(IsConfigSet(eAAMPConfig_StereoOnly))
@@ -1993,6 +2006,8 @@ void AampConfig::DoCustomSetting(ConfigPriority owner)
 		SetConfigValue(owner, eAAMPConfig_GStreamerBufferingBeforePlay, false);
 	}
 	ConfigureLogSettings();
+	AAMPLOG_WARN("ANJ: OUT: DoCustomSetting");
+	printf("\nANJ: OUT: DoCustomSetting\n");
 }
 
 const char * AampConfig::GetConfigName(AAMPConfigSettingBool cfg ) const

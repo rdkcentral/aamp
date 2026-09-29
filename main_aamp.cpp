@@ -141,11 +141,14 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 	, std::function< void(const unsigned char *, int, int, int) > exportFrames
 	, bool powerEvt) : aamp(NULL), sp_aamp(nullptr), mAsyncRunning(false),mConfig(),mAsyncTuneEnabled(false),mScheduler()
 {
+	AAMPLOG_MIL("ANJ: IN: PlayerInstanceAAMP");
+	printf("\nANJ: IN: PlayerInstanceAAMP\n");
 	// Create very first instance of Aamp Config to read the cfg & Operator file .This is needed for very first
 	// tune only . After that every tune will use the same config parameters
 	if(gpGlobalConfig == NULL)
 	{
-		
+		AAMPLOG_MIL("ANJ: IN: PlayerInstanceAAMP: gpGlobalConfig == NULL");
+		printf("\nANJ: IN: PlayerInstanceAAMP: gpGlobalConfig == NULL\n");
 
 		curl_global_init(CURL_GLOBAL_DEFAULT);
 		auto vers = curl_version_info(CURLVERSION_NOW);
@@ -156,6 +159,10 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 		gpGlobalConfig->ApplyDeviceCapabilities();
 		SetPlayerName(PLAYER_NAME);
 
+		AAMPLOG_MIL("ANJ:1 eAAMPConfig_useDirectRialto=%d\n", gpGlobalConfig->IsConfigSet(eAAMPConfig_useDirectRialto));
+		AAMPLOG_MIL("ANJ:1 eAAMPConfig_UseMp4Demux=%d\n", gpGlobalConfig->IsConfigSet(eAAMPConfig_UseMp4Demux));
+		printf("\nANJ:p:1 eAAMPConfig_useDirectRialto=%d\n", gpGlobalConfig->IsConfigSet(eAAMPConfig_useDirectRialto));
+		printf("\nANJ:p:1 eAAMPConfig_UseMp4Demux=%d\n", gpGlobalConfig->IsConfigSet(eAAMPConfig_UseMp4Demux));
 		AAMPLOG_MIL("[AAMP_JS][%p]Creating GlobalConfig Instance[%p]",this,gpGlobalConfig);
 		if(!gpGlobalConfig->ReadAampCfgTxtFile())
 		{
@@ -178,6 +185,19 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 		gpGlobalConfig->ReadOperatorConfiguration();
 		gpGlobalConfig->ShowDevCfgConfiguration();
 		gpGlobalConfig->ShowOperatorSetConfiguration();
+		AAMPLOG_MIL("ANJ:2 eAAMPConfig_useDirectRialto=%d\n", gpGlobalConfig->IsConfigSet(eAAMPConfig_useDirectRialto));
+		AAMPLOG_MIL("ANJ:2 eAAMPConfig_UseMp4Demux=%d\n", gpGlobalConfig->IsConfigSet(eAAMPConfig_UseMp4Demux));
+		printf("\nANJ:p:2 eAAMPConfig_useDirectRialto=%d\n", gpGlobalConfig->IsConfigSet(eAAMPConfig_useDirectRialto));
+		printf("\nANJ:p:2 eAAMPConfig_UseMp4Demux=%d\n", gpGlobalConfig->IsConfigSet(eAAMPConfig_UseMp4Demux));
+	}
+	else
+	{
+		AAMPLOG_MIL("ANJ: IN: PlayerInstanceAAMP: gpGlobalConfig != NULL");
+		printf("\nANJ: IN: PlayerInstanceAAMP: gpGlobalConfig != NULL\n");
+		AAMPLOG_MIL("ANJ: eAAMPConfig_useDirectRialto=%d\n", gpGlobalConfig->IsConfigSet(eAAMPConfig_useDirectRialto));
+		AAMPLOG_MIL("ANJ: eAAMPConfig_UseMp4Demux=%d\n", gpGlobalConfig->IsConfigSet(eAAMPConfig_UseMp4Demux));
+		printf("\nANJ:p eAAMPConfig_useDirectRialto=%d\n", gpGlobalConfig->IsConfigSet(eAAMPConfig_useDirectRialto));
+		printf("\nANJ:p eAAMPConfig_UseMp4Demux=%d\n", gpGlobalConfig->IsConfigSet(eAAMPConfig_UseMp4Demux));
 	}
 
 	std::shared_ptr<PlayerExternalsInterface> pExternalsInterface = PlayerExternalsInterface::GetPlayerExternalsInterfaceInstance();
@@ -247,6 +267,7 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 	}
 	aamp->SetScheduler(&mScheduler);
 	AsyncStartStop();
+	AAMPLOG_MIL("ANJ: OUT: PlayerInstanceAAMP");
 }
 
 
@@ -3368,6 +3389,7 @@ bool PlayerInstanceAAMP::InitAAMPConfig(const char *jsonStr)
 		}
 	}
 
+	AAMPLOG_WARN("ANJ: BEFORE:DoCustomSetting IsConfigSet(eAAMPConfig_useDirectRialto)=%d, IsConfigSet(eAAMPConfig_UseMp4Demux)=%d", mConfig.IsConfigSet(eAAMPConfig_useDirectRialto), mConfig.IsConfigSet(eAAMPConfig_UseMp4Demux));
 	// Common post-processing for both paths
 	mConfig.DoCustomSetting(AAMP_APPLICATION_SETTING);
 	if(GETCONFIGOWNER(eAAMPConfig_AsyncTune) == AAMP_APPLICATION_SETTING)
@@ -3408,6 +3430,7 @@ bool PlayerInstanceAAMP::InitAAMPConfig(const char *jsonStr)
 	// also enable Ethan log redirection if Rialto is enabled using initconfig option.
 	AampLogManager::enableEthanLogRedirection = aamp->UsingRialto();
 	PlayerLogManager::SetLoggerInfo(AampLogManager::disableLogRedirection, AampLogManager::enableEthanLogRedirection, AampLogManager::aampLoglevel, AampLogManager::locked);
+	AAMPLOG_WARN("ANJ: AFTER:DoCustomSetting IsConfigSet(eAAMPConfig_useDirectRialto)=%d, IsConfigSet(eAAMPConfig_UseMp4Demux)=%d", mConfig.IsConfigSet(eAAMPConfig_useDirectRialto), mConfig.IsConfigSet(eAAMPConfig_UseMp4Demux));
 	return retVal;
 }
 
