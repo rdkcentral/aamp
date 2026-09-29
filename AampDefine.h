@@ -311,34 +311,31 @@ enum AAMPStatusType
 	eAAMPSTATUS_MANIFEST_DOWNLOAD_ABORTED	/**< Manifest download has been aborted due to a player stop request */
 };
 /**
- * @brief AAMP Function return descriptions - must match the above block
+ * @brief Return a string for a status name
  */
-[[maybe_unused]] inline constexpr const char* AAMPStatusStrings[] =
+inline const char* statusName(AAMPStatusType s)
 {
-	"eAAMPSTATUS_OK",
-	"eAAMPSTATUS_FAKE_TUNE_COMPLETE",
-	"eAAMPSTATUS_GENERIC_ERROR",
-	"eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR",
-	"eAAMPSTATUS_PLAYLIST_VIDEO_DOWNLOAD_ERROR",
-	"eAAMPSTATUS_PLAYLIST_AUDIO_DOWNLOAD_ERROR",
-	"eAAMPSTATUS_MANIFEST_PARSE_ERROR",
-	"eAAMPSTATUS_MANIFEST_CONTENT_ERROR",
-	"eAAMPSTATUS_MANIFEST_INVALID_TYPE",
-	"eAAMPSTATUS_PLAYLIST_PLAYBACK",
-	"eAAMPSTATUS_SEEK_RANGE_ERROR",
-	"eAAMPSTATUS_TRACKS_SYNCHRONIZATION_ERROR",
-	"eAAMPSTATUS_INVALID_PLAYLIST_ERROR",
-	"eAAMPSTATUS_UNSUPPORTED_DRM_ERROR",
-	"eAAMPSTATUS_MANIFEST_DOWNLOAD_ABORTED"
-};
-
-/**
- * @brief lambda to return a string for a status name
- */
-inline constexpr auto statusName = [](AAMPStatusType s) -> const char* {
-	return (s >= 0 && s < (int)(sizeof(AAMPStatusStrings)/sizeof(AAMPStatusStrings[0])))
-		? AAMPStatusStrings[s] : "UNKNOWN";
-};
+	static const char* const statusStrings[] =
+	{
+		"eAAMPSTATUS_OK",
+		"eAAMPSTATUS_FAKE_TUNE_COMPLETE",
+		"eAAMPSTATUS_GENERIC_ERROR",
+		"eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR",
+		"eAAMPSTATUS_PLAYLIST_VIDEO_DOWNLOAD_ERROR",
+		"eAAMPSTATUS_PLAYLIST_AUDIO_DOWNLOAD_ERROR",
+		"eAAMPSTATUS_MANIFEST_PARSE_ERROR",
+		"eAAMPSTATUS_MANIFEST_CONTENT_ERROR",
+		"eAAMPSTATUS_MANIFEST_INVALID_TYPE",
+		"eAAMPSTATUS_PLAYLIST_PLAYBACK",
+		"eAAMPSTATUS_SEEK_RANGE_ERROR",
+		"eAAMPSTATUS_TRACKS_SYNCHRONIZATION_ERROR",
+		"eAAMPSTATUS_INVALID_PLAYLIST_ERROR",
+		"eAAMPSTATUS_UNSUPPORTED_DRM_ERROR",
+		"eAAMPSTATUS_MANIFEST_DOWNLOAD_ABORTED"
+	};
+	return (s >= 0 && s < (int)(sizeof(statusStrings)/sizeof(statusStrings[0])))
+		? statusStrings[s] : "UNKNOWN";
+}
 
 /**
  *

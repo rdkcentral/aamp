@@ -188,19 +188,20 @@ typedef enum
 /**
  * @brief Returns a human-readable name for an AAMPPlayerState value.
  *
- * The name table is local to the lambda so it does not pollute the enclosing
+ * The name table is local to the function so it does not pollute the enclosing
  * namespace and cannot shadow local variables in translation units that include
  * this header.
  */
-inline constexpr auto AAMPPlayerStateName = [](AAMPPlayerState s) -> const char* {
-	constexpr const char* kNames[] = {
+inline const char* AAMPPlayerStateName(AAMPPlayerState s)
+{
+	static const char* const kNames[] = {
 		"IDLE", "INITIALIZING", "INITIALIZED", "PREPARING", "PREPARED",
 		"BUFFERING", "PAUSED", "SEEKING", "PLAYING", "STOPPING",
 		"STOPPED", "COMPLETE", "ERROR", "RELEASED", "BLOCKED"
 	};
 	return (s >= 0 && s < (int)(sizeof(kNames)/sizeof(kNames[0])))
 		? kNames[s] : "UNKNOWN";
-};
+}
 
 /**
  * @enum AAMPCDAIError
