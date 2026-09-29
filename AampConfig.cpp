@@ -1932,9 +1932,11 @@ void AampConfig::ShowAAMPConfiguration()
  */
 void AampConfig::DoCustomSetting(ConfigPriority owner)
 {
-	// useDirectRialto is only consumed once, in the PrivateInstanceAAMP constructor
-	// (PlayerCCManager/DRM session creator setup), so overriding it after the player
-	// instance exists (stream/app/tune settings) has no effect; revert such attempts.
+	// useDirectRialto is consumed in the PrivateInstanceAAMP constructor
+	// (PlayerCCManager/DRM session creator setup), stream-sink creation time,
+	// before the app can call InitAAMPConfig or before tune-time overrides apply,
+	// so overriding it after the player instance exists (stream/app/tune settings)
+	// has no effect; revert such attempts.
 	if((owner == AAMP_STREAM_SETTING || owner == AAMP_APPLICATION_SETTING || owner == AAMP_TUNE_SETTING)
 		&& GetConfigOwner(eAAMPConfig_useDirectRialto) == owner)
 	{
