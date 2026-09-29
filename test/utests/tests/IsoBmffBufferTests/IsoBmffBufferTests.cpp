@@ -220,6 +220,48 @@ TEST_F(IsoBmffBufferTests, malformedSmallTopLevelBoxSizeReturnsFalse)
 	EXPECT_EQ(mIsoBmffBuffer->getParsedBoxesSize(), 0u);
 }
 
+/**
+ * @brief Verify that restamping skips a truncated version-0 TFDT.
+ */
+TEST_F(IsoBmffBufferTests, truncatedTfdtVersion0DoesNotWritePastBox)
+{
+	//Truncated buffer
+	std::vector<uint8_t> segment {
+		0x00, 0x00, 0x00, 0x1c, 'm', 'o', 'o', 'f',
+		0x00, 0x00, 0x00, 0x14, 't', 'r', 'a', 'f',
+		0x00, 0x00, 0x00, 0x0c, 't', 'f', 'd', 't',
+		0x00, 0x00, 0x00, 0x00,
+		0xa5, 0xa5, 0xa5, 0xa5
+	};
+
+	const size_t declaredSize = 28;
+	mIsoBmffBuffer->setBuffer(segment.data(), declaredSize);
+	ASSERT_TRUE(mIsoBmffBuffer->parseBuffer());
+	size_t index = 0;
+	Box *moof = mIsoBmffBuffer->getBox(Box::MOOF,index);
+	ASSERT_NE(moof, nullptr);
+	ASSERT_TRUE(moof->hasChildren());
+	const std::vector<std::unique_ptr<Box>> *moofChildren =
+		moof->getChildren();
+	ASSERT_NE(moofChildren, nullptr);
+	ASSERT_EQ(moofChildren->size(), 1u);
+
+	Box *traf = moofChildren->at(0).get();
+	ASSERT_TRUE(traf->hasChildren());
+	const std::vector<std::unique_ptr<Box>> *trafChildren =
+		traf->getChildren();
+	ASSERT_NE(trafChildren, nullptr);
+	ASSERT_EQ(trafChildren->size(), 1u);
+	ASSERT_EQ(trafChildren->at(0)->getSize(), 12u);
+	//Writing to the truncated TFDT box should not overwrite past its declared size
+	mIsoBmffBuffer->restampPts(1);
+	// The restampPts call should not modify the bytes beyond the declared size of the truncated TFDT box
+	EXPECT_EQ(segment[28], 0xa5);
+	EXPECT_EQ(segment[29], 0xa5);
+	EXPECT_EQ(segment[30], 0xa5);
+	EXPECT_EQ(segment[31], 0xa5);
+}
+
 TEST_F(IsoBmffBufferTests, readOnlyBufferDisallowsRestampPtsMutation)
 {
 	uint64_t firstPtsBefore = 0;

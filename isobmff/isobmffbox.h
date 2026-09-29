@@ -114,9 +114,9 @@ uint64_t ReadUint64(const uint8_t *buf);
  *
  * @param[in] dst - buffer pointer
  * @param[in] val - value to write
- * @return void
+ * @return true if written, false if skipped due to bounds
  */
-void WriteUint64(uint8_t *dst, uint64_t val);
+bool WriteUint64(uint8_t *dst, uint64_t val);
 
 /**
  * @fn ReadCStringLen
@@ -392,6 +392,13 @@ public:
 	 * @param[in] f - flag value
 	 */
 	FullBox(uint32_t sz, const char btype[4], uint8_t ver, uint32_t f);
+	
+	/**
+	 * @fn getVersion
+	 *
+	 * @return version value
+	 */
+	uint8_t getVersion() { return version; }
 };
 
 /**
