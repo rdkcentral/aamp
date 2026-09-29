@@ -385,6 +385,15 @@ void IsoBmffBuffer::restampPtsUsingParsedBoxes(int64_t offset, const std::vector
 			{
 				// Check the TFDT version to determine arithmetic type
 				uint8_t version = tfdtBox->getVersion();
+				const uint32_t tfdtHeaderSize = sizeof(uint32_t) * 3;
+				const uint32_t ptsSize = (version == 1) ?
+					sizeof(uint64_t) : sizeof(uint32_t);
+				if (tfdtBox->getSize() < (tfdtHeaderSize + ptsSize))
+				{
+					AAMPLOG_WARN("Skipping truncated TFDT box size[%u] version[%u]",
+						tfdtBox->getSize(), version);
+					continue;
+				}
 				
 				if (version == 0)
 				{
@@ -393,6 +402,18 @@ void IsoBmffBuffer::restampPtsUsingParsedBoxes(int64_t offset, const std::vector
 					if (!firstPtsSaved)
 					{
 						beforePTS = pts;
+					}
+					const uint32_t ptsBeforeOffset = pts;
+					const bool v0Overflow =
+						(offset > 0 &&
+							(static_cast<uint64_t>(pts) +
+							 static_cast<uint64_t>(offset) > UINT32_MAX)) ||
+						(offset < 0 &&
+							pts < (static_cast<uint64_t>(-(offset + 1)) + 1ULL));
+					if (v0Overflow)
+					{
+						AAMPLOG_WARN("tfdt v0 PTS overflow: pts[%u] + offset[%" PRId64 "] exceeds 4-byte range",
+							ptsBeforeOffset, offset);
 					}
 					pts += static_cast<uint32_t>(offset);
 					tfdtBox->setBaseMDT(pts);
@@ -409,6 +430,13 @@ void IsoBmffBuffer::restampPtsUsingParsedBoxes(int64_t offset, const std::vector
 					if (!firstPtsSaved)
 					{
 						beforePTS = pts;
+					}
+					const uint64_t ptsBeforeOffset = pts;
+					if ((offset > 0 && pts > (UINT64_MAX - static_cast<uint64_t>(offset))) ||
+						(offset < 0 && pts < (static_cast<uint64_t>(-(offset + 1)) + 1ULL)))
+					{
+						AAMPLOG_WARN("tfdt v1 PTS overflow: pts[%" PRIu64 "] + offset[%" PRId64 "] exceeds 8-byte range",
+							ptsBeforeOffset, offset);
 					}
 					pts += offset;
 					tfdtBox->setBaseMDT(pts);
