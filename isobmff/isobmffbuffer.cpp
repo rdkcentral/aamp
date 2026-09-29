@@ -299,8 +299,27 @@ static bool processRestampBuffer(uint64_t offset, uint64_t basePts, uint8_t *seg
 			const size_t timestampSize = version == 1 ? sizeof(uint64_t) : sizeof(uint32_t);
 			if (size - tfdtHeaderSize < timestampSize)
 			{
-				AAMPLOG_ERR("Truncated TFDT timestamp version[%u] size[%u]", version, size);
-				return false;
+				if ((buf + sizeof(uint64_t) > tfdtBoxEnd) ||
+					(buf + sizeof(uint64_t) > bufferEnd))
+				{
+					// If the next 8 bytes would go past the end of the box or the buffer, skip this restamp
+					AAMPLOG_ERR("Skipping v1 tfdt restamp: 8-byte access out of bounds ,tfdtBoxEnd[%p] bufferEnd[%p] buf[%p]", tfdtBoxEnd, bufferEnd, buf);
+				}
+				else
+				{
+				uint64_t pts = ReadUint64(buf);
+				pts -= basePts;
+				const uint64_t ptsBeforeOffset = pts;
+				// Pre-check: adding offset must not push the value beyond the
+				// intended 8-byte (UINT64_MAX) range of a v1 tfdt.
+				if ((offset > 0 && pts > (UINT64_MAX - (uint64_t)offset)) ||
+				    (offset < 0 && pts < (static_cast<uint64_t>(-(offset + 1)) + 1ULL)))
+				{
+					AAMPLOG_WARN("tfdt v1 PTS overflow: pts[%" PRIu64 "] + offset[%" PRIu64 "] exceeds 8-byte range", ptsBeforeOffset, offset);
+				}
+				pts += offset;
+				WriteUint64(buf, pts);
+				}
 			}
 
 			if (applyRestamp)
