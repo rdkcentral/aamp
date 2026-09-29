@@ -186,7 +186,9 @@ TEST_F(AsyncTuneAbortTests, IsAsyncTuneAbortSupported_CurrentTuneSeek_ReturnsFal
 
 	mAamp->SetTuneTypeForTest(eTUNETYPE_RETUNE);
 	EXPECT_FALSE(mAamp->IsAsyncTuneAbortSupported());
-}
+
+	mAamp->SetTuneTypeForTest(eTUNETYPE_NEW_END);
+	EXPECT_FALSE(mAamp->IsAsyncTuneAbortSupported());
 
 // ---------------------------------------------------------------------------
 // IsAsyncTuneAbortRequired (no-arg)
