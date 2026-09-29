@@ -110,6 +110,12 @@ public:
 
 	MOCK_METHOD(void, StopUnderflowMonitor, (), (override));
 
+	// NotifyPipelinePausedToUnderflowMonitor and NotifyPipelineResumedToUnderflowMonitor
+	// are non-virtual in StreamAbstractionAAMP (unlike StopUnderflowMonitor above),
+	// so (override) is intentionally omitted here.  Calls are intercepted via the
+	// fake in FakeStreamAbstractionAamp.cpp, which forwards to this mock through the
+	// g_mockStreamAbstractionAAMP global regardless of which concrete object
+	// mpStreamAbstractionAAMP currently points at.
 	MOCK_METHOD(void, NotifyPipelinePausedToUnderflowMonitor, ());
 
 	MOCK_METHOD(void, NotifyPipelineResumedToUnderflowMonitor, (float rate));
