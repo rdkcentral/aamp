@@ -5877,7 +5877,9 @@ TEST_F(PrivAampPrivTests,ReconfigureForElementaryStreamUpdateTest1)
 
 TEST_F(PrivAampTests,isDecryptClearSamplesRequired)
 {
+	// IsUsingRialto() short-circuits: useDirectRialto is only checked when useRialtoSink is false.
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_useRialtoSink)).WillOnce(Return(false));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_useDirectRialto)).WillOnce(Return(false));
 	EXPECT_TRUE(p_aamp->isDecryptClearSamplesRequired());
 
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_useRialtoSink)).WillOnce(Return(true));
@@ -6811,6 +6813,11 @@ TEST_P(GetStreamFormatTests, GetStreamFormatParameterizedTest)
 		));
 
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_useRialtoSink)).WillOnce(Return(params.useRialtoSink));
+	if (!params.useRialtoSink)
+	{
+		// IsUsingRialto() short-circuits: useDirectRialto is only checked when useRialtoSink is false.
+		EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_useDirectRialto)).WillOnce(Return(false));
+	}
 
 	testp_aamp->CallGetStreamFormat(primaryOutputFormat, audioOutputFormat, subtitleOutputFormat);
 
