@@ -237,8 +237,8 @@ TEST_F(IsoBmffBufferTests, truncatedTfdtVersion0DoesNotWritePastBox)
 	const size_t declaredSize = 28;
 	mIsoBmffBuffer->setBuffer(segment.data(), declaredSize);
 	ASSERT_TRUE(mIsoBmffBuffer->parseBuffer());
-
-	Box *moof = mIsoBmffBuffer->getBox(Box::MOOF, 0);
+	size_t index = 0;
+	Box *moof = mIsoBmffBuffer->getBox(Box::MOOF,index);
 	ASSERT_NE(moof, nullptr);
 	ASSERT_TRUE(moof->hasChildren());
 	const std::vector<std::unique_ptr<Box>> *moofChildren =
