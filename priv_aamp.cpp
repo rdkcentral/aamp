@@ -14324,14 +14324,18 @@ double PrivateInstanceAAMP::GetStreamPositionMs()
  */
 void PrivateInstanceAAMP::SendMonitorAvEvent(const std::string &status, int64_t videoPositionMS, int64_t audioPositionMS, uint64_t timeInStateMS, uint64_t droppedFrames)
 {
-	if(mbPlayEnabled && !mTunedEventPending)
+	if(mbPlayEnabled && mTuneCompleted)
 	{
 		MonitorAVStatusEventPtr evt = std::make_shared<MonitorAVStatusEvent>(status, videoPositionMS, audioPositionMS, timeInStateMS, GetSessionId(), droppedFrames);
 		mEventManager->SendEvent(evt, AAMP_EVENT_SYNC_MODE);
 	}
-	else if (mbPlayEnabled && mTunedEventPending)
+	else if (mbPlayEnabled && !mTuneCompleted)
 	{
-		AAMPLOG_INFO("vk:: Skipping MonitorAV event until tune completion");
+		AAMPLOG_INFO("Skipping MonitorAV event until tune completion");
+	}
+	else
+	{
+		AAMPLOG_INFO("Skipping MonitorAV event as playback is not enabled");
 	}
 }
 /**
