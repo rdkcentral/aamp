@@ -893,11 +893,6 @@ protected:
 	 * @fn UpdateTrackInfo
 	 */
 	virtual AAMPStatusType UpdateTrackInfo(bool modifyDefaultBW, bool resetTimeLineIndex = false, bool isInit = false);
-	/**
-	 * @fn SkipToEnd
-	 * @param pMediaStreamContext Track object pointer
-	 */
-	void SkipToEnd( class MediaStreamContext *pMediaStreamContext); //Added to support rewind in multiperiod assets
 
 	/**
 	 * @fn HandleSeekEOSAndPeriodTransition

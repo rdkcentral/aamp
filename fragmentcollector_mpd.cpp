@@ -1243,9 +1243,14 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 								(firstSegStartTime + positionInPeriod), endTime);
 						}
 
+						// A Period still growing on a live edge (no explicit duration or next
+						// Period published yet) has an unreliable periodEndBoundary, so
+						// liveEdgePeriodPlayback should only bypass the tolerance check while
+						// that duration is still unknown.
+						bool periodDurationKnown = !mpd->GetPeriods().at(mCurrentPeriodIdx)->GetDuration().empty();
 						if((mIsFogTSB ||
 								((0 != mPeriodDuration) &&
-									(((firstSegStartTime + positionInPeriod) < periodEndBoundary) || liveEdgePeriodPlayback || mCdaiObject->mAdState == AdState::IN_ADBREAK_AD_PLAYING)))) //For split period ads, the position in the period doesn't need to be between the period's start and end
+									(((firstSegStartTime + positionInPeriod) < periodEndBoundary) || (liveEdgePeriodPlayback && !periodDurationKnown) || mCdaiObject->mAdState == AdState::IN_ADBREAK_AD_PLAYING)))) //For split period ads, the position in the period doesn't need to be between the period's start and end
 						{
 							/*
 							 * Avoid FetchFragment for following cases
@@ -2318,79 +2323,6 @@ void StreamAbstractionAAMP_MPD::ApplyLiveOffsetWorkaroundForSAP( double seekPosi
 }
 
 /**
- * @brief Skip to end of track
- */
-void StreamAbstractionAAMP_MPD::SkipToEnd( MediaStreamContext *pMediaStreamContext)
-{
-	SegmentTemplates segmentTemplates(pMediaStreamContext->representation->GetSegmentTemplate(),
-					pMediaStreamContext->adaptationSet->GetSegmentTemplate() );
-	if( segmentTemplates.HasSegmentTemplate() )
-	{
-		const ISegmentTimeline *segmentTimeline = segmentTemplates.GetSegmentTimeline();
-		if (segmentTimeline)
-		{
-			std::vector<ITimeline *>&timelines = segmentTimeline->GetTimelines();
-			if(!timelines.empty())
-			{
-				uint32_t repeatCount = 0;
-				// Store the first 't' value in fragmentDescriptor.Time
-				ITimeline *firstTimeline = timelines.at(0);
-				map<string, string> attributeMap = firstTimeline->GetRawAttributes();
-				if(attributeMap.find("t") != attributeMap.end())
-				{
-					pMediaStreamContext->fragmentDescriptor.Time = static_cast<double>(firstTimeline->GetStartTime());
-				}
-				else
-				{
-					pMediaStreamContext->fragmentDescriptor.Time = 0;
-				}
-
-				for(int i = 0; i < timelines.size(); i++)
-				{
-					ITimeline *timeline = timelines.at(i);
-					repeatCount += (timeline->GetRepeatCount() + 1);
-					pMediaStreamContext->fragmentDescriptor.Time += ((timeline->GetRepeatCount() + 1) * timeline->GetDuration());
-				}
-				pMediaStreamContext->fragmentDescriptor.Number = pMediaStreamContext->fragmentDescriptor.Number + repeatCount - 1;
-				pMediaStreamContext->lastSegmentNumber = pMediaStreamContext->fragmentDescriptor.Number;
-				pMediaStreamContext->timeLineIndex = (int)timelines.size() - 1;
-				pMediaStreamContext->fragmentRepeatCount = timelines.at(pMediaStreamContext->timeLineIndex)->GetRepeatCount();
-			}
-			else
-			{
-				AAMPLOG_WARN("timelines is null");  //CID:82016,84031 - Null Returns
-			}
-		}
-		else
-		{
-			double segmentDuration = ComputeFragmentDuration(segmentTemplates.GetDuration(), segmentTemplates.GetTimescale() );
-			double startTime = mPeriodStartTime;
-			int number = 0;
-			while(startTime < mPeriodEndTime)
-			{
-				startTime += segmentDuration;
-				number++;
-			}
-			pMediaStreamContext->fragmentDescriptor.Number = pMediaStreamContext->fragmentDescriptor.Number + number - 1;
-		}
-	}
-	else
-	{
-		ISegmentList *segmentList = pMediaStreamContext->representation->GetSegmentList();
-		if (segmentList)
-		{
-			const std::vector<ISegmentURL*> segmentURLs = segmentList->GetSegmentURLs();
-			pMediaStreamContext->fragmentIndex = (int)segmentURLs.size() - 1;
-		}
-		else
-		{
-			AAMPLOG_ERR("not-yet-supported mpd format");
-		}
-	}
-}
-
-
-/**
  * @brief Skip fragments by given time
  */
 double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStreamContext, double skipTime, bool updateFirstPTS, bool skipToEnd)
@@ -2530,6 +2462,38 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 						if ((pMediaStreamContext->fragmentRepeatCount == repeatCount) &&
 							(pMediaStreamContext->timeLineIndex + 1 == timelines.size()))
 						{
+							// Final Period-tail fragment can be a negligible sliver left by a
+							// server ad-splicer (see PushNextFragment's matching tolerance
+							// check). Avoid seeking onto it - back up to the preceding
+							// fragment when one is available.
+							double lastFragStartSec = mPeriodStartTime + (double)(pMediaStreamContext->fragmentDescriptor.Time - timelines.at(0)->GetStartTime()) / timeScale;
+							bool haveEarlierFragment = (pMediaStreamContext->fragmentRepeatCount > 0) || (pMediaStreamContext->timeLineIndex > 0);
+							if (haveEarlierFragment && (lastFragStartSec >= (mPeriodEndTime - AAMP_DASH_PERIOD_TAIL_TOLERANCE_SEC)))
+							{
+								uint32_t backDuration = duration;
+								if (pMediaStreamContext->fragmentRepeatCount == 0 && pMediaStreamContext->timeLineIndex > 0)
+								{
+									ITimeline *prevTimeline = timelines.at(pMediaStreamContext->timeLineIndex - 1);
+									backDuration = prevTimeline->GetDuration();
+								}
+								if (updateFirstPTS)
+								{
+									pMediaStreamContext->lastSegmentTime = pMediaStreamContext->fragmentDescriptor.Time - backDuration;
+									pMediaStreamContext->lastSegmentDuration = pMediaStreamContext->fragmentDescriptor.Time;
+								}
+								pMediaStreamContext->fragmentTime -= fragmentDuration;
+								pMediaStreamContext->fragmentDescriptor.Time -= backDuration;
+								pMediaStreamContext->fragmentDescriptor.Number--;
+								pMediaStreamContext->fragmentRepeatCount--;
+								if (pMediaStreamContext->fragmentRepeatCount < 0)
+								{
+									pMediaStreamContext->timeLineIndex--;
+									if (pMediaStreamContext->timeLineIndex >= 0)
+									{
+										pMediaStreamContext->fragmentRepeatCount = timelines.at(pMediaStreamContext->timeLineIndex)->GetRepeatCount();
+									}
+								}
+							}
 							skipTime = 0; // We have reached the last fragment
 						}
 						else
@@ -2735,7 +2699,11 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 
 					if (skipToEnd)
 					{
-						skipTime = mPeriodEndTime - pMediaStreamContext->fragmentDescriptor.Time;
+						// Same Period-tail tolerance check as PushNextFragment: target the
+						// boundary pulled back by the tolerance so we don't land on a final
+						// fragment/chunk that is a negligible sliver before the Period end.
+						double periodEndBoundary = mPeriodEndTime - AAMP_DASH_PERIOD_TAIL_TOLERANCE_SEC;
+						skipTime = periodEndBoundary - pMediaStreamContext->fragmentDescriptor.Time;
 						if ( skipTime > segmentDuration )
 						{
 							skipTime -= segmentDuration;
