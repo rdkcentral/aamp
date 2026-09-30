@@ -57,10 +57,10 @@ TEST_F(AampTimingHistogramTests, Add_Empty_ReturnsZero)
 
 	EXPECT_EQ(hist.SampleCount(),                          uint64_t{0});
 	EXPECT_EQ(hist.OverflowCount(),                        uint64_t{0});
-	EXPECT_EQ(hist.ApproximateMedianMs(),                  0.0);
-	EXPECT_EQ(hist.ApproximatePercentileMs(0.0),           0.0);
-	EXPECT_EQ(hist.ApproximatePercentileMs(50.0),          0.0);
-	EXPECT_EQ(hist.ApproximatePercentileMs(100.0),         0.0);
+	EXPECT_DOUBLE_EQ(hist.ApproximateMedianMs(),                  0.0);
+	EXPECT_DOUBLE_EQ(hist.ApproximatePercentileMs(0.0),           0.0);
+	EXPECT_DOUBLE_EQ(hist.ApproximatePercentileMs(50.0),          0.0);
+	EXPECT_DOUBLE_EQ(hist.ApproximatePercentileMs(100.0),         0.0);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -80,7 +80,7 @@ TEST_F(AampTimingHistogramTests, Add_SingleSample_ReturnsBucketMidpoint)
 	hist.Add(50.0);
 
 	EXPECT_EQ(hist.SampleCount(),         uint64_t{1});
-	EXPECT_EQ(hist.ApproximateMedianMs(), 55.0);
+	EXPECT_DOUBLE_EQ(hist.ApproximateMedianMs(), 55.0);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -103,7 +103,7 @@ TEST_F(AampTimingHistogramTests, Add_OddCount_ReturnsMiddleBucketMidpoint)
 	hist.Add(95.0);
 
 	EXPECT_EQ(hist.SampleCount(),         uint64_t{3});
-	EXPECT_EQ(hist.ApproximateMedianMs(), 55.0);
+	EXPECT_DOUBLE_EQ(hist.ApproximateMedianMs(), 55.0);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -128,7 +128,7 @@ TEST_F(AampTimingHistogramTests, Add_EvenCount_ReturnsLowerMedianBucket)
 
 	EXPECT_EQ(hist.SampleCount(),         uint64_t{4});
 	EXPECT_EQ(hist.OverflowCount(),       uint64_t{1});
-	EXPECT_EQ(hist.ApproximateMedianMs(), 55.0);
+	EXPECT_DOUBLE_EQ(hist.ApproximateMedianMs(), 55.0);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -147,7 +147,7 @@ TEST_F(AampTimingHistogramTests, Add_AllInSameBucket_ReturnsThatBucketMidpoint)
 	hist.Add(22.0);
 	hist.Add(27.0);
 
-	EXPECT_EQ(hist.ApproximateMedianMs(), 25.0);
+	EXPECT_DOUBLE_EQ(hist.ApproximateMedianMs(), 25.0);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -209,7 +209,7 @@ TEST_F(AampTimingHistogramTests, Add_NegativeValue_ClampedToBucketZero)
 
 	EXPECT_EQ(hist.SampleCount(),         uint64_t{2});
 	EXPECT_EQ(hist.OverflowCount(),       uint64_t{0});
-	EXPECT_EQ(hist.ApproximateMedianMs(), 5.0); // bucket 0 midpoint
+	EXPECT_DOUBLE_EQ(hist.ApproximateMedianMs(), 5.0); // bucket 0 midpoint
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -233,7 +233,7 @@ TEST_F(AampTimingHistogramTests, Reset_ClearsAllState)
 
 	EXPECT_EQ(hist.SampleCount(),         uint64_t{0});
 	EXPECT_EQ(hist.OverflowCount(),       uint64_t{0});
-	EXPECT_EQ(hist.ApproximateMedianMs(), 0.0);
+	EXPECT_DOUBLE_EQ(hist.ApproximateMedianMs(), 0.0);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -270,7 +270,7 @@ TEST_F(AampTimingHistogramTests, ApproximatePercentileMs_P0_ReturnsFirstOccupied
 	hist.Add(50.0);
 	hist.Add(90.0);
 
-	EXPECT_EQ(hist.ApproximatePercentileMs(0.0), 55.0);
+	EXPECT_DOUBLE_EQ(hist.ApproximatePercentileMs(0.0), 55.0);
 }
 
 /**
@@ -287,7 +287,7 @@ TEST_F(AampTimingHistogramTests, ApproximatePercentileMs_P100_ReturnsLastOccupie
 	hist.Add(50.0);
 	hist.Add(90.0);
 
-	EXPECT_EQ(hist.ApproximatePercentileMs(100.0), 95.0);
+	EXPECT_DOUBLE_EQ(hist.ApproximatePercentileMs(100.0), 95.0);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -314,8 +314,8 @@ TEST_F(AampTimingHistogramTests, ApproximatePercentileMs_P25_P75_IQR_PositiveWid
 	const double q25 = hist.ApproximatePercentileMs(25.0);
 	const double q75 = hist.ApproximatePercentileMs(75.0);
 
-	EXPECT_EQ(q25, 15.0);
-	EXPECT_EQ(q75, 95.0);
+	EXPECT_DOUBLE_EQ(q25, 15.0);
+	EXPECT_DOUBLE_EQ(q75, 95.0);
 	EXPECT_GT(q75, q25);
 }
 
@@ -367,5 +367,5 @@ TEST_F(AampTimingHistogramTests, ApproximateMedianMs_OverflowMajority_ReturnsAbo
 	hist.Add(200.0);
 	hist.Add(999.0);
 
-	EXPECT_EQ(hist.ApproximateMedianMs(), kOverflowMidpointMs); // 105.0
+	EXPECT_DOUBLE_EQ(hist.ApproximateMedianMs(), kOverflowMidpointMs); // 105.0
 }

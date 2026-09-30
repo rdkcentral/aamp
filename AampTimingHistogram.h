@@ -70,9 +70,9 @@
  */
 
 #include <algorithm>
-#include <cassert>
 #include <cmath>
 #include <cstddef>
+#include <cstdio>
 #include <cstdint>
 #include <vector>
 
@@ -87,30 +87,42 @@
 class AampTimingHistogram
 {
 public:
+	/// Maximum supported bucket count. Constructor parameters that would
+	/// produce more buckets than this are clamped; a diagnostic is emitted
+	/// to stderr.
+	static constexpr std::size_t kMaxBucketCount = 100'000;
+
 	/**
 	 * @brief Construct a timing histogram.
 	 *
+	 * Parameters are validated before any conversion or allocation takes
+	 * place. Non-finite, zero, or negative values for either parameter are
+	 * replaced with 1.0 and a diagnostic is emitted to stderr. A
+	 * bucketWidthMs/maxTimingMs ratio that would exceed kMaxBucketCount
+	 * buckets is clamped to kMaxBucketCount with a diagnostic.
+	 *
 	 * @param bucketWidthMs  Width of each normal bucket in milliseconds.
-	 *                       Must be > 0. The absolute error on any returned
-	 *                       percentile is bounded by ±(bucketWidthMs / 2).
+	 *                       Must be finite and > 0. The absolute error on any
+	 *                       returned percentile is bounded by
+	 *                       ±(bucketWidthMs / 2).
 	 * @param maxTimingMs    Upper edge of the highest normal bucket. Values
 	 *                       at or above this threshold are placed in the
-	 *                       overflow bucket (the last bucket). Must be > 0.
+	 *                       overflow bucket (the last bucket). Must be
+	 *                       finite and > 0.
 	 *
 	 * The total number of internal buckets (including the overflow bucket) is:
 	 * @code
 	 *   bucketCount = static_cast<size_t>(maxTimingMs / bucketWidthMs) + 1
 	 * @endcode
+	 * clamped to kMaxBucketCount.
 	 */
 	AampTimingHistogram(double bucketWidthMs, double maxTimingMs)
-		: mBucketWidthMs(bucketWidthMs)
-		, mMaxTimingMs(maxTimingMs)
-		, mBucketCount(static_cast<std::size_t>(maxTimingMs / bucketWidthMs) + 1)
+		: mBucketWidthMs(CheckedBucketWidthMs(bucketWidthMs))
+		, mMaxTimingMs(CheckedMaxTimingMs(maxTimingMs))
+		, mBucketCount(ComputeBucketCount(mBucketWidthMs, mMaxTimingMs))
 		, mCounts(mBucketCount, 0)
 		, mSampleCount(0)
 	{
-		assert(bucketWidthMs > 0.0 && "bucketWidthMs must be positive");
-		assert(maxTimingMs > 0.0 && "maxTimingMs must be positive");
 	}
 
 	/**
@@ -216,9 +228,57 @@ public:
 	}
 
 private:
-	double               mBucketWidthMs; ///< Width of each normal bucket (ms)
-	double               mMaxTimingMs;   ///< Upper edge of highest normal bucket (ms)
-	std::size_t          mBucketCount;   ///< Total buckets including overflow
-	std::vector<uint64_t> mCounts;       ///< Per-bucket sample counts; last = overflow
-	uint64_t             mSampleCount;   ///< Total samples added
+	// ── Construction helpers ──────────────────────────────────────────────
+	// These run inside the member-initializer list, before any storage is
+	// allocated, so they prevent UB from a bad floating-point-to-integer
+	// conversion regardless of whether NDEBUG is defined.
+
+	/// Validate bucketWidthMs; return a safe positive value.
+	/// Emits a diagnostic to stderr and substitutes 1.0 on invalid input.
+	static double CheckedBucketWidthMs(double v)
+	{
+		if (!std::isfinite(v) || v <= 0.0)
+		{
+			std::fprintf(stderr,
+				"AampTimingHistogram: invalid bucketWidthMs=%.6g; substituting 1.0 ms\n", v);
+			return 1.0;
+		}
+		return v;
+	}
+
+	/// Validate maxTimingMs; return a safe positive value.
+	/// Emits a diagnostic to stderr and substitutes 1.0 on invalid input.
+	static double CheckedMaxTimingMs(double v)
+	{
+		if (!std::isfinite(v) || v <= 0.0)
+		{
+			std::fprintf(stderr,
+				"AampTimingHistogram: invalid maxTimingMs=%.6g; substituting 1.0 ms\n", v);
+			return 1.0;
+		}
+		return v;
+	}
+
+	/// Compute bucket count from already-validated parameters, clamped to
+	/// kMaxBucketCount.  Emits a diagnostic to stderr when clamping occurs.
+	static std::size_t ComputeBucketCount(double bucketWidthMs, double maxTimingMs)
+	{
+		// Both arguments are finite and positive at this point.
+		const double raw = std::floor(maxTimingMs / bucketWidthMs) + 1.0;
+		if (raw > static_cast<double>(kMaxBucketCount))
+		{
+			std::fprintf(stderr,
+				"AampTimingHistogram: bucket count %.0f exceeds limit %zu; clamping\n",
+				raw, kMaxBucketCount);
+			return kMaxBucketCount;
+		}
+		return static_cast<std::size_t>(raw);
+	}
+
+	// ── Data members ──────────────────────────────────────────────────────
+	double                mBucketWidthMs; ///< Width of each normal bucket (ms)
+	double                mMaxTimingMs;   ///< Upper edge of highest normal bucket (ms)
+	std::size_t           mBucketCount;   ///< Total buckets including overflow
+	std::vector<uint64_t> mCounts;        ///< Per-bucket sample counts; last = overflow
+	uint64_t              mSampleCount;   ///< Total samples added
 };
