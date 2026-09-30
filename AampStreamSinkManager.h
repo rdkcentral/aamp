@@ -48,6 +48,7 @@ public:
 	public:
 		std::string url;           /**< url of the media */
 		std::string mimeType;      /**< mime type of the media */
+		std::string manifestUrl;   /**< manifest of the asset that produced this header */
 		bool injected;             /**< indicates if the media header has been injected */
 
 		MediaHeader() = default;
