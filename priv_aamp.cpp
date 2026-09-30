@@ -10853,7 +10853,7 @@ bool PrivateInstanceAAMP::IsMuxedStream()
  */
 void PrivateInstanceAAMP::StopTrackInjection(AampMediaType type, bool discard)
 {
-	if( type<AAMP_TRACK_COUNT && !mTrackInjectionBlocked[type] )
+	if( type<AAMP_TRACK_COUNT )
 	{
 		AAMPLOG_TRACE("PrivateInstanceAAMP: for type %s", GetMediaTypeName(type) );
 		std::lock_guard<std::recursive_mutex> guard(mLock);
@@ -10861,7 +10861,10 @@ void PrivateInstanceAAMP::StopTrackInjection(AampMediaType type, bool discard)
 		{
 			// Direct Rialto blocks the injector thread(s) whilst waiting for NeedData,
 			// this call releases the thread for the specific track being stopped
-			// so the caller can join it via StopInjectLoop
+			// so the caller can join it via StopInjectLoop.
+			// Must run even if mTrackInjectionBlocked[type] is already set (e.g. by an
+			// earlier non-discard call such as RefreshTrack()), otherwise the sink is
+			// never unblocked and the subsequent StopInjectLoop() join can hang forever.
 			StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 			if (sink)
 			{
