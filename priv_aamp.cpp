@@ -9540,6 +9540,7 @@ void PrivateInstanceAAMP::NotifyFragmentCachingComplete()
 		if(mpStreamAbstractionAAMP)
 		{
 			mpStreamAbstractionAAMP->NotifyPlaybackPaused(false);
+			mpStreamAbstractionAAMP->NotifyPipelineResumedToUnderflowMonitor(rate);
 		}
 		SetState(eSTATE_PLAYING);
 	}
@@ -11736,6 +11737,13 @@ bool PrivateInstanceAAMP::SetStateBufferingIfRequired()
 			if(mpStreamAbstractionAAMP)
 			{
 				mpStreamAbstractionAAMP->NotifyPlaybackPaused(true);
+				// Disarm the underflow monitor for the duration of fragment caching.
+				// The GStreamer pipeline is not explicitly paused here (unlike
+				// SetBufferingState), but content delivery to the sink is stalled
+				// while fragments are pre-cached.  Without this call the monitor's
+				// deadline will expire and trigger a false underflow.
+				// Re-armed in NotifyFragmentCachingComplete() once delivery resumes.
+				mpStreamAbstractionAAMP->NotifyPipelinePausedToUnderflowMonitor();
 			}
 			StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 			if(sink)
