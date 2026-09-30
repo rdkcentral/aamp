@@ -1381,8 +1381,27 @@ protected:
 	bool mShortAdOffsetCalc;
 	AampTime mNextPts;					/*For PTS restamping*/
 	bool mIsFinalFirstPTS; /**< Flag to indicate if the first PTS is final or not */
+	bool mVODSynthesisIframeActive; /**< True only when the synthesis trickplay branch
+	                                     activated in StreamSelection (no real iframe
+	                                     adaptation was selected for the current period).
+	                                     Guards UseIframeTrack() and
+	                                     ShouldCheckOnlyIframeAdaptation() so that they
+	                                     do not bypass a real iframe adaptation. */
 
 public:
+	/**
+	 * @brief Returns true when VOD iframe synthesis is active for the current
+	 *        period — i.e. StreamSelection chose a regular video adaptation for
+	 *        trickplay because no real iframe AdaptationSet was present.
+	 *        Returns false when a real iframe track was selected, preventing
+	 *        the early-abort and ConvertToKeyFrame() paths in
+	 *        MediaStreamContext::CacheFragment from being applied to real
+	 *        iframe-track segments.
+	 *        Virtual so that MockStreamAbstractionAAMP_MPD can override it
+	 *        in L1 tests.
+	 */
+	virtual bool IsVODSynthesisActive() const { return mVODSynthesisIframeActive; }
+
 	/**
 	 * @brief Client used for server time synchronization.
 	 *

@@ -25,6 +25,7 @@
 #include "priv_aamp.h"
 #include "AampJsonObject.h"
 #include "isobmffbuffer.h"
+#include "isobmffhelper.h"
 #include "AampConstants.h"
 #include "AampCacheHandler.h"
 #include "AampUtils.h"
@@ -1150,6 +1151,59 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 				}
 			}
 		}
+
+		// VOD iframe synthesis (eAAMPConfig_SynthesizeIframeForVOD): abort the CURL
+		// transfer as soon as we have received the bytes for the first I-frame.
+		// Called on every write_callback chunk; GetIframeByteCap() returns 0 until
+		// the MOOF box is fully buffered, then returns moofSize+8+firstSampleSize.
+		// Returning 0 from the write callback causes CURLE_WRITE_ERROR which
+		// GetFile() converts back to CURLE_OK when abortReason is SYNTHESIZE_IFRAME_COMPLETE.
+		if (context->synthesizeIframeAbort)
+		{
+			if (context->synthesizeIframeByteCap == 0)
+			{
+				context->synthesizeIframeByteCap =
+					IsoBmffHelper::GetIframeByteCap(
+						context->buffer.data(), context->buffer.size());
+			}
+			if (context->synthesizeIframeByteCap > 0 &&
+			    context->buffer.size() >= context->synthesizeIframeByteCap)
+			{
+				context->buffer.resize(context->synthesizeIframeByteCap);
+				// Fix the MDAT box-size field so the truncated buffer is self-consistent.
+				// The original header still declares the full segment size; if left
+				// uncorrected the MP4 demuxer will report DATA_BOUNDARY_MISMATCH and
+				// refuse to decode the frame.
+				// Scan forward through top-level boxes until we find 'mdat', then
+				// overwrite its 4-byte big-endian size with the bytes actually present.
+				{
+					uint8_t *buf = context->buffer.data();
+					const size_t bufSize = context->buffer.size();
+					size_t boxOffset = 0;
+					while (boxOffset + 8 <= bufSize)
+					{
+						uint32_t bSz = ((uint32_t)buf[boxOffset+0]<<24)|((uint32_t)buf[boxOffset+1]<<16)
+						            |((uint32_t)buf[boxOffset+2]<< 8)|((uint32_t)buf[boxOffset+3]);
+						uint32_t fcc = ((uint32_t)buf[boxOffset+4]<<24)|((uint32_t)buf[boxOffset+5]<<16)
+						            |((uint32_t)buf[boxOffset+6]<< 8)|((uint32_t)buf[boxOffset+7]);
+						if (fcc == 0x6D646174u) // 'mdat'
+						{
+							uint32_t fixed = (uint32_t)(bufSize - boxOffset);
+							buf[boxOffset+0] = (uint8_t)(fixed >> 24);
+							buf[boxOffset+1] = (uint8_t)(fixed >> 16);
+							buf[boxOffset+2] = (uint8_t)(fixed >>  8);
+							buf[boxOffset+3] = (uint8_t)(fixed);
+							break;
+						}
+						if (bSz < 8) break; // malformed
+						boxOffset += bSz;
+					}
+				}
+				context->abortReason = eCURL_ABORT_REASON_SYNTHESIZE_IFRAME_COMPLETE;
+				return 0; // triggers CURLE_WRITE_ERROR → converted to success in GetFile()
+			}
+		}
+
 		MediaStreamContext *mCtx = context->aamp->GetMediaStreamContext(context->mediaType);
 
 		if(mCtx)
@@ -4429,7 +4483,7 @@ static inline bool HasDownloadTimedOutWithData(CURLcode curlCode, CurlAbortReaso
 /**
  * @brief Download a file from the CDN
  */
-bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaType, std::vector<uint8_t> &buffer, std::string& effectiveUrl, int& http_error, double *downloadTimeS, const char *range, unsigned int curlInstance, bool resetBuffer, BitsPerSecond *bitrate, int * fogError, double fragmentDurationS, ProfilerBucketType bucketType, int maxInitDownloadTimeMS)
+bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaType, std::vector<uint8_t> &buffer, std::string& effectiveUrl, int& http_error, double *downloadTimeS, const char *range, unsigned int curlInstance, bool resetBuffer, BitsPerSecond *bitrate, int * fogError, double fragmentDurationS, ProfilerBucketType bucketType, int maxInitDownloadTimeMS, bool synthesizeIframeAbort)
 {
 	if( ISCONFIGSET_PRIV(eAAMPConfig_CurlThroughput) )
 	{
@@ -4490,12 +4544,17 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 		int downloadTimeMS = 0;
 		bool isDownloadStalled = false;
 		CurlAbortReason abortReason = eCURL_ABORT_REASON_NONE;
+		// Tracks a deliberate early-abort done by HandleSSLWriteCallback
+		// for VOD iframe synthesis.  Lives outside the retry loop so the
+		// post-loop content-length check can see it.
+		bool synthesizeIframeEarlyAbort = false;
 		double connectTime = 0;
 
 		CURL* curl = GetCurlInstanceForURL(remoteUrl,curlInstance);
 
 		AAMPLOG_INFO("aamp url:%d,%d,%d,%f,%s", mediaTypeTelemetry, mediaType, curlInstance, fragmentDurationS, remoteUrl.c_str());
 		CurlCallbackContext context(this, buffer);
+		context.synthesizeIframeAbort = synthesizeIframeAbort;
 
 		// ==== Begin additive instrumentation - no behavior change ====
 		// CSV path init: fires lazily on the first download where either the env
@@ -4881,6 +4940,21 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 
 				downloadTimeMS = (int)(tEndTime - tStartTime);
 				bool loopAgain = false;
+				// VOD iframe synthesis: HandleSSLWriteCallback aborts as soon as the
+				// first I-frame payload has been received, causing CURLE_WRITE_ERROR.
+				// Convert that to CURLE_OK so the normal success path handles it.
+				// HTTP response headers (and therefore the status code) always arrive
+				// before body data, so CURLINFO_RESPONSE_CODE is valid at this point.
+				if (res == CURLE_WRITE_ERROR &&
+				    context.abortReason == eCURL_ABORT_REASON_SYNTHESIZE_IFRAME_COMPLETE)
+				{
+					AAMPLOG_INFO("GetFile: VOD iframe synthesis early-abort complete (%zu bytes); treating as success",
+					             buffer.size());
+					res = CURLE_OK;
+					context.abortReason = eCURL_ABORT_REASON_NONE;
+					synthesizeIframeEarlyAbort = true;
+				}
+
 				if (res == CURLE_OK)
 				{ // all data collected
 					if( memcmp(remoteUrl.c_str(), "file:", 5) == 0 )
@@ -5358,7 +5432,8 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 #warning LIBCURL_VERSION<7.55.0
 				expectedContentLength = aamp_CurlEasyGetInfoDouble(CURLINFO_CONTENT_LENGTH_DOWNLOAD);
 #endif
-				if( (static_cast<int>(lround(expectedContentLength)) > 0) &&
+				if( !synthesizeIframeEarlyAbort && // intentional partial read — skip length check
+				    (static_cast<int>(lround(expectedContentLength)) > 0) &&
 				   (static_cast<int>(lround(expectedContentLength)) != (int)buffer.size()) )
 				{
 					//Note: For non-compressed data, Content-Length header and buffer size should be same. For gzipped data, 'Content-Length' will be <= deflated data.
@@ -5608,21 +5683,24 @@ void PrivateInstanceAAMP::SetEarlyAbortRequestFlag(bool enableAbort)
  *        manifest-URL overload of IsAsyncTuneAbortRequired() delegate here so that
  *        the criteria stay in sync automatically.
  */
-bool PrivateInstanceAAMP::IsAsyncTuneSupportedForType(MediaFormat format, ContentType type) const
+bool PrivateInstanceAAMP::IsAsyncTuneSupportedForType(MediaFormat format, ContentType type, TuneType tuneType) const
 {
+	// Note: eTUNETYPE_NEW_END excluded so that both overloads of IsAsyncTuneAbortRequired(..) have the same behaviour.
+	// This is valid for live channel zapping case. It can be re-added later if needed.
 	return (eMEDIAFORMAT_DASH == format) &&
 	       (ContentType_LINEAR == type)  &&
-	        ((eTUNETYPE_NEW_NORMAL == mTuneType) || (eTUNETYPE_NEW_SEEK == mTuneType) || (eTUNETYPE_NEW_END == mTuneType)) && // replace with IsNewTune()
+	       ((eTUNETYPE_NEW_NORMAL == tuneType) || (eTUNETYPE_NEW_SEEK == tuneType) ) &&
 	       mAsyncTuneEnabled;
 }
 
 /**
  * @brief Determine whether the current tune type supports early async-tune abort.
- *        Uses stored mMediaFormat / mContentType (active tune).
+ *        Uses stored mMediaFormat, mContentType,  mTuneType(active tune).
+ *        So these must have already been set.
  */
 bool PrivateInstanceAAMP::IsAsyncTuneAbortSupported()
 {
-	return IsAsyncTuneSupportedForType(mMediaFormat, mContentType);
+	return IsAsyncTuneSupportedForType(mMediaFormat, mContentType, mTuneType);
 }
 
 /**
@@ -5636,16 +5714,20 @@ bool PrivateInstanceAAMP::IsAsyncTuneAbortRequired()
 /**
  * @brief Determine whether an incoming tune (identified by URL and content-type string)
  *        should be aborted because a Stop is in progress.
+ *        Use IsAsyncTuneAbortRequired() in preference except where this is called prior to tune parameters being parsed.
+ *        i.e. This is specific for use from PrivateInstanceAAMP::Tune(), not paths like retune.
  */
-bool PrivateInstanceAAMP::IsAsyncTuneAbortRequired(const char* manifestUrl, const char* contentTypeString)
+bool PrivateInstanceAAMP::IsAsyncTuneAbortRequired(const char* manifestUrl, const char* contentTypeString, double seek_pos)
 {
 	if (!mAsyncTaskAbortEnabled.load())
 		return false;
 	MediaFormat format = manifestUrl ? GetMediaFormatType(manifestUrl) : eMEDIAFORMAT_UNKNOWN;
 	// Map the content-type string to enum — the only type that supports abort is LINEAR_TV.
-	ContentType type = (contentTypeString && !strncmp(contentTypeString, "LINEAR_TV", 9))
+	ContentType contentType = (contentTypeString && !strncmp(contentTypeString, "LINEAR_TV", 9))
 	                 ? ContentType_LINEAR : ContentType_UNKNOWN;
-	return IsAsyncTuneSupportedForType(format, type);
+	// tune type as derived in PrivateInstanceAAMP::Tune()
+	TuneType tuneType = ((AAMP_DEFAULT_PLAYBACK_OFFSET == seek_pos) || (-1 == seek_pos)) ? eTUNETYPE_NEW_NORMAL : eTUNETYPE_NEW_SEEK;
+	return IsAsyncTuneSupportedForType(format, contentType, tuneType);
 }
 
 /**
@@ -9597,6 +9679,7 @@ void PrivateInstanceAAMP::NotifyFragmentCachingComplete()
 		if(mpStreamAbstractionAAMP)
 		{
 			mpStreamAbstractionAAMP->NotifyPlaybackPaused(false);
+			mpStreamAbstractionAAMP->NotifyPipelineResumedToUnderflowMonitor(rate);
 		}
 		SetState(eSTATE_PLAYING);
 	}
@@ -11793,6 +11876,13 @@ bool PrivateInstanceAAMP::SetStateBufferingIfRequired()
 			if(mpStreamAbstractionAAMP)
 			{
 				mpStreamAbstractionAAMP->NotifyPlaybackPaused(true);
+				// Disarm the underflow monitor for the duration of fragment caching.
+				// The GStreamer pipeline is not explicitly paused here (unlike
+				// SetBufferingState), but content delivery to the sink is stalled
+				// while fragments are pre-cached.  Without this call the monitor's
+				// deadline will expire and trigger a false underflow.
+				// Re-armed in NotifyFragmentCachingComplete() once delivery resumes.
+				mpStreamAbstractionAAMP->NotifyPipelinePausedToUnderflowMonitor();
 			}
 			StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 			if(sink)
@@ -15457,6 +15547,7 @@ void PrivateInstanceAAMP::BuildLatencyConfig(LatencyConfig &config)
 		config.rebufferingLatencyStepMs = GETCONFIGVALUE_PRIV(eAAMPConfig_RebufferLatencyStepSec) * 1000;
 		config.rebufferingLatencyMaxIncrementMs = GETCONFIGVALUE_PRIV(eAAMPConfig_RebufferLatencyMaxIncrementSec) * 1000;
 		config.dangerBufferMs = GETCONFIGVALUE_PRIV(eAAMPConfig_LatencyDangerBufferSec) * 1000;
+		config.restorationBufferMs = GETCONFIGVALUE_PRIV(eAAMPConfig_LatencyRestorationBufferSec) * 1000;
 		config.latencyStableSec = GETCONFIGVALUE_PRIV(eAAMPConfig_LatencyStableDurationSec);
 		AAMPLOG_MIL("LL DASH Latency Config - minPlaybackRate: %f, maxPlaybackRate: %f, minLatencyMs: %f, targetLatencyMs: %f, maxLatencyMs: %f",
 			config.minPlaybackRate, config.maxPlaybackRate, config.minLatencyMs, config.targetLatencyMs, config.maxLatencyMs);

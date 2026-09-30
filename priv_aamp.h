@@ -716,10 +716,11 @@ public:
 	 *
 	 * @param[in] manifestUrl       - manifest URL of the incoming tune
 	 * @param[in] contentTypeString - content-type string of the incoming tune (e.g. "LINEAR_TV")
+	 * @param[in] seek_pos           - seek position that is set of the incoming tune (e.g. "LINEAR_TV")
 	 * @return bool  true if SetEarlyAbortRequestFlag(true) has been called and the incoming
 	 *               tune type supports early abort
 	 */
-	bool IsAsyncTuneAbortRequired(const char* manifestUrl, const char* contentTypeString);
+	bool IsAsyncTuneAbortRequired(const char* manifestUrl, const char* contentTypeString, const double seek_pos);
 	/**
 	 * @fn TeardownStream
 	 *
@@ -1447,6 +1448,12 @@ public:
 	 * @param[in]  maxInitDownloadTimeMS Max time (ms) to retry init-segment
 	 *                                 downloads when AAMP TSB is enabled;
 	 *                                 pass 0 otherwise.
+	 * @param[in]  synthesizeIframeAbort    When true the CURL transfer is aborted
+	 *                                 as soon as the first I-frame payload has
+	 *                                 been received (VOD iframe synthesis mode).
+	 *                                 The caller must subsequently invoke
+	 *                                 IsoBmffHelper::ConvertToKeyFrame() to fix
+	 *                                 the MOOF metadata.  Default: false.
 	 * @return true on success, false on failure.
 	 */
 	bool GetFile( std::string remoteUrl, AampMediaType mediaType,
@@ -1455,7 +1462,8 @@ public:
 				const char *range = NULL, unsigned int curlInstance = 0,
 				bool resetBuffer = true, BitsPerSecond *bitrate = NULL,
 				int *fogError = NULL, double fragmentDurationS = 0,
-				ProfilerBucketType bucketType=PROFILE_BUCKET_TYPE_COUNT, int maxInitDownloadTimeMS = 0);
+				ProfilerBucketType bucketType=PROFILE_BUCKET_TYPE_COUNT,
+				int maxInitDownloadTimeMS = 0, bool synthesizeIframeAbort = false);
 
 	/**
 	 * @fn CheckSegmentIntegrity
@@ -3685,6 +3693,23 @@ public:
 	}
 
 	/**
+	 *   @brief Is VOD iframe synthesis from video segments enabled.
+	 *          When true, AAMP downloads the regular video segment during trickplay
+	 *          and strips it to a single I-frame via IsoBmffHelper::ConvertToKeyFrame(),
+	 *          providing trickplay even when no iframe AdaptationSet is advertised.
+	 *          The feature is intentionally limited to VOD (non-live, non-local-TSB)
+	 *          streams; calling this on a live or local-TSB session always returns false.
+	 *
+	 *   @return bool — true only when the config flag is set AND the stream is VOD/non-TSB.
+	 */
+	bool IsVODIframeSynthesisEnabled()
+	{
+		return ISCONFIGSET_PRIV(eAAMPConfig_SynthesizeIframeForVOD)
+		       && !mIsLive
+		       && !mLocalAAMPTsb;
+	}
+
+	/**
 	 *   @fn GetLiveOffsetAppRequest
 	 *   @return bool
 	 */
@@ -4452,9 +4477,10 @@ private:
 	 *
 	 * @param[in] format  - media format to evaluate
 	 * @param[in] type    - content type to evaluate
+	 * @param[in] tuneType    - tune type to evaluate
 	 * @return bool true if async abort is supported for the given format/type
 	 */
-	bool IsAsyncTuneSupportedForType(MediaFormat format, ContentType type) const;
+	bool IsAsyncTuneSupportedForType(MediaFormat format, ContentType type, TuneType tuneType) const;
 
 	/**
 	 * @brief Play from the start of the TSB

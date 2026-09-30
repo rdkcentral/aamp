@@ -155,10 +155,10 @@ std::string GetBrowserUA(JSContextRef ctx)
 		{
 			if (JSValueIsString(ctx, propName))
 			{
-				char* value = aamp_JSValueToCString(ctx, propName, NULL);
-				LOG_WARN_EX("Parsed value for property %s - %s","window.navigator.userAgent", value);
+				std::string value = aamp_JSValueToCString(ctx, propName, NULL);
+				LOG_WARN_EX("Parsed value for property %s - %s","window.navigator.userAgent", value.c_str());
 				// Setting user agent to global variable
-				g_UserAgent = std::string(value);
+				g_UserAgent = value;
 			}
 		}
 		else
