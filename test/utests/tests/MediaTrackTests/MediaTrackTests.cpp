@@ -890,6 +890,12 @@ TEST_F(MediaTrackTests, MediaTrackConstructorTest)
 	EXPECT_EQ(videoTrack.GetCachedFragmentSize(), kMaxFragmentCached);
 }
 
+TEST_F(MediaTrackTests, GetManifestTimeScale_BaseDefaultIsZero)
+{
+	TestableMediaTrack videoTrack{eTRACK_VIDEO, mPrivateInstanceAAMP, "video", mStreamAbstractionAAMP_MPD};
+	EXPECT_EQ(videoTrack.GetManifestTimeScale(), 0u);
+}
+
 TEST_F(MediaTrackTests, MediaTrackConstructorChunkModeTest)
 {
 	constexpr int kMaxFragmentCached{4};
