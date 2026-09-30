@@ -1144,8 +1144,6 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 						if((attributeMap.find("t") != attributeMap.end()) && (ret > 0))
 						{
 							// 't' in first timeline is expected.
-							// Cast to double before dividing - integer division here truncates to whole
-							// seconds, which silently defeats any sub-second Period-boundary tolerance check.
 							positionInPeriod = (double)(pMediaStreamContext->lastSegmentDuration - firstTimeline->GetStartTime()) / timeScale;
 						}
 #if defined(DEBUG_TIMELINE) || defined(AAMP_SIMULATOR_BUILD)
@@ -1218,8 +1216,6 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 
 						if (firstStartTime < presentationTimeOffset)
 						{
-							// Cast to double before dividing - integer division here truncates to whole
-							// seconds, which silently defeats any sub-second Period-boundary tolerance check.
 							firstSegStartTime = (double)firstStartTime / tScale;
 							// Period end time also needs to be updated based on the PTO.
 							// Otherwise, there is a chance to skip the last few fragments from the period if there is a large delta between the  start time available in the manifest and the PTO.
@@ -1229,12 +1225,9 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 										 firstStartTime, tScale, presentationTimeOffset, positionInPeriod, firstSegStartTime, endTime, mPeriodStartTime, mPeriodDuration);
 						}
 
-						// SegmentTimeline equivalent of the tail-tolerance drop applied to the
-						// SegmentTemplate-without-Timeline branch: a server ad-splicer can leave
-						// a tail fragment whose position is within AAMP_DASH_PERIOD_TAIL_TOLERANCE_SEC
-						// of the Period end. Pull the effective boundary back by the tolerance so
-						// that sliver is treated as beyond the Period, same as a fragment genuinely
-						// past it. Applies to live and VOD alike.
+						// A server ad-splicer can leave a negligible tail fragment before the Period
+						// end; treat it as past the Period, same as the SegmentTemplate-without-Timeline
+						// branch below. Applies to live and VOD alike.
 						double periodEndBoundary = endTime - AAMP_DASH_PERIOD_TAIL_TOLERANCE_SEC;
 						if((firstSegStartTime + positionInPeriod) >= periodEndBoundary && (firstSegStartTime + positionInPeriod) < endTime)
 						{
@@ -1243,10 +1236,9 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 								(firstSegStartTime + positionInPeriod), endTime);
 						}
 
-						// A Period still growing on a live edge (no explicit duration or next
-						// Period published yet) has an unreliable periodEndBoundary, so
-						// liveEdgePeriodPlayback should only bypass the tolerance check while
-						// that duration is still unknown.
+						// A Period still growing on a live edge has an unreliable periodEndBoundary,
+						// so liveEdgePeriodPlayback should only bypass the tolerance check until the
+						// Period's duration is actually known.
 						bool periodDurationKnown = !mpd->GetPeriods().at(mCurrentPeriodIdx)->GetDuration().empty();
 						if((mIsFogTSB ||
 								((0 != mPeriodDuration) &&
@@ -1547,13 +1539,9 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 					mTimeSyncClient.GetServerUtcTime(),mTimeSyncClient.GetDelta(),currentTimeSeconds,fragmentRequestTime,pMediaStreamContext->fragmentDescriptor.nextfragmentTime);
 
 			bool bProcessFragment = true;
-			// A server ad-splicer can leave a tail fragment/chunk whose start is within
-			// AAMP_DASH_PERIOD_TAIL_TOLERANCE_SEC of the Period end (e.g. the same audio
-			// segment duplicated across the base-content/ad Period boundary). Applies to
-			// both live and VOD (server/client-stitched VOD ad breaks can have the same
-			// misalignment). Pull the effective Period-end boundary back by the tolerance
-			// so that sliver is excluded by the existing "reached Period end" check below,
-			// exactly like a fragment genuinely past the boundary.
+			// A server ad-splicer can leave a negligible tail fragment/chunk before the
+			// Period end (e.g. an audio segment duplicated across the ad-splice boundary).
+			// Applies to live and VOD alike.
 			double periodEndBoundary = mPeriodEndTime - AAMP_DASH_PERIOD_TAIL_TOLERANCE_SEC;
 			if(pMediaStreamContext->fragmentDescriptor.Time >= periodEndBoundary && pMediaStreamContext->fragmentDescriptor.Time < mPeriodEndTime)
 			{
@@ -2462,10 +2450,8 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 						if ((pMediaStreamContext->fragmentRepeatCount == repeatCount) &&
 							(pMediaStreamContext->timeLineIndex + 1 == timelines.size()))
 						{
-							// Final Period-tail fragment can be a negligible sliver left by a
-							// server ad-splicer (see PushNextFragment's matching tolerance
-							// check). Avoid seeking onto it - back up to the preceding
-							// fragment when one is available.
+							// Final fragment can be a negligible Period-tail sliver (see
+							// PushNextFragment); back up to the preceding fragment if so.
 							double lastFragStartSec = mPeriodStartTime + (double)(pMediaStreamContext->fragmentDescriptor.Time - timelines.at(0)->GetStartTime()) / timeScale;
 							bool haveEarlierFragment = (pMediaStreamContext->fragmentRepeatCount > 0) || (pMediaStreamContext->timeLineIndex > 0);
 							if (haveEarlierFragment && (lastFragStartSec >= (mPeriodEndTime - AAMP_DASH_PERIOD_TAIL_TOLERANCE_SEC)))
@@ -2699,9 +2685,8 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 
 					if (skipToEnd)
 					{
-						// Same Period-tail tolerance check as PushNextFragment: target the
-						// boundary pulled back by the tolerance so we don't land on a final
-						// fragment/chunk that is a negligible sliver before the Period end.
+						// Same Period-tail tolerance check as PushNextFragment, so we don't land
+						// on a negligible sliver fragment/chunk before the Period end.
 						double periodEndBoundary = mPeriodEndTime - AAMP_DASH_PERIOD_TAIL_TOLERANCE_SEC;
 						skipTime = periodEndBoundary - pMediaStreamContext->fragmentDescriptor.Time;
 						if ( skipTime > segmentDuration )
