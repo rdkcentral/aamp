@@ -254,3 +254,68 @@ TEST_F(JsBindingTests, RemoveEventListenerDetachesInFlightListener)
 	// PrivAAMPStruct_JS - if p_obj/p_jsCallback weren't nulled above, this deref's it.
 	inFlightRef.reset();
 }
+
+TEST_F(JsBindingTests, EventOnDetachedListenerIsNoOp)
+{
+	PrivAAMPStruct_JS *obj = new PrivAAMPStruct_JS();
+	obj->_aamp = playerInstanceAAMP;
+	obj->_ctx = reinterpret_cast<JSGlobalContextRef>(0x1234);
+
+	JSObjectRef jsCallback = reinterpret_cast<JSObjectRef>(0x5678);
+	AAMP_JSEventListener::AddEventListener(obj, AAMP_EVENT_STATE_CHANGED, jsCallback);
+	ASSERT_EQ(obj->_listeners.size(), 1u);
+	// Mirrors the shared_ptr copy SendEventSync() holds for the duration of dispatch.
+	auto inFlightRef = std::static_pointer_cast<AAMP_JSEventListener>(obj->_listeners.begin()->second);
+
+	// release()/GC finalization of the JS player object.
+	AAMP_JSEventListener::RemoveAllEventListener(obj);
+	delete obj;
+	obj = nullptr;
+
+	// An event already picked up for dispatch is delivered after teardown. It must be
+	// dropped without calling into the freed JS context.
+	EXPECT_CALL(*g_mockJavaScriptCore, JSObjectCallAsFunction(_,_,_,_,_,_)).Times(0);
+	inFlightRef->Event(std::make_shared<StateChangedEvent>(eSTATE_PLAYING, ""));
+
+	inFlightRef.reset();
+}
+
+// Owner that serves a promise callback for AAMP_EVENT_AD_RESOLVED, as the real
+// AAMPMediaPlayer JS object does.
+struct AdPromiseOwner : public PrivAAMPStruct_JS
+{
+	JSObjectRef promiseCallback = nullptr;
+	int removeCallbackCount = 0;
+	JSObjectRef getCallbackForAdId(std::string id) override { return promiseCallback; }
+	void removeCallbackForAdId(std::string id) override { removeCallbackCount++; }
+};
+
+TEST_F(JsBindingTests, AdResolvedPromiseHandlerCanReleasePlayer)
+{
+	AdPromiseOwner *obj = new AdPromiseOwner();
+	obj->_aamp = playerInstanceAAMP;
+	obj->_ctx = reinterpret_cast<JSGlobalContextRef>(0x1234);
+	obj->promiseCallback = reinterpret_cast<JSObjectRef>(0x5678);
+
+	// Promise-style listener: no JS callback, dispatched through getCallbackForAdId().
+	AAMP_JSEventListener::AddEventListener(obj, AAMP_EVENT_AD_RESOLVED, NULL);
+	ASSERT_EQ(obj->_listeners.size(), 1u);
+	// Mirrors the shared_ptr copy SendEventSync() holds for the duration of dispatch.
+	auto inFlightRef = std::static_pointer_cast<AAMP_JSEventListener>(obj->_listeners.begin()->second);
+
+	// The JS promise handler calls player.release(), which detaches every listener.
+	EXPECT_CALL(*g_mockJavaScriptCore, JSObjectCallAsFunction(_, obj->promiseCallback, _, _, _, _))
+		.WillOnce(testing::InvokeWithoutArgs([obj]() -> JSValueRef {
+			AAMP_JSEventListener::RemoveAllEventListener(obj);
+			return nullptr;
+		}));
+
+	// Without the p_obj re-check in Event(), this dereferences NULL after the handler returns.
+	inFlightRef->Event(std::make_shared<AdResolvedEvent>(true, "ad1", 0, 30000, "", "", ""));
+
+	EXPECT_EQ(inFlightRef->p_obj, nullptr);
+	EXPECT_EQ(obj->removeCallbackCount, 0);
+
+	delete obj;
+	inFlightRef.reset();
+}

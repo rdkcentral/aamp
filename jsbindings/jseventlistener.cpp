@@ -1838,7 +1838,12 @@ void AAMP_JSEventListener::Event(const AAMPEventPtr& e)
 			if (cbObj != NULL)
 			{
 				aamp_dispatchEventToJS(ctx, cbObj, event);
-				p_obj->removeCallbackForAdId(adId); //promise callbacks are intended for a single-time use for an ad id
+				// The JS handler may have released the player, detaching this listener (p_obj == NULL)
+				// and freeing its owner, so re-check before touching the owner again.
+				if (p_obj != NULL)
+				{
+					p_obj->removeCallbackForAdId(adId); //promise callbacks are intended for a single-time use for an ad id
+				}
 			}
 			else
 			{
