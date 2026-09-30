@@ -42,6 +42,8 @@ public:
 
     MOCK_METHOD(void, Flush, (double position, int rate, bool shouldTearDown), (override));
 
+    MOCK_METHOD(void, UnblockTrackInjection, (AampMediaType type), (override));
+
     MOCK_METHOD(void, SetEncryptedAamp, (PrivateInstanceAAMP *), (override));
 
 	MOCK_METHOD(void, Stop, (bool), (override));

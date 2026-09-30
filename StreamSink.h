@@ -412,6 +412,15 @@ public:
     virtual void NotifyInjectorToPause() {};
 
     /**
+     * @brief Unblocks an injector thread that may be blocked waiting to
+     *        push a buffer for the specified track, allowing injection
+     *        for that track to stop cleanly.
+     *
+     * @param[in] type - Media type of the track being stopped.
+     */
+    virtual void UnblockTrackInjection(AampMediaType type) {};
+
+    /**
      * @brief Set stream capabilities based on codec info
      *
      * @param[in] type - Media type

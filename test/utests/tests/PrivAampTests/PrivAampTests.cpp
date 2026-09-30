@@ -4465,6 +4465,22 @@ TEST_F(PrivAampTests,StopTrackInjectionTest)
 	p_aamp->StopTrackInjection(eMEDIATYPE_AUDIO);
 }
 
+TEST_F(PrivAampTests,StopTrackInjectionTest_DiscardFalse_DoesNotUnblockInjector)
+{
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer.get()));
+	EXPECT_CALL(*g_mockAampGstPlayer, UnblockTrackInjection(_)).Times(0);
+	p_aamp->StopTrackInjection(eMEDIATYPE_VIDEO);
+}
+
+TEST_F(PrivAampTests,StopTrackInjectionTest_DiscardTrue_UnblocksInjectorOnce)
+{
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer.get()));
+	EXPECT_CALL(*g_mockAampGstPlayer, UnblockTrackInjection(eMEDIATYPE_VIDEO)).Times(1);
+	p_aamp->StopTrackInjection(eMEDIATYPE_VIDEO, true);
+	// Track is already blocked now, so a repeated discard call must not unblock again.
+	p_aamp->StopTrackInjection(eMEDIATYPE_VIDEO, true);
+}
+
 TEST_F(PrivAampTests,ResumeTrackInjectionTest)
 {
 	p_aamp->ResumeTrackInjection(eMEDIATYPE_VIDEO);
