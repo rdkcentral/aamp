@@ -123,6 +123,14 @@ namespace AampBufferControl
 		virtual void needData()=0;
 
 		/**
+		 * @brief Force the strategy to resume downloading.
+		 */
+		virtual void forceResume()
+		{
+			mState = eBUFFER_FILLING;
+		}
+
+		/**
 		 * @brief call on GStreamer enough_data signal
 		 */
 		virtual void enoughData()=0;
@@ -267,6 +275,7 @@ namespace AampBufferControl
 		 * starts/stops downloads as required
 		**/
 		void needData(const AAMPGstPlayer* player, const AampMediaType mediaType);
+		void forceResume(const AampMediaType mediaType);
 		void enoughData(const AAMPGstPlayer* player, const AampMediaType mediaType);
 		void underflow(const AAMPGstPlayer* player, const AampMediaType mediaType);
 		/** 

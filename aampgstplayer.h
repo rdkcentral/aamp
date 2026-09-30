@@ -87,7 +87,7 @@ enum TaskType {
  * @class AAMPGstPlayer
  * @brief Class declaration of Gstreamer based player
  */
-class AAMPGstPlayer : public StreamSink
+class AAMPGstPlayer : public StreamSink, public StreamSinkBufferControl
 {
 private:
 	/**
@@ -140,7 +140,7 @@ public:
 	 * @param[in] mediaType stream type
 	 * @param[in] sample media sample
 	 */
-	bool SendSample(AampMediaType mediaType, AampMediaSample&& sample, bool morePending = false) override;
+	bool SendSample(AampMediaType mediaType, AampMediaSample&& sample, bool morePending = false) override;
 
 	/**
 		 * @fn PipelineConfiguredForMedia
@@ -214,6 +214,11 @@ public:
 		 * @fn ResetFirstFrame
 		 */
 	void ResetFirstFrame(void) override;
+	/**
+		 * @fn ForceResumeBufferControl
+		 * @param[in] type media type to resume
+		 */
+	void ForceResumeBufferControl(AampMediaType type) override;
 	/**
 		 * @fn SetVideoMute
 		 * @param[in] muted true to mute video otherwise false
