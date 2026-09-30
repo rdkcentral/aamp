@@ -249,6 +249,8 @@ struct GstPlayerPriv
 	GstHandlerControl aSyncControl;
 	GstHandlerControl syncControl;
 	GstHandlerControl callbackControl;
+	GstHandlerControl bufferingTimeoutControl;
+	std::mutex bufferingTimeoutMutex;
 
 	bool filterAudioDemuxBuffers; /**< flag to filter audio demux buffers */
 	double seekPosition;              /**< the position to seek the pipeline to in seconds */

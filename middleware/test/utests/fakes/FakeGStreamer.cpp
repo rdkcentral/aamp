@@ -390,6 +390,10 @@ gboolean gst_element_link_many(GstElement *element_1, GstElement *element_2, ...
 gboolean gst_element_sync_state_with_parent(GstElement *element)
 {
 	TRACE_FUNC();
+	if (g_mockGStreamer != nullptr)
+	{
+		return g_mockGStreamer->gst_element_sync_state_with_parent(element);
+	}
 	return FALSE;
 }
 
