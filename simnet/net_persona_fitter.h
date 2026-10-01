@@ -34,6 +34,8 @@
 #include <string>
 #include <vector>
 
+#include "../AampTimingHistogram.h"
+
 namespace aamptrace {
 
 /**
@@ -113,6 +115,27 @@ public:
 				  bool keepRecord = true);
 
 	/**
+	 * @brief Record a completed request's burst-group summary (O(1))
+	 *
+	 * Purpose: Feeds the per-request burst count and byte-size distribution into
+	 * the fixed-memory histograms backing the bursts_per_segment and
+	 * burst_bytes_cv persona fields. Unlike AddBurst(), which is order- and
+	 * group-independent, these fields require correct per-request grouping;
+	 * the caller (NetTrace::FlushCsv) already owns one request's complete burst
+	 * set, so it summarizes it in a single atomic call. This keeps the grouping
+	 * correct even when multiple media tracks flush concurrently, with bounded
+	 * memory (no per-request map retained).
+	 *
+	 * Mirrors FitBursts(): requests with < 2 bursts contribute a 0.0 CV; a
+	 * request whose mean byte size is non-positive is skipped for CV.
+	 *
+	 * @param[in] burstCount Number of bursts in the request (>= 1)
+	 * @param[in] bytesSum   Sum of per-burst byte counts
+	 * @param[in] bytesSumSq Sum of per-burst byte counts squared
+	 */
+	void AddRequestBurstSummary(std::size_t burstCount, double bytesSum, double bytesSumSq);
+
+	/**
 	 * @brief Build a minimal persona JSON from O(1) streaming accumulators
 	 *
 	 * Purpose: Produces a single-line JSON string of the persona fields that
@@ -160,6 +183,15 @@ public:
 	 */
 	std::size_t GetBurstCount() const;
 
+	/**
+	 * @brief Reset all accumulated state to a fresh, first-use condition
+	 *
+	 * Purpose: Clears the file-persona record vectors, the one-shot
+	 * generation guard, and the streaming accumulators. Primarily used by
+	 * tests to isolate the process-wide singleton between cases.
+	 */
+	void Reset();
+
 private:
 	NetPersonaFitter() = default;
 
@@ -182,6 +214,28 @@ private:
 	// Request-side: connection reuse fraction.
 	std::size_t mStreamReqCount{0};			///< Number of requests seen since last reset
 	std::size_t mStreamReuseCount{0};		///< Number of reused-connection requests
+	// TTFB distribution — fixed-memory histograms backing the median/percentile
+	// RTT fields (base_rtt_ms, rtt_jitter_ms, new_conn_penalty_ms) so these can
+	// be produced from the inline minimal persona without retaining raw samples.
+	static constexpr double kTtfbBucketMs = 1.0;	///< TTFB histogram resolution (ms)
+	static constexpr double kTtfbMaxMs = 3000.0;	///< TTFB histogram upper edge (ms)
+	AampTimingHistogram mStreamAllTtfbHist{kTtfbBucketMs, kTtfbMaxMs};		///< All TTFB samples
+	AampTimingHistogram mStreamReusedTtfbHist{kTtfbBucketMs, kTtfbMaxMs};	///< Reused-conn TTFB samples
+	AampTimingHistogram mStreamFreshTtfbHist{kTtfbBucketMs, kTtfbMaxMs};		///< Fresh-conn TTFB samples
+	// Running sum/sumSq for the RobustStd sample-std fallback (IQR <= 0 case).
+	double mStreamAllTtfbSum{0.0};			///< Sum of all TTFB (ms)
+	double mStreamAllTtfbSumSq{0.0};		///< Sum of all TTFB^2 (ms^2)
+	double mStreamReusedTtfbSum{0.0};		///< Sum of reused-conn TTFB (ms)
+	double mStreamReusedTtfbSumSq{0.0};		///< Sum of reused-conn TTFB^2 (ms^2)
+	// Burst-shape distributions — fixed-memory histograms backing the median
+	// burst fields (bursts_per_segment, burst_bytes_cv), populated once per
+	// request by AddRequestBurstSummary().
+	static constexpr double kBurstsPerSegBucket = 1.0;		///< Burst-count resolution
+	static constexpr double kBurstsPerSegMax = 1024.0;		///< Burst-count upper edge
+	static constexpr double kBurstCvBucket = 0.01;			///< CV resolution
+	static constexpr double kBurstCvMax = 10.0;				///< CV upper edge
+	AampTimingHistogram mStreamBurstsPerSegHist{kBurstsPerSegBucket, kBurstsPerSegMax};	///< Per-request burst counts
+	AampTimingHistogram mStreamBurstCvHist{kBurstCvBucket, kBurstCvMax};				///< Per-request byte-size CVs
 	// Burst throughput: geometric mean and log-normal spread of per-burst rate.
 	std::size_t mStreamLnRateN{0};			///< Count of bursts with a positive rate
 	double mStreamLnRateSum{0.0};			///< Sum of ln(rate) over bursts

@@ -80,6 +80,14 @@ class NetPersonaFitterTest : public ::testing::Test
 protected:
 	static constexpr const char* kBasePath = "/tmp/aamp_net_persona_test.json";
 
+	void SetUp() override
+	{
+		// Isolate the process-wide singleton between cases so results are
+		// order-independent whether ctest runs each test in its own process
+		// (gtest_discover_tests) or the whole suite in one (RDK-E mode).
+		aamptrace::NetPersonaFitter::GetInstance().Reset();
+	}
+
 	void TearDown() override
 	{
 		// Clean up the test-specific output file
@@ -282,6 +290,8 @@ TEST_F(NetPersonaFitterTest, StreamingComputesMinimalFields)
 	// Identical rate -> zero throughput spread; gaps 0.20 & 0.30 -> cadence 250ms
 	fitter.AddBurst(1, 0, 0.010, 100000, 0.20);
 	fitter.AddBurst(1, 1, 0.010, 100000, 0.30);
+	// Summarize the one request's 2 equal-sized bursts, as NetTrace::FlushCsv does.
+	fitter.AddRequestBurstSummary(/*burstCount=*/2, /*bytesSum=*/200000.0, /*bytesSumSq=*/2.0e10);
 
 	std::string json = fitter.BuildMinimalPersonaJson();
 	ASSERT_FALSE(json.empty());
@@ -293,10 +303,83 @@ TEST_F(NetPersonaFitterTest, StreamingComputesMinimalFields)
 	EXPECT_DOUBLE_EQ(ExtractJsonDouble(json, "flush_jitter_ms"), 6.0);
 	EXPECT_NEAR(ExtractJsonDouble(json, "p_conn_reuse"),      0.75, 1e-9);
 
-	// Minimal JSON must omit median/percentile-based fields
-	EXPECT_EQ(json.find("base_rtt_ms"), std::string::npos);
-	EXPECT_EQ(json.find("bursts_per_segment"), std::string::npos);
+	// Group A median/percentile RTT fields are now produced from fixed-memory
+	// TTFB histograms. Oracles (1 ms buckets, midpoint convention):
+	//   TTFB samples ms = {30, 31, 32 (reused), 61 (fresh)}; reused < 5 -> use all.
+	//   median -> bucket 31 midpoint = 31.5
+	//   P25 -> bucket 30 midpoint = 30.5, P75 -> bucket 32 midpoint = 32.5
+	//   rtt_jitter = IQR/1.349 = (32.5 - 30.5)/1.349
+	//   reused < 5 -> new_conn_penalty = max(0, base_rtt * 0.95)
+	EXPECT_NEAR(ExtractJsonDouble(json, "base_rtt_ms"),         31.5,         1e-6);
+	EXPECT_NEAR(ExtractJsonDouble(json, "rtt_jitter_ms"),       2.0 / 1.349,  1e-6);
+	EXPECT_NEAR(ExtractJsonDouble(json, "new_conn_penalty_ms"), 31.5 * 0.95,  1e-6);
+
+	// Group B burst-shape fields from fixed-memory histograms. Oracles:
+	//   bursts_per_segment: count 2 -> bucket 2 midpoint 2.5 -> floor 2
+	//   burst_bytes_cv: two equal-sized bursts -> CV 0; bucket-0 midpoint = 0.005
+	//     (0.01 CV bucket width, +/- half-bucket error)
+	EXPECT_NEAR(ExtractJsonDouble(json, "bursts_per_segment"), 2.0,   1e-9);
+	EXPECT_NEAR(ExtractJsonDouble(json, "burst_bytes_cv"),     0.005, 1e-9);
+
+	// Fields still omitted from the minimal persona (Group C — not yet migrated)
 	EXPECT_EQ(json.find("late_chunk_p"), std::string::npos);
+}
+
+/**
+ * @brief bursts_per_segment is the (approximate) median of per-request burst counts
+ *
+ * Feeds three request summaries with burst counts {2, 4, 6}. Bursts within each
+ * request are equal-sized, so every per-request CV is 0.
+ */
+TEST_F(NetPersonaFitterTest, StreamingBurstCountMedian)
+{
+	auto& fitter = aamptrace::NetPersonaFitter::GetInstance();
+	fitter.ResetStreaming();
+
+	// At least one request is needed so the minimal persona is emitted at all.
+	fitter.AddRequest(0.030, 1);
+
+	// Equal-sized bursts (100000 B each): sum = 100000*n, sumSq = n*1e10 -> CV 0.
+	fitter.AddRequestBurstSummary(2, 200000.0, 2.0e10);
+	fitter.AddRequestBurstSummary(4, 400000.0, 4.0e10);
+	fitter.AddRequestBurstSummary(6, 600000.0, 6.0e10);
+
+	std::string json = fitter.BuildMinimalPersonaJson();
+	ASSERT_FALSE(json.empty());
+
+	// median of counts {2,4,6} -> bucket 4 midpoint 4.5 -> floor 4
+	EXPECT_NEAR(ExtractJsonDouble(json, "bursts_per_segment"), 4.0,   1e-9);
+	// all three CVs are 0 -> bucket-0 midpoint 0.005
+	EXPECT_NEAR(ExtractJsonDouble(json, "burst_bytes_cv"),     0.005, 1e-9);
+}
+
+/**
+ * @brief burst_bytes_cv is the (approximate) median of per-request byte-size CVs
+ *
+ * Three 2-burst requests with CVs {0, sqrt(2)/2, 0.8*sqrt(2)}; the middle value
+ * is selected as the median. CV(a,b) = sqrt(2)*|a-b|/(a+b) for a 2-burst request.
+ */
+TEST_F(NetPersonaFitterTest, StreamingBurstCvMedian)
+{
+	auto& fitter = aamptrace::NetPersonaFitter::GetInstance();
+	fitter.ResetStreaming();
+
+	fitter.AddRequest(0.030, 1);
+
+	// {100000,100000} -> CV 0
+	fitter.AddRequestBurstSummary(2, 200000.0, 2.0e10);
+	// {50000,150000}  -> CV sqrt(2)/2 = 0.70710678 -> bucket 70 midpoint 0.705
+	fitter.AddRequestBurstSummary(2, 200000.0, 2.5e10);
+	// {20000,180000}  -> CV 0.8*sqrt(2) = 1.1313708 -> bucket 113 midpoint 1.135
+	fitter.AddRequestBurstSummary(2, 200000.0, 3.28e10);
+
+	std::string json = fitter.BuildMinimalPersonaJson();
+	ASSERT_FALSE(json.empty());
+
+	// median of CVs {0, 0.707, 1.131} selects the middle sample -> bucket 70 midpoint
+	EXPECT_NEAR(ExtractJsonDouble(json, "burst_bytes_cv"),     0.705, 1e-9);
+	// all counts are 2 -> bucket 2 midpoint 2.5 -> floor 2
+	EXPECT_NEAR(ExtractJsonDouble(json, "bursts_per_segment"), 2.0,   1e-9);
 }
 
 /**
@@ -350,10 +433,7 @@ TEST_F(NetPersonaFitterTest, StreamingSurvivesFilePersonaSwap)
 	ASSERT_FALSE(before.empty());
 
 	// Consuming (swapping out) the O(N) vectors must not disturb streaming scalars.
-	// The return value is ignored: the singleton's one-shot guard may have already
-	// fired in a prior test, in which case no swap occurs — either way streaming
-	// state must be unaffected.
-	(void)fitter.GeneratePersonaJson(kBasePath);
+	ASSERT_TRUE(fitter.GeneratePersonaJson(kBasePath));
 
 	EXPECT_EQ(fitter.BuildMinimalPersonaJson(), before);
 }
