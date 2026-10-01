@@ -2031,6 +2031,76 @@ TEST_F(PrivAampTests, MonitorProgressIgnoresImplausiblePositionBelowStart)
 }
 
 /**
+ * @brief Regression test (Copilot review on PR #2032): the implausible-underflow
+ * fallback must not reuse a stale previously-reported position that is itself
+ * outside the current seekable range. culledSeconds (start) advances forward as
+ * the TSB culls, so a position reported on an earlier tick can now sit below the
+ * new start; blindly reusing it would feed an out-of-range position to
+ * ad/progress reporting. The fallback must use start in that case.
+ *
+ * Oracle: the ProgressEvent payload cannot be inspected here (the L1 fake
+ * AampEvent always returns 0 for getPosition()), so this relies on the
+ * mReportProgressPosn de-dupe check (`mReportProgressPosn == position`) as an
+ * observable side effect. Pre-fix, tick 2's fallback reuses the stale,
+ * out-of-range mReportProgressPosn (500,000) verbatim, which trivially equals
+ * itself and gets de-duped - suppressing tick 2's event (only 1 of 2 ticks
+ * report). Post-fix, tick 2 falls back to start (1,000,000) instead, which
+ * differs from the stale value, so it is not de-duped (both ticks report).
+ *
+ * aamp_GetCurrentTimeMS() is mocked to always equal trickStartUTCMS (elapsed
+ * time 0), so the trickplay extrapolation term is always zero regardless of
+ * rate, making the reported position purely seek_pos_seconds*1000 - a
+ * deterministic, wall-clock-independent test.
+ */
+TEST_F(PrivAampTests, MonitorProgressFallbackIgnoresOutOfRangeStaleReport)
+{
+	constexpr long long FIXED_NOW_MS = 5000;
+	constexpr double REWIND_RATE = -4.0;
+
+	p_aamp->rate = REWIND_RATE;
+	p_aamp->mDownloadsEnabled = true;
+	p_aamp->mSinkPaused = false;
+	p_aamp->SetState(eSTATE_PLAYING, true);
+	p_aamp->SetLocalAAMPTsb(true);
+	p_aamp->mMediaFormat = eMEDIAFORMAT_DASH;
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP_MPD.get();
+	p_aamp->trickStartUTCMS = FIXED_NOW_MS;
+
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp)).WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer.get()));
+	// Elapsed time is always 0, so GetPositionRelativeToSeekMilliseconds() never
+	// contributes, and position is purely seek_pos_seconds*1000 on every tick.
+	EXPECT_CALL(*g_mockAampUtils, aamp_GetCurrentTimeMS()).WillRepeatedly(Return(FIXED_NOW_MS));
+
+	// PlayFromTsbStart() must NOT be called on either tick.
+	EXPECT_CALL(*g_mockAampEventManager, SendEvent(SpeedChanged(AAMP_NORMAL_PLAY_RATE), _)).Times(0);
+
+	// Both ticks must report (see oracle note above); pre-fix this would be 1.
+	EXPECT_CALL(*g_mockAampEventManager, SendEvent(AnEventOfType(AAMP_EVENT_PROGRESS), _)).Times(2);
+
+	// Tick 1: seed a legitimate report of 500,000ms while the TSB start is 0 -
+	// well within [start, end], so this is reported normally (no BoS).
+	// mAbsoluteEndPosition must track [culledSeconds, +durationSeconds): for a
+	// local TSB, GetPositionMilliseconds() clamps position to mAbsoluteEndPosition
+	// directly, independently of the start/end computed inside MonitorProgress().
+	p_aamp->seek_pos_seconds = 500.0;
+	p_aamp->culledSeconds = 0.0;
+	p_aamp->durationSeconds = 10000.0;
+	p_aamp->mAbsoluteEndPosition = p_aamp->culledSeconds + p_aamp->durationSeconds;
+	p_aamp->MonitorProgress(true, false);
+
+	// Tick 2: the TSB has culled forward so start is now 1,000,000ms - past the
+	// previously-reported 500,000ms. seek_pos_seconds collapses to 0, giving an
+	// implausible underrun (1,000,000ms) that exceeds the 10,000ms buffered span.
+	p_aamp->seek_pos_seconds = 0.0;
+	p_aamp->culledSeconds = 1000.0;
+	p_aamp->durationSeconds = 10.0;
+	p_aamp->mAbsoluteEndPosition = p_aamp->culledSeconds + p_aamp->durationSeconds;
+	p_aamp->MonitorProgress(true, false);
+}
+
+/**
  * @brief Regression test for the de-dupe edge case (Copilot review on PR #1345).
  *
  * When the previous tick already reported position == start, the de-dupe logic

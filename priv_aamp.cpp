@@ -2533,7 +2533,11 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 				// and/or a stale trickStartUTCMS (#3). Remove once the root cause is confirmed.
 				AAMPLOG_WARN("Ignoring implausible position %fms below start %fms (underrun %fms > span %fms), rate %f seek_pos=%.3f trickStartUTCMS=%lld state=%d",
 					position, start, (start - position), (end - start), rate, seek_pos_seconds, trickStartUTCMS, (int)GetState());
-				position = (mReportProgressPosn > 0) ? mReportProgressPosn : start;
+				// Only reuse the previous report if it is still within the current seekable
+				// range; culledSeconds/mAbsoluteEndPosition can move between ticks, so a stale
+				// value could itself be out of range.
+				bool prevReportInRange = (mReportProgressPosn >= start) && (mReportProgressPosn <= end);
+				position = prevReportInRange ? mReportProgressPosn : start;
 			}
 		}
 		DeliverAdEvents(false, position); // use progress reporting as trigger to belatedly deliver ad events
