@@ -135,7 +135,7 @@ StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(class PrivateInstanceAAMP *
 	mStreamInfo(), mPrevStartTimeSeconds(0), mPrevLastSegurlMedia(""), mPrevLastSegurlOffset(0),
 	mPeriodEndTime(0), mPeriodStartTime(0), mPeriodDuration(0), mMinUpdateDurationMs(DEFAULT_INTERVAL_BETWEEN_MPD_UPDATES_MS),
 	mLastPlaylistDownloadTimeMs(0), mFirstPTS(0), mStartTimeOfFirstPTS(0), mAudioType(eAUDIO_UNKNOWN),
-	mPrevAdaptationSetCount(0), mBitrateIndexVector(), mProfileMaps(), mIsFogTSB(false),
+	mPrevAdaptationSetCount(0), mBitrateIndexVector(), mProfileMaps(), mIsFogTSB(false), mUseCachedMainAssetSubtitleHeader(false),
 	mCurrentPeriod(NULL), mBasePeriodId(""), mBasePeriodOffset(0), mCdaiObject(NULL), mLiveEndPosition(0), mCulledSeconds(0)
 	,mAdPlayingFromCDN(false)
 	,mPostRollAdPlaybackDone(false)
@@ -3709,6 +3709,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 
 	if(newTune)
 	{
+		mUseCachedMainAssetSubtitleHeader = (aamp->GetContentType() == ContentType_UNKNOWN);
 		//Clear previously stored vss early period ids
 		mEarlyAvailablePeriodIds.clear();
 	}
@@ -4476,7 +4477,9 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 		// Rialto does not support dynamic streams, so we need to extract and save the
 		// subtitle init fragment from the main vod asset, so that it can be injected
 		// later if a pre-roll advert is played that does not contain subtitles.
-		if (ISCONFIGSET(eAAMPConfig_useRialtoSink))
+		if (ISCONFIGSET(eAAMPConfig_useRialtoSink) &&
+			!mUseCachedMainAssetSubtitleHeader &&
+			aamp->GetContentType() == ContentType_VOD)
 		{
 			// XIONE-19145: a cached header is only valid for the asset that
 			// produced it. Drop any leftover from a previous tune (e.g.
@@ -11418,7 +11421,9 @@ void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutpu
 		{
 			auto subtitleHeader = AampStreamSinkManager::GetInstance().GetMediaHeader(eMEDIATYPE_SUBTITLE);
 			if(subtitleHeader && !subtitleHeader->mimeType.empty() &&
-			   (subtitleHeader->manifestUrl.empty() || subtitleHeader->manifestUrl == aamp->GetManifestUrl()))
+			   (subtitleHeader->manifestUrl.empty() ||
+				subtitleHeader->manifestUrl == aamp->GetManifestUrl() ||
+				mUseCachedMainAssetSubtitleHeader))
 			{
 				subtitleOutputFormat = GetSubtitleFormat(subtitleHeader->mimeType);
 				AAMPLOG_INFO("Using saved subtitle mime type, subtitleOutputFormat = %d", subtitleOutputFormat);
@@ -12125,7 +12130,9 @@ void StreamAbstractionAAMP_MPD::SendMediaHeaders()
 		{
 			auto header = AampStreamSinkManager::GetInstance().GetMediaHeader(iTrack);
 			if(header &&
-			   (header->manifestUrl.empty() || header->manifestUrl == aamp->GetManifestUrl()))
+			   (header->manifestUrl.empty() ||
+				header->manifestUrl == aamp->GetManifestUrl() ||
+				mUseCachedMainAssetSubtitleHeader))
 			{
 				AAMPLOG_INFO("Track is disabled; url for init segment found: %s", header->url.c_str());
 				AampGrowableBuffer buffer("init-buffer");
