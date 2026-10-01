@@ -458,6 +458,7 @@ void NetPersonaFitter::AddBurst(uint64_t reqId, int burstIdx,
 	++mStreamAllGapN;
 	mStreamAllGapSum += gapBeforeS;
 	mStreamAllGapSumSq += gapBeforeS * gapBeforeS;
+	mStreamAllGapHist.Add(gapBeforeS * 1000.0);
 	if (gapBeforeS >= kGuardLow && gapBeforeS <= kGuardHigh)
 	{
 		++mStreamGuardGapN;
@@ -616,6 +617,36 @@ std::string NetPersonaFitter::BuildMinimalPersonaJson() const
 		burstBytesCv = mStreamBurstCvHist.ApproximateMedianMs();
 	}
 
+	// ttfb_spike_p / ttfb_spike_ms: tail of reused TTFB above its P90. Mirrors
+	// FitRequests(), which only computes these once enough reused samples exist.
+	double ttfbSpikeP = 0.0;
+	double ttfbSpikeMs = 0.0;
+	if (mStreamReuseCount >= 20)
+	{
+		double p90 = mStreamReusedTtfbHist.ApproximatePercentileMs(90.0);
+		uint64_t spikeCount = mStreamReusedTtfbHist.CountAtOrAboveMs(p90);
+		ttfbSpikeP = static_cast<double>(spikeCount) / static_cast<double>(mStreamReuseCount);
+		if (spikeCount > 0)
+		{
+			ttfbSpikeMs = mStreamReusedTtfbHist.ApproximateMeanAtOrAboveMs(p90) - baseRttMs;
+		}
+	}
+
+	// late_chunk_p / late_chunk_extra_ms: tail of inter-burst gaps above the
+	// dynamic threshold cadence + 2*jitter (all values in ms), mirroring FitBursts().
+	double lateChunkP = 0.0;
+	double lateChunkExtraMs = 0.0;
+	if (mStreamAllGapN > 0)
+	{
+		double lateThrMs = cadenceMs + 2.0 * cadenceJitterMs;
+		uint64_t lateCount = mStreamAllGapHist.CountAtOrAboveMs(lateThrMs);
+		lateChunkP = static_cast<double>(lateCount) / static_cast<double>(mStreamAllGapN);
+		if (lateCount > 0)
+		{
+			lateChunkExtraMs = mStreamAllGapHist.ApproximateMeanAtOrAboveMs(lateThrMs) - cadenceMs;
+		}
+	}
+
 	// JSON does not allow NaN/Inf; clamp any non-finite value to 0.0.
 	auto jv = [](double v) -> double { return std::isfinite(v) ? v : 0.0; };
 
@@ -624,6 +655,8 @@ std::string NetPersonaFitter::BuildMinimalPersonaJson() const
 	oss << "{"
 		<< "\"base_rtt_ms\": "       << jv(baseRttMs)        << ", "
 		<< "\"rtt_jitter_ms\": "     << jv(rttJitterMs)      << ", "
+		<< "\"ttfb_spike_p\": "      << jv(ttfbSpikeP)       << ", "
+		<< "\"ttfb_spike_ms\": "     << jv(ttfbSpikeMs)      << ", "
 		<< "\"mean_thr_mbps\": "     << jv(meanThrMbps)      << ", "
 		<< "\"thr_sigma_ln\": "      << jv(thrSigmaLn)       << ", "
 		<< "\"bursts_per_segment\": " << burstsPerSegment    << ", "
@@ -631,6 +664,8 @@ std::string NetPersonaFitter::BuildMinimalPersonaJson() const
 		<< "\"cadence_ms\": "        << jv(cadenceMs)        << ", "
 		<< "\"cadence_jitter_ms\": " << jv(cadenceJitterMs)  << ", "
 		<< "\"flush_jitter_ms\": "   << 6                    << ", "
+		<< "\"late_chunk_p\": "      << jv(lateChunkP)       << ", "
+		<< "\"late_chunk_extra_ms\": " << jv(lateChunkExtraMs) << ", "
 		<< "\"p_conn_reuse\": "      << jv(pConnReuse)        << ", "
 		<< "\"new_conn_penalty_ms\": " << jv(newConnPenaltyMs)
 		<< "}";
@@ -660,6 +695,7 @@ void NetPersonaFitter::ResetStreaming()
 	mStreamReusedTtfbSumSq = 0.0;
 	mStreamBurstsPerSegHist.Reset();
 	mStreamBurstCvHist.Reset();
+	mStreamAllGapHist.Reset();
 }
 
 void NetPersonaFitter::Reset()
@@ -689,6 +725,7 @@ void NetPersonaFitter::Reset()
 	mStreamReusedTtfbSumSq = 0.0;
 	mStreamBurstsPerSegHist.Reset();
 	mStreamBurstCvHist.Reset();
+	mStreamAllGapHist.Reset();
 }
 
 std::size_t NetPersonaFitter::GetRequestCount() const

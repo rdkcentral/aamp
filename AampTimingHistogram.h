@@ -227,6 +227,62 @@ public:
 		return mCounts.back();
 	}
 
+	/**
+	 * @brief Count of samples at or above a threshold (O(bucketCount)).
+	 *
+	 * Returns the number of accumulated samples that fall in the bucket
+	 * containing @p thresholdMs or in any higher bucket. Useful for computing
+	 * tail fractions (e.g. the fraction of samples above a percentile or a
+	 * dynamically-derived threshold).
+	 *
+	 * @param thresholdMs  Lower threshold in milliseconds. Negative values are
+	 *                     clamped to 0 (counts every sample).
+	 * @return Number of samples in the threshold bucket and all higher buckets.
+	 */
+	uint64_t CountAtOrAboveMs(double thresholdMs) const
+	{
+		const double clamped = std::max(0.0, thresholdMs);
+		const std::size_t start = std::min(
+			static_cast<std::size_t>(clamped / mBucketWidthMs),
+			mBucketCount - 1);
+		uint64_t count = 0;
+		for (std::size_t i = start; i < mBucketCount; ++i)
+		{
+			count += mCounts[i];
+		}
+		return count;
+	}
+
+	/**
+	 * @brief Approximate mean of samples at or above a threshold (O(bucketCount)).
+	 *
+	 * Computes the count-weighted average of bucket midpoints for the bucket
+	 * containing @p thresholdMs and all higher buckets. The absolute error is
+	 * bounded by ±(bucketWidthMs/2), plus any clamping of overflow samples to
+	 * the last bucket's midpoint.
+	 *
+	 * @param thresholdMs  Lower threshold in milliseconds.
+	 * @return Approximate mean of the tail samples, or 0.0 if none are at or
+	 *         above the threshold.
+	 */
+	double ApproximateMeanAtOrAboveMs(double thresholdMs) const
+	{
+		const double clamped = std::max(0.0, thresholdMs);
+		const std::size_t start = std::min(
+			static_cast<std::size_t>(clamped / mBucketWidthMs),
+			mBucketCount - 1);
+		uint64_t count = 0;
+		double weightedSum = 0.0;
+		for (std::size_t i = start; i < mBucketCount; ++i)
+		{
+			const double midpoint =
+				static_cast<double>(i) * mBucketWidthMs + mBucketWidthMs * 0.5;
+			weightedSum += midpoint * static_cast<double>(mCounts[i]);
+			count += mCounts[i];
+		}
+		return (count > 0) ? (weightedSum / static_cast<double>(count)) : 0.0;
+	}
+
 private:
 	// ── Construction helpers ──────────────────────────────────────────────
 	// These run inside the member-initializer list, before any storage is

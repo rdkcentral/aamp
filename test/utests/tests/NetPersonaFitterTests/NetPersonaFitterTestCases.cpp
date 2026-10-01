@@ -321,8 +321,71 @@ TEST_F(NetPersonaFitterTest, StreamingComputesMinimalFields)
 	EXPECT_NEAR(ExtractJsonDouble(json, "bursts_per_segment"), 2.0,   1e-9);
 	EXPECT_NEAR(ExtractJsonDouble(json, "burst_bytes_cv"),     0.005, 1e-9);
 
-	// Fields still omitted from the minimal persona (Group C — not yet migrated)
-	EXPECT_EQ(json.find("late_chunk_p"), std::string::npos);
+	// Group C tail fields are now present; this dataset triggers none of them:
+	//   reused count 3 < 20 -> no TTFB spike stats
+	//   gaps {200, 300} ms are both below cadence + 2*jitter (391.4 ms) -> no late gaps
+	EXPECT_DOUBLE_EQ(ExtractJsonDouble(json, "ttfb_spike_p"),        0.0);
+	EXPECT_DOUBLE_EQ(ExtractJsonDouble(json, "ttfb_spike_ms"),       0.0);
+	EXPECT_DOUBLE_EQ(ExtractJsonDouble(json, "late_chunk_p"),        0.0);
+	EXPECT_DOUBLE_EQ(ExtractJsonDouble(json, "late_chunk_extra_ms"), 0.0);
+}
+
+/**
+ * @brief ttfb_spike_p / ttfb_spike_ms are the fraction and mean excess of reused
+ *        TTFB above P90 (requires >= 20 reused samples).
+ *
+ * Feeds 20 reused requests with TTFB = 20..39 ms (1 ms apart). Oracles use the
+ * 1 ms TTFB histogram and its midpoint convention:
+ *   median (base_rtt) -> bucket 29 midpoint 29.5
+ *   P90 -> bucket 37 midpoint 37.5; tail buckets {37,38,39} -> 3 samples
+ *   ttfb_spike_p = 3/20 = 0.15
+ *   tail mean = (37.5+38.5+39.5)/3 = 38.5; ttfb_spike_ms = 38.5 - 29.5 = 9.0
+ */
+TEST_F(NetPersonaFitterTest, StreamingTtfbSpikeTail)
+{
+	auto& fitter = aamptrace::NetPersonaFitter::GetInstance();
+	fitter.ResetStreaming();
+
+	for (int i = 0; i < 20; ++i)
+	{
+		fitter.AddRequest((20.0 + i) / 1000.0, /*connReused=*/1);
+	}
+
+	std::string json = fitter.BuildMinimalPersonaJson();
+	ASSERT_FALSE(json.empty());
+
+	EXPECT_NEAR(ExtractJsonDouble(json, "base_rtt_ms"),   29.5, 1e-9);
+	EXPECT_NEAR(ExtractJsonDouble(json, "ttfb_spike_p"),  0.15, 1e-9);
+	EXPECT_NEAR(ExtractJsonDouble(json, "ttfb_spike_ms"), 9.0,  1e-9);
+}
+
+/**
+ * @brief late_chunk_p / late_chunk_extra_ms are the fraction and mean excess of
+ *        inter-burst gaps above the dynamic threshold cadence + 2*jitter.
+ *
+ * Gaps (s): {0.00, 0.20, 0.30, 0.80}. Guard-band gaps {0.20, 0.30} give
+ * cadence 250 ms and jitter 70.7107 ms -> threshold 391.42 ms. Only the 800 ms
+ * gap exceeds it (5 ms gap buckets):
+ *   late_chunk_p = 1/4 = 0.25
+ *   tail mean = bucket 160 midpoint 802.5; late_chunk_extra_ms = 802.5 - 250 = 552.5
+ */
+TEST_F(NetPersonaFitterTest, StreamingLateChunkTail)
+{
+	auto& fitter = aamptrace::NetPersonaFitter::GetInstance();
+	fitter.ResetStreaming();
+
+	fitter.AddRequest(0.030, 1);
+	fitter.AddBurst(1, 0, 0.010, 100000, 0.00);
+	fitter.AddBurst(1, 1, 0.010, 100000, 0.20);
+	fitter.AddBurst(1, 2, 0.010, 100000, 0.30);
+	fitter.AddBurst(1, 3, 0.010, 100000, 0.80);
+
+	std::string json = fitter.BuildMinimalPersonaJson();
+	ASSERT_FALSE(json.empty());
+
+	EXPECT_NEAR(ExtractJsonDouble(json, "cadence_ms"),          250.0, 1e-6);
+	EXPECT_NEAR(ExtractJsonDouble(json, "late_chunk_p"),        0.25,  1e-9);
+	EXPECT_NEAR(ExtractJsonDouble(json, "late_chunk_extra_ms"), 552.5, 1e-9);
 }
 
 /**
