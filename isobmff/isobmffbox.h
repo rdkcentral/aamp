@@ -114,9 +114,9 @@ uint64_t ReadUint64(const uint8_t *buf);
  *
  * @param[in] dst - buffer pointer
  * @param[in] val - value to write
- * @return true if written, false if skipped due to bounds
+ * @return void
  */
-bool WriteUint64(uint8_t *dst, uint64_t val);
+void WriteUint64(uint8_t *dst, uint64_t val);
 
 /**
  * @fn ReadCStringLen
