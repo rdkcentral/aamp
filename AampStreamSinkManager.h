@@ -48,8 +48,9 @@ public:
 	public:
 		std::string url;           /**< url of the media */
 		std::string mimeType;      /**< mime type of the media */
-		std::string manifestUrl;   /**< manifest of the asset that produced this header */
 		bool injected;             /**< indicates if the media header has been injected */
+		std::string manifestUrl;   /**< manifest of the asset that produced this header */
+		const PrivateInstanceAAMP *owner{nullptr}; /**< player instance that cached this header; ads run on sibling instances sharing the Rialto session */
 
 		MediaHeader() = default;
 		MediaHeader(const std::string& url_, const std::string& mimeType_)
@@ -182,14 +183,29 @@ public:
 	 *  @fn RemoveMediaHeader
 	 *  @brief Removes the media init headers collected from the main VOD asset
 	 *  @param[in] track - the media(subtitle,video or audio) for which the headers to be removed
+	 *  @param[in] aamp - the requesting player instance; a background (non-autoplay)
+	 *             caller may only remove a header it owns, while a foreground
+	 *             caller may clear any stale header on its session. nullptr
+	 *             (internal callers) removes unconditionally.
 	 */
-	virtual void RemoveMediaHeader(unsigned track);
+	virtual void RemoveMediaHeader(unsigned track, const PrivateInstanceAAMP *aamp = nullptr);
 	/**
 	 *  @fn GetMediaHeader
 	 *  @brief Returns the media init headers collected from the main VOD asset
 	 *  @param[in] track - the media(subtitle,video or audio) for which the headers to be retrieved
 	 */
 	virtual std::shared_ptr<MediaHeader> GetMediaHeader(unsigned track);
+
+	/**
+	 *  @fn IsPlayerRegistered
+	 *  @brief Returns true if the given player currently has a stream sink
+	 *         registered in this manager (active, inactive or client-provided),
+	 *         i.e. it is a live sibling sharing this pipeline - not a stale
+	 *         pointer left by a destroyed player. Pointer membership test only;
+	 *         the player is never dereferenced.
+	 *  @param[in] aamp - the PrivateInstanceAAMP to test
+	 */
+	virtual bool IsPlayerRegistered(const PrivateInstanceAAMP *aamp);
 
 protected:
 
