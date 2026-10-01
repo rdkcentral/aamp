@@ -2271,6 +2271,13 @@ int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::st
                 }
 
                 GstElement* subtitlebin = gst_bin_new("subtitlebin");
+                if (!subtitlebin)
+                {
+                    MW_LOG_WARN("Failed to create subtitlebin");
+                    gst_object_unref(textsink);
+                    gst_object_unref(vipertransform);
+                    return -1;
+                }
                 GstElement* mp4transform = NULL;
 
                 if (stream->format == GST_FORMAT_SUBTITLE_MP4)
