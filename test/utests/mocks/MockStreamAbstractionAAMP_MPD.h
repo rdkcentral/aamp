@@ -44,6 +44,7 @@ public:
 	MOCK_METHOD(double, GetFirstPTS, (), (override));
 	MOCK_METHOD(double, GetBufferedDuration, (), (override));
 	MOCK_METHOD(AAMPStatusType, UpdateTrackInfo, (bool modifyDefaultBW, bool resetTimeLineIndex, bool isInit), (override));
+	MOCK_METHOD(bool, IsVODSynthesisActive, (), (const, override));
 
   };
 

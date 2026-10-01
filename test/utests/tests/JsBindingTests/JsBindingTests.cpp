@@ -30,6 +30,7 @@
 #include <gmock/gmock.h>
 #include "MockJavaScriptCore.h"
 
+#include <algorithm>
 #include <memory>
 
 using ::testing::_;
@@ -72,4 +73,154 @@ TEST_F(JsBindingTests, TestJsonUtils )
 	JSObjectRef temp2 = aamp_CreateBodyResponseJSObject(context, "" );
 	JSObjectRef temp3 = aamp_CreateBodyResponseJSObject(context, NULL );
 	JSObjectRef temp4 = aamp_CreateBodyResponseJSObject(context, "{\"a\":1,\"b\":\"foo\"}" );
+}
+
+// Copies 'content' into the buffer supplied by aamp_JSValueToCString/aamp_JSValueToJSONCString,
+// mirroring JSStringGetUTF8CString()'s real contract (bytes written including null terminator).
+static size_t FakeWriteUTF8CString(const std::string &content, char *buffer, size_t bufferSize)
+{
+	size_t n = (bufferSize > 0) ? std::min(content.size(), bufferSize - 1) : 0;
+	content.copy(buffer, n);
+	buffer[n] = '\0';
+	return n + 1;
+}
+
+TEST_F(JsBindingTests, JsValueToCStringConvertsNormalString)
+{
+	JSContextRef context = NULL;
+	JSValueRef value = reinterpret_cast<JSValueRef>(0x1);
+	JSStringRef jsstr = reinterpret_cast<JSStringRef>(0x2);
+	const std::string expected = "hello world";
+
+	EXPECT_CALL(*g_mockJavaScriptCore, JSValueToStringCopy(context, value, nullptr))
+		.WillOnce(testing::Return(jsstr));
+	EXPECT_CALL(*g_mockJavaScriptCore, JSStringGetMaximumUTF8CStringSize(jsstr))
+		.WillOnce(testing::Return(expected.size() + 1));
+	EXPECT_CALL(*g_mockJavaScriptCore, JSStringGetUTF8CString(jsstr, testing::_, expected.size() + 1))
+		.WillOnce(testing::Invoke([&expected](JSStringRef, char *buffer, size_t bufferSize) {
+			return FakeWriteUTF8CString(expected, buffer, bufferSize);
+		}));
+	EXPECT_CALL(*g_mockJavaScriptCore, JSStringRelease(jsstr)).Times(1);
+
+	std::string result = aamp_JSValueToCString(context, value, NULL);
+	EXPECT_EQ(result, expected);
+}
+
+TEST_F(JsBindingTests, JsValueToCStringConvertsEmptyString)
+{
+	JSContextRef context = NULL;
+	JSValueRef value = reinterpret_cast<JSValueRef>(0x1);
+	JSStringRef jsstr = reinterpret_cast<JSStringRef>(0x2);
+	const std::string expected = "";
+
+	EXPECT_CALL(*g_mockJavaScriptCore, JSValueToStringCopy(context, value, nullptr))
+		.WillOnce(testing::Return(jsstr));
+	EXPECT_CALL(*g_mockJavaScriptCore, JSStringGetMaximumUTF8CStringSize(jsstr))
+		.WillOnce(testing::Return(expected.size() + 1));
+	EXPECT_CALL(*g_mockJavaScriptCore, JSStringGetUTF8CString(jsstr, testing::_, expected.size() + 1))
+		.WillOnce(testing::Invoke([&expected](JSStringRef, char *buffer, size_t bufferSize) {
+			return FakeWriteUTF8CString(expected, buffer, bufferSize);
+		}));
+	EXPECT_CALL(*g_mockJavaScriptCore, JSStringRelease(jsstr)).Times(1);
+
+	std::string result = aamp_JSValueToCString(context, value, NULL);
+	EXPECT_TRUE(result.empty());
+}
+
+TEST_F(JsBindingTests, JsValueToCStringConvertsNonAsciiString)
+{
+	JSContextRef context = NULL;
+	JSValueRef value = reinterpret_cast<JSValueRef>(0x1);
+	JSStringRef jsstr = reinterpret_cast<JSStringRef>(0x2);
+	// UTF-8 bytes for "héllo wörld " followed by the U+1F600 emoji
+	const std::string expected = "h\xC3\xA9llo w\xC3\xB6rld \xF0\x9F\x98\x80";
+
+	EXPECT_CALL(*g_mockJavaScriptCore, JSValueToStringCopy(context, value, nullptr))
+		.WillOnce(testing::Return(jsstr));
+	EXPECT_CALL(*g_mockJavaScriptCore, JSStringGetMaximumUTF8CStringSize(jsstr))
+		.WillOnce(testing::Return(expected.size() + 1));
+	EXPECT_CALL(*g_mockJavaScriptCore, JSStringGetUTF8CString(jsstr, testing::_, expected.size() + 1))
+		.WillOnce(testing::Invoke([&expected](JSStringRef, char *buffer, size_t bufferSize) {
+			return FakeWriteUTF8CString(expected, buffer, bufferSize);
+		}));
+	EXPECT_CALL(*g_mockJavaScriptCore, JSStringRelease(jsstr)).Times(1);
+
+	std::string result = aamp_JSValueToCString(context, value, NULL);
+	EXPECT_EQ(result, expected);
+}
+
+TEST_F(JsBindingTests, JsValueToCStringReturnsEmptyOnConversionException)
+{
+	JSContextRef context = NULL;
+	JSValueRef value = reinterpret_cast<JSValueRef>(0x1);
+	JSValueRef exception = NULL;
+
+	// JSValueToStringCopy() returns NULL when the conversion raises an exception
+	EXPECT_CALL(*g_mockJavaScriptCore, JSValueToStringCopy(context, value, &exception))
+		.WillOnce(testing::Return(nullptr));
+	EXPECT_CALL(*g_mockJavaScriptCore, JSStringGetMaximumUTF8CStringSize(testing::_)).Times(0);
+	EXPECT_CALL(*g_mockJavaScriptCore, JSStringGetUTF8CString(testing::_, testing::_, testing::_)).Times(0);
+	EXPECT_CALL(*g_mockJavaScriptCore, JSStringRelease(testing::_)).Times(0);
+
+	std::string result = aamp_JSValueToCString(context, value, &exception);
+	EXPECT_TRUE(result.empty());
+}
+
+TEST_F(JsBindingTests, JsValueToJSONCStringConvertsNormalObject)
+{
+	JSContextRef context = NULL;
+	JSValueRef value = reinterpret_cast<JSValueRef>(0x3);
+	JSStringRef jsstr = reinterpret_cast<JSStringRef>(0x4);
+	const std::string expected = "{\"a\":1,\"b\":\"foo\"}";
+
+	EXPECT_CALL(*g_mockJavaScriptCore, JSValueCreateJSONString(context, value, 0, nullptr))
+		.WillOnce(testing::Return(jsstr));
+	EXPECT_CALL(*g_mockJavaScriptCore, JSStringGetMaximumUTF8CStringSize(jsstr))
+		.WillOnce(testing::Return(expected.size() + 1));
+	EXPECT_CALL(*g_mockJavaScriptCore, JSStringGetUTF8CString(jsstr, testing::_, expected.size() + 1))
+		.WillOnce(testing::Invoke([&expected](JSStringRef, char *buffer, size_t bufferSize) {
+			return FakeWriteUTF8CString(expected, buffer, bufferSize);
+		}));
+	EXPECT_CALL(*g_mockJavaScriptCore, JSStringRelease(jsstr)).Times(1);
+
+	std::string result = aamp_JSValueToJSONCString(context, value, NULL);
+	EXPECT_EQ(result, expected);
+}
+
+TEST_F(JsBindingTests, JsValueToJSONCStringConvertsEmptyString)
+{
+	JSContextRef context = NULL;
+	JSValueRef value = reinterpret_cast<JSValueRef>(0x3);
+	JSStringRef jsstr = reinterpret_cast<JSStringRef>(0x4);
+	const std::string expected = "";
+
+	EXPECT_CALL(*g_mockJavaScriptCore, JSValueCreateJSONString(context, value, 0, nullptr))
+		.WillOnce(testing::Return(jsstr));
+	EXPECT_CALL(*g_mockJavaScriptCore, JSStringGetMaximumUTF8CStringSize(jsstr))
+		.WillOnce(testing::Return(expected.size() + 1));
+	EXPECT_CALL(*g_mockJavaScriptCore, JSStringGetUTF8CString(jsstr, testing::_, expected.size() + 1))
+		.WillOnce(testing::Invoke([&expected](JSStringRef, char *buffer, size_t bufferSize) {
+			return FakeWriteUTF8CString(expected, buffer, bufferSize);
+		}));
+	EXPECT_CALL(*g_mockJavaScriptCore, JSStringRelease(jsstr)).Times(1);
+
+	std::string result = aamp_JSValueToJSONCString(context, value, NULL);
+	EXPECT_TRUE(result.empty());
+}
+
+TEST_F(JsBindingTests, JsValueToJSONCStringReturnsEmptyOnConversionException)
+{
+	JSContextRef context = NULL;
+	JSValueRef value = reinterpret_cast<JSValueRef>(0x3);
+	JSValueRef exception = NULL;
+
+	// JSValueCreateJSONString() returns NULL when the conversion raises an exception
+	EXPECT_CALL(*g_mockJavaScriptCore, JSValueCreateJSONString(context, value, 0, &exception))
+		.WillOnce(testing::Return(nullptr));
+	EXPECT_CALL(*g_mockJavaScriptCore, JSStringGetMaximumUTF8CStringSize(testing::_)).Times(0);
+	EXPECT_CALL(*g_mockJavaScriptCore, JSStringGetUTF8CString(testing::_, testing::_, testing::_)).Times(0);
+	EXPECT_CALL(*g_mockJavaScriptCore, JSStringRelease(testing::_)).Times(0);
+
+	std::string result = aamp_JSValueToJSONCString(context, value, &exception);
+	EXPECT_TRUE(result.empty());
 }

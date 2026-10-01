@@ -22,6 +22,8 @@
 #include <vector>
 #include <map>
 
+#include "MockJavaScriptCore.h"
+
 typedef enum { eJSON_TYPE_NULL, eJSON_TYPE_INT, eJSON_TYPE_STR, eJSON_TYPE_ARRAY, eJSON_TYPE_OBJ } JsonType;
 
 class JsonValueInternal
@@ -166,20 +168,36 @@ JSStringRef JSStringCreateWithUTF8CString(const char* string)
 
 size_t JSStringGetMaximumUTF8CStringSize(JSStringRef string)
 {
+	if (g_mockJavaScriptCore != nullptr)
+	{
+		return g_mockJavaScriptCore->JSStringGetMaximumUTF8CStringSize(string);
+	}
 	return 0;
 }
 
 size_t JSStringGetUTF8CString(JSStringRef string, char* buffer, size_t bufferSize)
 {
+	if (g_mockJavaScriptCore != nullptr)
+	{
+		return g_mockJavaScriptCore->JSStringGetUTF8CString(string, buffer, bufferSize);
+	}
 	return 0;
 }
 
 void JSStringRelease(JSStringRef string)
 {
+	if (g_mockJavaScriptCore != nullptr)
+	{
+		g_mockJavaScriptCore->JSStringRelease(string);
+	}
 }
 
 JSStringRef JSValueCreateJSONString(JSContextRef ctx, JSValueRef value, unsigned indent, JSValueRef* exception)
 {
+	if (g_mockJavaScriptCore != nullptr)
+	{
+		return g_mockJavaScriptCore->JSValueCreateJSONString(ctx, value, indent, exception);
+	}
 	return NULL;
 }
 
@@ -229,6 +247,10 @@ JSObjectRef JSValueToObject(JSContextRef ctx, JSValueRef value, JSValueRef* exce
 
 JSStringRef JSValueToStringCopy(JSContextRef ctx, JSValueRef value, JSValueRef* exception)
 {
+	if (g_mockJavaScriptCore != nullptr)
+	{
+		return g_mockJavaScriptCore->JSValueToStringCopy(ctx, value, exception);
+	}
 	return NULL;
 }
 

@@ -905,12 +905,13 @@ TEST(_AampUtils, hex_char_to_int )
 }
 
 /**
- * @brief Verify ClearAndRelease empties the vector and releases its heap storage.
+ * @brief Verify ClearAndRelease empties the vector and unconditionally releases its heap storage.
  *
  * A non-empty vector with reserved capacity is passed to ClearAndRelease.
  * Afterwards the size must be zero and the capacity must equal that of a
  * freshly default-constructed vector of the same element type, confirming
- * that the swap-with-temporary idiom actually frees the backing allocation.
+ * that the swap-with-temporary idiom releases the backing allocation.
+ * (shrink_to_fit() is non-binding and cannot be relied upon for this guarantee.)
  */
 TEST(_AampUtils, ClearAndRelease_EmptiesAndReleasesMemory)
 {
@@ -939,3 +940,4 @@ TEST(_AampUtils, ClearAndRelease_OnEmptyVector_IsNoOp)
 	EXPECT_TRUE(v.empty());
 	EXPECT_EQ(v.capacity(), std::vector<int>().capacity());
 }
+

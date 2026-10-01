@@ -19,7 +19,7 @@
 
 /**
  * @file NullGuardTests.cpp
- * @brief L1 unit tests for null-pointer guards added in VPAAMP-309.
+ * @brief L1 unit tests for null-pointer guards added.
  *
  * Each test constructs an AAMPGstPlayer, manipulates one pointer to null,
  * invokes the guarded code path, and asserts that no crash occurs and no
@@ -45,7 +45,7 @@ using ::testing::_;
 extern AampConfig *gpGlobalConfig;
 
 /**
- * @brief Fixture for VPAAMP-309 null-pointer guard tests.
+ * @brief Fixture for null-pointer guard tests.
  *
  * Provides a minimally constructed AAMPGstPlayer (no pipeline) together with
  * the mock infrastructure required by aampgstplayer.cpp and its dependencies.

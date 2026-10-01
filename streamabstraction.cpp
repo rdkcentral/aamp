@@ -721,7 +721,7 @@ void MediaTrack::AbortWaitForCachedAndFreeFragment(bool immediate)
 	// pipeline.  Without this, a pending audio/subtitle switch at VOD EOS causes the
 	// injector to stall until an external timeout fires StopInjectLoop(), by which
 	// point DownloadsAreEnabled() is already false and the EOS signal path is skipped,
-	// leaving GStreamer in a permanent stall state (VPAAMP-1166).
+	// leaving GStreamer in a permanent stall state.
 	if (type == eTRACK_AUDIO && (loadNewAudio || refreshAudio))
 	{
 		AAMPLOG_WARN("[%s] audio switch pending at abort - notifying audioFragmentCached for EOS", name);
@@ -1435,7 +1435,7 @@ void MediaTrack::RunInjectLoop()
 			WaitForCachedAudioFragmentAvailable();
 			// If EOS arrived on the fetcher side while we were waiting for the
 			// switched audio track, the fetcher will have set eosReached and
-			// notified us via AbortWaitForCachedAndFreeFragment (VPAAMP-1166).
+			// notified us via AbortWaitForCachedAndFreeFragment.
 			// Clear the switch flags so InjectFragment() can follow the EOS path
 			// and the loop exits cleanly instead of looping back into this wait.
 			if (eosReached)
@@ -1448,7 +1448,7 @@ void MediaTrack::RunInjectLoop()
 		if(type == eTRACK_SUBTITLE && (loadNewSubtitle || refreshSubtitles) && !lowLatency) // TBD
 		{
 			WaitForCachedSubtitleFragmentAvailable();
-			// Same EOS-guard for subtitle switches (VPAAMP-1166).
+			// Same EOS-guard for subtitle switches.
 			if (eosReached)
 			{
 				AAMPLOG_WARN("[%s] EOS reached during subtitle track switch; clearing loadNewSubtitle/refreshSubtitles", name);

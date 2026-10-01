@@ -190,6 +190,7 @@ public:
 			{eAAMPConfig_EnablePTSReStamp, false},
 			{eAAMPConfig_LocalTSBEnabled, false},
 			{eAAMPConfig_EnableIFrameTrackExtract, false},
+			{eAAMPConfig_SynthesizeIframeForVOD, false},
 			{eAAMPConfig_EnableABR, true},
 			{eAAMPConfig_MPDDiscontinuityHandling, true},
 			{eAAMPConfig_MPDDiscontinuityHandlingCdvr, true},
@@ -506,7 +507,7 @@ TEST_F(TrackInjectTests, InjectFragment_VodEosAbortedWait_StopsUnderflowMonitor)
 }
 
 /**
- * VPAAMP-1166: Verify that RunInjectLoop() exits cleanly (no deadlock) when
+ * Verify that RunInjectLoop() exits cleanly (no deadlock) when
  * eosReached is set on the audio track while a loadNewAudio switch is pending.
  *
  * Before the fix, AbortWaitForCachedAndFreeFragment() only notified the
@@ -537,7 +538,7 @@ TEST_F(TrackInjectTests, RunInjectLoop_AudioEosDuringTrackSwitch_NoDeadlock)
 	mMediaTrack = new MediaTrackTest(eTRACK_AUDIO, mPrivateInstanceAAMP, "audio");
 	mMediaTrack->SetMonitorBufferDisabled(true);
 
-	// Reproduce the VPAAMP-1166 state: SwitchAudioTrack() left loadNewAudio=true
+	// Reproduce SwitchAudioTrack() left loadNewAudio=true
 	// and the fetcher reached EOS before a new audio fragment was cached.
 	mMediaTrack->LoadNewAudio(true);
 	mMediaTrack->eosReached = true; // set as if the fetcher already marked EOS
@@ -568,7 +569,7 @@ TEST_F(TrackInjectTests, RunInjectLoop_AudioEosDuringTrackSwitch_NoDeadlock)
 	auto status = injectFuture.wait_for(std::chrono::seconds(2));
 	EXPECT_EQ(status, std::future_status::ready)
 		<< "RunInjectLoop deadlocked: audio injector did not exit after "
-		   "AbortWaitForCachedAndFreeFragment with pending loadNewAudio (VPAAMP-1166)";
+		   "AbortWaitForCachedAndFreeFragment with pending loadNewAudio";
 
 	// Always consume the future so its destructor does not block if the above
 	// assertion timed out (the destructor of a std::async future joins the thread).

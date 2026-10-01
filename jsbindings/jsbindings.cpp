@@ -2126,15 +2126,14 @@ static JSValueRef AAMP_addEventListener(JSContextRef context, JSObjectRef functi
 
 		if (callbackObj != NULL && JSObjectIsFunction(context, callbackObj))
 		{
-			char* type = aamp_JSValueToCString(context, arguments[0], NULL);
+			std::string type = aamp_JSValueToCString(context, arguments[0], NULL);
 			AAMPEventType eventType = aamp_getEventTypeFromName(type);
-                        LOG_TRACE("eventType='%s', %d", type, eventType);
+			LOG_TRACE("eventType='%s', %d", type.c_str(), eventType);
 
 			if ((eventType >= 0) && (eventType < AAMP_MAX_NUM_EVENTS))
 			{
 				AAMP_JSListener::AddEventListener(pAAMP, eventType, callbackObj);
 			}
-			SAFE_DELETE_ARRAY(type);
 		}
 		else
 		{
@@ -2316,16 +2315,15 @@ static JSValueRef AAMP_removeEventListener(JSContextRef context, JSObjectRef fun
 
 		if ((callbackObj != NULL) && (JSObjectIsFunction(context, callbackObj)))
 		{
-			char* type = aamp_JSValueToCString(context, arguments[0], NULL);
+			std::string type = aamp_JSValueToCString(context, arguments[0], NULL);
 			AAMPEventType eventType = aamp_getEventTypeFromName(type);
-                        LOG_TRACE("eventType='%s', %d", type, eventType);
+			LOG_TRACE("eventType='%s', %d", type.c_str(), eventType);
 
 			if ((eventType >= 0) && (eventType < AAMP_MAX_NUM_EVENTS))
 			{
 
 				AAMP_JSListener::RemoveEventListener(pAAMP, eventType, callbackObj);
 			}
-			SAFE_DELETE_ARRAY(type);
 		}
 		else
 		{
@@ -2419,7 +2417,8 @@ static JSValueRef AAMP_tune(JSContextRef context, JSObjectRef function, JSObject
 		return JSValueMakeUndefined(context);
 	}
 
-	char* contentType = NULL;
+	std::string contentTypeStr;
+	const char* contentType = NULL;
 	bool bFinalAttempt = false;
 	bool bFirstAttempt = true;
 	switch(argumentCount)
@@ -2434,19 +2433,18 @@ static JSValueRef AAMP_tune(JSContextRef context, JSObjectRef function, JSObject
 			}
 		case 2:
 			{
-				contentType = aamp_JSValueToCString(context, arguments[1], exception);
+				contentTypeStr = aamp_JSValueToCString(context, arguments[1], exception);
+				contentType = contentTypeStr.c_str();
 			}
 		case 1:
 			{
-				char* url = aamp_JSValueToCString(context, arguments[0], exception);
+				std::string url = aamp_JSValueToCString(context, arguments[0], exception);
 				aamp_ApplyPageHttpHeaders(pAAMP->_aamp);
 				{
 					LOG_WARN(pAAMP," _aamp->Tune(%d, %s, %d, %d)", true, contentType, bFirstAttempt, bFinalAttempt);
-					pAAMP->_aamp->Tune(url, true, contentType, bFirstAttempt, bFinalAttempt);                  
+					pAAMP->_aamp->Tune(url.c_str(), true, contentType, bFirstAttempt, bFinalAttempt);
 				}
-				SAFE_DELETE_ARRAY(url);
 			}
-			SAFE_DELETE_ARRAY(contentType);
 			break;
 		default:
                         LOG_ERROR(pAAMP,"InvalidArgument: argumentCount=%zu, expected: 1 to 4", argumentCount);
@@ -2479,9 +2477,10 @@ static JSValueRef AAMP_load(JSContextRef context, JSObjectRef function, JSObject
 
 	if (argumentCount == 1 || argumentCount == 2)
 	{
-		char* contentType = NULL;
-		char* strTraceId = NULL;
-		char* strAuthToken = NULL;
+		std::string contentTypeStr, strTraceIdStr, strAuthTokenStr;
+		const char* contentType = NULL;
+		const char* strTraceId = NULL;
+		const char* strAuthToken = NULL;
 		bool bFinalAttempt = false;
 		bool bFirstAttempt = true;
 		if (argumentCount == 2 && JSValueIsObject(context, arguments[1]))
@@ -2491,7 +2490,8 @@ static JSValueRef AAMP_load(JSContextRef context, JSObjectRef function, JSObject
 			JSValueRef paramValue = JSObjectGetProperty(context, argument, paramName, NULL);
 			if (JSValueIsString(context, paramValue))
 			{
-				contentType = aamp_JSValueToCString(context, paramValue, NULL);
+				contentTypeStr = aamp_JSValueToCString(context, paramValue, NULL);
+				contentType = contentTypeStr.c_str();
 			}
 			JSStringRelease(paramName);
 
@@ -2499,7 +2499,8 @@ static JSValueRef AAMP_load(JSContextRef context, JSObjectRef function, JSObject
 			paramValue = JSObjectGetProperty(context, argument, paramName, NULL);
 			if (JSValueIsString(context, paramValue))
 			{
-				strTraceId = aamp_JSValueToCString(context, paramValue, NULL);
+				strTraceIdStr = aamp_JSValueToCString(context, paramValue, NULL);
+				strTraceId = strTraceIdStr.c_str();
 			}
 			JSStringRelease(paramName);
 
@@ -2523,12 +2524,13 @@ static JSValueRef AAMP_load(JSContextRef context, JSObjectRef function, JSObject
 			paramValue = JSObjectGetProperty(context, argument, paramName, NULL);
 			if (JSValueIsString(context, paramValue))
 			{
-				strAuthToken = aamp_JSValueToCString(context, paramValue, NULL);
+				strAuthTokenStr = aamp_JSValueToCString(context, paramValue, NULL);
+				strAuthToken = strAuthTokenStr.c_str();
 			}
 			JSStringRelease(paramName);
 		}
 
-		char* url = aamp_JSValueToCString(context, arguments[0], exception);
+		std::string url = aamp_JSValueToCString(context, arguments[0], exception);
 		aamp_ApplyPageHttpHeaders(pAAMP->_aamp);
 		if (strAuthToken != NULL){
 			LOG_WARN(pAAMP,"authToken provided by the App");
@@ -2536,13 +2538,8 @@ static JSValueRef AAMP_load(JSContextRef context, JSObjectRef function, JSObject
 		}
 		{
 			LOG_WARN(pAAMP," _aamp->Tune(%d, %s, %d, %d, %s)", true, contentType, bFirstAttempt, bFinalAttempt, strTraceId);
-			pAAMP->_aamp->Tune(url, true, contentType, bFirstAttempt, bFinalAttempt, strTraceId);
+			pAAMP->_aamp->Tune(url.c_str(), true, contentType, bFirstAttempt, bFinalAttempt, strTraceId);
 		}
-
-		SAFE_DELETE_ARRAY(url);
-		SAFE_DELETE_ARRAY(contentType);
-		SAFE_DELETE_ARRAY(strTraceId);
-		SAFE_DELETE_ARRAY(strAuthToken);
 	}
 	else
 	{
@@ -2832,10 +2829,9 @@ static JSValueRef AAMP_setZoom(JSContextRef context, JSObjectRef function, JSObj
 	}
 	else
 	{
-		char* zoomStr = aamp_JSValueToCString(context, arguments[0], exception);
+		std::string zoomStr = aamp_JSValueToCString(context, arguments[0], exception);
 		VideoZoomMode zoom = MapZoomMode( zoomStr );
 		pAAMP->_aamp->SetVideoZoom(zoom);
-		SAFE_DELETE_ARRAY(zoomStr);
 	}
 	return JSValueMakeUndefined(context);
 }
@@ -2869,12 +2865,11 @@ static JSValueRef AAMP_setLanguage(JSContextRef context, JSObjectRef function, J
 	}
 	else
 	{
-		char* lang = aamp_JSValueToCString(context, arguments[0], exception);
+		std::string lang = aamp_JSValueToCString(context, arguments[0], exception);
 		{
-            		LOG_WARN(pAAMP," _aamp->SetLKanguage(%s)", lang);
-			pAAMP->_aamp->SetLanguage(lang);
+			LOG_WARN(pAAMP," _aamp->SetLKanguage(%s)", lang.c_str());
+			pAAMP->_aamp->SetLanguage(lang.c_str());
 		}
-		SAFE_DELETE_ARRAY(lang);
 	}
 	return JSValueMakeUndefined(context);
 }
@@ -2960,11 +2955,8 @@ static JSValueRef AAMP_addCustomHTTPHeader(JSContextRef context, JSObjectRef fun
 	}
 	else
 	{
-		char *name = aamp_JSValueToCString(context, arguments[0], exception);
-		std::string headerName(name);
+		std::string headerName = aamp_JSValueToCString(context, arguments[0], exception);
 		std::vector<std::string> headerVal;
-
-		SAFE_DELETE_ARRAY(name);
 
 		if (aamp_JSValueIsArray(context, arguments[1]))
 		{
@@ -2973,9 +2965,8 @@ static JSValueRef AAMP_addCustomHTTPHeader(JSContextRef context, JSObjectRef fun
 		else if (JSValueIsString(context, arguments[1]))
 		{
 			headerVal.reserve(1);
-			char *value =  aamp_JSValueToCString(context, arguments[1], exception);
+			std::string value =  aamp_JSValueToCString(context, arguments[1], exception);
 			headerVal.push_back(value);
-			SAFE_DELETE_ARRAY(value);
 		}
 
 		// Don't support empty values now
@@ -3021,11 +3012,9 @@ static JSValueRef AAMP_removeCustomHTTPHeader(JSContextRef context, JSObjectRef 
 	}
 	else
 	{
-		char *name = aamp_JSValueToCString(context, arguments[0], exception);
-		std::string headerName(name);
+		std::string headerName = aamp_JSValueToCString(context, arguments[0], exception);
 		LOG_WARN(pAAMP,"  AAMP_removeCustomHTTPHeader headerName= %s",headerName.c_str());
 		pAAMP->_aamp->AddCustomHTTPHeader(headerName, std::vector<std::string>());
-		SAFE_DELETE_ARRAY(name);
 
 	}
 	return JSValueMakeUndefined(context);
@@ -3493,10 +3482,9 @@ static JSValueRef AAMP_setLicenseServerURL(JSContextRef context, JSObjectRef fun
 	}
 	else
 	{
-		const char *url = aamp_JSValueToCString(context, arguments[0], exception);
-                LOG_WARN(pAAMP," _aamp->SetLicenseServerURL(%s)", url);
-		pAAMP->_aamp->SetLicenseServerURL(url);
-		SAFE_DELETE_ARRAY(url);
+		std::string url = aamp_JSValueToCString(context, arguments[0], exception);
+		LOG_WARN(pAAMP," _aamp->SetLicenseServerURL(%s)", url.c_str());
+		pAAMP->_aamp->SetLicenseServerURL(url.c_str());
 	}
 	return JSValueMakeUndefined(context);
 }
@@ -3529,18 +3517,17 @@ static JSValueRef AAMP_setPreferredDRM(JSContextRef context, JSObjectRef functio
 	}
 	else
 	{
-		const char *drm = aamp_JSValueToCString(context, arguments[0], exception);
-		if (strncasecmp(drm, "widevine", 8) == 0)
+		std::string drm = aamp_JSValueToCString(context, arguments[0], exception);
+		if (strncasecmp(drm.c_str(), "widevine", 8) == 0)
 		{
 			LOG_WARN(pAAMP,"_aamp->SetPreferredDRM  WideWine");
 			pAAMP->_aamp->SetPreferredDRM(eDRM_WideVine);
 		}
-		if (strncasecmp(drm, "playready", 9) == 0)
+		if (strncasecmp(drm.c_str(), "playready", 9) == 0)
 		{
-		        LOG_WARN(pAAMP,"_aamp->SetPreferredDRM  PlayReady");
+			LOG_WARN(pAAMP,"_aamp->SetPreferredDRM  PlayReady");
 			pAAMP->_aamp->SetPreferredDRM(eDRM_PlayReady);
 		}
-		SAFE_DELETE_ARRAY(drm);
 	}
 	return JSValueMakeUndefined(context);
 }
@@ -3658,9 +3645,10 @@ static JSValueRef AAMP_setAlternateContent(JSContextRef context, JSObjectRef fun
 		 },
 		 "promiseCallback": function
 	 	 */
-		char *reservationId = NULL;
-		char *adId = NULL;
-		char *adURL = NULL;
+		const char *reservationId = NULL;
+		const char *adId = NULL;
+		const char *adURL = NULL;
+		std::string reservationIdBuf, adIdBuf, adURLBuf;
 		if (JSValueIsObject(context, arguments[0]))
 		{
 			//Parse the ad object
@@ -3674,7 +3662,8 @@ static JSValueRef AAMP_setAlternateContent(JSContextRef context, JSObjectRef fun
 			JSValueRef propValue = JSObjectGetProperty(context, reservationObject, propName, NULL);
 			if (JSValueIsString(context, propValue))
 			{
-				reservationId = aamp_JSValueToCString(context, propValue, NULL);
+				reservationIdBuf = aamp_JSValueToCString(context, propValue, NULL);
+				reservationId = reservationIdBuf.c_str();
 			}
 			JSStringRelease(propName);
 			
@@ -3688,7 +3677,8 @@ static JSValueRef AAMP_setAlternateContent(JSContextRef context, JSObjectRef fun
 				JSValueRef adPropValue = JSObjectGetProperty(context, adObject, adPropName, NULL);
 				if (JSValueIsString(context, adPropValue))
 				{
-					adId = aamp_JSValueToCString(context, adPropValue, NULL);
+					adIdBuf = aamp_JSValueToCString(context, adPropValue, NULL);
+					adId = adIdBuf.c_str();
 				}
 				JSStringRelease(adPropName);
 
@@ -3696,7 +3686,8 @@ static JSValueRef AAMP_setAlternateContent(JSContextRef context, JSObjectRef fun
 				adPropValue = JSObjectGetProperty(context, adObject, adPropName, NULL);
 				if (JSValueIsString(context, adPropValue))
 				{
-					adURL = aamp_JSValueToCString(context, adPropValue, NULL);
+					adURLBuf = aamp_JSValueToCString(context, adPropValue, NULL);
+					adURL = adURLBuf.c_str();
 				}
 				JSStringRelease(adPropName);
 			}
@@ -3724,9 +3715,6 @@ static JSValueRef AAMP_setAlternateContent(JSContextRef context, JSObjectRef fun
 			LOG_ERROR(pAAMP,"Unable to parse the promiseCallback argument");
 
 		}
-		SAFE_DELETE_ARRAY(reservationId);
-		SAFE_DELETE_ARRAY(adURL);
-		SAFE_DELETE_ARRAY(adId);
 	}
 	return JSValueMakeUndefined(context);
 }
@@ -3761,12 +3749,11 @@ static JSValueRef AAMP_notifyReservationCompletion(JSContextRef context, JSObjec
 	}
 	else
 	{
-		const char * reservationId = aamp_JSValueToCString(context, arguments[0], exception);
+		std::string reservationId = aamp_JSValueToCString(context, arguments[0], exception);
 		long time = (long) JSValueToNumber(context, arguments[1], exception);
 		//Need an API in AAMP to notify that placements for this reservation are over and AAMP might have to trim
 		//the ads to the period duration or not depending on time param
-                LOG_WARN(pAAMP,"Called reservation close for periodId:%s and time:%ld", reservationId, time);
-		SAFE_DELETE_ARRAY(reservationId);
+		LOG_WARN(pAAMP,"Called reservation close for periodId:%s and time:%ld", reservationId.c_str(), time);
 	}
 	return JSValueMakeUndefined(context);
 }
@@ -3809,10 +3796,11 @@ static JSValueRef AAMP_registerVodAdBreak(JSContextRef context, JSObjectRef func
 		return JSValueMakeUndefined(context);
 	}
 
-	char *breakId = NULL;
+	const char *breakId = NULL;
 	double insertionPointSec = 0.0;
 	double breakDurationSec = 0.0;
-	char *breakType = NULL;
+	const char *breakType = NULL;
+	std::string breakIdBuf, breakTypeBuf;
 
 	JSStringRef propName;
 	JSValueRef propValue;
@@ -3820,7 +3808,10 @@ static JSValueRef AAMP_registerVodAdBreak(JSContextRef context, JSObjectRef func
 	propName = JSStringCreateWithUTF8CString("breakId");
 	propValue = JSObjectGetProperty(context, breakObj, propName, NULL);
 	if (JSValueIsString(context, propValue))
-		breakId = aamp_JSValueToCString(context, propValue, NULL);
+	{
+		breakIdBuf = aamp_JSValueToCString(context, propValue, NULL);
+		breakId = breakIdBuf.c_str();
+	}
 	JSStringRelease(propName);
 
 	propName = JSStringCreateWithUTF8CString("insertionPointSec");
@@ -3838,7 +3829,10 @@ static JSValueRef AAMP_registerVodAdBreak(JSContextRef context, JSObjectRef func
 	propName = JSStringCreateWithUTF8CString("breakType");
 	propValue = JSObjectGetProperty(context, breakObj, propName, NULL);
 	if (JSValueIsString(context, propValue))
-		breakType = aamp_JSValueToCString(context, propValue, NULL);
+	{
+		breakTypeBuf = aamp_JSValueToCString(context, propValue, NULL);
+		breakType = breakTypeBuf.c_str();
+	}
 	JSStringRelease(propName);
 
 	if (breakId && breakType)
@@ -3853,8 +3847,6 @@ static JSValueRef AAMP_registerVodAdBreak(JSContextRef context, JSObjectRef func
 		LOG_ERROR(pAAMP,"registerVodAdBreak: missing required breakId or breakType");
 	}
 
-	SAFE_DELETE_ARRAY(breakId);
-	SAFE_DELETE_ARRAY(breakType);
 	return JSValueMakeUndefined(context);
 }
 
@@ -3889,13 +3881,9 @@ static JSValueRef AAMP_cancelVodAdBreak(JSContextRef context, JSObjectRef functi
 		return JSValueMakeUndefined(context);
 	}
 
-	const char *breakId = aamp_JSValueToCString(context, arguments[0], exception);
-	if (breakId)
-	{
-		LOG_WARN(pAAMP,"cancelVodAdBreak breakId=%s", breakId);
-		pAAMP->_aamp->CancelVodAdBreak(std::string(breakId));
-		SAFE_DELETE_ARRAY(breakId);
-	}
+	std::string breakId = aamp_JSValueToCString(context, arguments[0], exception);
+	LOG_WARN(pAAMP,"cancelVodAdBreak breakId=%s", breakId.c_str());
+	pAAMP->_aamp->CancelVodAdBreak(breakId);
 	return JSValueMakeUndefined(context);
 }
 
@@ -4188,15 +4176,13 @@ static JSValueRef AAMP_setTextStyleOptions(JSContextRef context, JSObjectRef fun
 	{
 		if (JSValueIsString(context, arguments[0]))
 		{
-			const char *options = aamp_JSValueToCString(context, arguments[0], NULL);
-            		LOG_WARN(pAAMP,"_aamp->SetTextStyle(%s)", options);
-			pAAMP->_aamp->SetTextStyle(std::string(options));
-			SAFE_DELETE_ARRAY(options);
-
+			std::string options = aamp_JSValueToCString(context, arguments[0], NULL);
+			LOG_WARN(pAAMP,"_aamp->SetTextStyle(%s)", options.c_str());
+			pAAMP->_aamp->SetTextStyle(options);
 		}
 		else
 		{
-            		LOG_ERROR(pAAMP,"InvalidArgument: Argument should be JSON formatted string");
+			LOG_ERROR(pAAMP,"InvalidArgument: Argument should be JSON formatted string");
 			*exception = aamp_GetException(context, AAMPJS_INVALID_ARGUMENT, "Failed to execute 'AAMP.setTextStyleOptions' - argument should be JSON formatted string");
 		}
 	}
@@ -4266,7 +4252,7 @@ static JSValueRef AAMP_setLanguageFormat(JSContextRef context, JSObjectRef funct
 	{
 		int preferredFormat = (int) JSValueToNumber(context, arguments[0], NULL);
 		bool useRole = JSValueToBoolean(context, arguments[1]);
-        	LOG_WARN(pAAMP," aamp->SetLanguageFormat(%d, %d)", preferredFormat, useRole);
+		LOG_WARN(pAAMP," aamp->SetLanguageFormat(%d, %d)", preferredFormat, useRole);
 		pAAMP->_aamp->SetLanguageFormat((LangCodePreference) preferredFormat, useRole);
 	}
 	return JSValueMakeUndefined(context);
@@ -4392,10 +4378,9 @@ static JSValueRef AAMP_setContentProtectionDataConfig(JSContextRef context, JSOb
 	}
 	if (argumentCount == 1 && JSValueIsObject(context, arguments[0]))
 	{
-		const char *jsonbuffer = aamp_JSValueToJSONCString(context,arguments[0], exception);
-        	LOG_WARN(pAAMP," Response json call ProcessContentProtection %s",jsonbuffer);
-		pAAMP->_aamp->ProcessContentProtectionDataConfig(jsonbuffer);
-		SAFE_DELETE_ARRAY(jsonbuffer);
+		std::string jsonbuffer = aamp_JSValueToJSONCString(context,arguments[0], exception);
+		LOG_WARN(pAAMP," Response json call ProcessContentProtection %s",jsonbuffer.c_str());
+		pAAMP->_aamp->ProcessContentProtectionDataConfig(jsonbuffer.c_str());
 	}
 	else
 	{

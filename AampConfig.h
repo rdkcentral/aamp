@@ -236,6 +236,12 @@ typedef enum
 	eAAMPConfig_LogFilename,				/**< Config to include source filename in log output */
 	eAAMPConfig_ProcessLicenseFromEAP,			/**< Config to enable non-VSS early available period DRM prefetch */
 	eAAMPConfig_EnableProducerReferenceDelay,		/**< Add PRT-derived encoder delay (from CalculateProducerReferenceTimeOffset) to DASH live latency calculation; default false */
+	eAAMPConfig_SynthesizeIframeForVOD,			/**< When true, synthesize an I-frame-only segment from the regular video track
+	                                                         to support VOD trickplay on assets/ads that lack a dedicated iframe adaptation
+	                                                         set. The download is intentionally aborted after the first sample payload has
+	                                                         been received (using GetIframeByteCap() to derive the byte cap), then
+	                                                         IsoBmffHelper::ConvertToKeyFrame() fixes the MOOF metadata. Has no effect
+	                                                         outside VOD (live and local-TSB streams are not eligible). Default: false. */
 	eAAMPConfig_BoolMaxValue				/**< Max value of bool config always last element */	
 
 } AAMPConfigSettingBool;
@@ -365,7 +371,8 @@ typedef enum
 	eAAMPConfig_RebufferLatencyStepSec,				/**< Step value for latency increase when rebuffering occurs */
 	eAAMPConfig_RebufferLatencyMaxIncrementSec,		/**< Max latency increment allowed due to rebuffering */
 	eAAMPConfig_LatencyStableDurationSec,				/**< Duration (s) of consecutive healthy buffer required before one latency-threshold restoration step (default: DEFAULT_LATENCY_STABLE_DURATION_SEC) */
-	eAAMPConfig_LatencyDangerBufferSec,				/**< Buffer level (s) below which latency thresholds are increased; buffer must stay above this for latencyStableDurationSec before thresholds are restored (default: DEFAULT_LATENCY_DANGER_BUFFER_SEC) */
+	eAAMPConfig_LatencyDangerBufferSec,				/**< Buffer level (s) below which latency thresholds are increased (default: DEFAULT_LATENCY_DANGER_BUFFER_SEC) */
+	eAAMPConfig_LatencyRestorationBufferSec,		/**< Buffer level (s) required during the full stable window before one latency-threshold restoration step is applied (default: DEFAULT_LATENCY_RESTORATION_BUFFER_SEC) */
 	eAAMPConfig_LLMinLatency,						/**< Low Latency Min Latency Offset */
 	eAAMPConfig_LLTargetLatency,					/**< Low Latency Target Latency */
 	eAAMPConfig_LLMaxLatency,						/**< Low Latency Max Latency */
