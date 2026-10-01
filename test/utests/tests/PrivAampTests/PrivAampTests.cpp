@@ -2039,13 +2039,12 @@ TEST_F(PrivAampTests, MonitorProgressIgnoresImplausiblePositionBelowStart)
  * ad/progress reporting. The fallback must use start in that case.
  *
  * Oracle: the ProgressEvent payload cannot be inspected here (the L1 fake
- * AampEvent always returns 0 for getPosition()), so this relies on the
- * mReportProgressPosn de-dupe check (`mReportProgressPosn == position`) as an
- * observable side effect. Pre-fix, tick 2's fallback reuses the stale,
- * out-of-range mReportProgressPosn (500,000) verbatim, which trivially equals
- * itself and gets de-duped - suppressing tick 2's event (only 1 of 2 ticks
- * report). Post-fix, tick 2 falls back to start (1,000,000) instead, which
- * differs from the stale value, so it is not de-duped (both ticks report).
+ * AampEvent always returns 0 for getPosition()), and mReportProgressPosn is
+ * private, so this asserts on mNewSeekInfo instead - a public member
+ * unconditionally updated with the exact post-fallback position on every call
+ * (priv_aamp.cpp: mNewSeekInfo.Update(position, seek_pos_seconds)). This
+ * directly proves tick 2's fallback position equals the current TSB start
+ * (1,000,000), not merely "some value different from the stale report".
  *
  * aamp_GetCurrentTimeMS() is mocked to always equal trickStartUTCMS (elapsed
  * time 0), so the trickplay extrapolation term is always zero regardless of
@@ -2073,11 +2072,12 @@ TEST_F(PrivAampTests, MonitorProgressFallbackIgnoresOutOfRangeStaleReport)
 	// contributes, and position is purely seek_pos_seconds*1000 on every tick.
 	EXPECT_CALL(*g_mockAampUtils, aamp_GetCurrentTimeMS()).WillRepeatedly(Return(FIXED_NOW_MS));
 
+	// Allow progress events through; the assertions on mNewSeekInfo below are
+	// the real oracle, not the event itself (the L1 fake ProgressEvent always
+	// returns 0 for getPosition()).
+	EXPECT_CALL(*g_mockAampEventManager, SendEvent(_, _)).Times(testing::AnyNumber());
 	// PlayFromTsbStart() must NOT be called on either tick.
 	EXPECT_CALL(*g_mockAampEventManager, SendEvent(SpeedChanged(AAMP_NORMAL_PLAY_RATE), _)).Times(0);
-
-	// Both ticks must report (see oracle note above); pre-fix this would be 1.
-	EXPECT_CALL(*g_mockAampEventManager, SendEvent(AnEventOfType(AAMP_EVENT_PROGRESS), _)).Times(2);
 
 	// Tick 1: seed a legitimate report of 500,000ms while the TSB start is 0 -
 	// well within [start, end], so this is reported normally (no BoS).
@@ -2089,6 +2089,7 @@ TEST_F(PrivAampTests, MonitorProgressFallbackIgnoresOutOfRangeStaleReport)
 	p_aamp->durationSeconds = 10000.0;
 	p_aamp->mAbsoluteEndPosition = p_aamp->culledSeconds + p_aamp->durationSeconds;
 	p_aamp->MonitorProgress(true, false);
+	EXPECT_DOUBLE_EQ(p_aamp->mNewSeekInfo.GetInfo().getPosition(), 500000.0);
 
 	// Tick 2: the TSB has culled forward so start is now 1,000,000ms - past the
 	// previously-reported 500,000ms. seek_pos_seconds collapses to 0, giving an
@@ -2098,6 +2099,10 @@ TEST_F(PrivAampTests, MonitorProgressFallbackIgnoresOutOfRangeStaleReport)
 	p_aamp->durationSeconds = 10.0;
 	p_aamp->mAbsoluteEndPosition = p_aamp->culledSeconds + p_aamp->durationSeconds;
 	p_aamp->MonitorProgress(true, false);
+
+	// The stale report (500,000 < new start) must not be reused; the fallback
+	// must produce exactly the new start (1,000,000).
+	EXPECT_DOUBLE_EQ(p_aamp->mNewSeekInfo.GetInfo().getPosition(), 1000000.0);
 }
 
 /**
