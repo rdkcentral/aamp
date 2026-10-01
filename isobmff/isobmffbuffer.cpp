@@ -303,7 +303,7 @@ static bool processRestampBuffer(uint64_t offset, uint64_t basePts, uint8_t *seg
 					(buf + sizeof(uint64_t) > bufferEnd))
 				{
 					// If the next 8 bytes would go past the end of the box or the buffer, skip this restamp
-					AAMPLOG_ERR("Skipping v1 tfdt restamp: 8-byte access out of bounds ,tfdtBoxEnd[%p] bufferEnd[%p] buf[%p]", tfdtBoxEnd, bufferEnd, buf);
+					AAMPLOG_ERR("Skipping v1 tfdt restamp: 8-byte access out of bounds or buffer pointer is null, tfdtBoxEnd[%p] bufferEnd[%p] buf[%p]", tfdtBoxEnd, bufferEnd, buf);
 					return false;
 				}
 				else
