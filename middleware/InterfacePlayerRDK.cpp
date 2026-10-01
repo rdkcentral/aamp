@@ -1565,7 +1565,7 @@ bool InterfacePlayerRDK::IsUsingRialtoSink()
 /**
  *  @brief Flush cached GstBuffers and set seek position & rate
  */
-bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, bool isAppSeek, bool keepPausedSeek)
+bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, bool isAppSeek)
 {
 	GstState aud_current;
 	GstState aud_pending;
