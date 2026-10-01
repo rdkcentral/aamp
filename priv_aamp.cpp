@@ -5677,21 +5677,24 @@ void PrivateInstanceAAMP::SetEarlyAbortRequestFlag(bool enableAbort)
  *        manifest-URL overload of IsAsyncTuneAbortRequired() delegate here so that
  *        the criteria stay in sync automatically.
  */
-bool PrivateInstanceAAMP::IsAsyncTuneSupportedForType(MediaFormat format, ContentType type) const
+bool PrivateInstanceAAMP::IsAsyncTuneSupportedForType(MediaFormat format, ContentType type, TuneType tuneType) const
 {
+	// Note: eTUNETYPE_NEW_END excluded so that both overloads of IsAsyncTuneAbortRequired(..) have the same behaviour.
+	// This is valid for live channel zapping case. It can be re-added later if needed.
 	return (eMEDIAFORMAT_DASH == format) &&
 	       (ContentType_LINEAR == type)  &&
-	        ((eTUNETYPE_NEW_NORMAL == mTuneType) || (eTUNETYPE_NEW_SEEK == mTuneType) || (eTUNETYPE_NEW_END == mTuneType)) && // replace with IsNewTune()
+	       ((eTUNETYPE_NEW_NORMAL == tuneType) || (eTUNETYPE_NEW_SEEK == tuneType) ) &&
 	       mAsyncTuneEnabled;
 }
 
 /**
  * @brief Determine whether the current tune type supports early async-tune abort.
- *        Uses stored mMediaFormat / mContentType (active tune).
+ *        Uses stored mMediaFormat, mContentType,  mTuneType(active tune).
+ *        So these must have already been set.
  */
 bool PrivateInstanceAAMP::IsAsyncTuneAbortSupported()
 {
-	return IsAsyncTuneSupportedForType(mMediaFormat, mContentType);
+	return IsAsyncTuneSupportedForType(mMediaFormat, mContentType, mTuneType);
 }
 
 /**
@@ -5705,16 +5708,20 @@ bool PrivateInstanceAAMP::IsAsyncTuneAbortRequired()
 /**
  * @brief Determine whether an incoming tune (identified by URL and content-type string)
  *        should be aborted because a Stop is in progress.
+ *        Use IsAsyncTuneAbortRequired() in preference except where this is called prior to tune parameters being parsed.
+ *        i.e. This is specific for use from PrivateInstanceAAMP::Tune(), not paths like retune.
  */
-bool PrivateInstanceAAMP::IsAsyncTuneAbortRequired(const char* manifestUrl, const char* contentTypeString)
+bool PrivateInstanceAAMP::IsAsyncTuneAbortRequired(const char* manifestUrl, const char* contentTypeString, double seek_pos)
 {
 	if (!mAsyncTaskAbortEnabled.load())
 		return false;
 	MediaFormat format = manifestUrl ? GetMediaFormatType(manifestUrl) : eMEDIAFORMAT_UNKNOWN;
 	// Map the content-type string to enum — the only type that supports abort is LINEAR_TV.
-	ContentType type = (contentTypeString && !strncmp(contentTypeString, "LINEAR_TV", 9))
+	ContentType contentType = (contentTypeString && !strncmp(contentTypeString, "LINEAR_TV", 9))
 	                 ? ContentType_LINEAR : ContentType_UNKNOWN;
-	return IsAsyncTuneSupportedForType(format, type);
+	// tune type as derived in PrivateInstanceAAMP::Tune()
+	TuneType tuneType = ((AAMP_DEFAULT_PLAYBACK_OFFSET == seek_pos) || (-1 == seek_pos)) ? eTUNETYPE_NEW_NORMAL : eTUNETYPE_NEW_SEEK;
+	return IsAsyncTuneSupportedForType(format, contentType, tuneType);
 }
 
 /**
@@ -8738,6 +8745,13 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 		}
 	}
 	SetLLDashChunkMode(false); //Reset ChunkMode before curl handles are torn down
+
+	// stop the mpd update before Stream abstraction delete
+	if(mMPDDownloaderInstance != nullptr)
+	{
+		mMPDDownloaderInstance->Release();
+	}
+
 	auto tearDownStartTime = NOW_STEADY_TS_MS;
 	TeardownStream(true,true); //disable download as well
 	auto tearDownEndTime = NOW_STEADY_TS_MS;
@@ -8758,12 +8772,6 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 	}
 	// Stop latency monitor and release resources.
 	StopLatencyMonitor();
-
-	// stop the mpd update immediately after Stream abstraction delete
-	if(mMPDDownloaderInstance != nullptr)
-	{
-		mMPDDownloaderInstance->Release();
-	}
 
 	if(mTSBSessionManager)
 	{
@@ -9529,6 +9537,7 @@ void PrivateInstanceAAMP::NotifyFragmentCachingComplete()
 		if(mpStreamAbstractionAAMP)
 		{
 			mpStreamAbstractionAAMP->NotifyPlaybackPaused(false);
+			mpStreamAbstractionAAMP->NotifyPipelineResumedToUnderflowMonitor(rate);
 		}
 		SetState(eSTATE_PLAYING);
 	}
@@ -11725,6 +11734,13 @@ bool PrivateInstanceAAMP::SetStateBufferingIfRequired()
 			if(mpStreamAbstractionAAMP)
 			{
 				mpStreamAbstractionAAMP->NotifyPlaybackPaused(true);
+				// Disarm the underflow monitor for the duration of fragment caching.
+				// The GStreamer pipeline is not explicitly paused here (unlike
+				// SetBufferingState), but content delivery to the sink is stalled
+				// while fragments are pre-cached.  Without this call the monitor's
+				// deadline will expire and trigger a false underflow.
+				// Re-armed in NotifyFragmentCachingComplete() once delivery resumes.
+				mpStreamAbstractionAAMP->NotifyPipelinePausedToUnderflowMonitor();
 			}
 			StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 			if(sink)
