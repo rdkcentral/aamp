@@ -139,9 +139,11 @@ public:
      *   @param[in]  position - playback position
      *   @param[in]  rate - Speed
      *   @param[in]  shouldTearDown - if pipeline is not in a valid state, tear down pipeline
+     *   @param[in]  positionIsAuthoritative - true if position is the definitive resume position,
+     *               false if it's a placeholder pending resolution from the next sample
      *   @return void
      */
-    virtual void Flush(double position = 0, int rate = AAMP_NORMAL_PLAY_RATE, bool shouldTearDown = true){}
+    virtual void Flush(double position = 0, int rate = AAMP_NORMAL_PLAY_RATE, bool shouldTearDown = true, bool positionIsAuthoritative = false){}
 
     /**
      *   @brief Flush the audio playbin
