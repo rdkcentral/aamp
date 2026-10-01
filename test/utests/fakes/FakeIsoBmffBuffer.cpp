@@ -215,16 +215,18 @@ bool IsoBmffBuffer::getTrack_id(uint32_t &track_id)
 	return false;
 }
 
-void IsoBmffBuffer::restampPTS(uint64_t offset, uint64_t basePts, uint8_t *segment, uint32_t bufSz,const uint8_t *bufferEnd)
+bool IsoBmffBuffer::restampPTS(uint64_t offset, uint64_t basePts, uint8_t *segment, uint32_t bufSz,const uint8_t *bufferEnd)
 {
+	return true;
 }
 
-void IsoBmffBuffer::restampPts(int64_t offset)
+bool IsoBmffBuffer::restampPts(int64_t offset)
 {
     if (g_mockIsoBmffBuffer)
     {
-        g_mockIsoBmffBuffer->restampPts(offset);
+        return g_mockIsoBmffBuffer->restampPts(offset);
     }
+	return true;
 }
 
 bool IsoBmffBuffer::setTrickmodeTimescale(uint32_t timeScale)

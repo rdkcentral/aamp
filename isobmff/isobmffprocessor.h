@@ -379,7 +379,7 @@ private:
 	 * @param[in] isInit - flag for buffer type (init, data)
 	 * @return void
 	 */
-	void restampPTSAndSendSegment(std::vector<uint8_t>& buffer, double position, double duration, bool isDiscontinuity, bool isInit);
+	bool restampPTSAndSendSegment(std::vector<uint8_t>& buffer, double position, double duration, bool isDiscontinuity, bool isInit);
 
 	/**
 	 * @fn cacheInitBufferForRestampingPTS

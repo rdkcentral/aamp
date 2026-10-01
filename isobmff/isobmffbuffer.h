@@ -122,7 +122,7 @@ private:
 	 * @param[in] offset - pts offset
 	 * @param[in] boxes - vector of parsed boxes
 	 */
-	void restampPtsUsingParsedBoxes(int64_t offset, const std::vector<std::unique_ptr<Box>> *boxes);
+	bool restampPtsUsingParsedBoxes(int64_t offset, const std::vector<std::unique_ptr<Box>> *boxes);
 
 	/**
 	 * @fn updateSampleDurationInternal
@@ -263,9 +263,9 @@ public:
 	 *                        call when left null, and preserved across the
 	 *                        recursion so bounds checks always refer to the
 	 *                        entire fragment
-	 * @return void
+	 * @return true if all TFDT boxes were restamped, false otherwise
 	 */
-	void restampPTS(uint64_t offset, uint64_t basePts, uint8_t *segment, uint32_t bufSz, const uint8_t *bufferEnd = nullptr);
+	bool restampPTS(uint64_t offset, uint64_t basePts, uint8_t *segment, uint32_t bufSz, const uint8_t *bufferEnd = nullptr);
 
 	/**
 	 * @fn restampPts
@@ -276,8 +276,9 @@ public:
 	 *        to return the right value.
 	 *
 	 * @param[in] offset - pts offset
+	 * @return true if all TFDT boxes were restamped, false otherwise
 	 */
-	void restampPts(int64_t offset);
+	bool restampPts(int64_t offset);
 
 	/**
 	 * @fn setPtsAndDuration
