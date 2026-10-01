@@ -236,6 +236,11 @@ private:
 	static constexpr double kBurstCvMax = 10.0;				///< CV upper edge
 	AampTimingHistogram mStreamBurstsPerSegHist{kBurstsPerSegBucket, kBurstsPerSegMax};	///< Per-request burst counts
 	AampTimingHistogram mStreamBurstCvHist{kBurstCvBucket, kBurstCvMax};				///< Per-request byte-size CVs
+	// Inter-burst gap distribution (ms) — backs the tail fields late_chunk_p and
+	// late_chunk_extra_ms, which count/average gaps above a dynamic threshold.
+	static constexpr double kGapBucketMs = 5.0;			///< Gap histogram resolution (ms)
+	static constexpr double kGapMaxMs = 10000.0;		///< Gap histogram upper edge (ms)
+	AampTimingHistogram mStreamAllGapHist{kGapBucketMs, kGapMaxMs};	///< All inter-burst gaps (ms)
 	// Burst throughput: geometric mean and log-normal spread of per-burst rate.
 	std::size_t mStreamLnRateN{0};			///< Count of bursts with a positive rate
 	double mStreamLnRateSum{0.0};			///< Sum of ln(rate) over bursts
