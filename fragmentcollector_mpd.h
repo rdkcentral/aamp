@@ -1204,6 +1204,7 @@ protected:
 	std::map<int, struct ProfileInfo> mProfileMaps;
 
 	bool mIsFogTSB;
+	bool mUseCachedMainAssetSubtitleHeader;
 	IPeriod *mCurrentPeriod;
 	std::string mBasePeriodId;
 	double mBasePeriodOffset;
