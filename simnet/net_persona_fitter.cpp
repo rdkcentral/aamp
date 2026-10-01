@@ -407,9 +407,20 @@ void NetPersonaFitter::AddRequest(double ttfbS, int connReused, bool keepRecord)
 
 	// O(1) streaming update — always performed.
 	++mStreamReqCount;
+	const double ttfbMs = ttfbS * 1000.0;
+	mStreamAllTtfbHist.Add(ttfbMs);
+	mStreamAllTtfbSum += ttfbMs;
+	mStreamAllTtfbSumSq += ttfbMs * ttfbMs;
 	if (connReused == 1)
 	{
 		++mStreamReuseCount;
+		mStreamReusedTtfbHist.Add(ttfbMs);
+		mStreamReusedTtfbSum += ttfbMs;
+		mStreamReusedTtfbSumSq += ttfbMs * ttfbMs;
+	}
+	else
+	{
+		mStreamFreshTtfbHist.Add(ttfbMs);
 	}
 
 	if (keepRecord)
@@ -469,6 +480,56 @@ static double StreamSampleStd(std::size_t n, double sum, double sumSq)
 	return (variance > 0.0) ? std::sqrt(variance) : 0.0;
 }
 
+/// Robust standard deviation (IQR/1.349) from a fixed-memory TTFB histogram,
+/// mirroring RobustStd() in the file-based fitter. Falls back to the sample std
+/// (from running sums) when the approximate IQR is non-positive. Returns 0 if n < 2.
+static double StreamRobustStd(const AampTimingHistogram& hist,
+							  std::size_t n, double sum, double sumSq)
+{
+	if (n < 2) return 0.0;
+	double q1 = hist.ApproximatePercentileMs(25.0);
+	double q3 = hist.ApproximatePercentileMs(75.0);
+	double iqr = q3 - q1;
+	if (iqr > 0.0)
+	{
+		return iqr / 1.349;
+	}
+	return StreamSampleStd(n, sum, sumSq);
+}
+
+void NetPersonaFitter::AddRequestBurstSummary(std::size_t burstCount,
+											  double bytesSum, double bytesSumSq)
+{
+	std::lock_guard<std::mutex> lock{mMutex};
+
+	// bursts_per_segment: median of per-request burst counts (requests with at
+	// least one burst, mirroring FitBursts()).
+	if (burstCount >= 1)
+	{
+		mStreamBurstsPerSegHist.Add(static_cast<double>(burstCount));
+	}
+
+	// burst_bytes_cv: median across requests of per-request byte-size CV.
+	// Mirror FitBursts(): < 2 bursts contribute 0.0; a non-positive mean is skipped.
+	if (burstCount < 2)
+	{
+		mStreamBurstCvHist.Add(0.0);
+	}
+	else
+	{
+		double mean = bytesSum / static_cast<double>(burstCount);
+		if (mean > 0.0)
+		{
+			double sd = StreamSampleStd(burstCount, bytesSum, bytesSumSq);
+			double cv = sd / mean;
+			if (std::isfinite(cv))
+			{
+				mStreamBurstCvHist.Add(cv);
+			}
+		}
+	}
+}
+
 std::string NetPersonaFitter::BuildMinimalPersonaJson() const
 {
 	std::lock_guard<std::mutex> lock{mMutex};
@@ -506,18 +567,72 @@ std::string NetPersonaFitter::BuildMinimalPersonaJson() const
 		? static_cast<double>(mStreamReuseCount) / static_cast<double>(mStreamReqCount)
 		: 0.0;
 
+	// Median/percentile RTT fields from the fixed-memory TTFB histograms.
+	// Mirrors FitRequests(): prefer the reused-connection distribution once
+	// enough reused samples exist, otherwise use the full distribution.
+	double baseRttMs = 0.0;
+	double rttJitterMs = 0.0;
+	if (mStreamReuseCount < 5)
+	{
+		baseRttMs = mStreamAllTtfbHist.ApproximateMedianMs();
+		rttJitterMs = StreamRobustStd(mStreamAllTtfbHist, mStreamReqCount,
+									  mStreamAllTtfbSum, mStreamAllTtfbSumSq);
+	}
+	else
+	{
+		baseRttMs = mStreamReusedTtfbHist.ApproximateMedianMs();
+		rttJitterMs = StreamRobustStd(mStreamReusedTtfbHist, mStreamReuseCount,
+									  mStreamReusedTtfbSum, mStreamReusedTtfbSumSq);
+	}
+
+	// new_conn_penalty_ms: median(fresh) - median(reused) when both samples are
+	// sufficient, otherwise a fraction of the base RTT (mirrors FitRequests()).
+	std::size_t freshCount = mStreamReqCount - mStreamReuseCount;
+	double newConnPenaltyMs = 0.0;
+	if (mStreamReuseCount >= 5 && freshCount >= 3)
+	{
+		newConnPenaltyMs = std::max(0.0,
+			mStreamFreshTtfbHist.ApproximateMedianMs() -
+			mStreamReusedTtfbHist.ApproximateMedianMs());
+	}
+	else
+	{
+		newConnPenaltyMs = std::max(0.0, baseRttMs * 0.95);
+	}
+
+	// Burst-shape fields from fixed-memory histograms. Fall back to the
+	// file-persona struct defaults when no burst summaries were recorded.
+	int burstsPerSegment = 4;
+	if (mStreamBurstsPerSegHist.SampleCount() > 0)
+	{
+		// Histogram midpoint for an integer count c lands at c + 0.5; flooring
+		// recovers c. Clamp to >= 1, mirroring FitBursts().
+		burstsPerSegment = std::max(1,
+			static_cast<int>(std::floor(mStreamBurstsPerSegHist.ApproximateMedianMs())));
+	}
+	double burstBytesCv = 0.35;
+	if (mStreamBurstCvHist.SampleCount() > 0)
+	{
+		burstBytesCv = mStreamBurstCvHist.ApproximateMedianMs();
+	}
+
 	// JSON does not allow NaN/Inf; clamp any non-finite value to 0.0.
 	auto jv = [](double v) -> double { return std::isfinite(v) ? v : 0.0; };
 
 	std::ostringstream oss;
 	oss << std::setprecision(15);
 	oss << "{"
-		<< "\"mean_thr_mbps\": "     << jv(meanThrMbps)     << ", "
-		<< "\"thr_sigma_ln\": "      << jv(thrSigmaLn)      << ", "
-		<< "\"cadence_ms\": "        << jv(cadenceMs)       << ", "
-		<< "\"cadence_jitter_ms\": " << jv(cadenceJitterMs) << ", "
-		<< "\"flush_jitter_ms\": "   << 6                   << ", "
-		<< "\"p_conn_reuse\": "      << jv(pConnReuse)
+		<< "\"base_rtt_ms\": "       << jv(baseRttMs)        << ", "
+		<< "\"rtt_jitter_ms\": "     << jv(rttJitterMs)      << ", "
+		<< "\"mean_thr_mbps\": "     << jv(meanThrMbps)      << ", "
+		<< "\"thr_sigma_ln\": "      << jv(thrSigmaLn)       << ", "
+		<< "\"bursts_per_segment\": " << burstsPerSegment    << ", "
+		<< "\"burst_bytes_cv\": "    << jv(burstBytesCv)     << ", "
+		<< "\"cadence_ms\": "        << jv(cadenceMs)        << ", "
+		<< "\"cadence_jitter_ms\": " << jv(cadenceJitterMs)  << ", "
+		<< "\"flush_jitter_ms\": "   << 6                    << ", "
+		<< "\"p_conn_reuse\": "      << jv(pConnReuse)        << ", "
+		<< "\"new_conn_penalty_ms\": " << jv(newConnPenaltyMs)
 		<< "}";
 	return oss.str();
 }
@@ -536,6 +651,44 @@ void NetPersonaFitter::ResetStreaming()
 	mStreamAllGapN = 0;
 	mStreamAllGapSum = 0.0;
 	mStreamAllGapSumSq = 0.0;
+	mStreamAllTtfbHist.Reset();
+	mStreamReusedTtfbHist.Reset();
+	mStreamFreshTtfbHist.Reset();
+	mStreamAllTtfbSum = 0.0;
+	mStreamAllTtfbSumSq = 0.0;
+	mStreamReusedTtfbSum = 0.0;
+	mStreamReusedTtfbSumSq = 0.0;
+	mStreamBurstsPerSegHist.Reset();
+	mStreamBurstCvHist.Reset();
+}
+
+void NetPersonaFitter::Reset()
+{
+	std::lock_guard<std::mutex> lock{mMutex};
+	mRequests.clear();
+	mBursts.clear();
+	mGenerated = false;
+	// Streaming accumulators (mirror ResetStreaming, already under the lock).
+	mStreamReqCount = 0;
+	mStreamReuseCount = 0;
+	mStreamLnRateN = 0;
+	mStreamLnRateSum = 0.0;
+	mStreamLnRateSumSq = 0.0;
+	mStreamGuardGapN = 0;
+	mStreamGuardGapSum = 0.0;
+	mStreamGuardGapSumSq = 0.0;
+	mStreamAllGapN = 0;
+	mStreamAllGapSum = 0.0;
+	mStreamAllGapSumSq = 0.0;
+	mStreamAllTtfbHist.Reset();
+	mStreamReusedTtfbHist.Reset();
+	mStreamFreshTtfbHist.Reset();
+	mStreamAllTtfbSum = 0.0;
+	mStreamAllTtfbSumSq = 0.0;
+	mStreamReusedTtfbSum = 0.0;
+	mStreamReusedTtfbSumSq = 0.0;
+	mStreamBurstsPerSegHist.Reset();
+	mStreamBurstCvHist.Reset();
 }
 
 std::size_t NetPersonaFitter::GetRequestCount() const

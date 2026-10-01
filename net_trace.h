@@ -244,9 +244,20 @@ public:
 		// the full records are kept for the file persona only when mKeepRecord.
 		auto& fitter = NetPersonaFitter::GetInstance();
 		fitter.AddRequest(mStartXferS, mConnReused, mKeepRecord);
+		double bytesSum = 0.0, bytesSumSq = 0.0;
 		for (const auto& b : mBursts)
 		{
 			fitter.AddBurst(mReqId, b.index, b.duration, b.bytes, b.gapBefore, mKeepRecord);
+			double by = static_cast<double>(b.bytes);
+			bytesSum += by;
+			bytesSumSq += by * by;
+		}
+		// Summarize this request's burst group in a single atomic call so the
+		// median burst fields (bursts_per_segment, burst_bytes_cv) are grouped
+		// correctly even when media tracks flush concurrently.
+		if (!mBursts.empty())
+		{
+			fitter.AddRequestBurstSummary(mBursts.size(), bytesSum, bytesSumSq);
 		}
 	}
 	
