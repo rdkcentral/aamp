@@ -2512,33 +2512,19 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 		// Note: position could be = start immediately after tuning
 		else if (position < start || beginningOfStream)
 		{
-			// A trickplay position estimate (GetPositionMilliseconds()) can momentarily
-			// underflow far below start when trickStartUTCMS/seek_pos_seconds are transiently
-			// inconsistent across rapid rate changes. A genuine rewind cannot be further below
-			// start than the buffered span, so only honour position<start as BoS within that
-			// bound. An explicit beginningOfStream signal from the sink is always trusted.
-			if (beginningOfStream || ((start - position) <= (end - start)))
-			{
-				// Reached the start of the stream (start of AAMP TSB, beginning of VoD asset...)
-				AAMPLOG_INFO("Reached start, position %fms < start %fms, beginningOfStream %d, rate %f",
-					position, start, beginningOfStream, rate);
-				position = start;
-				reachedStart = true;
-			}
-			else
-			{
-				// Implausible underflow: do not treat as BoS or seek to start; keep last reported position.
-				// TEMP DIAGNOSTIC (position-jump-to-TSB-start investigation): log the position inputs and
-				// mState so a repro reveals whether the spurious value originates in the position calc (#2)
-				// and/or a stale trickStartUTCMS (#3). Remove once the root cause is confirmed.
-				AAMPLOG_WARN("Ignoring implausible position %fms below start %fms (underrun %fms > span %fms), rate %f seek_pos=%.3f trickStartUTCMS=%lld state=%d",
-					position, start, (start - position), (end - start), rate, seek_pos_seconds, trickStartUTCMS, (int)GetState());
-				// Only reuse the previous report if it is still within the current seekable
-				// range; culledSeconds/mAbsoluteEndPosition can move between ticks, so a stale
-				// value could itself be out of range.
-				bool prevReportInRange = (mReportProgressPosn >= start) && (mReportProgressPosn <= end);
-				position = prevReportInRange ? mReportProgressPosn : start;
-			}
+			// Reached the start of the stream (start of AAMP TSB, beginning of VoD asset...)
+			AAMPLOG_INFO("Reached start, position %fms < start %fms, beginningOfStream %d, rate %f",
+				position, start, beginningOfStream, rate);
+			// DIAGNOSTIC (position-jump-to-TSB-start investigation): explicit, greppable
+			// record of every forced seek to TSB start, with the underrun magnitude and the
+			// position-extrapolation inputs, to confirm whether a future repro's jump is a
+			// genuine rewind-to-BoS (small/plausible underrun) or a spurious one (e.g. a
+			// stale/raced trickStartUTCMS - large underrun with a freshly-set trickStartUTCMS).
+			// Remove once the root cause is confirmed.
+			AAMPLOG_WARN("[TSB-START-JUMP] forcing seek to TSB start: position %fms underrun %fms below start %fms, beginningOfStream %d, rate %f seek_pos=%.3f trickStartUTCMS=%lld state=%d",
+				position, (start - position), start, beginningOfStream, rate, seek_pos_seconds, trickStartUTCMS, (int)GetState());
+			position = start;
+			reachedStart = true;
 		}
 		DeliverAdEvents(false, position); // use progress reporting as trigger to belatedly deliver ad events
 		ReportAdProgress(position);
