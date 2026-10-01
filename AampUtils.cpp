@@ -189,6 +189,11 @@ void aamp_ResolveURL(std::string& dst, std::string base, const char *uri , bool 
 		}
 		const char *baseStart = base.c_str();
 		const char *basePtr = ParseUriProtocol(baseStart);
+		if( !basePtr )
+		{
+			AAMPLOG_ERR("Invalid base url: %s", baseStart);
+			return;
+		}
 		const char *baseEnd;
 		for(;;)
 		{
