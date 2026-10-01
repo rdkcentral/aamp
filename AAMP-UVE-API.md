@@ -627,20 +627,73 @@ Returns one of the logical player states as a number.
 
 | State Name | Value | Semantics | Remarks |
 | ---- | ---- | ---------- | ------- |
-| idle | 0 | eSTATE_IDLE | Player is idle |
-| initializing | 1 | eSTATE_INITIALIZING | Player is initializing resources to start playback |
-| initialized | 2 | eSTATE_INITIALIZED | Player completed playlist download and metadata processing |
-| preparing | 3 | eSTATE_PREPARING | Create internal resources required for DRM decryption and playback |
-| prepared | 4 | eSTATE_PREPARED | Required resources are initialized successfully |
-| buffering | 5 | eSTATE_BUFFERING | When player does internal buffering mid-playback. Note -send out in initial buffering |
-| paused | 6 | eSTATE_PAUSED | Indicates player is paused |
-| seeking | 7 | eSTATE_SEEKING | Indicates player is seeking |
-| playing | 8 | eSTATE_PLAYING | Indicates player is in playing state  |
-| stopping | 9 | eSTATE_STOPPING | Deprecated  |
-| stopped | 10 | eSTATE_STOPPED | Not supported for all stream types. To be deprecated |
-| complete | 11 | eSTATE_COMPLETE | Indicates the end of media |
-| error | 12 | eSTATE_ERROR | Indicates error in playback |
-| released | 13 | eSTATE_RELEASED | To be deprecated |
+| idle | 0 | eSTATE_IDLE | No playback session is active; the player can accept a new `load()` request. |
+| initializing | 1 | eSTATE_INITIALIZING | A `load()` request has started and tune configuration is being initialized. |
+| initialized | 2 | eSTATE_INITIALIZED | Tune configuration is complete; manifest or playlist acquisition can begin. |
+| preparing | 3 | eSTATE_PREPARING | The player is acquiring and processing the manifest or playlists. |
+| prepared | 4 | eSTATE_PREPARED | The manifest or playlists have been acquired and parsed, and playback is ready to start. |
+| buffering | 5 | eSTATE_BUFFERING | Playback is waiting for sufficient media data after the pipeline runs dry. This state may also be used when configured initial fragment caching is in progress. |
+| paused | 6 | eSTATE_PAUSED | The media pipeline is paused and the playback position is not advancing. |
+| seeking | 7 | eSTATE_SEEKING | An application-requested seek is in progress. The player returns to playing or paused when the seek completes. |
+| playing | 8 | eSTATE_PLAYING | Audio/video is being presented at normal speed or in fast-forward/rewind mode. |
+| stopping | 9 | eSTATE_STOPPING | A stop request is in progress. This state is deprecated. |
+| stopped | 10 | eSTATE_STOPPED | Playback has stopped. This state is used only by some input stream types and is planned for deprecation. |
+| complete | 11 | eSTATE_COMPLETE | Playback reached the end of a VOD asset. |
+| error | 12 | eSTATE_ERROR | A fatal playback error occurred and playback stopped. Call `stop()` before reusing the player. |
+| released | 13 | eSTATE_RELEASED | The player has no allocated playback resources. This is also the initial state before the first `load()`; after an explicit `release()`, the instance must not be used again. This state is planned for deprecation. |
+| blocked | 14 | eSTATE_BLOCKED | Audio/video presentation is blocked by parental-control restrictions. This state is used for ATSC playback. |
+
+**Typical State Transitions:**
+
+The exact sequence can vary by stream type and platform. Deprecated states are
+included for completeness.
+
+```plantuml
+@startuml
+hide empty description
+
+[*] --> released : player created
+released --> initializing : load()
+idle --> initializing : load()
+
+initializing --> initialized : tune configuration complete
+initialized --> preparing : acquire manifest/playlists
+preparing --> prepared : manifest/playlists parsed
+prepared --> playing : playback starts
+
+playing --> paused : pause() / setPlaybackRate(0)
+paused --> playing : play() / setPlaybackRate(1)
+
+playing --> seeking : seek()
+paused --> seeking : seek()
+seeking --> playing : seek complete
+seeking --> paused : seek complete with keepPause
+
+playing --> buffering : media buffer runs dry
+prepared --> buffering : initial fragment caching
+buffering --> playing : buffering complete
+
+playing --> complete : end of stream
+playing --> blocked : parental-control restriction
+blocked --> playing : restriction removed
+playing --> stopped : supported input stream stopped
+
+initializing --> error : fatal tune error
+preparing --> error : fatal tune error
+prepared --> error : fatal playback error
+playing --> error : fatal playback error
+buffering --> error : fatal playback error
+seeking --> error : fatal playback error
+
+stopping --> idle : stop complete
+idle --> released : release()
+
+note right of stopping
+    stop() can transition any active state
+    through stopping to idle.
+end note
+@enduml
+```
 
 ---
 
