@@ -1985,6 +1985,52 @@ TEST_F(PrivAampTests, MonitorProgressRewindToBoS_ProgressBeforeSpeedChange)
 }
 
 /**
+ * @brief Regression test: a trickplay position estimate that underflows
+ * implausibly far below start must NOT be treated as beginning-of-TSB.
+ *
+ * Reproduces the false "Reached start" seen when rapid rewind rate changes
+ * leave trickStartUTCMS/seek_pos_seconds transiently inconsistent, so
+ * GetPositionMilliseconds() reports a position far below culledSeconds
+ * (start). The underrun exceeds the buffered span, so PlayFromTsbStart()
+ * must not run and the rate / seek position must be preserved.
+ */
+TEST_F(PrivAampTests, MonitorProgressIgnoresImplausiblePositionBelowStart)
+{
+	constexpr double REWIND_RATE = -4.0;
+	constexpr double CULLED_SECONDS = 1000.0;   // start = 1,000,000 ms
+	constexpr double DURATION_SECONDS = 10.0;   // span  =    10,000 ms
+
+	// trickStartUTCMS left at its default (-1), so GetPositionMilliseconds()
+	// returns seek_pos_seconds*1000 = 0, i.e. 1,000,000 ms below start -
+	// far more than the 10,000 ms buffered span.
+	p_aamp->rate = REWIND_RATE;
+	p_aamp->seek_pos_seconds = 0.0;
+	p_aamp->culledSeconds = CULLED_SECONDS;
+	p_aamp->durationSeconds = DURATION_SECONDS;
+	p_aamp->mDownloadsEnabled = true;
+	p_aamp->mSinkPaused = false;
+	p_aamp->SetState(eSTATE_PLAYING, true);
+	p_aamp->SetLocalAAMPTsb(true);
+	p_aamp->mMediaFormat = eMEDIAFORMAT_DASH;
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP_MPD.get();
+
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp)).WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer.get()));
+
+	// PlayFromTsbStart() must NOT be called, so no reset-to-normal speed change.
+	EXPECT_CALL(*g_mockAampEventManager, SendEvent(SpeedChanged(AAMP_NORMAL_PLAY_RATE), _)).Times(0);
+
+	// position (0) < start (1,000,000) but underrun (1,000,000) > span (10,000):
+	// implausible, so the reachedStart branch must be skipped.
+	p_aamp->MonitorProgress(true, false);
+
+	// Rate and seek position preserved (no forced seek to TSB start).
+	EXPECT_FLOAT_EQ(p_aamp->rate, REWIND_RATE);
+	EXPECT_DOUBLE_EQ(p_aamp->seek_pos_seconds, 0.0);
+}
+
+/**
  * @brief Regression test for the de-dupe edge case (Copilot review on PR #1345).
  *
  * When the previous tick already reported position == start, the de-dupe logic

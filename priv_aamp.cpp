@@ -2512,11 +2512,29 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 		// Note: position could be = start immediately after tuning
 		else if (position < start || beginningOfStream)
 		{
-			// Reached the start of the stream (start of AAMP TSB, beginning of VoD asset...)
-			AAMPLOG_INFO("Reached start, position %fms < start %fms, beginningOfStream %d, rate %f",
-				position, start, beginningOfStream, rate);
-			position = start;
-			reachedStart = true;
+			// A trickplay position estimate (GetPositionMilliseconds()) can momentarily
+			// underflow far below start when trickStartUTCMS/seek_pos_seconds are transiently
+			// inconsistent across rapid rate changes. A genuine rewind cannot be further below
+			// start than the buffered span, so only honour position<start as BoS within that
+			// bound. An explicit beginningOfStream signal from the sink is always trusted.
+			if (beginningOfStream || ((start - position) <= (end - start)))
+			{
+				// Reached the start of the stream (start of AAMP TSB, beginning of VoD asset...)
+				AAMPLOG_INFO("Reached start, position %fms < start %fms, beginningOfStream %d, rate %f",
+					position, start, beginningOfStream, rate);
+				position = start;
+				reachedStart = true;
+			}
+			else
+			{
+				// Implausible underflow: do not treat as BoS or seek to start; keep last reported position.
+				// TEMP DIAGNOSTIC (position-jump-to-TSB-start investigation): log the position inputs and
+				// mState so a repro reveals whether the spurious value originates in the position calc (#2)
+				// and/or a stale trickStartUTCMS (#3). Remove once the root cause is confirmed.
+				AAMPLOG_WARN("Ignoring implausible position %fms below start %fms (underrun %fms > span %fms), rate %f seek_pos=%.3f trickStartUTCMS=%lld state=%d",
+					position, start, (start - position), (end - start), rate, seek_pos_seconds, trickStartUTCMS, (int)GetState());
+				position = (mReportProgressPosn > 0) ? mReportProgressPosn : start;
+			}
 		}
 		DeliverAdEvents(false, position); // use progress reporting as trigger to belatedly deliver ad events
 		ReportAdProgress(position);
@@ -8531,6 +8549,23 @@ long long PrivateInstanceAAMP::GetPositionMilliseconds()
 			{
 				//Previous position values calculated using different values of seek_pos_seconds are considered invalid.
 				AAMPLOG_WARN("prev-pos-ms (%lld) is invalid. seek_pos_seconds = %f, seek_pos_seconds when prev-pos-ms was stored = %f.",prevPositionInfo.getPosition(), seek_pos_seconds_copy, prevPositionInfo.getSeekPositionSec());
+			}
+		}
+		else
+		{
+			// TEMP DIAGNOSTIC (position-jump-to-TSB-start investigation): in trickplay,
+			// capture the position inputs whenever the extrapolated position underflows
+			// below start. Distinguishes a stale trickStartUTCMS (relTerm dominated by a
+			// large 'elapsed') from other position faults, and records mState. Remove once
+			// the root cause (fix #2 vs #3) is confirmed.
+			const double startMs = culledSeconds * 1000.0;
+			if (positionMilliseconds < startMs)
+			{
+				const long long nowMs = aamp_GetCurrentTimeMS();
+				const long long relTermMs = positionMilliseconds - (long long)(seek_pos_seconds_copy * 1000.0);
+				AAMPLOG_WARN("[POS-DIAG] trickplay pos %lld < start %.0f | seek_pos=%.3f trickStartUTCMS=%lld now=%lld elapsed=%lld relTerm=%lld rate=%.1f culled=%.3f state=%d",
+					positionMilliseconds, startMs, seek_pos_seconds_copy, trickStartUTCMS_copy,
+					nowMs, (nowMs - trickStartUTCMS_copy), relTermMs, rate_copy, culledSeconds, (int)GetState());
 			}
 		}
 
@@ -15204,10 +15239,19 @@ void PrivateInstanceAAMP::IncrementGaps()
  */
 double PrivateInstanceAAMP::GetStreamPositionMs()
 {
-	double pos = (double)GetPositionMilliseconds();
+	long long rawPos = GetPositionMilliseconds();
+	double pos = (double)rawPos;
 	if (mProgressReportOffset >= 0)
 	{
 		pos -= (mProgressReportOffset * 1000);
+	}
+	// TEMP DIAGNOSTIC (position-jump-to-TSB-start investigation): a negative stream
+	// position reaching DRM/secmanager means either the raw position (#2) or the
+	// offset is wrong. rawPos vs pos separates the two. Remove once root cause confirmed.
+	if (pos < 0)
+	{
+		AAMPLOG_WARN("[POS-DIAG] negative stream pos %.0f | rawPos=%lld offset=%.3f rate=%.1f culled=%.3f state=%d",
+			pos, rawPos, mProgressReportOffset, rate, culledSeconds, (int)GetState());
 	}
 	return pos;
 }
