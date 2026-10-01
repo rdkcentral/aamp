@@ -302,12 +302,10 @@ bool IsoBmffBuffer::restampPTS(uint64_t offset, uint64_t basePts, uint8_t *segme
 			uint32_t flags  = READ_FLAGS(buf);
 
 			(void)flags; // Avoid a warning.
-			//Assert that the buffer pointer is not null before accessing it
-			assert(buf != nullptr);
 			if (1 == version)
 			{ 	
 				// Check OOB for tfdt box for version 1
-				if ((buf + sizeof(uint64_t) > tfdtBoxEnd) ||
+				if ((buf == nullptr) ||(buf + sizeof(uint64_t) > tfdtBoxEnd) ||
 					(buf + sizeof(uint64_t) > bufferEnd))
 				{
 					// If the next 8 bytes would go past the end of the box or the buffer, skip this restamp
