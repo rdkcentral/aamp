@@ -287,6 +287,8 @@ void IsoBmffBuffer::restampPTS(uint64_t offset, uint64_t basePts, uint8_t *segme
 
 		if (IS_TYPE(type, Box::MOOF) || IS_TYPE(type, Box::TRAF))
 		{
+			//Read operations move the buffer pointer past the box header
+			//only passing the payload of the box, excluding the header
 			restampPTS(offset, basePts, buf, size-minHeaderSize, bufferEnd);
 		}
 		else if (IS_TYPE(type, Box::TFDT))
