@@ -645,8 +645,7 @@ Returns one of the logical player states as a number.
 
 **Typical State Transitions:**
 
-The exact sequence can vary by stream type and platform. Deprecated states are
-included for completeness.
+Deprecated states are included for completeness.
 
 ```plantuml
 @startuml
