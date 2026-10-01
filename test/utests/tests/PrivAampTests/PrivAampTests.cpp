@@ -5851,7 +5851,7 @@ TEST_F(PrivAampTests, Stop_StateTransition_WithoutStateChangeEvent)
 
 /**
  * @test Stop_MPDDownloaderReleasedBeforeStreamAbstractionStop
- * @brief Regression test for VPAAMP-1200 (crash fix): AampMPDDownloader::Release()
+ * @brief Regression test (crash fix): AampMPDDownloader::Release()
  *        must be called before StreamAbstractionAAMP::Stop() (triggered by
  *        TeardownStream) during PrivateInstanceAAMP::Stop().
  *
