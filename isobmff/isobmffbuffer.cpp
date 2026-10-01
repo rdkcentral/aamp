@@ -304,23 +304,14 @@ static bool processRestampBuffer(uint64_t offset, uint64_t basePts, uint8_t *seg
 				{
 					// If the next 8 bytes would go past the end of the box or the buffer, skip this restamp
 					AAMPLOG_ERR("Skipping v1 tfdt restamp: 8-byte access out of bounds ,tfdtBoxEnd[%p] bufferEnd[%p] buf[%p]", tfdtBoxEnd, bufferEnd, buf);
+					return false;
 				}
 				else
 				{
 					uint64_t pts = ReadUint64(buf);
 					pts -= basePts;
-					const uint64_t ptsBeforeOffset = pts;
-					// Pre-check: adding offset to pts must not cause unsigned integer overflow .We will skip such PTS restamps
-					if ((offset > 0 && pts > (UINT64_MAX - (uint64_t)offset)) ||
-						(offset < 0 && pts < (static_cast<uint64_t>(-(offset + 1)) + 1ULL)))
-					{
-						AAMPLOG_WARN("tfdt v1 PTS overflow: pts[%" PRIu64 "] + offset[%" PRIu64 "] exceeds 8-byte range", ptsBeforeOffset, offset);
-					}
-					else
-					{
-						pts += offset;
-						WriteUint64(buf, pts);
-					}
+					pts += offset;
+					WriteUint64(buf, pts);
 				}
 			}
 
@@ -444,24 +435,8 @@ bool IsoBmffBuffer::restampPtsUsingParsedBoxes(int64_t offset, const std::vector
 					{
 						beforePTS = pts;
 					}
-					// Pre-check: adding offset to pts must not cause unsigned integer overflow .We will skip such PTS restamps.
-					const uint32_t ptsBeforeOffset = pts;
-					const bool v0Overflow =
-						(offset > 0 &&
-							(static_cast<uint64_t>(pts) +
-							 static_cast<uint64_t>(offset) > UINT32_MAX)) ||
-						(offset < 0 &&
-							pts < (static_cast<uint64_t>(-(offset + 1)) + 1ULL));
-					if (v0Overflow)
-					{
-						AAMPLOG_WARN("tfdt v0 PTS overflow: pts[%u] + offset[%" PRId64 "] exceeds 4-byte range",
-							ptsBeforeOffset, offset);
-					}
-					else
-					{
-						pts += static_cast<uint32_t>(offset);
-						tfdtBox->setBaseMDT(pts);
-					}
+					pts += static_cast<uint32_t>(offset);
+					tfdtBox->setBaseMDT(pts);
 					if (!firstPtsSaved)
 					{
 						afterPTS = pts;
@@ -476,19 +451,8 @@ bool IsoBmffBuffer::restampPtsUsingParsedBoxes(int64_t offset, const std::vector
 					{
 						beforePTS = pts;
 					}
-					// Pre-check: adding offset to pts must not cause unsigned integer overflow .We will skip such PTS restamps.
-					const uint64_t ptsBeforeOffset = pts;
-					if ((offset > 0 && pts > (UINT64_MAX - static_cast<uint64_t>(offset))) ||
-						(offset < 0 && pts < (static_cast<uint64_t>(-(offset + 1)) + 1ULL)))
-					{
-						AAMPLOG_WARN("tfdt v1 PTS overflow: pts[%" PRIu64 "] + offset[%" PRId64 "] exceeds 8-byte range",
-							ptsBeforeOffset, offset);
-					}
-					else
-					{
-						pts += offset;
-						tfdtBox->setBaseMDT(pts);
-					}
+					pts += offset;
+					tfdtBox->setBaseMDT(pts);
 					if (!firstPtsSaved)
 					{
 						afterPTS = pts;
