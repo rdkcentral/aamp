@@ -4465,6 +4465,35 @@ TEST_F(PrivAampTests,StopTrackInjectionTest)
 	p_aamp->StopTrackInjection(eMEDIATYPE_AUDIO);
 }
 
+TEST_F(PrivAampTests,StopTrackInjectionTest_DiscardFalse_DoesNotUnblockInjector)
+{
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer.get()));
+	EXPECT_CALL(*g_mockAampGstPlayer, UnblockTrackInjection(_)).Times(0);
+	p_aamp->StopTrackInjection(eMEDIATYPE_VIDEO);
+}
+
+TEST_F(PrivAampTests,StopTrackInjectionTest_DiscardTrue_UnblocksInjectorEachCall)
+{
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer.get()));
+	// UnblockTrackInjection() is idempotent, so a repeated discard call must still unblock,
+	// regardless of whether the track was already marked blocked.
+	EXPECT_CALL(*g_mockAampGstPlayer, UnblockTrackInjection(eMEDIATYPE_VIDEO)).Times(2);
+	p_aamp->StopTrackInjection(eMEDIATYPE_VIDEO, true);
+	p_aamp->StopTrackInjection(eMEDIATYPE_VIDEO, true);
+}
+
+// Regression test: e.g. StreamAbstractionAAMP_MPD::RefreshTrack() blocks a track with
+// discard=false (no unblock) during a seamless track switch; if Stop()/StopInjection()
+// later calls StopTrackInjection(type, true) for that still-blocked track, the sink
+// must still be unblocked so StopInjectLoop()'s thread join cannot hang.
+TEST_F(PrivAampTests,StopTrackInjectionTest_DiscardTrueAfterNonDiscard_StillUnblocksInjector)
+{
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer.get()));
+	EXPECT_CALL(*g_mockAampGstPlayer, UnblockTrackInjection(eMEDIATYPE_VIDEO)).Times(1);
+	p_aamp->StopTrackInjection(eMEDIATYPE_VIDEO, false);
+	p_aamp->StopTrackInjection(eMEDIATYPE_VIDEO, true);
+}
+
 TEST_F(PrivAampTests,ResumeTrackInjectionTest)
 {
 	p_aamp->ResumeTrackInjection(eMEDIATYPE_VIDEO);
