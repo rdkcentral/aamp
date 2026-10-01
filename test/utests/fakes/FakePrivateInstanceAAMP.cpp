@@ -909,7 +909,7 @@ bool PrivateInstanceAAMP::IsAuxiliaryAudioEnabled(void)
     return true;
 }
 
-bool PrivateInstanceAAMP::IsPlayEnabled()
+bool PrivateInstanceAAMP::IsPlayEnabled() const
 {
     return true;
 }
