@@ -3781,6 +3781,10 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 		AAMPLOG_MIL("StreamAbstractionAAMP_MPD: MPD duration val %" PRIu64 " seconds", durationMs/1000);
 
 		mIsLiveStream = mMPDParseHelper->IsLiveManifest();
+		// ContentType_UNKNOWN is also used at the start of normal linear tunes.
+		// Only static pre-roll assets may reuse the main VOD subtitle header.
+		mUseCachedMainAssetSubtitleHeader =
+			mUseCachedMainAssetSubtitleHeader && !mIsLiveStream;
 		aamp->SetIsLive(mIsLiveStream);
 		if(newTune)
 		{
