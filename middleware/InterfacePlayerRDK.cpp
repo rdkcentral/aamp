@@ -2320,7 +2320,7 @@ int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::st
                 gst_element_sync_state_with_parent(stream->source);
                 gst_element_sync_state_with_parent(stream->sinkbin);
 
-                interfacePlayerPriv->gstPrivateContext->subtitle_sink = textsink;
+                interfacePlayerPriv->gstPrivateContext->subtitle_sink = GST_ELEMENT(gst_object_ref_sink(textsink));
                 MW_LOG_MIL("using rialtomsesubtitlesink muted=%d sink=%p", interfacePlayerPriv->gstPrivateContext->subtitleMuted, interfacePlayerPriv->gstPrivateContext->subtitle_sink);
                 g_object_set(textsink, "mute", interfacePlayerPriv->gstPrivateContext->subtitleMuted ? TRUE : FALSE, NULL);
                 return 0;
