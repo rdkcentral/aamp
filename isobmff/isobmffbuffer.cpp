@@ -309,7 +309,7 @@ bool IsoBmffBuffer::restampPTS(uint64_t offset, uint64_t basePts, uint8_t *segme
 					(buf + sizeof(uint64_t) > bufferEnd))
 				{
 					// If the next 8 bytes would go past the end of the box or the buffer, skip this restamp
-					AAMPLOG_ERR("Skipping v1 tfdt restamp: 8-byte access out of bounds ,tfdtBoxEnd[%p] bufferEnd[%p] buf[%p]", tfdtBoxEnd, bufferEnd, buf);
+					AAMPLOG_ERR("Skipping v1 tfdt restamp: 8-byte access out of bounds or buffer pointer is null, tfdtBoxEnd[%p] bufferEnd[%p] buf[%p]", tfdtBoxEnd, bufferEnd, buf);
 					return false;
 				}
 				else
@@ -323,10 +323,10 @@ bool IsoBmffBuffer::restampPTS(uint64_t offset, uint64_t basePts, uint8_t *segme
 			else
 			{
 				// Check OOB for tfdt box for version 0
-				if ((buf + sizeof(uint32_t) > tfdtBoxEnd) ||
+				if ((buf == nullptr) || (buf + sizeof(uint32_t) > tfdtBoxEnd) ||
 					(buf + sizeof(uint32_t) > bufferEnd))
 				{
-					AAMPLOG_ERR("Skipping v0 tfdt restamp: 4-byte access out of bounds, tfdtBoxEnd[%p] bufferEnd[%p] buf[%p]", tfdtBoxEnd, bufferEnd, buf);
+					AAMPLOG_ERR("Skipping v0 tfdt restamp: 4-byte access out of bounds or buffer pointer is null, tfdtBoxEnd[%p] bufferEnd[%p] buf[%p]", tfdtBoxEnd, bufferEnd, buf);
 					return false;
 				}
 				else
