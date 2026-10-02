@@ -271,11 +271,34 @@ bool SecManagerThunder::AcquireLicenseOpenOrUpdate( std::string clientId, std::s
 					if (newSession.isSessionValid() && !session.isSessionValid())
 					{
 						session = newSession;
+						/*
+						 * A session is now established. Any subsequent retry must reuse it
+						 * via updatePlaybackSession; re-invoking openPlaybackSession would
+						 * create a second server-side session and orphan this client-side
+						 * handle. sessionId must also be added to the request params since
+						 * they were built for the open call.
+						 */
+						apiName = "updatePlaybackSession";
+						param["sessionId"] = session.getSessionID();
 					}
 
 				}
+				else
+				{
+					/*
+					 * JSON-RPC transport failure or timeout: no response was received,
+					 * so there is no secManagerResultContext to parse. SecManager may
+					 * still have completed the transaction server-side. Treat this as a
+					 * retryable connection failure rather than the non-retryable
+					 * default 200:1, so a transient transport hiccup does not hard-fail
+					 * the tune.
+					 */
+					*statusCode = CONTENT_SECURITY_MANAGER_DRM_FAILURE;
+					*reasonCode = CONTENT_SECURITY_MANAGER_SERVICE_CON_FAILURE;
+					MW_LOG_ERR("SecManager %s JSON-RPC call failed, treating as retryable connection failure", apiName);
+				}
 				// TODO: Sort these values out for backward compatibility
-				if(response.HasLabel("secManagerResultContext"))
+				if(rpcResult && response.HasLabel("secManagerResultContext"))
 				{
 					JsonObject resultContext = response["secManagerResultContext"].Object();
 
