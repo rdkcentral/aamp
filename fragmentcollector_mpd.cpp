@@ -11393,10 +11393,14 @@ void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutpu
 			{
 				subtitleOutputFormat = FORMAT_INVALID;
 			}
-			else
+			else if (mMediaStreamContext[eMEDIATYPE_SUBTITLE]->enabled)
 			{
 				AAMPLOG_INFO("mimeType empty");
 				subtitleOutputFormat = FORMAT_SUBTITLE_MP4;
+			}
+			else
+			{
+				subtitleOutputFormat = FORMAT_INVALID;
 			}
 		}
 		else

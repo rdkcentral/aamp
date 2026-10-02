@@ -5671,8 +5671,9 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		*/
 		AAMPLOG_MIL("Updated seek_pos_seconds %f culledSeconds/start %f culledOffset %f", seek_pos_seconds, culledSeconds, culledOffset);
 
+		mSubtitleFormat = FORMAT_INVALID;
 		GetStreamFormat(mVideoFormat, mAudioFormat, mAuxFormat, mSubtitleFormat);
-		AAMPLOG_INFO("TuneHelper : mVideoFormat %d, mAudioFormat %d mAuxFormat %d", mVideoFormat, mAudioFormat, mAuxFormat);
+		AAMPLOG_INFO("TuneHelper : mVideoFormat %d, mAudioFormat %d mAuxFormat %d mSubtitleFormat %d", mVideoFormat, mAudioFormat, mAuxFormat, mSubtitleFormat);
 
 		//Identify if HLS with mp4 fragments, to change media format
 		if (mVideoFormat == FORMAT_ISO_BMFF && mMediaFormat == eMEDIAFORMAT_HLS)
