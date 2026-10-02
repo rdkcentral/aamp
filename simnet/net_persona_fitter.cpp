@@ -647,11 +647,30 @@ std::string NetPersonaFitter::BuildMinimalPersonaJson() const
 		}
 	}
 
-	// JSON does not allow NaN/Inf; clamp any non-finite value to 0.0.
-	auto jv = [](double v) -> double { return std::isfinite(v) ? v : 0.0; };
+	// JSON does not allow NaN/Inf; clamp non-finite to 0.0, round to at most 4
+	// fractional digits, and strip trailing zeros so values stay compact.
+	auto jv = [](double v) -> std::string {
+		if (!std::isfinite(v))
+		{
+			v = 0.0;
+		}
+		char buf[32];
+		std::snprintf(buf, sizeof(buf), "%.4f", v);
+		std::string s{buf};
+		std::size_t dot = s.find('.');
+		if (dot != std::string::npos)
+		{
+			std::size_t last = s.find_last_not_of('0');
+			if (last == dot)
+			{
+				--last; // drop the now-bare decimal point
+			}
+			s.erase(last + 1);
+		}
+		return s;
+	};
 
 	std::ostringstream oss;
-	oss << std::setprecision(15);
 	oss << "{"
 		<< "\"base_rtt_ms\": "       << jv(baseRttMs)        << ", "
 		<< "\"rtt_jitter_ms\": "     << jv(rttJitterMs)      << ", "

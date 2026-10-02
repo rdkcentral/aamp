@@ -299,7 +299,8 @@ TEST_F(NetPersonaFitterTest, StreamingComputesMinimalFields)
 	EXPECT_NEAR(ExtractJsonDouble(json, "mean_thr_mbps"),     80.0, 1e-6);
 	EXPECT_NEAR(ExtractJsonDouble(json, "thr_sigma_ln"),       0.0, 1e-9);
 	EXPECT_NEAR(ExtractJsonDouble(json, "cadence_ms"),       250.0, 1e-6);
-	EXPECT_NEAR(ExtractJsonDouble(json, "cadence_jitter_ms"), 70.71067811865476, 1e-6);
+	// cadence_jitter_ms oracle is irrational; JSON is rounded to 4 decimals.
+	EXPECT_NEAR(ExtractJsonDouble(json, "cadence_jitter_ms"), 70.71067811865476, 1e-4);
 	EXPECT_DOUBLE_EQ(ExtractJsonDouble(json, "flush_jitter_ms"), 6.0);
 	EXPECT_NEAR(ExtractJsonDouble(json, "p_conn_reuse"),      0.75, 1e-9);
 
@@ -311,7 +312,7 @@ TEST_F(NetPersonaFitterTest, StreamingComputesMinimalFields)
 	//   rtt_jitter = IQR/1.349 = (32.5 - 30.5)/1.349
 	//   reused < 5 -> new_conn_penalty = max(0, base_rtt * 0.95)
 	EXPECT_NEAR(ExtractJsonDouble(json, "base_rtt_ms"),         31.5,         1e-6);
-	EXPECT_NEAR(ExtractJsonDouble(json, "rtt_jitter_ms"),       2.0 / 1.349,  1e-6);
+	EXPECT_NEAR(ExtractJsonDouble(json, "rtt_jitter_ms"),       2.0 / 1.349,  1e-4);
 	EXPECT_NEAR(ExtractJsonDouble(json, "new_conn_penalty_ms"), 31.5 * 0.95,  1e-6);
 
 	// Group B burst-shape fields from fixed-memory histograms. Oracles:
