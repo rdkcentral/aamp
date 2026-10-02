@@ -363,6 +363,36 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 			PipelineSetToReady = true;
 		}
 	}
+
+	const bool subtitleFormatChanged =
+		interfacePlayerPriv->gstPrivateContext->stream[eGST_MEDIATYPE_SUBTITLE].format !=
+		newFormat[eGST_MEDIATYPE_SUBTITLE];
+
+	if (interfacePlayerPriv->gstPrivateContext->usingRialtoSink && subtitleFormatChanged)
+	{
+		GstState currentState = GST_STATE_NULL;
+		GstState pendingState = GST_STATE_VOID_PENDING;
+
+		gst_element_get_state(interfacePlayerPriv->gstPrivateContext->pipeline,
+						   &currentState,
+						   &pendingState,
+						   GST_CLOCK_TIME_NONE);
+
+		if (currentState >= GST_STATE_PAUSED)
+		{
+			MW_LOG_INFO("Subtitle caps changed; moving pipeline to READY");
+
+			if (SetStateWithWarnings(interfacePlayerPriv->gstPrivateContext->pipeline,
+								 GST_STATE_READY) == GST_STATE_CHANGE_FAILURE)
+			{
+				MW_LOG_ERR("Failed to move pipeline to READY for subtitle caps update");
+				return;
+			}
+
+			PipelineSetToReady = true;
+		}
+	}
+
 	bool configureStream[GST_TRACK_COUNT] = {};
 	for (int i = 0; i < GST_TRACK_COUNT; i++)
 	{
