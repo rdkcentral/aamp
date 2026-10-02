@@ -254,12 +254,78 @@ TEST_F(IsoBmffBufferTests, truncatedTfdtVersion0DoesNotWritePastBox)
 	ASSERT_EQ(trafChildren->size(), 1u);
 	ASSERT_EQ(trafChildren->at(0)->getSize(), 12u);
 	//Writing to the truncated TFDT box should not overwrite past its declared size
-	mIsoBmffBuffer->restampPts(1);
+	EXPECT_FALSE(mIsoBmffBuffer->restampPts(1));
 	// The restampPts call should not modify the bytes beyond the declared size of the truncated TFDT box
 	EXPECT_EQ(segment[28], 0xa5);
 	EXPECT_EQ(segment[29], 0xa5);
 	EXPECT_EQ(segment[30], 0xa5);
 	EXPECT_EQ(segment[31], 0xa5);
+}
+
+TEST_F(IsoBmffBufferTests, truncatedTfdtVersion1RawRestampReturnsFalseWithoutWriting)
+{
+	std::vector<uint8_t> segment {
+		0x00, 0x00, 0x00, 0x20, 'm', 'o', 'o', 'f',
+		0x00, 0x00, 0x00, 0x18, 't', 'r', 'a', 'f',
+		0x00, 0x00, 0x00, 0x10, 't', 'f', 'd', 't',
+		0x01, 0x00, 0x00, 0x00,
+		0x11, 0x22, 0x33, 0x44,
+		0xa5, 0xa5, 0xa5, 0xa5
+	};
+	const uint32_t fragmentSize = 32;
+
+	EXPECT_FALSE(mIsoBmffBuffer->restampPTS(1, 0, segment.data(), fragmentSize));
+	EXPECT_EQ(segment[28], 0x11);
+	EXPECT_EQ(segment[29], 0x22);
+	EXPECT_EQ(segment[30], 0x33);
+	EXPECT_EQ(segment[31], 0x44);
+	EXPECT_EQ(segment[32], 0xa5);
+	EXPECT_EQ(segment[33], 0xa5);
+	EXPECT_EQ(segment[34], 0xa5);
+	EXPECT_EQ(segment[35], 0xa5);
+}
+
+TEST_F(IsoBmffBufferTests, malformedLaterTfdtDoesNotPartiallyRestampEarlierTfdt)
+{
+	std::vector<uint8_t> segment {
+		0x00, 0x00, 0x00, 0x40, 'm', 'o', 'o', 'f',
+		0x00, 0x00, 0x00, 0x1c, 't', 'r', 'a', 'f',
+		0x00, 0x00, 0x00, 0x14, 't', 'f', 'd', 't',
+		0x01, 0x00, 0x00, 0x00,
+		0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88,
+		0x00, 0x00, 0x00, 0x14, 't', 'r', 'a', 'f',
+		0x00, 0x00, 0x00, 0x14, 't', 'f', 'd', 't',
+		0x01, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x08, 'f', 'r', 'e', 'e'
+	};
+	const uint32_t fragmentSize = static_cast<uint32_t>(segment.size());
+
+	EXPECT_FALSE(mIsoBmffBuffer->restampPTS(1, 0, segment.data(), fragmentSize));
+	EXPECT_EQ(segment[28], 0x11);
+	EXPECT_EQ(segment[29], 0x22);
+	EXPECT_EQ(segment[30], 0x33);
+	EXPECT_EQ(segment[31], 0x44);
+	EXPECT_EQ(segment[32], 0x55);
+	EXPECT_EQ(segment[33], 0x66);
+	EXPECT_EQ(segment[34], 0x77);
+	EXPECT_EQ(segment[35], 0x88);
+}
+
+TEST_F(IsoBmffBufferTests, parsedRestampAllowsChunkedTopLevelMdat)
+{
+	std::vector<uint8_t> segment {
+		0x00, 0x00, 0x00, 0x20, 'm', 'o', 'o', 'f',
+		0x00, 0x00, 0x00, 0x18, 't', 'r', 'a', 'f',
+		0x00, 0x00, 0x00, 0x10, 't', 'f', 'd', 't',
+		0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x10,
+		0x00, 0x00, 0x00, 0x64, 'm', 'd', 'a', 't'
+	};
+
+	mIsoBmffBuffer->setBuffer(segment.data(), segment.size());
+	ASSERT_TRUE(mIsoBmffBuffer->parseBuffer());
+	EXPECT_TRUE(mIsoBmffBuffer->restampPts(1));
+	EXPECT_EQ(segment[31], 0x11);
 }
 
 TEST_F(IsoBmffBufferTests, readOnlyBufferDisallowsRestampPtsMutation)
