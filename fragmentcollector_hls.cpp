@@ -5093,7 +5093,6 @@ void StreamAbstractionAAMP_HLS::GetStreamFormat(StreamOutputFormat &primaryOutpu
 	}
 	subOutputFormat = trackState[eMEDIATYPE_SUBTITLE]->streamOutputFormat;
 }
-
 /***************************************************************************
 * @brief Function to get available video bitrates
 ***************************************************************************/
