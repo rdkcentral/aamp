@@ -166,7 +166,7 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 			
 		}
 
-		PlayerLogManager::SetLoggerInfo(AampLogManager::disableLogRedirection, gpGlobalConfig->IsConfigSet(eAAMPConfig_useRialtoSink), AampLogManager::aampLoglevel, AampLogManager::locked);
+		PlayerLogManager::SetLoggerInfo(AampLogManager::disableLogRedirection, gpGlobalConfig->IsUsingRialto(), AampLogManager::aampLoglevel, AampLogManager::locked);
 
 		//TR181 is not supported in firebolt
 		std::shared_ptr<PlayerExternalsInterface> pExternalsInterface = PlayerExternalsInterface::GetPlayerExternalsInterfaceInstance();
@@ -195,7 +195,7 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 	mConfig = *gpGlobalConfig;
 
 	// sd_journal logging doesn't work with AAMP/Rialto running in Container, so route to Ethan Logger instead
-	AampLogManager::enableEthanLogRedirection = mConfig.IsConfigSet(eAAMPConfig_useRialtoSink);
+	AampLogManager::enableEthanLogRedirection = mConfig.IsUsingRialto();
 
 	PlayerLogManager::SetLoggerInfo(AampLogManager::disableLogRedirection, AampLogManager::enableEthanLogRedirection, AampLogManager::aampLoglevel, AampLogManager::locked);
 	
@@ -493,8 +493,8 @@ void PlayerInstanceAAMP::TuneInternal(const char *mainManifestUrl,
 	if(aamp)
 	{
 		UsingPlayerId playerId(aamp->mPlayerId);
-
-		if ( aamp->IsAsyncTuneAbortRequired(mainManifestUrl, contentType) )
+		double seekPos=GETCONFIGVALUE(eAAMPConfig_PlaybackOffset);
+		if ( aamp->IsAsyncTuneAbortRequired(mainManifestUrl, contentType, seekPos) )
 		{
 				AAMPLOG_INFO("Aborting tune early");
 				return;
@@ -516,7 +516,7 @@ void PlayerInstanceAAMP::TuneInternal(const char *mainManifestUrl,
 				IsOTAtoOTA = true;
 			}
 		}
-		if ((state != eSTATE_IDLE) && (state != eSTATE_RELEASED) && (!IsOTAtoOTA) && (!(aamp->IsAsyncTuneAbortRequired(mainManifestUrl, contentType))) )
+		if ((state != eSTATE_IDLE) && (state != eSTATE_RELEASED) && (!IsOTAtoOTA) && (!(aamp->IsAsyncTuneAbortRequired(mainManifestUrl, contentType, seekPos))) )
 		{
 			//Calling tune without closing previous tune
 			StopInternal(true, false);
@@ -526,7 +526,7 @@ void PlayerInstanceAAMP::TuneInternal(const char *mainManifestUrl,
 			AAMPLOG_INFO("Player is in state '%s'. Do not stop before tune", AAMPPlayerStateName(state));
 		}
 
-		if ( !aamp->IsAsyncTuneAbortRequired(mainManifestUrl, contentType) )
+		if ( !aamp->IsAsyncTuneAbortRequired(mainManifestUrl, contentType, seekPos) )
 		{
 			aamp->getAampCacheHandler()->StartPlaylistCache();
 			aamp->Tune(mainManifestUrl, autoPlay, contentType, bFirstAttempt, bFinalAttempt, traceUUID, audioDecoderStreamSync, refreshManifestUrl, mpdStitchingMode, std::move(sid),manifestData);
@@ -827,7 +827,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 					StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(aamp);
 					if (sink)
 					{
-						sink->Configure(StreamCodecInfo{aamp->GetMediaCodecInfo(eMEDIATYPE_VIDEO), aamp->GetMediaCodecInfo(eMEDIATYPE_AUDIO), aamp->GetMediaCodecInfo(eMEDIATYPE_SUBTITLE)},
+						sink->Configure(aamp->GetStreamCodecInfo(),
 							aamp->mpStreamAbstractionAAMP->GetESChangeStatus());
 						aamp->ResumeDownloads(); //To make sure that the playback resumes after a player switch if player was in paused state before being at background
 						aamp->mpStreamAbstractionAAMP->StartInjection();
@@ -3406,8 +3406,8 @@ bool PlayerInstanceAAMP::InitAAMPConfig(const char *jsonStr)
 		}
 	}
 
-	// also enable Ethan log redirection if useRialtoSink enabled using initconfig option.
-	AampLogManager::enableEthanLogRedirection = ISCONFIGSET(eAAMPConfig_useRialtoSink);
+	// also enable Ethan log redirection if Rialto is enabled using initconfig option.
+	AampLogManager::enableEthanLogRedirection = aamp->UsingRialto();
 	PlayerLogManager::SetLoggerInfo(AampLogManager::disableLogRedirection, AampLogManager::enableEthanLogRedirection, AampLogManager::aampLoglevel, AampLogManager::locked);
 	return retVal;
 }

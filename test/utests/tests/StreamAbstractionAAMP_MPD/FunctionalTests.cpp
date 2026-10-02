@@ -129,6 +129,7 @@ protected:
 		{eAAMPConfig_EnableIFrameTrackExtract, false},
 		{eAAMPConfig_SynthesizeIframeForVOD, false},
 		{eAAMPConfig_useRialtoSink, false},
+		{eAAMPConfig_useDirectRialto, false},
 		{eAAMPConfig_GstSubtecEnabled, false},
 		{eAAMPConfig_UseMp4Demux, false},
 		{eAAMPConfig_UTCSyncOnStartup, true},
@@ -790,6 +791,16 @@ protected:
 			hasDrm = drm;
 		}
 
+		void SetupPrimaryAudioOnlyFormatContext(IRepresentation *audioOnPrimaryRepresentation, bool drm)
+		{
+			SetupMediaStreamContexts(2);
+			mMediaStreamContext[eMEDIATYPE_VIDEO]->representation = audioOnPrimaryRepresentation;
+			mMediaStreamContext[eMEDIATYPE_VIDEO]->enabled = true;
+			mMediaStreamContext[eMEDIATYPE_AUDIO]->representation = nullptr;
+			mMediaStreamContext[eMEDIATYPE_AUDIO]->enabled = false;
+			hasDrm = drm;
+		}
+
 		bool GetProfileChanged(int trackIdx) const
 		{
 			return mMediaStreamContext[trackIdx]->profileChanged;
@@ -889,7 +900,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 		adaptationSets[1]->GetRepresentation()[0], GetParam());
 
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseMp4Demux))
-		.WillOnce(Return(true));
+		.WillRepeatedly(Return(true));
 
 	StreamOutputFormat primaryOutputFormat{};
 	StreamOutputFormat audioOutputFormat{};
@@ -899,6 +910,45 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 
 	EXPECT_EQ(primaryOutputFormat, FORMAT_VIDEO_ES_H264);
 	EXPECT_EQ(audioOutputFormat, FORMAT_AUDIO_ES_AAC_RAW);
+	EXPECT_EQ(subtitleOutputFormat, FORMAT_INVALID);
+}
+
+/** @brief Verify audio-only primary-slot codecs remap primary output to audio format for MP4 demux. */
+TEST_F(StreamAbstractionAAMP_MPDTest, GetStreamFormat_UseMp4Demux_AudioOnlyPrimaryCodec_RemapsPrimaryToAudio)
+{
+	static const char *manifest =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="static" mediaPresentationDuration="PT1M">
+	<Period>
+		<AdaptationSet contentType="audio">
+			<Representation id="audio" mimeType="audio/mp4" codecs="mp4a.40.2" bandwidth="128000" />
+		</AdaptationSet>
+	</Period>
+</MPD>)";
+
+	ManifestDownloadResponsePtr response = MakeSharedManifestDownloadResponsePtr();
+	response->mMPDDownloadResponse->mDownloadData.assign(manifest, manifest + strlen(manifest));
+	GetMPDFromManifest(response);
+	ASSERT_NE(response->mMPDInstance, nullptr);
+	ASSERT_EQ(response->mMPDInstance->GetPeriods().size(), 1u);
+	const auto& adaptationSets = response->mMPDInstance->GetPeriods()[0]->GetAdaptationSets();
+	ASSERT_EQ(adaptationSets.size(), 1u);
+	ASSERT_EQ(adaptationSets[0]->GetRepresentation().size(), 1u);
+
+	mStreamAbstractionAAMP_MPD->SetupPrimaryAudioOnlyFormatContext(
+		adaptationSets[0]->GetRepresentation()[0], false);
+
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseMp4Demux))
+		.WillRepeatedly(Return(true));
+
+	StreamOutputFormat primaryOutputFormat{};
+	StreamOutputFormat audioOutputFormat{};
+	StreamOutputFormat subtitleOutputFormat{};
+	mStreamAbstractionAAMP_MPD->GetStreamFormat(primaryOutputFormat,
+		audioOutputFormat, subtitleOutputFormat);
+
+	EXPECT_EQ(primaryOutputFormat, FORMAT_AUDIO_ES_AAC_RAW);
+	EXPECT_EQ(audioOutputFormat, FORMAT_INVALID);
 	EXPECT_EQ(subtitleOutputFormat, FORMAT_INVALID);
 }
 

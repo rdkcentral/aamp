@@ -4693,7 +4693,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 		// Rialto does not support dynamic streams, so we need to extract and save the
 		// subtitle init fragment from the main vod asset, so that it can be injected
 		// later if a pre-roll advert is played that does not contain subtitles.
-		if (ISCONFIGSET(eAAMPConfig_useRialtoSink) &&
+		if (aamp->UsingRialto() &&
 		   !mIsLiveStream &&
 		   (!(AampStreamSinkManager::GetInstance().GetMediaHeader(eMEDIATYPE_SUBTITLE))))
 		{
@@ -9428,9 +9428,8 @@ bool StreamAbstractionAAMP_MPD::CheckForInitalClearPeriod()
 void StreamAbstractionAAMP_MPD::PushEncryptedHeaders(std::map<int, std::string>& mappedHeaders)
 {
 	std::vector<std::shared_future<void>> futures;
-	for (std::map<int, std::string>::iterator it = mappedHeaders.begin(); it != mappedHeaders.end(); ++it)
+	for (const auto& [track, header] : mappedHeaders)
 	{
-		auto track = it->first;
 		if (track < 0 || track >= AAMP_TRACK_COUNT)
 		{
 			AAMPLOG_ERR("Invalid encrypted header track %d", track);
@@ -9448,15 +9447,14 @@ void StreamAbstractionAAMP_MPD::PushEncryptedHeaders(std::map<int, std::string>&
 		{
 			// Download the video, audio & subtitle fragments in a separate parallel thread.
 			AAMPLOG_DEBUG("Submitting job for init encrypted header track %d", track);
-			auto header = it->second;
 			auto dashWorkerJob = std::make_shared<AampDashWorkerJob>([this, track, header]() { CacheEncryptedHeader(track, header); });
-			auto future = aamp->GetAampTrackWorkerManager()->SubmitJob(static_cast<AampMediaType>(it->first), dashWorkerJob);
+			auto future = aamp->GetAampTrackWorkerManager()->SubmitJob(static_cast<AampMediaType>(track), dashWorkerJob);
 			futures.push_back(std::move(future));
 		}
 		else
 		{
-			AAMPLOG_INFO("Track %d worker not available, caching init encrypted header sequentially", it->first);
-			CacheEncryptedHeader(it->first, it->second);
+			AAMPLOG_INFO("Track %d worker not available, caching init encrypted header sequentially", track);
+			CacheEncryptedHeader(track, header);
 		}
 	}
 	// Wait for all submitted jobs to complete
@@ -11765,7 +11763,7 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 		MediaStreamContext *track = mMediaStreamContext[iTrack];
 		if(track)
 		{
-			aamp->StopTrackInjection((AampMediaType) iTrack);
+			aamp->StopTrackInjection((AampMediaType) iTrack, true);
 			track->StopInjectLoop();
 			if(!ISCONFIGSET(eAAMPConfig_GstSubtecEnabled))
 			{
@@ -11842,6 +11840,8 @@ void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutpu
 	StreamOutputFormat audioFormat = FORMAT_ISO_BMFF;
 	if (ISCONFIGSET(eAAMPConfig_UseMp4Demux))
 	{
+		const std::string videoCodec = GetCurrentCodec(eMEDIATYPE_VIDEO);
+		const std::string audioCodec = GetCurrentCodec(eMEDIATYPE_AUDIO);
 		// AampMp4Demuxer consumes the container and feeds elementary streams, so the sink needs
 		// the codec format rather than FORMAT_ISO_BMFF. Predict it from the manifest so the appsrc
 		// is created with the correct caps and gstreamer autoplugs its decoder chain once, during
@@ -11856,9 +11856,25 @@ void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutpu
 		// FORMAT_UNKNOWN is still the fallback for codecs AampMp4Demuxer does not recognise
 		// (see the maps in AampUtils.cpp). DRM protection does not gate this lookup; clear and
 		// protected assets use the same codec mapping.
-		videoFormat = audioFormat = FORMAT_UNKNOWN;
-		videoFormat = GetMp4DemuxVideoFormatForCodec(GetCurrentCodec(eMEDIATYPE_VIDEO).c_str());
-		audioFormat = GetMp4DemuxAudioFormatForCodec(GetCurrentCodec(eMEDIATYPE_AUDIO).c_str());
+		videoFormat = GetMp4DemuxVideoFormatForCodec(videoCodec.c_str());
+		audioFormat = GetMp4DemuxAudioFormatForCodec(audioCodec.c_str());
+
+		// Audio-only manifests can expose the selected stream on the primary slot.
+		// If audio codec is absent on AUDIO slot, derive it from primary codec.
+		if (audioCodec.empty() && !videoCodec.empty() && audioFormat == FORMAT_UNKNOWN)
+		{
+			const StreamOutputFormat primaryAsAudioFormat = GetMp4DemuxAudioFormatForCodec(videoCodec.c_str());
+			if (primaryAsAudioFormat != FORMAT_UNKNOWN)
+			{
+				audioFormat = primaryAsAudioFormat;
+				AAMPLOG_INFO("Audio-only fallback: derived audioFormat %d from primary codec '%s'", audioFormat, videoCodec.c_str());
+				if (videoFormat == FORMAT_UNKNOWN)
+				{
+					videoFormat = primaryAsAudioFormat;
+					AAMPLOG_INFO("Audio-only MPD: remapped primary output format to audio format %d", videoFormat);
+				}
+			}
+		}
 	}
 	if(mMediaStreamContext[eMEDIATYPE_VIDEO] && mMediaStreamContext[eMEDIATYPE_VIDEO]->enabled )
 	{
@@ -11910,7 +11926,7 @@ void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutpu
 
 		// If subtitles are not enabled, we need to have an init fragment to inject otherwise
 		// a complete pipeline cannot be created; and Rialto will not start playing video
-		if (!mMediaStreamContext[eMEDIATYPE_SUBTITLE]->enabled && ISCONFIGSET(eAAMPConfig_useRialtoSink))
+		if (!mMediaStreamContext[eMEDIATYPE_SUBTITLE]->enabled && aamp->UsingRialto())
 		{
 			auto subtitleHeader = AampStreamSinkManager::GetInstance().GetMediaHeader(eMEDIATYPE_SUBTITLE);
 			if(subtitleHeader && !subtitleHeader->mimeType.empty())
@@ -12610,7 +12626,7 @@ void StreamAbstractionAAMP_MPD::StopInjection(void)
 				track->playContext->abort();
 			}
 			track->AbortWaitForCachedFragment();
-			aamp->StopTrackInjection((AampMediaType) iTrack);
+			aamp->StopTrackInjection((AampMediaType) iTrack, true);
 			track->StopInjectLoop();
 		}
 	}

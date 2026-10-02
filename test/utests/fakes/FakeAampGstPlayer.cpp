@@ -72,11 +72,11 @@ void AAMPGstPlayer::Stop(bool keepLastFrame)
 {
 }
 
-void AAMPGstPlayer::Flush(double position, int rate, bool shouldTearDown)
+void AAMPGstPlayer::Flush(double position, int rate, bool shouldTearDown, bool positionIsAuthoritative)
 {
 	if (g_mockAampGstPlayer != nullptr)
 	{
-		g_mockAampGstPlayer->Flush(position, rate, shouldTearDown);
+		g_mockAampGstPlayer->Flush(position, rate, shouldTearDown, positionIsAuthoritative);
 	}
 }
 
