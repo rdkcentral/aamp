@@ -377,7 +377,7 @@ private:
 	 * @param[in] duration - duration of fragment
 	 * @param[in] isDiscontinuity - true if discontinuity fragment
 	 * @param[in] isInit - flag for buffer type (init, data)
-	 * @return void
+	 * @return true if buffer was successfully restamped and injected into the sink, false otherwise
 	 */
 	bool restampPTSAndSendSegment(std::vector<uint8_t>& buffer, double position, double duration, bool isDiscontinuity, bool isInit);
 
