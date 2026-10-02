@@ -469,6 +469,11 @@ void StreamAbstractionAAMP_HLS::InitiateDrmProcess()
 		if ((drmHelperToUse != nullptr) && (aamp->mDRMLicenseManager))
 		{
 			AampDRMLicenseManager *licenseManager = aamp->mDRMLicenseManager;
+			if (ISCONFIGSET(eAAMPConfig_UseMp4Demux))
+			{
+				aamp->SetTrackEncrypted(eMEDIATYPE_VIDEO, true);
+				aamp->SetTrackEncrypted(eMEDIATYPE_AUDIO, true);
+			}
 			/** Queue protection event to the pipeline **/
 			licenseManager->QueueProtectionEvent(drmHelperToUse, "1", 0, eMEDIATYPE_VIDEO);
 			/** Queue content protection in DRM license fetcher **/
@@ -5074,16 +5079,13 @@ void StreamAbstractionAAMP_HLS::GetStreamFormat(StreamOutputFormat &primaryOutpu
 		// StreamAbstractionAAMP_MPD::GetStreamFormat.
 		primaryOutputFormat = FORMAT_UNKNOWN;
 		audioOutputFormat = FORMAT_UNKNOWN;
-		if (!hasDrm)
+		HlsStreamInfo *streamInfo = (HlsStreamInfo *)GetStreamInfo(currentProfileIndex);
+		if (streamInfo != NULL)
 		{
-			HlsStreamInfo *streamInfo = (HlsStreamInfo *)GetStreamInfo(currentProfileIndex);
-			if (streamInfo != NULL)
-			{
-				// A HLS video profile lists every codec it carries in one attribute, so the video
-				// and audio lookups are given the same string and each picks out its own.
-				primaryOutputFormat = GetMp4DemuxVideoFormatForCodec(streamInfo->codecs.c_str());
-				audioOutputFormat = GetMp4DemuxAudioFormatForCodec(streamInfo->codecs.c_str());
-			}
+			// A HLS video profile lists every codec it carries in one attribute, so the video
+			// and audio lookups are given the same string and each picks out its own.
+			primaryOutputFormat = GetMp4DemuxVideoFormatForCodec(streamInfo->codecs.c_str());
+			audioOutputFormat = GetMp4DemuxAudioFormatForCodec(streamInfo->codecs.c_str());
 		}
 	}
 	else

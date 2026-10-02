@@ -7054,4 +7054,3 @@ TEST_F(PrivAampPrivTests, StartLatencyMonitor_LiveLatencyCorrectionDisabled_Does
 	testp_aamp->CallStartLatencyMonitor();
 	testp_aamp->mpStreamAbstractionAAMP = nullptr;
 }
-

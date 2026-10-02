@@ -143,6 +143,11 @@ protected:
 			ConfigureTextTrack();
 		}
 
+		void SetHasDrm(bool value)
+		{
+			hasDrm = value;
+		}
+
 		void CallCachePlaylistThreadFunction()
 		{
 			CachePlaylistThreadFunction();
