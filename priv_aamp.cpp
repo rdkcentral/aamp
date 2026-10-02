@@ -12155,7 +12155,7 @@ void PrivateInstanceAAMP::SetTextTrack(int trackId, char *data)
 						else
 						{
 							SetPreferredTextTrack(std::move(track));
-							if((ISCONFIGSET_PRIV(eAAMPConfig_useRialtoSink)) && ((mCurrentTextTrackIndex == -1) || (mCurrentTextTrackIndex == trackId)))
+							if((UsingRialto()) && ((mCurrentTextTrackIndex == -1) || (mCurrentTextTrackIndex == trackId)))
 							{ // by default text track is enabled and muted for Rialto; notify only if there is change in the subtitles
 								AAMPLOG_INFO("useRialtoSink mCurrentTextTrackIndex = %d trackId = %d",mCurrentTextTrackIndex,trackId);
 								mpStreamAbstractionAAMP->currentTextTrackProfileIndex = mCurrentTextTrackIndex = trackId;
@@ -15067,7 +15067,7 @@ bool PrivateInstanceAAMP::isDecryptClearSamplesRequired()
 	// On some platform decrypt is called by the decryptor gstreamer plugin even for clear samples in order to
 	// copy it to a secure buffer. However if Rialto is enabled there should be no copy in the aamp pipeline, as
 	// it will be done in the server pipeline
-	return !ISCONFIGSET_PRIV(eAAMPConfig_useRialtoSink);
+	return !UsingRialto();
 }
 
 void PrivateInstanceAAMP::SetLLDashChunkMode(bool enable)
@@ -15281,7 +15281,7 @@ void PrivateInstanceAAMP::GetStreamFormat(StreamOutputFormat &primaryOutputForma
 	mpStreamAbstractionAAMP->GetStreamFormat(primaryOutputFormat, audioOutputFormat, subtitleOutputFormat);
 
 	// Limiting the change to just Rialto, until the change has been tested on non-Rialto
-	if (ISCONFIGSET_PRIV(eAAMPConfig_useRialtoSink) &&
+	if (UsingRialto() &&
 		IsLocalAAMPTsbInjection() &&
 		(rate != AAMP_NORMAL_PLAY_RATE))
 	{
