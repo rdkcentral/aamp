@@ -1416,7 +1416,7 @@ void MediaTrack::RunInjectLoop()
 		{
 			try
 			{
-				if (!ISCONFIGSET(eAAMPConfig_useRialtoSink))
+				if (!aamp->UsingRialto())
 				{
 					subtitleClockThreadID = std::thread(&MediaTrack::UpdateSubtitleClockTask, this);
 					UpdateSubtitleClockTaskStarted = true;
