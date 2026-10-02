@@ -8854,7 +8854,25 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 		{
 			fitter.GeneratePersonaJson(aamptrace::NetPersonaFitter::kDefaultBasePath);
 		}
-		fitter.ResetStreaming();
+		// The fitter is a process-wide singleton fed by every active player;
+		// only reset its shared accumulators when no other player is active,
+		// so one player's Stop() does not erase another's metrics.
+		bool otherActivePlayer = false;
+		{
+			std::lock_guard<std::mutex> guard(gMutex);
+			for (const auto& el : gActivePrivAAMPs)
+			{
+				if (el.pAAMP != this)
+				{
+					otherActivePlayer = true;
+					break;
+				}
+			}
+		}
+		if (!otherActivePlayer)
+		{
+			fitter.ResetStreaming();
+		}
 	}
 	// Set state to IDLE irrespective of sending state change event or not
 	SetState(eSTATE_IDLE, sendStateChangeEvent);
