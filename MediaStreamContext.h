@@ -168,10 +168,10 @@ public:
 	 *        semantics for the caching mode.
 	 */
 	static void TransferFragmentBuffer(CachedFragment *cached,
-									   const uint8_t *chunkPayload,
-									   std::vector<uint8_t> *downloadBuffer,
-									   size_t payloadSize,
-									   bool isChunkMode);
+			const uint8_t *chunkPayload,
+			std::vector<uint8_t> *downloadBuffer,
+			size_t payloadSize,
+			bool isChunkMode);
 
 	/**
 	 * @fn PopulateCommonMetadata
@@ -229,6 +229,13 @@ public:
 	 * @return last downloaded fragment end position in seconds
 	 */
 	double GetLastDownloadedPosition() override { return lastDownloadedPosition.load(); }
+
+	/**
+	 * @brief Manifest-declared timescale for this representation (DASH
+	 *        SegmentTemplate\@timescale), populated during manifest parsing.
+	 * @return manifest timescale, or 0 if not yet known
+	 */
+	uint32_t GetManifestTimeScale() const override { return fragmentDescriptor.TimeScale; }
 
 	/**
 	 * @fn SignalTrickModeDiscontinuity

@@ -1,6 +1,7 @@
 oe-*
 .vscode
 /build/
+/build-rialto/
 /build/XcodeDerivedData/
 nbproject/
 test/utests/build/
@@ -22,6 +23,7 @@ glib/
 subtec-app/
 Linux/googletest/
 .libs/
+.libs-rialto/
 test/l2test/result/
 test/l2test/data/aamp/*
 **/*.swp

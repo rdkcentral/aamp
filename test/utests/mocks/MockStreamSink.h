@@ -39,6 +39,8 @@ public:
 
     MOCK_METHOD(bool, SetPlayBackRate, (double rate));
 
+    MOCK_METHOD(void, SetVideoMute, (bool muted), (override));
+
 };
 
 #endif /* AAMP_MOCK_STREAM_SINK_H */
