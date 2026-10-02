@@ -527,7 +527,7 @@ TEST_F(PrivAampPrivTests, SetPreferredLanguagesPlayingLiveAampTsbTest)
 	 * called twice, once directly from SetPreferredLanguages() and once from TuneHelper()
 	 */
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_)).Times(2);
-	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_)).Times(1);
+	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_,_)).Times(1);
 	/* TSB Session Manager should be recreated and the TSB store flushed. */
 	EXPECT_CALL(*g_mockTSBSessionManager, Init()).Times(1);
 	EXPECT_CALL(*g_mockTSBStore, Flush()).Times(1);
@@ -4465,6 +4465,35 @@ TEST_F(PrivAampTests,StopTrackInjectionTest)
 	p_aamp->StopTrackInjection(eMEDIATYPE_AUDIO);
 }
 
+TEST_F(PrivAampTests,StopTrackInjectionTest_DiscardFalse_DoesNotUnblockInjector)
+{
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer.get()));
+	EXPECT_CALL(*g_mockAampGstPlayer, UnblockTrackInjection(_)).Times(0);
+	p_aamp->StopTrackInjection(eMEDIATYPE_VIDEO);
+}
+
+TEST_F(PrivAampTests,StopTrackInjectionTest_DiscardTrue_UnblocksInjectorEachCall)
+{
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer.get()));
+	// UnblockTrackInjection() is idempotent, so a repeated discard call must still unblock,
+	// regardless of whether the track was already marked blocked.
+	EXPECT_CALL(*g_mockAampGstPlayer, UnblockTrackInjection(eMEDIATYPE_VIDEO)).Times(2);
+	p_aamp->StopTrackInjection(eMEDIATYPE_VIDEO, true);
+	p_aamp->StopTrackInjection(eMEDIATYPE_VIDEO, true);
+}
+
+// Regression test: e.g. StreamAbstractionAAMP_MPD::RefreshTrack() blocks a track with
+// discard=false (no unblock) during a seamless track switch; if Stop()/StopInjection()
+// later calls StopTrackInjection(type, true) for that still-blocked track, the sink
+// must still be unblocked so StopInjectLoop()'s thread join cannot hang.
+TEST_F(PrivAampTests,StopTrackInjectionTest_DiscardTrueAfterNonDiscard_StillUnblocksInjector)
+{
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer.get()));
+	EXPECT_CALL(*g_mockAampGstPlayer, UnblockTrackInjection(eMEDIATYPE_VIDEO)).Times(1);
+	p_aamp->StopTrackInjection(eMEDIATYPE_VIDEO, false);
+	p_aamp->StopTrackInjection(eMEDIATYPE_VIDEO, true);
+}
+
 TEST_F(PrivAampTests,ResumeTrackInjectionTest)
 {
 	p_aamp->ResumeTrackInjection(eMEDIATYPE_VIDEO);
@@ -5849,6 +5878,39 @@ TEST_F(PrivAampTests, Stop_StateTransition_WithoutStateChangeEvent)
 	EXPECT_EQ(finalState, eSTATE_IDLE);
 }
 
+/**
+ * @test Stop_MPDDownloaderReleasedBeforeStreamAbstractionStop
+ * @brief Regression test (crash fix): AampMPDDownloader::Release()
+ *        must be called before StreamAbstractionAAMP::Stop() (triggered by
+ *        TeardownStream) during PrivateInstanceAAMP::Stop().
+ *
+ *        The original bug called Release() after TeardownStream(), allowing the
+ *        downloader thread to access the already-deleted StreamAbstraction object,
+ *        causing a use-after-free crash. This test will fail if that ordering is
+ *        ever regressed.
+ */
+TEST_F(PrivAampTests, Stop_MPDDownloaderReleasedBeforeStreamAbstractionStop)
+{
+	// Create a heap-allocated stream abstraction mock; TeardownStream owns and deletes it
+	// via SAFE_DELETE(mpStreamAbstractionAAMP). Using a raw pointer here is intentional —
+	// wrapping it in a shared_ptr would cause a double-free.
+	auto* streamMock = new NiceMock<MockStreamAbstractionAAMP>(p_aamp);
+	p_aamp->mpStreamAbstractionAAMP = streamMock;
+
+	// Enforce call ordering: Release() must fire before StreamAbstractionAAMP::Stop().
+	// InSequence causes an immediate test failure if Stop() is called first.
+	{
+		testing::InSequence releaseBeforeStop;
+		EXPECT_CALL(*g_mockAampMPDDownloader, Release()).Times(1);
+		EXPECT_CALL(*streamMock, Stop(_)).Times(1);
+	}
+
+	p_aamp->Stop(false);
+
+	// TeardownStream nulled mpStreamAbstractionAAMP via SAFE_DELETE; confirm it is null.
+	EXPECT_EQ(p_aamp->mpStreamAbstractionAAMP, nullptr);
+}
+
 TEST_F(PrivAampTests,GetLastDownloadedManifestTest1)
 {
 	std::string manifest;
@@ -6144,20 +6206,20 @@ TEST_F(PrivAampPrivTests, TuneHelperWithAampTsbConfigureFlushSequence)
 	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer.get()));
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, DoEarlyStreamSinkFlush(false, AAMP_NORMAL_PLAY_RATE)).WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockAampGstPlayer, Configure(_,_,_,_,_)).InSequence(s);
-	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_)).InSequence(s);
+	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_,_)).InSequence(s);
 	testp_aamp->TuneHelper(eTUNETYPE_SEEKTOLIVE);
 
 	//Verify the sequence for newTune
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, DoEarlyStreamSinkFlush(true, AAMP_NORMAL_PLAY_RATE)).WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockAampGstPlayer, Configure(_,_,_,_,_)).InSequence(s);
-	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_)).InSequence(s);
+	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_,_)).InSequence(s);
 	testp_aamp->TuneHelper(eTUNETYPE_NEW_NORMAL);
 
 	//Verify the sequence for eTUNETYPE_SEEK
 	testp_aamp->SetLocalAAMPTsb(true);
-	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_)).InSequence(s);
+	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_,_)).InSequence(s);
 	EXPECT_CALL(*g_mockAampGstPlayer, Configure(_,_,_,_,_)).InSequence(s);
-	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_)).InSequence(s);
+	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_,_)).InSequence(s);
 	testp_aamp->TuneHelper(eTUNETYPE_SEEK);
 }
 

@@ -122,6 +122,10 @@ void AampMPDDownloader::SetBufferAvailability(int iDurationMilliSec)
  */
 void AampMPDDownloader::Release()
 {
+	if (g_mockAampMPDDownloader != nullptr)
+	{
+		g_mockAampMPDDownloader->Release();
+	}
 }
 
 /**
