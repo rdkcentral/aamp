@@ -34,7 +34,9 @@
 #include <string>
 #include <vector>
 
-#include "../AampTimingHistogram.h"
+// Installed alongside this public header (see simnet/CMakeLists.txt); resolved
+// via an include path rather than a relative one so installed consumers compile.
+#include "AampTimingHistogram.h"
 
 namespace aamptrace {
 
