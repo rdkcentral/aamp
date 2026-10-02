@@ -140,10 +140,10 @@ public:
 	/**
 	 * @brief Build a minimal persona JSON from O(1) streaming accumulators
 	 *
-	 * Purpose: Produces a single-line JSON string of the persona fields that
-	 * can be computed from running sums/counts (throughput, cadence, connection
-	 * reuse). Median/percentile-based fields are omitted. Intended for inline
-	 * logging without creating any file.
+	 * Purpose: Produces a single-line JSON string from fixed-memory histograms
+	 * and running sums. It omits order-dependent fields such as throughput
+	 * autocorrelation and the static default fields. Intended for inline logging
+	 * without creating any file.
 	 *
 	 * @return Compact JSON string, or an empty string if no data was collected
 	 */
