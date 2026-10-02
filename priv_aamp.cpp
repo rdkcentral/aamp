@@ -8827,15 +8827,24 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 		{
 			fitter.GeneratePersonaJson(aamptrace::NetPersonaFitter::kDefaultBasePath);
 		}
-		// The fitter is a process-wide singleton fed by every active player;
-		// only reset its shared accumulators when no other player is active,
-		// so one player's Stop() does not erase another's metrics.
+		// The fitter is a process-wide singleton fed by every active player.
+		// gActivePrivAAMPs membership spans construction..destruction, so gate
+		// on playback state instead: only reset the shared accumulators when no
+		// other player is still in an active streaming session, so one player's
+		// Stop() neither erases another's in-flight metrics nor is blocked by an
+		// idle/stopped sibling that merely remains allocated.
 		bool otherActivePlayer = false;
 		{
 			std::lock_guard<std::mutex> guard(gMutex);
 			for (const auto& el : gActivePrivAAMPs)
 			{
-				if (el.pAAMP != this)
+				if (el.pAAMP == this)
+				{
+					continue;
+				}
+				const AAMPPlayerState otherState = el.pAAMP->GetState();
+				if (otherState != eSTATE_IDLE && otherState != eSTATE_STOPPED &&
+					otherState != eSTATE_ERROR && otherState != eSTATE_RELEASED)
 				{
 					otherActivePlayer = true;
 					break;

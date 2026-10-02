@@ -328,7 +328,7 @@ kept:
 Per download (NetTrace, one call per request):
   ├─► NetPersonaFitter::AddRequest(ttfb, connReused)          — O(1) streaming + TTFB histograms
   ├─► NetPersonaFitter::AddBurst(... gap, bytes ...)  × bursts — O(1) streaming + gap histogram
-  └─► NetPersonaFitter::AddRequestBurstSummary(count, Σbytes, Σbytes²)
+  └─► NetPersonaFitter::AddRequestBurstSummary(count, sum bytes, sum bytes²)
                                                               — one atomic per-request summary
 On Stop():
   └─► NetPersonaFitter::BuildMinimalPersonaJson()             — O(bucketCount) one-shot query
