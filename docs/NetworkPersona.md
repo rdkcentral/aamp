@@ -321,8 +321,7 @@ To replay a captured persona with the simnet tool, paste the JSON into
 
 ## How it works
 
-Metrics are fed to `NetPersonaFitter` during every download; no raw samples are
-kept:
+Metrics are fed to `NetPersonaFitter` during each instrumented `PrivateInstanceAAMP::GetFile` download; the `AampCurlDownloader` path is not instrumented, and `netTraceCsvDump=true` also retains raw samples for the full file persona.
 
 ```
 Per download (NetTrace, one call per request):
@@ -391,7 +390,8 @@ correct even when media tracks download concurrently.
 | Burst byte-size CV | 0.01 | 0–10 | 1001 |
 
 Values at or above a histogram's range land in its overflow bucket; watch
-`OverflowCount()` if a bound is ever set too low. Total fixed footprint ≈ 85 KB.
+`OverflowCount()` if a bound is ever set too low. The bucket counters alone
+use about 102 KiB (13,030 `uint64_t`s), plus vector/object overhead.
 
 ## Complexity
 
