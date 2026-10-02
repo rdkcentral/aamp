@@ -30,8 +30,10 @@ class IsoBmffBuffer;
 
 class IsoBmffHelper
 {
+	static constexpr uint32_t MAX_RESTAMP_PTS_CALLS = 10;
+
 	public:
-		IsoBmffHelper(){};
+		IsoBmffHelper() = default;
 		~IsoBmffHelper() = default;
 
 		/**
@@ -127,6 +129,8 @@ class IsoBmffHelper
 		bool ClearMediaHeaderDuration(std::vector<uint8_t> &buffer);
 
 	private:
+		uint32_t mRestampPtsCallCount{0};
+
 		/**
 		 * @brief Create an IsoBmffBuffer from a data buffer and parse it
 		 *

@@ -203,6 +203,13 @@ bool IsoBmffHelper::RestampPts(std::vector<uint8_t> &buffer, int64_t ptsOffset, 
 	{
 		return false;
 	}
+
+	if (++mRestampPtsCallCount >= MAX_RESTAMP_PTS_CALLS)
+	{
+		AAMPLOG_ERR("PTS restamp call limit reached; forcing restamp failure");
+		return false;
+	}
+
 	// NOTE: This log line is used by the pts_restamp_check.py test tool,
 	// and may be used by other tests for validation purposes (e.g. L2 tests).
 	// Please check restamping tests and tools before modifying this log line.
