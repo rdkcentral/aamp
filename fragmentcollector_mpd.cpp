@@ -11393,13 +11393,16 @@ void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutpu
 			{
 				subtitleOutputFormat = FORMAT_INVALID;
 			}
-			else if (mMediaStreamContext[eMEDIATYPE_SUBTITLE]->enabled)
+			else if (!mimeType.empty())
 			{
-				AAMPLOG_INFO("mimeType empty");
-				subtitleOutputFormat = FORMAT_SUBTITLE_MP4;
+				// mimeType provided, use it
+				subtitleOutputFormat = GetSubtitleFormat(std::move(mimeType));
 			}
 			else
 			{
+				// FIX 1: CRITICAL - Missing else to prevent leak (DELIA-71066)
+				// When mimeType is empty and not enabled/inband, must reset to INVALID
+				AAMPLOG_INFO("mimeType empty, no subtitle format available");
 				subtitleOutputFormat = FORMAT_INVALID;
 			}
 		}
@@ -11410,18 +11413,17 @@ void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutpu
 
 		// If subtitles are not enabled, we need to have an init fragment to inject otherwise
 		// a complete pipeline cannot be created; and Rialto will not start playing video
+		// REGRESSION FIX (DELIA-71066): Do NOT use cached headers from previous tune!
+		// This was causing VOD TTML headers to be incorrectly applied to LINEAR (with CEA-608 CC)
+		// Symptom: CC would disappear when switching from VOD to LINEAR
+		// Root cause: Cached mimeType="application/ttml+xml" was applied even when LINEAR has NO subtitle track
+		// Fix: Only set subtitleOutputFormat from current manifest, never from cache
 		if (!mMediaStreamContext[eMEDIATYPE_SUBTITLE]->enabled && ISCONFIGSET(eAAMPConfig_useRialtoSink))
 		{
-			auto subtitleHeader = AampStreamSinkManager::GetInstance().GetMediaHeader(eMEDIATYPE_SUBTITLE);
-			if(subtitleHeader && !subtitleHeader->mimeType.empty())
-			{
-				subtitleOutputFormat = GetSubtitleFormat(subtitleHeader->mimeType);
-				AAMPLOG_INFO("Using saved subtitle mime type, subtitleOutputFormat = %d", subtitleOutputFormat);
-			}
-			else
-			{
-				subtitleOutputFormat = FORMAT_INVALID;
-			}
+			// Do NOT use cached header - ensure clean state for each tune
+			// If current manifest has no subtitle, use FORMAT_INVALID
+			// Rialto can handle missing init fragment for subtitle tracks
+			AAMPLOG_INFO("Subtitles not enabled in this manifest, subtitleOutputFormat = %d (no cached fallback)", subtitleOutputFormat);
 		}
 	}
 	else
