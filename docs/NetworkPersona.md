@@ -362,7 +362,7 @@ the bucket containing `t`, mirroring the file persona's `v > t` semantics.
 | `cadence_ms` | streaming scalar | mean of guard-band gaps (0.10–0.50 s), fallback to all gaps |
 | `cadence_jitter_ms` | streaming scalar | sample std of the same gap set |
 | `flush_jitter_ms` | constant | `6` (hardware constant) |
-| `late_chunk_p` | histogram | fraction of inter-burst gaps at/above `cadence + 2·jitter` |
+| `late_chunk_p` | histogram | fraction of inter-burst gaps strictly above `cadence + 2·jitter` |
 | `late_chunk_extra_ms` | histogram | mean of the late-gap tail, minus `cadence_ms` |
 | `p_conn_reuse` | streaming scalar | reused-connection requests / total requests |
 | `new_conn_penalty_ms` | histogram | median(fresh TTFB) − median(reused TTFB), with fallback |
