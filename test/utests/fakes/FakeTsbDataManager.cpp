@@ -92,6 +92,18 @@ std::shared_ptr<TsbFragmentData> AampTsbDataManager::GetNearestFragment(double p
 	}
 }
 
+TsbFragmentDataPtr AampTsbDataManager::GetFragmentBefore(double position)
+{
+	if (g_mockTSBDataManager)
+	{
+		return g_mockTSBDataManager->GetFragmentBefore(position);
+	}
+	else
+	{
+		return nullptr;
+	}
+}
+
 TsbFragmentDataPtr AampTsbDataManager::GetFirstFragment()
 {
 	if (g_mockTSBDataManager)

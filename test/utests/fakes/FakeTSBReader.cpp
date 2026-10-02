@@ -79,6 +79,13 @@ void AampTsbReader::ReadNext(TsbFragmentDataPtr nextFragmentData)
 	}
 }
 
+// Fake mirrors the plain weak-link lookup; predecessor recovery is exercised
+// against the real AampTsbReader in its own unit tests.
+TsbFragmentDataPtr AampTsbReader::GetPrevFragment(const TsbFragmentDataPtr &fragment)
+{
+	return fragment ? fragment->prev.lock() : nullptr;
+}
+
 void AampTsbReader::CheckPeriodBoundary(TsbFragmentDataPtr  currFragment)
 {
 }

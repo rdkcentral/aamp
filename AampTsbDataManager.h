@@ -303,6 +303,16 @@ public:
 	std::shared_ptr<TsbFragmentData> GetNearestFragment(double position);
 
 	/**
+	 *   @fn GetFragmentBefore
+	 *   @brief Get the fragment immediately preceding the given position in the
+	 *          position-sorted store. Used to recover reverse navigation when the
+	 *          weak prev link has been severed but earlier content still exists.
+	 *   @param[in] position - Absolute position, in seconds since 1970
+	 *   @return pointer to the fragment strictly before position, or nullptr
+	 */
+	std::shared_ptr<TsbFragmentData> GetFragmentBefore(double position);
+
+	/**
 	 *   @fn GetFragment
 	 *   @brief Get fragment for the position
 	 *   @param[in] position - Exact absolute position of the fragment, in seconds since 1970
