@@ -333,14 +333,15 @@ TEST_F(NetPersonaFitterTest, StreamingComputesMinimalFields)
 
 /**
  * @brief ttfb_spike_p / ttfb_spike_ms are the fraction and mean excess of reused
- *        TTFB above P90 (requires >= 20 reused samples).
+ *        TTFB strictly above P90 (requires >= 20 reused samples).
  *
  * Feeds 20 reused requests with TTFB = 20..39 ms (1 ms apart). Oracles use the
- * 1 ms TTFB histogram and its midpoint convention:
+ * 1 ms TTFB histogram and its midpoint convention, with strict-tail semantics
+ * that exclude the P90 bucket (mirrors FitRequests()'s `v > p90`):
  *   median (base_rtt) -> bucket 29 midpoint 29.5
- *   P90 -> bucket 37 midpoint 37.5; tail buckets {37,38,39} -> 3 samples
- *   ttfb_spike_p = 3/20 = 0.15
- *   tail mean = (37.5+38.5+39.5)/3 = 38.5; ttfb_spike_ms = 38.5 - 29.5 = 9.0
+ *   P90 -> bucket 37 midpoint 37.5; strict tail buckets {38,39} -> 2 samples
+ *   ttfb_spike_p = 2/20 = 0.10
+ *   tail mean = (38.5+39.5)/2 = 39.0; ttfb_spike_ms = 39.0 - 29.5 = 9.5
  */
 TEST_F(NetPersonaFitterTest, StreamingTtfbSpikeTail)
 {
@@ -356,8 +357,8 @@ TEST_F(NetPersonaFitterTest, StreamingTtfbSpikeTail)
 	ASSERT_FALSE(json.empty());
 
 	EXPECT_NEAR(ExtractJsonDouble(json, "base_rtt_ms"),   29.5, 1e-9);
-	EXPECT_NEAR(ExtractJsonDouble(json, "ttfb_spike_p"),  0.15, 1e-9);
-	EXPECT_NEAR(ExtractJsonDouble(json, "ttfb_spike_ms"), 9.0,  1e-9);
+	EXPECT_NEAR(ExtractJsonDouble(json, "ttfb_spike_p"),  0.10, 1e-9);
+	EXPECT_NEAR(ExtractJsonDouble(json, "ttfb_spike_ms"), 9.5,  1e-9);
 }
 
 /**

@@ -342,8 +342,9 @@ Each parameter is produced by one of three O(1)-ingestion mechanisms:
   without retaining raw samples. Error on any quantile is ±½ bucket.
 - **Constant** — a fixed value.
 
-The histogram exposes the tail helpers `CountAtOrAboveMs(t)` and
-`ApproximateMeanAtOrAboveMs(t)` used by the spike / late-chunk fields.
+The histogram exposes the strict-tail helpers `CountAboveMs(t)` and
+`ApproximateMeanAboveMs(t)` used by the spike / late-chunk fields; they exclude
+the bucket containing `t`, mirroring the file persona's `v > t` semantics.
 
 ## Fitted Parameters
 
@@ -353,7 +354,7 @@ The histogram exposes the tail helpers `CountAtOrAboveMs(t)` and
 |---|---|---|
 | `base_rtt_ms` | histogram | median of reused-connection TTFB (falls back to all TTFB when < 5 reused) |
 | `rtt_jitter_ms` | histogram | robust std = (P75 − P25) / 1.349, with sample-std fallback when IQR ≤ 0 |
-| `ttfb_spike_p` | histogram | fraction of reused TTFB at/above its P90 (only when ≥ 20 reused samples) |
+| `ttfb_spike_p` | histogram | fraction of reused TTFB strictly above its P90 (only when ≥ 20 reused samples) |
 | `ttfb_spike_ms` | histogram | mean of the reused-TTFB tail above P90, minus `base_rtt_ms` |
 | `mean_thr_mbps` | streaming scalar | geometric mean of per-burst rate: `exp(mean(ln rate)) · 8 / 1e6` |
 | `thr_sigma_ln` | streaming scalar | sample std of `ln(rate)` |

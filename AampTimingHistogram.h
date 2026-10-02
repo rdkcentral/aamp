@@ -135,11 +135,7 @@ public:
 	 */
 	void Add(double valueMs)
 	{
-		const double clamped = std::max(0.0, valueMs);
-		const std::size_t index = std::min(
-			static_cast<std::size_t>(clamped / mBucketWidthMs),
-			mBucketCount - 1);
-		++mCounts[index];
+		++mCounts[SafeBucketIndex(valueMs)];
 		++mSampleCount;
 	}
 
@@ -241,12 +237,8 @@ public:
 	 */
 	uint64_t CountAtOrAboveMs(double thresholdMs) const
 	{
-		const double clamped = std::max(0.0, thresholdMs);
-		const std::size_t start = std::min(
-			static_cast<std::size_t>(clamped / mBucketWidthMs),
-			mBucketCount - 1);
 		uint64_t count = 0;
-		for (std::size_t i = start; i < mBucketCount; ++i)
+		for (std::size_t i = SafeBucketIndex(thresholdMs); i < mBucketCount; ++i)
 		{
 			count += mCounts[i];
 		}
@@ -267,13 +259,56 @@ public:
 	 */
 	double ApproximateMeanAtOrAboveMs(double thresholdMs) const
 	{
-		const double clamped = std::max(0.0, thresholdMs);
-		const std::size_t start = std::min(
-			static_cast<std::size_t>(clamped / mBucketWidthMs),
-			mBucketCount - 1);
 		uint64_t count = 0;
 		double weightedSum = 0.0;
-		for (std::size_t i = start; i < mBucketCount; ++i)
+		for (std::size_t i = SafeBucketIndex(thresholdMs); i < mBucketCount; ++i)
+		{
+			const double midpoint =
+				static_cast<double>(i) * mBucketWidthMs + mBucketWidthMs * 0.5;
+			weightedSum += midpoint * static_cast<double>(mCounts[i]);
+			count += mCounts[i];
+		}
+		return (count > 0) ? (weightedSum / static_cast<double>(count)) : 0.0;
+	}
+
+	/**
+	 * @brief Count of samples strictly above a threshold's bucket (O(bucketCount)).
+	 *
+	 * Like CountAtOrAboveMs(), but excludes the bucket that contains
+	 * @p thresholdMs, so it mirrors a strict `value > threshold` tail test
+	 * rather than `value >= threshold`. Use this when the threshold is itself a
+	 * bucket midpoint (e.g. a percentile from ApproximatePercentileMs()) to
+	 * avoid counting the threshold bucket itself.
+	 *
+	 * @param thresholdMs  Threshold in milliseconds. Negative values are
+	 *                     clamped to 0.
+	 * @return Number of samples in every bucket above the threshold bucket.
+	 */
+	uint64_t CountAboveMs(double thresholdMs) const
+	{
+		uint64_t count = 0;
+		for (std::size_t i = SafeBucketIndex(thresholdMs) + 1; i < mBucketCount; ++i)
+		{
+			count += mCounts[i];
+		}
+		return count;
+	}
+
+	/**
+	 * @brief Approximate mean of samples strictly above a threshold's bucket.
+	 *
+	 * Strict-tail counterpart of ApproximateMeanAtOrAboveMs(): averages the
+	 * bucket midpoints for every bucket above the one containing @p thresholdMs.
+	 *
+	 * @param thresholdMs  Threshold in milliseconds.
+	 * @return Approximate mean of the strict-tail samples, or 0.0 if none are
+	 *         above the threshold bucket.
+	 */
+	double ApproximateMeanAboveMs(double thresholdMs) const
+	{
+		uint64_t count = 0;
+		double weightedSum = 0.0;
+		for (std::size_t i = SafeBucketIndex(thresholdMs) + 1; i < mBucketCount; ++i)
 		{
 			const double midpoint =
 				static_cast<double>(i) * mBucketWidthMs + mBucketWidthMs * 0.5;
@@ -329,6 +364,26 @@ private:
 			return kMaxBucketCount;
 		}
 		return static_cast<std::size_t>(raw);
+	}
+
+	/// Map a millisecond value to a valid bucket index in [0, mBucketCount-1].
+	/// Guards the double->size_t conversion: NaN and non-positive values map to
+	/// bucket 0; +infinity and values at or beyond the histogram range map to
+	/// the last (overflow) bucket. The cast runs only on a finite in-range
+	/// ratio, so a malformed sample cannot trigger undefined behaviour.
+	std::size_t SafeBucketIndex(double valueMs) const
+	{
+		// NaN and values <= 0 fail this test and fall through to bucket 0.
+		if (valueMs > 0.0)
+		{
+			const double ratio = valueMs / mBucketWidthMs;
+			if (ratio < static_cast<double>(mBucketCount - 1))
+			{
+				return static_cast<std::size_t>(ratio);
+			}
+			return mBucketCount - 1;
+		}
+		return 0;
 	}
 
 	// ── Data members ──────────────────────────────────────────────────────

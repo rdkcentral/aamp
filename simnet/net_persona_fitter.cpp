@@ -617,33 +617,35 @@ std::string NetPersonaFitter::BuildMinimalPersonaJson() const
 		burstBytesCv = mStreamBurstCvHist.ApproximateMedianMs();
 	}
 
-	// ttfb_spike_p / ttfb_spike_ms: tail of reused TTFB above its P90. Mirrors
-	// FitRequests(), which only computes these once enough reused samples exist.
+	// ttfb_spike_p / ttfb_spike_ms: tail of reused TTFB strictly above its P90.
+	// Mirrors FitRequests()'s `v > p90`; strict-tail ops exclude the P90 bucket so
+	// the midpoint returned by ApproximatePercentileMs() is not double-counted.
 	double ttfbSpikeP = 0.0;
 	double ttfbSpikeMs = 0.0;
 	if (mStreamReuseCount >= 20)
 	{
 		double p90 = mStreamReusedTtfbHist.ApproximatePercentileMs(90.0);
-		uint64_t spikeCount = mStreamReusedTtfbHist.CountAtOrAboveMs(p90);
+		uint64_t spikeCount = mStreamReusedTtfbHist.CountAboveMs(p90);
 		ttfbSpikeP = static_cast<double>(spikeCount) / static_cast<double>(mStreamReuseCount);
 		if (spikeCount > 0)
 		{
-			ttfbSpikeMs = mStreamReusedTtfbHist.ApproximateMeanAtOrAboveMs(p90) - baseRttMs;
+			ttfbSpikeMs = mStreamReusedTtfbHist.ApproximateMeanAboveMs(p90) - baseRttMs;
 		}
 	}
 
-	// late_chunk_p / late_chunk_extra_ms: tail of inter-burst gaps above the
-	// dynamic threshold cadence + 2*jitter (all values in ms), mirroring FitBursts().
+	// late_chunk_p / late_chunk_extra_ms: tail of inter-burst gaps strictly above
+	// the dynamic threshold cadence + 2*jitter (all values in ms). Mirrors
+	// FitBursts()'s `g > lateThr`; strict-tail ops exclude the threshold bucket.
 	double lateChunkP = 0.0;
 	double lateChunkExtraMs = 0.0;
 	if (mStreamAllGapN > 0)
 	{
 		double lateThrMs = cadenceMs + 2.0 * cadenceJitterMs;
-		uint64_t lateCount = mStreamAllGapHist.CountAtOrAboveMs(lateThrMs);
+		uint64_t lateCount = mStreamAllGapHist.CountAboveMs(lateThrMs);
 		lateChunkP = static_cast<double>(lateCount) / static_cast<double>(mStreamAllGapN);
 		if (lateCount > 0)
 		{
-			lateChunkExtraMs = mStreamAllGapHist.ApproximateMeanAtOrAboveMs(lateThrMs) - cadenceMs;
+			lateChunkExtraMs = mStreamAllGapHist.ApproximateMeanAboveMs(lateThrMs) - cadenceMs;
 		}
 	}
 
