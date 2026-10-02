@@ -1119,7 +1119,7 @@ void AAMPGstPlayer::SetAudioVolume(int volume)
 /**
  *  @brief Flush cached GstBuffers and set seek position & rate
  */
-void AAMPGstPlayer::Flush(double position, int rate, bool shouldTearDown)
+void AAMPGstPlayer::Flush(double position, int rate, bool shouldTearDown, bool /*positionIsAuthoritative*/)
 {
 	if(ISCONFIGSET(eAAMPConfig_SuppressDecode))
 	{

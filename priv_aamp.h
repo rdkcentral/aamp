@@ -717,10 +717,11 @@ public:
 	 *
 	 * @param[in] manifestUrl       - manifest URL of the incoming tune
 	 * @param[in] contentTypeString - content-type string of the incoming tune (e.g. "LINEAR_TV")
+	 * @param[in] seek_pos           - seek position that is set of the incoming tune (e.g. "LINEAR_TV")
 	 * @return bool  true if SetEarlyAbortRequestFlag(true) has been called and the incoming
 	 *               tune type supports early abort
 	 */
-	bool IsAsyncTuneAbortRequired(const char* manifestUrl, const char* contentTypeString);
+	bool IsAsyncTuneAbortRequired(const char* manifestUrl, const char* contentTypeString, const double seek_pos);
 	/**
 	 * @fn TeardownStream
 	 *
@@ -2835,6 +2836,14 @@ public:
 	 *    @return string with Thumbnail information.
 	 */
 	std::string GetThumbnails(double start, double end);
+
+	/**
+	 *   @brief Check if playback is going through Rialto, via either the
+	 *          Rialto GStreamer sink or direct Rialto. Does not imply which.
+	 *
+	 *   @return true if either Rialto config is enabled.
+	 */
+	bool UsingRialto(void) const { return mConfig->IsUsingRialto(); }
 	/**
 	 *    @fn GetThumbnailTracks
 	 *
@@ -2941,9 +2950,10 @@ public:
 	 * @fn StopTrackInjection
 	 *
 	 * @param[in] type Media type
+	 * @param[in] discard Unblock the injector thread so the caller can join it via StopInjectLoop
 	 * @return void
 	 */
-	void StopTrackInjection(AampMediaType type);
+	void StopTrackInjection(AampMediaType type, bool discard = false);
 
 	/**
 	 * @fn ResumeTrackInjection
@@ -4487,9 +4497,10 @@ private:
 	 *
 	 * @param[in] format  - media format to evaluate
 	 * @param[in] type    - content type to evaluate
+	 * @param[in] tuneType    - tune type to evaluate
 	 * @return bool true if async abort is supported for the given format/type
 	 */
-	bool IsAsyncTuneSupportedForType(MediaFormat format, ContentType type) const;
+	bool IsAsyncTuneSupportedForType(MediaFormat format, ContentType type, TuneType tuneType) const;
 
 	/**
 	 * @brief Play from the start of the TSB

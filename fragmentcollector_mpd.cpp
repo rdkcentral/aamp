@@ -4693,7 +4693,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 		// Rialto does not support dynamic streams, so we need to extract and save the
 		// subtitle init fragment from the main vod asset, so that it can be injected
 		// later if a pre-roll advert is played that does not contain subtitles.
-		if (ISCONFIGSET(eAAMPConfig_useRialtoSink) &&
+		if (aamp->UsingRialto() &&
 		   !mIsLiveStream &&
 		   (!(AampStreamSinkManager::GetInstance().GetMediaHeader(eMEDIATYPE_SUBTITLE))))
 		{
@@ -11765,7 +11765,7 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 		MediaStreamContext *track = mMediaStreamContext[iTrack];
 		if(track)
 		{
-			aamp->StopTrackInjection((AampMediaType) iTrack);
+			aamp->StopTrackInjection((AampMediaType) iTrack, true);
 			track->StopInjectLoop();
 			if(!ISCONFIGSET(eAAMPConfig_GstSubtecEnabled))
 			{
@@ -11910,7 +11910,7 @@ void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutpu
 
 		// If subtitles are not enabled, we need to have an init fragment to inject otherwise
 		// a complete pipeline cannot be created; and Rialto will not start playing video
-		if (!mMediaStreamContext[eMEDIATYPE_SUBTITLE]->enabled && ISCONFIGSET(eAAMPConfig_useRialtoSink))
+		if (!mMediaStreamContext[eMEDIATYPE_SUBTITLE]->enabled && aamp->UsingRialto())
 		{
 			auto subtitleHeader = AampStreamSinkManager::GetInstance().GetMediaHeader(eMEDIATYPE_SUBTITLE);
 			if(subtitleHeader && !subtitleHeader->mimeType.empty())
@@ -12610,7 +12610,7 @@ void StreamAbstractionAAMP_MPD::StopInjection(void)
 				track->playContext->abort();
 			}
 			track->AbortWaitForCachedFragment();
-			aamp->StopTrackInjection((AampMediaType) iTrack);
+			aamp->StopTrackInjection((AampMediaType) iTrack, true);
 			track->StopInjectLoop();
 		}
 	}
