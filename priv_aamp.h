@@ -2835,14 +2835,6 @@ public:
 	bool CheckABREnabled(void) { return ISCONFIGSET_PRIV(eAAMPConfig_EnableABR); }
 
 	/**
-	 *   @brief Check if playback is going through Rialto, via either the
-	 *          Rialto GStreamer sink or direct Rialto. Does not imply which.
-	 *
-	 *   @return true if either Rialto config is enabled.
-	 */
-	bool UsingRialto(void) const { return mConfig->IsUsingRialto(); }
-
-	/**
  	 *    @fn GetThumbnails
 	 *
 	 *    @return string with Thumbnail information.
