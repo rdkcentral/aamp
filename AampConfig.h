@@ -223,7 +223,7 @@ typedef enum
 	eAAMPConfig_MonitorAV,						/**< enable background monitoring of audio/video positions to infer video freeze, audio drop, or av sync issues */
 	eAAMPConfig_HlsTsEnablePTSReStamp,
 	eAAMPConfig_OverrideMediaHeaderDuration, /**< enable overriding media header duration for live streams to 0 */
-	eAAMPConfig_UseMp4Demux,			/**< Demux fMP4 fragments internally; required (and auto-enabled) when eAAMPConfig_useDirectRialto is set */
+	eAAMPConfig_UseMp4Demux,                        /**< Demux fMP4 fragments internally; required (and auto-enabled) when eAAMPConfig_useDirectRialto is set */
 	eAAMPConfig_CurlThroughput,
 	eAAMPConfig_UseFireboltSDK,						/**< Config to use Firebolt SDK for license Acquisition */
 	eAAMPConfig_EnableChunkInjection,					/**< Config to enable chunk injection for low latency DASH */

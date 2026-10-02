@@ -2848,6 +2848,14 @@ public:
 	 *    @return string with Thumbnail information.
 	 */
 	std::string GetThumbnails(double start, double end);
+
+	/**
+	 *   @brief Check if playback is going through Rialto, via either the
+	 *          Rialto GStreamer sink or direct Rialto. Does not imply which.
+	 *
+	 *   @return true if either Rialto config is enabled.
+	 */
+	bool UsingRialto(void) const { return mConfig->IsUsingRialto(); }
 	/**
 	 *    @fn GetThumbnailTracks
 	 *
