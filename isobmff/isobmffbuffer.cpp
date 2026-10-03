@@ -299,20 +299,8 @@ static bool processRestampBuffer(uint64_t offset, uint64_t basePts, uint8_t *seg
 			const size_t timestampSize = version == 1 ? sizeof(uint64_t) : sizeof(uint32_t);
 			if (size - tfdtHeaderSize < timestampSize)
 			{
-				if ((buf + sizeof(uint64_t) > tfdtBoxEnd) ||
-					(buf + sizeof(uint64_t) > bufferEnd))
-				{
-					// If the next 8 bytes would go past the end of the box or the buffer, skip this restamp
-					AAMPLOG_ERR("Skipping v1 tfdt restamp: 8-byte access out of bounds or buffer pointer is null, tfdtBoxEnd[%p] bufferEnd[%p] buf[%p]", tfdtBoxEnd, bufferEnd, buf);
+					AAMPLOG_ERR("Truncated TFDT timestamp version[%u] size[%u]", version, size);
 					return false;
-				}
-				else
-				{
-					uint64_t pts = ReadUint64(buf);
-					pts -= basePts;
-					pts += offset;
-					WriteUint64(buf, pts);
-				}
 			}
 
 			if (applyRestamp)
