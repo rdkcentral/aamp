@@ -186,6 +186,10 @@ int ABRManager::getProfileIndexByBitrateRampUpOrDown(int currentProfileIndex, Bi
 
 int ABRManager::getRampedUpProfileIndex(int currentProfileIndex, const std::string& periodId)
 {
+	if (g_mockABRManager)
+	{
+		return g_mockABRManager->getRampedUpProfileIndex(currentProfileIndex, periodId);
+	}
 	return 0;
 }
 
@@ -244,6 +248,11 @@ void ABRManager::GetDesiredProfileOnBuffer(int currProfileIndex,int &newProfileI
 
 void ABRManager::CheckRampupFromSteadyState(int currProfileIndex, int &newProfileIndex, BitsPerSecond nwBandwidth, double bufferValue, BitsPerSecond newBandwidth, BitrateChangeReason &mhBitrateReason, int &mMaxBufferCountCheck, const std::string& periodId)
 {
+	if (g_mockABRManager)
+	{
+		g_mockABRManager->CheckRampupFromSteadyState(currProfileIndex, newProfileIndex, nwBandwidth, bufferValue, newBandwidth, mhBitrateReason, mMaxBufferCountCheck, periodId);
+		return;
+	}
 	(void)currProfileIndex;
 	(void)newProfileIndex;
 	(void)nwBandwidth;
