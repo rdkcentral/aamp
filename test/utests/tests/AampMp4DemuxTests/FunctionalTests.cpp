@@ -30,6 +30,7 @@
 #include "AampMp4Demuxer.h"
 #include "MockPrivateInstanceAAMP.h"
 #include "MockMp4Demux.h"
+#include "MockIsoBmffBuffer.h"
 
 using ::testing::_;
 using ::testing::DoAll;
@@ -39,6 +40,7 @@ using ::testing::StrictMock;
 using ::testing::NiceMock;
 using ::testing::AnyNumber;
 using ::testing::Invoke;
+using ::testing::SetArgReferee;
 
 AampConfig *gpGlobalConfig{nullptr};
 
@@ -913,4 +915,185 @@ TEST_F(AampMp4DemuxerTests, TrickplayPtsRestamp_DashLive_ContentToAdContinuity)
 			<< "Abrupt PTS jump at fragment " << i
 			<< " (content/ad boundary causes this without fragmentPTSoffset fix)";
 	}
+}
+
+// ============================================================================
+// VPAAMP-1193: AampMp4Demuxer::resetPTSOnAudioSwitch / resetPTSOnSubtitleSwitch
+// ============================================================================
+
+/**
+ * @brief VPAAMP-1193: resetPTSOnAudioSwitch must call FlushTrack with the
+ * correct position derived from the first PTS in the fragment.
+ *
+ * With useMp4Demux=true the base-class no-op was inherited before this fix,
+ * so FlushTrack() was never called and the audio pipeline was never flushed on
+ * a seamless audio language switch.  This test verifies the fix.
+ *
+ * Position formula: pos = (firstPTS / timescale) + ptsOffset
+ */
+TEST_F(AampMp4DemuxerTests, ResetPTSOnAudioSwitch_CallsFlushTrackWithCorrectPosition)
+{
+	// Create an audio-typed demuxer (the seamless-audio-switch path is audio-only)
+	AampMp4Demuxer* audioDemuxer = new AampMp4Demuxer(mPrivateInstanceAAMP, eMEDIATYPE_AUDIO, false);
+
+	constexpr uint64_t kFirstPTS  = 483840;   // raw PTS ticks, typical 48 kHz audio
+	constexpr uint32_t kTimeScale = 48000;    // 48 kHz audio timescale
+	constexpr double   kPtsOffset = 0.0;
+	// Expected flush position: 483840 / 48000 + 0.0 = 10.08 s
+	constexpr double kExpectedPos = static_cast<double>(kFirstPTS) / kTimeScale + kPtsOffset;
+
+	g_mockIsoBmffBuffer = std::make_shared<NiceMock<MockIsoBmffBuffer>>();
+
+	// NiceMock silences setBuffer/parseBuffer; assert only what matters
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getFirstPTS(_))
+		.WillOnce(DoAll(SetArgReferee<0>(kFirstPTS), Return(true)));
+	EXPECT_CALL(*g_mockMp4Demux, GetEffectiveTimeScale()).WillOnce(Return(kTimeScale));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, FlushTrack(eMEDIATYPE_AUDIO, kExpectedPos)).Times(1);
+
+	std::vector<uint8_t> fragment = {'d', 'a', 't', 'a'};
+	audioDemuxer->resetPTSOnAudioSwitch(fragment, 10.0, kPtsOffset);
+
+	g_mockIsoBmffBuffer.reset();
+	delete audioDemuxer;
+}
+
+/**
+ * @brief VPAAMP-1193: resetPTSOnAudioSwitch includes the ptsOffset when
+ * computing the flush position, matching the IsoBmffProcessor behaviour.
+ *
+ * Position formula: pos = (firstPTS / timescale) + ptsOffset
+ */
+TEST_F(AampMp4DemuxerTests, ResetPTSOnAudioSwitch_AppliesPtsOffset)
+{
+	AampMp4Demuxer* audioDemuxer = new AampMp4Demuxer(mPrivateInstanceAAMP, eMEDIATYPE_AUDIO, false);
+
+	constexpr uint64_t kFirstPTS  = 1451520;  // ~30.24 s at 48 kHz
+	constexpr uint32_t kTimeScale = 48000;
+	constexpr double   kPtsOffset = 0.294667; // typical cross-period adjustment
+	constexpr double kExpectedPos = static_cast<double>(kFirstPTS) / kTimeScale + kPtsOffset;
+
+	g_mockIsoBmffBuffer = std::make_shared<NiceMock<MockIsoBmffBuffer>>();
+
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getFirstPTS(_))
+		.WillOnce(DoAll(SetArgReferee<0>(kFirstPTS), Return(true)));
+	EXPECT_CALL(*g_mockMp4Demux, GetEffectiveTimeScale()).WillOnce(Return(kTimeScale));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, FlushTrack(eMEDIATYPE_AUDIO, kExpectedPos)).Times(1);
+
+	std::vector<uint8_t> fragment = {'d', 'a', 't', 'a'};
+	audioDemuxer->resetPTSOnAudioSwitch(fragment, 30.0, kPtsOffset);
+
+	g_mockIsoBmffBuffer.reset();
+	delete audioDemuxer;
+}
+
+/**
+ * @brief VPAAMP-1193: resetPTSOnAudioSwitch must NOT call FlushTrack when
+ * the buffer contains no PTS (e.g. empty or corrupted fragment).
+ */
+TEST_F(AampMp4DemuxerTests, ResetPTSOnAudioSwitch_NoPTS_DoesNotCallFlushTrack)
+{
+	AampMp4Demuxer* audioDemuxer = new AampMp4Demuxer(mPrivateInstanceAAMP, eMEDIATYPE_AUDIO, false);
+
+	g_mockIsoBmffBuffer = std::make_shared<NiceMock<MockIsoBmffBuffer>>();
+
+	// getFirstPTS returns false → no PTS found
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getFirstPTS(_)).WillOnce(Return(false));
+	// FlushTrack must NOT be called
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, FlushTrack(_, _)).Times(0);
+
+	std::vector<uint8_t> fragment = {'b', 'a', 'd'};
+	audioDemuxer->resetPTSOnAudioSwitch(fragment, 10.0);
+
+	g_mockIsoBmffBuffer.reset();
+	delete audioDemuxer;
+}
+
+/**
+ * @brief resetPTSOnSubtitleSwitch must call FlushTrack with the correct
+ * position derived from the first PTS in the fragment (no ptsOffset for
+ * subtitles, matching the IsoBmffProcessor behaviour).
+ */
+TEST_F(AampMp4DemuxerTests, ResetPTSOnSubtitleSwitch_CallsFlushTrackWithCorrectPosition)
+{
+	AampMp4Demuxer* subtitleDemuxer = new AampMp4Demuxer(mPrivateInstanceAAMP, eMEDIATYPE_SUBTITLE, false);
+
+	constexpr uint64_t kFirstPTS  = 90000;    // 1 s at 90 kHz
+	constexpr uint32_t kTimeScale = 90000;    // 90 kHz subtitle timescale
+	// Expected flush position: 90000 / 90000 = 1.0 s (no offset for subtitles)
+	constexpr double kExpectedPos = static_cast<double>(kFirstPTS) / kTimeScale;
+
+	g_mockIsoBmffBuffer = std::make_shared<NiceMock<MockIsoBmffBuffer>>();
+
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getFirstPTS(_))
+		.WillOnce(DoAll(SetArgReferee<0>(kFirstPTS), Return(true)));
+	EXPECT_CALL(*g_mockMp4Demux, GetEffectiveTimeScale()).WillOnce(Return(kTimeScale));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, FlushTrack(eMEDIATYPE_SUBTITLE, kExpectedPos)).Times(1);
+
+	std::vector<uint8_t> fragment = {'d', 'a', 't', 'a'};
+	subtitleDemuxer->resetPTSOnSubtitleSwitch(fragment, 1.0);
+
+	g_mockIsoBmffBuffer.reset();
+	delete subtitleDemuxer;
+}
+
+/**
+ * @brief VPAAMP-1193 review: data-only fragment where GetTimeScale()==0 but
+ * SetFallbackTimeScale() has been called.  GetEffectiveTimeScale() returns the
+ * manifest-declared fallback; FlushTrack must still be called with the
+ * PTS-derived position, not silently skipped.
+ *
+ * Covers MP4Demux.cpp:753-768: effectiveTimeScale = timeScale?:fallbackTimeScale.
+ */
+TEST_F(AampMp4DemuxerTests, ResetPTSOnAudioSwitch_FallbackTimescale_UsesEffectiveTimescale)
+{
+	AampMp4Demuxer* audioDemuxer = new AampMp4Demuxer(mPrivateInstanceAAMP, eMEDIATYPE_AUDIO, false);
+
+	constexpr uint64_t kFirstPTS        = 483840;
+	// GetTimeScale() == 0 (no init box), but manifest fallback == 48000.
+	constexpr uint32_t kEffectiveTS     = 48000;
+	constexpr double   kPtsOffset       = 0.0;
+	constexpr double   kExpectedPos     = static_cast<double>(kFirstPTS) / kEffectiveTS;
+
+	g_mockIsoBmffBuffer = std::make_shared<NiceMock<MockIsoBmffBuffer>>();
+
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getFirstPTS(_))
+		.WillOnce(DoAll(SetArgReferee<0>(kFirstPTS), Return(true)));
+	// GetEffectiveTimeScale() returns the manifest fallback even when GetTimeScale()==0
+	EXPECT_CALL(*g_mockMp4Demux, GetEffectiveTimeScale()).WillOnce(Return(kEffectiveTS));
+	// FlushTrack must be called with the PTS-derived position, not skipped
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, FlushTrack(eMEDIATYPE_AUDIO, kExpectedPos)).Times(1);
+
+	std::vector<uint8_t> fragment = {'d', 'a', 't', 'a'};
+	audioDemuxer->resetPTSOnAudioSwitch(fragment, 5.0, kPtsOffset);
+
+	g_mockIsoBmffBuffer.reset();
+	delete audioDemuxer;
+}
+
+/**
+ * @brief VPAAMP-1193 review: neither box-derived nor manifest fallback timescale
+ * is available (GetEffectiveTimeScale()==0).  FlushTrack must still be called
+ * using the caller-supplied playback position rather than silently skipping it,
+ * so the audio pipeline is flushed even in this degenerate case.
+ */
+TEST_F(AampMp4DemuxerTests, ResetPTSOnAudioSwitch_ZeroEffectiveTimescale_FallsBackToCallerPosition)
+{
+	AampMp4Demuxer* audioDemuxer = new AampMp4Demuxer(mPrivateInstanceAAMP, eMEDIATYPE_AUDIO, false);
+
+	constexpr double kCallerPosition = 15.5;
+
+	g_mockIsoBmffBuffer = std::make_shared<NiceMock<MockIsoBmffBuffer>>();
+
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getFirstPTS(_))
+		.WillOnce(DoAll(SetArgReferee<0>(uint64_t{720000}), Return(true)));
+	// Both box-derived and manifest-fallback timescales are absent
+	EXPECT_CALL(*g_mockMp4Demux, GetEffectiveTimeScale()).WillOnce(Return(0u));
+	// FlushTrack must still be called — with the caller-supplied position
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, FlushTrack(eMEDIATYPE_AUDIO, kCallerPosition)).Times(1);
+
+	std::vector<uint8_t> fragment = {'d', 'a', 't', 'a'};
+	audioDemuxer->resetPTSOnAudioSwitch(fragment, kCallerPosition);
+
+	g_mockIsoBmffBuffer.reset();
+	delete audioDemuxer;
 }
