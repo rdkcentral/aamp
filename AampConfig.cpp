@@ -259,6 +259,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false,"dashIgnoreBaseUrlIfSlash",eAAMPConfig_DASHIgnoreBaseURLIfSlash,false},
 	{false,"licenseAnonymousRequest",eAAMPConfig_AnonymousLicenseRequest,false},
 	{false,"hlsAVTrackSyncUsingPDT",eAAMPConfig_HLSAVTrackSyncUsingStartTime,false},
+	{true,"enableHlsPdtLatency",eAAMPConfig_EnableHLSPDTLatency,false},
 	{true,"mpdDiscontinuityHandling",eAAMPConfig_MPDDiscontinuityHandling,false},
 	{true,"mpdDiscontinuityHandlingCdvr",eAAMPConfig_MPDDiscontinuityHandlingCdvr,false},
 	{false,"forceHttp",eAAMPConfig_ForceHttp,false},
