@@ -520,6 +520,8 @@ private:
 	uint8_t* const baseMDT_loc; // BaseMediaDecodeTime location
 
 public:
+	uint8_t getVersion() const { return version; }
+
 	/**
 	 * @fn TfdtBox
 	 *

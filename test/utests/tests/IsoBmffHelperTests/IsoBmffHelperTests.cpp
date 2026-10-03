@@ -66,7 +66,8 @@ TEST_F(IsoBmffHelperTests, restampPtsTest)
 	uint32_t timeScale = 48000;
 	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(bufferContent, sizeof(bufferContent)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(false, -1)).WillOnce(Return(true));
-	EXPECT_CALL(*g_mockIsoBmffBuffer, restampPts(ptsOffset));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, restampPts(ptsOffset))
+		.WillOnce(Return(true));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getSegmentDuration());
 	EXPECT_TRUE(helper->RestampPts(buffer, ptsOffset,url, trackName, timeScale));
 }

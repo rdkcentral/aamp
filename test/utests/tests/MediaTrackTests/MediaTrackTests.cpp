@@ -553,7 +553,8 @@ TEST_P(MediaTrackDashPlaybackPtsRestampTests, PlaybackTest)
 	bufferedFragment = AddFragmentToBuffer(videoTrack, testFragment, lowLatencyMode, aampTsb);
 	EXPECT_CALL(*g_mockIsoBmffHelper,
 				RestampPts(AampGrowableBufferRefEq(std::cref(testFragment.fragment)),
-								  (PTS_OFFSET_SEC * PLAYBACK_TIMESCALE), expectedUri, "video", PLAYBACK_TIMESCALE));
+								  (PTS_OFFSET_SEC * PLAYBACK_TIMESCALE), expectedUri, "video", PLAYBACK_TIMESCALE))
+		.WillOnce(Return(true));
 	EXPECT_CALL(*g_mockIsoBmffHelper, SetPtsAndDuration(_, _, _)).Times(0);
 	if (lowLatencyMode)
 	{

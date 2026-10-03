@@ -115,7 +115,12 @@ bool IsoBmffProcessor::sendSegment(AampGrowableBuffer* pBuffer,double position,d
 		if(isRestampConfigEnabled && (playRate == AAMP_NORMAL_PLAY_RATE))
 		{
 			AAMPLOG_INFO("IsoBmffProcessor %s Restamping PTS", IsoBmffProcessorTypeName[type]);
-			restampPTSAndSendSegment(pBuffer,position,duration,discontinuous,isInit);
+			ret = restampPTSAndSendSegment(pBuffer, position, duration, discontinuous, isInit);
+			if (!ret)
+			{
+				p_aamp->ScheduleRetune(eGST_ERROR_PTS,
+					static_cast<AampMediaType>(type));
+			}
 		}
 		else
 		{
@@ -426,7 +431,7 @@ void IsoBmffProcessor::sendStream(AampGrowableBuffer *pBuffer, double position, 
 /**
  *  @brief restamp PTS and send segment to GST
  */
-void IsoBmffProcessor::restampPTSAndSendSegment(AampGrowableBuffer *pBuffer,double position, double duration,bool isDiscontinuity,bool isInit)
+bool IsoBmffProcessor::restampPTSAndSendSegment(AampGrowableBuffer *pBuffer, double position, double duration,bool isDiscontinuity,bool isInit)
 {
 	uint32_t tScale = 0;
 	bool ret = true;
@@ -589,7 +594,10 @@ void IsoBmffProcessor::restampPTSAndSendSegment(AampGrowableBuffer *pBuffer,doub
 			}
 
 			//Step 6.Now time to restamp the PTS
-			buffer.restampPTS(sumPTS,currentPTS,(uint8_t *)(pBuffer->GetPtr()),(uint32_t)(pBuffer->GetLen()));
+			if (!buffer.restampPTS(sumPTS, currentPTS, reinterpret_cast<uint8_t *>(pBuffer->GetPtr()), static_cast<uint32_t>(pBuffer->GetLen())))
+			{
+				return false;
+			}
 			double newPos = ((double)sumPTS / (double) currTimeScale);
 			prevPTS = currentPTS;
 
@@ -610,6 +618,7 @@ void IsoBmffProcessor::restampPTSAndSendSegment(AampGrowableBuffer *pBuffer,doub
 			nextPos += duration;
 		AAMPLOG_INFO("IsoBmffProcessor %s after restamp nextPos: %lf, prevPosition: %lf, prevDuration: %lf",IsoBmffProcessorTypeName[type],nextPos,prevPosition, prevDuration );
 	}
+	return true;
 }
 
 /**
