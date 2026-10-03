@@ -2328,9 +2328,10 @@ public:
 	 *
 	 *   @param[in] errorType - Current error type
 	 *   @param[in] trackType - Video/Audio
+	 *   @param[in] forceRetune - Schedule immediately without PTS error debouncing
 	 *   @return void
 	 */
-	void ScheduleRetune(PlaybackErrorType errorType, AampMediaType trackType, bool bufferFull = false);
+	void ScheduleRetune(PlaybackErrorType errorType, AampMediaType trackType, bool bufferFull = false, bool forceRetune = false);
 
 	/**
 	 * @brief PrivateInstanceAAMP Constructor

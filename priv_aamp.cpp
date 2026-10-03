@@ -9232,7 +9232,7 @@ bool PrivateInstanceAAMP::Discontinuity(AampMediaType track, bool setDiscontinui
 /**
  * @brief Schedules retune or discontinuity processing based on state.
  */
-void PrivateInstanceAAMP::ScheduleRetune(PlaybackErrorType errorType, AampMediaType trackType, bool bufferFull)
+void PrivateInstanceAAMP::ScheduleRetune(PlaybackErrorType errorType, AampMediaType trackType, bool bufferFull, bool forceRetune)
 {
 	std::unique_lock<std::mutex> gLock(gMutex, std::defer_lock);
 	if (AAMP_NORMAL_PLAY_RATE == rate && ContentType_EAS != mContentType)
@@ -9328,7 +9328,14 @@ void PrivateInstanceAAMP::ScheduleRetune(PlaybackErrorType errorType, AampMediaT
 				}
 				else
 				{
-					if(eGST_ERROR_PTS == errorType || eGST_ERROR_UNDERFLOW == errorType)
+					if(forceRetune)
+					{
+						AAMPLOG_WARN("PrivateInstanceAAMP: Force scheduling reTune for %s", getStringForPlaybackError(errorType));
+						gAAMPInstance->reTune = true;
+						AdditionalTuneFailLogEntries();
+						ScheduleAsyncTask(PrivateInstanceAAMP_Retune, (void *)this, "PrivateInstanceAAMP_Retune");
+					}
+					else if(eGST_ERROR_PTS == errorType || eGST_ERROR_UNDERFLOW == errorType)
 					{
 						long long now = aamp_GetCurrentTimeMS();
 						long long lastErrorReportedTimeMs = lastUnderFlowTimeMs[trackType];

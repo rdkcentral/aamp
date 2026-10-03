@@ -1268,7 +1268,7 @@ void PrivateInstanceAAMP::ResetTrackDiscontinuityIgnoredStatusForTrack(AampMedia
 {
 }
 
-void PrivateInstanceAAMP::ScheduleRetune(PlaybackErrorType errorType, AampMediaType trackType, bool bufferFull)
+void PrivateInstanceAAMP::ScheduleRetune(PlaybackErrorType errorType, AampMediaType trackType, bool bufferFull, bool forceRetune)
 {
 }
 

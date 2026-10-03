@@ -1091,7 +1091,7 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 				{
 					AAMPLOG_ERR("[%s] PTS restamp failed; scheduling retune", name);
 					aamp->ScheduleRetune(eGST_ERROR_PTS,
-						static_cast<AampMediaType>(type));
+						static_cast<AampMediaType>(type), false, true);
 					ret = false;
 					return;
 				}
