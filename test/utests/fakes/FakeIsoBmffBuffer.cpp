@@ -197,8 +197,14 @@ bool IsoBmffBuffer::getTrack_id(uint32_t &track_id)
 	return false;
 }
 
-void IsoBmffBuffer::restampPTS(uint64_t offset, uint64_t basePts, uint8_t *segment, uint32_t bufSz)
+void IsoBmffBuffer::restampPTS(uint64_t offset, uint64_t basePts,
+    uint8_t *segment, uint32_t bufSz, const uint8_t *bufferEnd)
 {
+    (void)offset;
+    (void)basePts;
+    (void)segment;
+    (void)bufSz;
+    (void)bufferEnd;
 }
 
 void IsoBmffBuffer::restampPts(int64_t offset)
