@@ -35,6 +35,7 @@
 #include "player-xternal-stats.h"
 #endif
 #include "PlayerUtils.h"
+#include <sys/stat.h>
 
 #define DEFAULT_BUFFERING_TO_MS 10                       /**< TimeOut interval to check buffer fullness */
 #define DEFAULT_BUFFERING_MAX_MS (1000)                  /**< max buffering time */
@@ -43,6 +44,7 @@
 #define DEFAULT_TIMEOUT_FOR_SOURCE_SETUP (1000)          /**< Default timeout value in milliseconds */
 #define DEFAULT_AVSYNC_FREERUN_THRESHOLD_SECS 12         /**< Currently MAX FRAG DURATION + 2*/
 #define INVALID_RATE -9999
+#define DECODER_LOG_MAX_SIZE_BYTES (500 * 1024)          /**< Max size for decoderlogs.txt before stopping writes*/
 
 
 #if GLIB_CHECK_VERSION(2, 68, 0)
@@ -2670,10 +2672,15 @@ GstPlaybackQualityStruct* InterfacePlayerRDK::GetVideoPlaybackQuality(void)
 #if 1
 			if( interfacePlayerPriv->gstPrivateContext->playbackQuality.rendered < 4 )
 			{
-				std::system("echo \"============================================================\" >> /opt/logs/decoderlogs.txt ");
-				std::system("date -u +\"%Y-%m-%dT%H:%M:%S.%3NZ\">> /opt/logs/decoderlogs.txt");
-				std::system("cat /proc/brcm/transport >> /opt/logs/decoderlogs.txt ");
-				std::system("cat /proc/brcm/video_decoder >> /opt/logs/decoderlogs.txt");
+				struct stat logFileStat;
+				// stop appending once the file hits the size cap, rather than trimming it
+				if (stat("/home/private/decoderlogs.txt", &logFileStat) != 0 || logFileStat.st_size < DECODER_LOG_MAX_SIZE_BYTES)
+				{
+					std::system("echo \"==========\" >> /home/private/decoderlogs.txt ");
+					std::system("date -u +\"%Y-%m-%dT%H:%M:%S.%3NZ\">> /home/private/decoderlogs.txt");
+					std::system("cat /proc/brcm/transport >> /home/private/decoderlogs.txt ");
+					std::system("cat /proc/brcm/video_decoder >> /home/private/decoderlogs.txt");
+				}
 			}
 #endif
 			gst_structure_free( stats );
