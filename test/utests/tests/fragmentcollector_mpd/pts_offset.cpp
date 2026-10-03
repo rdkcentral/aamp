@@ -19,6 +19,7 @@
 
 #include <gtest/gtest.h>
 #include "fragmentcollector_mpd.h"
+#include "AdManagerBase.h"
 #include "AampConfig.h"
 #include "MockAampConfig.h"
 #include "MockAampMPDParseHelper.h"
@@ -35,6 +36,16 @@ public:
 	FRIEND_TEST(fragmentcollector_mpd, UpdatePtsOffsetTest1);
 	FRIEND_TEST(fragmentcollector_mpd, UpdatePtsOffsetTest_WithTrickPlayRate);
 	FRIEND_TEST(fragmentcollector_mpd, UpdatePtsOffsetTest_WithShortAd);
+	FRIEND_TEST(fragmentcollector_mpd, UpdatePtsOffset_AllCdaiConfigsEnabled_RecordsAccumulator);
+	FRIEND_TEST(fragmentcollector_mpd, UpdatePtsOffset_CdaiConfigDisabled_NoAccumulator);
+	FRIEND_TEST(fragmentcollector_mpd, UpdatePtsOffset_Mp4DemuxDisabled_NoAccumulator);
+	FRIEND_TEST(fragmentcollector_mpd, UpdatePtsOffset_PTSReStampDisabled_NoAccumulator);
+	FRIEND_TEST(fragmentcollector_mpd, CdaiRetuneSeed_SeedsFromAccumulatorMinusMaxOffset);
+	FRIEND_TEST(fragmentcollector_mpd, CdaiRetuneSeed_ResetsAccumulatorAfterSeeding);
+	FRIEND_TEST(fragmentcollector_mpd, CdaiRetuneSeed_SkipsWhenOutsideAdBreak);
+	FRIEND_TEST(fragmentcollector_mpd, CdaiRetuneSeed_SkipsWhenOutsideAdBreakWait4Ads);
+	FRIEND_TEST(fragmentcollector_mpd, CdaiRetuneSeed_SkipsWhenAccumulatorIsZero);
+	FRIEND_TEST(fragmentcollector_mpd, CdaiRetuneSeed_UsesMaxOfAudioAndVideoOffset);
 };
 
 class fragmentcollector_mpd : public ::testing::Test
@@ -412,4 +423,340 @@ TEST_F(fragmentcollector_mpd, UpdatePtsOffsetTest_WithShortAd)
 	EXPECT_DOUBLE_EQ(streamAbstractionStub.mPTSOffset.inSeconds(), 0.0);
 	EXPECT_DOUBLE_EQ(streamAbstractionStub.mNextPts.inSeconds(), 10.0);
 	EXPECT_FLOAT_EQ(streamAbstractionStub.mPlayRate, trickPlayRate);
+}
+
+// ============================================================================
+// UpdatePtsOffset accumulator tests (review comment 3 – recording gate)
+// ============================================================================
+
+/**
+ * Helper: minimal single-period manifest used by UpdatePtsOffset accumulator tests.
+ */
+static const char *kMinimalManifest = R"(<?xml version="1.0"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011">
+<Period id="p0"><AdaptationSet><Representation/></AdaptationSet></Period>
+</MPD>)";
+
+/**
+ * @brief Verify that UpdatePtsOffset records mMp4DemuxAccumulatedPts when all
+ *        three required config gates (UseMp4Demux, EnablePTSReStamp,
+ *        EnableClientDai) are enabled.
+ *
+ *        After UpdatePtsOffset(true) with incoming mNextPts=5, mPTSOffset=3,
+ *        timelineStart=0, duration=10:
+ *          mPTSOffset = 5 + 3 - 0 = 8
+ *          mNextPts   = 10 + 0    = 10
+ *          accumulated = 10 + 8  = 18
+ */
+TEST_F(fragmentcollector_mpd, UpdatePtsOffset_AllCdaiConfigsEnabled_RecordsAccumulator)
+{
+	mManifest = kMinimalManifest;
+	ManifestDownloadResponsePtr respData = GetManifestForMPDDownloader();
+
+	ToBeTestedStub stub(mPrivateInstanceAAMP, 0.0, AAMP_NORMAL_PLAY_RATE);
+	MediaStreamContext ms(eTRACK_VIDEO, &stub, mPrivateInstanceAAMP, "TEST");
+	stub.mMediaStreamContext[eMEDIATYPE_AUDIO] = &ms;
+	stub.mMediaStreamContext[eMEDIATYPE_VIDEO] = &ms;
+
+	stub.mpd            = respData->mMPDInstance.get();
+	stub.mCurrentPeriod = stub.mpd->GetPeriods().at(0);
+	stub.mNextPts       = 5.0;
+	stub.mPTSOffset     = 3.0;
+
+	const double start = 0.0, duration = 10.0;
+	EXPECT_CALL(*g_mockAampMPDParseHelper, GetStartAndDurationFromTimeline(_, _, _, _, _))
+		.Times(2)
+		.WillRepeatedly(DoAll(SetArgReferee<3>(start), SetArgReferee<4>(duration)));
+
+	ON_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseMp4Demux)).WillByDefault(Return(true));
+	ON_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp)).WillByDefault(Return(true));
+	ON_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableClientDai)).WillByDefault(Return(true));
+
+	stub.UpdatePtsOffset(true);
+
+	EXPECT_DOUBLE_EQ(mPrivateInstanceAAMP->mMp4DemuxAccumulatedPts, 18.0);
+}
+
+/**
+ * @brief Verify UpdatePtsOffset does NOT update mMp4DemuxAccumulatedPts
+ *        when EnableClientDai is disabled.
+ */
+TEST_F(fragmentcollector_mpd, UpdatePtsOffset_CdaiConfigDisabled_NoAccumulator)
+{
+	mManifest = kMinimalManifest;
+	ManifestDownloadResponsePtr respData = GetManifestForMPDDownloader();
+
+	ToBeTestedStub stub(mPrivateInstanceAAMP, 0.0, AAMP_NORMAL_PLAY_RATE);
+	MediaStreamContext ms(eTRACK_VIDEO, &stub, mPrivateInstanceAAMP, "TEST");
+	stub.mMediaStreamContext[eMEDIATYPE_AUDIO] = &ms;
+	stub.mMediaStreamContext[eMEDIATYPE_VIDEO] = &ms;
+
+	stub.mpd            = respData->mMPDInstance.get();
+	stub.mCurrentPeriod = stub.mpd->GetPeriods().at(0);
+	stub.mNextPts       = 0.0;
+	stub.mPTSOffset     = 0.0;
+
+	const double start = 0.0, duration = 10.0;
+	EXPECT_CALL(*g_mockAampMPDParseHelper, GetStartAndDurationFromTimeline(_, _, _, _, _))
+		.Times(2)
+		.WillRepeatedly(DoAll(SetArgReferee<3>(start), SetArgReferee<4>(duration)));
+
+	ON_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseMp4Demux)).WillByDefault(Return(true));
+	ON_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp)).WillByDefault(Return(true));
+	ON_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableClientDai)).WillByDefault(Return(false));
+
+	mPrivateInstanceAAMP->mMp4DemuxAccumulatedPts = 0.0;
+	stub.UpdatePtsOffset(true);
+
+	EXPECT_DOUBLE_EQ(mPrivateInstanceAAMP->mMp4DemuxAccumulatedPts, 0.0);
+}
+
+/**
+ * @brief Verify UpdatePtsOffset does NOT update mMp4DemuxAccumulatedPts
+ *        when UseMp4Demux is disabled.
+ */
+TEST_F(fragmentcollector_mpd, UpdatePtsOffset_Mp4DemuxDisabled_NoAccumulator)
+{
+	mManifest = kMinimalManifest;
+	ManifestDownloadResponsePtr respData = GetManifestForMPDDownloader();
+
+	ToBeTestedStub stub(mPrivateInstanceAAMP, 0.0, AAMP_NORMAL_PLAY_RATE);
+	MediaStreamContext ms(eTRACK_VIDEO, &stub, mPrivateInstanceAAMP, "TEST");
+	stub.mMediaStreamContext[eMEDIATYPE_AUDIO] = &ms;
+	stub.mMediaStreamContext[eMEDIATYPE_VIDEO] = &ms;
+
+	stub.mpd            = respData->mMPDInstance.get();
+	stub.mCurrentPeriod = stub.mpd->GetPeriods().at(0);
+	stub.mNextPts       = 0.0;
+	stub.mPTSOffset     = 0.0;
+
+	const double start = 0.0, duration = 10.0;
+	EXPECT_CALL(*g_mockAampMPDParseHelper, GetStartAndDurationFromTimeline(_, _, _, _, _))
+		.Times(2)
+		.WillRepeatedly(DoAll(SetArgReferee<3>(start), SetArgReferee<4>(duration)));
+
+	ON_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseMp4Demux)).WillByDefault(Return(false));
+	ON_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp)).WillByDefault(Return(true));
+	ON_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableClientDai)).WillByDefault(Return(true));
+
+	mPrivateInstanceAAMP->mMp4DemuxAccumulatedPts = 0.0;
+	stub.UpdatePtsOffset(true);
+
+	EXPECT_DOUBLE_EQ(mPrivateInstanceAAMP->mMp4DemuxAccumulatedPts, 0.0);
+}
+
+/**
+ * @brief Verify UpdatePtsOffset does NOT update mMp4DemuxAccumulatedPts
+ *        when EnablePTSReStamp is disabled.
+ */
+TEST_F(fragmentcollector_mpd, UpdatePtsOffset_PTSReStampDisabled_NoAccumulator)
+{
+	mManifest = kMinimalManifest;
+	ManifestDownloadResponsePtr respData = GetManifestForMPDDownloader();
+
+	ToBeTestedStub stub(mPrivateInstanceAAMP, 0.0, AAMP_NORMAL_PLAY_RATE);
+	MediaStreamContext ms(eTRACK_VIDEO, &stub, mPrivateInstanceAAMP, "TEST");
+	stub.mMediaStreamContext[eMEDIATYPE_AUDIO] = &ms;
+	stub.mMediaStreamContext[eMEDIATYPE_VIDEO] = &ms;
+
+	stub.mpd            = respData->mMPDInstance.get();
+	stub.mCurrentPeriod = stub.mpd->GetPeriods().at(0);
+	stub.mNextPts       = 0.0;
+	stub.mPTSOffset     = 0.0;
+
+	const double start = 0.0, duration = 10.0;
+	EXPECT_CALL(*g_mockAampMPDParseHelper, GetStartAndDurationFromTimeline(_, _, _, _, _))
+		.Times(2)
+		.WillRepeatedly(DoAll(SetArgReferee<3>(start), SetArgReferee<4>(duration)));
+
+	ON_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseMp4Demux)).WillByDefault(Return(true));
+	ON_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp)).WillByDefault(Return(false));
+	ON_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableClientDai)).WillByDefault(Return(true));
+
+	mPrivateInstanceAAMP->mMp4DemuxAccumulatedPts = 0.0;
+	stub.UpdatePtsOffset(true);
+
+	EXPECT_DOUBLE_EQ(mPrivateInstanceAAMP->mMp4DemuxAccumulatedPts, 0.0);
+}
+
+// ============================================================================
+// SeedMNextPtsFromCdaiAccumulator tests (review comment 3 – Init seeding)
+// ============================================================================
+
+/**
+ * @brief Helper: enable all three config gates needed for CDAI PTS seeding.
+ */
+static void EnableAllCdaiConfigs()
+{
+	ON_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseMp4Demux)).WillByDefault(Return(true));
+	ON_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp)).WillByDefault(Return(true));
+	ON_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableClientDai)).WillByDefault(Return(true));
+}
+
+/**
+ * @brief Verify SeedMNextPtsFromCdaiAccumulator seeds mNextPts as
+ *        accumulated - max(audioOffset, videoOffset) when in an adbreak state.
+ */
+TEST_F(fragmentcollector_mpd, CdaiRetuneSeed_SeedsFromAccumulatorMinusMaxOffset)
+{
+	EnableAllCdaiConfigs();
+
+	ToBeTestedStub stub(mPrivateInstanceAAMP, 0.0, AAMP_NORMAL_PLAY_RATE);
+
+	MediaStreamContext audioCtx(eTRACK_AUDIO, &stub, mPrivateInstanceAAMP, "AUDIO");
+	MediaStreamContext videoCtx(eTRACK_VIDEO, &stub, mPrivateInstanceAAMP, "VIDEO");
+	audioCtx.fragmentDescriptor.TimeScale = 48000;
+	audioCtx.fragmentDescriptor.Time      = 48000 * 1; // 1.0 s
+	videoCtx.fragmentDescriptor.TimeScale = 25;
+	videoCtx.fragmentDescriptor.Time      = 25 * 2;    // 2.0 s – larger, max wins
+	stub.mMediaStreamContext[eMEDIATYPE_AUDIO] = &audioCtx;
+	stub.mMediaStreamContext[eMEDIATYPE_VIDEO] = &videoCtx;
+
+	mPrivateInstanceAAMP->mMp4DemuxAccumulatedPts = 70.4;
+	stub.mNextPts   = 0.0;
+	stub.mPTSOffset = 0.0;
+
+	stub.SeedMNextPtsFromCdaiAccumulator(AdState::IN_ADBREAK_AD_PLAYING);
+
+	// seekOffset = max(audio=1.0, video=2.0) = 2.0
+	// mNextPts   = 70.4 - 2.0 = 68.4
+	EXPECT_DOUBLE_EQ(stub.mNextPts.inSeconds(), 68.4);
+}
+
+/**
+ * @brief Verify SeedMNextPtsFromCdaiAccumulator resets the accumulator to 0
+ *        after seeding so a subsequent non-CDAI Init() call is not affected.
+ */
+TEST_F(fragmentcollector_mpd, CdaiRetuneSeed_ResetsAccumulatorAfterSeeding)
+{
+	EnableAllCdaiConfigs();
+
+	ToBeTestedStub stub(mPrivateInstanceAAMP, 0.0, AAMP_NORMAL_PLAY_RATE);
+
+	MediaStreamContext videoCtx(eTRACK_VIDEO, &stub, mPrivateInstanceAAMP, "VIDEO");
+	videoCtx.fragmentDescriptor.TimeScale = 25;
+	videoCtx.fragmentDescriptor.Time      = 0;
+	stub.mMediaStreamContext[eMEDIATYPE_AUDIO] = nullptr;
+	stub.mMediaStreamContext[eMEDIATYPE_VIDEO] = &videoCtx;
+
+	mPrivateInstanceAAMP->mMp4DemuxAccumulatedPts = 30.0;
+	stub.mNextPts   = 0.0;
+	stub.mPTSOffset = 0.0;
+
+	stub.SeedMNextPtsFromCdaiAccumulator(AdState::IN_ADBREAK_AD_PLAYING);
+
+	EXPECT_DOUBLE_EQ(mPrivateInstanceAAMP->mMp4DemuxAccumulatedPts, 0.0);
+}
+
+/**
+ * @brief Verify SeedMNextPtsFromCdaiAccumulator is a no-op when the player
+ *        was OUTSIDE_ADBREAK before the retune; the stale accumulator must
+ *        not be consumed.
+ */
+TEST_F(fragmentcollector_mpd, CdaiRetuneSeed_SkipsWhenOutsideAdBreak)
+{
+	EnableAllCdaiConfigs();
+
+	ToBeTestedStub stub(mPrivateInstanceAAMP, 0.0, AAMP_NORMAL_PLAY_RATE);
+
+	MediaStreamContext videoCtx(eTRACK_VIDEO, &stub, mPrivateInstanceAAMP, "VIDEO");
+	videoCtx.fragmentDescriptor.TimeScale = 25;
+	videoCtx.fragmentDescriptor.Time      = 0;
+	stub.mMediaStreamContext[eMEDIATYPE_AUDIO] = nullptr;
+	stub.mMediaStreamContext[eMEDIATYPE_VIDEO] = &videoCtx;
+
+	const double staleAccumulated = 42.0;
+	mPrivateInstanceAAMP->mMp4DemuxAccumulatedPts = staleAccumulated;
+	stub.mNextPts   = 0.0;
+	stub.mPTSOffset = 0.0;
+
+	stub.SeedMNextPtsFromCdaiAccumulator(AdState::OUTSIDE_ADBREAK);
+
+	EXPECT_DOUBLE_EQ(stub.mNextPts.inSeconds(), 0.0);
+	EXPECT_DOUBLE_EQ(mPrivateInstanceAAMP->mMp4DemuxAccumulatedPts, staleAccumulated);
+}
+
+/**
+ * @brief Verify SeedMNextPtsFromCdaiAccumulator is a no-op when the player
+ *        was in OUTSIDE_ADBREAK_WAIT4ADS before the retune.
+ */
+TEST_F(fragmentcollector_mpd, CdaiRetuneSeed_SkipsWhenOutsideAdBreakWait4Ads)
+{
+	EnableAllCdaiConfigs();
+
+	ToBeTestedStub stub(mPrivateInstanceAAMP, 0.0, AAMP_NORMAL_PLAY_RATE);
+
+	MediaStreamContext videoCtx(eTRACK_VIDEO, &stub, mPrivateInstanceAAMP, "VIDEO");
+	videoCtx.fragmentDescriptor.TimeScale = 25;
+	videoCtx.fragmentDescriptor.Time      = 0;
+	stub.mMediaStreamContext[eMEDIATYPE_AUDIO] = nullptr;
+	stub.mMediaStreamContext[eMEDIATYPE_VIDEO] = &videoCtx;
+
+	const double staleAccumulated = 55.0;
+	mPrivateInstanceAAMP->mMp4DemuxAccumulatedPts = staleAccumulated;
+	stub.mNextPts   = 0.0;
+	stub.mPTSOffset = 0.0;
+
+	stub.SeedMNextPtsFromCdaiAccumulator(AdState::OUTSIDE_ADBREAK_WAIT4ADS);
+
+	EXPECT_DOUBLE_EQ(stub.mNextPts.inSeconds(), 0.0);
+	EXPECT_DOUBLE_EQ(mPrivateInstanceAAMP->mMp4DemuxAccumulatedPts, staleAccumulated);
+}
+
+/**
+ * @brief Verify SeedMNextPtsFromCdaiAccumulator is a no-op when the
+ *        accumulator is zero (no period boundary has been recorded yet).
+ */
+TEST_F(fragmentcollector_mpd, CdaiRetuneSeed_SkipsWhenAccumulatorIsZero)
+{
+	EnableAllCdaiConfigs();
+
+	ToBeTestedStub stub(mPrivateInstanceAAMP, 0.0, AAMP_NORMAL_PLAY_RATE);
+
+	MediaStreamContext videoCtx(eTRACK_VIDEO, &stub, mPrivateInstanceAAMP, "VIDEO");
+	videoCtx.fragmentDescriptor.TimeScale = 25;
+	videoCtx.fragmentDescriptor.Time      = 0;
+	stub.mMediaStreamContext[eMEDIATYPE_AUDIO] = nullptr;
+	stub.mMediaStreamContext[eMEDIATYPE_VIDEO] = &videoCtx;
+
+	mPrivateInstanceAAMP->mMp4DemuxAccumulatedPts = 0.0;
+	stub.mNextPts   = 0.0;
+	stub.mPTSOffset = 0.0;
+
+	stub.SeedMNextPtsFromCdaiAccumulator(AdState::IN_ADBREAK_AD_PLAYING);
+
+	EXPECT_DOUBLE_EQ(stub.mNextPts.inSeconds(), 0.0);
+}
+
+/**
+ * @brief Verify that when audio and video fragmentDescriptor offsets differ,
+ *        SeedMNextPtsFromCdaiAccumulator uses the larger (max) value so that
+ *        neither track's first restamped PTS lands before the accumulated
+ *        timeline position.
+ */
+TEST_F(fragmentcollector_mpd, CdaiRetuneSeed_UsesMaxOfAudioAndVideoOffset)
+{
+	EnableAllCdaiConfigs();
+
+	ToBeTestedStub stub(mPrivateInstanceAAMP, 0.0, AAMP_NORMAL_PLAY_RATE);
+
+	// Audio is at 1 s; video at 3 s – the larger value must win.
+	MediaStreamContext audioCtx(eTRACK_AUDIO, &stub, mPrivateInstanceAAMP, "AUDIO");
+	MediaStreamContext videoCtx(eTRACK_VIDEO, &stub, mPrivateInstanceAAMP, "VIDEO");
+	audioCtx.fragmentDescriptor.TimeScale = 48000;
+	audioCtx.fragmentDescriptor.Time      = 48000 * 1; // 1.0 s
+	videoCtx.fragmentDescriptor.TimeScale = 25;
+	videoCtx.fragmentDescriptor.Time      = 25 * 3;    // 3.0 s
+	stub.mMediaStreamContext[eMEDIATYPE_AUDIO] = &audioCtx;
+	stub.mMediaStreamContext[eMEDIATYPE_VIDEO] = &videoCtx;
+
+	mPrivateInstanceAAMP->mMp4DemuxAccumulatedPts = 100.0;
+	stub.mNextPts   = 0.0;
+	stub.mPTSOffset = 0.0;
+
+	stub.SeedMNextPtsFromCdaiAccumulator(AdState::IN_ADBREAK_AD_PLAYING);
+
+	// seekOffset = max(1.0, 3.0) = 3.0
+	// mNextPts   = 100.0 - 3.0 = 97.0
+	EXPECT_DOUBLE_EQ(stub.mNextPts.inSeconds(), 97.0);
 }
