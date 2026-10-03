@@ -722,12 +722,28 @@ void AampStreamSinkManager::AddMediaHeader(unsigned track, std::shared_ptr<AampS
 	}
 }
 
-void AampStreamSinkManager::RemoveMediaHeader(unsigned track)
+void AampStreamSinkManager::RemoveMediaHeader(unsigned track, const PrivateInstanceAAMP *aamp)
 {
 	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
 
 	if(track < AAMP_TRACK_COUNT)
 	{
+		if (aamp && mMediaHeaders[track] &&
+		    mMediaHeaders[track]->owner &&
+		    mMediaHeaders[track]->owner != aamp &&
+		    !aamp->IsPlayEnabled())
+		{
+			/* Header was cached by a different player sharing this pipeline
+			 * (e.g. main VOD asset while a pre-roll ad initializes) and the
+			 * caller is a background/guest player. Keep it: the ad borrows it
+			 * to keep the shared Rialto Subtitle source at the main asset's
+			 * caps; evicting it flips the source to subtitle/x-subtitle-cc and
+			 * the post-ad re-attach fails "cannot update caps". A foreground
+			 * player owns its session lifecycle and may clear any stale header
+			 * (e.g. leftover from a previous asset or a destroyed owner). */
+			AAMPLOG_INFO("AampStreamSinkManager(%p) track[%u] header owned by another player - keeping", this, track);
+			return;
+		}
 		mMediaHeaders[track].reset();
 		AAMPLOG_INFO("AampStreamSinkManager(%p) Removed header for track[%u]", this, track);
 	}
@@ -761,4 +777,16 @@ std::shared_ptr<AampStreamSinkManager::MediaHeader> AampStreamSinkManager::GetMe
 	}
 
 	return header;
+}
+
+bool AampStreamSinkManager::IsPlayerRegistered(const PrivateInstanceAAMP *aamp)
+{
+	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
+	/* const_cast is safe: the registration maps key on PrivateInstanceAAMP* as
+	 * an opaque identity - this is a pure membership test, the pointer is never
+	 * dereferenced and the map keys are never modified through it. */
+	PrivateInstanceAAMP *player = const_cast<PrivateInstanceAAMP*>(aamp);
+	return (mActiveGstPlayersMap.count(player) != 0) ||
+		   (mInactiveGstPlayersMap.count(player) != 0) ||
+		   (mClientStreamSinkMap.count(player) != 0);
 }
