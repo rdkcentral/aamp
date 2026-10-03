@@ -184,6 +184,9 @@ Network timeout configurations control how long AAMP waits for various network o
 | `disableATMOS` | Boolean | false | Disable Dolby ATMOS |
 | `stereoOnly` | Boolean | false | Select stereo audio only (overrides EC3/ATMOS) |
 | `audioOnlyPlayback` | Boolean | false | Audio-only playback without video |
+| `miniWindowAudioOnly` | Boolean | false | Drop video during IP playback when the video rectangle is below the configured mini-window threshold |
+| `miniWindowWidthThreshold` | Number | 320 | Mini-window width threshold in pixels |
+| `miniWindowHeightThreshold` | Number | 240 | Mini-window height threshold in pixels |
 
 ### Video Profile
 

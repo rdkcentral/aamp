@@ -148,6 +148,9 @@ Configuration options are passed to AAMP using the UVE `initConfig()` method. Th
 | abrNwConsistency | Number | 2 | Number of checks before profile increment/decrement. Prevents frequent profile switching with network fluctuations. |
 | abrSkipDuration | Number | 6 | Minimum duration of fragment to download before triggering ABR (in seconds). |
 | audioOnlyPlayback | Boolean | false | Enable/disable audio-only playback. |
+| miniWindowAudioOnly | Boolean | false | Enable audio-only playback when the IP video rectangle enters mini-window dimensions. |
+| miniWindowWidthThreshold | Number | 320 | Mini-window width threshold in pixels. |
+| miniWindowHeightThreshold | Number | 240 | Mini-window height threshold in pixels. |
 | enableProducerReferenceDelay | Boolean | false | Enable/disable adding the PRT (ProducerReferenceTime)-derived encoder delay to the live latency calculation. When enabled, AAMP reads the `ProducerReferenceTime` element from the DASH manifest to compute the encoding pipeline delay and accounts for it when measuring and correcting live latency. Disable if the stream's PRT data is absent or unreliable. |
 | cdvrLiveOffset | Number | 30 | Live offset time in seconds for CDVR. AAMP starts live playback this much time before the live point for in-progress CDVR. |
 | customHeader | String | - | Custom header data to append to HTTP requests. |
