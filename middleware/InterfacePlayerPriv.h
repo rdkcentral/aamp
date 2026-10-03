@@ -250,6 +250,12 @@ struct GstPlayerPriv
 	GstHandlerControl syncControl;
 	GstHandlerControl callbackControl;
 
+	/* Guards ConfigurePipeline()/CreatePipeline() against running on this shared pipeline
+	 * object while a TearDownStream() from a prior tune is still releasing resources. */
+	std::mutex mTeardownMutex;
+	std::condition_variable mTeardownCV;
+	bool mTeardownInProgress = false;
+
 	bool filterAudioDemuxBuffers; /**< flag to filter audio demux buffers */
 	double seekPosition;              /**< the position to seek the pipeline to in seconds */
 	GstPlayerPriv();
