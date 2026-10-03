@@ -1325,7 +1325,7 @@ void InterfacePlayerRDK::TearDownStream(int type)
 
 	pthread_mutex_lock(&stream->sourceLock);
 	if ((stream->format != GST_FORMAT_INVALID) ||
-		(mediaType == eGST_MEDIATYPE_SUBTITLE && interfacePlayerPriv->gstPrivateContext->usingClosedCaptionsControl))
+		(mediaType == eGST_MEDIATYPE_SUBTITLE && (interfacePlayerPriv->gstPrivateContext->usingClosedCaptionsControl || stream->sinkbin || stream->source )))
 	{
 		if (interfacePlayerPriv->gstPrivateContext->pipeline)
 		{
@@ -1354,7 +1354,11 @@ void InterfacePlayerRDK::TearDownStream(int type)
 			interfacePlayerPriv->gstPrivateContext->decoderHandleNotified = false;
 		}
 		stream->format = GST_FORMAT_INVALID;
-		interfacePlayerPriv->gstPrivateContext->usingClosedCaptionsControl = false;
+		if (mediaType == eGST_MEDIATYPE_SUBTITLE)
+		{
+			interfacePlayerPriv->gstPrivateContext->usingClosedCaptionsControl = false;
+			MW_LOG_ERR("Set false for usingClosedCaptionsControl flag");
+		}
 		g_clear_object(&stream->sinkbin);
 		g_clear_object(&stream->source);
 		stream->sourceConfigured = false;
