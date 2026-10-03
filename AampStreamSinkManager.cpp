@@ -782,6 +782,9 @@ std::shared_ptr<AampStreamSinkManager::MediaHeader> AampStreamSinkManager::GetMe
 bool AampStreamSinkManager::IsPlayerRegistered(const PrivateInstanceAAMP *aamp)
 {
 	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
+	/* const_cast is safe: the registration maps key on PrivateInstanceAAMP* as
+	 * an opaque identity - this is a pure membership test, the pointer is never
+	 * dereferenced and the map keys are never modified through it. */
 	PrivateInstanceAAMP *player = const_cast<PrivateInstanceAAMP*>(aamp);
 	return (mActiveGstPlayersMap.count(player) != 0) ||
 		   (mInactiveGstPlayersMap.count(player) != 0) ||

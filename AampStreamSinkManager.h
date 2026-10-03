@@ -50,7 +50,14 @@ public:
 		std::string mimeType;      /**< mime type of the media */
 		bool injected;             /**< indicates if the media header has been injected */
 		std::string manifestUrl;   /**< manifest of the asset that produced this header */
-		const PrivateInstanceAAMP *owner{nullptr}; /**< player instance that cached this header; ads run on sibling instances sharing the Rialto session */
+		/**< player instance that cached this header; ads run on sibling instances
+		 *   sharing the Rialto session. Treated as an opaque identity only: it is
+		 *   equality-compared and membership-tested via IsPlayerRegistered()
+		 *   while holding mStreamSinkMutex, and is NEVER dereferenced - so a
+		 *   dangling pointer after the owner's destruction is harmless (a dead
+		 *   owner simply fails IsPlayerRegistered). Callers must not
+		 *   dereference it. */
+		const PrivateInstanceAAMP *owner{nullptr};
 
 		MediaHeader() = default;
 		MediaHeader(const std::string& url_, const std::string& mimeType_)

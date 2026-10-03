@@ -130,6 +130,10 @@ std::shared_ptr<AampStreamSinkManager::MediaHeader> AampStreamSinkManager::GetMe
 
 bool AampStreamSinkManager::IsPlayerRegistered(const PrivateInstanceAAMP *aamp)
 {
+    if (g_mockAampStreamSinkManager)
+    {
+	return g_mockAampStreamSinkManager->IsPlayerRegistered(aamp);
+    }
 	return false;
 }
 
