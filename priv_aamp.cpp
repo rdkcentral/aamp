@@ -5671,8 +5671,12 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		*/
 		AAMPLOG_MIL("Updated seek_pos_seconds %f culledSeconds/start %f culledOffset %f", seek_pos_seconds, culledSeconds, culledOffset);
 
+		// FIX 2a: Reset subtitle format before GetStreamFormat() to prevent leak from previous tune (DELIA-71066)
+		mSubtitleFormat = FORMAT_INVALID;
+
 		GetStreamFormat(mVideoFormat, mAudioFormat, mAuxFormat, mSubtitleFormat);
-		AAMPLOG_INFO("TuneHelper : mVideoFormat %d, mAudioFormat %d mAuxFormat %d", mVideoFormat, mAudioFormat, mAuxFormat);
+		// FIX 2b: Add mSubtitleFormat to logging for visibility into format values (DELIA-71066)
+		AAMPLOG_INFO("TuneHelper : mVideoFormat %d, mAudioFormat %d mAuxFormat %d mSubtitleFormat %d", mVideoFormat, mAudioFormat, mAuxFormat, mSubtitleFormat);
 
 		//Identify if HLS with mp4 fragments, to change media format
 		if (mVideoFormat == FORMAT_ISO_BMFF && mMediaFormat == eMEDIAFORMAT_HLS)
