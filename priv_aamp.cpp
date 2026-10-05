@@ -12074,6 +12074,61 @@ bool PrivateInstanceAAMP::PipelineValid(AampMediaType track)
  */
 void PrivateInstanceAAMP::SetStreamFormat(StreamOutputFormat videoFormat, StreamOutputFormat audioFormat)
 {
+    bool reconfigure = false;
+    std::unique_lock<std::recursive_mutex> lock(mLock);
+
+    AAMPLOG_MIL("Got format - videoFormat %d and audioFormat %d", videoFormat, audioFormat);
+    AAMPLOG_MIL("Current format - videoFormat %d and audioFormat %d", mVideoFormat, mAudioFormat);
+    if (videoFormat != FORMAT_INVALID && mVideoFormat != videoFormat &&
+        (videoFormat != FORMAT_UNKNOWN || mVideoFormat == FORMAT_INVALID))
+    {
+        reconfigure = true;
+        mVideoFormat = videoFormat;
+    }
+
+    if (audioFormat != FORMAT_INVALID && mAudioFormat != audioFormat &&
+        (audioFormat != FORMAT_UNKNOWN || mAudioFormat == FORMAT_INVALID))
+    {
+        reconfigure = true;
+        mAudioFormat = audioFormat;
+    }
+
+    if (IsMuxedStream() && (mVideoComponentCount == 0 || mAudioComponentCount == 0))
+    {
+        AAMPLOG_INFO("TS Processing Done. Number of Audio Components : %d and Video Components : %d",
+                     mAudioComponentCount, mVideoComponentCount);
+
+        if (IsAudioOrVideoOnly(videoFormat, audioFormat))
+        {
+		AAMPLOG_INFO("TuneType %d \n", mTuneType);
+            bool newTune = IsNewTune();
+            lock.unlock();
+
+            StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+            if (sink)
+            {
+                // Only stop if the prior stream is actually active and not already in a terminal state.
+                // This avoids the READY/PAUSED->FAILURE path seen in your logs.
+                sink->Stop(!newTune);
+            }
+
+            lock.lock();
+            reconfigure = true;
+        }
+    }
+
+    if (reconfigure)
+    {
+        StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+        if (sink)
+        {
+            sink->Configure(mVideoFormat, mAudioFormat, mSubtitleFormat, false);
+        }
+    }
+}
+#if 0
+void PrivateInstanceAAMP::SetStreamFormat(StreamOutputFormat videoFormat, StreamOutputFormat audioFormat)
+{
 	bool reconfigure = false;
 	//AAMPLOG_MIL("Got format - videoFormat %d and audioFormat %d", videoFormat, audioFormat);
 
@@ -12131,6 +12186,7 @@ void PrivateInstanceAAMP::SetStreamFormat(StreamOutputFormat videoFormat, Stream
 		}
 	}
 }
+#endif
 
 /**
  * @brief To check for audio/video only Playback
@@ -12143,7 +12199,8 @@ bool PrivateInstanceAAMP::IsAudioOrVideoOnly(StreamOutputFormat videoFormat, Str
 	if (mVideoComponentCount == 0 && (mVideoFormat != videoFormat && videoFormat == FORMAT_INVALID))
 	{
 		mAudioOnlyPb = true;
-		mVideoFormat = videoFormat;
+		mVideoOnlyPb = false;
+		mVideoFormat = FORMAT_INVALID;
 		AAMPLOG_INFO("Audio-Only PlayBack");
 		ret = true;
 	}
@@ -12152,12 +12209,18 @@ bool PrivateInstanceAAMP::IsAudioOrVideoOnly(StreamOutputFormat videoFormat, Str
 	{
 		if (mAudioFormat != audioFormat && audioFormat == FORMAT_INVALID)
 		{
-			mAudioFormat = audioFormat;
+			mAudioFormat = FORMAT_INVALID;
 		}
 		mVideoOnlyPb = true;
+		mAudioOnlyPb = false;
 		AAMPLOG_INFO("Video-Only PlayBack");
 		ret = true;
 	}
+	else
+    {
+        mAudioOnlyPb = false;
+        mVideoOnlyPb = false;
+    }
 
 	return ret;
 }
