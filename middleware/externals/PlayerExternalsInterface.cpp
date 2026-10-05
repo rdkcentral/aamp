@@ -25,7 +25,7 @@
 #include "PlayerExternalsInterface.h"
 #include "PlayerExternalUtils.h"
 
-#if defined(IARM_MGR) || defined(USE_FIREBOLT)
+#ifdef IARM_MGR
 #include "PlayerExternalsRdkInterface.h"
 #endif
 
@@ -37,7 +37,7 @@ std::shared_ptr<PlayerExternalsInterface> PlayerExternalsInterface::s_pPlayerOP 
  */
 PlayerExternalsInterface::PlayerExternalsInterface()
 {
-#if defined(IARM_MGR) || defined(USE_FIREBOLT)
+#ifdef IARM_MGR
     MW_PRE_LOGGER_LOG("Device API IARM/Firebolt\n");
     m_pIarmInterface = PlayerExternalsRdkInterface::GetPlayerExternalsRdkInterfaceInstance();
 #else

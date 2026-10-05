@@ -40,7 +40,6 @@ IFirebolt folder to be deleted, as IARM is no longer available as an alternative
 #include "DeviceInterfaceBase.h"
 #include "FireboltInterface.h"
 
-#include <mutex>
 #include <string>
 #include <vector>
 
@@ -61,15 +60,7 @@ class DeviceFireboltInterface : public DeviceInterfaceBase {
 
         static void Initialize();
 
-        /** Queries Device.hdcp and Device.videoResolution via Firebolt and updates player state */
-        void SetHDMIStatus();
-
     private:
-    
-        std::mutex m_initMutex;
-        bool m_isInitialized{false};
-
-        std::mutex m_hdmiStatusMutex;
 
         std::shared_ptr<FireboltInterface> m_pFireboltInterface;
 
