@@ -1232,12 +1232,16 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 						bool shouldFetch;
 						if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp))
 						{
-							double periodEndBoundary = endTime - AAMP_DASH_PERIOD_TAIL_TOLERANCE_SEC;
-							if((firstSegStartTime + positionInPeriod) >= periodEndBoundary && (firstSegStartTime + positionInPeriod) < endTime)
+							// Period@duration is not trimmed when a Period's head is culled (start is shifted
+							// forward by the delta), so start+duration overshoots the real Period end.
+							double toleranceEndTime = endTime -
+								mMPDParseHelper->aamp_GetPeriodStartTimeDeltaRelativeToPTSOffset(mpd->GetPeriods().at(mCurrentPeriodIdx));
+							double periodEndBoundary = toleranceEndTime - AAMP_DASH_PERIOD_TAIL_TOLERANCE_SEC;
+							if((firstSegStartTime + positionInPeriod) >= periodEndBoundary && (firstSegStartTime + positionInPeriod) < toleranceEndTime)
 							{
 								AAMPLOG_WARN("Type[%d] dropping Period-tail fragment: only %fs remains before Period end (< %fs tolerance) fragmentPosition: %lf endTime: %lf",
-									pMediaStreamContext->type, endTime - (firstSegStartTime + positionInPeriod), AAMP_DASH_PERIOD_TAIL_TOLERANCE_SEC,
-									(firstSegStartTime + positionInPeriod), endTime);
+									pMediaStreamContext->type, toleranceEndTime - (firstSegStartTime + positionInPeriod), AAMP_DASH_PERIOD_TAIL_TOLERANCE_SEC,
+									(firstSegStartTime + positionInPeriod), toleranceEndTime);
 							}
 
 							// A Period still growing on a live edge has an unreliable periodEndBoundary,

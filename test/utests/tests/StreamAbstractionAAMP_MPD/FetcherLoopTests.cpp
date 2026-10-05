@@ -3242,6 +3242,60 @@ static constexpr const char *kPeriodTailLiveKnownDurationManifest = R"(<?xml ver
 	</Period>
 </MPD>)";
 
+// p0's first segment starts 3s after its presentationTimeOffset (culled head), so
+// start+duration (13s) overshoots the real Period end (p1 start, 10s).
+static constexpr const char *kPeriodTailCulledHeadManifest = R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" minBufferTime="PT2S" type="static"
+	 mediaPresentationDuration="PT20S">
+	<Period id="p0" start="PT0S" duration="PT10S">
+		<AdaptationSet id="0" contentType="video">
+			<Representation id="0" mimeType="video/mp4" codecs="avc1.640028"
+							bandwidth="800000" width="640" height="360">
+				<SegmentTemplate timescale="1000" initialization="video_p0_init.mp4"
+								 media="video_p0_$Number$.m4s" startNumber="1">
+					<SegmentTimeline>
+						<S t="3000" d="2000" r="2" />
+						<S t="9000" d="800" />
+						<S t="9800" d="200" />
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+	</Period>
+	<Period id="p1" start="PT10S" duration="PT10S">
+		<AdaptationSet id="0" contentType="video">
+			<Representation id="0" mimeType="video/mp4" codecs="avc1.640028"
+							bandwidth="800000" width="640" height="360">
+				<SegmentTemplate timescale="1000" duration="2000"
+								 initialization="video_p1_init.mp4"
+								 media="video_p1_$Number$.m4s" startNumber="1" />
+			</Representation>
+		</AdaptationSet>
+	</Period>
+</MPD>)";
+
+// Same culled head as above, but p0 is the last Period so there is no next Period
+// start to fall back on.
+static constexpr const char *kPeriodTailCulledHeadLastManifest = R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" minBufferTime="PT2S" type="static"
+	 mediaPresentationDuration="PT10S">
+	<Period id="p0" start="PT0S" duration="PT10S">
+		<AdaptationSet id="0" contentType="video">
+			<Representation id="0" mimeType="video/mp4" codecs="avc1.640028"
+							bandwidth="800000" width="640" height="360">
+				<SegmentTemplate timescale="1000" initialization="video_p0_init.mp4"
+								 media="video_p0_$Number$.m4s" startNumber="1">
+					<SegmentTimeline>
+						<S t="3000" d="2000" r="2" />
+						<S t="9000" d="800" />
+						<S t="9800" d="200" />
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+	</Period>
+</MPD>)";
+
 static constexpr const char *kPeriodTailTemplateManifest = R"(<?xml version="1.0" encoding="utf-8"?>
 <MPD xmlns="urn:mpeg:dash:schema:mpd:2011" minBufferTime="PT2S" type="static"
 	 mediaPresentationDuration="PT10S">
@@ -3674,6 +3728,43 @@ TEST_F(FetcherLoopTests, SegmentTimeline_PushNextFragment_TailGateOn_Skips)
 	// PushNextFragment returns true regardless of whether it skipped the
 	// fetch for Period-tail reasons; CacheFragment not being called above
 	// is the real assertion of the skip.
+	EXPECT_TRUE(PushNextFragment(eTRACK_VIDEO));
+}
+
+/**
+ * @brief The timeline fetch path measures the tolerance against the real Period
+ *        end (next Period start) when a culled Period head makes
+ *        start+duration overshoot it.
+ */
+TEST_F(FetcherLoopTests, SegmentTimeline_PushNextFragment_TailGateOn_CulledHead_Skips)
+{
+	ASSERT_EQ(InitializePeriodTailMPD(kPeriodTailCulledHeadManifest, true),
+		  eAAMPSTATUS_OK);
+	MediaStreamContext *ctx = GetVideoContext();
+	ASSERT_NE(ctx, nullptr);
+	SetTimelinePosition(ctx, 9800, 2, 5);
+
+	EXPECT_CALL(*g_mockMediaStreamContext,
+		CacheFragment(_, _, _, _, _, false, _, _, _))
+		.Times(0);
+	EXPECT_TRUE(PushNextFragment(eTRACK_VIDEO));
+}
+
+/**
+ * @brief Same as above for the last Period, where the end cannot be taken from
+ *        a following Period's start.
+ */
+TEST_F(FetcherLoopTests, SegmentTimeline_PushNextFragment_TailGateOn_CulledHeadLastPeriod_Skips)
+{
+	ASSERT_EQ(InitializePeriodTailMPD(kPeriodTailCulledHeadLastManifest, true),
+		  eAAMPSTATUS_OK);
+	MediaStreamContext *ctx = GetVideoContext();
+	ASSERT_NE(ctx, nullptr);
+	SetTimelinePosition(ctx, 9800, 2, 5);
+
+	EXPECT_CALL(*g_mockMediaStreamContext,
+		CacheFragment(_, _, _, _, _, false, _, _, _))
+		.Times(0);
 	EXPECT_TRUE(PushNextFragment(eTRACK_VIDEO));
 }
 
