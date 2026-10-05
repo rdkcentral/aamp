@@ -1350,12 +1350,11 @@ void InterfacePlayerRDK::TearDownStream(int type)
 			if (stream->sinkbin)
 			{
 				GstStateChangeReturn nullRc = SetStateWithWarnings(GST_ELEMENT(stream->sinkbin), GST_STATE_NULL);
-	
 				if (GST_STATE_CHANGE_FAILURE == nullRc)
 				{
 					MW_LOG_ERR("InterfacePlayerRDK::TearDownStream: Failed to set NULL state for sinkbin");
 				}
-				else
+				else if (GST_STATE_CHANGE_ASYNC == nullRc)
 				{
 					/* NULL was requested asynchronously; a new decoder created before this sinkbin
 					 * actually releases its resources can end up stuck (e.g. never emits
@@ -1363,21 +1362,17 @@ void InterfacePlayerRDK::TearDownStream(int type)
 					 * decoder/HW resource is confirmed released before we start fresh. */
 					GstState current, pending;
 					gint retryCnt = GST_ELEMENT_GET_STATE_RETRY_CNT_MAX;
-				
 					do
 					{
-					   gst_element_get_state(GST_ELEMENT(stream->sinkbin), &current, &pending, 100 * GST_MSECOND);	
+						(void)gst_element_get_state(GST_ELEMENT(stream->sinkbin), &current, &pending, 100 * GST_MSECOND);
 					}
 					while ((current != GST_STATE_NULL) && (--retryCnt > 0));
-
 					if (current != GST_STATE_NULL)
 					{
-						MW_LOG_ERR("InterfacePlayerRDK::TearDownStream: sinkbin stopped abruptly, did not reach NULL (current=%s) - forcing synchronous reset before next decoder configuration",gst_element_state_get_name(current));
+						MW_LOG_ERR("InterfacePlayerRDK::TearDownStream: sinkbin stopped abruptly, did not reach NULL (current=%s) - forcing synchronous reset before next decoder configuration", gst_element_state_get_name(current));
 						gst_element_set_state(GST_ELEMENT(stream->sinkbin), GST_STATE_NULL);
 					}
 				}
-					
-
 				if (!gst_bin_remove(GST_BIN(interfacePlayerPriv->gstPrivateContext->pipeline), GST_ELEMENT(stream->sinkbin)))			/* Removes the sinkbin element from the pipeline */
 				{
 					MW_LOG_ERR("InterfacePlayerRDK::TearDownStream:  Unable to remove sinkbin from pipeline");
@@ -2300,29 +2295,78 @@ int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::st
 		if(m_gstConfigParam->gstreamerSubsEnabled)
 		{
 			if (interfacePlayerPriv->gstPrivateContext->usingRialtoSink)
-			{
-				stream->sinkbin = GST_ELEMENT(gst_object_ref_sink(gst_element_factory_make("playbin", NULL)));
-				MW_LOG_INFO("subs using rialto subtitle sink");
-				GstElement* textsink = gst_element_factory_make("rialtomsesubtitlesink", NULL);
-				if (textsink)
-				{
-					MW_LOG_INFO("Created rialtomsesubtitlesink: %s", GST_ELEMENT_NAME(textsink));
-				}
-				else
-				{
-					MW_LOG_WARN("Failed to create rialtomsesubtitlesink");
-				}
-				auto subtitlebin = gst_bin_new("subtitlebin");
-				auto vipertransform = gst_element_factory_make("vipertransform", NULL);
-				gst_bin_add_many(GST_BIN(subtitlebin),vipertransform,textsink,NULL);
-				gst_element_link(vipertransform, textsink);
-				gst_element_add_pad(subtitlebin, gst_ghost_pad_new("sink", gst_element_get_static_pad(vipertransform, "sink")));
+			{MW_LOG_INFO("subs using rialto subtitle sink (direct link)");
+                GstElement* textsink = gst_element_factory_make("rialtomsesubtitlesink", NULL);
+                if (!textsink)
+                {
+                    MW_LOG_WARN("Failed to create rialtomsesubtitlesink");
+                    return -1;
+                }
+                MW_LOG_INFO("Created rialtomsesubtitlesink: %s", GST_ELEMENT_NAME(textsink));
 
-				g_object_set(stream->sinkbin, "text-sink", subtitlebin, NULL);
-				interfacePlayerPriv->gstPrivateContext->subtitle_sink = GST_ELEMENT(gst_object_ref(textsink));
-				MW_LOG_MIL("using rialtomsesubtitlesink muted=%d sink=%p", interfacePlayerPriv->gstPrivateContext->subtitleMuted, interfacePlayerPriv->gstPrivateContext->subtitle_sink);
-				g_object_set(textsink, "mute", interfacePlayerPriv->gstPrivateContext->subtitleMuted ? TRUE : FALSE, NULL);
-			}
+                GstElement* vipertransform = gst_element_factory_make("vipertransform", NULL);
+                if (!vipertransform)
+                {
+                    MW_LOG_WARN("Failed to create vipertransform");
+                    gst_object_unref(textsink);
+                    return -1;
+                }
+
+                GstElement* subtitlebin = gst_bin_new("subtitlebin");
+                if (!subtitlebin)
+                {
+                    MW_LOG_WARN("Failed to create subtitlebin");
+                    gst_object_unref(textsink);
+                    gst_object_unref(vipertransform);
+                    return -1;
+                }
+                GstElement* mp4transform = NULL;
+
+                if (stream->format == GST_FORMAT_SUBTITLE_MP4)
+                {
+                    mp4transform = gst_element_factory_make("subtecmp4transform", NULL);
+                    if (!mp4transform)
+                    {
+                        MW_LOG_WARN("Failed to create subtecmp4transform");
+                        gst_object_unref(textsink);
+                        gst_object_unref(vipertransform);
+                        gst_object_unref(subtitlebin);
+                        return -1;
+                    }
+                    gst_bin_add_many(GST_BIN(subtitlebin), mp4transform, vipertransform, textsink, NULL);
+                    gst_element_link_many(mp4transform, vipertransform, textsink, NULL);
+                }
+                else
+                {
+                    gst_bin_add_many(GST_BIN(subtitlebin), vipertransform, textsink, NULL);
+                    gst_element_link(vipertransform, textsink);
+                }
+
+                /* Ghost pad exposes the first element's sink as the bin's sink */
+                GstElement* firstElement = mp4transform ? mp4transform : vipertransform;
+                GstPad* targetPad = gst_element_get_static_pad(firstElement, "sink");
+                gst_element_add_pad(subtitlebin, gst_ghost_pad_new("sink", targetPad));
+                gst_object_unref(targetPad);
+
+                stream->sinkbin = GST_ELEMENT(gst_object_ref_sink(subtitlebin));
+                stream->source = GST_ELEMENT(gst_object_ref_sink(InterfacePlayerRDK_GetAppSrc(pInterfacePlayerRDK, eGST_MEDIATYPE_SUBTITLE)));
+
+                gst_bin_add_many(GST_BIN(interfacePlayerPriv->gstPrivateContext->pipeline), stream->source, stream->sinkbin, NULL);
+
+                if (!gst_element_link(stream->source, stream->sinkbin))
+                {
+                    MW_LOG_ERR("Failed to link rialto subtitle elements");
+                    return -1;
+                }
+
+                gst_element_sync_state_with_parent(stream->source);
+                gst_element_sync_state_with_parent(stream->sinkbin);
+
+                interfacePlayerPriv->gstPrivateContext->subtitle_sink = GST_ELEMENT(gst_object_ref_sink(textsink));
+                MW_LOG_MIL("using rialtomsesubtitlesink muted=%d sink=%p", interfacePlayerPriv->gstPrivateContext->subtitleMuted, interfacePlayerPriv->gstPrivateContext->subtitle_sink);
+                g_object_set(textsink, "mute", interfacePlayerPriv->gstPrivateContext->subtitleMuted ? TRUE : FALSE, NULL);
+                return 0;
+            }
 			else
 			{
 				MW_LOG_INFO("subs using subtecbin");

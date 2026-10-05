@@ -1112,7 +1112,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	mState(eSTATE_RELEASED), mMediaFormat(eMEDIAFORMAT_HLS), mPersistedProfileIndex(0), mAvailableBandwidth(0),
 	mDiscontinuityTuneOperationInProgress(false), mContentType(ContentType_UNKNOWN), mTunedEventPending(false),
 	mSeekOperationInProgress(false), mTrickplayInProgress(false), mPendingAsyncEvents(), mCustomHeaders(),
-	mManifestUrl(""), mTunedManifestUrl(""), mOrigManifestUrl(), mServiceZone(), mVssVirtualStreamId(),
+	initialManifestFetchInProgress(false), mManifestUrl(""), mTunedManifestUrl(""), mOrigManifestUrl(), mServiceZone(), mVssVirtualStreamId(),
 	mCurrentLanguageIndex(0),
 	preferredLanguagesString(), preferredLanguagesList(), preferredLabelList(),mhAbrManager(),
 	mVideoEnd(NULL),
@@ -1126,6 +1126,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	,mCustomLicenseHeaders(), mIsIframeTrackPresent(false), mManifestTimeoutMs(-1), mNetworkTimeoutMs(-1)
 	,mbPlayEnabled(true), mPlayerPreBuffered(false), mPlayerId(PLAYERID_CNTR++),mAampCacheHandler(NULL)
 	,mAsyncTuneEnabled(false)
+	,mAsyncTaskAbortEnabled(false)
 	,waitforplaystart()
 	,mCurlShared(NULL)
 	,mDrmDecryptFailCount(MAX_SEG_DRM_DECRYPT_FAIL_COUNT)
@@ -2950,7 +2951,7 @@ void PrivateInstanceAAMP::SendErrorEvent(AAMPTuneFailure tuneFailure, const char
 	}
 	else
 	{
-		AAMPLOG_WARN("PrivateInstanceAAMP: Ignore error %d[%s]", (int)tuneFailure, description);
+		AAMPLOG_WARN("PrivateInstanceAAMP: Ignore error %d[%s]", (int)tuneFailure, description ? description : "NONE");
 	}
 }
 
@@ -3226,6 +3227,7 @@ bool PrivateInstanceAAMP::ProcessPendingDiscontinuity()
 			// The same thread will be executing operations involving TeardownStream.
 			mpStreamAbstractionAAMP->StopInjection();
 
+			mSubtitleFormat = FORMAT_INVALID;
 			GetStreamFormat(mVideoFormat, mAudioFormat, mAuxFormat, mSubtitleFormat);
 
 			StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
@@ -4868,6 +4870,59 @@ void PrivateInstanceAAMP::GetOnVideoEndSessionStatData(std::string &data)
 	return ;
 }
 
+/**
+ * @brief Control whether we can terminate a TuneInternal async task early
+ */
+void PrivateInstanceAAMP::SetEarlyAbortRequestFlag(bool enableAbort)
+{
+	mAsyncTaskAbortEnabled=enableAbort;
+}
+
+/**
+ * @brief Single source of truth for which format/content-type combinations support
+ *        early async-tune abort.  Both IsAsyncTuneAbortSupported() and the
+ *        manifest-URL overload of IsAsyncTuneAbortRequired() delegate here so that
+ *        the criteria stay in sync automatically.
+ */
+bool PrivateInstanceAAMP::IsAsyncTuneSupportedForType(MediaFormat format, ContentType type) const
+{
+	return (eMEDIAFORMAT_DASH == format) &&
+	       (ContentType_LINEAR == type)  &&
+	        ((eTUNETYPE_NEW_NORMAL == mTuneType) || (eTUNETYPE_NEW_SEEK == mTuneType) || (eTUNETYPE_NEW_END == mTuneType)) && // replace with IsNewTune()
+	       mAsyncTuneEnabled;
+}
+
+/**
+ * @brief Determine whether the current tune type supports early async-tune abort.
+ *        Uses stored mMediaFormat / mContentType (active tune).
+ */
+bool PrivateInstanceAAMP::IsAsyncTuneAbortSupported()
+{
+	return IsAsyncTuneSupportedForType(mMediaFormat, mContentType);
+}
+
+/**
+ * @brief Determine whether the current async tune task should be aborted early.
+ */
+bool PrivateInstanceAAMP::IsAsyncTuneAbortRequired()
+{
+	return mAsyncTaskAbortEnabled.load() && IsAsyncTuneAbortSupported();
+}
+
+/**
+ * @brief Determine whether an incoming tune (identified by URL and content-type string)
+ *        should be aborted because a Stop is in progress.
+ */
+bool PrivateInstanceAAMP::IsAsyncTuneAbortRequired(const char* manifestUrl, const char* contentTypeString)
+{
+	if (!mAsyncTaskAbortEnabled.load())
+		return false;
+	MediaFormat format = manifestUrl ? GetMediaFormatType(manifestUrl) : eMEDIAFORMAT_UNKNOWN;
+	// Map the content-type string to enum — the only type that supports abort is LINEAR_TV.
+	ContentType type = (contentTypeString && !strncmp(contentTypeString, "LINEAR_TV", 9))
+	                 ? ContentType_LINEAR : ContentType_UNKNOWN;
+	return IsAsyncTuneSupportedForType(format, type);
+}
 
 /**
  * @brief Terminate the stream
@@ -5543,6 +5598,12 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 				AAMPLOG_MIL( "Stopping fake tune playback");
 			}
 		}
+		else if (retVal == eAAMPSTATUS_MANIFEST_DOWNLOAD_ABORTED)
+		{
+			mInitSuccess = false;
+			AAMPLOG_MIL("TuneHelper aborted due to a manifest download abort during Stop");
+			return;
+		}
 		else if (DownloadsAreEnabled())
 		{
 			AAMPLOG_ERR("mpStreamAbstractionAAMP Init Failed.Error(%d)",retVal);
@@ -5611,8 +5672,9 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		*/
 		AAMPLOG_MIL("Updated seek_pos_seconds %f culledSeconds/start %f culledOffset %f", seek_pos_seconds, culledSeconds, culledOffset);
 
+		mSubtitleFormat = FORMAT_INVALID;
 		GetStreamFormat(mVideoFormat, mAudioFormat, mAuxFormat, mSubtitleFormat);
-		AAMPLOG_INFO("TuneHelper : mVideoFormat %d, mAudioFormat %d mAuxFormat %d", mVideoFormat, mAudioFormat, mAuxFormat);
+		AAMPLOG_INFO("TuneHelper : mVideoFormat %d, mAudioFormat %d mAuxFormat %d mSubtitleFormat %d", mVideoFormat, mAudioFormat, mAuxFormat, mSubtitleFormat);
 
 		//Identify if HLS with mp4 fragments, to change media format
 		if (mVideoFormat == FORMAT_ISO_BMFF && mMediaFormat == eMEDIAFORMAT_HLS)
@@ -5795,9 +5857,20 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		{
 			mCCId = PlayerCCManager::GetInstance()->GetId();
 		}
+
 		//restore CC if it was enabled for previous content.
 		if(mIsInbandCC)
-			PlayerCCManager::GetInstance()->RestoreCC();
+		{
+ 			PlayerCCManager::GetInstance()->RestoreCC();
+			/* XIONE-19145: also re-assert the cached CC enable state for the
+			 * new tune. Release() during the previous teardown cleared
+			 * mEnabled, and if the app's SetCCStatus(true) ran while
+			 * mIsInbandCC was still stale-false from a prior OOB-subtitle
+			 * asset, SetStatus() was skipped - leaving the new tune's CC
+			 * subtitle source muted at InitializeCC(). subtitles_muted and
+			 * video_muted carry the user's intent, so re-evaluate it here. */
+			SetCCStatusInternal();
+		}
 	}
 
 	if (newTune && !mIsFakeTune)
@@ -6807,7 +6880,7 @@ const std::tuple<std::string, std::string> PrivateInstanceAAMP::ExtractDrmInitDa
 /**
  *   @brief Check if autoplay enabled for current stream
  */
-bool PrivateInstanceAAMP::IsPlayEnabled()
+bool PrivateInstanceAAMP::IsPlayEnabled() const
 {
 	return mbPlayEnabled;
 }
@@ -7947,8 +8020,8 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 	AAMPLOG_WARN("AAMP Stop took %u ms; streamLock %u, SetLicenceFetcher %u, Teardown %u",
 		mLastStopDurationMs,
 		(unsigned int)(streamLockStopTime - streamLockStartTime),
-		(unsigned int)(licenseAquisitionLockStopTime- licenseAquisitionLockStartTime),
-		(unsigned int)(tearDownEndTime - tearDownStartTime)	);
+		(unsigned int)(licenseAquisitionLockStopTime - licenseAquisitionLockStartTime),
+		(unsigned int)(tearDownEndTime - tearDownStartTime));
 	profiler.mStopDurationMs = mLastStopDurationMs;
 
 }
@@ -8521,17 +8594,7 @@ void PrivateInstanceAAMP::SetState(AAMPPlayerState state)
 	{ // noop
 		return;
 	}
-
-	static const char* const kStateNames[] = {
-		"IDLE", "INITIALIZING", "INITIALIZED", "PREPARING", "PREPARED",
-		"BUFFERING", "PAUSED", "SEEKING", "PLAYING", "STOPPING",
-		"STOPPED", "COMPLETE", "ERROR", "RELEASED", "BLOCKED"
-	};
-	auto stateName = [](AAMPPlayerState s) -> const char* {
-		return (s >= 0 && s < (int)(sizeof(kStateNames)/sizeof(kStateNames[0])))
-			? kStateNames[s] : "UNKNOWN";
-	};
-	AAMPLOG_MIL("Player state changed: %s -> %s", stateName(mState), stateName(state));
+	AAMPLOG_MIL("Player state changed: %s -> %s", AAMPPlayerStateName(mState), AAMPPlayerStateName(state));
 
 	// Handle SEEKED event based on the actual previous state
 	// Only the thread that performed this specific transition will send the event
