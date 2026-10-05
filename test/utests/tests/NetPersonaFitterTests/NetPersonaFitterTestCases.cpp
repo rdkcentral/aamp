@@ -502,3 +502,52 @@ TEST_F(NetPersonaFitterTest, StreamingSurvivesFilePersonaSwap)
 
 	EXPECT_EQ(fitter.BuildMinimalPersonaJson(), before);
 }
+
+/**
+ * @brief FinalizeSession emits the inline persona once, then empties
+ *
+ * Exactly-once: the first call returns the same JSON BuildMinimalPersonaJson
+ * would and atomically clears state, so a second (concurrent last-stopper) call
+ * returns empty — the guarantee the production Stop path relies on.
+ */
+TEST_F(NetPersonaFitterTest, FinalizeSessionInlineOnceThenEmpty)
+{
+	auto& fitter = aamptrace::NetPersonaFitter::GetInstance();
+
+	fitter.AddRequest(0.030, 1);
+	fitter.AddBurst(1, 0, 0.010, 100000, 0.20);
+	fitter.AddBurst(1, 1, 0.010, 100000, 0.30);
+
+	std::string expected = fitter.BuildMinimalPersonaJson();
+	ASSERT_FALSE(expected.empty());
+
+	// Empty basePath -> inline only, no file written.
+	EXPECT_EQ(fitter.FinalizeSession(std::string{}), expected);
+	// Accumulators cleared -> a second finalize is a no-op.
+	EXPECT_TRUE(fitter.FinalizeSession(std::string{}).empty());
+}
+
+/**
+ * @brief FinalizeSession with a non-empty basePath writes the file persona and
+ *        consumes the records, so the exit safety-net stays quiet afterwards.
+ */
+TEST_F(NetPersonaFitterTest, FinalizeSessionWritesFileAndClears)
+{
+	auto& fitter = aamptrace::NetPersonaFitter::GetInstance();
+
+	fitter.AddRequest(0.030, 1);
+	fitter.AddBurst(1, 0, 0.010, 100000, 0.20);
+	ASSERT_GT(fitter.GetRequestCount(), 0u);
+
+	std::string inlineJson = fitter.FinalizeSession(kBasePath);
+	EXPECT_FALSE(inlineJson.empty());
+
+	std::string expectedPath = GetOutputPath(kBasePath);
+	std::ifstream ifs{expectedPath};
+	EXPECT_TRUE(ifs.good()) << "Expected file at: " << expectedPath;
+
+	// Records consumed -> second finalize is a no-op, nothing new emitted.
+	EXPECT_EQ(fitter.GetRequestCount(), 0u);
+	EXPECT_EQ(fitter.GetBurstCount(), 0u);
+	EXPECT_TRUE(fitter.FinalizeSession(std::string{}).empty());
+}

@@ -8684,6 +8684,10 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 	mApplyCachedCCStatus = false;
 	// Clear all the player events in the queue and sets its state to RELEASED as everything is done
 	mEventManager->FlushPendingEvents();
+	// Clear the persona flush marker before the state becomes STOPPING so a
+	// concurrent sibling treats us as still contributing until TeardownStream
+	// flushes our downloads into the fitter.
+	mNetPersonaFlushComplete = false;
 	// Set state to STOPPING irrespective of sending state change event or not
 	SetState(eSTATE_STOPPING, sendStateChangeEvent);
 
@@ -8845,13 +8849,15 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 	// then generate the full file-based persona when netTraceCsvDump is enabled.
 	{
 		auto& fitter = aamptrace::NetPersonaFitter::GetInstance();
+		// TeardownStream above has flushed this player's downloads into the
+		// fitter; mark that so a concurrently stopping sibling knows this player
+		// has finished contributing.
+		mNetPersonaFlushComplete = true;
 		// The fitter is a process-wide singleton fed by every active player.
-		// gActivePrivAAMPs membership spans construction..destruction, so gate
-		// on playback state instead: finalize the shared accumulators only when
-		// no other player is still in an active streaming session. This player is
-		// already eSTATE_STOPPING, so a concurrently stopping sibling (also
-		// STOPPING) must not be treated as active or both would skip finalization
-		// and leak stale aggregates into the next session.
+		// Finalize the shared accumulators only when no other player can still
+		// contribute: a streaming sibling is active, and a stopping sibling
+		// counts until it has flushed its own downloads (so its late records are
+		// not cleared or split by this player's finalize).
 		bool otherActivePlayer = false;
 		{
 			std::lock_guard<std::mutex> guard(gMutex);
@@ -8862,9 +8868,13 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 					continue;
 				}
 				const AAMPPlayerState otherState = el.pAAMP->GetState();
-				if (otherState != eSTATE_IDLE && otherState != eSTATE_STOPPED &&
-					otherState != eSTATE_STOPPING && otherState != eSTATE_ERROR &&
-					otherState != eSTATE_RELEASED)
+				if (otherState == eSTATE_IDLE || otherState == eSTATE_STOPPED ||
+					otherState == eSTATE_ERROR || otherState == eSTATE_RELEASED)
+				{
+					continue; // terminal: cannot feed the fitter
+				}
+				if (otherState != eSTATE_STOPPING ||
+					!el.pAAMP->mNetPersonaFlushComplete.load())
 				{
 					otherActivePlayer = true;
 					break;

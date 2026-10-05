@@ -296,7 +296,7 @@ On `Stop()`, AAMP logs the persona as a single line (always on — this does
 ```cpp
 // priv_aamp.cpp
 auto& fitter = aamptrace::NetPersonaFitter::GetInstance();
-std::string inlinePersona = fitter.BuildMinimalPersonaJson();
+std::string inlinePersona = fitter.FinalizeSession(std::string{});
 if (!inlinePersona.empty())
 {
     AAMPLOG_MIL("NET_PERSONA %s", inlinePersona.c_str());
@@ -330,7 +330,7 @@ Per download (NetTrace, one call per request):
   └─► NetPersonaFitter::AddRequestBurstSummary(count, sum bytes, sum bytes²)
                                                               — one atomic per-request summary
 On Stop():
-  └─► NetPersonaFitter::BuildMinimalPersonaJson()             — O(bucketCount) one-shot query
+  └─► NetPersonaFitter::FinalizeSession(basePath)            — O(bucketCount) atomic one-shot finalize
 ```
 
 Each parameter is produced by one of three O(1)-ingestion mechanisms:

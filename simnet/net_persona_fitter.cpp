@@ -881,7 +881,14 @@ bool NetPersonaFitter::WritePersonaFile(const std::vector<RequestRecord>& reques
 
 void NetPersonaFitter::AtExitHandler()
 {
-	GetInstance().GeneratePersonaJson(kDefaultBasePath);
+	auto& inst = GetInstance();
+	// Only the abrupt-termination case (Stop() never ran) still holds records;
+	// a normally finalized session has already cleared them, so skip quietly
+	// instead of logging a spurious "no data collected" warning.
+	if (inst.GetRequestCount() > 0 || inst.GetBurstCount() > 0)
+	{
+		inst.GeneratePersonaJson(kDefaultBasePath);
+	}
 }
 
 } // namespace aamptrace
