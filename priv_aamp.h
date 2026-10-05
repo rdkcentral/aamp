@@ -2834,6 +2834,14 @@ public:
 	 *    @return string with Thumbnail information.
 	 */
 	std::string GetThumbnails(double start, double end);
+
+	/**
+	 *   @brief Check if playback is going through Rialto, via either the
+	 *          Rialto GStreamer sink or direct Rialto. Does not imply which.
+	 *
+	 *   @return true if either Rialto config is enabled.
+	 */
+	bool UsingRialto(void) const { return mConfig->IsUsingRialto(); }
 	/**
 	 *    @fn GetThumbnailTracks
 	 *
@@ -2940,9 +2948,10 @@ public:
 	 * @fn StopTrackInjection
 	 *
 	 * @param[in] type Media type
+	 * @param[in] discard Unblock the injector thread so the caller can join it via StopInjectLoop
 	 * @return void
 	 */
-	void StopTrackInjection(AampMediaType type);
+	void StopTrackInjection(AampMediaType type, bool discard = false);
 
 	/**
 	 * @fn ResumeTrackInjection

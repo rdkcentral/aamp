@@ -527,7 +527,7 @@ TEST_F(PrivAampPrivTests, SetPreferredLanguagesPlayingLiveAampTsbTest)
 	 * called twice, once directly from SetPreferredLanguages() and once from TuneHelper()
 	 */
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_)).Times(2);
-	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_)).Times(1);
+	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_,_)).Times(1);
 	/* TSB Session Manager should be recreated and the TSB store flushed. */
 	EXPECT_CALL(*g_mockTSBSessionManager, Init()).Times(1);
 	EXPECT_CALL(*g_mockTSBStore, Flush()).Times(1);
@@ -4465,6 +4465,35 @@ TEST_F(PrivAampTests,StopTrackInjectionTest)
 	p_aamp->StopTrackInjection(eMEDIATYPE_AUDIO);
 }
 
+TEST_F(PrivAampTests,StopTrackInjectionTest_DiscardFalse_DoesNotUnblockInjector)
+{
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer.get()));
+	EXPECT_CALL(*g_mockAampGstPlayer, UnblockTrackInjection(_)).Times(0);
+	p_aamp->StopTrackInjection(eMEDIATYPE_VIDEO);
+}
+
+TEST_F(PrivAampTests,StopTrackInjectionTest_DiscardTrue_UnblocksInjectorEachCall)
+{
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer.get()));
+	// UnblockTrackInjection() is idempotent, so a repeated discard call must still unblock,
+	// regardless of whether the track was already marked blocked.
+	EXPECT_CALL(*g_mockAampGstPlayer, UnblockTrackInjection(eMEDIATYPE_VIDEO)).Times(2);
+	p_aamp->StopTrackInjection(eMEDIATYPE_VIDEO, true);
+	p_aamp->StopTrackInjection(eMEDIATYPE_VIDEO, true);
+}
+
+// Regression test: e.g. StreamAbstractionAAMP_MPD::RefreshTrack() blocks a track with
+// discard=false (no unblock) during a seamless track switch; if Stop()/StopInjection()
+// later calls StopTrackInjection(type, true) for that still-blocked track, the sink
+// must still be unblocked so StopInjectLoop()'s thread join cannot hang.
+TEST_F(PrivAampTests,StopTrackInjectionTest_DiscardTrueAfterNonDiscard_StillUnblocksInjector)
+{
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer.get()));
+	EXPECT_CALL(*g_mockAampGstPlayer, UnblockTrackInjection(eMEDIATYPE_VIDEO)).Times(1);
+	p_aamp->StopTrackInjection(eMEDIATYPE_VIDEO, false);
+	p_aamp->StopTrackInjection(eMEDIATYPE_VIDEO, true);
+}
+
 TEST_F(PrivAampTests,ResumeTrackInjectionTest)
 {
 	p_aamp->ResumeTrackInjection(eMEDIATYPE_VIDEO);
@@ -5910,7 +5939,9 @@ TEST_F(PrivAampPrivTests,ReconfigureForElementaryStreamUpdateTest1)
 
 TEST_F(PrivAampTests,isDecryptClearSamplesRequired)
 {
+	// IsUsingRialto() short-circuits: useDirectRialto is only checked when useRialtoSink is false.
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_useRialtoSink)).WillOnce(Return(false));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_useDirectRialto)).WillOnce(Return(false));
 	EXPECT_TRUE(p_aamp->isDecryptClearSamplesRequired());
 
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_useRialtoSink)).WillOnce(Return(true));
@@ -6175,20 +6206,20 @@ TEST_F(PrivAampPrivTests, TuneHelperWithAampTsbConfigureFlushSequence)
 	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer.get()));
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, DoEarlyStreamSinkFlush(false, AAMP_NORMAL_PLAY_RATE)).WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockAampGstPlayer, Configure(_,_,_,_,_)).InSequence(s);
-	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_)).InSequence(s);
+	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_,_)).InSequence(s);
 	testp_aamp->TuneHelper(eTUNETYPE_SEEKTOLIVE);
 
 	//Verify the sequence for newTune
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, DoEarlyStreamSinkFlush(true, AAMP_NORMAL_PLAY_RATE)).WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockAampGstPlayer, Configure(_,_,_,_,_)).InSequence(s);
-	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_)).InSequence(s);
+	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_,_)).InSequence(s);
 	testp_aamp->TuneHelper(eTUNETYPE_NEW_NORMAL);
 
 	//Verify the sequence for eTUNETYPE_SEEK
 	testp_aamp->SetLocalAAMPTsb(true);
-	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_)).InSequence(s);
+	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_,_)).InSequence(s);
 	EXPECT_CALL(*g_mockAampGstPlayer, Configure(_,_,_,_,_)).InSequence(s);
-	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_)).InSequence(s);
+	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_,_)).InSequence(s);
 	testp_aamp->TuneHelper(eTUNETYPE_SEEK);
 }
 
@@ -6844,6 +6875,11 @@ TEST_P(GetStreamFormatTests, GetStreamFormatParameterizedTest)
 		));
 
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_useRialtoSink)).WillOnce(Return(params.useRialtoSink));
+	if (!params.useRialtoSink)
+	{
+		// IsUsingRialto() short-circuits: useDirectRialto is only checked when useRialtoSink is false.
+		EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_useDirectRialto)).WillOnce(Return(false));
+	}
 
 	testp_aamp->CallGetStreamFormat(primaryOutputFormat, audioOutputFormat, subtitleOutputFormat);
 
