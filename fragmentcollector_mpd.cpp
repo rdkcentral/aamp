@@ -2409,7 +2409,9 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 				{
 					uint64_t firstTimelineStart = timelines.at(0)->GetStartTime();
 					double firstSegStartTime = mPeriodStartTime;
-					double endTime = (mPeriodStartTime + (mPeriodDuration / 1000));
+					// Period@duration is not trimmed when the head is culled; see PushNextFragment.
+					double endTime = (mPeriodStartTime + (mPeriodDuration / 1000)) -
+						mMPDParseHelper->aamp_GetPeriodStartTimeDeltaRelativeToPTSOffset(mpd->GetPeriods().at(mCurrentPeriodIdx));
 					if (firstTimelineStart < pto)
 					{
 						firstSegStartTime = (double)firstTimelineStart / timeScale;
@@ -2509,9 +2511,8 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 						{
 							// Final fragment can be a negligible Period-tail sliver (see
 							// PushNextFragment); back up to the preceding fragment if so.
-							double lastFragStartSec = mPeriodStartTime + (double)(pMediaStreamContext->fragmentDescriptor.Time - timelines.at(0)->GetStartTime()) / timeScale;
 							bool haveEarlierFragment = (pMediaStreamContext->fragmentRepeatCount > 0) || (pMediaStreamContext->timeLineIndex > 0);
-							if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && haveEarlierFragment && (lastFragStartSec >= (mPeriodEndTime - AAMP_DASH_PERIOD_TAIL_TOLERANCE_SEC)))
+							if (haveEarlierFragment && isPeriodTailSliver())
 							{
 								uint32_t backDuration = duration;
 								if (pMediaStreamContext->fragmentRepeatCount == 0 && pMediaStreamContext->timeLineIndex > 0)
@@ -9882,10 +9883,23 @@ void StreamAbstractionAAMP_MPD::GetStartAndDurationForPtsRestamping(AampTime &st
 
 	IPeriod *period = mCurrentPeriod;
 
+	// Period-tail segments dropped by PushNextFragment are never injected, so they must not advance mNextPts.
+	double tailCutoffSec = -1.0;
+	if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && !mIsFogTSB && (0 != mPeriodDuration) &&
+		(mCdaiObject->mAdState != AdState::IN_ADBREAK_AD_PLAYING))
+	{
+		bool liveEdgePeriodPlayback = mIsLiveManifest && (mCurrentPeriodIdx == mMPDParseHelper->mUpperBoundaryPeriod);
+		if (!liveEdgePeriodPlayback || !period->GetDuration().empty())
+		{
+			tailCutoffSec = (mPeriodDuration / 1000) -
+				mMPDParseHelper->aamp_GetPeriodStartTimeDeltaRelativeToPTSOffset(period) - AAMP_DASH_PERIOD_TAIL_TOLERANCE_SEC;
+		}
+	}
+
 	if (mMediaStreamContext[eMEDIATYPE_AUDIO])
 	{
 		mMPDParseHelper->GetStartAndDurationFromTimeline(period, mMediaStreamContext[eMEDIATYPE_AUDIO]->representationIndex,
-														 mMediaStreamContext[eMEDIATYPE_AUDIO]->adaptationSetIdx, audioStart, audioDuration);
+														 mMediaStreamContext[eMEDIATYPE_AUDIO]->adaptationSetIdx, audioStart, audioDuration, tailCutoffSec);
 	}
 	else
 	{
@@ -9894,7 +9908,7 @@ void StreamAbstractionAAMP_MPD::GetStartAndDurationForPtsRestamping(AampTime &st
 	if (mMediaStreamContext[eMEDIATYPE_VIDEO])
 	{
 		mMPDParseHelper->GetStartAndDurationFromTimeline(period, mMediaStreamContext[eMEDIATYPE_VIDEO]->representationIndex,
-														 mMediaStreamContext[eMEDIATYPE_VIDEO]->adaptationSetIdx, videoStart, videoDuration);
+														 mMediaStreamContext[eMEDIATYPE_VIDEO]->adaptationSetIdx, videoStart, videoDuration, tailCutoffSec);
 	}
 	else
 	{

@@ -3890,6 +3890,24 @@ TEST_F(FetcherLoopTests, SegmentTimeline_SkipFragments_GeneralLanding_TailGateOn
 }
 
 /**
+ * @brief An ordinary timeline seek treats the sliver as EOS when a culled
+ *        Period head makes start+duration overshoot the real Period end.
+ */
+TEST_F(FetcherLoopTests, SegmentTimeline_SkipFragments_GeneralLanding_CulledHead_TailGateOn)
+{
+	ASSERT_EQ(InitializePeriodTailMPD(kPeriodTailCulledHeadLastManifest, true),
+		  eAAMPSTATUS_OK);
+	MediaStreamContext *ctx = GetVideoContext();
+	ASSERT_NE(ctx, nullptr);
+	SetTimelinePosition(ctx, 3000, 0, 1);
+
+	mTestableStreamAbstractionAAMP_MPD->SkipFragments(ctx, 6.85);
+
+	EXPECT_TRUE(ctx->eos);
+	EXPECT_EQ(ctx->fragmentDescriptor.Time, 9800u);
+}
+
+/**
  * @brief An ordinary timeline seek through the general landing branch keeps
  *        landing on the sliver when PTS restamping is disabled.
  */
