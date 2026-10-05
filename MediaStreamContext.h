@@ -233,7 +233,7 @@ public:
 	/**
 	 * @brief Manifest-declared timescale for this representation (DASH
 	 *        SegmentTemplate\@timescale), populated during manifest parsing.
-	 * @return manifest timescale, or 0 if not yet known
+	 * @return manifest timescale; defaults to 1 when no timescale is declared
 	 */
 	uint32_t GetManifestTimeScale() const override { return fragmentDescriptor.TimeScale; }
 
