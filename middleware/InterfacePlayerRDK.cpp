@@ -23,6 +23,7 @@
 #include <string.h>
 #include <assert.h>
 #include <stdlib.h>
+#include <thread>
 #include "PlayerLogManager.h"
 #include "GstUtils.h"
 #include <sys/time.h>
@@ -1354,12 +1355,13 @@ void InterfacePlayerRDK::TearDownStream(int type)
 				{
 					MW_LOG_ERR("InterfacePlayerRDK::TearDownStream: Failed to set NULL state for sinkbin");
 				}
-				else if (GST_STATE_CHANGE_ASYNC == nullRc)
+				else
 				{
-					/* NULL was requested asynchronously; a new decoder created before this sinkbin
-					 * actually releases its resources can end up stuck (e.g. never emits
-					 * "first-video-frame-callback"). Block here, with a bounded retry, so the
-					 * decoder/HW resource is confirmed released before we start fresh. */
+					/* A SUCCESS/ASYNC return here only reflects local GStreamer bookkeeping; for
+					 * server-backed sinks (e.g. Rialto) the decoder/session release happens over IPC
+					 * and is not guaranteed to be complete when this call returns. Always confirm
+					 * NULL is actually reached (bounded) before a new decoder tries to acquire the
+					 * same resource, instead of only doing so when the return is ASYNC. */
 					GstState current, pending;
 					gint retryCnt = GST_ELEMENT_GET_STATE_RETRY_CNT_MAX;
 					do
@@ -1412,7 +1414,37 @@ void InterfacePlayerRDK::TearDownStream(int type)
 		pthread_mutex_lock(&stream->sourceLock);
 		if (stream->sinkbin)
 		{
-			MW_LOG_WARN("InterfacePlayerRDK::TearDownStream: CC sinkbin still assigned, clearing");
+			/* This sinkbin was skipped by the main teardown block above (format was already
+			 * INVALID, or usingClosedCaptionsControl was already cleared by another media
+			 * type's teardown in this same call sequence) - clearing the reference without
+			 * first requesting GST_STATE_NULL never runs the Rialto sink's teardown handler,
+			 * so the underlying RialtoServer session for it is leaked. Tear it down properly
+			 * before dropping the reference. */
+			MW_LOG_WARN("InterfacePlayerRDK::TearDownStream: CC sinkbin still assigned, tearing down before clearing");
+			if (interfacePlayerPriv->gstPrivateContext->pipeline)
+			{
+				GstStateChangeReturn nullRc = SetStateWithWarnings(GST_ELEMENT(stream->sinkbin), GST_STATE_NULL);
+				if (GST_STATE_CHANGE_FAILURE != nullRc)
+				{
+					GstState current, pending;
+					gint retryCnt = GST_ELEMENT_GET_STATE_RETRY_CNT_MAX;
+					do
+					{
+						gst_element_get_state(GST_ELEMENT(stream->sinkbin), &current, &pending, 100 * GST_MSECOND);
+					}
+					while ((current != GST_STATE_NULL) && (--retryCnt > 0));
+
+					if (current != GST_STATE_NULL)
+					{
+						MW_LOG_ERR("InterfacePlayerRDK::TearDownStream: CC sinkbin did not reach NULL (current=%s), forcing", gst_element_state_get_name(current));
+						gst_element_set_state(GST_ELEMENT(stream->sinkbin), GST_STATE_NULL);
+					}
+				}
+				if (!gst_bin_remove(GST_BIN(interfacePlayerPriv->gstPrivateContext->pipeline), GST_ELEMENT(stream->sinkbin)))
+				{
+					MW_LOG_ERR("InterfacePlayerRDK::TearDownStream: Unable to remove CC sinkbin from pipeline");
+				}
+			}
 			g_clear_object(&stream->sinkbin);
 		}
 		if (stream->source)
@@ -2213,7 +2245,35 @@ void InterfacePlayerRDK::SetupClosedCaptionControlStream()
 	// Check elements are not already assigned
 	if (stream->sinkbin)
 	{
-		MW_LOG_ERR("Sinkbin already assigned");
+		/* A stale sinkbin here means a previous TearDownStream()/teardown path left this
+		 * element attached to the pipeline without requesting GST_STATE_NULL first - clearing
+		 * the reference alone would leak the underlying RialtoServer session and leave a
+		 * dangling child element in the pipeline bin. Tear it down properly before clearing. */
+		MW_LOG_ERR("Sinkbin already assigned, tearing down before clearing");
+		if (privatePlayer->gstPrivateContext->pipeline)
+		{
+			GstStateChangeReturn nullRc = SetStateWithWarnings(GST_ELEMENT(stream->sinkbin), GST_STATE_NULL);
+			if (GST_STATE_CHANGE_FAILURE != nullRc)
+			{
+				GstState current, pending;
+				gint retryCnt = GST_ELEMENT_GET_STATE_RETRY_CNT_MAX;
+				do
+				{
+					gst_element_get_state(GST_ELEMENT(stream->sinkbin), &current, &pending, 100 * GST_MSECOND);
+				}
+				while ((current != GST_STATE_NULL) && (--retryCnt > 0));
+
+				if (current != GST_STATE_NULL)
+				{
+					MW_LOG_ERR("Sinkbin did not reach NULL (current=%s), forcing", gst_element_state_get_name(current));
+					gst_element_set_state(GST_ELEMENT(stream->sinkbin), GST_STATE_NULL);
+				}
+			}
+			if (!gst_bin_remove(GST_BIN(privatePlayer->gstPrivateContext->pipeline), GST_ELEMENT(stream->sinkbin)))
+			{
+				MW_LOG_ERR("Unable to remove stale sinkbin from pipeline");
+			}
+		}
 		g_clear_object(&stream->sinkbin);
 	}
 	if (privatePlayer->gstPrivateContext->subtitle_sink)
@@ -2290,6 +2350,14 @@ int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::st
 	InterfacePlayerRDK* pInterfacePlayerRDK = (InterfacePlayerRDK*)playerInstance;
 	InterfacePlayerPriv* privatePlayer = pInterfacePlayerRDK->GetPrivatePlayer();
 	gst_media_stream* stream = &pInterfacePlayerRDK->interfacePlayerPriv->gstPrivateContext->stream[streamId];
+	if (stream->sinkbin)
+	{
+		/* Diagnostic only (RDKEMW-24866): confirms whether this path can be reached with a
+		 * stale sinkbin still assigned, same leak shape fixed in TearDownStream()/
+		 * SetupClosedCaptionControlStream(). No behavior change here yet - gather evidence
+		 * before deciding if this spot also needs the teardown-before-clear fix. */
+		MW_LOG_ERR("InterfacePlayerRDK::SetupStream: [RDKEMW-24866][DIAG] stream->sinkbin already assigned for mediaType=%d on entry, not yet cleared by TearDownStream", streamId);
+	}
 	if (eGST_MEDIATYPE_SUBTITLE == streamId)
 	{
 		if(m_gstConfigParam->gstreamerSubsEnabled)
