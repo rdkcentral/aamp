@@ -8761,6 +8761,13 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 		}
 	}
 	SetLLDashChunkMode(false); //Reset ChunkMode before curl handles are torn down
+
+	// stop the mpd update before Stream abstraction delete
+	if(mMPDDownloaderInstance != nullptr)
+	{
+		mMPDDownloaderInstance->Release();
+	}
+
 	auto tearDownStartTime = NOW_STEADY_TS_MS;
 	TeardownStream(true,true); //disable download as well
 	auto tearDownEndTime = NOW_STEADY_TS_MS;
@@ -8781,12 +8788,6 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 	}
 	// Stop latency monitor and release resources.
 	StopLatencyMonitor();
-
-	// stop the mpd update immediately after Stream abstraction delete
-	if(mMPDDownloaderInstance != nullptr)
-	{
-		mMPDDownloaderInstance->Release();
-	}
 
 	if(mTSBSessionManager)
 	{
@@ -10876,12 +10877,26 @@ bool PrivateInstanceAAMP::IsMuxedStream()
  * @brief Stop injection for a track.
  * Called from StopInjection
  */
-void PrivateInstanceAAMP::StopTrackInjection(AampMediaType type)
+void PrivateInstanceAAMP::StopTrackInjection(AampMediaType type, bool discard)
 {
-	if( type<AAMP_TRACK_COUNT && !mTrackInjectionBlocked[type] )
+	if( type<AAMP_TRACK_COUNT )
 	{
 		AAMPLOG_TRACE("PrivateInstanceAAMP: for type %s", GetMediaTypeName(type) );
 		std::lock_guard<std::recursive_mutex> guard(mLock);
+		if (discard)
+		{
+			// Direct Rialto blocks the injector thread(s) whilst waiting for NeedData,
+			// this call releases the thread for the specific track being stopped
+			// so the caller can join it via StopInjectLoop.
+			// Must run even if mTrackInjectionBlocked[type] is already set (e.g. by an
+			// earlier non-discard call such as RefreshTrack()), otherwise the sink is
+			// never unblocked and the subsequent StopInjectLoop() join can hang forever.
+			StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+			if (sink)
+			{
+				sink->UnblockTrackInjection(type);
+			}
+		}
 		mTrackInjectionBlocked[type] = true;
 	}
 	AAMPLOG_TRACE ("PrivateInstanceAAMP::Exit. type = %d", (int) type);
@@ -12165,7 +12180,7 @@ void PrivateInstanceAAMP::SetTextTrack(int trackId, char *data)
 						else
 						{
 							SetPreferredTextTrack(std::move(track));
-							if((ISCONFIGSET_PRIV(eAAMPConfig_useRialtoSink)) && ((mCurrentTextTrackIndex == -1) || (mCurrentTextTrackIndex == trackId)))
+							if((UsingRialto()) && ((mCurrentTextTrackIndex == -1) || (mCurrentTextTrackIndex == trackId)))
 							{ // by default text track is enabled and muted for Rialto; notify only if there is change in the subtitles
 								AAMPLOG_INFO("useRialtoSink mCurrentTextTrackIndex = %d trackId = %d",mCurrentTextTrackIndex,trackId);
 								mpStreamAbstractionAAMP->currentTextTrackProfileIndex = mCurrentTextTrackIndex = trackId;
@@ -15077,7 +15092,7 @@ bool PrivateInstanceAAMP::isDecryptClearSamplesRequired()
 	// On some platform decrypt is called by the decryptor gstreamer plugin even for clear samples in order to
 	// copy it to a secure buffer. However if Rialto is enabled there should be no copy in the aamp pipeline, as
 	// it will be done in the server pipeline
-	return !ISCONFIGSET_PRIV(eAAMPConfig_useRialtoSink);
+	return !UsingRialto();
 }
 
 void PrivateInstanceAAMP::SetLLDashChunkMode(bool enable)
@@ -15291,7 +15306,7 @@ void PrivateInstanceAAMP::GetStreamFormat(StreamOutputFormat &primaryOutputForma
 	mpStreamAbstractionAAMP->GetStreamFormat(primaryOutputFormat, audioOutputFormat, subtitleOutputFormat);
 
 	// Limiting the change to just Rialto, until the change has been tested on non-Rialto
-	if (ISCONFIGSET_PRIV(eAAMPConfig_useRialtoSink) &&
+	if (UsingRialto() &&
 		IsLocalAAMPTsbInjection() &&
 		(rate != AAMP_NORMAL_PLAY_RATE))
 	{
