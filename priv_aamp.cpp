@@ -2478,8 +2478,7 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 		{
 			SendTuneMetricsEvent();
 		}
-		// set position to 0 if the rewind operation has reached Beginning Of Stream
-		double position = beginningOfStream? 0: GetPositionMilliseconds();
+		double position = 0.0;
 		double duration = durationSeconds * 1000.0;
 		float speed = mSinkPaused.load() ? 0 : rate;
 		double start = -1;
@@ -2497,13 +2496,15 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 		BitsPerSecond availableBandwidth = 0;
 		BitsPerSecond networkBandwidth = 0;
 
-		{ // Set scope of lock with SetRateMonitor to clear lock before sending progress events
+		{ // Keep SetRateMonitor active while reading position and preparing progress data.
 			SetRateMonitor check(this); // Note - this will acquire a mutex that prevents SetRate from starting during the scope of this lock
 			if (check.active()) // Check to see if a SetRate operation is active
 			{
 				AAMPLOG_WARN("Progress reporting skipped whilst tune (set rate).");
 				return;
 			}
+			// set position to 0 if the rewind operation has reached Beginning Of Stream
+			position = beginningOfStream? 0: GetPositionMilliseconds();
 
 			//Report Progress report position based on Availability Start Time
 			start = (culledSeconds*1000.0);
