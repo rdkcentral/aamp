@@ -174,6 +174,27 @@ public:
 	bool GeneratePersonaJson(const std::string& basePath);
 
 	/**
+	 * @brief Atomically finalize the aggregate session (exactly-once)
+	 *
+	 * Purpose: End-of-session counterpart used when the last active player
+	 * stops. Under a single mutex acquisition it snapshots the inline persona,
+	 * consumes the file-persona records, and clears all state; the file persona
+	 * (when @p basePath is non-empty) is then written outside the lock.
+	 *
+	 * Exactly-once semantics: because the snapshot and reset are atomic, a
+	 * concurrent last-stopper that calls this after the accumulators have been
+	 * cleared observes no data and returns an empty string without emitting or
+	 * writing anything. Callers must therefore log the returned JSON only when
+	 * it is non-empty.
+	 *
+	 * @param[in] basePath Base output path for the file persona (PID appended),
+	 *                     or an empty string to skip the file persona.
+	 * @return Inline minimal persona JSON, or an empty string when there was no
+	 *         streaming data (e.g. already finalized by a concurrent caller).
+	 */
+	std::string FinalizeSession(const std::string& basePath);
+
+	/**
 	 * @brief Return the number of accumulated request records
 	 * @return Request count
 	 */
@@ -205,6 +226,22 @@ private:
 	 * the first AddRequest() call.
 	 */
 	static void AtExitHandler();
+
+	/// Lock-free body of BuildMinimalPersonaJson(); caller must hold mMutex.
+	std::string BuildMinimalPersonaJsonLocked() const;
+
+	/// Lock-free body of ResetStreaming(); caller must hold mMutex.
+	void ResetStreamingLocked();
+
+	/// Lock-free full reset (records, generation guard, streaming accumulators);
+	/// caller must hold mMutex.
+	void ResetLocked();
+
+	/// Fit the consumed records and write the file persona (PID appended to
+	/// basePath). Does no locking; operates only on its own arguments.
+	bool WritePersonaFile(const std::vector<RequestRecord>& requests,
+						  const std::vector<BurstRecord>& bursts,
+						  const std::string& basePath) const;
 
 	mutable std::mutex mMutex;				///< Protects all mutable state below
 	std::vector<RequestRecord> mRequests;	///< Consumed (swapped out) on first GeneratePersonaJson call

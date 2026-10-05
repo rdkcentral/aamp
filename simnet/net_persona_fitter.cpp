@@ -534,7 +534,11 @@ void NetPersonaFitter::AddRequestBurstSummary(std::size_t burstCount,
 std::string NetPersonaFitter::BuildMinimalPersonaJson() const
 {
 	std::lock_guard<std::mutex> lock{mMutex};
+	return BuildMinimalPersonaJsonLocked();
+}
 
+std::string NetPersonaFitter::BuildMinimalPersonaJsonLocked() const
+{
 	// Nothing collected this session — signal caller to skip logging.
 	if (mStreamReqCount == 0 && mStreamLnRateN == 0 && mStreamAllGapN == 0)
 	{
@@ -696,6 +700,11 @@ std::string NetPersonaFitter::BuildMinimalPersonaJson() const
 void NetPersonaFitter::ResetStreaming()
 {
 	std::lock_guard<std::mutex> lock{mMutex};
+	ResetStreamingLocked();
+}
+
+void NetPersonaFitter::ResetStreamingLocked()
+{
 	mStreamReqCount = 0;
 	mStreamReuseCount = 0;
 	mStreamLnRateN = 0;
@@ -722,31 +731,15 @@ void NetPersonaFitter::ResetStreaming()
 void NetPersonaFitter::Reset()
 {
 	std::lock_guard<std::mutex> lock{mMutex};
+	ResetLocked();
+}
+
+void NetPersonaFitter::ResetLocked()
+{
 	mRequests.clear();
 	mBursts.clear();
 	mGenerated = false;
-	// Streaming accumulators (mirror ResetStreaming, already under the lock).
-	mStreamReqCount = 0;
-	mStreamReuseCount = 0;
-	mStreamLnRateN = 0;
-	mStreamLnRateSum = 0.0;
-	mStreamLnRateSumSq = 0.0;
-	mStreamGuardGapN = 0;
-	mStreamGuardGapSum = 0.0;
-	mStreamGuardGapSumSq = 0.0;
-	mStreamAllGapN = 0;
-	mStreamAllGapSum = 0.0;
-	mStreamAllGapSumSq = 0.0;
-	mStreamAllTtfbHist.Reset();
-	mStreamReusedTtfbHist.Reset();
-	mStreamFreshTtfbHist.Reset();
-	mStreamAllTtfbSum = 0.0;
-	mStreamAllTtfbSumSq = 0.0;
-	mStreamReusedTtfbSum = 0.0;
-	mStreamReusedTtfbSumSq = 0.0;
-	mStreamBurstsPerSegHist.Reset();
-	mStreamBurstCvHist.Reset();
-	mStreamAllGapHist.Reset();
+	ResetStreamingLocked();
 }
 
 std::size_t NetPersonaFitter::GetRequestCount() const
@@ -785,6 +778,55 @@ bool NetPersonaFitter::GeneratePersonaJson(const std::string& basePath)
 		bursts.swap(mBursts);
 	} // lock released before the O(N) statistical fitting
 
+	if (!WritePersonaFile(requests, bursts, basePath))
+	{
+		return false;
+	}
+
+	{
+		std::lock_guard<std::mutex> lock{mMutex};
+		mGenerated = true;
+	}
+	return true;
+}
+
+std::string NetPersonaFitter::FinalizeSession(const std::string& basePath)
+{
+	std::vector<RequestRecord> requests;
+	std::vector<BurstRecord> bursts;
+	std::string inlineJson;
+	bool writeFile = false;
+	{
+		std::lock_guard<std::mutex> lock{mMutex};
+		const bool hasStreaming =
+			(mStreamReqCount != 0 || mStreamLnRateN != 0 || mStreamAllGapN != 0);
+		const bool hasRecords = (!mRequests.empty() || !mBursts.empty());
+		// Atomic snapshot+reset gives exactly-once: a concurrent last-stopper
+		// that arrives after this clears the accumulators sees no data.
+		if (!hasStreaming && !hasRecords)
+		{
+			return std::string{};
+		}
+		inlineJson = BuildMinimalPersonaJsonLocked(); // empty when !hasStreaming
+		if (!basePath.empty() && hasRecords)
+		{
+			requests.swap(mRequests);
+			bursts.swap(mBursts);
+			writeFile = true;
+		}
+		ResetLocked();
+	}
+	if (writeFile)
+	{
+		WritePersonaFile(requests, bursts, basePath);
+	}
+	return inlineJson;
+}
+
+bool NetPersonaFitter::WritePersonaFile(const std::vector<RequestRecord>& requests,
+										const std::vector<BurstRecord>& bursts,
+										const std::string& basePath) const
+{
 	Persona persona;
 	FitRequests(requests, persona);
 	FitBursts(bursts, persona);
@@ -831,11 +873,6 @@ bool NetPersonaFitter::GeneratePersonaJson(const std::string& basePath)
 		return false;
 	}
 	ofs.close();
-
-	{
-		std::lock_guard<std::mutex> lock{mMutex};
-		mGenerated = true;
-	}
 
 	AAMPLOG_MIL("NetPersonaFitter: wrote persona JSON to %s (%zu requests, %zu bursts)",
 				outputPath.c_str(), requests.size(), bursts.size());

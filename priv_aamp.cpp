@@ -8845,21 +8845,13 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 	// then generate the full file-based persona when netTraceCsvDump is enabled.
 	{
 		auto& fitter = aamptrace::NetPersonaFitter::GetInstance();
-		std::string inlinePersona = fitter.BuildMinimalPersonaJson();
-		if (!inlinePersona.empty())
-		{
-			AAMPLOG_MIL("NET_PERSONA %s", inlinePersona.c_str());
-		}
-		if (GETCONFIGVALUE_PRIV(eAAMPConfig_NetTraceCsvDump))
-		{
-			fitter.GeneratePersonaJson(aamptrace::NetPersonaFitter::kDefaultBasePath);
-		}
 		// The fitter is a process-wide singleton fed by every active player.
 		// gActivePrivAAMPs membership spans construction..destruction, so gate
-		// on playback state instead: only reset the shared accumulators when no
-		// other player is still in an active streaming session, so one player's
-		// Stop() neither erases another's in-flight metrics nor is blocked by an
-		// idle/stopped sibling that merely remains allocated.
+		// on playback state instead: finalize the shared accumulators only when
+		// no other player is still in an active streaming session. This player is
+		// already eSTATE_STOPPING, so a concurrently stopping sibling (also
+		// STOPPING) must not be treated as active or both would skip finalization
+		// and leak stale aggregates into the next session.
 		bool otherActivePlayer = false;
 		{
 			std::lock_guard<std::mutex> guard(gMutex);
@@ -8871,16 +8863,30 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 				}
 				const AAMPPlayerState otherState = el.pAAMP->GetState();
 				if (otherState != eSTATE_IDLE && otherState != eSTATE_STOPPED &&
-					otherState != eSTATE_ERROR && otherState != eSTATE_RELEASED)
+					otherState != eSTATE_STOPPING && otherState != eSTATE_ERROR &&
+					otherState != eSTATE_RELEASED)
 				{
 					otherActivePlayer = true;
 					break;
 				}
 			}
 		}
+		// Emit/generate/reset only at the aggregate-session boundary so an
+		// idle or stopping sibling never logs an incomplete persona while
+		// another player is still streaming.
 		if (!otherActivePlayer)
 		{
-			fitter.ResetStreaming();
+			// Atomic, exactly-once finalize: a concurrent last-stopper that runs
+			// after the accumulators are cleared gets an empty string and emits
+			// nothing, so the NET_PERSONA line and file are produced only once.
+			const bool dumpFile = GETCONFIGVALUE_PRIV(eAAMPConfig_NetTraceCsvDump);
+			std::string inlinePersona = fitter.FinalizeSession(
+				dumpFile ? std::string(aamptrace::NetPersonaFitter::kDefaultBasePath)
+						 : std::string{});
+			if (!inlinePersona.empty())
+			{
+				AAMPLOG_MIL("NET_PERSONA %s", inlinePersona.c_str());
+			}
 		}
 	}
 	// Set state to IDLE irrespective of sending state change event or not

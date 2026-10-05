@@ -280,14 +280,21 @@ public:
 	 * bucket midpoint (e.g. a percentile from ApproximatePercentileMs()) to
 	 * avoid counting the threshold bucket itself.
 	 *
+	 * When the threshold maps to the overflow bucket (the last bucket, which
+	 * collects every value >= maxTimingMs) there is no higher bucket to count.
+	 * Since that bucket is unbounded above, its samples are the extreme tail, so
+	 * they are counted rather than silently dropped.
+	 *
 	 * @param thresholdMs  Threshold in milliseconds. Negative values are
 	 *                     clamped to 0.
-	 * @return Number of samples in every bucket above the threshold bucket.
+	 * @return Number of samples in every bucket above the threshold bucket, or
+	 *         in the overflow bucket itself when the threshold maps to it.
 	 */
 	uint64_t CountAboveMs(double thresholdMs) const
 	{
+		const std::size_t start = StrictTailStartIndex(thresholdMs);
 		uint64_t count = 0;
-		for (std::size_t i = SafeBucketIndex(thresholdMs) + 1; i < mBucketCount; ++i)
+		for (std::size_t i = start; i < mBucketCount; ++i)
 		{
 			count += mCounts[i];
 		}
@@ -299,6 +306,8 @@ public:
 	 *
 	 * Strict-tail counterpart of ApproximateMeanAtOrAboveMs(): averages the
 	 * bucket midpoints for every bucket above the one containing @p thresholdMs.
+	 * When the threshold maps to the overflow bucket, that bucket's midpoint is
+	 * used so the extreme tail is reported rather than suppressed.
 	 *
 	 * @param thresholdMs  Threshold in milliseconds.
 	 * @return Approximate mean of the strict-tail samples, or 0.0 if none are
@@ -306,9 +315,10 @@ public:
 	 */
 	double ApproximateMeanAboveMs(double thresholdMs) const
 	{
+		const std::size_t start = StrictTailStartIndex(thresholdMs);
 		uint64_t count = 0;
 		double weightedSum = 0.0;
-		for (std::size_t i = SafeBucketIndex(thresholdMs) + 1; i < mBucketCount; ++i)
+		for (std::size_t i = start; i < mBucketCount; ++i)
 		{
 			const double midpoint =
 				static_cast<double>(i) * mBucketWidthMs + mBucketWidthMs * 0.5;
@@ -384,6 +394,16 @@ private:
 			return mBucketCount - 1;
 		}
 		return 0;
+	}
+
+	/// First bucket index for a strict `> threshold` tail scan. Normally one
+	/// past the threshold bucket, but when the threshold maps to the overflow
+	/// bucket (unbounded above) that bucket is itself the extreme tail, so it
+	/// is included rather than yielding an empty range.
+	std::size_t StrictTailStartIndex(double thresholdMs) const
+	{
+		const std::size_t bucket = SafeBucketIndex(thresholdMs);
+		return (bucket + 1 < mBucketCount) ? (bucket + 1) : (mBucketCount - 1);
 	}
 
 	// ── Data members ──────────────────────────────────────────────────────
