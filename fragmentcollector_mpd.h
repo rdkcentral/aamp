@@ -347,6 +347,15 @@ public:
 	 */
 	double SkipFragments( class MediaStreamContext *pMediaStreamContext, double skipTime, bool updateFirstPTS = false, bool skipToEnd = false);
 	/**
+	 * @fn ShouldTreatAsPeriodTailSliver
+	 * @brief Mirrors PushNextFragment's Period-tail tolerance check, so a seek
+	 * landing on the same negligible sliver fragment is treated as reaching
+	 * Period end instead of selecting it.
+	 * @param fragmentPositionSeconds position of the candidate fragment, in seconds from Period start
+	 * @param periodEndSeconds effective Period end, in seconds
+	 */
+	bool ShouldTreatAsPeriodTailSliver(double fragmentPositionSeconds, double periodEndSeconds);
+	/**
 	 * @fn GetFirstPeriodStartTime
 	 */
 	double GetFirstPeriodStartTime(void) override;

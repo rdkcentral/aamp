@@ -648,6 +648,46 @@ public:
 		return status;
 	}
 
+	AAMPStatusType InitializePeriodTailMPD(const char *manifest, bool ptsRestampEnabled)
+	{
+		mBoolConfigSettings[eAAMPConfig_EnablePTSReStamp] = ptsRestampEnabled;
+		EXPECT_CALL(*g_mockMediaStreamContext,
+			CacheFragment(_, _, _, _, _, true, _, _, _))
+			.Times(AnyNumber())
+			.WillRepeatedly(Return(true));
+		return InitializeMPD(manifest);
+	}
+
+	MediaStreamContext *GetVideoContext()
+	{
+		return static_cast<MediaStreamContext *>(
+			mTestableStreamAbstractionAAMP_MPD->GetMediaTrack(eTRACK_VIDEO));
+	}
+
+	void SetTimelinePosition(MediaStreamContext *ctx, uint32_t time,
+						 int timelineIndex, uint64_t number)
+	{
+		ctx->timeLineIndex = timelineIndex;
+		ctx->fragmentRepeatCount = 0;
+		ctx->fragmentDescriptor.Time = time;
+		ctx->fragmentDescriptor.Number = number;
+		ctx->lastSegmentNumber = number;
+		// PushNextFragment's positionInPeriod calc is gated on lastSegmentDuration > 0.
+		ctx->lastSegmentDuration = time;
+		ctx->fragmentTime = static_cast<double>(time) / 1000.0;
+		ctx->eos = false;
+	}
+
+	void SetTemplatePosition(MediaStreamContext *ctx, double time,
+						  uint64_t number)
+	{
+		ctx->fragmentDescriptor.Time = time;
+		ctx->fragmentDescriptor.Number = number;
+		ctx->lastSegmentNumber = number;
+		ctx->fragmentTime = time;
+		ctx->eos = false;
+	}
+
 	/**
 	 * @brief Initialize the Ad MPD instance
 	 *
@@ -3142,6 +3182,81 @@ static constexpr const char *kSegmentBaseVodManifest = R"(<?xml version="1.0" en
     </Period>
 </MPD>)";
 
+static constexpr const char *kPeriodTailTimelineManifest = R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" minBufferTime="PT2S" type="static"
+	 mediaPresentationDuration="PT10S">
+	<Period id="p0" start="PT0S" duration="PT10S">
+		<AdaptationSet id="0" contentType="video">
+			<Representation id="0" mimeType="video/mp4" codecs="avc1.640028"
+							bandwidth="800000" width="640" height="360">
+				<SegmentTemplate timescale="1000" initialization="video_p0_init.mp4"
+								 media="video_p0_$Number$.m4s" startNumber="1">
+					<SegmentTimeline>
+						<S t="0" d="2000" r="3" />
+						<S t="8000" d="1800" />
+						<S t="9800" d="200" />
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+	</Period>
+</MPD>)";
+
+static constexpr const char *kPeriodTailLiveManifest = R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" minBufferTime="PT2S" type="dynamic"
+	 availabilityStartTime="2023-01-01T00:00:00Z" mediaPresentationDuration="PT10S">
+	<Period id="p0" start="PT0S">
+		<AdaptationSet id="0" contentType="video">
+			<Representation id="0" mimeType="video/mp4" codecs="avc1.640028"
+							bandwidth="800000" width="640" height="360">
+				<SegmentTemplate timescale="1000" initialization="video_p0_init.mp4"
+								 media="video_p0_$Number$.m4s" startNumber="1">
+					<SegmentTimeline>
+						<S t="0" d="2000" r="3" />
+						<S t="8000" d="1800" />
+						<S t="9800" d="200" />
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+	</Period>
+</MPD>)";
+
+static constexpr const char *kPeriodTailLiveKnownDurationManifest = R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" minBufferTime="PT2S" type="dynamic"
+	 availabilityStartTime="2023-01-01T00:00:00Z" mediaPresentationDuration="PT10S">
+	<Period id="p0" start="PT0S" duration="PT10S">
+		<AdaptationSet id="0" contentType="video">
+			<Representation id="0" mimeType="video/mp4" codecs="avc1.640028"
+							bandwidth="800000" width="640" height="360">
+				<SegmentTemplate timescale="1000" initialization="video_p0_init.mp4"
+								 media="video_p0_$Number$.m4s" startNumber="1">
+					<SegmentTimeline>
+						<S t="0" d="2000" r="3" />
+						<S t="8000" d="1800" />
+						<S t="9800" d="200" />
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+	</Period>
+</MPD>)";
+
+static constexpr const char *kPeriodTailTemplateManifest = R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" minBufferTime="PT2S" type="static"
+	 mediaPresentationDuration="PT10S">
+	<Period id="p0" start="PT0S" duration="PT10S">
+		<AdaptationSet id="0" contentType="video">
+			<Representation id="0" mimeType="video/mp4" codecs="avc1.640028"
+							bandwidth="800000" width="640" height="360">
+				<SegmentTemplate timescale="1000" duration="2000"
+								 initialization="video_p0_init.mp4"
+								 media="video_p0_$Number$.m4s" startNumber="1" />
+			</Representation>
+		</AdaptationSet>
+	</Period>
+</MPD>)";
+
 // Base URL for the single SegmentBase video resource.
 static const std::string kSegBaseVideoUrl{"http://host/asset/video.m4s"};
 
@@ -3521,6 +3636,371 @@ TEST_F(FetcherLoopTests, CDAI_LiveRewindPeriodComplete_WaitsForWorkers)
 
 	g_mockAampTrackWorkerManager.reset();
 	g_mockAampTimeBasedBufferManager.reset();
+}
+
+/**
+ * @brief The timeline fetch path keeps its tolerance-free behavior when
+ *        PTS restamping is disabled.
+ */
+TEST_F(FetcherLoopTests, SegmentTimeline_PushNextFragment_TailGateOff_Fetches)
+{
+	ASSERT_EQ(InitializePeriodTailMPD(kPeriodTailTimelineManifest, false),
+		  eAAMPSTATUS_OK);
+	MediaStreamContext *ctx = GetVideoContext();
+	ASSERT_NE(ctx, nullptr);
+	SetTimelinePosition(ctx, 9800, 2, 6);
+
+	EXPECT_CALL(*g_mockMediaStreamContext,
+		CacheFragment(_, _, _, _, _, false, _, _, _))
+		.WillOnce(Return(true));
+	EXPECT_TRUE(PushNextFragment(eTRACK_VIDEO));
+}
+
+/**
+ * @brief The timeline fetch path skips a tail sliver when PTS restamping is
+ *        enabled.
+ */
+TEST_F(FetcherLoopTests, SegmentTimeline_PushNextFragment_TailGateOn_Skips)
+{
+	ASSERT_EQ(InitializePeriodTailMPD(kPeriodTailTimelineManifest, true),
+		  eAAMPSTATUS_OK);
+	MediaStreamContext *ctx = GetVideoContext();
+	ASSERT_NE(ctx, nullptr);
+	SetTimelinePosition(ctx, 9800, 2, 6);
+
+	EXPECT_CALL(*g_mockMediaStreamContext,
+		CacheFragment(_, _, _, _, _, false, _, _, _))
+		.Times(0);
+	// PushNextFragment returns true regardless of whether it skipped the
+	// fetch for Period-tail reasons; CacheFragment not being called above
+	// is the real assertion of the skip.
+	EXPECT_TRUE(PushNextFragment(eTRACK_VIDEO));
+}
+
+/**
+ * @brief The timeline fetch path preserves a sliver on a live edge while the
+ *        Period duration is still provisional.
+ */
+TEST_F(FetcherLoopTests, SegmentTimeline_PushNextFragment_LiveUnknownDuration_Fetches)
+{
+	ASSERT_EQ(InitializePeriodTailMPD(kPeriodTailLiveManifest, true),
+		  eAAMPSTATUS_OK);
+	MediaStreamContext *ctx = GetVideoContext();
+	ASSERT_NE(ctx, nullptr);
+	SetTimelinePosition(ctx, 9800, 2, 6);
+
+	EXPECT_CALL(*g_mockMediaStreamContext,
+		CacheFragment(_, _, _, _, _, false, _, _, _))
+		.WillOnce(Return(true));
+	EXPECT_TRUE(PushNextFragment(eTRACK_VIDEO));
+}
+
+/**
+ * @brief The timeline fetch path applies the tolerance on a live edge once
+ *        the Period duration is known.
+ */
+TEST_F(FetcherLoopTests, SegmentTimeline_PushNextFragment_LiveKnownDuration_Skips)
+{
+	ASSERT_EQ(InitializePeriodTailMPD(kPeriodTailLiveKnownDurationManifest, true),
+		  eAAMPSTATUS_OK);
+	MediaStreamContext *ctx = GetVideoContext();
+	ASSERT_NE(ctx, nullptr);
+	SetTimelinePosition(ctx, 9800, 2, 6);
+
+	EXPECT_CALL(*g_mockMediaStreamContext,
+		CacheFragment(_, _, _, _, _, false, _, _, _))
+		.Times(0);
+	// PushNextFragment returns true regardless of whether it skipped the
+	// fetch for Period-tail reasons; CacheFragment not being called above
+	// is the real assertion of the skip.
+	EXPECT_TRUE(PushNextFragment(eTRACK_VIDEO));
+}
+
+/**
+ * @brief The timeline fetch path preserves a sliver while an ad is actively
+ *        playing, even with PTS restamping enabled.
+ */
+TEST_F(FetcherLoopTests, SegmentTimeline_PushNextFragment_ActiveAd_Fetches)
+{
+	ASSERT_EQ(InitializePeriodTailMPD(kPeriodTailTimelineManifest, true),
+		  eAAMPSTATUS_OK);
+	MediaStreamContext *ctx = GetVideoContext();
+	ASSERT_NE(ctx, nullptr);
+	SetTimelinePosition(ctx, 9800, 2, 6);
+
+	auto cdaiObj = mTestableStreamAbstractionAAMP_MPD->GetCDAIObject();
+	cdaiObj->mAdBreaks = {
+		{"p0", AdBreakObject(30000, std::make_shared<std::vector<AdNode>>(),
+							 "", 0, 30000)}};
+	cdaiObj->mAdBreaks["p0"].ads->emplace_back(
+		false, false, true, "adId1", "url", 30000, "p0", 0, nullptr);
+	cdaiObj->mCurAdIdx = 0;
+	cdaiObj->mCurAds = cdaiObj->mAdBreaks["p0"].ads;
+	cdaiObj->mAdState = AdState::IN_ADBREAK_AD_PLAYING;
+
+	EXPECT_CALL(*g_mockMediaStreamContext,
+		CacheFragment(_, _, _, _, _, false, _, _, _))
+		.WillOnce(Return(true));
+	EXPECT_TRUE(PushNextFragment(eTRACK_VIDEO));
+}
+
+/**
+ * @brief The non-timeline fetch path keeps its original boundary when PTS
+ *        restamping is disabled.
+ */
+TEST_F(FetcherLoopTests, SegmentTemplate_PushNextFragment_TailGateOff_Fetches)
+{
+	ASSERT_EQ(InitializePeriodTailMPD(kPeriodTailTemplateManifest, false),
+		  eAAMPSTATUS_OK);
+	MediaStreamContext *ctx = GetVideoContext();
+	ASSERT_NE(ctx, nullptr);
+	SetTemplatePosition(ctx, 9.8, 6);
+
+	EXPECT_CALL(*g_mockMediaStreamContext,
+		CacheFragment(_, _, _, _, _, false, _, _, _))
+		.WillOnce(Return(true));
+	EXPECT_TRUE(PushNextFragment(eTRACK_VIDEO));
+}
+
+/**
+ * @brief The non-timeline fetch path skips a tail sliver when PTS restamping
+ *        is enabled.
+ */
+TEST_F(FetcherLoopTests, SegmentTemplate_PushNextFragment_TailGateOn_Skips)
+{
+	ASSERT_EQ(InitializePeriodTailMPD(kPeriodTailTemplateManifest, true),
+		  eAAMPSTATUS_OK);
+	MediaStreamContext *ctx = GetVideoContext();
+	ASSERT_NE(ctx, nullptr);
+	SetTemplatePosition(ctx, 9.8, 6);
+
+	EXPECT_CALL(*g_mockMediaStreamContext,
+		CacheFragment(_, _, _, _, _, false, _, _, _))
+		.Times(0);
+	EXPECT_FALSE(PushNextFragment(eTRACK_VIDEO));
+}
+
+/**
+ * @brief An ordinary timeline seek through the general landing branch treats
+ *        the sliver as EOS when PTS restamping is enabled.
+ */
+TEST_F(FetcherLoopTests, SegmentTimeline_SkipFragments_GeneralLanding_TailGateOn)
+{
+	ASSERT_EQ(InitializePeriodTailMPD(kPeriodTailTimelineManifest, true),
+		  eAAMPSTATUS_OK);
+	MediaStreamContext *ctx = GetVideoContext();
+	ASSERT_NE(ctx, nullptr);
+	SetTimelinePosition(ctx, 0, 0, 1);
+
+	mTestableStreamAbstractionAAMP_MPD->SkipFragments(ctx, 9.85);
+
+	EXPECT_TRUE(ctx->eos);
+	EXPECT_EQ(ctx->fragmentDescriptor.Time, 9800u);
+}
+
+/**
+ * @brief An ordinary timeline seek through the general landing branch keeps
+ *        landing on the sliver when PTS restamping is disabled.
+ */
+TEST_F(FetcherLoopTests, SegmentTimeline_SkipFragments_GeneralLanding_TailGateOff)
+{
+	ASSERT_EQ(InitializePeriodTailMPD(kPeriodTailTimelineManifest, false),
+		  eAAMPSTATUS_OK);
+	MediaStreamContext *ctx = GetVideoContext();
+	ASSERT_NE(ctx, nullptr);
+	SetTimelinePosition(ctx, 0, 0, 1);
+
+	mTestableStreamAbstractionAAMP_MPD->SkipFragments(ctx, 9.85);
+
+	EXPECT_FALSE(ctx->eos);
+	EXPECT_EQ(ctx->fragmentDescriptor.Time, 9800u);
+}
+
+/**
+ * @brief A FOG seek is allowed to land on a tail sliver when PTS restamping
+ *        is enabled.
+ */
+TEST_F(FetcherLoopTests, SegmentTimeline_SkipFragments_FogBypass_LandsOnSliver)
+{
+	ASSERT_EQ(InitializePeriodTailMPD(kPeriodTailTimelineManifest, true),
+		  eAAMPSTATUS_OK);
+	MediaStreamContext *ctx = GetVideoContext();
+	ASSERT_NE(ctx, nullptr);
+	SetTimelinePosition(ctx, 0, 0, 1);
+	mTestableStreamAbstractionAAMP_MPD->SetIsFogTSB(true);
+
+	mTestableStreamAbstractionAAMP_MPD->SkipFragments(ctx, 9.85);
+
+	EXPECT_FALSE(ctx->eos);
+	EXPECT_EQ(ctx->fragmentDescriptor.Time, 9800u);
+}
+
+/**
+ * @brief An active ad seek is allowed to land on a tail sliver when PTS
+ *        restamping is enabled.
+ */
+TEST_F(FetcherLoopTests, SegmentTimeline_SkipFragments_ActiveAdBypass_LandsOnSliver)
+{
+	ASSERT_EQ(InitializePeriodTailMPD(kPeriodTailTimelineManifest, true),
+		  eAAMPSTATUS_OK);
+	MediaStreamContext *ctx = GetVideoContext();
+	ASSERT_NE(ctx, nullptr);
+	SetTimelinePosition(ctx, 0, 0, 1);
+	mTestableStreamAbstractionAAMP_MPD->GetCDAIObject()->mAdState =
+		AdState::IN_ADBREAK_AD_PLAYING;
+
+	mTestableStreamAbstractionAAMP_MPD->SkipFragments(ctx, 9.85);
+
+	EXPECT_FALSE(ctx->eos);
+	EXPECT_EQ(ctx->fragmentDescriptor.Time, 9800u);
+}
+
+/**
+ * @brief An ordinary timeline seek through the near-end shortcut treats the
+ *        sliver as EOS when PTS restamping is enabled.
+ */
+TEST_F(FetcherLoopTests, SegmentTimeline_SkipFragments_NearEndLanding_TailGateOn)
+{
+	ASSERT_EQ(InitializePeriodTailMPD(kPeriodTailTimelineManifest, true),
+		  eAAMPSTATUS_OK);
+	MediaStreamContext *ctx = GetVideoContext();
+	ASSERT_NE(ctx, nullptr);
+	SetTimelinePosition(ctx, 0, 0, 1);
+
+	mTestableStreamAbstractionAAMP_MPD->SkipFragments(ctx, 9.95);
+
+	EXPECT_TRUE(ctx->eos);
+	EXPECT_EQ(ctx->fragmentDescriptor.Time, 9800u);
+}
+
+/**
+ * @brief An ordinary timeline seek through the near-end shortcut keeps
+ *        landing on the sliver when PTS restamping is disabled.
+ */
+TEST_F(FetcherLoopTests, SegmentTimeline_SkipFragments_NearEndLanding_TailGateOff)
+{
+	ASSERT_EQ(InitializePeriodTailMPD(kPeriodTailTimelineManifest, false),
+		  eAAMPSTATUS_OK);
+	MediaStreamContext *ctx = GetVideoContext();
+	ASSERT_NE(ctx, nullptr);
+	SetTimelinePosition(ctx, 0, 0, 1);
+
+	mTestableStreamAbstractionAAMP_MPD->SkipFragments(ctx, 9.95);
+
+	EXPECT_FALSE(ctx->eos);
+	EXPECT_EQ(ctx->fragmentDescriptor.Time, 9800u);
+}
+
+/**
+ * @brief An ordinary non-timeline seek through the general landing branch
+ *        treats the sliver as EOS when PTS restamping is enabled.
+ */
+TEST_F(FetcherLoopTests, SegmentTemplate_SkipFragments_GeneralLanding_TailGateOn)
+{
+	ASSERT_EQ(InitializePeriodTailMPD(kPeriodTailTemplateManifest, true),
+		  eAAMPSTATUS_OK);
+	MediaStreamContext *ctx = GetVideoContext();
+	ASSERT_NE(ctx, nullptr);
+	SetTemplatePosition(ctx, 9.8, 6);
+
+	mTestableStreamAbstractionAAMP_MPD->SkipFragments(ctx, 0.05);
+
+	EXPECT_TRUE(ctx->eos);
+	EXPECT_NEAR(ctx->fragmentDescriptor.Time, 9.8, 0.001);
+}
+
+/**
+ * @brief An ordinary non-timeline seek through the general landing branch
+ *        keeps landing on the sliver when PTS restamping is disabled.
+ */
+TEST_F(FetcherLoopTests, SegmentTemplate_SkipFragments_GeneralLanding_TailGateOff)
+{
+	ASSERT_EQ(InitializePeriodTailMPD(kPeriodTailTemplateManifest, false),
+		  eAAMPSTATUS_OK);
+	MediaStreamContext *ctx = GetVideoContext();
+	ASSERT_NE(ctx, nullptr);
+	SetTemplatePosition(ctx, 9.8, 6);
+
+	mTestableStreamAbstractionAAMP_MPD->SkipFragments(ctx, 0.05);
+
+	EXPECT_FALSE(ctx->eos);
+	EXPECT_NEAR(ctx->fragmentDescriptor.Time, 9.8, 0.001);
+}
+
+/**
+ * @brief An ordinary non-timeline seek advancing by a segment treats the
+ *        landing sliver as EOS when PTS restamping is enabled.
+ */
+TEST_F(FetcherLoopTests, SegmentTemplate_SkipFragments_AdvanceLanding_TailGateOn)
+{
+	ASSERT_EQ(InitializePeriodTailMPD(kPeriodTailTemplateManifest, true),
+		  eAAMPSTATUS_OK);
+	MediaStreamContext *ctx = GetVideoContext();
+	ASSERT_NE(ctx, nullptr);
+	SetTemplatePosition(ctx, 7.8, 5);
+
+	mTestableStreamAbstractionAAMP_MPD->SkipFragments(ctx, 2.0);
+
+	EXPECT_TRUE(ctx->eos);
+	EXPECT_NEAR(ctx->fragmentDescriptor.Time, 9.8, 0.001);
+}
+
+/**
+ * @brief An ordinary non-timeline seek advancing by a segment preserves the
+ *        landing behavior when PTS restamping is disabled.
+ */
+TEST_F(FetcherLoopTests, SegmentTemplate_SkipFragments_AdvanceLanding_TailGateOff)
+{
+	ASSERT_EQ(InitializePeriodTailMPD(kPeriodTailTemplateManifest, false),
+		  eAAMPSTATUS_OK);
+	MediaStreamContext *ctx = GetVideoContext();
+	ASSERT_NE(ctx, nullptr);
+	SetTemplatePosition(ctx, 7.8, 5);
+
+	mTestableStreamAbstractionAAMP_MPD->SkipFragments(ctx, 2.0);
+
+	EXPECT_FALSE(ctx->eos);
+	EXPECT_NEAR(ctx->fragmentDescriptor.Time, 9.8, 0.001);
+}
+
+/**
+ * @brief Non-timeline skip-to-end uses the tolerance boundary when PTS
+ *        restamping is enabled.
+ */
+TEST_F(FetcherLoopTests, SegmentTemplate_SkipFragments_SkipToEnd_TailGateOn)
+{
+	ASSERT_EQ(InitializePeriodTailMPD(kPeriodTailTemplateManifest, true),
+		  eAAMPSTATUS_OK);
+	MediaStreamContext *ctx = GetVideoContext();
+	ASSERT_NE(ctx, nullptr);
+	// A full segment further back than the last segment avoids the
+	// pre-existing (untouched) skipTime==0 Period-start reset edge case.
+	SetTemplatePosition(ctx, 4.0, 3);
+
+	mTestableStreamAbstractionAAMP_MPD->SkipFragments(ctx, 0.0, true, true);
+
+	EXPECT_FALSE(ctx->eos);
+	EXPECT_NEAR(ctx->fragmentDescriptor.Time, 6.0, 0.001);
+}
+
+/**
+ * @brief Non-timeline skip-to-end retains the original Period-end boundary
+ *        when PTS restamping is disabled.
+ */
+TEST_F(FetcherLoopTests, SegmentTemplate_SkipFragments_SkipToEnd_TailGateOff)
+{
+	ASSERT_EQ(InitializePeriodTailMPD(kPeriodTailTemplateManifest, false),
+		  eAAMPSTATUS_OK);
+	MediaStreamContext *ctx = GetVideoContext();
+	ASSERT_NE(ctx, nullptr);
+	// A full segment further back than the last segment avoids the
+	// pre-existing (untouched) skipTime==0 Period-start reset edge case.
+	SetTemplatePosition(ctx, 4.0, 3);
+
+	mTestableStreamAbstractionAAMP_MPD->SkipFragments(ctx, 0.0, true, true);
+
+	EXPECT_FALSE(ctx->eos);
+	EXPECT_NEAR(ctx->fragmentDescriptor.Time, 8.0, 0.001);
 }
 
 /**
