@@ -2036,3 +2036,8 @@ bool PrivateInstanceAAMP::IsLatencyMonitorEnabled() const
 void PrivateInstanceAAMP::EnableEventProfiling()
 {
 }
+
+bool PrivateInstanceAAMP::HandleManifestRefreshFailureOnBuffering()
+{
+	return false;
+}
