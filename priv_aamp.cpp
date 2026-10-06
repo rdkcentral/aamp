@@ -14856,6 +14856,7 @@ std::shared_ptr<ManifestDownloadConfig> PrivateInstanceAAMP::prepareManifestDown
 	inpData->mDnldConfig->sCustomHeaders = std::move(sCustomHeaders);
 	inpData->mCMCDCollector = mCMCDCollector;
 	inpData->mIsLLDConfigEnabled	=	ISCONFIGSET_PRIV(eAAMPConfig_EnableLowLatencyDash);
+	inpData->mTrimPeriodTailSegments	=	ISCONFIGSET_PRIV(eAAMPConfig_EnablePTSReStamp);
 	if(!mProvidedManifestFile.empty())
 	{
 		inpData->mPreProcessedManifest = std::move(mProvidedManifestFile);

@@ -127,6 +127,11 @@ void _manifestDownloadResponse::parseMPD()
 					if (mpd)
 					{
 						mpd->SetFetchTime(fetchTime);
+						if (mTrimPeriodTailSegments)
+						{
+							// Must precede Initialize(), which caches Period start/duration/end
+							mMPDParseHelper->TrimPeriodTailSegments(mpd, AAMP_DASH_PERIOD_TAIL_START_TOLERANCE_SEC, AAMP_DASH_PERIOD_TAIL_MIN_OVERHANG_SEC);
+						}
 						std::shared_ptr<dash::mpd::IMPD> tmp_ptr(mpd);
 						mMPDInstance = std::move(tmp_ptr);
 						mMPDStatus = AAMPStatusType::eAAMPSTATUS_OK;
@@ -382,6 +387,7 @@ void AampMPDDownloader::downloadMPDThread1()
 			//mDownloader1.Clear();
 			AAMPLOG_INFO("aamp url:%d,%d,%d,%f,%s", eMEDIATYPE_TELEMETRY_MANIFEST, eMEDIATYPE_MANIFEST,eCURLINSTANCE_VIDEO,0.000000, tuneUrl.c_str());
 			mMPDData = MakeSharedManifestDownloadResponsePtr();
+			mMPDData->mTrimPeriodTailSegments = mMPDDnldCfg->mTrimPeriodTailSegments;
 		}
 		//If Manifest data already provided use it ,not required to download the Manifest
 		if (!mMPDDnldCfg->mPreProcessedManifest.empty())

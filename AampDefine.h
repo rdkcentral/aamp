@@ -110,6 +110,8 @@
 #define MAX_WAIT_TIMEOUT_MS	200				/**< Max Timeout duration for wait until cache is available to inject next*/
 #define MAX_INIT_FRAGMENT_CACHE_PER_TRACK  5       		/**< Max No Of cached Init fragments per track */
 #define MIN_SEG_DURATION_THRESHOLD	(0.25)			/**< Min Segment Duration threshold for pushing to pipeline at period End*/
+#define AAMP_DASH_PERIOD_TAIL_START_TOLERANCE_SEC (0.3)	/**< A trailing timeline segment starting this close to (or after) a known Period end is a tail-drop candidate */
+#define AAMP_DASH_PERIOD_TAIL_MIN_OVERHANG_SEC (0.2)	/**< ...and is dropped only if it also finishes more than this far after the Period end, so a valid tiny final segment is kept */
 #define MAX_CURL_SOCK_STORE		10			/**< Maximum no of host to be maintained in curl store*/
 #define DEFAULT_AD_FULFILLMENT_TIMEOUT 2000	/**< Default Ad fulfillment timeout in milliseconds */
 #define MAX_AD_FULFILLMENT_TIMEOUT 5000	/**< Max Ad fulfillment timeout in milliseconds */
