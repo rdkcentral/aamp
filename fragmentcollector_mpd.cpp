@@ -7683,14 +7683,13 @@ std::string StreamAbstractionAAMP_MPD::GetCurrentMimeType(AampMediaType mediaTyp
 			mediaType, pMediaStreamContext, pMediaStreamContext == NULL);
 		if( pMediaStreamContext )
 		{
-			AAMPLOG_INFO("vk::GetCurrentMimeType context state type=%d context=%p representation=%p representationNull=%d adaptation=%p adaptationNull=%d trackType=%d enabled=%d indices=%d/%d owner=%p ownerNull=%d player=%p playerNull=%d",
+			AAMPLOG_INFO("vk::GetCurrentMimeType context state type=%d context=%p representation=%p representationNull=%d adaptation=%p adaptationNull=%d trackType=%d enabled=%d indices=%d/%d owner=%p ownerNull=%d streamPlayer=%p streamPlayerNull=%d",
 				mediaType, pMediaStreamContext, pMediaStreamContext->representation,
 				pMediaStreamContext->representation == NULL, pMediaStreamContext->adaptationSet,
 				pMediaStreamContext->adaptationSet == NULL, pMediaStreamContext->type,
 				pMediaStreamContext->enabled, pMediaStreamContext->adaptationSetIdx,
 				pMediaStreamContext->representationIndex, pMediaStreamContext->context,
-				pMediaStreamContext->context == NULL, pMediaStreamContext->aamp,
-				pMediaStreamContext->aamp == NULL);
+				pMediaStreamContext->context == NULL, aamp, aamp == NULL);
 			if( pMediaStreamContext->representation )
 			{
 				AAMPLOG_INFO("vk::GetCurrentMimeType before representation use type=%d contextNull=0 representation=%p representationNull=%d",
@@ -11518,13 +11517,12 @@ void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutpu
 			trackIndex, trackContext, trackContext == NULL);
 		if (trackContext)
 		{
-			AAMPLOG_INFO("vk::GetStreamFormat track state slot=%d mediaType=%d trackType=%d enabled=%d adaptation=%p adaptationNull=%d representation=%p representationNull=%d indices=%d/%d contextOwner=%p ownerNull=%d player=%p playerNull=%d",
+			AAMPLOG_INFO("vk::GetStreamFormat track state slot=%d mediaType=%d trackType=%d enabled=%d adaptation=%p adaptationNull=%d representation=%p representationNull=%d indices=%d/%d contextOwner=%p ownerNull=%d streamPlayer=%p playerNull=%d",
 				trackIndex, trackContext->mediaType, trackContext->type, trackContext->enabled,
 				trackContext->adaptationSet, trackContext->adaptationSet == NULL,
 				trackContext->representation, trackContext->representation == NULL,
 				trackContext->adaptationSetIdx, trackContext->representationIndex,
-				trackContext->context, trackContext->context == NULL, trackContext->aamp,
-				trackContext->aamp == NULL);
+				trackContext->context, trackContext->context == NULL, aamp, aamp == NULL);
 		}
 	}
 	if(mMediaStreamContext[eMEDIATYPE_VIDEO] && mMediaStreamContext[eMEDIATYPE_VIDEO]->enabled )
