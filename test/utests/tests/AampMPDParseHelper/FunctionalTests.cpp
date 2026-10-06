@@ -1923,3 +1923,68 @@ TEST_F(FunctionalTests, TrimPeriodTail_SharedAdaptationSetTimeline_Trimmed)
 	AampMPDParseHelper::TrimPeriodTailSegments(mpd, AAMP_DASH_PERIOD_TAIL_START_TOLERANCE_SEC, AAMP_DASH_PERIOD_TAIL_MIN_OVERHANG_SEC);
 	EXPECT_EQ(TimelinesOf(mpd, 0, 0).size(), 1u);
 }
+
+static DroppedSegment MakeDropped(const char *periodId, uint64_t startTicks)
+{
+	return DroppedSegment{periodId, startTicks, 3200, 1000, 0, startTicks / 1000.0, startTicks / 1000.0 + 3.2, 10.0};
+}
+
+/**
+ * @brief The trim describes the segment it removed so that the caller can report it.
+ */
+TEST_F(FunctionalTests, TrimPeriodTail_ReturnsDroppedSegmentDetails)
+{
+	std::string manifest = TailTrimManifest("duration=\"PT10S\"",
+		"<S t=\"0\" d=\"2000\" r=\"3\" /><S t=\"8000\" d=\"1800\" /><S t=\"9800\" d=\"3200\" />");
+	mManifest = manifest.c_str();
+	ManifestDownloadResponsePtr respData = GetManifestForMPDDownloader();
+	dash::mpd::IMPD *mpd = respData->mMPDInstance.get();
+	ASSERT_NE(mpd, nullptr);
+
+	const std::vector<DroppedSegment> dropped = AampMPDParseHelper::TrimPeriodTailSegments(mpd, AAMP_DASH_PERIOD_TAIL_START_TOLERANCE_SEC, AAMP_DASH_PERIOD_TAIL_MIN_OVERHANG_SEC);
+
+	ASSERT_EQ(dropped.size(), 1u);
+	EXPECT_EQ(dropped[0].periodId, "p0");
+	EXPECT_EQ(dropped[0].startTicks, 9800u);
+	EXPECT_EQ(dropped[0].durationTicks, 3200u);
+	EXPECT_EQ(dropped[0].timeScale, 1000u);
+	EXPECT_DOUBLE_EQ(dropped[0].startSec, 9.8);
+	EXPECT_DOUBLE_EQ(dropped[0].endSec, 13.0);
+	EXPECT_DOUBLE_EQ(dropped[0].periodEndSec, 10.0);
+}
+
+/**
+ * @brief A segment is reported on the first parse that drops it and not again while later parses keep dropping it.
+ */
+TEST(TailDropLogTest, ReportsEachDropOnce)
+{
+	TailDropLog log;
+	EXPECT_EQ(log.Report({MakeDropped("p0", 9800)}).size(), 1u);
+	EXPECT_TRUE(log.Report({MakeDropped("p0", 9800)}).empty());
+	EXPECT_TRUE(log.Report({MakeDropped("p0", 9800)}).empty());
+}
+
+/**
+ * @brief Only the new segment is reported when another is dropped alongside one already reported.
+ */
+TEST(TailDropLogTest, ReportsOnlyNewDrops)
+{
+	TailDropLog log;
+	log.Report({MakeDropped("p0", 9800)});
+
+	const std::vector<DroppedSegment> reported = log.Report({MakeDropped("p0", 9800), MakeDropped("p1", 9800)});
+
+	ASSERT_EQ(reported.size(), 1u);
+	EXPECT_EQ(reported[0].periodId, "p1");
+}
+
+/**
+ * @brief A segment that stops being dropped (its Period left the manifest) is reported again if it returns.
+ */
+TEST(TailDropLogTest, ForgetsDropsAbsentFromAParse)
+{
+	TailDropLog log;
+	log.Report({MakeDropped("p0", 9800)});
+	EXPECT_TRUE(log.Report({}).empty());
+	EXPECT_EQ(log.Report({MakeDropped("p0", 9800)}).size(), 1u);
+}

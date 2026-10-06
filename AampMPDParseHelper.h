@@ -34,6 +34,8 @@
 #include <string>
 #include <mutex>
 #include <queue>
+#include <set>
+#include <tuple>
 #include <sys/time.h>
 #include <iostream>
 #include <string>
@@ -186,6 +188,45 @@ public:
 	}
 }; // SegmentTemplates
 
+/**
+ * @struct DroppedSegment
+ * @brief A timeline segment removed by AampMPDParseHelper::TrimPeriodTailSegments
+ */
+struct DroppedSegment
+{
+	std::string periodId;
+	uint64_t startTicks;
+	uint32_t durationTicks;
+	uint32_t timeScale;
+	uint64_t presentationTimeOffset;
+	double startSec;		/**< relative to the Period start */
+	double endSec;			/**< relative to the Period start */
+	double periodEndSec;	/**< Period end, relative to the Period start */
+};
+
+/**
+ * @class TailDropLog
+ * @brief Warns once per dropped segment while it keeps being dropped on successive manifest parses.
+ *        Each Report() call replaces the remembered set, so a segment that stops being dropped
+ *        (e.g. its Period left the manifest) is forgotten and warns again if it returns.
+ */
+class TailDropLog
+{
+public:
+	/**
+	 * @brief Warn for each segment not dropped by the previous parse, then remember this parse's segments
+	 * @param[in] dropped segments dropped by the current parse; call on every parse, including when empty
+	 * @retval the segments that were warned about, i.e. not dropped by the previous parse
+	 */
+	std::vector<DroppedSegment> Report(const std::vector<DroppedSegment> &dropped);
+
+private:
+	using Key = std::tuple<std::string, uint64_t, uint32_t, uint32_t>;
+
+	std::mutex mMutex;
+	std::set<Key> mPrevious{};
+};
+
 
 /**
  * @class AampMPDParseHelper
@@ -230,12 +271,12 @@ public :
 	 * @brief Remove trailing SegmentTimeline segments that start within startToleranceSec of a known
 	 *        Period end and finish more than minOverhangSec after it (e.g. a segment duplicated by an
 	 *        ad splicer). The MPD is edited in place; call before Initialize().
-	 *        A warning is logged for each segment removed.
 	 * @param[in,out] mpd parsed MPD
 	 * @param[in] startToleranceSec start window before the Period end
 	 * @param[in] minOverhangSec minimum time the segment must run past the Period end
+	 * @retval the segments removed, for the caller to report
 	 */
-	static void TrimPeriodTailSegments(dash::mpd::IMPD *mpd, double startToleranceSec, double minOverhangSec);
+	static std::vector<DroppedSegment> TrimPeriodTailSegments(dash::mpd::IMPD *mpd, double startToleranceSec, double minOverhangSec);
 	/**
 	*   @fn Clear
 	*   @brief  Clear the parsed values in the helper

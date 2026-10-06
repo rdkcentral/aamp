@@ -885,22 +885,20 @@ static uint32_t SegmentsToKeep(const TimelineEntry &entry, const PeriodTimeline 
 }
 
 /**
- * @brief Warn about one dropped segment: its position in the timeline and the Period end that it overran
+ * @brief Describe one dropped segment: its position in the timeline and the Period end that it overran
  */
-static void LogDroppedSegment(const PeriodTimeline &track, const TailDropRule &rule, const TimelineEntry &entry, uint32_t segmentIndex)
+static DroppedSegment MakeDroppedSegment(const PeriodTimeline &track, const TailDropRule &rule, const TimelineEntry &entry, uint32_t segmentIndex)
 {
 	const uint64_t startTicks = entry.startTicks + static_cast<uint64_t>(segmentIndex) * entry.durationTicks;
 	const double startSec = (static_cast<double>(startTicks) - static_cast<double>(track.presentationTimeOffset)) / track.timeScale;
 	const double endSec = startSec + static_cast<double>(entry.durationTicks) / track.timeScale;
-	AAMPLOG_WARN("Period[%s] dropped tail segment t=%" PRIu64 " d=%" PRIu32 " (timescale %" PRIu32 ", pto %" PRIu64 "): starts %.3fs, ends %.3fs, Period end %.3fs",
-				 rule.periodId.c_str(), startTicks, entry.durationTicks, track.timeScale, track.presentationTimeOffset,
-				 startSec, endSec, rule.periodDurationSec);
+	return {rule.periodId, startTicks, entry.durationTicks, track.timeScale, track.presentationTimeOffset, startSec, endSec, rule.periodDurationSec};
 }
 
 /**
- * @brief Remove trailing segments of one SegmentTimeline that match the rule, warning for each. Never empties the timeline.
+ * @brief Remove trailing segments of one SegmentTimeline that match the rule, appending each to dropped. Never empties the timeline.
  */
-static void TrimTimelineTail(const PeriodTimeline &track, const TailDropRule &rule)
+static void TrimTimelineTail(const PeriodTimeline &track, const TailDropRule &rule, std::vector<DroppedSegment> &dropped)
 {
 	// libdash hands back a mutable vector from this const accessor; SegmentTimeline deletes its entries on destruction
 	std::vector<ITimeline *> &timelines = track.timeline->GetTimelines();
@@ -924,7 +922,7 @@ static void TrimTimelineTail(const PeriodTimeline &track, const TailDropRule &ru
 		}
 		for (uint32_t segmentIndex = keep; segmentIndex < entry.count; segmentIndex++)
 		{
-			LogDroppedSegment(track, rule, entry, segmentIndex);
+			dropped.push_back(MakeDroppedSegment(track, rule, entry, segmentIndex));
 		}
 		if (keep > 0)
 		{
@@ -967,11 +965,12 @@ static std::vector<PeriodTimeline> CollectPeriodTimelines(IPeriod *period)
 /**
  * @brief Remove trailing timeline segments that start within the tolerance of a known Period end and run past it
  */
-void AampMPDParseHelper::TrimPeriodTailSegments(dash::mpd::IMPD *mpd, double startToleranceSec, double minOverhangSec)
+std::vector<DroppedSegment> AampMPDParseHelper::TrimPeriodTailSegments(dash::mpd::IMPD *mpd, double startToleranceSec, double minOverhangSec)
 {
+	std::vector<DroppedSegment> dropped;
 	if (!mpd)
 	{
-		return;
+		return dropped;
 	}
 
 	const std::vector<IPeriod *> &periods = mpd->GetPeriods();
@@ -986,9 +985,34 @@ void AampMPDParseHelper::TrimPeriodTailSegments(dash::mpd::IMPD *mpd, double sta
 		const TailDropRule rule{periods[periodIndex]->GetId(), *periodDurationSec, startToleranceSec, minOverhangSec};
 		for (const PeriodTimeline &track : CollectPeriodTimelines(periods[periodIndex]))
 		{
-			TrimTimelineTail(track, rule);
+			TrimTimelineTail(track, rule, dropped);
 		}
 	}
+	return dropped;
+}
+
+/**
+ * @brief Warn for each segment that the previous parse did not also drop
+ */
+std::vector<DroppedSegment> TailDropLog::Report(const std::vector<DroppedSegment> &dropped)
+{
+	std::vector<DroppedSegment> reported;
+	std::set<Key> current;
+	std::lock_guard<std::mutex> lock(mMutex);
+	for (const DroppedSegment &segment : dropped)
+	{
+		Key key{segment.periodId, segment.startTicks, segment.durationTicks, segment.timeScale};
+		if (mPrevious.find(key) == mPrevious.end())
+		{
+			AAMPLOG_WARN("Period[%s] dropped tail segment t=%" PRIu64 " d=%" PRIu32 " (timescale %" PRIu32 ", pto %" PRIu64 "): starts %.3fs, ends %.3fs, Period end %.3fs",
+						 segment.periodId.c_str(), segment.startTicks, segment.durationTicks, segment.timeScale, segment.presentationTimeOffset,
+						 segment.startSec, segment.endSec, segment.periodEndSec);
+			reported.push_back(segment);
+		}
+		current.insert(std::move(key));
+	}
+	mPrevious = std::move(current);
+	return reported;
 }
 
 /**

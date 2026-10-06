@@ -145,6 +145,7 @@ typedef struct _manifestDownloadResponse
 	bool mIsLiveManifest;
 	bool mRefreshRequired;
 	bool mTrimPeriodTailSegments; /**< Trim the parsed MPD timeline tail before the parse helper is initialised */
+	std::shared_ptr<TailDropLog> mTailDropLog; /**< Shared with the downloader; null means dropped segments are not reported */
 	AAMPStatusType mMPDStatus;
 	Node *mRootNode;
 	std::shared_ptr<DashMPDDocument> mDashMpdDoc;
@@ -172,6 +173,7 @@ public:
 	  mRootNode(other.mRootNode),
 	  mRefreshRequired(other.mRefreshRequired),
 	  mTrimPeriodTailSegments(other.mTrimPeriodTailSegments),
+	  mTailDropLog(other.mTailDropLog),
 	  mDashMpdDoc(other.mDashMpdDoc),
 	  mMPDParseHelper(std::make_shared<AampMPDParseHelper>(*(other.mMPDParseHelper))), // Copy the content
 	  mLastPlaylistDownloadTimeMs(other.mLastPlaylistDownloadTimeMs){}
@@ -436,6 +438,8 @@ private:
 	std::recursive_mutex mMPDDnldMutex;
 	// Download network configuration
 	ManifestDownloadConfigPtr mMPDDnldCfg;
+	// Remembers which tail-segment drops were already reported; reset by Initialize()
+	std::shared_ptr<TailDropLog> mTailDropLog;
 	// Download data
 	ManifestDownloadResponsePtr mMPDData;
 	ManifestDownloadResponsePtr mCachedMPDData;
