@@ -1804,3 +1804,7 @@ const std::vector<TimedMetadata> & PrivateInstanceAAMP::GetTimedMetadata( void )
 	static std::vector<TimedMetadata> rc;
 	return rc;
 }
+
+void PrivateInstanceAAMP::EnableEventProfiling()
+{
+}
