@@ -1789,7 +1789,7 @@ TEST_F(FunctionalTests, TrimPeriodTail_DropsSplicerDuplicate)
 	dash::mpd::IMPD *mpd = respData->mMPDInstance.get();
 	ASSERT_NE(mpd, nullptr);
 
-	EXPECT_EQ(ParseHelper->TrimPeriodTailSegments(mpd, AAMP_DASH_PERIOD_TAIL_START_TOLERANCE_SEC, AAMP_DASH_PERIOD_TAIL_MIN_OVERHANG_SEC), 1u);
+	EXPECT_EQ(AampMPDParseHelper::TrimPeriodTailSegments(mpd, AAMP_DASH_PERIOD_TAIL_START_TOLERANCE_SEC, AAMP_DASH_PERIOD_TAIL_MIN_OVERHANG_SEC), 1u);
 
 	auto &audio = TimelinesOf(mpd, 0, 0);
 	ASSERT_EQ(audio.size(), 2u);
@@ -1800,143 +1800,123 @@ TEST_F(FunctionalTests, TrimPeriodTail_DropsSplicerDuplicate)
 }
 
 /**
- * @brief A valid tiny final segment (starts 0.2s before the end, finishes only 0.1s after) is kept.
+ * @brief Expected effect of the Period-tail trim on the audio timeline of a two-track Period.
  */
-TEST_F(FunctionalTests, TrimPeriodTail_KeepsTinyValidFinalSegment)
+struct TrimCase
 {
-	std::string manifest = TailTrimManifest("duration=\"PT10S\"",
-		"<S t=\"0\" d=\"2000\" r=\"3\" /><S t=\"8000\" d=\"1800\" /><S t=\"9800\" d=\"300\" />");
+	const char *name;
+	std::string period0Attrs;
+	std::string audioTimeline;
+	std::string videoTimeline;
+	bool withNextPeriod;
+	std::string templateAttrs;
+	uint32_t expectedDropped;
+	size_t expectedAudioEntries;
+	int64_t expectedLastAudioRepeat; // -1: not checked
+};
+
+static const char *kVideoFitsPeriod = "<S t=\"0\" d=\"2000\" r=\"4\" />";
+
+class TrimPeriodTailCasesTest : public FunctionalTests, public ::testing::WithParamInterface<TrimCase>
+{
+};
+
+TEST_P(TrimPeriodTailCasesTest, TrimsAsExpected)
+{
+	const TrimCase &c = GetParam();
+	std::string manifest = TailTrimManifest(c.period0Attrs, c.audioTimeline, c.videoTimeline, c.withNextPeriod, c.templateAttrs);
 	mManifest = manifest.c_str();
 	ManifestDownloadResponsePtr respData = GetManifestForMPDDownloader();
 	dash::mpd::IMPD *mpd = respData->mMPDInstance.get();
 	ASSERT_NE(mpd, nullptr);
 
-	EXPECT_EQ(ParseHelper->TrimPeriodTailSegments(mpd, AAMP_DASH_PERIOD_TAIL_START_TOLERANCE_SEC, AAMP_DASH_PERIOD_TAIL_MIN_OVERHANG_SEC), 0u);
-	EXPECT_EQ(TimelinesOf(mpd, 0, 0).size(), 3u);
-}
-
-/**
- * @brief Only the repeat that starts at the Period end is removed from a repeated <S>.
- */
-TEST_F(FunctionalTests, TrimPeriodTail_DropsOneRepeatOfRepeatedEntry)
-{
-	std::string manifest = TailTrimManifest("duration=\"PT10S\"", "<S t=\"0\" d=\"2000\" r=\"5\" />");
-	mManifest = manifest.c_str();
-	ManifestDownloadResponsePtr respData = GetManifestForMPDDownloader();
-	dash::mpd::IMPD *mpd = respData->mMPDInstance.get();
-	ASSERT_NE(mpd, nullptr);
-
-	EXPECT_EQ(ParseHelper->TrimPeriodTailSegments(mpd, AAMP_DASH_PERIOD_TAIL_START_TOLERANCE_SEC, AAMP_DASH_PERIOD_TAIL_MIN_OVERHANG_SEC), 1u);
+	EXPECT_EQ(AampMPDParseHelper::TrimPeriodTailSegments(mpd, AAMP_DASH_PERIOD_TAIL_START_TOLERANCE_SEC, AAMP_DASH_PERIOD_TAIL_MIN_OVERHANG_SEC), c.expectedDropped);
 	auto &audio = TimelinesOf(mpd, 0, 0);
-	ASSERT_EQ(audio.size(), 1u);
-	EXPECT_EQ(audio.front()->GetRepeatCount(), 4u);
+	ASSERT_EQ(audio.size(), c.expectedAudioEntries);
+	if (c.expectedLastAudioRepeat >= 0)
+	{
+		EXPECT_EQ(audio.back()->GetRepeatCount(), static_cast<uint32_t>(c.expectedLastAudioRepeat));
+	}
 }
 
+INSTANTIATE_TEST_SUITE_P(TrimPeriodTail, TrimPeriodTailCasesTest, ::testing::Values(
+	// A valid tiny final segment (starts 0.2s before the end, finishes only 0.1s after) is kept
+	TrimCase{"KeepsTinyValidFinalSegment", "duration=\"PT10S\"",
+		"<S t=\"0\" d=\"2000\" r=\"3\" /><S t=\"8000\" d=\"1800\" /><S t=\"9800\" d=\"300\" />", kVideoFitsPeriod, true, "", 0, 3, 0},
+	// Only the repeat that starts at the Period end is removed from a repeated <S>
+	TrimCase{"DropsOneRepeatOfRepeatedEntry", "duration=\"PT10S\"",
+		"<S t=\"0\" d=\"2000\" r=\"5\" />", kVideoFitsPeriod, true, "", 1, 1, 4},
+	// The explicit t after a gap decides the start, not the accumulated durations
+	TrimCase{"UsesExplicitStartAfterGap", "duration=\"PT10S\"",
+		"<S t=\"0\" d=\"2000\" r=\"3\" /><S t=\"9800\" d=\"3200\" />", kVideoFitsPeriod, true, "", 1, 1, 3},
+	// Without @duration the next Period's @start gives the end
+	TrimCase{"EndFromNextPeriodStart", "",
+		"<S t=\"0\" d=\"2000\" r=\"3\" /><S t=\"8000\" d=\"1800\" /><S t=\"9800\" d=\"3200\" />", kVideoFitsPeriod, true, "", 1, 2, 0},
+	// A last Period with no @duration has an unknown end
+	TrimCase{"UnknownEndIsUntouched", "",
+		"<S t=\"0\" d=\"2000\" r=\"3\" /><S t=\"8000\" d=\"1800\" /><S t=\"9800\" d=\"3200\" />", kVideoFitsPeriod, false, "", 0, 3, 0},
+	// A negative repeat count (repeat to the end of the Period) is unsupported
+	TrimCase{"RepeatToEndIsUntouched", "duration=\"PT10S\"",
+		"<S t=\"0\" d=\"2000\" r=\"-1\" />", kVideoFitsPeriod, true, "", 0, 1, -1},
+	// Starts are measured from presentationTimeOffset
+	TrimCase{"PresentationTimeOffsetRespected", "duration=\"PT10S\"",
+		"<S t=\"5000\" d=\"2000\" r=\"3\" /><S t=\"13000\" d=\"1800\" /><S t=\"14800\" d=\"3200\" />", "<S t=\"5000\" d=\"2000\" r=\"4\" />",
+		true, "presentationTimeOffset=\"5000\"", 1, 2, 0},
+	// The timeline is never emptied, even if its only segment qualifies
+	TrimCase{"NeverEmptiesTimeline", "duration=\"PT10S\"",
+		"<S t=\"9800\" d=\"3200\" />", kVideoFitsPeriod, true, "", 0, 1, 0},
+	// Several trailing segments that qualify are all removed
+	TrimCase{"DropsMultipleTrailingSegments", "duration=\"PT10S\"",
+		"<S t=\"0\" d=\"2000\" r=\"3\" /><S t=\"9800\" d=\"3200\" /><S t=\"13000\" d=\"3200\" />", kVideoFitsPeriod, true, "", 2, 1, 3}),
+	[](const ::testing::TestParamInfo<TrimCase> &info) { return std::string(info.param.name); });
+
+static const char *kRepresentationLevelTimelineManifest =
+	"<?xml version=\"1.0\" encoding=\"utf-8\"?>"
+	"<MPD xmlns=\"urn:mpeg:dash:schema:mpd:2011\" type=\"static\" mediaPresentationDuration=\"PT10S\">"
+	"<Period id=\"p0\" start=\"PT0S\" duration=\"PT10S\"><AdaptationSet contentType=\"video\" mimeType=\"video/mp4\">"
+	"<Representation id=\"1\" bandwidth=\"1000\" codecs=\"x\"><SegmentTemplate timescale=\"1000\" initialization=\"a.mp4\" media=\"$Time$.m4s\">"
+	"<SegmentTimeline><S t=\"0\" d=\"2000\" r=\"3\" /><S t=\"9800\" d=\"3200\" /></SegmentTimeline></SegmentTemplate></Representation>"
+	"<Representation id=\"2\" bandwidth=\"2000\" codecs=\"x\"><SegmentTemplate timescale=\"1000\" initialization=\"b.mp4\" media=\"$Time$.m4s\">"
+	"<SegmentTimeline><S t=\"0\" d=\"2000\" r=\"3\" /><S t=\"9800\" d=\"3200\" /></SegmentTimeline></SegmentTemplate></Representation>"
+	"</AdaptationSet></Period></MPD>";
+
+static const char *kSharedAdaptationSetTimelineManifest =
+	"<?xml version=\"1.0\" encoding=\"utf-8\"?>"
+	"<MPD xmlns=\"urn:mpeg:dash:schema:mpd:2011\" type=\"static\" mediaPresentationDuration=\"PT10S\">"
+	"<Period id=\"p0\" start=\"PT0S\" duration=\"PT10S\"><AdaptationSet contentType=\"video\" mimeType=\"video/mp4\">"
+	"<SegmentTemplate timescale=\"1000\" initialization=\"a.mp4\" media=\"$Time$.m4s\">"
+	"<SegmentTimeline><S t=\"0\" d=\"2000\" r=\"3\" /><S t=\"9800\" d=\"3200\" /></SegmentTimeline></SegmentTemplate>"
+	"<Representation id=\"1\" bandwidth=\"1000\" codecs=\"x\"/><Representation id=\"2\" bandwidth=\"2000\" codecs=\"x\"/>"
+	"</AdaptationSet></Period></MPD>";
+
 /**
- * @brief The explicit t of an <S> after a gap decides its start, not the accumulated durations.
+ * @brief A SegmentTimeline on each Representation is trimmed separately.
  */
-TEST_F(FunctionalTests, TrimPeriodTail_UsesExplicitStartAfterGap)
+TEST_F(FunctionalTests, TrimPeriodTail_RepresentationLevelTimelines_EachTrimmed)
 {
-	std::string manifest = TailTrimManifest("duration=\"PT10S\"", "<S t=\"0\" d=\"2000\" r=\"3\" /><S t=\"9800\" d=\"3200\" />");
-	mManifest = manifest.c_str();
+	mManifest = kRepresentationLevelTimelineManifest;
 	ManifestDownloadResponsePtr respData = GetManifestForMPDDownloader();
 	dash::mpd::IMPD *mpd = respData->mMPDInstance.get();
 	ASSERT_NE(mpd, nullptr);
 
-	EXPECT_EQ(ParseHelper->TrimPeriodTailSegments(mpd, AAMP_DASH_PERIOD_TAIL_START_TOLERANCE_SEC, AAMP_DASH_PERIOD_TAIL_MIN_OVERHANG_SEC), 1u);
-	EXPECT_EQ(TimelinesOf(mpd, 0, 0).size(), 1u);
+	EXPECT_EQ(AampMPDParseHelper::TrimPeriodTailSegments(mpd, AAMP_DASH_PERIOD_TAIL_START_TOLERANCE_SEC, AAMP_DASH_PERIOD_TAIL_MIN_OVERHANG_SEC), 2u);
+	for (int representation = 0; representation < 2; representation++)
+	{
+		EXPECT_EQ(mpd->GetPeriods().at(0)->GetAdaptationSets().at(0)->GetRepresentation().at(representation)
+					  ->GetSegmentTemplate()->GetSegmentTimeline()->GetTimelines().size(), 1u);
+	}
 }
 
 /**
- * @brief Without @duration the next Period's @start gives the Period end.
+ * @brief An AdaptationSet-level timeline shared by several Representations is trimmed and counted once.
  */
-TEST_F(FunctionalTests, TrimPeriodTail_EndFromNextPeriodStart)
+TEST_F(FunctionalTests, TrimPeriodTail_SharedAdaptationSetTimeline_CountedOnce)
 {
-	std::string manifest = TailTrimManifest("", "<S t=\"0\" d=\"2000\" r=\"3\" /><S t=\"8000\" d=\"1800\" /><S t=\"9800\" d=\"3200\" />");
-	mManifest = manifest.c_str();
+	mManifest = kSharedAdaptationSetTimelineManifest;
 	ManifestDownloadResponsePtr respData = GetManifestForMPDDownloader();
 	dash::mpd::IMPD *mpd = respData->mMPDInstance.get();
 	ASSERT_NE(mpd, nullptr);
 
-	EXPECT_EQ(ParseHelper->TrimPeriodTailSegments(mpd, AAMP_DASH_PERIOD_TAIL_START_TOLERANCE_SEC, AAMP_DASH_PERIOD_TAIL_MIN_OVERHANG_SEC), 1u);
-	EXPECT_EQ(TimelinesOf(mpd, 0, 0).size(), 2u);
-}
-
-/**
- * @brief A last Period with no @duration has an unknown end and is left alone.
- */
-TEST_F(FunctionalTests, TrimPeriodTail_UnknownEnd_Untouched)
-{
-	std::string manifest = TailTrimManifest("", "<S t=\"0\" d=\"2000\" r=\"3\" /><S t=\"8000\" d=\"1800\" /><S t=\"9800\" d=\"3200\" />", "<S t=\"0\" d=\"2000\" r=\"4\" />", false);
-	mManifest = manifest.c_str();
-	ManifestDownloadResponsePtr respData = GetManifestForMPDDownloader();
-	dash::mpd::IMPD *mpd = respData->mMPDInstance.get();
-	ASSERT_NE(mpd, nullptr);
-
-	EXPECT_EQ(ParseHelper->TrimPeriodTailSegments(mpd, AAMP_DASH_PERIOD_TAIL_START_TOLERANCE_SEC, AAMP_DASH_PERIOD_TAIL_MIN_OVERHANG_SEC), 0u);
-	EXPECT_EQ(TimelinesOf(mpd, 0, 0).size(), 3u);
-}
-
-/**
- * @brief A negative repeat count (repeat to the end of the Period) is unsupported and left alone.
- */
-TEST_F(FunctionalTests, TrimPeriodTail_RepeatToEnd_Untouched)
-{
-	std::string manifest = TailTrimManifest("duration=\"PT10S\"", "<S t=\"0\" d=\"2000\" r=\"-1\" />");
-	mManifest = manifest.c_str();
-	ManifestDownloadResponsePtr respData = GetManifestForMPDDownloader();
-	dash::mpd::IMPD *mpd = respData->mMPDInstance.get();
-	ASSERT_NE(mpd, nullptr);
-
-	EXPECT_EQ(ParseHelper->TrimPeriodTailSegments(mpd, AAMP_DASH_PERIOD_TAIL_START_TOLERANCE_SEC, AAMP_DASH_PERIOD_TAIL_MIN_OVERHANG_SEC), 0u);
-	EXPECT_EQ(TimelinesOf(mpd, 0, 0).size(), 1u);
-}
-
-/**
- * @brief Segment starts are measured from presentationTimeOffset.
- */
-TEST_F(FunctionalTests, TrimPeriodTail_PresentationTimeOffsetRespected)
-{
-	std::string manifest = TailTrimManifest("duration=\"PT10S\"",
-		"<S t=\"5000\" d=\"2000\" r=\"3\" /><S t=\"13000\" d=\"1800\" /><S t=\"14800\" d=\"3200\" />",
-		"<S t=\"5000\" d=\"2000\" r=\"4\" />", true, "presentationTimeOffset=\"5000\"");
-	mManifest = manifest.c_str();
-	ManifestDownloadResponsePtr respData = GetManifestForMPDDownloader();
-	dash::mpd::IMPD *mpd = respData->mMPDInstance.get();
-	ASSERT_NE(mpd, nullptr);
-
-	EXPECT_EQ(ParseHelper->TrimPeriodTailSegments(mpd, AAMP_DASH_PERIOD_TAIL_START_TOLERANCE_SEC, AAMP_DASH_PERIOD_TAIL_MIN_OVERHANG_SEC), 1u);
-	EXPECT_EQ(TimelinesOf(mpd, 0, 0).size(), 2u);
-	EXPECT_EQ(TimelinesOf(mpd, 0, 1).front()->GetRepeatCount(), 4u);
-}
-
-/**
- * @brief The timeline is never emptied, even if its only segment qualifies.
- */
-TEST_F(FunctionalTests, TrimPeriodTail_NeverEmptiesTimeline)
-{
-	std::string manifest = TailTrimManifest("duration=\"PT10S\"", "<S t=\"9800\" d=\"3200\" />");
-	mManifest = manifest.c_str();
-	ManifestDownloadResponsePtr respData = GetManifestForMPDDownloader();
-	dash::mpd::IMPD *mpd = respData->mMPDInstance.get();
-	ASSERT_NE(mpd, nullptr);
-
-	EXPECT_EQ(ParseHelper->TrimPeriodTailSegments(mpd, AAMP_DASH_PERIOD_TAIL_START_TOLERANCE_SEC, AAMP_DASH_PERIOD_TAIL_MIN_OVERHANG_SEC), 0u);
-	EXPECT_EQ(TimelinesOf(mpd, 0, 0).size(), 1u);
-}
-
-/**
- * @brief Several trailing segments that qualify are all removed.
- */
-TEST_F(FunctionalTests, TrimPeriodTail_DropsMultipleTrailingSegments)
-{
-	std::string manifest = TailTrimManifest("duration=\"PT10S\"",
-		"<S t=\"0\" d=\"2000\" r=\"3\" /><S t=\"9800\" d=\"3200\" /><S t=\"13000\" d=\"3200\" />");
-	mManifest = manifest.c_str();
-	ManifestDownloadResponsePtr respData = GetManifestForMPDDownloader();
-	dash::mpd::IMPD *mpd = respData->mMPDInstance.get();
-	ASSERT_NE(mpd, nullptr);
-
-	EXPECT_EQ(ParseHelper->TrimPeriodTailSegments(mpd, AAMP_DASH_PERIOD_TAIL_START_TOLERANCE_SEC, AAMP_DASH_PERIOD_TAIL_MIN_OVERHANG_SEC), 2u);
+	EXPECT_EQ(AampMPDParseHelper::TrimPeriodTailSegments(mpd, AAMP_DASH_PERIOD_TAIL_START_TOLERANCE_SEC, AAMP_DASH_PERIOD_TAIL_MIN_OVERHANG_SEC), 1u);
 	EXPECT_EQ(TimelinesOf(mpd, 0, 0).size(), 1u);
 }

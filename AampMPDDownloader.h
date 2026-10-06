@@ -94,7 +94,7 @@ typedef struct _manifestDownloadConfig
 	MPDStichOptions	mMPDStichOption;
 	bool mIsLLDConfigEnabled;
 	bool mCullManifestAtTuneStart;	// Remove the Start of the Manifest to the liveOffset
-	bool mTrimPeriodTailSegments;	// Drop a trailing timeline segment that starts at a known Period end and runs past it
+	bool mTrimPeriodTailSegments;	// Trim trailing timeline segments that start near a known Period end and run past it
 	int  mTSBDuration;			// pass the TSB duration of the manifest to be managed
 	int  mStartPosnToTSB;		// Position where MPD has to be truncated at the start of playback
 

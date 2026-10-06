@@ -235,7 +235,7 @@ public :
 	 * @param[in] minOverhangSec minimum time the segment must run past the Period end
 	 * @retval number of segments removed
 	 */
-	uint32_t TrimPeriodTailSegments(dash::mpd::IMPD *mpd, double startToleranceSec, double minOverhangSec);
+	static uint32_t TrimPeriodTailSegments(dash::mpd::IMPD *mpd, double startToleranceSec, double minOverhangSec);
 	/**
 	*   @fn Clear
 	*   @brief  Clear the parsed values in the helper

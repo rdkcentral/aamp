@@ -25,6 +25,7 @@
 #include "AampMPDParseHelper.h"
 #include "AampUtils.h"
 #include "AampLogManager.h"
+#include <optional>
 #include <set>
 
 /**
@@ -770,29 +771,77 @@ double AampMPDParseHelper::aamp_GetPeriodStartTimeDeltaRelativeToPTSOffset(IPeri
 static constexpr uint32_t kMaxTimelineRepeatCount = 100000;
 
 /**
- * @brief Remove trailing segments of one SegmentTimeline that start at or after
- *        (periodDurationSec - startToleranceSec) and finish after (periodDurationSec + minOverhangSec).
+ * @brief The drop rule: a segment is a Period-tail duplicate if it starts at or after
+ *        (periodDurationSec - startToleranceSec), including after the end, and finishes
+ *        more than minOverhangSec past the end.
+ */
+static bool IsTailDropCandidate(double startSec, double durationSec, double periodDurationSec, double startToleranceSec, double minOverhangSec)
+{
+	return startSec >= (periodDurationSec - startToleranceSec) && (startSec + durationSec) > (periodDurationSec + minOverhangSec);
+}
+
+/**
+ * @brief Start of each <S> in ticks: explicit t, otherwise the end of the previous <S>.
+ *        A zero start time means t is absent (or 0 on the first <S>, which is the same start); a later <S> cannot validly start at 0.
+ * @retval nullopt if an entry is unsupported (zero duration, or a repeat count such as r="-1")
+ */
+static std::optional<std::vector<uint64_t>> ComputeEntryStarts(const std::vector<ITimeline *> &timelines)
+{
+	std::vector<uint64_t> entryStart;
+	entryStart.reserve(timelines.size());
+	uint64_t nextStart = 0;
+	for (const ITimeline *entry : timelines)
+	{
+		if (entry->GetDuration() == 0 || entry->GetRepeatCount() > kMaxTimelineRepeatCount)
+		{
+			return std::nullopt;
+		}
+		const uint64_t start = (entry->GetStartTime() != 0) ? entry->GetStartTime() : nextStart;
+		entryStart.push_back(start);
+		nextStart = start + static_cast<uint64_t>(entry->GetDuration()) * (static_cast<uint64_t>(entry->GetRepeatCount()) + 1);
+	}
+	return entryStart;
+}
+
+/**
+ * @brief Period end from @duration, else the next Period's @start minus this one's.
+ *        Deliberately not GetPeriodDuration(): that applies the head-cull start delta and needs Initialize() to have run.
+ * @retval nullopt if the end is unknown or not positive
+ */
+static std::optional<double> KnownPeriodDurationSec(const std::vector<IPeriod *> &periods, size_t index)
+{
+	const IPeriod *period = periods[index];
+	double durationSec = 0.0;
+	if (!period->GetDuration().empty())
+	{
+		durationSec = ParseISO8601Duration(period->GetDuration().c_str()) / 1000.0;
+	}
+	else if (index + 1 < periods.size() && !period->GetStart().empty() && !periods[index + 1]->GetStart().empty())
+	{
+		durationSec = (ParseISO8601Duration(periods[index + 1]->GetStart().c_str()) -
+					   ParseISO8601Duration(period->GetStart().c_str())) / 1000.0;
+	}
+	if (durationSec <= 0.0)
+	{
+		return std::nullopt;
+	}
+	return durationSec;
+}
+
+/**
+ * @brief Remove trailing segments of one SegmentTimeline that match IsTailDropCandidate().
+ *        Never empties the timeline.
  * @retval number of segments removed
  */
 static uint32_t TrimTimelineTail(const ISegmentTimeline *segmentTimeline, uint32_t timeScale, uint64_t presentationTimeOffset,
 								 double periodDurationSec, double startToleranceSec, double minOverhangSec)
 {
+	// libdash hands back a mutable vector from this const accessor; SegmentTimeline deletes its entries on destruction
 	std::vector<ITimeline *> &timelines = segmentTimeline->GetTimelines();
-
-	// Start of each <S> in ticks: explicit t, otherwise the end of the previous <S>
-	std::vector<uint64_t> entryStart;
-	entryStart.reserve(timelines.size());
-	uint64_t nextStart = 0;
-	for (ITimeline *entry : timelines)
+	const std::optional<std::vector<uint64_t>> entryStart = ComputeEntryStarts(timelines);
+	if (!entryStart)
 	{
-		if (entry->GetDuration() == 0 || entry->GetRepeatCount() > kMaxTimelineRepeatCount)
-		{
-			return 0;
-		}
-		const std::map<std::string, std::string> attributes = entry->GetRawAttributes();
-		const uint64_t start = (attributes.find("t") != attributes.end()) ? entry->GetStartTime() : nextStart;
-		entryStart.push_back(start);
-		nextStart = start + static_cast<uint64_t>(entry->GetDuration()) * (static_cast<uint64_t>(entry->GetRepeatCount()) + 1);
+		return 0;
 	}
 
 	uint32_t dropped = 0;
@@ -802,19 +851,15 @@ static uint32_t TrimTimelineTail(const ISegmentTimeline *segmentTimeline, uint32
 		ITimeline *entry = timelines[index - 1];
 		const uint32_t count = entry->GetRepeatCount() + 1;
 		const double durationSec = static_cast<double>(entry->GetDuration()) / timeScale;
-		uint32_t keep = count;
-		while (keep > 0)
+		auto segmentStartSec = [&](uint32_t segment)
 		{
-			const double startSec = (static_cast<double>(entryStart[index - 1] + static_cast<uint64_t>(keep - 1) * entry->GetDuration()) -
-									 static_cast<double>(presentationTimeOffset)) / timeScale;
-			if (startSec >= (periodDurationSec - startToleranceSec) && (startSec + durationSec) > (periodDurationSec + minOverhangSec))
-			{
-				keep--;
-			}
-			else
-			{
-				break;
-			}
+			const uint64_t startTicks = (*entryStart)[index - 1] + static_cast<uint64_t>(segment) * entry->GetDuration();
+			return (static_cast<double>(startTicks) - static_cast<double>(presentationTimeOffset)) / timeScale;
+		};
+		uint32_t keep = count;
+		while (keep > 0 && IsTailDropCandidate(segmentStartSec(keep - 1), durationSec, periodDurationSec, startToleranceSec, minOverhangSec))
+		{
+			keep--;
 		}
 		if (keep == count)
 		{
@@ -844,6 +889,47 @@ static uint32_t TrimTimelineTail(const ISegmentTimeline *segmentTimeline, uint32
 }
 
 /**
+ * @brief A SegmentTimeline with the timescale and presentationTimeOffset that apply to it
+ */
+namespace
+{
+struct PeriodTimeline
+{
+	const ISegmentTimeline *timeline;
+	uint32_t timeScale;
+	uint64_t presentationTimeOffset;
+};
+}
+
+/**
+ * @brief The distinct SegmentTimelines of a Period; a timeline shared by several Representations is listed once
+ */
+static std::vector<PeriodTimeline> CollectPeriodTimelines(IPeriod *period)
+{
+	std::vector<PeriodTimeline> result;
+	std::set<const ISegmentTimeline *> visited;
+	for (IAdaptationSet *adaptationSet : period->GetAdaptationSets())
+	{
+		const ISegmentTemplate *adaptationSetTemplate = adaptationSet->GetSegmentTemplate();
+		const std::vector<IRepresentation *> &representations = adaptationSet->GetRepresentation();
+		// An AdaptationSet without Representations still carries its own template
+		const size_t templateCount = std::max<size_t>(representations.size(), 1);
+		for (size_t i = 0; i < templateCount; i++)
+		{
+			const ISegmentTemplate *representationTemplate = representations.empty() ? nullptr : representations[i]->GetSegmentTemplate();
+			SegmentTemplates segmentTemplates(representationTemplate, adaptationSetTemplate);
+			const ISegmentTimeline *segmentTimeline = segmentTemplates.HasSegmentTemplate() ? segmentTemplates.GetSegmentTimeline() : nullptr;
+			const uint32_t timeScale = segmentTemplates.GetTimescale();
+			if (segmentTimeline && timeScale != 0 && visited.insert(segmentTimeline).second)
+			{
+				result.push_back({segmentTimeline, timeScale, segmentTemplates.GetPresentationTimeOffset()});
+			}
+		}
+	}
+	return result;
+}
+
+/**
  * @brief Remove trailing timeline segments that start within the tolerance of a known Period end and run past it
  */
 uint32_t AampMPDParseHelper::TrimPeriodTailSegments(dash::mpd::IMPD *mpd, double startToleranceSec, double minOverhangSec)
@@ -854,59 +940,27 @@ uint32_t AampMPDParseHelper::TrimPeriodTailSegments(dash::mpd::IMPD *mpd, double
 		return totalDropped;
 	}
 
-	const std::vector<IPeriod *> periods = mpd->GetPeriods();
+	const std::vector<IPeriod *> &periods = mpd->GetPeriods();
 	for (size_t periodIndex = 0; periodIndex < periods.size(); periodIndex++)
 	{
-		IPeriod *period = periods[periodIndex];
-
-		// Period end is known from @duration, else from the next Period's @start; otherwise leave the Period alone
-		double periodDurationSec = 0.0;
-		if (!period->GetDuration().empty())
-		{
-			periodDurationSec = ParseISO8601Duration(period->GetDuration().c_str()) / 1000.0;
-		}
-		else if (periodIndex + 1 < periods.size() && !period->GetStart().empty() && !periods[periodIndex + 1]->GetStart().empty())
-		{
-			periodDurationSec = (ParseISO8601Duration(periods[periodIndex + 1]->GetStart().c_str()) -
-								 ParseISO8601Duration(period->GetStart().c_str())) / 1000.0;
-		}
-		if (periodDurationSec <= 0.0)
+		const std::optional<double> periodDurationSec = KnownPeriodDurationSec(periods, periodIndex);
+		if (!periodDurationSec)
 		{
 			continue;
 		}
 
-		std::set<const ISegmentTimeline *> visited;
-		for (IAdaptationSet *adaptationSet : period->GetAdaptationSets())
+		uint32_t periodDropped = 0;
+		for (const PeriodTimeline &entry : CollectPeriodTimelines(periods[periodIndex]))
 		{
-			const ISegmentTemplate *adaptationSetTemplate = adaptationSet->GetSegmentTemplate();
-			std::vector<const ISegmentTemplate *> representationTemplates;
-			for (IRepresentation *representation : adaptationSet->GetRepresentation())
-			{
-				representationTemplates.push_back(representation->GetSegmentTemplate());
-			}
-			if (representationTemplates.empty())
-			{
-				representationTemplates.push_back(nullptr);
-			}
-
-			for (const ISegmentTemplate *representationTemplate : representationTemplates)
-			{
-				SegmentTemplates segmentTemplates(representationTemplate, adaptationSetTemplate);
-				const ISegmentTimeline *segmentTimeline = segmentTemplates.HasSegmentTemplate() ? segmentTemplates.GetSegmentTimeline() : nullptr;
-				const uint32_t timeScale = segmentTemplates.GetTimescale();
-				if (!segmentTimeline || timeScale == 0 || !visited.insert(segmentTimeline).second)
-				{
-					continue;
-				}
-				const uint32_t dropped = TrimTimelineTail(segmentTimeline, timeScale, segmentTemplates.GetPresentationTimeOffset(),
-														  periodDurationSec, startToleranceSec, minOverhangSec);
-				if (dropped)
-				{
-					AAMPLOG_WARN("Period[%s] dropped %u tail segment(s) from timeline: start within %.3fs of Period end %.3fs and finish > %.3fs after it",
-								 period->GetId().c_str(), dropped, startToleranceSec, periodDurationSec, minOverhangSec);
-					totalDropped += dropped;
-				}
-			}
+			periodDropped += TrimTimelineTail(entry.timeline, entry.timeScale, entry.presentationTimeOffset,
+											  *periodDurationSec, startToleranceSec, minOverhangSec);
+		}
+		if (periodDropped)
+		{
+			// The splice Period stays in a live manifest for hours, so log one line per Period, not per track
+			AAMPLOG_INFO("Period[%s] dropped %u tail segment(s): start within %.3fs of Period end %.3fs and finish > %.3fs after it",
+						 periods[periodIndex]->GetId().c_str(), periodDropped, startToleranceSec, *periodDurationSec, minOverhangSec);
+			totalDropped += periodDropped;
 		}
 	}
 	return totalDropped;

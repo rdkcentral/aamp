@@ -127,13 +127,13 @@ void _manifestDownloadResponse::parseMPD()
 					if (mpd)
 					{
 						mpd->SetFetchTime(fetchTime);
+						std::shared_ptr<dash::mpd::IMPD> tmp_ptr(mpd);
+						mMPDInstance = std::move(tmp_ptr);
 						if (mTrimPeriodTailSegments)
 						{
 							// Must precede Initialize(), which caches Period start/duration/end
-							mMPDParseHelper->TrimPeriodTailSegments(mpd, AAMP_DASH_PERIOD_TAIL_START_TOLERANCE_SEC, AAMP_DASH_PERIOD_TAIL_MIN_OVERHANG_SEC);
+							AampMPDParseHelper::TrimPeriodTailSegments(mMPDInstance.get(), AAMP_DASH_PERIOD_TAIL_START_TOLERANCE_SEC, AAMP_DASH_PERIOD_TAIL_MIN_OVERHANG_SEC);
 						}
-						std::shared_ptr<dash::mpd::IMPD> tmp_ptr(mpd);
-						mMPDInstance = std::move(tmp_ptr);
 						mMPDStatus = AAMPStatusType::eAAMPSTATUS_OK;
 						mMPDParseHelper->Initialize(mpd);
 					}
