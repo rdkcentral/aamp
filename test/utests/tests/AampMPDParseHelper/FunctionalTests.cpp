@@ -1789,9 +1789,11 @@ TEST_F(FunctionalTests, TrimPeriodTail_DropsSplicerDuplicate)
 	dash::mpd::IMPD *mpd = respData->mMPDInstance.get();
 	ASSERT_NE(mpd, nullptr);
 
-	EXPECT_EQ(AampMPDParseHelper::TrimPeriodTailSegments(mpd, AAMP_DASH_PERIOD_TAIL_START_TOLERANCE_SEC, AAMP_DASH_PERIOD_TAIL_MIN_OVERHANG_SEC), 1u);
-
 	auto &audio = TimelinesOf(mpd, 0, 0);
+	ASSERT_EQ(audio.size(), 3u);
+
+	AampMPDParseHelper::TrimPeriodTailSegments(mpd, AAMP_DASH_PERIOD_TAIL_START_TOLERANCE_SEC, AAMP_DASH_PERIOD_TAIL_MIN_OVERHANG_SEC);
+
 	ASSERT_EQ(audio.size(), 2u);
 	EXPECT_EQ(audio.back()->GetStartTime(), 8000u);
 	auto &video = TimelinesOf(mpd, 0, 1);
@@ -1810,7 +1812,6 @@ struct TrimCase
 	std::string videoTimeline;
 	bool withNextPeriod;
 	std::string templateAttrs;
-	uint32_t expectedDropped;
 	size_t expectedAudioEntries;
 	int64_t expectedLastAudioRepeat; // -1: not checked
 };
@@ -1830,7 +1831,7 @@ TEST_P(TrimPeriodTailCasesTest, TrimsAsExpected)
 	dash::mpd::IMPD *mpd = respData->mMPDInstance.get();
 	ASSERT_NE(mpd, nullptr);
 
-	EXPECT_EQ(AampMPDParseHelper::TrimPeriodTailSegments(mpd, AAMP_DASH_PERIOD_TAIL_START_TOLERANCE_SEC, AAMP_DASH_PERIOD_TAIL_MIN_OVERHANG_SEC), c.expectedDropped);
+	AampMPDParseHelper::TrimPeriodTailSegments(mpd, AAMP_DASH_PERIOD_TAIL_START_TOLERANCE_SEC, AAMP_DASH_PERIOD_TAIL_MIN_OVERHANG_SEC);
 	auto &audio = TimelinesOf(mpd, 0, 0);
 	ASSERT_EQ(audio.size(), c.expectedAudioEntries);
 	if (c.expectedLastAudioRepeat >= 0)
@@ -1842,32 +1843,32 @@ TEST_P(TrimPeriodTailCasesTest, TrimsAsExpected)
 INSTANTIATE_TEST_SUITE_P(TrimPeriodTail, TrimPeriodTailCasesTest, ::testing::Values(
 	// A valid tiny final segment (starts 0.2s before the end, finishes only 0.1s after) is kept
 	TrimCase{"KeepsTinyValidFinalSegment", "duration=\"PT10S\"",
-		"<S t=\"0\" d=\"2000\" r=\"3\" /><S t=\"8000\" d=\"1800\" /><S t=\"9800\" d=\"300\" />", kVideoFitsPeriod, true, "", 0, 3, 0},
+		"<S t=\"0\" d=\"2000\" r=\"3\" /><S t=\"8000\" d=\"1800\" /><S t=\"9800\" d=\"300\" />", kVideoFitsPeriod, true, "", 3, 0},
 	// Only the repeat that starts at the Period end is removed from a repeated <S>
 	TrimCase{"DropsOneRepeatOfRepeatedEntry", "duration=\"PT10S\"",
-		"<S t=\"0\" d=\"2000\" r=\"5\" />", kVideoFitsPeriod, true, "", 1, 1, 4},
+		"<S t=\"0\" d=\"2000\" r=\"5\" />", kVideoFitsPeriod, true, "", 1, 4},
 	// The explicit t after a gap decides the start, not the accumulated durations
 	TrimCase{"UsesExplicitStartAfterGap", "duration=\"PT10S\"",
-		"<S t=\"0\" d=\"2000\" r=\"3\" /><S t=\"9800\" d=\"3200\" />", kVideoFitsPeriod, true, "", 1, 1, 3},
+		"<S t=\"0\" d=\"2000\" r=\"3\" /><S t=\"9800\" d=\"3200\" />", kVideoFitsPeriod, true, "", 1, 3},
 	// Without @duration the next Period's @start gives the end
 	TrimCase{"EndFromNextPeriodStart", "",
-		"<S t=\"0\" d=\"2000\" r=\"3\" /><S t=\"8000\" d=\"1800\" /><S t=\"9800\" d=\"3200\" />", kVideoFitsPeriod, true, "", 1, 2, 0},
+		"<S t=\"0\" d=\"2000\" r=\"3\" /><S t=\"8000\" d=\"1800\" /><S t=\"9800\" d=\"3200\" />", kVideoFitsPeriod, true, "", 2, 0},
 	// A last Period with no @duration has an unknown end
 	TrimCase{"UnknownEndIsUntouched", "",
-		"<S t=\"0\" d=\"2000\" r=\"3\" /><S t=\"8000\" d=\"1800\" /><S t=\"9800\" d=\"3200\" />", kVideoFitsPeriod, false, "", 0, 3, 0},
+		"<S t=\"0\" d=\"2000\" r=\"3\" /><S t=\"8000\" d=\"1800\" /><S t=\"9800\" d=\"3200\" />", kVideoFitsPeriod, false, "", 3, 0},
 	// A negative repeat count (repeat to the end of the Period) is unsupported
 	TrimCase{"RepeatToEndIsUntouched", "duration=\"PT10S\"",
-		"<S t=\"0\" d=\"2000\" r=\"-1\" />", kVideoFitsPeriod, true, "", 0, 1, -1},
+		"<S t=\"0\" d=\"2000\" r=\"-1\" />", kVideoFitsPeriod, true, "", 1, -1},
 	// Starts are measured from presentationTimeOffset
 	TrimCase{"PresentationTimeOffsetRespected", "duration=\"PT10S\"",
 		"<S t=\"5000\" d=\"2000\" r=\"3\" /><S t=\"13000\" d=\"1800\" /><S t=\"14800\" d=\"3200\" />", "<S t=\"5000\" d=\"2000\" r=\"4\" />",
-		true, "presentationTimeOffset=\"5000\"", 1, 2, 0},
+		true, "presentationTimeOffset=\"5000\"", 2, 0},
 	// The timeline is never emptied, even if its only segment qualifies
 	TrimCase{"NeverEmptiesTimeline", "duration=\"PT10S\"",
-		"<S t=\"9800\" d=\"3200\" />", kVideoFitsPeriod, true, "", 0, 1, 0},
+		"<S t=\"9800\" d=\"3200\" />", kVideoFitsPeriod, true, "", 1, 0},
 	// Several trailing segments that qualify are all removed
 	TrimCase{"DropsMultipleTrailingSegments", "duration=\"PT10S\"",
-		"<S t=\"0\" d=\"2000\" r=\"3\" /><S t=\"9800\" d=\"3200\" /><S t=\"13000\" d=\"3200\" />", kVideoFitsPeriod, true, "", 2, 1, 3}),
+		"<S t=\"0\" d=\"2000\" r=\"3\" /><S t=\"9800\" d=\"3200\" /><S t=\"13000\" d=\"3200\" />", kVideoFitsPeriod, true, "", 1, 3}),
 	[](const ::testing::TestParamInfo<TrimCase> &info) { return std::string(info.param.name); });
 
 static const char *kRepresentationLevelTimelineManifest =
@@ -1899,7 +1900,8 @@ TEST_F(FunctionalTests, TrimPeriodTail_RepresentationLevelTimelines_EachTrimmed)
 	dash::mpd::IMPD *mpd = respData->mMPDInstance.get();
 	ASSERT_NE(mpd, nullptr);
 
-	EXPECT_EQ(AampMPDParseHelper::TrimPeriodTailSegments(mpd, AAMP_DASH_PERIOD_TAIL_START_TOLERANCE_SEC, AAMP_DASH_PERIOD_TAIL_MIN_OVERHANG_SEC), 2u);
+	EXPECT_EQ(mpd->GetPeriods().at(0)->GetAdaptationSets().at(0)->GetRepresentation().at(0)->GetSegmentTemplate()->GetSegmentTimeline()->GetTimelines().size(), 2u);
+	AampMPDParseHelper::TrimPeriodTailSegments(mpd, AAMP_DASH_PERIOD_TAIL_START_TOLERANCE_SEC, AAMP_DASH_PERIOD_TAIL_MIN_OVERHANG_SEC);
 	for (int representation = 0; representation < 2; representation++)
 	{
 		EXPECT_EQ(mpd->GetPeriods().at(0)->GetAdaptationSets().at(0)->GetRepresentation().at(representation)
@@ -1908,15 +1910,16 @@ TEST_F(FunctionalTests, TrimPeriodTail_RepresentationLevelTimelines_EachTrimmed)
 }
 
 /**
- * @brief An AdaptationSet-level timeline shared by several Representations is trimmed and counted once.
+ * @brief An AdaptationSet-level timeline shared by several Representations is trimmed.
  */
-TEST_F(FunctionalTests, TrimPeriodTail_SharedAdaptationSetTimeline_CountedOnce)
+TEST_F(FunctionalTests, TrimPeriodTail_SharedAdaptationSetTimeline_Trimmed)
 {
 	mManifest = kSharedAdaptationSetTimelineManifest;
 	ManifestDownloadResponsePtr respData = GetManifestForMPDDownloader();
 	dash::mpd::IMPD *mpd = respData->mMPDInstance.get();
 	ASSERT_NE(mpd, nullptr);
 
-	EXPECT_EQ(AampMPDParseHelper::TrimPeriodTailSegments(mpd, AAMP_DASH_PERIOD_TAIL_START_TOLERANCE_SEC, AAMP_DASH_PERIOD_TAIL_MIN_OVERHANG_SEC), 1u);
+	EXPECT_EQ(TimelinesOf(mpd, 0, 0).size(), 2u);
+	AampMPDParseHelper::TrimPeriodTailSegments(mpd, AAMP_DASH_PERIOD_TAIL_START_TOLERANCE_SEC, AAMP_DASH_PERIOD_TAIL_MIN_OVERHANG_SEC);
 	EXPECT_EQ(TimelinesOf(mpd, 0, 0).size(), 1u);
 }

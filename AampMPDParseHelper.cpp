@@ -801,6 +801,7 @@ struct PeriodTimeline
  */
 struct TailDropRule
 {
+	std::string periodId;
 	double periodDurationSec;
 	double startToleranceSec;
 	double minOverhangSec;
@@ -884,20 +885,31 @@ static uint32_t SegmentsToKeep(const TimelineEntry &entry, const PeriodTimeline 
 }
 
 /**
- * @brief Remove trailing segments of one SegmentTimeline that match the rule. Never empties the timeline.
- * @retval number of segments removed
+ * @brief Warn about one dropped segment: its position in the timeline and the Period end that it overran
  */
-static uint32_t TrimTimelineTail(const PeriodTimeline &track, const TailDropRule &rule)
+static void LogDroppedSegment(const PeriodTimeline &track, const TailDropRule &rule, const TimelineEntry &entry, uint32_t segmentIndex)
+{
+	const uint64_t startTicks = entry.startTicks + static_cast<uint64_t>(segmentIndex) * entry.durationTicks;
+	const double startSec = (static_cast<double>(startTicks) - static_cast<double>(track.presentationTimeOffset)) / track.timeScale;
+	const double endSec = startSec + static_cast<double>(entry.durationTicks) / track.timeScale;
+	AAMPLOG_WARN("Period[%s] dropped tail segment t=%" PRIu64 " d=%" PRIu32 " (timescale %" PRIu32 ", pto %" PRIu64 "): starts %.3fs, ends %.3fs, Period end %.3fs",
+				 rule.periodId.c_str(), startTicks, entry.durationTicks, track.timeScale, track.presentationTimeOffset,
+				 startSec, endSec, rule.periodDurationSec);
+}
+
+/**
+ * @brief Remove trailing segments of one SegmentTimeline that match the rule, warning for each. Never empties the timeline.
+ */
+static void TrimTimelineTail(const PeriodTimeline &track, const TailDropRule &rule)
 {
 	// libdash hands back a mutable vector from this const accessor; SegmentTimeline deletes its entries on destruction
 	std::vector<ITimeline *> &timelines = track.timeline->GetTimelines();
 	const std::optional<std::vector<TimelineEntry>> entries = ReadTimelineEntries(timelines);
 	if (!entries)
 	{
-		return 0;
+		return;
 	}
 
-	uint32_t dropped = 0;
 	for (size_t index = entries->size(); index > 0; index--)
 	{
 		const TimelineEntry &entry = (*entries)[index - 1];
@@ -910,7 +922,10 @@ static uint32_t TrimTimelineTail(const PeriodTimeline &track, const TailDropRule
 		{
 			break;
 		}
-		dropped += entry.count - keep;
+		for (uint32_t segmentIndex = keep; segmentIndex < entry.count; segmentIndex++)
+		{
+			LogDroppedSegment(track, rule, entry, segmentIndex);
+		}
 		if (keep > 0)
 		{
 			entry.editable->SetRepeatCount(keep - 1);
@@ -919,7 +934,6 @@ static uint32_t TrimTimelineTail(const PeriodTimeline &track, const TailDropRule
 		timelines.erase(timelines.begin() + (index - 1));
 		const std::unique_ptr<Timeline> removed(entry.editable); // SegmentTimeline no longer owns it
 	}
-	return dropped;
 }
 
 /**
@@ -953,12 +967,11 @@ static std::vector<PeriodTimeline> CollectPeriodTimelines(IPeriod *period)
 /**
  * @brief Remove trailing timeline segments that start within the tolerance of a known Period end and run past it
  */
-uint32_t AampMPDParseHelper::TrimPeriodTailSegments(dash::mpd::IMPD *mpd, double startToleranceSec, double minOverhangSec)
+void AampMPDParseHelper::TrimPeriodTailSegments(dash::mpd::IMPD *mpd, double startToleranceSec, double minOverhangSec)
 {
-	uint32_t totalDropped = 0;
 	if (!mpd)
 	{
-		return totalDropped;
+		return;
 	}
 
 	const std::vector<IPeriod *> &periods = mpd->GetPeriods();
@@ -970,21 +983,12 @@ uint32_t AampMPDParseHelper::TrimPeriodTailSegments(dash::mpd::IMPD *mpd, double
 			continue;
 		}
 
-		const TailDropRule rule{*periodDurationSec, startToleranceSec, minOverhangSec};
-		uint32_t periodDropped = 0;
+		const TailDropRule rule{periods[periodIndex]->GetId(), *periodDurationSec, startToleranceSec, minOverhangSec};
 		for (const PeriodTimeline &track : CollectPeriodTimelines(periods[periodIndex]))
 		{
-			periodDropped += TrimTimelineTail(track, rule);
-		}
-		if (periodDropped)
-		{
-			// The splice Period stays in a live manifest for hours, so log one line per Period, not per track
-			AAMPLOG_INFO("Period[%s] dropped %u tail segment(s): start within %.3fs of Period end %.3fs and finish > %.3fs after it",
-						 periods[periodIndex]->GetId().c_str(), periodDropped, startToleranceSec, *periodDurationSec, minOverhangSec);
-			totalDropped += periodDropped;
+			TrimTimelineTail(track, rule);
 		}
 	}
-	return totalDropped;
 }
 
 /**
