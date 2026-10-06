@@ -46,6 +46,8 @@ enum class PlayHold : uint32_t
 	PositionPending    = 1u << 2,
 	/// AAMP is refilling its fragment cache and has paused the pipeline.
 	FragmentCaching    = 1u << 3,
+	/// Sources are ungated and Rialto is buffering ahead of play().
+	PreRollIncomplete  = 1u << 4,
 };
 
 /**
@@ -72,15 +74,24 @@ public:
 	/// caller-supplied description of whatever released the final hold.
 	using PlayAction = std::function<void(const char *reason)>;
 
+	/// Invoked when a play request is held only by
+	/// PlayHold::PreRollIncomplete, i.e. when it is safe to let data flow
+	/// into Rialto ahead of play().
+	using PreRollAction = std::function<void(const char *reason)>;
+
 	/**
 	 * @brief Construct the controller.
 	 *
 	 * Starts with PlayHold::SourcesNotAttached held, matching a freshly
 	 * constructed player that has not yet attached any source.
 	 *
-	 * @param[in] onPlay  Non-null action invoked to issue play().
+	 * @param[in] onPlay         Non-null action invoked to issue play().
+	 * @param[in] onPreRollReady Optional action invoked once each time the
+	 *                           only remaining hold on an outstanding play
+	 *                           request becomes PlayHold::PreRollIncomplete.
 	 */
-	explicit AampRialtoPlaybackController(PlayAction onPlay);
+	explicit AampRialtoPlaybackController(PlayAction onPlay,
+		PreRollAction onPreRollReady = nullptr);
 
 	AampRialtoPlaybackController(const AampRialtoPlaybackController &) = delete;
 	AampRialtoPlaybackController &operator=(
@@ -115,7 +126,16 @@ private:
 	/// Caller must hold m_mutex.
 	bool ClaimPlayLocked();
 
+	/// Re-evaluate both thresholds after a state change.  Caller must hold
+	/// m_mutex and invoke the returned actions after releasing it.
+	void EvaluateLocked(bool &issuePlay, bool &startPreRoll);
+
+	/// Invoke the actions chosen by EvaluateLocked().  Caller must NOT
+	/// hold m_mutex.
+	void Dispatch(bool issuePlay, bool startPreRoll, const char *reason);
+
 	PlayAction m_onPlay;
+	PreRollAction m_onPreRollReady;
 
 	/// Serialises hold/request updates so that exactly one caller can
 	/// consume a given play request.
@@ -127,6 +147,10 @@ private:
 
 	/// True while a play request is outstanding.  Guarded by m_mutex.
 	bool m_playPending;
+
+	/// True while the pre-roll-ready condition holds, so the action fires
+	/// once per entry into that condition.  Guarded by m_mutex.
+	bool m_preRollReady;
 };
 
 #endif // AAMP_RIALTO_PLAYBACK_CONTROLLER_H

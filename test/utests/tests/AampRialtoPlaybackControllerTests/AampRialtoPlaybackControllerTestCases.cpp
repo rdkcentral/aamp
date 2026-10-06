@@ -332,3 +332,186 @@ TEST_F(AampRialtoPlaybackControllerTest, ConcurrentRequestAndRelease_FiresOnce)
 		ASSERT_FALSE(controller.IsPlayPending()) << "iteration " << i;
 	}
 }
+
+// ===========================================================================
+// Pre-roll: PlayHold::PreRollIncomplete and the pre-roll-ready action
+// ===========================================================================
+
+class AampRialtoPlaybackControllerPreRollTest : public ::testing::Test
+{
+protected:
+	void SetUp() override
+	{
+		m_controller = std::make_unique<AampRialtoPlaybackController>(
+			[this](const char *) { ++m_playCount; },
+			[this](const char *reason)
+			{
+				++m_preRollCount;
+				m_lastPreRollReason = (reason != nullptr) ? reason : "";
+			});
+	}
+
+	/// Leave only PreRollIncomplete applied, mirroring a fully attached,
+	/// position-resolved player that has armed pre-roll.
+	void HoldOnlyPreRoll()
+	{
+		m_controller->AddHold(PlayHold::PreRollIncomplete, "arm");
+		m_controller->ReleaseHold(PlayHold::SourcesNotAttached, "attach");
+	}
+
+	std::unique_ptr<AampRialtoPlaybackController> m_controller;
+	int m_playCount{0};
+	int m_preRollCount{0};
+	std::string m_lastPreRollReason;
+};
+
+TEST_F(AampRialtoPlaybackControllerPreRollTest,
+	PreRollOnlyHold_PlayRequested_FiresPreRollNotPlay)
+{
+	/**
+	 * @brief Once PreRollIncomplete is the only thing holding a play request,
+	 *        the controller signals that data may flow ahead of play(), but
+	 *        does not issue play() itself.
+	 */
+	HoldOnlyPreRoll();
+
+	m_controller->RequestPlay("Stream");
+
+	EXPECT_EQ(m_preRollCount, 1);
+	EXPECT_EQ(m_lastPreRollReason, "Stream");
+	EXPECT_EQ(m_playCount, 0);
+	EXPECT_TRUE(m_controller->IsPlayPending());
+}
+
+TEST_F(AampRialtoPlaybackControllerPreRollTest,
+	PreRollOnlyHold_NoPlayRequested_DoesNotFire)
+{
+	/**
+	 * @brief Without a play request (e.g. seek while paused) nothing should
+	 *        start buffering ahead of a play() that is not coming.
+	 */
+	HoldOnlyPreRoll();
+
+	EXPECT_EQ(m_preRollCount, 0);
+	EXPECT_EQ(m_playCount, 0);
+}
+
+TEST_F(AampRialtoPlaybackControllerPreRollTest,
+	PreRollWithOtherHolds_FiresOnlyWhenTheyClear)
+{
+	/**
+	 * @brief Data must not flow while any other hold remains: a flush or an
+	 *        unresolved position would make Rialto treat it as stale.
+	 */
+	m_controller->AddHold(PlayHold::PreRollIncomplete, "arm");
+	m_controller->AddHold(PlayHold::Flushing, "Flush");
+	m_controller->ReleaseHold(PlayHold::SourcesNotAttached, "attach");
+	m_controller->RequestPlay("Stream");
+	ASSERT_EQ(m_preRollCount, 0);
+
+	m_controller->ReleaseHold(PlayHold::Flushing, "SEEK_DONE");
+
+	EXPECT_EQ(m_preRollCount, 1);
+	EXPECT_EQ(m_lastPreRollReason, "SEEK_DONE");
+	EXPECT_EQ(m_playCount, 0);
+}
+
+TEST_F(AampRialtoPlaybackControllerPreRollTest, ReleasingPreRoll_IssuesPlay)
+{
+	/**
+	 * @brief Pre-roll completion is the final hold release, so it issues
+	 *        the deferred play().
+	 */
+	HoldOnlyPreRoll();
+	m_controller->RequestPlay("Stream");
+	ASSERT_EQ(m_playCount, 0);
+
+	m_controller->ReleaseHold(PlayHold::PreRollIncomplete, "PreRoll");
+
+	EXPECT_EQ(m_playCount, 1);
+	EXPECT_FALSE(m_controller->IsPlayPending());
+}
+
+TEST_F(AampRialtoPlaybackControllerPreRollTest,
+	PreRollReady_RepeatedRequest_FiresOnce)
+{
+	/**
+	 * @brief A repeated Stream() while already pre-rolling must not restart
+	 *        the pre-roll and reset its timeout.
+	 */
+	HoldOnlyPreRoll();
+
+	m_controller->RequestPlay("Stream");
+	m_controller->RequestPlay("Stream");
+
+	EXPECT_EQ(m_preRollCount, 1);
+}
+
+TEST_F(AampRialtoPlaybackControllerPreRollTest,
+	PreRollReady_InterruptedByFlush_FiresAgain)
+{
+	/**
+	 * @brief A flush during pre-roll invalidates it; once that flush
+	 *        completes, pre-roll must start again for the new position.
+	 */
+	HoldOnlyPreRoll();
+	m_controller->RequestPlay("Stream");
+	ASSERT_EQ(m_preRollCount, 1);
+
+	m_controller->AddHold(PlayHold::Flushing, "Flush");
+	m_controller->ReleaseHold(PlayHold::Flushing, "SEEK_DONE");
+
+	EXPECT_EQ(m_preRollCount, 2);
+	EXPECT_EQ(m_playCount, 0);
+}
+
+TEST_F(AampRialtoPlaybackControllerPreRollTest,
+	PreRollReady_CancelledThenRequested_FiresAgain)
+{
+	/**
+	 * @brief Pause() discards the request; a later Stream() must start
+	 *        pre-roll afresh rather than waiting on one that was abandoned.
+	 */
+	HoldOnlyPreRoll();
+	m_controller->RequestPlay("Stream");
+	m_controller->CancelPlayRequest("Pause");
+
+	m_controller->RequestPlay("Stream");
+
+	EXPECT_EQ(m_preRollCount, 2);
+}
+
+TEST_F(AampRialtoPlaybackControllerPreRollTest,
+	AddPreRollHold_WhilePlayPendingAndUnheld_FiresPreRoll)
+{
+	/**
+	 * @brief Arming pre-roll while a request is otherwise satisfiable is the
+	 *        same condition as requesting play while armed.
+	 */
+	m_controller->AddHold(PlayHold::Flushing, "Flush");
+	m_controller->ReleaseHold(PlayHold::SourcesNotAttached, "attach");
+	m_controller->RequestPlay("Stream");
+	m_controller->AddHold(PlayHold::PreRollIncomplete, "arm");
+	ASSERT_EQ(m_preRollCount, 0);
+
+	m_controller->ReleaseHold(PlayHold::Flushing, "SEEK_DONE");
+
+	EXPECT_EQ(m_preRollCount, 1);
+	EXPECT_EQ(m_playCount, 0);
+}
+
+TEST_F(AampRialtoPlaybackControllerTest, PreRollHold_NoPreRollAction_IsHarmless)
+{
+	/**
+	 * @brief A controller built without a pre-roll action still holds play
+	 *        until the hold is released.
+	 */
+	m_controller->AddHold(PlayHold::PreRollIncomplete, "arm");
+	m_controller->ReleaseHold(PlayHold::SourcesNotAttached, "attach");
+
+	m_controller->RequestPlay("Stream");
+	EXPECT_EQ(m_playCount, 0);
+
+	m_controller->ReleaseHold(PlayHold::PreRollIncomplete, "PreRoll");
+	EXPECT_EQ(m_playCount, 1);
+}

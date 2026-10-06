@@ -44,17 +44,49 @@ const char *HoldName(PlayHold hold)
 		case PlayHold::FragmentCaching:
 			name = "FragmentCaching";
 			break;
+		case PlayHold::PreRollIncomplete:
+			name = "PreRollIncomplete";
+			break;
 	}
 	return name;
 }
 
 } // namespace
 
-AampRialtoPlaybackController::AampRialtoPlaybackController(PlayAction onPlay)
+AampRialtoPlaybackController::AampRialtoPlaybackController(PlayAction onPlay,
+	PreRollAction onPreRollReady)
 	: m_onPlay(std::move(onPlay))
+	, m_onPreRollReady(std::move(onPreRollReady))
 	, m_holds(static_cast<uint32_t>(PlayHold::SourcesNotAttached))
 	, m_playPending(false)
+	, m_preRollReady(false)
 {
+}
+
+void AampRialtoPlaybackController::EvaluateLocked(
+	bool &issuePlay, bool &startPreRoll)
+{
+	issuePlay = ClaimPlayLocked();
+
+	const bool preRollReady = m_playPending &&
+		(m_holds.load(std::memory_order_relaxed) ==
+			static_cast<uint32_t>(PlayHold::PreRollIncomplete));
+	startPreRoll = preRollReady && !m_preRollReady;
+	m_preRollReady = preRollReady;
+}
+
+void AampRialtoPlaybackController::Dispatch(
+	bool issuePlay, bool startPreRoll, const char *reason)
+{
+	if (startPreRoll && m_onPreRollReady)
+	{
+		AAMPLOG_INFO("only pre-roll remains - starting pre-roll (%s)", reason);
+		m_onPreRollReady(reason);
+	}
+	if (issuePlay)
+	{
+		m_onPlay(reason);
+	}
 }
 
 bool AampRialtoPlaybackController::ClaimPlayLocked()
@@ -71,33 +103,37 @@ bool AampRialtoPlaybackController::ClaimPlayLocked()
 void AampRialtoPlaybackController::RequestPlay(const char *reason)
 {
 	bool issuePlay = false;
+	bool startPreRoll = false;
 	uint32_t holds = 0u;
 	{
 		std::lock_guard<std::mutex> lock(m_mutex);
 		m_playPending = true;
-		issuePlay = ClaimPlayLocked();
+		EvaluateLocked(issuePlay, startPreRoll);
 		holds = m_holds.load(std::memory_order_relaxed);
 	}
 
 	if (issuePlay)
 	{
 		AAMPLOG_INFO("play requested by %s - issuing now", reason);
-		m_onPlay(reason);
 	}
 	else
 	{
 		AAMPLOG_INFO("play requested by %s - deferred, holds=0x%x",
 			reason, holds);
 	}
+	Dispatch(issuePlay, startPreRoll, reason);
 }
 
 void AampRialtoPlaybackController::CancelPlayRequest(const char *reason)
 {
 	bool discarded = false;
+	bool issuePlay = false;
+	bool startPreRoll = false;
 	{
 		std::lock_guard<std::mutex> lock(m_mutex);
 		discarded = m_playPending;
 		m_playPending = false;
+		EvaluateLocked(issuePlay, startPreRoll);
 	}
 
 	if (discarded)
@@ -110,17 +146,21 @@ void AampRialtoPlaybackController::AddHold(PlayHold hold, const char *reason)
 {
 	const uint32_t bit = static_cast<uint32_t>(hold);
 	bool changed = false;
+	bool issuePlay = false;
+	bool startPreRoll = false;
 	{
 		std::lock_guard<std::mutex> lock(m_mutex);
 		const uint32_t before = m_holds.load(std::memory_order_relaxed);
 		changed = ((before & bit) == 0u);
 		m_holds.store(before | bit, std::memory_order_relaxed);
+		EvaluateLocked(issuePlay, startPreRoll);
 	}
 
 	if (changed)
 	{
 		AAMPLOG_INFO("hold %s applied by %s", HoldName(hold), reason);
 	}
+	Dispatch(issuePlay, startPreRoll, reason);
 }
 
 void AampRialtoPlaybackController::ReleaseHold(PlayHold hold, const char *reason)
@@ -128,6 +168,7 @@ void AampRialtoPlaybackController::ReleaseHold(PlayHold hold, const char *reason
 	const uint32_t bit = static_cast<uint32_t>(hold);
 	bool changed = false;
 	bool issuePlay = false;
+	bool startPreRoll = false;
 	uint32_t remaining = 0u;
 	{
 		std::lock_guard<std::mutex> lock(m_mutex);
@@ -135,7 +176,7 @@ void AampRialtoPlaybackController::ReleaseHold(PlayHold hold, const char *reason
 		changed = ((before & bit) != 0u);
 		remaining = before & ~bit;
 		m_holds.store(remaining, std::memory_order_relaxed);
-		issuePlay = ClaimPlayLocked();
+		EvaluateLocked(issuePlay, startPreRoll);
 	}
 
 	if (changed)
@@ -143,12 +184,11 @@ void AampRialtoPlaybackController::ReleaseHold(PlayHold hold, const char *reason
 		AAMPLOG_INFO("hold %s released by %s, remaining=0x%x",
 			HoldName(hold), reason, remaining);
 	}
-
 	if (issuePlay)
 	{
 		AAMPLOG_INFO("all holds clear - issuing play deferred until %s", reason);
-		m_onPlay(reason);
 	}
+	Dispatch(issuePlay, startPreRoll, reason);
 }
 
 bool AampRialtoPlaybackController::IsHeld(PlayHold hold) const

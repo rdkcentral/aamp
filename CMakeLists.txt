@@ -505,6 +505,7 @@ set(LIBAAMP_SOURCES
 	direct-rialto/AampRialtoMediaSource.cpp
 	direct-rialto/AampRialtoPlaybackController.cpp
 	direct-rialto/AampRialtoSegmentPosition.cpp
+	direct-rialto/AampRialtoPreRollMonitor.cpp
 	direct-rialto/AampRialtoPlayer.h
 	direct-rialto/AampRialtoControlBackend.cpp
 	direct-rialto/PrivateInstanceAAMPNotifiable.cpp

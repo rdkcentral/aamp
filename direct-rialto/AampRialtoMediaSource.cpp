@@ -28,6 +28,7 @@
 #include "mp4demux/MP4Demux.h"
 #include <algorithm>
 #include <cinttypes>
+#include <cmath>
 
 // ---------------------------------------------------------------------------
 // Anonymous helpers
@@ -104,6 +105,7 @@ void AampRialtoMediaSource::reset()
 	m_pendingCodecData = nullptr;
 
 	m_firstPtsMs.store(kFirstPtsNotSet, std::memory_order_relaxed);
+	m_lastAcceptedEndMs.store(kFirstPtsNotSet, std::memory_order_relaxed);
 }
 
 void AampRialtoMediaSource::unblockInjection(
@@ -148,6 +150,7 @@ void AampRialtoMediaSource::unblockInjection(
 	// Reset segment-start so the next injection establishes a fresh
 	// baseline after the seek.  Written outside the lock (atomic).
 	m_firstPtsMs.store(kFirstPtsNotSet, std::memory_order_relaxed);
+	m_lastAcceptedEndMs.store(kFirstPtsNotSet, std::memory_order_relaxed);
 }
 
 void AampRialtoMediaSource::gateInjection(
@@ -297,6 +300,18 @@ bool AampRialtoMediaSource::sendHaveData(
 int64_t AampRialtoMediaSource::firstPtsMs() const
 {
 	return m_firstPtsMs.load(std::memory_order_relaxed);
+}
+
+int64_t AampRialtoMediaSource::injectedSpanMs() const
+{
+	const int64_t first = m_firstPtsMs.load(std::memory_order_relaxed);
+	const int64_t end = m_lastAcceptedEndMs.load(std::memory_order_relaxed);
+	int64_t span = 0;
+	if ((first != kFirstPtsNotSet) && (end != kFirstPtsNotSet) && (end > first))
+	{
+		span = end - first;
+	}
+	return span;
 }
 
 bool AampRialtoMediaSource::waitForAttach()
@@ -850,6 +865,9 @@ void AampRialtoMediaSource::handleAddSegmentCompletion(
 			AAMPLOG_INFO("firstPtsMs set to %" PRId64 " for sourceId=%d",
 				ptsMs, m_sourceId);
 		}
+		m_lastAcceptedEndMs.store(
+			ptsMs + std::llround(sampleDurationSec * 1000.0),
+			std::memory_order_relaxed);
 	}
 	else
 	{

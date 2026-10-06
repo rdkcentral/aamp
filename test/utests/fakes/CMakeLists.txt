@@ -17,11 +17,13 @@
 
 file(GLOB fakes_SRC "*.cpp")
 
-# FakeAampRialtoPlayer constructs a real AampRialtoPlaybackController and
-# AampRialtoSegmentPosition, neither of which has a fake of its own.
+# FakeAampRialtoPlayer constructs a real AampRialtoPlaybackController,
+# AampRialtoSegmentPosition and AampRialtoPreRollMonitor, none of which has a
+# fake of its own.
 list(APPEND fakes_SRC
 	"${CMAKE_CURRENT_SOURCE_DIR}/../../../direct-rialto/AampRialtoPlaybackController.cpp"
-	"${CMAKE_CURRENT_SOURCE_DIR}/../../../direct-rialto/AampRialtoSegmentPosition.cpp")
+	"${CMAKE_CURRENT_SOURCE_DIR}/../../../direct-rialto/AampRialtoSegmentPosition.cpp"
+	"${CMAKE_CURRENT_SOURCE_DIR}/../../../direct-rialto/AampRialtoPreRollMonitor.cpp")
 
 set(AAMP_ROOT "../../../")
 set(UTESTS_ROOT "..")

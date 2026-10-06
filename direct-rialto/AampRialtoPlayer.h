@@ -40,6 +40,7 @@
 #include "IStreamSinkNotifiable.h"
 #include "AampRialtoMediaSource.h"
 #include "AampRialtoPlaybackController.h"
+#include "AampRialtoPreRollMonitor.h"
 #include "AampRialtoSegmentPosition.h"
 #include "IDirectRialtoCC.h"
 #include "AampRialtoMonitorAV.h"
@@ -475,6 +476,23 @@ private:
 	/// records the request; the PlayHold values describe why playback
 	/// cannot start yet.  See AampRialtoPlaybackController.
 	AampRialtoPlaybackController m_playbackController;
+
+	/// Releases PlayHold::PreRollIncomplete once enough data is queued.
+	/// Declared after m_playbackController, which its completion calls into.
+	std::unique_ptr<AampRialtoPreRollMonitor> m_preRollMonitor;
+
+	/// True when eAAMPConfig_GStreamerBufferingBeforePlay is set and @p rate
+	/// is normal play rate - the reference only pre-rolls at 1x.
+	bool IsPreRollEnabled(int rate) const;
+
+	/// Abandon any pre-roll in progress, then apply PlayHold::PreRollIncomplete
+	/// if pre-roll is enabled for @p rate, or release it otherwise.
+	void ArmPreRoll(int rate, const char *reason);
+
+	/// Ungate every source and start polling the primary track.  Invoked by
+	/// the playback controller when only PlayHold::PreRollIncomplete holds an
+	/// outstanding play request.
+	void StartPreRoll(const char *reason);
 
 	/// Ungate every source and issue play().  Invoked by the playback
 	/// controller once a play request has no remaining holds.

@@ -207,6 +207,13 @@ namespace {
 
 	constexpr unsigned int kMsPerSecond = 1000;
 
+	/// Pre-roll target, mirroring the GStreamer reference: the default
+	/// SocInterface queued-frame floor (REQUIRED_QUEUED_FRAMES_DEFAULT),
+	/// polled at DEFAULT_BUFFERING_TO_MS for up to DEFAULT_BUFFERING_MAX_MS.
+	constexpr uint32_t kPreRollMinQueuedFrames = 4;
+	constexpr guint    kPreRollPollIntervalMs  = 10;
+	constexpr int64_t  kPreRollTimeoutMs       = 1000;
+
 	const char *PlaybackStateName(firebolt::rialto::PlaybackState state)
 	{
 		const char *name = "UNKNOWN";
@@ -306,8 +313,19 @@ AampRialtoPlayer::AampRialtoPlayer(
 	, m_sourceCreator(std::move(sourceCreator))
 	, m_client(nullptr)
 	, m_pipeline(nullptr)
-	, m_playbackController([this](const char *reason) { IssuePlay(reason); })
+	, m_playbackController(
+		[this](const char *reason) { IssuePlay(reason); },
+		[this](const char *reason) { StartPreRoll(reason); })
 {
+	m_preRollMonitor = std::make_unique<AampRialtoPreRollMonitor>(
+		AampRialtoPreRollMonitor::Config{
+			kPreRollMinQueuedFrames, kPreRollPollIntervalMs, kPreRollTimeoutMs},
+		[this]()
+		{
+			m_playbackController.ReleaseHold(PlayHold::PreRollIncomplete,
+				"PreRollComplete");
+		});
+
 	if (notifiable == nullptr)
 	{
 		m_notifiableAdapter = std::make_unique<PrivateInstanceAAMPNotifiable>(aamp);
@@ -322,6 +340,7 @@ AampRialtoPlayer::AampRialtoPlayer(
 
 AampRialtoPlayer::~AampRialtoPlayer()
 {
+	m_preRollMonitor->Stop();
 	StopProgressTimer();
 	for (auto &source : m_sources)
 	{
@@ -605,6 +624,7 @@ void AampRialtoPlayer::BeginNewSession()
 	// play() after the new pipeline attaches its sources.  Stop() marks the
 	// end of a session and is what cancels the request.
 	m_playbackController.AddHold(PlayHold::SourcesNotAttached, "Configure");
+	ArmPreRoll(m_rate.load(std::memory_order_relaxed), "Configure");
 	for (auto &pa : m_pendingAttach)
 	{
 		pa.reset();
@@ -1309,6 +1329,81 @@ void AampRialtoPlayer::LogSourceSnapshot(const char *context)
 	}
 }
 
+bool AampRialtoPlayer::IsPreRollEnabled(int rate) const
+{
+	return (rate == AAMP_NORMAL_PLAY_RATE) && (m_aamp != nullptr) &&
+		m_aamp->mConfig->IsConfigSet(eAAMPConfig_GStreamerBufferingBeforePlay);
+}
+
+void AampRialtoPlayer::ArmPreRoll(int rate, const char *reason)
+{
+	m_preRollMonitor->Stop();
+	if (IsPreRollEnabled(rate))
+	{
+		m_playbackController.AddHold(PlayHold::PreRollIncomplete, reason);
+	}
+	else
+	{
+		m_playbackController.ReleaseHold(PlayHold::PreRollIncomplete, reason);
+	}
+}
+
+void AampRialtoPlayer::StartPreRoll(const char *reason)
+{
+	// Video carries the reference timeline; audio only for audio-only content.
+	AampMediaType primaryType = eMEDIATYPE_VIDEO;
+	const auto *videoSource = m_sources[eMEDIATYPE_VIDEO].get();
+	if (!videoSource || !videoSource->isAttached())
+	{
+		primaryType = eMEDIATYPE_AUDIO;
+	}
+	const auto *primary = m_sources[primaryType].get();
+
+	if (!m_pipeline || !primary || !primary->isAttached())
+	{
+		AAMPLOG_WARN("pre-roll skipped (%s) - no pipeline or attached "
+			"primary source", reason);
+		m_playbackController.ReleaseHold(PlayHold::PreRollIncomplete,
+			"PreRoll(skipped)");
+	}
+	else
+	{
+		// Every other hold is clear, so sources are attached, no flush is in
+		// progress and the position is resolved: Rialto will not treat data
+		// sent now as stale.
+		UngateAllSources("PreRoll");
+
+		// Hold the pipeline by value so an in-flight poll survives Stop().
+		auto pipeline = m_pipeline;
+		const int32_t sourceId = primary->sourceId();
+		AampRialtoPreRollMonitor::Probe probe;
+		probe.queuedFrames = [pipeline, sourceId](uint32_t &frames)
+		{
+			return pipeline->getQueuedFrames(sourceId, frames);
+		};
+		probe.endOfStream = [this, primaryType]()
+		{
+			bool eos = false;
+			auto *source = getSource(primaryType);
+			if (source)
+			{
+				std::lock_guard<std::mutex> lock(source->state().mu);
+				eos = source->state().eos;
+			}
+			return eos;
+		};
+		probe.injectedSpanMs = [this, primaryType]()
+		{
+			auto *source = getSource(primaryType);
+			return source ? source->injectedSpanMs() : int64_t{0};
+		};
+
+		AAMPLOG_MIL("pre-roll started (%s) primary mediaType=%d sourceId=%d",
+			reason, static_cast<int>(primaryType), sourceId);
+		m_preRollMonitor->Start(std::move(probe));
+	}
+}
+
 void AampRialtoPlayer::IssuePlay(const char *reason)
 {
 	if (!m_pipeline)
@@ -1533,6 +1628,7 @@ void AampRialtoPlayer::StopInternal(bool keepLastFrame, bool preservePendingPosi
 	WaitForFlushToComplete();
 
 	StopProgressTimer();
+	m_preRollMonitor->Stop();
 	if (m_monitorAV)
 	{
 		m_monitorAV->stop();
@@ -1714,6 +1810,9 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown, boo
 		m_stateMachine.onFlush();
 	}
 
+	// The Flushing hold applied on entry keeps this from issuing play().
+	ArmPreRoll(rate, "Flush");
+
 	// Wake any in-flight data so it abandons the current batch.
 	for (auto &source : m_sources)
 	{
@@ -1814,6 +1913,14 @@ bool AampRialtoPlayer::Pause(bool pause, bool forceStopGstreamerPreBuffering)
 			m_playbackController.CancelPlayRequest("Pause");
 			m_playbackController.ReleaseHold(PlayHold::FragmentCaching,
 				"Pause");
+			if (forceStopGstreamerPreBuffering)
+			{
+				// Mirrors InterfacePlayerRDK::Pause(): stop pre-buffering so it
+				// cannot later promote this paused pipeline to playing.
+				m_preRollMonitor->Stop();
+				m_playbackController.ReleaseHold(PlayHold::PreRollIncomplete,
+					"Pause(forceStopGstreamerPreBuffering)");
+			}
 			result = m_pipeline->pause();
 		}
 		else

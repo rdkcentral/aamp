@@ -6573,3 +6573,215 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 
 	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::IDLE);
 }
+
+// ===========================================================================
+// Pre-roll before play() (gstBufferAndPlay)
+// ===========================================================================
+
+/**
+ * @class AampRialtoPlayerPreRollTest
+ * @brief Enables eAAMPConfig_GStreamerBufferingBeforePlay and captures the
+ *        10 ms pre-roll poll timer so tests can drive it.
+ *
+ * Oracle: InterfacePlayerRDK holds the pipeline PAUSED with a target of
+ * PLAYING while buffering_enabled, and buffering_timeout promotes it once the
+ * video decoder has queued enough frames.  Only normal-rate playback
+ * pre-rolls; Pause(true, forceStopGstreamerPreBuffering=true) abandons it.
+ */
+class AampRialtoPlayerPreRollTest : public AampRialtoPlayerWithDemuxTest
+{
+protected:
+	static constexpr guint kPreRollPollMs = 10u;
+
+	void SetUp() override
+	{
+		AampRialtoPlayerWithDemuxTest::SetUp();
+		ON_CALL(*g_mockAampConfig,
+			IsConfigSet(eAAMPConfig_GStreamerBufferingBeforePlay))
+			.WillByDefault(Return(true));
+		ON_CALL(*g_mockGLib, g_timeout_add(kPreRollPollMs, _, _))
+			.WillByDefault(Invoke(
+				[this](guint, GSourceFunc fn, gpointer data)
+				{
+					m_preRollFn = fn;
+					m_preRollData = data;
+					++m_preRollStarts;
+					return m_nextTimerId++;
+				}));
+	}
+
+	/// Tune to the point where Stream() has been called and all sources
+	/// are attached.
+	void TuneAndStream()
+	{
+		Configure();
+		SendVideoInitFragment();
+		SendAudioInitFragment();
+		ASSERT_EQ(m_player->GetCurrentPlayerState(),
+			PlayerStateId::SOURCES_ATTACHED);
+		m_player->Stream();
+	}
+
+	void SetQueuedFrames(uint32_t frames)
+	{
+		ON_CALL(*m_mockPipelinePtr, getQueuedFrames(_, _))
+			.WillByDefault(DoAll(SetArgReferee<1>(frames), Return(true)));
+	}
+
+	gboolean PollPreRoll()
+	{
+		return m_preRollFn(m_preRollData);
+	}
+
+	GSourceFunc m_preRollFn{nullptr};
+	gpointer m_preRollData{nullptr};
+	int m_preRollStarts{0};
+};
+
+TEST_F(AampRialtoPlayerPreRollTest, Tune_DefersPlayAndUngatesSources)
+{
+	/**
+	 * @brief With pre-roll enabled, Stream() lets data flow into the paused
+	 *        pipeline but must not issue play() yet.
+	 */
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).Times(0);
+
+	TuneAndStream();
+
+	EXPECT_EQ(m_preRollStarts, 1);
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_VIDEO]->state().gateMode,
+		AampRialtoMediaSource::GateMode::NONE);
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_AUDIO]->state().gateMode,
+		AampRialtoMediaSource::GateMode::NONE);
+}
+
+TEST_F(AampRialtoPlayerPreRollTest, BelowFloor_HoldsPlay)
+{
+	TuneAndStream();
+	SetQueuedFrames(3);
+
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).Times(0);
+	EXPECT_EQ(PollPreRoll(), G_SOURCE_CONTINUE);
+}
+
+TEST_F(AampRialtoPlayerPreRollTest, FloorReached_IssuesPlay)
+{
+	TuneAndStream();
+	SetQueuedFrames(4);
+
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).Times(1).WillOnce(Return(true));
+	EXPECT_EQ(PollPreRoll(), G_SOURCE_REMOVE);
+}
+
+TEST_F(AampRialtoPlayerPreRollTest, QueuedFramesUnavailable_IssuesPlay)
+{
+	/**
+	 * @brief A server that cannot report queued frames must not cost a full
+	 *        timeout on every tune.
+	 */
+	TuneAndStream();
+	ON_CALL(*m_mockPipelinePtr, getQueuedFrames(_, _))
+		.WillByDefault(Return(false));
+
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).Times(1).WillOnce(Return(true));
+	PollPreRoll();
+}
+
+TEST_F(AampRialtoPlayerPreRollTest, Disabled_PlaysImmediately)
+{
+	ON_CALL(*g_mockAampConfig,
+		IsConfigSet(eAAMPConfig_GStreamerBufferingBeforePlay))
+		.WillByDefault(Return(false));
+
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).Times(1).WillOnce(Return(true));
+	TuneAndStream();
+
+	EXPECT_EQ(m_preRollStarts, 0);
+}
+
+TEST_F(AampRialtoPlayerPreRollTest, SeekAtNormalRate_PreRollsAgain)
+{
+	TuneAndStream();
+	SetQueuedFrames(4);
+	PollPreRoll();
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+	::testing::Mock::VerifyAndClearExpectations(m_mockPipelinePtr);
+
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(_)).WillOnce(Return(true));
+	m_player->Flush(/*position=*/10.0, /*rate=*/1, /*shouldTearDown=*/false);
+	m_player->Stream();
+	SetQueuedFrames(0);
+
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).Times(0);
+	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
+	EXPECT_EQ(m_preRollStarts, 2);
+	::testing::Mock::VerifyAndClearExpectations(m_mockPipelinePtr);
+
+	SetQueuedFrames(4);
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).Times(1).WillOnce(Return(true));
+	PollPreRoll();
+}
+
+TEST_F(AampRialtoPlayerPreRollTest, TrickplayFlush_SkipsPreRoll)
+{
+	/**
+	 * @brief The reference only pre-rolls at normal play rate.
+	 */
+	TuneAndStream();
+	SetQueuedFrames(4);
+	PollPreRoll();
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+	::testing::Mock::VerifyAndClearExpectations(m_mockPipelinePtr);
+
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(_)).WillOnce(Return(true));
+	m_player->Flush(/*position=*/10.0, /*rate=*/4, /*shouldTearDown=*/false);
+	m_player->Stream();
+
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).Times(1).WillOnce(Return(true));
+	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
+	EXPECT_EQ(m_preRollStarts, 1);
+}
+
+TEST_F(AampRialtoPlayerPreRollTest, PauseWithForceStop_AbandonsPreRoll)
+{
+	/**
+	 * @brief Mirrors InterfacePlayerRDK::Pause(): forceStopGstreamerPreBuffering
+	 *        ends pre-buffering so it cannot later promote a paused pipeline.
+	 */
+	TuneAndStream();
+
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).Times(0);
+	m_player->Pause(/*pause=*/true, /*forceStopGstreamerPreBuffering=*/true);
+	SetQueuedFrames(4);
+	EXPECT_EQ(PollPreRoll(), G_SOURCE_REMOVE);
+	::testing::Mock::VerifyAndClearExpectations(m_mockPipelinePtr);
+
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).Times(1).WillOnce(Return(true));
+	m_player->Stream();
+	EXPECT_EQ(m_preRollStarts, 1);
+}
+
+TEST_F(AampRialtoPlayerPreRollTest, PauseWithoutForceStop_KeepsPreRoll)
+{
+	TuneAndStream();
+	m_player->Pause(/*pause=*/true, /*forceStopGstreamerPreBuffering=*/false);
+
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).Times(0);
+	m_player->Stream();
+	::testing::Mock::VerifyAndClearExpectations(m_mockPipelinePtr);
+
+	SetQueuedFrames(4);
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).Times(1).WillOnce(Return(true));
+	PollPreRoll();
+}
+
+TEST_F(AampRialtoPlayerPreRollTest, Stop_StalePollDoesNotPlay)
+{
+	TuneAndStream();
+	SetQueuedFrames(4);
+
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).Times(0);
+	m_player->Stop(false);
+
+	EXPECT_EQ(PollPreRoll(), G_SOURCE_REMOVE);
+}

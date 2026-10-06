@@ -476,6 +476,13 @@ public:
 	virtual int64_t firstPtsMs() const;
 
 	/**
+	 * @brief Span (ms) of media accepted by Rialto since the last reset or
+	 *        unblockInjection(): from the first accepted PTS to the end of
+	 *        the last accepted segment.  Zero if nothing has been accepted.
+	 */
+	int64_t injectedSpanMs() const;
+
+	/**
 	 * @brief Signal end-of-stream for this source.
 	 */
 	void signalEos(firebolt::rialto::IMediaPipeline *pipeline);
@@ -580,6 +587,10 @@ protected:
 	/// compare-exchange after addSegment(OK) in injectOneSample().
 	/// kFirstPtsNotSet = not set.
 	std::atomic<int64_t> m_firstPtsMs{kFirstPtsNotSet};
+
+	/// End (PTS + duration, ms) of the last segment Rialto accepted since
+	/// the last reset or unblockInjection().  kFirstPtsNotSet = not set.
+	std::atomic<int64_t> m_lastAcceptedEndMs{kFirstPtsNotSet};
 
 private:
 	// -----------------------------------------------------------------

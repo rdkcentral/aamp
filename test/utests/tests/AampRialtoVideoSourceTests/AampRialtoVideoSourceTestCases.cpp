@@ -1427,6 +1427,48 @@ TEST_F(AampRialtoVideoSourceTest,
 }
 
 /**
+ * @test AampRialtoVideoSource_InjectedSpanMs_NothingAccepted_IsZero
+ * @brief Verify injectedSpanMs is zero before Rialto accepts any segment.
+ */
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_InjectedSpanMs_NothingAccepted_IsZero)
+{
+	EXPECT_EQ(m_source.injectedSpanMs(), 0);
+}
+
+/**
+ * @test AampRialtoVideoSource_InjectedSpanMs_CoversAcceptedSegment
+ * @brief Verify injectedSpanMs spans from the first accepted PTS to the end
+ *        of the last accepted segment, and resets with unblockInjection().
+ */
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_InjectedSpanMs_CoversAcceptedSegment)
+{
+	auto codecInfo = MakeH264CodecInfo();
+	m_source.attachOrUpdate(*m_pipelinePtr, codecInfo, nullptr, -1);
+	{
+		auto &st = m_source.state();
+		std::lock_guard<std::mutex> lock(st.mu);
+		st.hasPending        = true;
+		st.pendingRequestId  = 67;
+		st.pendingFrameCount = 1;
+		st.injectorActive    = true;
+	}
+	ON_CALL(*m_pipelinePtr, addSegment(_, _))
+		.WillByDefault(Return(firebolt::rialto::AddSegmentStatus::OK));
+
+	auto buf = std::make_shared<std::vector<uint8_t>>(
+		std::vector<uint8_t>{0x10, 0x20});
+	m_source.processDataFragment(*m_pipelinePtr, std::move(buf),
+		/*fpts=*/7.5, /*fdts=*/7.5, /*fDuration=*/0.040, 0.0);
+
+	EXPECT_NEAR(m_source.injectedSpanMs(), 40, 1);
+
+	m_source.unblockInjection(m_pipelinePtr, "test");
+	EXPECT_EQ(m_source.injectedSpanMs(), 0);
+}
+
+/**
  * @test AampRialtoVideoSource_ProcessDataFragment_ParseFails_ReturnsFalse
  * @brief Verify processDataFragment returns false when Parse fails.
  */
