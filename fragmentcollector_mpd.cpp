@@ -1232,10 +1232,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 						bool shouldFetch;
 						if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp))
 						{
-							// Period@duration is not trimmed when a Period's head is culled (start is shifted
-							// forward by the delta), so start+duration overshoots the real Period end.
-							double toleranceEndTime = endTime -
-								mMPDParseHelper->aamp_GetPeriodStartTimeDeltaRelativeToPTSOffset(mpd->GetPeriods().at(mCurrentPeriodIdx));
+							double toleranceEndTime = endTime - GetPeriodDurationOvershootSec(mpd->GetPeriods().at(mCurrentPeriodIdx));
 							double periodEndBoundary = toleranceEndTime - AAMP_DASH_PERIOD_TAIL_TOLERANCE_SEC;
 							if((firstSegStartTime + positionInPeriod) >= periodEndBoundary && (firstSegStartTime + positionInPeriod) < toleranceEndTime)
 							{
@@ -1556,7 +1553,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 
 			bool bProcessFragment = true;
 			double periodEndBoundary = mPeriodEndTime;
-			if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp))
+			if (IsPeriodTailDropActive(mpd->GetPeriods().at(mCurrentPeriodIdx)))
 			{
 				// A server ad-splicer can leave a negligible tail fragment/chunk before the
 				// Period end (e.g. an audio segment duplicated across the ad-splice boundary).
@@ -2331,6 +2328,28 @@ void StreamAbstractionAAMP_MPD::ApplyLiveOffsetWorkaroundForSAP( double seekPosi
 }
 
 /**
+ * @brief Seconds by which Period start + mPeriodDuration overshoots the real Period end
+ */
+double StreamAbstractionAAMP_MPD::GetPeriodDurationOvershootSec(IPeriod *period)
+{
+	return period->GetDuration().empty() ? 0.0 : mMPDParseHelper->aamp_GetPeriodStartTimeDeltaRelativeToPTSOffset(period);
+}
+
+/**
+ * @brief True if Period-tail segments are dropped for this Period
+ */
+bool StreamAbstractionAAMP_MPD::IsPeriodTailDropActive(IPeriod *period)
+{
+	if (!ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) || mIsFogTSB || mCdaiObject->mAdState == AdState::IN_ADBREAK_AD_PLAYING)
+	{
+		return false;
+	}
+	// A live-edge Period without a declared duration is still growing, so its end is unreliable.
+	bool liveEdgePeriodPlayback = mIsLiveManifest && (mCurrentPeriodIdx == mMPDParseHelper->mUpperBoundaryPeriod);
+	return !(liveEdgePeriodPlayback && period->GetDuration().empty());
+}
+
+/**
  * @brief Mirrors PushNextFragment's Period-tail tolerance check, so a seek
  * landing on the same negligible sliver fragment is treated as reaching
  * Period end instead of selecting it.
@@ -2409,9 +2428,8 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 				{
 					uint64_t firstTimelineStart = timelines.at(0)->GetStartTime();
 					double firstSegStartTime = mPeriodStartTime;
-					// Period@duration is not trimmed when the head is culled; see PushNextFragment.
 					double endTime = (mPeriodStartTime + (mPeriodDuration / 1000)) -
-						mMPDParseHelper->aamp_GetPeriodStartTimeDeltaRelativeToPTSOffset(mpd->GetPeriods().at(mCurrentPeriodIdx));
+						GetPeriodDurationOvershootSec(mpd->GetPeriods().at(mCurrentPeriodIdx));
 					if (firstTimelineStart < pto)
 					{
 						firstSegStartTime = (double)firstTimelineStart / timeScale;
@@ -2757,7 +2775,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 					{
 						// Same Period-tail tolerance check as PushNextFragment, so we don't land
 						// on a negligible sliver fragment/chunk before the Period end.
-						double periodEndBoundary = ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) ? (mPeriodEndTime - AAMP_DASH_PERIOD_TAIL_TOLERANCE_SEC) : mPeriodEndTime;
+						double periodEndBoundary = IsPeriodTailDropActive(mpd->GetPeriods().at(mCurrentPeriodIdx)) ? (mPeriodEndTime - AAMP_DASH_PERIOD_TAIL_TOLERANCE_SEC) : mPeriodEndTime;
 						skipTime = periodEndBoundary - pMediaStreamContext->fragmentDescriptor.Time;
 						if ( skipTime > segmentDuration )
 						{
@@ -9885,15 +9903,9 @@ void StreamAbstractionAAMP_MPD::GetStartAndDurationForPtsRestamping(AampTime &st
 
 	// Period-tail segments dropped by PushNextFragment are never injected, so they must not advance mNextPts.
 	double tailCutoffSec = -1.0;
-	if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && !mIsFogTSB && (0 != mPeriodDuration) &&
-		(mCdaiObject->mAdState != AdState::IN_ADBREAK_AD_PLAYING))
+	if ((0 != mPeriodDuration) && IsPeriodTailDropActive(period))
 	{
-		bool liveEdgePeriodPlayback = mIsLiveManifest && (mCurrentPeriodIdx == mMPDParseHelper->mUpperBoundaryPeriod);
-		if (!liveEdgePeriodPlayback || !period->GetDuration().empty())
-		{
-			tailCutoffSec = (mPeriodDuration / 1000) -
-				mMPDParseHelper->aamp_GetPeriodStartTimeDeltaRelativeToPTSOffset(period) - AAMP_DASH_PERIOD_TAIL_TOLERANCE_SEC;
-		}
+		tailCutoffSec = (mPeriodDuration / 1000) - GetPeriodDurationOvershootSec(period) - AAMP_DASH_PERIOD_TAIL_TOLERANCE_SEC;
 	}
 
 	if (mMediaStreamContext[eMEDIATYPE_AUDIO])

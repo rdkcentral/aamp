@@ -3296,6 +3296,36 @@ static constexpr const char *kPeriodTailCulledHeadLastManifest = R"(<?xml versio
 	</Period>
 </MPD>)";
 
+static constexpr const char *kPeriodTailStartTimeBasedCulledHeadManifest = R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" minBufferTime="PT2S" type="static"
+	 mediaPresentationDuration="PT20S">
+	<Period id="p0" start="PT0S">
+		<AdaptationSet id="0" contentType="video">
+			<Representation id="0" mimeType="video/mp4" codecs="avc1.640028"
+							bandwidth="800000" width="640" height="360">
+				<SegmentTemplate timescale="1000" initialization="video_p0_init.mp4"
+								 media="video_p0_$Number$.m4s" startNumber="1">
+					<SegmentTimeline>
+						<S t="3000" d="2000" r="2" />
+						<S t="9000" d="800" />
+						<S t="9800" d="200" />
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+	</Period>
+	<Period id="p1" start="PT10S">
+		<AdaptationSet id="0" contentType="video">
+			<Representation id="0" mimeType="video/mp4" codecs="avc1.640028"
+							bandwidth="800000" width="640" height="360">
+				<SegmentTemplate timescale="1000" duration="2000"
+								 initialization="video_p1_init.mp4"
+								 media="video_p1_$Number$.m4s" startNumber="1" />
+			</Representation>
+		</AdaptationSet>
+	</Period>
+</MPD>)";
+
 static constexpr const char *kPeriodTailTemplateManifest = R"(<?xml version="1.0" encoding="utf-8"?>
 <MPD xmlns="urn:mpeg:dash:schema:mpd:2011" minBufferTime="PT2S" type="static"
 	 mediaPresentationDuration="PT10S">
@@ -3765,6 +3795,70 @@ TEST_F(FetcherLoopTests, SegmentTimeline_PushNextFragment_TailGateOn_CulledHeadL
 	EXPECT_CALL(*g_mockMediaStreamContext,
 		CacheFragment(_, _, _, _, _, false, _, _, _))
 		.Times(0);
+	EXPECT_TRUE(PushNextFragment(eTRACK_VIDEO));
+}
+
+/**
+ * @brief Without Period@duration the Period length is next start - shifted
+ *        start, which already excludes the culled head, so a segment with
+ *        1s left must still be fetched (regression for a double count).
+ */
+TEST_F(FetcherLoopTests, SegmentTimeline_PushNextFragment_TailGateOn_StartTimeBasedCulledHead_FetchesLastSegment)
+{
+	ASSERT_EQ(InitializePeriodTailMPD(kPeriodTailStartTimeBasedCulledHeadManifest, true),
+		  eAAMPSTATUS_OK);
+	MediaStreamContext *ctx = GetVideoContext();
+	ASSERT_NE(ctx, nullptr);
+	SetTimelinePosition(ctx, 9000, 1, 4);
+
+	EXPECT_CALL(*g_mockMediaStreamContext,
+		CacheFragment(_, _, _, _, _, false, _, _, _))
+		.WillOnce(Return(true));
+	EXPECT_TRUE(PushNextFragment(eTRACK_VIDEO));
+}
+
+/**
+ * @brief Same manifest: the 200ms sliver at the Period end is still skipped.
+ */
+TEST_F(FetcherLoopTests, SegmentTimeline_PushNextFragment_TailGateOn_StartTimeBasedCulledHead_SkipsSliver)
+{
+	ASSERT_EQ(InitializePeriodTailMPD(kPeriodTailStartTimeBasedCulledHeadManifest, true),
+		  eAAMPSTATUS_OK);
+	MediaStreamContext *ctx = GetVideoContext();
+	ASSERT_NE(ctx, nullptr);
+	SetTimelinePosition(ctx, 9800, 2, 5);
+
+	EXPECT_CALL(*g_mockMediaStreamContext,
+		CacheFragment(_, _, _, _, _, false, _, _, _))
+		.Times(0);
+	EXPECT_TRUE(PushNextFragment(eTRACK_VIDEO));
+}
+
+/**
+ * @brief The non-timeline fetch path preserves a sliver while an ad is
+ *        actively playing, like the timeline path.
+ */
+TEST_F(FetcherLoopTests, SegmentTemplate_PushNextFragment_ActiveAd_Fetches)
+{
+	ASSERT_EQ(InitializePeriodTailMPD(kPeriodTailTemplateManifest, true),
+		  eAAMPSTATUS_OK);
+	MediaStreamContext *ctx = GetVideoContext();
+	ASSERT_NE(ctx, nullptr);
+	SetTemplatePosition(ctx, 9.8, 6);
+
+	auto cdaiObj = mTestableStreamAbstractionAAMP_MPD->GetCDAIObject();
+	cdaiObj->mAdBreaks = {
+		{"p0", AdBreakObject(30000, std::make_shared<std::vector<AdNode>>(),
+							 "", 0, 30000)}};
+	cdaiObj->mAdBreaks["p0"].ads->emplace_back(
+		false, false, true, "adId1", "url", 30000, "p0", 0, nullptr);
+	cdaiObj->mCurAdIdx = 0;
+	cdaiObj->mCurAds = cdaiObj->mAdBreaks["p0"].ads;
+	cdaiObj->mAdState = AdState::IN_ADBREAK_AD_PLAYING;
+
+	EXPECT_CALL(*g_mockMediaStreamContext,
+		CacheFragment(_, _, _, _, _, false, _, _, _))
+		.WillOnce(Return(true));
 	EXPECT_TRUE(PushNextFragment(eTRACK_VIDEO));
 }
 

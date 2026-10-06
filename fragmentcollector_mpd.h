@@ -356,6 +356,21 @@ public:
 	 */
 	bool ShouldTreatAsPeriodTailSliver(double fragmentPositionSeconds, double periodEndSeconds);
 	/**
+	 * @fn GetPeriodDurationOvershootSec
+	 * @brief Seconds by which Period start + mPeriodDuration overshoots the real
+	 * Period end because the head was culled. Only Period@duration is left
+	 * untrimmed; start-time and segment based durations already exclude it.
+	 * @param period Period being played
+	 */
+	double GetPeriodDurationOvershootSec(IPeriod *period);
+	/**
+	 * @fn IsPeriodTailDropActive
+	 * @brief True if Period-tail segments are dropped for this Period. Shared by the
+	 * fetch decisions and the PTS offset bookkeeping so they cannot disagree.
+	 * @param period Period being played
+	 */
+	bool IsPeriodTailDropActive(IPeriod *period);
+	/**
 	 * @fn GetFirstPeriodStartTime
 	 */
 	double GetFirstPeriodStartTime(void) override;
