@@ -1234,11 +1234,13 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 						{
 							double toleranceEndTime = endTime - GetPeriodDurationOvershootSec(mpd->GetPeriods().at(mCurrentPeriodIdx));
 							double periodEndBoundary = toleranceEndTime - AAMP_DASH_PERIOD_TAIL_TOLERANCE_SEC;
-							if((firstSegStartTime + positionInPeriod) >= periodEndBoundary && (firstSegStartTime + positionInPeriod) < toleranceEndTime)
+							// lastSegmentDuration is the previous end, which differs from this candidate's start after a 't' gap.
+							double candidatePosition = firstSegStartTime + ((double)pMediaStreamContext->fragmentDescriptor.Time - (double)firstStartTime) / timeScale;
+							if(candidatePosition >= periodEndBoundary && candidatePosition < toleranceEndTime)
 							{
 								AAMPLOG_WARN("Type[%d] dropping Period-tail fragment: only %fs remains before Period end (< %fs tolerance) fragmentPosition: %lf endTime: %lf",
-									pMediaStreamContext->type, toleranceEndTime - (firstSegStartTime + positionInPeriod), AAMP_DASH_PERIOD_TAIL_TOLERANCE_SEC,
-									(firstSegStartTime + positionInPeriod), toleranceEndTime);
+									pMediaStreamContext->type, toleranceEndTime - candidatePosition, AAMP_DASH_PERIOD_TAIL_TOLERANCE_SEC,
+									candidatePosition, toleranceEndTime);
 							}
 
 							// A Period still growing on a live edge has an unreliable periodEndBoundary,
@@ -1247,7 +1249,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 							bool periodDurationKnown = !mpd->GetPeriods().at(mCurrentPeriodIdx)->GetDuration().empty();
 							shouldFetch = mIsFogTSB ||
 									((0 != mPeriodDuration) &&
-										(((firstSegStartTime + positionInPeriod) < periodEndBoundary) || (liveEdgePeriodPlayback && !periodDurationKnown) || mCdaiObject->mAdState == AdState::IN_ADBREAK_AD_PLAYING));
+										((candidatePosition < periodEndBoundary) || (liveEdgePeriodPlayback && !periodDurationKnown) || mCdaiObject->mAdState == AdState::IN_ADBREAK_AD_PLAYING));
 						}
 						else
 						{
@@ -1570,6 +1572,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 			{
 				if(ISCONFIGSET(eAAMPConfig_EnableIgnoreEosSmallFragment))
 				{
+					// Opt-in fraction rule deliberately replaces the absolute tail tolerance here.
 					if(fragmentRequestTime >= mPeriodEndTime)
 					{
 						double fractionDuration = (mPeriodEndTime-pMediaStreamContext->fragmentDescriptor.Time)/fragmentDuration;
@@ -2543,7 +2546,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 									pMediaStreamContext->lastSegmentTime = pMediaStreamContext->fragmentDescriptor.Time - backDuration;
 									pMediaStreamContext->lastSegmentDuration = pMediaStreamContext->fragmentDescriptor.Time;
 								}
-								pMediaStreamContext->fragmentTime -= fragmentDuration;
+								pMediaStreamContext->fragmentTime -= ComputeFragmentDuration(backDuration, timeScale);
 								pMediaStreamContext->fragmentDescriptor.Time -= backDuration;
 								pMediaStreamContext->fragmentDescriptor.Number--;
 								pMediaStreamContext->fragmentRepeatCount--;

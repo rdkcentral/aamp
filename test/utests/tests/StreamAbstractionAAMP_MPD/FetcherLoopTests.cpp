@@ -3328,8 +3328,8 @@ static constexpr const char *kPeriodTailStartTimeBasedCulledHeadManifest = R"(<?
 
 static constexpr const char *kPeriodTailTemplateManifest = R"(<?xml version="1.0" encoding="utf-8"?>
 <MPD xmlns="urn:mpeg:dash:schema:mpd:2011" minBufferTime="PT2S" type="static"
-	 mediaPresentationDuration="PT10S">
-	<Period id="p0" start="PT0S" duration="PT10S">
+	 mediaPresentationDuration="PT10.2S">
+	<Period id="p0" start="PT0S" duration="PT10.2S">
 		<AdaptationSet id="0" contentType="video">
 			<Representation id="0" mimeType="video/mp4" codecs="avc1.640028"
 							bandwidth="800000" width="640" height="360">
@@ -3844,7 +3844,7 @@ TEST_F(FetcherLoopTests, SegmentTemplate_PushNextFragment_ActiveAd_Fetches)
 		  eAAMPSTATUS_OK);
 	MediaStreamContext *ctx = GetVideoContext();
 	ASSERT_NE(ctx, nullptr);
-	SetTemplatePosition(ctx, 9.8, 6);
+	SetTemplatePosition(ctx, 10.0, 6);
 
 	auto cdaiObj = mTestableStreamAbstractionAAMP_MPD->GetCDAIObject();
 	cdaiObj->mAdBreaks = {
@@ -3939,7 +3939,7 @@ TEST_F(FetcherLoopTests, SegmentTemplate_PushNextFragment_TailGateOff_Fetches)
 		  eAAMPSTATUS_OK);
 	MediaStreamContext *ctx = GetVideoContext();
 	ASSERT_NE(ctx, nullptr);
-	SetTemplatePosition(ctx, 9.8, 6);
+	SetTemplatePosition(ctx, 10.0, 6);
 
 	EXPECT_CALL(*g_mockMediaStreamContext,
 		CacheFragment(_, _, _, _, _, false, _, _, _))
@@ -3957,7 +3957,7 @@ TEST_F(FetcherLoopTests, SegmentTemplate_PushNextFragment_TailGateOn_Skips)
 		  eAAMPSTATUS_OK);
 	MediaStreamContext *ctx = GetVideoContext();
 	ASSERT_NE(ctx, nullptr);
-	SetTemplatePosition(ctx, 9.8, 6);
+	SetTemplatePosition(ctx, 10.0, 6);
 
 	EXPECT_CALL(*g_mockMediaStreamContext,
 		CacheFragment(_, _, _, _, _, false, _, _, _))
@@ -3999,6 +3999,24 @@ TEST_F(FetcherLoopTests, SegmentTimeline_SkipFragments_GeneralLanding_CulledHead
 
 	EXPECT_TRUE(ctx->eos);
 	EXPECT_EQ(ctx->fragmentDescriptor.Time, 9800u);
+}
+
+/**
+ * @brief Backing off a final sliver onto the previous timeline entry moves
+ *        fragmentTime by that entry's duration, as it does the descriptor time.
+ */
+TEST_F(FetcherLoopTests, SegmentTimeline_SkipFragments_SkipToEnd_BackOff_KeepsFragmentTimeConsistent)
+{
+	ASSERT_EQ(InitializePeriodTailMPD(kPeriodTailTimelineManifest, true),
+		  eAAMPSTATUS_OK);
+	MediaStreamContext *ctx = GetVideoContext();
+	ASSERT_NE(ctx, nullptr);
+	SetTimelinePosition(ctx, 9800, 2, 6);
+
+	mTestableStreamAbstractionAAMP_MPD->SkipFragments(ctx, 0.0, true, true);
+
+	EXPECT_EQ(ctx->fragmentDescriptor.Time, 8000u);
+	EXPECT_NEAR(ctx->fragmentTime, 8.0, 0.001);
 }
 
 /**
@@ -4104,12 +4122,12 @@ TEST_F(FetcherLoopTests, SegmentTemplate_SkipFragments_GeneralLanding_TailGateOn
 		  eAAMPSTATUS_OK);
 	MediaStreamContext *ctx = GetVideoContext();
 	ASSERT_NE(ctx, nullptr);
-	SetTemplatePosition(ctx, 9.8, 6);
+	SetTemplatePosition(ctx, 10.0, 6);
 
 	mTestableStreamAbstractionAAMP_MPD->SkipFragments(ctx, 0.05);
 
 	EXPECT_TRUE(ctx->eos);
-	EXPECT_NEAR(ctx->fragmentDescriptor.Time, 9.8, 0.001);
+	EXPECT_NEAR(ctx->fragmentDescriptor.Time, 10.0, 0.001);
 }
 
 /**
@@ -4122,12 +4140,12 @@ TEST_F(FetcherLoopTests, SegmentTemplate_SkipFragments_GeneralLanding_TailGateOf
 		  eAAMPSTATUS_OK);
 	MediaStreamContext *ctx = GetVideoContext();
 	ASSERT_NE(ctx, nullptr);
-	SetTemplatePosition(ctx, 9.8, 6);
+	SetTemplatePosition(ctx, 10.0, 6);
 
 	mTestableStreamAbstractionAAMP_MPD->SkipFragments(ctx, 0.05);
 
 	EXPECT_FALSE(ctx->eos);
-	EXPECT_NEAR(ctx->fragmentDescriptor.Time, 9.8, 0.001);
+	EXPECT_NEAR(ctx->fragmentDescriptor.Time, 10.0, 0.001);
 }
 
 /**
@@ -4140,12 +4158,12 @@ TEST_F(FetcherLoopTests, SegmentTemplate_SkipFragments_AdvanceLanding_TailGateOn
 		  eAAMPSTATUS_OK);
 	MediaStreamContext *ctx = GetVideoContext();
 	ASSERT_NE(ctx, nullptr);
-	SetTemplatePosition(ctx, 7.8, 5);
+	SetTemplatePosition(ctx, 8.0, 5);
 
 	mTestableStreamAbstractionAAMP_MPD->SkipFragments(ctx, 2.0);
 
 	EXPECT_TRUE(ctx->eos);
-	EXPECT_NEAR(ctx->fragmentDescriptor.Time, 9.8, 0.001);
+	EXPECT_NEAR(ctx->fragmentDescriptor.Time, 10.0, 0.001);
 }
 
 /**
@@ -4158,12 +4176,12 @@ TEST_F(FetcherLoopTests, SegmentTemplate_SkipFragments_AdvanceLanding_TailGateOf
 		  eAAMPSTATUS_OK);
 	MediaStreamContext *ctx = GetVideoContext();
 	ASSERT_NE(ctx, nullptr);
-	SetTemplatePosition(ctx, 7.8, 5);
+	SetTemplatePosition(ctx, 8.0, 5);
 
 	mTestableStreamAbstractionAAMP_MPD->SkipFragments(ctx, 2.0);
 
 	EXPECT_FALSE(ctx->eos);
-	EXPECT_NEAR(ctx->fragmentDescriptor.Time, 9.8, 0.001);
+	EXPECT_NEAR(ctx->fragmentDescriptor.Time, 10.0, 0.001);
 }
 
 /**

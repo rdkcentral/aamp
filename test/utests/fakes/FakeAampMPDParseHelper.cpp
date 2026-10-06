@@ -241,7 +241,7 @@ void AampMPDParseHelper::GetStartAndDurationFromTimeline(IPeriod * period, int r
 {
 	if (g_mockAampMPDParseHelper)
 	{
-		g_mockAampMPDParseHelper->GetStartAndDurationFromTimeline(period, representationIdx, adaptationSetIdx, scaledStartTime, duration);
+		g_mockAampMPDParseHelper->GetStartAndDurationFromTimeline(period, representationIdx, adaptationSetIdx, scaledStartTime, duration, tailCutoffSec);
 	}
 }
 
