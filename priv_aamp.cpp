@@ -5208,8 +5208,9 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 											long downloadbps = ((long)(buffer.size() / downloadTimeMS) * 8000);
 											long currentProfilebps = 0;
 											{
-												std::lock_guard<std::recursive_mutex> lock(mStreamLock);
-												if (mpStreamAbstractionAAMP)
+												std::unique_lock<std::recursive_mutex> lock(
+													mStreamLock, std::try_to_lock);
+												if (lock.owns_lock() && mpStreamAbstractionAAMP)
 												{
 													currentProfilebps = mpStreamAbstractionAAMP->GetVideoBitrate();
 												}
