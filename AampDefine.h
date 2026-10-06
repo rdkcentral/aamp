@@ -147,6 +147,7 @@
 #define DEFAULT_MAX_DOWNLOAD_BUFFER 10	/**< Default maximum download buffer in seconds, this can be used to limit player download job scheduling for DASH */
 #define DEFAULT_MONITOR_AV_REPORTING_INTERVAL 1000 /**< time interval in ms for MonitorAV reporting */
 #define DEFAULT_UTC_SYNC_MIN_INTERVAL_SEC	60	/**< Minimum interval between sync attempts */
+#define DEFAULT_EVENT_PROFILING_THRESHOLD_MS 500		/**< Default round-trip threshold (ms) for event profiling; logs only when exceeded */
 
 #define DEFAULT_EARLY_ABORT_PROFILE_BANDWIDTH_PERCENT 80 /**< By default, let's abort early if bps is less than 80% of profile bandwidth */
 

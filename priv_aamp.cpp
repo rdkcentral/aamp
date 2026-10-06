@@ -1915,6 +1915,8 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	mAampCacheHandler = new AampCacheHandler(mPlayerId);
 	// Create the event manager for player instance
 	mEventManager = new AampEventManager(mPlayerId);
+	// Apply profiling config immediately so it is active before the first tune
+	EnableEventProfiling();
 	// Create the CMCD collector
 	mCMCDCollector = new AampCMCDCollector();
 
@@ -14764,6 +14766,14 @@ void PrivateInstanceAAMP::UpdateMaxDRMSessions()
 	{
 		AAMPLOG_ERR("Discarded DRM session update as player is in state:%d", mState.load());
 	}
+}
+
+/**
+ * @brief EnableEventProfiling - Apply current event profiling config to AampEventManager
+ */
+void PrivateInstanceAAMP::EnableEventProfiling()
+{
+	mEventManager->SetEventProfilingConfig(ISCONFIGSET_PRIV(eAAMPConfig_EnableEventProfiling), GETCONFIGVALUE_PRIV(eAAMPConfig_EventProfilingThresholdMs));
 }
 
 /**
