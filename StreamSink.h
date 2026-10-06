@@ -139,9 +139,11 @@ public:
      *   @param[in]  position - playback position
      *   @param[in]  rate - Speed
      *   @param[in]  shouldTearDown - if pipeline is not in a valid state, tear down pipeline
+     *   @param[in]  positionIsAuthoritative - true if position is the definitive resume position,
+     *               false if it's a placeholder pending resolution from the next sample
      *   @return void
      */
-    virtual void Flush(double position = 0, int rate = AAMP_NORMAL_PLAY_RATE, bool shouldTearDown = true){}
+    virtual void Flush(double position = 0, int rate = AAMP_NORMAL_PLAY_RATE, bool shouldTearDown = true, bool positionIsAuthoritative = false){}
 
     /**
      *   @brief Flush the audio playbin
@@ -410,6 +412,15 @@ public:
      * @brief Notifies the injector to pause buffer pushing.
      */
     virtual void NotifyInjectorToPause() {};
+
+    /**
+     * @brief Unblocks an injector thread that may be blocked waiting to
+     *        push a buffer for the specified track, allowing injection
+     *        for that track to stop cleanly.
+     *
+     * @param[in] type - Media type of the track being stopped.
+     */
+    virtual void UnblockTrackInjection(AampMediaType type) {};
 
     /**
      * @brief Set stream capabilities based on codec info

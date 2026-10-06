@@ -1089,9 +1089,16 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 				// would then be missing and it is important for l2 tests
 				int64_t ptsOffset = cachedFragment->PTSOffsetSec * cachedFragment->timeScale;
 
-				(void)mIsoBmffHelper->RestampPts(cachedFragment->fragment, ptsOffset,
+				if (!mIsoBmffHelper->RestampPts(cachedFragment->fragment, ptsOffset,
 												cachedFragment->uri, name,
-												cachedFragment->timeScale);
+												cachedFragment->timeScale))
+				{
+					AAMPLOG_ERR("[%s] PTS restamp failed; scheduling retune", name);
+					aamp->ScheduleRetune(eGST_ERROR_PTS,
+						static_cast<AampMediaType>(type));
+					ret = false;
+					return;
+				}
 			}
 			else
 			{
@@ -1413,7 +1420,7 @@ void MediaTrack::RunInjectLoop()
 		{
 			try
 			{
-				if (!ISCONFIGSET(eAAMPConfig_useRialtoSink))
+				if (!aamp->UsingRialto())
 				{
 					subtitleClockThreadID = std::thread(&MediaTrack::UpdateSubtitleClockTask, this);
 					UpdateSubtitleClockTaskStarted = true;

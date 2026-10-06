@@ -166,7 +166,7 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 			
 		}
 
-		PlayerLogManager::SetLoggerInfo(AampLogManager::disableLogRedirection, gpGlobalConfig->IsConfigSet(eAAMPConfig_useRialtoSink), AampLogManager::aampLoglevel, AampLogManager::locked);
+		PlayerLogManager::SetLoggerInfo(AampLogManager::disableLogRedirection, gpGlobalConfig->IsUsingRialto(), AampLogManager::aampLoglevel, AampLogManager::locked);
 
 		//TR181 is not supported in firebolt
 		std::shared_ptr<PlayerExternalsInterface> pExternalsInterface = PlayerExternalsInterface::GetPlayerExternalsInterfaceInstance();
@@ -195,7 +195,7 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 	mConfig = *gpGlobalConfig;
 
 	// sd_journal logging doesn't work with AAMP/Rialto running in Container, so route to Ethan Logger instead
-	AampLogManager::enableEthanLogRedirection = mConfig.IsConfigSet(eAAMPConfig_useRialtoSink);
+	AampLogManager::enableEthanLogRedirection = mConfig.IsUsingRialto();
 
 	PlayerLogManager::SetLoggerInfo(AampLogManager::disableLogRedirection, AampLogManager::enableEthanLogRedirection, AampLogManager::aampLoglevel, AampLogManager::locked);
 	
@@ -996,7 +996,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 						aamp->rate = AAMP_NORMAL_PLAY_RATE;
 						aamp->mSinkPaused = false;
 						{
-							std::lock_guard<std::recursive_mutex> lock(aamp->GetStreamLock());
+							PrivateInstanceAAMP::SetRateProtect setRateLock(aamp);
 							aamp->TuneHelper(eTUNETYPE_SEEK, false);
 						}
 						// Notify speed change without state transition (keeps eSTATE_SEEKING)
@@ -1102,8 +1102,9 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 				aamp->CalculateTrickModePositionEOS();
 				aamp->EnableDownloads();
 				aamp->ResumeDownloads();
+
 				{
-					std::lock_guard<std::recursive_mutex> lock(aamp->GetStreamLock());
+					PrivateInstanceAAMP::SetRateProtect setRateLock(aamp);
 					aamp->TuneHelper(tuneTypePlay); // this unpauses pipeline as side effect
 				}
 			}
@@ -3405,8 +3406,8 @@ bool PlayerInstanceAAMP::InitAAMPConfig(const char *jsonStr)
 		}
 	}
 
-	// also enable Ethan log redirection if useRialtoSink enabled using initconfig option.
-	AampLogManager::enableEthanLogRedirection = ISCONFIGSET(eAAMPConfig_useRialtoSink);
+	// also enable Ethan log redirection if Rialto is enabled using initconfig option.
+	AampLogManager::enableEthanLogRedirection = aamp->UsingRialto();
 	PlayerLogManager::SetLoggerInfo(AampLogManager::disableLogRedirection, AampLogManager::enableEthanLogRedirection, AampLogManager::aampLoglevel, AampLogManager::locked);
 	return retVal;
 }
