@@ -1092,10 +1092,10 @@ TEST_F(AampConfigTests, DoCustomSetting)
 }
 
 /*
-	useDirectRialto is consumed	before the app can call InitAAMPConfig or
+	useDirectRialto is consumed before the app can call InitAAMPConfig or
 	before tune-time overrides apply, so overriding it after the player
 	instance exists (stream/app/tune settings) has no effect; DoCustomSetting
-	should revert such attempt.
+	should revert such an attempt.
 */
 TEST_F(AampConfigTests, DoCustomSettingRevertsDynamicUseDirectRialto)
 {
