@@ -169,8 +169,7 @@ AampMPDDownloader::AampMPDDownloader() :  mMPDBufferQ(),mMPDBufferSize(1),mMPDBu
 	mMPDDnldDataMtx(),mMPDDnldDataCondVar(),
 	mLLDashData(),mCurrentposDeltaToManifestEnd(-1),mPublishTime(0),mMinimalRefreshRetryCount(0),
 	mMPDNotifyPending(false),mPreProcessErrorCode(CURLE_OPERATION_TIMEDOUT),
-	mManifestRefreshStatus(),
-	mManifestRefreshRetryFailureCount(0),mManifestRefreshRetryFailureThreshold(DEFAULT_MANIFEST_REFRESH_FAILURE_THRESHOLD)
+	mManifestRefreshErrorCode(0),mManifestRefreshErrorType(AAMPStatusType::eAAMPSTATUS_OK)
 {
 }
 
@@ -317,9 +316,8 @@ void AampMPDDownloader::Release()
 		/**< Reset LLD Data*/
 		mLLDashData.clear();
 		mMinimalRefreshRetryCount = 0; //Reset the refresh interval retry counter
-		std::lock_guard<std::mutex> lock(mManifestRefreshStatusMutex);
-		mManifestRefreshRetryFailureCount.store(0);
-		mManifestRefreshStatus.store(ManifestRefreshStatus());
+		mManifestRefreshErrorType.store(AAMPStatusType::eAAMPSTATUS_OK);
+		mManifestRefreshErrorCode.store(0);
 		AAMPLOG_INFO("Release Called in MPD Downloader - Exit %ld %ld", mMPDData.use_count(),mMPDDnldCfg.use_count());
 	}
 }
@@ -522,23 +520,8 @@ void AampMPDDownloader::downloadMPDThread1()
 			{
 				errorCode = mMPDData->mMPDDownloadResponse->iHttpRetValue;
 			}
-			ManifestRefreshStatus refreshStatus(mMPDData->mMPDStatus, errorCode);
-
-			std::lock_guard<std::mutex> lock(mManifestRefreshStatusMutex);
-			if (refreshStatus.type == AAMPStatusType::eAAMPSTATUS_OK)
-			{
-				mManifestRefreshRetryFailureCount.store(0);
-			}
-			else
-			{
-				ManifestRefreshStatus previousStatus = mManifestRefreshStatus.load();
-				bool sameAsPreviousFailure = (previousStatus == refreshStatus);
-				if (sameAsPreviousFailure)
-					mManifestRefreshRetryFailureCount.fetch_add(1);
-				else
-					mManifestRefreshRetryFailureCount.store(1);
-			}
-			mManifestRefreshStatus.store(refreshStatus);
+			mManifestRefreshErrorType.store(mMPDData->mMPDStatus);
+			mManifestRefreshErrorCode.store(errorCode);
 		}
 
 		if(doPush)
@@ -1194,13 +1177,9 @@ void AampMPDDownloader::RegisterCallback(ManifestUpdateCallbackFunc fnPtr, void 
 
 ManifestRefreshStatus AampMPDDownloader::GetManifestRefreshStatus() const
 {
-	std::lock_guard<std::mutex> lock(mManifestRefreshStatusMutex);
-	if (mManifestRefreshRetryFailureCount.load() < mManifestRefreshRetryFailureThreshold)
-	{
-		AAMPLOG_INFO("Manifest refresh failure count (%d) has not reached threshold (%d); suppressing failure status", mManifestRefreshRetryFailureCount.load(), mManifestRefreshRetryFailureThreshold);
-		return ManifestRefreshStatus();
-	}
-	return mManifestRefreshStatus.load();
+	return ManifestRefreshStatus(
+		mManifestRefreshErrorType.load(),
+		mManifestRefreshErrorCode.load());
 }
 
 /**

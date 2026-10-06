@@ -1065,7 +1065,7 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 	* not enter. So under mp4demux this block handles subtitle during normal play only;
 	* without mp4demux the behaviour for every track is unchanged.
 	*
-	* The !pContext guard prevents double-restamping on the direct-rialto + FORMAT_SUBTITLE_MP4
+	* The !playContext guard prevents double-restamping on the direct-rialto + FORMAT_SUBTITLE_MP4
 	* path: InitializeMediaProcessor creates an AampMp4Demuxer for subtitle there (needsDemuxer
 	* is true), which already restamps. Restamping here too causes uint64 underflow (~2^64).
 	*
@@ -1075,7 +1075,7 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 	* injection on every path.
 	*/
 	if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && (eMEDIAFORMAT_DASH == aamp->mMediaFormat) &&
-		(!ISCONFIGSET(eAAMPConfig_UseMp4Demux) || ((eTRACK_SUBTITLE == type) && !trickplay && !pContext)))
+		(!ISCONFIGSET(eAAMPConfig_UseMp4Demux) || ((eTRACK_SUBTITLE == type) && !trickplay && !playContext)))
 	{
 		if (trickplay)
 		{
@@ -1089,9 +1089,16 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 				// would then be missing and it is important for l2 tests
 				int64_t ptsOffset = cachedFragment->PTSOffsetSec * cachedFragment->timeScale;
 
-				(void)mIsoBmffHelper->RestampPts(cachedFragment->fragment, ptsOffset,
+				if (!mIsoBmffHelper->RestampPts(cachedFragment->fragment, ptsOffset,
 												cachedFragment->uri, name,
-												cachedFragment->timeScale);
+												cachedFragment->timeScale))
+				{
+					AAMPLOG_ERR("[%s] PTS restamp failed; scheduling retune", name);
+					aamp->ScheduleRetune(eGST_ERROR_PTS,
+						static_cast<AampMediaType>(type));
+					ret = false;
+					return;
+				}
 			}
 			else
 			{
@@ -4583,17 +4590,17 @@ void StreamAbstractionAAMP::ReinitializeInjection(double rate)
 	//      keyframe filtering and PTS restamping in TrickmodePtsRestamp(). Without this,
 	//      the demuxer retains rate=1.0 and sends all frames with incorrect PTS during
 	//      trickplay.
-	//   3. Subtitle (eMEDIATYPE_SUBTITLE) must be included.  When a period
+	//   3. Subtitle (eMEDIATYPE_SUBTITLE) must be included. When a period
 	//      re-initialisation occurs during trick play (e.g. rewind reaching the TSB
-	//      start boundary), InitializeMediaProcessor updates all three demuxers —
-	//      including subtitle — to the current trick play rate.  Subsequent speed
+	//      start boundary), InitializeMediaProcessor updates all three demuxers,
+	//      including subtitle, to the current trick play rate. Subsequent speed
 	//      changes then arrive exclusively through this loop, so omitting subtitle
-	//      leaves its mIsTrickMode and mRate stale.  When normal playback resumes
+	//      leaves its mIsTrickMode and mRate stale. When normal playback resumes
 	//      (e.g. TSB-to-live transition), subtitle retains the old trick play rate,
 	//      routes the first live segment through TrickmodePtsRestamp, and stamps its
 	//      PTS to 0, causing subtitles to disappear.
 	//
-	for (int i = eMEDIATYPE_VIDEO; i <= eMEDIATYPE_SUBTITLE; i++)	
+	for (int i = eMEDIATYPE_VIDEO; i <= eMEDIATYPE_SUBTITLE; i++)
 	{
 		MediaTrack *track = GetMediaTrack((TrackType) i);
 		if (track && track->enabled && track->playContext)
