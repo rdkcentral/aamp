@@ -3295,6 +3295,9 @@ bool PlayerInstanceAAMP::InitAAMPConfig(const char *jsonStr)
 	// also enable Ethan log redirection if useRialtoSink enabled using initconfig option.
 	AampLogManager::enableEthanLogRedirection = ISCONFIGSET(eAAMPConfig_useRialtoSink);
 	PlayerLogManager::SetLoggerInfo(AampLogManager::disableLogRedirection, AampLogManager::enableEthanLogRedirection, AampLogManager::aampLoglevel, AampLogManager::locked);
+
+	// Reapply event profiling config to AampEventManager
+	aamp->EnableEventProfiling();
 	return retVal;
 }
 

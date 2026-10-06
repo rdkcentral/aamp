@@ -3876,6 +3876,14 @@ public:
 	void UpdateMaxDRMSessions();
 
 	/**
+	 * @brief EnableEventProfiling - Apply the current event profiling config to AampEventManager.
+	 *        Reads eAAMPConfig_EnableEventProfiling and eAAMPConfig_EventProfilingThresholdMs
+	 *        from the active config and forwards them to the event manager.
+	 *        Called on construction and whenever InitAAMPConfig updates these settings.
+	 */
+	void EnableEventProfiling();
+
+	/**
 	 * @brief To add profile to blacklisted profile list
 	 */
 	void AddToBlacklistedProfiles(const StreamBlacklistProfileInfo &info)
