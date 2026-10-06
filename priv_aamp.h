@@ -685,10 +685,46 @@ public:
 	void TuneHelper(TuneType tuneType, bool seekWhilePaused = false);
 
 	/**
+	 * @brief set a flag to request early abort during an async tune
+	 *
+	 * @fn SetEarlyAbortRequestFlag
+	 * @param[in] enableAbort - True to signal that a stop is progress to a tune allowing early abort; false if not
+	 */
+	void SetEarlyAbortRequestFlag(bool enableAbort);
+
+	/**
+	 * @brief Determine whether the tune type allows us to terminate an async tune task early.
+	 *        Uses stored mMediaFormat / mContentType (i.e. the currently active tune).
+	 *
+	 * @return bool  true if async abort is supported for the current media format and content type
+	 */
+	bool IsAsyncTuneAbortSupported();
+
+	/**
+	 * @brief Determine whether we can terminate the current async tune task early.
+	 *        Checks abort support (stored type) AND the abort-request flag.
+	 *
+	 * @return bool true if SetEarlyAbortRequestFlag(true) has been called and the active
+	 *              tune type supports early abort
+	 */
+	bool IsAsyncTuneAbortRequired();
+
+	/**
+	 * @brief Determine whether an incoming tune (identified by URL and content-type string)
+	 *        should be aborted because a Stop is in progress.  Derives format/type from the
+	 *        supplied parameters so it can be called before the new tune updates stored state.
+	 *
+	 * @param[in] manifestUrl       - manifest URL of the incoming tune
+	 * @param[in] contentTypeString - content-type string of the incoming tune (e.g. "LINEAR_TV")
+	 * @return bool  true if SetEarlyAbortRequestFlag(true) has been called and the incoming
+	 *               tune type supports early abort
+	 */
+	bool IsAsyncTuneAbortRequired(const char* manifestUrl, const char* contentTypeString);
+	/**
 	 * @fn TeardownStream
 	 *
 	 * @param[in] newTune - true if operation is a new tune
-	 * @param[in] newTune - true if downloads need to be disabled
+	 * @param[in] disableDownloads - true if downloads need to be disabled
 	 * @return void
 	 */
 	void TeardownStream( bool newTune, bool disableDownloads = false );
@@ -741,27 +777,30 @@ public:
 	bool PausePipeline(bool pause, bool forceStopGstreamerPreBuffering);
 
 	/**
-	 * @fn mediaType2Bucket
-	 *
 	 * @param[in] mediaType - Media filetype
 	 * @return Profiler bucket type
 	 */
 	ProfilerBucketType mediaType2Bucket(AampMediaType mediaType);
 
-       /**
-         * @brief to set the vod-tune-event according to the player
-         *
-         * @param[in] tuneEventType
-         * @return void
-         */
+	/**
+	 * @brief To set the vod-tune-event according to the player
+	 *
+	 * @param[in] tuneEventType
+	 * @return void
+	 */
 	void SetTuneEventConfig( TunedEventConfig tuneEventType);
+
+	/**
+	 * @brief Get the value of tune event config
+	 *
+	 * @param[in] isLive - true for live, false for VOD
+	 * @return current tune event config
+	 */
 	TunedEventConfig GetTuneEventConfig(bool isLive);
 
-        /**
-         * @fn UpdatePreferredAudioList
-         *
-         * @return void
-         */
+	/**
+	 * @fn UpdatePreferredAudioList
+	 */
 	void UpdatePreferredAudioList();
 
 	/**
@@ -861,7 +900,7 @@ public:
 	*
 	* @return modified manifest data
 	*/
-	std::string SendManifestPreProcessEvent();
+	std::pair<std::string,int> SendManifestPreProcessEvent();
 
 	/**
 	 * @brief This function is invoked by application with the available preprocessed manifest information
@@ -902,6 +941,7 @@ public:
 	// To store Set Cookie: headers and X-Reason headers in HTTP Response
 	httpRespHeaderData httpRespHeaders[eCURLINSTANCE_MAX];
 	//std::string cookieHeaders[MAX_CURL_INSTANCE_COUNT]; //To store Set-Cookie: headers in HTTP response
+	std::atomic<bool> initialManifestFetchInProgress;	/**< flag indicating that the initial manifest download is in progress during stream abstraction Init() for a tune type that allows early abort */
 	std::string  mManifestUrl;
 	std::string mTunedManifestUrl;
 	std::string mTsbSessionRequestUrl;
@@ -925,6 +965,7 @@ public:
 	int mPlaylistTimeoutMs;
 	bool mAsyncTuneEnabled;
 	long mNetworkBandwidth;
+	std::atomic<bool> mAsyncTaskAbortEnabled;
 	std::string mTsbType;
 	int mTsbDepthMs;
 	int mDownloadDelay;
@@ -1516,6 +1557,16 @@ public:
 	 * @return void
 	 */
 	void SendBufferChangeEvent(bool bufferingStopped=false);
+
+	/**
+	 * @fn HandleManifestRefreshFailureOnBuffering
+	 * @brief When buffering starts, checks whether the buffer drained because manifest
+	 *        refresh was already failing. If so, sends the appropriate error event
+	 *        (manifest request failed or invalid manifest) and returns true so the
+	 *        caller can skip the normal BufferingChanged event.
+	 * @return true if a fatal manifest error event was sent; false otherwise.
+	 */
+	bool HandleManifestRefreshFailureOnBuffering();
 
 	/**
 	 * @fn SendTuneMetricsEvent
@@ -3068,7 +3119,7 @@ public:
 	 *
 	 *   @return true if autoplay enabled
 	 */
-	bool IsPlayEnabled();
+	bool IsPlayEnabled() const;
 
 	/**
 	 *   @fn enableEventProcessing
@@ -4255,6 +4306,18 @@ protected:
 	std::string mTuneTimeMetricData{}; /**< JSON string containing data for tune time metrics */
 
 private:
+	/**
+	 * @brief Single source of truth for which format/content-type combinations support
+	 *        early async-tune abort.  Both IsAsyncTuneAbortSupported() and the
+	 *        manifest-URL overload of IsAsyncTuneAbortRequired() delegate here so that
+	 *        the criteria stay in sync automatically.
+	 *
+	 * @param[in] format  - media format to evaluate
+	 * @param[in] type    - content type to evaluate
+	 * @return bool true if async abort is supported for the given format/type
+	 */
+	bool IsAsyncTuneSupportedForType(MediaFormat format, ContentType type) const;
+
 	/**
 	 * @brief Play from the start of the TSB
 	 */

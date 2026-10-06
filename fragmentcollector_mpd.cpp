@@ -1072,11 +1072,17 @@ uint64_t StreamAbstractionAAMP_MPD::FindPositionInTimeline(class MediaStreamCont
 		* and a manifest update after segment 1 has been sent. Ensure one cycle of the for loop so
 		* timeLineIndex gets incremented.
 		* Without this we get a segment dropped and another repeated in server side ads
+		* Also check that this is not a special case (only 1 segment in timeline) as given below
+		* which causes AAMP to land in a non-existent timeline when it forces one cycle of for loop.
+		* <SegmentTimeline>
+		*  <S d="109568" t="0"/>
+		* </SegmentTimeline>
 		*/
 
 		bool isFirstSegment = pMediaStreamContext->lastSegmentTime == 0 && startTime == 0
 									&& pMediaStreamContext->lastSegmentDuration != 0
-									&& repeatCount == 0 && pMediaStreamContext->timeLineIndex == 0;
+									&& repeatCount == 0 && pMediaStreamContext->timeLineIndex == 0
+									&& timelines.size() != 1;
 
 #if defined(DEBUG_TIMELINE) || defined(AAMP_SIMULATOR_BUILD)
 		AAMPLOG_INFO("Type[%d] nextStartTime=%" PRIu64 " startTime=%" PRIu64 " repeatCount=%u", pMediaStreamContext->type,
@@ -3720,7 +3726,38 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 		aamp->SetCurlTimeout(aamp->mNetworkTimeoutMs, (AampCurlInstance)i);
 	}
 
-	AAMPStatusType ret = FetchDashManifest();
+	AAMPStatusType ret= eAAMPSTATUS_OK;
+	if (aamp->IsAsyncTuneAbortSupported())
+	{
+		aamp->initialManifestFetchInProgress=true;	// Signal to any stop process that a manifest download can be aborted
+	}
+	if (aamp->IsAsyncTuneAbortRequired())
+	{
+		AAMPLOG_WARN("Manifest download will be skipped since we are already stopping");
+		ret = eAAMPSTATUS_MANIFEST_DOWNLOAD_ABORTED;
+	}
+	else
+	{
+		// This may get terminated by Release from Stop(), returning eAAMPSTATUS_MANIFEST_DOWNLOAD_ABORTED
+		// Note: if we abort then any fog tsb will not get deleted in SendErrorEvent (which is not called). We will do this in PrivateInstanceAAMP::Stop
+		ret = FetchDashManifest();
+	}
+	aamp->initialManifestFetchInProgress=false;
+
+	if (ret != eAAMPSTATUS_OK)
+	{
+		AAMPLOG_WARN("Manifest download failed or was aborted, code = %s", statusName(ret));
+	}
+	else
+	{
+		// If stop was called too late to abort in the progress callback then abort now
+		if (aamp->IsAsyncTuneAbortRequired())
+		{
+			ret = eAAMPSTATUS_MANIFEST_DOWNLOAD_ABORTED;
+			AAMPLOG_WARN("A stop has been requested during completed manifest download, so abort");
+		}
+	}
+
 	if (ret == eAAMPSTATUS_OK)
 	{
 		std::string manifestUrl = aamp->GetManifestUrl();
@@ -4380,6 +4417,10 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 	{
 		retval = eAAMPSTATUS_MANIFEST_CONTENT_ERROR;
 	}
+	else if(ret == eAAMPSTATUS_MANIFEST_DOWNLOAD_ABORTED)
+	{
+		retval = eAAMPSTATUS_MANIFEST_DOWNLOAD_ABORTED;
+	}
 	else
 	{
 		AAMPLOG_ERR("StreamAbstractionAAMP_MPD: corrupt/invalid manifest");
@@ -4435,12 +4476,40 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 		// Rialto does not support dynamic streams, so we need to extract and save the
 		// subtitle init fragment from the main vod asset, so that it can be injected
 		// later if a pre-roll advert is played that does not contain subtitles.
-		if (ISCONFIGSET(eAAMPConfig_useRialtoSink) &&
-		   !mIsLiveStream &&
-		   (!(AampStreamSinkManager::GetInstance().GetMediaHeader(eMEDIATYPE_SUBTITLE))))
+		if (ISCONFIGSET(eAAMPConfig_useRialtoSink))
 		{
-			AAMPLOG_MIL("StreamAbstractionAAMP_MPD: extract and add subtitleMedia header");
-			ExtractAndAddSubtitleMediaHeader();
+			/* XIONE-19145 / DELIA-71066: the foreground player owns the shared
+			 * Rialto pipeline's subtitle header slot - it always evicts any
+			 * stale header (regardless of owner) and caches the current asset's
+			 * init header, independent of the app-supplied content type.
+			 * Background sibling players (pre-roll ads) never write here; they
+			 * borrow the cached header so the shared Subtitle source keeps the
+			 * main asset's caps, else the source flips to
+			 * subtitle/x-subtitle-cc and the post-ad re-attach fails
+			 * "cannot update caps", killing subtitles on main content.
+			 * Foreground headers are cached for live assets too, so a
+			 * live-manifest sibling can keep caps consistent. */
+			if (aamp->IsPlayEnabled())
+			{
+				AampStreamSinkManager::GetInstance().RemoveMediaHeader(eMEDIATYPE_SUBTITLE, aamp);
+				AAMPLOG_MIL("StreamAbstractionAAMP_MPD: extract and add subtitleMedia header (foreground: evict and re-cache)");
+				ExtractAndAddSubtitleMediaHeader();
+			}
+			else if (!mIsLiveStream &&
+					 !(AampStreamSinkManager::GetInstance().GetMediaHeader(eMEDIATYPE_SUBTITLE)))
+			{
+				/* A background tune is not always an advert: the main VOD asset
+				 * itself is pre-tuned with autoplay disabled while its pre-roll
+				 * ad plays on the shared pipeline. Its subtitle header must be
+				 * cached here so it exists when the ad ends and the Subtitle
+				 * source is re-attached - observed failure: attach ran with an
+				 * empty slot -> "cannot update caps" -> no CC on main content.
+				 * Only fills an EMPTY slot: a background tune must never evict
+				 * or overwrite a header cached by another player (the ad must
+				 * not displace the main asset's header). */
+				AAMPLOG_MIL("StreamAbstractionAAMP_MPD: extract and add subtitleMedia header (background: empty slot only)");
+				ExtractAndAddSubtitleMediaHeader();
+			}
 		}
 
 		AAMPLOG_MIL("StreamAbstractionAAMP_MPD: fetch initialization fragments");
@@ -4677,15 +4746,24 @@ AAMPStatusType StreamAbstractionAAMP_MPD::FetchDashManifest()
 			aamp->profiler.ProfileEnd(PROFILE_BUCKET_MANIFEST);
 			mNetworkDownDetected = false;
 		}
+		else if ( CURLE_ABORTED_BY_CALLBACK == mManifestDnldRespPtr->mMPDDownloadResponse->iHttpRetValue && aamp->IsAsyncTuneAbortRequired() )
+		{
+			AAMPLOG_MIL("Manifest download successfully aborted during Stop (http_error=%d)", http_error);
+			aamp->profiler.ProfileError(PROFILE_BUCKET_MANIFEST, http_error); // this will be tagged with CURLE_ABORTED_BY_CALLBACK in tune metrics
+			aamp->profiler.ProfileEnd(PROFILE_BUCKET_MANIFEST);
+			ret = AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ABORTED;
+		}
 		else if (aamp->DownloadsAreEnabled())
 		{
 			aamp->profiler.ProfileError(PROFILE_BUCKET_MANIFEST, http_error);
 			aamp->profiler.ProfileEnd(PROFILE_BUCKET_MANIFEST);
-			if (this->mpd != NULL && ( ( IsCurlTimeoutFailure( http_error ) ) || CURLE_COULDNT_CONNECT == http_error))
+			if (this->mpd != NULL &&
+				((IsCurlTimeoutFailure(http_error)) ||
+				 (CURLE_COULDNT_CONNECT == http_error)))
 			{
 				//Skip this for first ever update mpd request
 				mNetworkDownDetected = true;
-				AAMPLOG_WARN("StreamAbstractionAAMP_MPD: Ignore curl timeout");
+				AAMPLOG_WARN("StreamAbstractionAAMP_MPD: Ignore transient curl failure");
 				ret = AAMPStatusType::eAAMPSTATUS_OK;
 			}
 			else if (http_error == 512 )
@@ -4707,7 +4785,6 @@ AAMPStatusType StreamAbstractionAAMP_MPD::FetchDashManifest()
 				}
 				if(aamp->mFogDownloadFailReason.find("PROFILE_NONE") != std::string::npos)
 				{
-
 					aamp->mFogDownloadFailReason.clear();
 					AAMPLOG_ERR("StreamAbstractionAAMP_MPD: No playable profiles found");
 					ret = AAMPStatusType::eAAMPSTATUS_MANIFEST_CONTENT_ERROR;
@@ -4716,14 +4793,11 @@ AAMPStatusType StreamAbstractionAAMP_MPD::FetchDashManifest()
 			//When Fog is having tsb write error , then it will respond back with 302 with direct CDN url,In this case alone TSB should be disabled
 			else if (aamp->mFogTSBEnabled && http_error == 302)
 			{
-					aamp->mFogTSBEnabled = false;
+				aamp->mFogTSBEnabled = false;
 			}
-
 			else
 			{
 				aamp->UpdateDuration(0);
-				aamp->SetFlushFdsNeededInCurlStore(true);
-
 				switch( http_error )
 				{
 					case eCURL_TIMEOUT_DNS:
@@ -4748,7 +4822,6 @@ AAMPStatusType StreamAbstractionAAMP_MPD::FetchDashManifest()
 		{
 			aamp->UpdateDuration(0);
 			AAMPLOG_ERR("StreamAbstractionAAMP_MPD: manifest download failed");
-			aamp->SetFlushFdsNeededInCurlStore(true);
 			ret = AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR;
 		}
 	}
@@ -4857,60 +4930,44 @@ void StreamAbstractionAAMP_MPD::MPDUpdateCallbackExec()
 	}
 	else
 	{
-		// Failure from the manifest download during refresh --- fire , what to do ??
-		// Check if the App only insisted to stop the download resulting in partial failure ?
-		int http_error	=	tmpManifestDnldRespPtr->mMPDDownloadResponse->iHttpRetValue;
-
+		// Failure from the manifest download during refresh
+		// 1. Check if its due to app-induced stop
+		// 2. Log a FOG reason if available
+		// 3. Move on with the old manifest. The error might recover on next try.
+		// 4. Ultimately when buffer runs dry and manifest is not updated, send appropriate error event to app
+		int http_error = tmpManifestDnldRespPtr->mMPDDownloadResponse->iHttpRetValue;
 		if (aamp->DownloadsAreEnabled())
 		{
 			// if already mpd is available
-			if (this->mpd != NULL
-				&& ( IsCurlTimeoutFailure(http_error) || CURLE_COULDNT_CONNECT == http_error))
+			if (this->mpd != NULL &&
+				(IsCurlTimeoutFailure(http_error) ||
+				 CURLE_COULDNT_CONNECT == http_error))
 			{
 				//Skip this for first ever update mpd request
 				mNetworkDownDetected = true;
-				AAMPLOG_WARN("Ignore curl timeout");
+				AAMPLOG_WARN("Ignore transient curl failure");
 			}
-			else
+			else if (http_error == 512 &&
+					tmpManifestDnldRespPtr->mMPDDownloadResponse->mResponseHeader.size() &&
+					aamp->mFogTSBEnabled)
 			{
-				if (http_error == 512 )
+				for (const std::string& header : tmpManifestDnldRespPtr->mMPDDownloadResponse->mResponseHeader)
 				{
-					if(tmpManifestDnldRespPtr->mMPDDownloadResponse->mResponseHeader.size() && aamp->mFogTSBEnabled)
+					if(STARTS_WITH_IGNORE_CASE(header.c_str(),FOG_REASON_STRING))
 					{
-						for ( std::string header : tmpManifestDnldRespPtr->mMPDDownloadResponse->mResponseHeader )
-						{
-							if(STARTS_WITH_IGNORE_CASE(header.c_str(),FOG_REASON_STRING))
-							{
-								aamp->mFogDownloadFailReason.clear();
-								aamp->mFogDownloadFailReason  =         header.substr(std::string(FOG_REASON_STRING).length());
-								AAMPLOG_WARN("Received FOG-Reason header: %s",aamp->mFogDownloadFailReason.c_str());
-								aamp->SendAnomalyEvent(ANOMALY_WARNING, "FOG-Reason:%s", aamp->mFogDownloadFailReason.c_str());
-								break;
-							}
-						}
+						aamp->mFogDownloadFailReason.clear();
+						aamp->mFogDownloadFailReason  =         header.substr(std::string(FOG_REASON_STRING).length());
+						AAMPLOG_WARN("Received FOG-Reason header: %s",aamp->mFogDownloadFailReason.c_str());
+						aamp->SendAnomalyEvent(ANOMALY_WARNING, "FOG-Reason:%s", aamp->mFogDownloadFailReason.c_str());
+						break;
 					}
 				}
-				else if(tmpManifestDnldRespPtr->mMPDStatus == eAAMPSTATUS_MANIFEST_PARSE_ERROR)
-				{
-					aamp->SendErrorEvent(AAMP_TUNE_INVALID_MANIFEST_FAILURE); //corrupt or invalid manifest
-					AAMPLOG_ERR("Invalid manifest, parse failed");
-				}
-				else if(tmpManifestDnldRespPtr->mMPDStatus == eAAMPSTATUS_MANIFEST_CONTENT_ERROR)
-				{
-					//Unknown Manifest content
-					aamp->SendErrorEvent(AAMP_TUNE_INIT_FAILED_MANIFEST_CONTENT_ERROR);
-					AAMPLOG_ERR("Unknown manifest content");
-				}
-				else
-				{
-					aamp->SendDownloadErrorEvent(AAMP_TUNE_MANIFEST_REQ_FAILED, http_error);
-					AAMPLOG_ERR("manifest download failed");
-				}
 			}
+			AAMPLOG_ERR("manifest download failed [status:%d][http:%d], re-using old manifest", tmpManifestDnldRespPtr->mMPDStatus, http_error);
 		}
-		else // if downloads disabled
+		else
 		{
-			AAMPLOG_ERR("manifest download failed");
+			AAMPLOG_ERR("manifest download failed, due to downloads being disabled, re-using old manifest");
 		}
 	}
 }
@@ -9287,15 +9344,25 @@ bool StreamAbstractionAAMP_MPD::ExtractAndAddSubtitleMediaHeader()
 					if (mMPDParseHelper->IsContentType(adaptationSet, eMEDIATYPE_SUBTITLE ))
 					{
 						size_t representationIndex = 0;
-						PeriodElement periodElement(adaptationSet, NULL);
-						std::string subtitleMimeType = periodElement.GetMimeType();
 
 						IRepresentation *representation = adaptationSet->GetRepresentation().at(representationIndex);
 						SegmentTemplates segmentTemplates(representation->GetSegmentTemplate(), adaptationSet->GetSegmentTemplate());
+						/* Resolve mimeType representation-first, matching
+						 * GetCurrentMimeType() precedence: the cached header's
+						 * mimeType decides the subtitle source caps that a
+						 * borrowing sibling player (pre-roll ad) attaches on
+						 * the shared Rialto session, and that attach must equal
+						 * the caps this asset itself uses after promotion -
+						 * Rialto cannot update caps on an attached source, so
+						 * an AS-level container mime (application/mp4 for
+						 * mp4-wrapped TTML) that differs from the selected
+						 * representation mime (application/ttml+xml) leaves the
+						 * shared source mistyped and every cue is dropped. */
+						std::string subtitleMimeType = representation->GetMimeType();
 						if( subtitleMimeType.empty() )
 						{
-							AAMPLOG_MIL("eMEDIATYPE_SUBTITLE:subtitleMimeType is empty. Try getting it from representation");
-							PeriodElement periodElement(adaptationSet, representation);
+							AAMPLOG_MIL("eMEDIATYPE_SUBTITLE:subtitleMimeType is empty. Try getting it from adaptationSet");
+							PeriodElement periodElement(adaptationSet, NULL);
 							subtitleMimeType = periodElement.GetMimeType();
 						}
 						AAMPLOG_MIL("eMEDIATYPE_SUBTITLE:subtitleMimeType = %s", subtitleMimeType.c_str());
@@ -9324,6 +9391,8 @@ bool StreamAbstractionAAMP_MPD::ExtractAndAddSubtitleMediaHeader()
 								AAMPLOG_MIL("[SUBTITLE]: mimeType:%s, init url %s", subtitleMimeType.c_str(), fragmentUrl.c_str());
 								subtitleHeader->url = std::move(fragmentUrl);
 								subtitleHeader->mimeType =  std::move(subtitleMimeType);
+								subtitleHeader->manifestUrl = aamp->GetManifestUrl();
+								subtitleHeader->owner = aamp;
 								AampStreamSinkManager::GetInstance().AddMediaHeader(eMEDIATYPE_SUBTITLE, std::move(subtitleHeader));
 								AAMPLOG_MIL("Saved subtitleHeader");
 								ret = true;
@@ -11013,6 +11082,8 @@ void  StreamAbstractionAAMP_MPD::ResumeSubtitleAfterSeek(bool mute, char *data)
  */
 StreamAbstractionAAMP_MPD::~StreamAbstractionAAMP_MPD()
 {
+	aamp->initialManifestFetchInProgress=false;
+	
 	// Unregister the MPD download callback BEFORE deleting tracks.
 	// This ensures the notifier thread cannot fire MPDUpdateCallbackExec()
 
@@ -11164,6 +11235,12 @@ void StreamAbstractionAAMP_MPD::Start(void)
 void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 {
 
+	if(aamp->initialManifestFetchInProgress)
+	{
+		AAMPLOG_WARN("Clearing initialManifestFetchInProgress flag since we are stopping stream abstraction");
+	}
+	aamp->initialManifestFetchInProgress = false;
+
 	if (!aamp->IsLocalAAMPTsb() || aamp->mAampTsbLanguageChangeInProgress)
 	{
 		aamp->DisableDownloads();
@@ -11304,6 +11381,42 @@ StreamOutputFormat GetSubtitleFormat(std::string mimeType)
 }
 
 /**
+ * @brief Check whether a cached media init header may be used by this player
+ *
+ * A cached header is usable by the asset that produced it (manifest match, or
+ * an untagged legacy header) - OR by a sibling player still registered in the
+ * same sink manager. The sibling case is the pre-roll/mid-roll ad sharing the
+ * main asset's Rialto session: the ad's own manifest can never match the
+ * cached manifest URL, but it MUST attach the shared Subtitle source with the
+ * main asset's caps anyway - Rialto cannot update caps on an attached source
+ * ("cannot update caps"), so an ad attaching subtitle/x-subtitle-cc
+ * permanently mistypes the source and every cue pushed after promotion is
+ * dropped by TextTrackAccessor ("Data received for ClosedCaptions").
+ * Only a live sibling qualifies: a foreground tune always evicts and
+ * re-caches its own header during Init before this check runs, so a
+ * foreign-manifest header seen here can only belong to a
+ * concurrently-registered background/ad sibling - or to a dead player, which
+ * IsPlayerRegistered filters out.
+ * Intentionally independent of IsPlayEnabled(): mbPlayEnabled can flip when a
+ * background tune is promoted between GetStreamFormat() and
+ * SendMediaHeaders(), which would leave a subtitle sink created but its init
+ * segment withheld. GetStreamFormat() and SendMediaHeaders() MUST both use
+ * this predicate so a sink is never created without its init being sent.
+ *
+ * @param header cached media header, may be null
+ * @param aamp   player attempting to use the header
+ * @retval true if the header may be used by this player
+ */
+static bool IsUsableCachedMediaHeader(const std::shared_ptr<AampStreamSinkManager::MediaHeader> &header, PrivateInstanceAAMP *aamp)
+{
+	return header &&
+	       (header->manifestUrl.empty() ||
+	        header->manifestUrl == aamp->GetManifestUrl() ||
+	        (header->owner && header->owner != aamp &&
+	         AampStreamSinkManager::GetInstance().IsPlayerRegistered(header->owner)));
+}
+
+/**
  * @brief Get output format of stream.
  *
  */
@@ -11354,6 +11467,14 @@ void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutpu
 			// presenting inband CC with PTS restamping enabled
 			else if(isInBandCcAvailable())
 			{
+				/* XIONE-19145: inband CC is the active text mode for this tune.
+				 * mIsInbandCC is sticky across tunes (cleared at mpd:SelectSubtitleTrack
+				 * when a previous asset selected an OOB subtitle AdaptationSet, and set
+				 * only by SetTextTrack). If it stays stale-false here, SetCCStatusInternal
+				 * takes the MuteSubtitles branch instead of PlayerCCManager::SetStatus(),
+				 * leaving mEnabled=0, so InitializeCC() -> Init() mutes the subtitle
+				 * source and inband CC data is dropped. */
+				aamp->mIsInbandCC = true;
 				subtitleOutputFormat = FORMAT_INVALID;
 			}
 			else
@@ -11365,6 +11486,17 @@ void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutpu
 		else
 		{
 			subtitleOutputFormat = FORMAT_INVALID;
+			/* XIONE-19145: no usable subtitle init header means no OOB
+			 * subtitle pipeline this tune; if the manifest advertises
+			 * inband CC, re-assert mIsInbandCC (stale false from a prior
+			 * OOB-subtitle tune misroutes SetCCStatusInternal to
+			 * MuteSubtitles and leaves the CC subtitle source muted).
+			 * Only ever set, never clear - the rendition descriptor is
+			 * optional, so absence is not proof of "no inband CC". */
+			if (isInBandCcAvailable())
+			{
+				aamp->mIsInbandCC = true;
+			}
 		}
 
 		// If subtitles are not enabled, we need to have an init fragment to inject otherwise
@@ -11372,7 +11504,13 @@ void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutpu
 		if (!mMediaStreamContext[eMEDIATYPE_SUBTITLE]->enabled && ISCONFIGSET(eAAMPConfig_useRialtoSink))
 		{
 			auto subtitleHeader = AampStreamSinkManager::GetInstance().GetMediaHeader(eMEDIATYPE_SUBTITLE);
-			if(subtitleHeader && !subtitleHeader->mimeType.empty())
+			/* XIONE-19145 / DELIA-71066: borrow the cached header when it is
+			 * usable by this player (see IsUsableCachedMediaHeader) so a
+			 * sibling ad attaches the shared Subtitle source with the main
+			 * asset's caps instead of x-subtitle-cc. The mimeType check is
+			 * local to this site: SendMediaHeaders() does not need it. */
+			if(subtitleHeader && !subtitleHeader->mimeType.empty() &&
+			   IsUsableCachedMediaHeader(subtitleHeader, aamp))
 			{
 				subtitleOutputFormat = GetSubtitleFormat(subtitleHeader->mimeType);
 				AAMPLOG_INFO("Using saved subtitle mime type, subtitleOutputFormat = %d", subtitleOutputFormat);
@@ -12078,7 +12216,10 @@ void StreamAbstractionAAMP_MPD::SendMediaHeaders()
 		if(track && !track->Enabled())
 		{
 			auto header = AampStreamSinkManager::GetInstance().GetMediaHeader(iTrack);
-			if(header)
+			/* Inject a cached header only when it is usable by this player -
+			 * IsUsableCachedMediaHeader is shared with GetStreamFormat() so a
+			 * subtitle sink is never created without its init being sent. */
+			if(IsUsableCachedMediaHeader(header, aamp))
 			{
 				AAMPLOG_INFO("Track is disabled; url for init segment found: %s", header->url.c_str());
 				AampGrowableBuffer buffer("init-buffer");

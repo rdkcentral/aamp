@@ -279,7 +279,9 @@ TEST_F(FunctionalTests, AampMPDDownloader_PreInitTest_6)
 	inpData->mPreProcessedManifest = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<MPD xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"";
 	if(!inpData->mPreProcessedManifest.empty())
 	{
-		EXPECT_NO_THROW(mAampMPDDownloader->Initialize(inpData, appName,std::bind(&PrivateInstanceAAMP::SendManifestPreProcessEvent, mPrivateInstanceAAMP1)));
+		EXPECT_NO_THROW(mAampMPDDownloader->Initialize(inpData, appName, [this]() -> std::pair<std::string,int> {
+			return mPrivateInstanceAAMP1->SendManifestPreProcessEvent();
+		}));
 	}
 	else
 	{
@@ -327,13 +329,13 @@ TEST_F(FunctionalTests,
 	inpData->mTuneUrl = url1;
 
 	std::atomic<int> preProcessCount(0);
-	auto preProcessCallback = [&preProcessCount]() -> std::string
+	auto preProcessCallback = [&preProcessCount]() -> std::pair<std::string,int>
 	{
 		if (preProcessCount.fetch_add(1) == 0)
 		{
-			return std::string(kLiveMpdManifest);
+			return { std::string(kLiveMpdManifest), 200 };
 		}
-		return std::string();
+		return { std::string(), CURLE_OPERATION_TIMEDOUT };
 	};
 
 	mAampMPDDownloader->Initialize(inpData, appName, preProcessCallback);
@@ -394,6 +396,100 @@ TEST_F(FunctionalTests,
 	EXPECT_TRUE(thirdManifest.get() != secondManifest.get());
 	EXPECT_TRUE(IsCurlTimeoutFailure(
 		thirdManifest->mMPDDownloadResponse->iHttpRetValue));
+
+	mAampMPDDownloader->Release();
+}
+
+TEST_F(FunctionalTests,
+    AampMPDDownloader_LiveRefreshRetriesWhenFailureIsCurlRecvError)
+{
+    static const char *kLiveMpdManifest =
+    R"(<?xml version="1.0" encoding="UTF-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="dynamic" profiles="urn:mpeg:dash:profile:isoff-live:2011" minBufferTime="PT2.000S" maxSegmentDuration="PT0H0M1.92S" minimumUpdatePeriod="PT0.5S" availabilityStartTime="1977-05-25T18:00:00.000Z" timeShiftBufferDepth="PT0H0M30.000S" publishTime="2024-11-08T12:53:09.725Z">
+    <Period id="901591170" start="PT416006H37M27.854S">
+        <EventStream schemeIdUri="urn:example:test:2024" timescale="1000"/>
+        <AdaptationSet id="2" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+            <Role schemeIdUri="urn:mpeg:dash:role:2011" value="main"/>
+            <SegmentTemplate initialization="init-$RepresentationID$.mp4" media="seg-$Number$.m4s" timescale="90000" startNumber="901599260" presentationTimeOffset="20213">
+                <SegmentTimeline>
+                    <S t="1377581813" d="172800" r="14"/>
+                </SegmentTimeline>
+            </SegmentTemplate>
+            <Representation id="root_video4" bandwidth="562800" codecs="hvc1.1.6.L63.90" width="640" height="360" frameRate="25000/1000"/>
+        </AdaptationSet>
+    </Period>
+</MPD>
+)";
+
+	std::shared_ptr<ManifestDownloadConfig> inpData =
+		std::make_shared<ManifestDownloadConfig>(-1);
+	inpData->mTuneUrl = url1;
+
+	// First call returns a valid live manifest; all subsequent calls simulate
+	// CURLE_RECV_ERROR (curl 56) — the regression being tested is that the
+	// downloader loop must NOT exit on this error class.
+	std::atomic<int> preProcessCount(0);
+	const char *liveMpdManifestPtr = kLiveMpdManifest;
+	auto preProcessCallback = [&preProcessCount, liveMpdManifestPtr]() -> std::pair<std::string,int>
+	{
+		if (preProcessCount.fetch_add(1) == 0)
+		{
+			return { std::string(liveMpdManifestPtr), 200 };
+		}
+		return { std::string(), CURLE_RECV_ERROR };
+	};
+
+	mAampMPDDownloader->Initialize(inpData, appName, preProcessCallback);
+	mAampMPDDownloader->Start();
+
+	ManifestDownloadResponsePtr firstManifest =
+		mAampMPDDownloader->GetManifest(true, 2000);
+	ASSERT_TRUE(firstManifest != nullptr);
+	ASSERT_TRUE(IS_HTTP_SUCCESS(firstManifest->mMPDDownloadResponse->iHttpRetValue));
+	ASSERT_TRUE(firstManifest->mIsLiveManifest);
+
+	// Wait up to 2 seconds for the second manifest attempt (the CURLE_RECV_ERROR one).
+	ManifestDownloadResponsePtr secondManifest;
+	{
+		auto deadline = std::chrono::steady_clock::now() +
+			std::chrono::milliseconds(2000);
+		do
+		{
+			secondManifest = mAampMPDDownloader->GetManifest(false, 0);
+			if (!secondManifest ||
+				secondManifest.get() != firstManifest.get())
+			{
+				break;
+			}
+			std::this_thread::sleep_for(std::chrono::milliseconds(50));
+		} while (std::chrono::steady_clock::now() < deadline);
+	}
+	ASSERT_TRUE(secondManifest != nullptr);
+	ASSERT_TRUE(secondManifest.get() != firstManifest.get());
+	ASSERT_EQ(secondManifest->mMPDDownloadResponse->iHttpRetValue, CURLE_RECV_ERROR);
+
+	// REGRESSION ASSERTION: the loop must have continued and produced a third
+	// manifest attempt within 1.5 seconds (fast 500ms retry, not a full
+	// mRefreshInterval stall).
+	ManifestDownloadResponsePtr thirdManifest;
+	{
+		auto deadline = std::chrono::steady_clock::now() +
+			std::chrono::milliseconds(1500);
+		do
+		{
+			thirdManifest = mAampMPDDownloader->GetManifest(false, 0);
+			if (!thirdManifest ||
+				thirdManifest.get() != secondManifest.get())
+			{
+				break;
+			}
+			std::this_thread::sleep_for(std::chrono::milliseconds(50));
+		} while (std::chrono::steady_clock::now() < deadline);
+	}
+
+	EXPECT_TRUE(thirdManifest != nullptr);
+	EXPECT_TRUE(thirdManifest.get() != secondManifest.get());
+	EXPECT_EQ(thirdManifest->mMPDDownloadResponse->iHttpRetValue, CURLE_RECV_ERROR);
 
 	mAampMPDDownloader->Release();
 }

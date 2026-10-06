@@ -182,114 +182,202 @@ bool IsoBmffBuffer::getBoxSizeInternal(const std::vector<Box*> *boxes, const cha
 	return false;
 }
 
-/**
- *  @brief Restamp PTS in a buffer
- */
-void IsoBmffBuffer::restampPTS(uint64_t offset, uint64_t basePts, uint8_t *segment, uint32_t bufSz)
+static bool processRestampBuffer(uint64_t offset, uint64_t basePts, uint8_t *segment,
+	size_t bufSz, bool applyRestamp)
 {
-	uint32_t curOffset = 0;
-	while (curOffset < bufSz)
+	constexpr size_t boxHeaderSize = sizeof(uint32_t) + sizeof(uint32_t);
+	constexpr size_t tfdtHeaderSize = boxHeaderSize + sizeof(uint32_t);
+	if (segment == nullptr)
 	{
-		uint8_t *buf = segment + curOffset;
-		uint32_t size = READ_U32(buf);
-		uint8_t type[5];
-		READ_U8(type, buf, 4);
-		type[4] = '\0';
-
-		if (IS_TYPE(type, Box::MOOF) || IS_TYPE(type, Box::TRAF))
-		{
-			restampPTS(offset, basePts, buf, size);
-		}
-		else if (IS_TYPE(type, Box::TFDT))
-		{
-			uint8_t version = READ_VERSION(buf);
-			uint32_t flags  = READ_FLAGS(buf);
-
-			(void)flags; // Avoid a warning.
-
-			if (1 == version)
-			{
-				uint64_t pts = ReadUint64(buf);
-				pts -= basePts;
-				pts += offset;
-				WriteUint64(buf, pts);
-			}
-			else
-			{
-				uint32_t pts = (buf[0] << 24) | (buf[1] << 16) | (buf[2] << 8) | buf[3];
-				pts -= (uint32_t)basePts;
-				pts += (uint32_t)offset;
-				WRITE_U32(buf, pts);
-			}
-		}
-		curOffset += size;
+		return bufSz == 0;
 	}
-}
 
-void IsoBmffBuffer::restampPtsInternal(int64_t offset, uint8_t *segment, size_t bufSz)
-{
 	size_t curOffset = 0;
 	while (curOffset < bufSz)
 	{
+		const size_t remaining = bufSz - curOffset;
+		if (remaining < boxHeaderSize)
+		{
+			AAMPLOG_WARN("Trailing bytes[%zu] smaller than box header while restamping",
+				remaining);
+			return false;
+		}
+
 		uint8_t *buf = segment + curOffset;
-		uint32_t size = READ_U32(buf);
-		uint8_t type[5];
-		READ_U8(type, buf, 4);
-		type[4] = '\0';
+		const uint32_t size = (static_cast<uint32_t>(buf[0]) << 24) |
+			(static_cast<uint32_t>(buf[1]) << 16) |
+			(static_cast<uint32_t>(buf[2]) << 8) | static_cast<uint32_t>(buf[3]);
+		if (size < boxHeaderSize || size > remaining)
+		{
+			AAMPLOG_WARN("Invalid box size[%u] while restamping PTS (remaining %zu)",
+				size, remaining);
+			return false;
+		}
+		const uint8_t *type = buf + sizeof(uint32_t);
 
 		if (IS_TYPE(type, Box::MOOF) || IS_TYPE(type, Box::TRAF))
 		{
-			restampPtsInternal(offset, buf, size);
+			if (!processRestampBuffer(offset, basePts, buf + boxHeaderSize,
+				size - boxHeaderSize, applyRestamp))
+			{
+				return false;
+			}
 		}
 		else if (IS_TYPE(type, Box::TFDT))
 		{
-			uint8_t version = READ_VERSION(buf);
-			uint32_t flags  = READ_FLAGS(buf);
+			if (size < tfdtHeaderSize)
+			{
+				AAMPLOG_ERR("Truncated TFDT full-box header size[%u]", size);
+				return false;
+			}
+
+			uint8_t *timestamp = buf + boxHeaderSize;
+			const uint8_t version = READ_VERSION(timestamp);
+			const uint32_t flags = READ_FLAGS(timestamp);
 
 			(void)flags; // Avoid a warning.
+			const size_t timestampSize = version == 1 ? sizeof(uint64_t) : sizeof(uint32_t);
+			if (size - tfdtHeaderSize < timestampSize)
+			{
+				AAMPLOG_ERR("Truncated TFDT timestamp version[%u] size[%u]", version, size);
+				return false;
+			}
 
-			if (1 == version)
+			if (applyRestamp)
 			{
-				uint64_t pts = ReadUint64(buf);
-				if (!firstPtsSaved)
+				if (version == 1)
 				{
-					beforePTS = pts;
+					uint64_t pts = ReadUint64(timestamp);
+					pts -= basePts;
+					pts += offset;
+					WriteUint64(timestamp, pts);
 				}
-				pts += offset;
-				WriteUint64(buf, pts);
-				if (!firstPtsSaved)
+				else
 				{
-					firstPtsSaved = true;
-					afterPTS = pts;
+					uint32_t pts = (static_cast<uint32_t>(timestamp[0]) << 24) |
+						(static_cast<uint32_t>(timestamp[1]) << 16) |
+						(static_cast<uint32_t>(timestamp[2]) << 8) | timestamp[3];
+					pts -= static_cast<uint32_t>(basePts);
+					pts += static_cast<uint32_t>(offset);
+					WRITE_U32(timestamp, pts);
 				}
 			}
-			else
-			{
-				uint32_t pts = (buf[0] << 24) | (buf[1] << 16) | (buf[2] << 8) | buf[3];
-				if (!firstPtsSaved)
-				{
-					beforePTS = pts;
-				}
-				pts += (uint32_t)offset;
-				WRITE_U32(buf, pts);
-				if (!firstPtsSaved )
-				{
-					afterPTS = pts;
-					firstPtsSaved = true;
-				}
-			}
-		}
-		else
-		{
-			// Any other box type
 		}
 		curOffset += size;
 	}
+	return true;
 }
 
-void IsoBmffBuffer::restampPts(int64_t offset)
+/**
+ *  @brief Restamp PTS in a buffer
+ */
+bool IsoBmffBuffer::restampPTS(uint64_t offset, uint64_t basePts, uint8_t *segment, uint32_t bufSz)
 {
-	restampPtsInternal(offset, buffer, bufSize);
+	if (!processRestampBuffer(offset, basePts, segment, bufSz, false))
+	{
+		return false;
+	}
+	return processRestampBuffer(offset, basePts, segment, bufSz, true);
+}
+
+bool IsoBmffBuffer::restampPts(int64_t offset)
+{
+	// Use the already-parsed boxes instead of re-parsing raw bytes
+	// This avoids issues with partial/incomplete box data in the buffer
+	for (const auto &box : boxes)
+	{
+		if (IS_TYPE(box->getType(), Box::MOOF))
+		{
+			const size_t boxOffset = box->getOffset();
+			if (boxOffset > bufSize)
+			{
+				return false;
+			}
+			const size_t available = bufSize - boxOffset;
+			const size_t validationSize = std::min<size_t>(box->getSize(), available);
+			if (!processRestampBuffer(0, 0, buffer + boxOffset, validationSize, false))
+			{
+				return false;
+			}
+		}
+	}
+	return restampPtsUsingParsedBoxes(offset, &boxes);
+}
+
+bool IsoBmffBuffer::restampPtsUsingParsedBoxes(int64_t offset, const std::vector<Box*> *boxes)
+{
+	for (size_t i = 0; i < boxes->size(); i++)
+	{
+		Box *box = boxes->at(i);
+
+		if (IS_TYPE(box->getType(), Box::MOOF) || IS_TYPE(box->getType(), Box::TRAF))
+		{
+			// Recursively process child boxes
+			if (box->hasChildren())
+			{
+				if (!restampPtsUsingParsedBoxes(offset, box->getChildren()))
+				{
+					return false;
+				}
+			}
+		}
+		else if (IS_TYPE(box->getType(), Box::TFDT))
+		{
+			// Use the TfdtBox API to safely modify the PTS
+			TfdtBox *tfdtBox = dynamic_cast<TfdtBox*>(box);
+			if (tfdtBox != nullptr)
+			{
+				// Check the TFDT version to determine arithmetic type
+				uint8_t version = tfdtBox->getVersion();
+				// Check OOB for tfdt box for version 0 and 1
+				// If OOB , skip processing this box to avoid out-of-bounds access.
+				const uint32_t tfdtHeaderSize = sizeof(uint32_t) * 3;
+				const uint32_t ptsSize = (version == 1) ?
+					sizeof(uint64_t) : sizeof(uint32_t);
+				if (tfdtBox->getSize() < (tfdtHeaderSize + ptsSize))
+				{
+
+					AAMPLOG_WARN("Skipping truncated TFDT box size[%u] version[%u]",
+						tfdtBox->getSize(), version);
+					return false;
+				}
+
+				if (version == 0)
+				{
+					// For version 0 boxes, use 32-bit arithmetic to maintain overflow/underflow behavior
+					uint32_t pts = static_cast<uint32_t>(tfdtBox->getBaseMDT());
+					if (!firstPtsSaved)
+					{
+						beforePTS = pts;
+					}
+					pts += static_cast<uint32_t>(offset);
+					tfdtBox->setBaseMDT(pts);
+					if (!firstPtsSaved)
+					{
+						afterPTS = pts;
+						firstPtsSaved = true;
+					}
+				}
+				else
+				{
+					// For version 1 boxes, use 64-bit arithmetic
+					uint64_t pts = tfdtBox->getBaseMDT();
+					if (!firstPtsSaved)
+					{
+						beforePTS = pts;
+					}
+					pts += offset;
+					tfdtBox->setBaseMDT(pts);
+					if (!firstPtsSaved)
+					{
+						afterPTS = pts;
+						firstPtsSaved = true;
+					}
+				}
+			}
+		}
+	}
+	return true;
 }
 
 void IsoBmffBuffer::setPtsAndDuration(uint64_t pts, uint64_t duration)

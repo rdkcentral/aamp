@@ -572,9 +572,24 @@ uint64_t TfdtBox::getBaseMDT()
  */
 TfdtBox* TfdtBox::constructTfdtBox(uint32_t sz, uint8_t *ptr)
 {
+	constexpr uint32_t boxHeaderSize = sizeof(uint32_t) * 2;
+	constexpr uint32_t fullBoxHeaderSize = boxHeaderSize + sizeof(uint32_t);
+	if (sz < fullBoxHeaderSize)
+	{
+		FullBox fbox(sz, Box::TFDT, 0, 0);
+		return new TfdtBox(fbox, 0, nullptr);
+	}
+
 	uint8_t version = READ_VERSION(ptr);
 	uint32_t flags  = READ_FLAGS(ptr);
 	uint8_t* mdt_loc{ptr};
+	const uint32_t timestampSize = (version == 1) ? sizeof(uint64_t) : sizeof(uint32_t);
+	if (sz - fullBoxHeaderSize < timestampSize)
+	{
+		FullBox fbox(sz, Box::TFDT, version, flags);
+		return new TfdtBox(fbox, 0, nullptr);
+	}
+
 	uint64_t mdt;
 
 	if (1 == version)

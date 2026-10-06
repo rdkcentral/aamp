@@ -291,7 +291,6 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 						{
 							AAMPLOG_ERR("%s Not able to download fragments; reached failure threshold sending tune failed event",name);
 							abortWaitForVideoPTS();
-							aamp->SetFlushFdsNeededInCurlStore(true);
 							aamp->SendDownloadErrorEvent(AAMP_TUNE_FRAGMENT_DOWNLOAD_FAILURE, httpErrorCode);
 						}
 					}
@@ -300,7 +299,6 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 						// When rampdown limit is not specified, init segment will be ramped down, this will
 						AAMPLOG_ERR("%s Not able to download init fragments; reached failure threshold sending tune failed event",name);
 						abortWaitForVideoPTS();
-						aamp->SetFlushFdsNeededInCurlStore(true);
 						aamp->SendDownloadErrorEvent(AAMP_TUNE_INIT_FRAGMENT_DOWNLOAD_FAILURE, httpErrorCode);
 					}
 				}
@@ -328,7 +326,6 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 						// Already at lowest profile, send error event for init fragment.
 						AAMPLOG_ERR("Not able to download init fragments; reached failure threshold sending tune failed event");
 						abortWaitForVideoPTS();
-						aamp->SetFlushFdsNeededInCurlStore(true);
 						aamp->SendDownloadErrorEvent(AAMP_TUNE_INIT_FRAGMENT_DOWNLOAD_FAILURE, httpErrorCode);
 					}
 					else
@@ -350,7 +347,6 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 					if (!playingAd && httpErrorCode != 502)
 					{
 						abortWaitForVideoPTS();
-						aamp->SetFlushFdsNeededInCurlStore(true);
 						aamp->SendDownloadErrorEvent(AAMP_TUNE_INIT_FRAGMENT_DOWNLOAD_FAILURE, httpErrorCode);
 					}
 				}

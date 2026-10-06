@@ -34,7 +34,7 @@ public:
     MOCK_METHOD(void, getSampleDuration, (Box *, uint64_t &));
     MOCK_METHOD(void, setBuffer, (uint8_t *, size_t));
     MOCK_METHOD(bool, parseBuffer, (bool, int));
-    MOCK_METHOD(void, restampPts, (int64_t));
+    MOCK_METHOD(bool, restampPts, (int64_t));
     MOCK_METHOD(void, setPtsAndDuration, (uint64_t, uint64_t));
     MOCK_METHOD(uint64_t, getSegmentDuration, ());
     MOCK_METHOD(bool, getMdatBoxCount, (size_t&));

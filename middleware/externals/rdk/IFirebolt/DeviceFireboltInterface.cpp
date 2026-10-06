@@ -80,9 +80,16 @@ void DeviceFireboltInterface::Initialize()
 	MW_PRE_LOGGER_LOG("Initialize \n");
 	if(s_pDeviceFireboltInterface)
 	{
+		std::lock_guard<std::mutex> lock(s_pDeviceFireboltInterface->m_initMutex);
+		if (s_pDeviceFireboltInterface->m_isInitialized)
+		{
+			MW_PRE_LOGGER_LOG("Initialize skipped: Firebolt events already registered \n");
+			return;
+		}
 		MW_PRE_LOGGER_LOG("Registering events \n");
 		s_pDeviceFireboltInterface->RegisterDsMgrEventHandler();
 		s_pDeviceFireboltInterface->RegisterNtwMgrEventHandler();
+		s_pDeviceFireboltInterface->m_isInitialized = true;
 	}
 	else
 	{
@@ -138,6 +145,8 @@ void DeviceFireboltInterface::RegisterDsMgrEventHandler()
 
 void DeviceFireboltInterface::RemoveEventHandlers()
 {
+	std::lock_guard<std::mutex> lock(m_initMutex);
+	m_isInitialized = false;
 	//removes everything ...
     Firebolt::IFireboltAampAccessor::Instance().DeviceInterface().unsubscribeAll();        
 }
@@ -189,6 +198,62 @@ char * DeviceFireboltInterface::GetTR181Config(const char * paramName, size_t & 
     return nullptr;
 }
 
+/**
+ * @brief Queries Device.hdcp and Device.videoResolution via Firebolt and updates player HDCP/resolution state.
+ * Implements xrn:firebolt:capability:device:info for SetHDMIStatus on RDK-E (USE_FIREBOLT) builds.
+ */
+void DeviceFireboltInterface::SetHDMIStatus()
+{
+	std::unique_lock<std::mutex> lock(m_hdmiStatusMutex, std::try_to_lock);
+    if (!lock.owns_lock()) {
+        MW_LOG_WARN("DeviceFirebolt SetHDMIStatus: Already in progress on another thread, skipping");
+        return;
+    }
+	std::shared_ptr<PlayerExternalsRdkInterface> pInstance = PlayerExternalsRdkInterface::GetPlayerExternalsRdkInterfaceInstance();
+
+    // Query current HDCP state via Firebolt Device.hdcp (xrn:firebolt:capability:device:info)
+    auto hdcpResult = Firebolt::IFireboltAampAccessor::Instance().DeviceInterface().hdcp();
+    if (hdcpResult)
+    {
+        const auto& hdcpMap = hdcpResult.value();
+        if (hdcpMap.hdcp2_2)
+        {
+            pInstance->SetHDCPEnabled(true);
+            pInstance->setHdcpProtocol(dsHDCP_VERSION_2X);
+			MW_LOG_WARN("DeviceFirebolt SetHDMIStatus: HDCP 2.2 detected");
+        }
+        else if (hdcpMap.hdcp1_4)
+        {
+            pInstance->SetHDCPEnabled(true);
+            pInstance->setHdcpProtocol(dsHDCP_VERSION_1X);
+            MW_LOG_WARN("DeviceFirebolt SetHDMIStatus: HDCP 1.4 detected");
+        }
+        else
+        {
+            pInstance->SetHDCPEnabled(false);
+            pInstance->setHdcpProtocol(dsHDCP_VERSION_1X);
+            MW_LOG_WARN("DeviceFirebolt SetHDMIStatus: HDCP not supported, defaulting to 1.4");
+        }
+		
+    }
+    else
+    {
+        MW_LOG_ERR("DeviceFirebolt SetHDMIStatus: Failed to query HDCP: %d", static_cast<int>(hdcpResult.error()));
+    }
+	// Query current resolution via Firebolt Device.videoResolution (xrn:firebolt:capability:device:info)
+    auto resolutionResult = Firebolt::IFireboltAampAccessor::Instance().DeviceInterface().videoResolution();
+    if (resolutionResult)
+    {
+        int width  = resolutionResult.value()[0];
+        int height = resolutionResult.value()[1];
+        pInstance->SetResolution(width, height);
+        MW_LOG_INFO("DeviceFirebolt SetHDMIStatus: Resolution [%d][%d]", width, height);
+    }
+    else
+    {
+        MW_LOG_ERR("DeviceFirebolt SetHDMIStatus: Failed to query resolution: %d", static_cast<int>(resolutionResult.error()));
+    }
+}
 static void getActiveInterfaceEventHandlerFirebolt (const Firebolt::Device::NetworkInfoResult& t_NetworkInfoResult)
 {
     std::shared_ptr<PlayerExternalsRdkInterface> pInstance = PlayerExternalsRdkInterface::GetPlayerExternalsRdkInterfaceInstance();

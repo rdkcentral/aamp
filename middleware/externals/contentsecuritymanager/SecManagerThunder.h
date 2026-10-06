@@ -35,6 +35,7 @@
 #include <memory>
 #include <list>
 #include <map>
+#include <set>
 #include <vector>
 
 #define SECMANAGER_CALL_SIGN "org.rdk.SecManager.1"
@@ -201,6 +202,8 @@ protected:
 	std::mutex mSecMutex;    	        /**< Lock for accessing mSecManagerObj*/
 	std::mutex mWatMutex;		        /**< Lock for accessing mWatermarkPluginObj*/
 	std::mutex mSpeedStateMutex;		/**< mutex for setPlaybackSpeedState()*/
+	std::mutex mLoadClutMutex;		/**< mutex for mLoadClutInFlight set*/
+	std::set<int> mLoadClutInFlight;	/**< graphicIds currently in loadClutWatermark*/
 	std::list<std::string> mRegisteredEvents;
 	bool mSchedulerStarted;
 };

@@ -41,8 +41,14 @@ public:
 										   GstClockTime timeout));
 	MOCK_METHOD(GstElement *, gst_element_factory_make, (const gchar *factoryname,const gchar *name));
 	MOCK_METHOD(GstStateChangeReturn, gst_element_set_state,(GstElement *element, GstState state));
+	MOCK_METHOD(GstElement *, gst_bin_new, (const gchar *name));
 	MOCK_METHOD(gboolean, gst_bin_add, (GstBin *bin, GstElement *element));
 	MOCK_METHOD(gboolean, gst_element_sync_state_with_parent, (GstElement *element));
+	MOCK_METHOD(gboolean, gst_bin_remove, (GstBin *bin, GstElement *element));
+	MOCK_METHOD(gboolean, gst_element_link, (GstElement *src, GstElement *dest));
+	MOCK_METHOD(gboolean, gst_element_sync_state_with_parent, (GstElement *element));
+	MOCK_METHOD(gboolean, gst_element_add_pad, (GstElement *element, GstPad *pad));
+	MOCK_METHOD(GstPad *, gst_ghost_pad_new, (const gchar *name, GstPad *target));
 	MOCK_METHOD(void, gst_object_unref,(gpointer object));
 	MOCK_METHOD(void, gst_mini_object_unref,(GstMiniObject *mini_object));
 	

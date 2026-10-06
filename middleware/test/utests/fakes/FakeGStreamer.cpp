@@ -367,6 +367,10 @@ gboolean gst_bin_add(GstBin *bin, GstElement *element)
 gboolean gst_bin_remove(GstBin *bin, GstElement *element)
 {
 	TRACE_FUNC();
+	if (g_mockGStreamer != nullptr)
+	{
+		return g_mockGStreamer->gst_bin_remove(bin, element);
+	}
 	return FALSE;
 }
 
@@ -378,6 +382,10 @@ void gst_bin_add_many(GstBin *bin, GstElement *element_1, ...)
 gboolean gst_element_link(GstElement *src, GstElement *dest)
 {
 	TRACE_FUNC();
+	if (g_mockGStreamer != nullptr)
+	{
+		return g_mockGStreamer->gst_element_link(src, dest);
+	}
 	return FALSE;
 }
 
@@ -930,6 +938,10 @@ GType gst_base_sink_get_type (void)
 gboolean gst_element_add_pad (GstElement * element, GstPad * pad)
 {
 	TRACE_FUNC();
+	if (g_mockGStreamer != nullptr)
+	{
+		return g_mockGStreamer->gst_element_add_pad(element, pad);
+	}
 	return FALSE;
 }
 
@@ -957,6 +969,10 @@ gchar * gst_structure_to_string(const GstStructure *structure)
 GstElement * gst_bin_new (const gchar * name)
 {
 	TRACE_FUNC();
+	if (g_mockGStreamer != nullptr)
+	{
+		return g_mockGStreamer->gst_bin_new(name);
+	}
 	return NULL;
 }
 void gst_deinit (void)
@@ -993,6 +1009,10 @@ gst_registry_add_feature (GstRegistry * registry,
 GstPad * gst_ghost_pad_new (const gchar * name, GstPad * target)
 {
 	TRACE_FUNC();
+	if (g_mockGStreamer != nullptr)
+	{
+		return g_mockGStreamer->gst_ghost_pad_new(name, target);
+	}
 	return NULL;
 }
 

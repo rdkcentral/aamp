@@ -1381,9 +1381,14 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 					// We could skip RestampPts when PTSOffsetSec==0 but the RestampPts log line
 					// would then be missing and it is important for l2 tests
 					int64_t ptsOffset = cachedFragment->PTSOffsetSec * cachedFragment->timeScale;
-					(void)mIsoBmffHelper->RestampPts(cachedFragment->fragment, ptsOffset,
-													 cachedFragment->uri, name,
-													 cachedFragment->timeScale);
+									if (!mIsoBmffHelper->RestampPts(cachedFragment->fragment, ptsOffset,
+														 cachedFragment->uri, name,
+														 cachedFragment->timeScale))
+									{
+										aamp->ScheduleRetune(eGST_ERROR_PTS, static_cast<AampMediaType>(type));
+										ret = false;
+										return;
+									}
 				}
 				else
 				{
@@ -3037,7 +3042,6 @@ void StreamAbstractionAAMP::CheckForPlaybackStall(bool fragmentParsed)
 				if (CheckIfPlayerRunningDry())
 				{
 					AAMPLOG_WARN("StreamAbstractionAAMP: Stall detected!. Time elapsed since fragment parsed(%f), caches are all empty!", timeElapsedSinceLastFragment);
-					aamp->SetFlushFdsNeededInCurlStore(true);
 					aamp->SendStalledErrorEvent();
 				}
 			}

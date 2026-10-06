@@ -290,6 +290,7 @@ enum LatencyStatus
 
 /**
  * @brief AAMP Function return values
+ * @brief AAMP Function return values  - must match the below block
  */
 enum AAMPStatusType
 {
@@ -306,9 +307,35 @@ enum AAMPStatusType
 	eAAMPSTATUS_SEEK_RANGE_ERROR,			/**< Seek position range invalid */
 	eAAMPSTATUS_TRACKS_SYNCHRONIZATION_ERROR,	/**< Audio video track synchronization Error */
 	eAAMPSTATUS_INVALID_PLAYLIST_ERROR,		/**< Playlist discontinuity mismatch*/
-	eAAMPSTATUS_UNSUPPORTED_DRM_ERROR		/**< Unsupported DRM */
+	eAAMPSTATUS_UNSUPPORTED_DRM_ERROR,		/**< Unsupported DRM */
+	eAAMPSTATUS_MANIFEST_DOWNLOAD_ABORTED	/**< Manifest download has been aborted due to a player stop request */
 };
-
+/**
+ * @brief Return a string for a status name
+ */
+inline const char* statusName(AAMPStatusType s)
+{
+	static const char* const statusStrings[] =
+	{
+		"eAAMPSTATUS_OK",
+		"eAAMPSTATUS_FAKE_TUNE_COMPLETE",
+		"eAAMPSTATUS_GENERIC_ERROR",
+		"eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR",
+		"eAAMPSTATUS_PLAYLIST_VIDEO_DOWNLOAD_ERROR",
+		"eAAMPSTATUS_PLAYLIST_AUDIO_DOWNLOAD_ERROR",
+		"eAAMPSTATUS_MANIFEST_PARSE_ERROR",
+		"eAAMPSTATUS_MANIFEST_CONTENT_ERROR",
+		"eAAMPSTATUS_MANIFEST_INVALID_TYPE",
+		"eAAMPSTATUS_PLAYLIST_PLAYBACK",
+		"eAAMPSTATUS_SEEK_RANGE_ERROR",
+		"eAAMPSTATUS_TRACKS_SYNCHRONIZATION_ERROR",
+		"eAAMPSTATUS_INVALID_PLAYLIST_ERROR",
+		"eAAMPSTATUS_UNSUPPORTED_DRM_ERROR",
+		"eAAMPSTATUS_MANIFEST_DOWNLOAD_ABORTED"
+	};
+	return (s >= 0 && s < (int)(sizeof(statusStrings)/sizeof(statusStrings[0])))
+		? statusStrings[s] : "UNKNOWN";
+}
 
 /**
  *
