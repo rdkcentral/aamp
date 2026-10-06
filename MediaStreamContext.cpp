@@ -549,6 +549,9 @@ void MediaStreamContext::ABRProfileChanged(void)
 	// Get AdaptationSet Index and Representation Index from the corresponding profile
 	int adaptIdxFromProfile = profileMap.adaptationSetIndex;
 	int reprIdxFromProfile = profileMap.representationIndex;
+	AAMPLOG_INFO("vk::ABRProfileChanged type=%d currentAdaptation=%p currentRepresentation=%p currentIndices=%d/%d newIndices=%d/%d profile=%d",
+		mediaType, adaptationSet, representation, adaptationSetIdx, representationIndex,
+		adaptIdxFromProfile, reprIdxFromProfile, context->currentProfileIndex);
 	if (!((adaptationSetIdx == adaptIdxFromProfile) && (representationIndex == reprIdxFromProfile)))
 	{
 		const IAdaptationSet *pNewAdaptationSet = context->GetAdaptationSetAtIndex(adaptIdxFromProfile);
@@ -563,6 +566,8 @@ void MediaStreamContext::ABRProfileChanged(void)
 			adaptationSetId = adaptationSet->GetId();
 			representationIndex = reprIdxFromProfile;
 			representation = pNewRepresentation;
+			AAMPLOG_INFO("vk::ABRProfileChanged assigned type=%d adaptation=%p representation=%p indices=%d/%d",
+				mediaType, adaptationSet, representation, adaptationSetIdx, representationIndex);
 
 			dash::mpd::IMPD *mpd = context->GetMPD();
 			IPeriod *period = context->GetPeriod();
@@ -584,6 +589,8 @@ void MediaStreamContext::ABRProfileChanged(void)
 		}
 		else
 		{
+			AAMPLOG_WARN("vk::ABRProfileChanged current representation is null; assignment skipped type=%d newAdaptation=%p newRepresentation=%p newIndices=%d/%d",
+				mediaType, pNewAdaptationSet, pNewRepresentation, adaptIdxFromProfile, reprIdxFromProfile);
 			AAMPLOG_WARN("representation is null");  //CID:83962 - Null Returns
 		}
 	}

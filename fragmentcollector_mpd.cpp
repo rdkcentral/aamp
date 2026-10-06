@@ -6929,6 +6929,9 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateMediaTrackInfo(AampMediaType typ
 	class MediaStreamContext *pMediaStreamContext = mMediaStreamContext[type];
 
 	IPeriod *period = mCurrentPeriod;
+	AAMPLOG_INFO("vk::UpdateMediaTrackInfo pointer state type=%d context=%p contextNull=%d period=%p periodNull=%d mpd=%p mpdNull=%d",
+		type, pMediaStreamContext, pMediaStreamContext == NULL, period, period == NULL,
+		mpd, mpd == NULL);
 
 	if ((!pMediaStreamContext) || (!pMediaStreamContext->enabled))
 	{
@@ -6937,16 +6940,30 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateMediaTrackInfo(AampMediaType typ
 	}
 	AAMPLOG_INFO("Enter : Type[%d] timeLineIndex %d fragmentRepeatCount %d fragmentTime %f segNumber %" PRIu64 " Ftime:%f" ,pMediaStreamContext->type,
 				pMediaStreamContext->timeLineIndex, pMediaStreamContext->fragmentRepeatCount, pMediaStreamContext->fragmentTime, pMediaStreamContext->fragmentDescriptor.Number, pMediaStreamContext->fragmentDescriptor.Time);
+	AAMPLOG_INFO("vk::UpdateMediaTrackInfo before type=%d period=%p mpd=%p context=%p oldAdaptation=%p oldRepresentation=%p indices=%d/%d",
+		type, period, mpd, pMediaStreamContext, pMediaStreamContext->adaptationSet,
+		pMediaStreamContext->representation, pMediaStreamContext->adaptationSetIdx,
+		pMediaStreamContext->representationIndex);
 
 	pMediaStreamContext->adaptationSet = period->GetAdaptationSets().at(pMediaStreamContext->adaptationSetIdx);
+	AAMPLOG_INFO("vk::UpdateMediaTrackInfo selected adaptation type=%d adaptation=%p adaptationNull=%d",
+		type, pMediaStreamContext->adaptationSet, pMediaStreamContext->adaptationSet == NULL);
 	pMediaStreamContext->adaptationSetId = pMediaStreamContext->adaptationSet->GetId();
 
 	if (pMediaStreamContext->representationIndex < pMediaStreamContext->adaptationSet->GetRepresentation().size())
 	{
 		pMediaStreamContext->representation = pMediaStreamContext->adaptationSet->GetRepresentation().at(pMediaStreamContext->representationIndex);
+		AAMPLOG_INFO("vk::UpdateMediaTrackInfo assigned type=%d period=%p mpd=%p context=%p adaptation=%p representation=%p indices=%d/%d",
+			type, period, mpd, pMediaStreamContext, pMediaStreamContext->adaptationSet,
+			pMediaStreamContext->representation, pMediaStreamContext->adaptationSetIdx,
+			pMediaStreamContext->representationIndex);
 	}
 	else
 	{
+		AAMPLOG_WARN("vk::UpdateMediaTrackInfo representation index out of range type=%d adaptation=%p representation=%p index=%d count=%zu",
+			type, pMediaStreamContext->adaptationSet, pMediaStreamContext->representation,
+			pMediaStreamContext->representationIndex,
+			pMediaStreamContext->adaptationSet->GetRepresentation().size());
 		AAMPLOG_WARN("Not able to find representation from manifest, sending error event");
 		aamp->SendErrorEvent(AAMP_TUNE_INIT_FAILED_MANIFEST_CONTENT_ERROR);
 		return eAAMPSTATUS_MANIFEST_CONTENT_ERROR;
@@ -7652,23 +7669,65 @@ int StreamAbstractionAAMP_MPD::GetProfileIdxForBandwidthNotification(uint32_t ba
 std::string StreamAbstractionAAMP_MPD::GetCurrentMimeType(AampMediaType mediaType)
 {
 	std::string mimeType;
+	AAMPLOG_INFO("vk::GetCurrentMimeType enter this=%p type=%d tracks=%d mpd=%p parseHelper=%p currentPeriod=%p periodIndex=%d response=%p responseUseCount=%ld subtitleSlot=%p",
+		this, mediaType, mNumberOfTracks, mpd, mMPDParseHelper.get(), mCurrentPeriod,
+		mCurrentPeriodIdx, mManifestDnldRespPtr.get(), mManifestDnldRespPtr.use_count(),
+		mMediaStreamContext[eMEDIATYPE_SUBTITLE]);
+	AAMPLOG_INFO("vk::GetCurrentMimeType owner null state mpdNull=%d parseHelperNull=%d periodNull=%d responseNull=%d",
+		mpd == NULL, mMPDParseHelper == NULL, mCurrentPeriod == NULL,
+		mManifestDnldRespPtr == NULL);
 	if( mediaType < mNumberOfTracks )
 	{
 		auto pMediaStreamContext = mMediaStreamContext[mediaType];
+		AAMPLOG_INFO("vk::GetCurrentMimeType slot type=%d context=%p contextNull=%d",
+			mediaType, pMediaStreamContext, pMediaStreamContext == NULL);
 		if( pMediaStreamContext )
 		{
+			AAMPLOG_INFO("vk::GetCurrentMimeType context state type=%d context=%p representation=%p representationNull=%d adaptation=%p adaptationNull=%d trackType=%d enabled=%d indices=%d/%d owner=%p ownerNull=%d player=%p playerNull=%d",
+				mediaType, pMediaStreamContext, pMediaStreamContext->representation,
+				pMediaStreamContext->representation == NULL, pMediaStreamContext->adaptationSet,
+				pMediaStreamContext->adaptationSet == NULL, pMediaStreamContext->type,
+				pMediaStreamContext->enabled, pMediaStreamContext->adaptationSetIdx,
+				pMediaStreamContext->representationIndex, pMediaStreamContext->context,
+				pMediaStreamContext->context == NULL, pMediaStreamContext->aamp,
+				pMediaStreamContext->aamp == NULL);
 			if( pMediaStreamContext->representation )
 			{
+				AAMPLOG_INFO("vk::GetCurrentMimeType before representation use type=%d contextNull=0 representation=%p representationNull=%d",
+					mediaType, pMediaStreamContext->representation,
+					pMediaStreamContext->representation == NULL);
 				mimeType = pMediaStreamContext->representation->GetMimeType();
+				AAMPLOG_INFO("vk::GetCurrentMimeType returned type=%d representation=%p mimeType=%s",
+					mediaType, pMediaStreamContext->representation, mimeType.c_str());
+			}
+			else
+			{
+				AAMPLOG_WARN("vk::GetCurrentMimeType null representation type=%d context=%p adaptation=%p",
+					mediaType, pMediaStreamContext, pMediaStreamContext->adaptationSet);
 			}
 			if( mimeType.empty() )
 			{
 				if( pMediaStreamContext->adaptationSet )
 				{
+					AAMPLOG_INFO("vk::GetCurrentMimeType before adaptation use type=%d contextNull=0 adaptation=%p adaptationNull=%d",
+						mediaType, pMediaStreamContext->adaptationSet,
+						pMediaStreamContext->adaptationSet == NULL);
 					mimeType = pMediaStreamContext->adaptationSet->GetMimeType();
+					AAMPLOG_INFO("vk::GetCurrentMimeType adaptation returned type=%d adaptation=%p mimeType=%s",
+						mediaType, pMediaStreamContext->adaptationSet, mimeType.c_str());
+				}
+				else
+				{
+					AAMPLOG_WARN("vk::GetCurrentMimeType null adaptation type=%d context=%p representation=%p",
+						mediaType, pMediaStreamContext, pMediaStreamContext->representation);
 				}
 			}
 		}
+	}
+	else
+	{
+		AAMPLOG_WARN("vk::GetCurrentMimeType type outside track count type=%d tracks=%d",
+			mediaType, mNumberOfTracks);
 	}
 	if( mimeType.empty() )
 	{
@@ -7761,6 +7820,9 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 			if( numAdaptationSets==0 )
 			{
 				AAMPLOG_WARN("empty period");
+				AAMPLOG_WARN("vk::UpdateTrackInfo clearing track=%d context=%p period=%p oldAdaptation=%p oldRepresentation=%p",
+					i, pMediaStreamContext, period, pMediaStreamContext->adaptationSet,
+					pMediaStreamContext->representation);
 				pMediaStreamContext->adaptationSet = NULL;
 				pMediaStreamContext->representation = NULL;
 				continue;
@@ -8281,9 +8343,17 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 			if(pMediaStreamContext->representationIndex < pMediaStreamContext->adaptationSet->GetRepresentation().size())
 			{
 				pMediaStreamContext->representation = pMediaStreamContext->adaptationSet->GetRepresentation().at(pMediaStreamContext->representationIndex);
+				AAMPLOG_INFO("vk::UpdateTrackInfo assigned track=%d context=%p period=%p mpd=%p adaptation=%p representation=%p indices=%d/%d",
+					i, pMediaStreamContext, period, mpd, pMediaStreamContext->adaptationSet,
+					pMediaStreamContext->representation, pMediaStreamContext->adaptationSetIdx,
+					pMediaStreamContext->representationIndex);
 			}
 			else
 			{
+				AAMPLOG_WARN("vk::UpdateTrackInfo index out of range track=%d context=%p period=%p adaptation=%p representation=%p index=%d count=%zu",
+					i, pMediaStreamContext, period, pMediaStreamContext->adaptationSet,
+					pMediaStreamContext->representation, pMediaStreamContext->representationIndex,
+					pMediaStreamContext->adaptationSet->GetRepresentation().size());
 				AAMPLOG_WARN("Not able to find representation from manifest, sending error event");
 				aamp->SendErrorEvent(AAMP_TUNE_INIT_FAILED_MANIFEST_CONTENT_ERROR);
 				return eAAMPSTATUS_MANIFEST_CONTENT_ERROR;
@@ -10879,14 +10949,27 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateMPD(bool init)
 		{
 			if(tmpManifestDnldRespPtr->mMPDInstance != mManifestDnldRespPtr->mMPDInstance)
 			{
+				MediaStreamContext *subtitleContext = mMediaStreamContext[eMEDIATYPE_SUBTITLE];
+				AAMPLOG_INFO("vk::UpdateMPD replacing oldResponse=%p oldUseCount=%ld oldMPD=%p newResponse=%p newUseCount=%ld newMPD=%p subtitleContext=%p oldRepresentation=%p",
+					mManifestDnldRespPtr.get(), mManifestDnldRespPtr.use_count(), mpd,
+					tmpManifestDnldRespPtr.get(), tmpManifestDnldRespPtr.use_count(),
+					tmpManifestDnldRespPtr->mMPDInstance.get(), subtitleContext,
+					subtitleContext ? subtitleContext->representation : NULL);
 				mManifestDnldRespPtr = std::move(tmpManifestDnldRespPtr);
 				ret = GetMPDFromManifest(mManifestDnldRespPtr , false);
+				AAMPLOG_INFO("vk::UpdateMPD installed status=%d response=%p mpd=%p subtitleContext=%p representationBeforeReindex=%p",
+					ret, mManifestDnldRespPtr.get(), mpd, subtitleContext,
+					subtitleContext ? subtitleContext->representation : NULL);
 				// if no parse error
 				if(ret == AAMPStatusType::eAAMPSTATUS_OK)
 				{
 					AAMPLOG_INFO("Got Manifest Updated . Continue with Fetcherloop");
 					// mCurrentPeriodIdx, mNumberOfPeriods based on mBasePeriodId
 					ret = IndexNewMPDDocument();
+					AAMPLOG_INFO("vk::UpdateMPD indexing complete status=%d response=%p mpd=%p subtitleContext=%p representation=%p adaptation=%p",
+						ret, mManifestDnldRespPtr.get(), mpd, subtitleContext,
+						subtitleContext ? subtitleContext->representation : NULL,
+						subtitleContext ? subtitleContext->adaptationSet : NULL);
 				}
 			}
 		}
@@ -11422,6 +11505,28 @@ static bool IsUsableCachedMediaHeader(const std::shared_ptr<AampStreamSinkManage
  */
 void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &auxOutputFormat, StreamOutputFormat &subtitleOutputFormat)
 {
+	auto subtitleContext = mMediaStreamContext[eMEDIATYPE_SUBTITLE];
+	AAMPLOG_INFO("vk::GetStreamFormat enter this=%p aamp=%p playRate=%f tracks=%d mpd=%p parseHelper=%p currentPeriod=%p periodIndex=%d slots=%p/%p/%p/%p",
+		this, aamp, mPlayRate, mNumberOfTracks, mpd, mMPDParseHelper.get(),
+		mCurrentPeriod, mCurrentPeriodIdx, mMediaStreamContext[eMEDIATYPE_VIDEO],
+		mMediaStreamContext[eMEDIATYPE_AUDIO], mMediaStreamContext[eMEDIATYPE_AUX_AUDIO],
+		subtitleContext);
+	for (int trackIndex = 0; trackIndex < AAMP_TRACK_COUNT; ++trackIndex)
+	{
+		auto trackContext = mMediaStreamContext[trackIndex];
+		AAMPLOG_INFO("vk::GetStreamFormat track slot=%d context=%p contextNull=%d",
+			trackIndex, trackContext, trackContext == NULL);
+		if (trackContext)
+		{
+			AAMPLOG_INFO("vk::GetStreamFormat track state slot=%d mediaType=%d trackType=%d enabled=%d adaptation=%p adaptationNull=%d representation=%p representationNull=%d indices=%d/%d contextOwner=%p ownerNull=%d player=%p playerNull=%d",
+				trackIndex, trackContext->mediaType, trackContext->type, trackContext->enabled,
+				trackContext->adaptationSet, trackContext->adaptationSet == NULL,
+				trackContext->representation, trackContext->representation == NULL,
+				trackContext->adaptationSetIdx, trackContext->representationIndex,
+				trackContext->context, trackContext->context == NULL, trackContext->aamp,
+				trackContext->aamp == NULL);
+		}
+	}
 	if(mMediaStreamContext[eMEDIATYPE_VIDEO] && mMediaStreamContext[eMEDIATYPE_VIDEO]->enabled )
 	{
 		primaryOutputFormat = FORMAT_ISO_BMFF;

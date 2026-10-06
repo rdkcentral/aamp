@@ -58,6 +58,9 @@ public:
     {
         AAMPLOG_INFO("[%s] Create new MediaStreamContext",
             GetMediaTypeName(mediaType));
+		AAMPLOG_INFO("vk::MediaStreamContext constructed this=%p type=%d trackType=%d owner=%p player=%p adaptation=%p representation=%p indices=%d/%d",
+			this, mediaType, type, ctx, aamp, adaptationSet, representation,
+			adaptationSetIdx, representationIndex);
         mPlaylistUrl = aamp->GetManifestUrl();
         fragmentDescriptor.bUseMatchingBaseUrl = ISCONFIGSET(eAAMPConfig_MatchBaseUrl);
         mTempFragment = std::make_shared<AampGrowableBuffer>("temp");
@@ -68,6 +71,9 @@ public:
      */
     ~MediaStreamContext()
     {
+		AAMPLOG_INFO("vk::MediaStreamContext destroying this=%p type=%d trackType=%d owner=%p player=%p adaptation=%p representation=%p indices=%d/%d",
+			this, mediaType, type, context, aamp, adaptationSet, representation,
+			adaptationSetIdx, representationIndex);
         mDownloadedFragment.Free();
         mTempFragment.reset();
     }
