@@ -1092,9 +1092,10 @@ TEST_F(AampConfigTests, DoCustomSetting)
 }
 
 /*
-	useDirectRialto is only consumed once, in the PrivateInstanceAAMP constructor, so
-	it must not be settable dynamically (stream/app/tune priority) after the player
-	instance already exists. DoCustomSetting should revert such an override.
+	useDirectRialto is consumed	before the app can call InitAAMPConfig or
+	before tune-time overrides apply, so overriding it after the player
+	instance exists (stream/app/tune settings) has no effect; DoCustomSetting
+	should revert such attempt.
 */
 TEST_F(AampConfigTests, DoCustomSettingRevertsDynamicUseDirectRialto)
 {
