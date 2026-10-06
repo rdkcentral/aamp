@@ -46,6 +46,14 @@ void AampEventManager::SendEvent(const AAMPEventPtr &eventData, AAMPEventMode ev
     }
 }
 
+void AampEventManager::SendEventSync(const AAMPEventPtr &eventData, long long enqueueTimeMs)
+{
+}
+
+void AampEventManager::SendEventAsync(const AAMPEventPtr &eventData)
+{
+}
+
 void AampEventManager::FlushPendingEvents()
 {
 }
@@ -85,4 +93,8 @@ void AampEventManager::SetPlayerState(AAMPPlayerState state)
 bool AampEventManager::IsSpecificEventListenerAvailable(AAMPEventType eventType)
 {	
     return false;
+}
+
+void AampEventManager::SetEventProfilingConfig(bool enabled, int thresholdMs)
+{
 }
