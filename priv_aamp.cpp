@@ -14337,11 +14337,12 @@ double PrivateInstanceAAMP::GetStreamPositionMs()
  */
 void PrivateInstanceAAMP::SendMonitorAvEvent(const std::string &status, int64_t videoPositionMS, int64_t audioPositionMS, uint64_t timeInStateMS, uint64_t droppedFrames)
 {
-	if(mbPlayEnabled)
+	if(mbPlayEnabled && mTuneCompleted)
 	{
 		MonitorAVStatusEventPtr evt = std::make_shared<MonitorAVStatusEvent>(status, videoPositionMS, audioPositionMS, timeInStateMS, GetSessionId(), droppedFrames);
 		mEventManager->SendEvent(evt, AAMP_EVENT_SYNC_MODE);
 	}
+	
 }
 /**
  * @fn GetFormatPositionOffsetInMSecs

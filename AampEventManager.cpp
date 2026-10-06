@@ -155,6 +155,12 @@ void AampEventManager::RemoveListenerForAllEvents(EventListener* eventListener)
  */
 void AampEventManager::AddEventListener(AAMPEventType eventType, std::shared_ptr<EventListener>& eventListener)
 {
+	if (eventType == AAMP_EVENT_REPORT_ANOMALY)
+	{
+		AAMPLOG_INFO("vk:: Skipping anomaly event listener registration");
+		return;
+	}
+
 	if ((eventListener != NULL) && (eventType >= AAMP_EVENT_ALL_EVENTS) && (eventType < AAMP_MAX_NUM_EVENTS))
 	{
 		ListenerData* pListener = new ListenerData;
