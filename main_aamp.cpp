@@ -3405,10 +3405,12 @@ bool PlayerInstanceAAMP::InitAAMPConfig(const char *jsonStr)
 			aamp->curlhost[i] = new eCurlHostMap();
 		}
 	}
-
 	// also enable Ethan log redirection if Rialto is enabled using initconfig option.
 	AampLogManager::enableEthanLogRedirection = aamp->UsingRialto();
 	PlayerLogManager::SetLoggerInfo(AampLogManager::disableLogRedirection, AampLogManager::enableEthanLogRedirection, AampLogManager::aampLoglevel, AampLogManager::locked);
+
+	// Reapply event profiling config to AampEventManager
+	aamp->EnableEventProfiling();
 	return retVal;
 }
 

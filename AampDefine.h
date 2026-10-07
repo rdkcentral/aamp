@@ -147,6 +147,7 @@
 #define DEFAULT_MAX_DOWNLOAD_BUFFER 10	/**< Default maximum download buffer in seconds, this can be used to limit player download job scheduling for DASH */
 #define DEFAULT_MONITOR_AV_REPORTING_INTERVAL 1000 /**< time interval in ms for MonitorAV reporting */
 #define DEFAULT_UTC_SYNC_MIN_INTERVAL_SEC	60	/**< Minimum interval between sync attempts */
+#define DEFAULT_EVENT_PROFILING_THRESHOLD_MS 500		/**< Default round-trip threshold (ms) for event profiling; logs only when exceeded */
 
 #define DEFAULT_EARLY_ABORT_PROFILE_BANDWIDTH_PERCENT 80 /**< By default, let's abort early if bps is less than 80% of profile bandwidth */
 
@@ -199,12 +200,12 @@
 
 #define DEFAULT_LATENCY_MONITOR_DELAY_MS		5000		/**< Latency Monitor Delay */
 #define DEFAULT_LATENCY_MONITOR_INTERVAL_MS		1000		/**< Latency monitor interval */
-#define DEFAULT_MIN_LOW_LATENCY					5.0			/**< min Default Latency */
-#define DEFAULT_MAX_LOW_LATENCY					7.0			/**< max Default Latency */
-#define DEFAULT_TARGET_LOW_LATENCY				6.0			/**< Target Default Latency */
+#define DEFAULT_MIN_LOW_LATENCY					7.0			/**< Min Default Latency */
+#define DEFAULT_TARGET_LOW_LATENCY				8.0			/**< Target Default Latency */
+#define DEFAULT_MAX_LOW_LATENCY					9.0			/**< Max Default Latency */
 #define DEFAULT_LL_DRM_LATENCY_ESTIMATE_SEC		2.0		/**< Default estimated DRM acquisition latency for LL-DASH (seconds) */
-#define DEFAULT_MIN_RATE_CORRECTION_SPEED		0.97f		/**< min Rate correction speed */
-#define DEFAULT_MAX_RATE_CORRECTION_SPEED		1.03f		/**< max Rate correction speed */
+#define DEFAULT_MIN_RATE_CORRECTION_SPEED		0.97f		/**< Min Rate correction speed */
+#define DEFAULT_MAX_RATE_CORRECTION_SPEED		1.03f		/**< Max Rate correction speed */
 #define DEFAULT_NORMAL_RATE_CORRECTION_SPEED	1.00f		/**< Live Catchup Normal play rate */
 #define AAMP_LLD_MINIMUM_CACHE_SEGMENTS 		(2)     	/**< Number of segments to be cached minimum before rate change*/
 #define AAMP_LLD_LOW_BUFF_CHECK_COUNT           (4)         /**< Count to confirm low buffer state for LLD stream playback; 4 sec to ABR; So Allow ABR first*/
