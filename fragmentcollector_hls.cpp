@@ -1709,6 +1709,8 @@ void TrackState::FetchFragment()
 			cachedFragment->duration = duration.inSeconds();
 			cachedFragment->position = position.inSeconds();
 			cachedFragment->absPosition = playlistPosition.inSeconds();
+			cachedFragment->codecChanged = (type == eTRACK_AUDIO) && context->GetCodecChangedStatus();
+			context->ResetCodecChangedStatus();
 			// in case of tsb, GetCurrentBandWidth does not return correct bandwidth as it is updated after this point
 			// hence getting from context which is updated in FetchFragmentHelper
 			long lbwd = aamp->IsFogTSBSupported() ? context->GetTsbBandwidth() : this->GetCurrentBandWidth();
@@ -4794,7 +4796,7 @@ StreamAbstractionAAMP_HLS::StreamAbstractionAAMP_HLS(class PrivateInstanceAAMP *
 	enableThrottle(false), firstFragmentDecrypted(false), mStartTimestampZero(false), mNumberOfTracks(0), midSeekPtsOffset(0),
 	segDLFailCount(0), segDrmDecryptFailCount(0), mMediaCount(0),mProfileCount(0),
 	mLangList(),mIframeAvailable(false), indexedTileInfo(),
-	mFirstPTS(0),mDiscoCheckMutex(),
+	mFirstPTS(0), mPreviousAudioType(FORMAT_INVALID), mDiscoCheckMutex(),
 	mPtsOffsetUpdate{std::move(ptsUpdate)},
 	mDrmInterface(aamp),
 	mMetadataProcessor{nullptr},
@@ -6135,6 +6137,8 @@ void TrackState::FetchInitFragment()
 				cachedFragment->duration = 0;
 				cachedFragment->position = playTarget.inSeconds() - playTargetOffset.inSeconds();
 				cachedFragment->discontinuity = discontinuity;
+				cachedFragment->codecChanged = (type == eTRACK_AUDIO) && context->GetCodecChangedStatus();
+				context->ResetCodecChangedStatus();
 			}
 
 			// If forcePushEncryptedHeader, don't reset the playTarget as the original init header has to be pushed next
@@ -6895,12 +6899,12 @@ void StreamAbstractionAAMP_HLS::ConfigureVideoProfiles()
 				}
 			}
 
-			if (aamp->mPreviousAudioType != selectedAudioType)
+			if (mPreviousAudioType != selectedAudioType)
 			{
 				AAMPLOG_WARN("AudioType Changed %d -> %d",
-						 aamp->mPreviousAudioType, selectedAudioType);
-				aamp->mPreviousAudioType = selectedAudioType;
-				SetESChangeStatus();
+						mPreviousAudioType, selectedAudioType);
+				mPreviousAudioType = selectedAudioType;
+				SetCodecChangedStatus();
 			}
 
 			// Now comes next set of complex checks for bad streams
