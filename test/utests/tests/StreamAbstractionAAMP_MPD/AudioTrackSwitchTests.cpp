@@ -648,3 +648,86 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	EXPECT_EQ(pMediaStreamContext->adaptationSetIdx, 1);
 	EXPECT_EQ(pMediaStreamContext->adaptationSetId, 2);
 }
+
+
+namespace
+{
+static const char *CODEC_CHANGE_RACE_MANIFEST =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="static"
+    mediaPresentationDuration="PT30S" minBufferTime="PT4S">
+    <Period id="P1" start="PT0S">
+        <AdaptationSet id="1" contentType="audio" lang="en" mimeType="audio/mp4">
+            <Representation id="aac" codecs="mp4a.40.2" bandwidth="128000">
+                <SegmentTemplate timescale="48000" initialization="aac_init.mp4" media="aac_$Number$.m4s" startNumber="1">
+                    <SegmentTimeline><S t="0" d="480000"/></SegmentTimeline>
+                </SegmentTemplate>
+            </Representation>
+        </AdaptationSet>
+    </Period>
+    <Period id="P2" start="PT10S">
+        <AdaptationSet id="2" contentType="audio" lang="en" mimeType="audio/mp4">
+            <Representation id="ec3" codecs="ec-3" bandwidth="128000">
+                <SegmentTemplate timescale="48000" initialization="ec3_init.mp4" media="ec3_$Number$.m4s" startNumber="1">
+                    <SegmentTimeline><S t="0" d="480000"/></SegmentTimeline>
+                </SegmentTemplate>
+            </Representation>
+        </AdaptationSet>
+    </Period>
+    <Period id="P4" start="PT20S">
+        <AdaptationSet id="4" contentType="audio" lang="en" mimeType="audio/mp4">
+            <Representation id="ec3" codecs="ec-3" bandwidth="128000">
+                <SegmentTemplate timescale="48000" initialization="ec3_init.mp4" media="ec3_$Number$.m4s" startNumber="1">
+                    <SegmentTimeline><S t="0" d="480000"/></SegmentTimeline>
+                </SegmentTemplate>
+            </Representation>
+        </AdaptationSet>
+    </Period>
+</MPD>
+)";
+}
+
+TEST_F(SwitchAudioTrackTests, CodecChangeRaceSeekBeforeDiscontinuity)
+{
+    mPrivateInstanceAAMP->mLastConfiguredAudioFormat = FORMAT_AUDIO_ES_AAC;
+    EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _))
+        .Times(AnyNumber()).WillRepeatedly(Return(true));
+    ASSERT_EQ(InitializeMPD(CODEC_CHANGE_RACE_MANIFEST, TuneType::eTUNETYPE_SEEK, 15.0), eAAMPSTATUS_OK);
+
+    // P2 selects EC-3 while AAC remains the configured pipeline codec.
+    ASSERT_TRUE(mStreamAbstractionAAMP_MPD->ClaimCodecChangedStatus());
+
+    // P2 was aborted before Configure(); selecting the same codec for P4 must
+    // compare against AAC and raise the change again.
+    mPrivateInstanceAAMP->mLastConfiguredAudioFormat = FORMAT_AUDIO_ES_AAC;
+    std::vector<AudioTrackInfo> tracks;
+    std::string trackIndex;
+    int adaptationSetIndex = -1;
+    int representationIndex = -1;
+    mStreamAbstractionAAMP_MPD->SelectAudioTrack(
+        tracks, trackIndex, adaptationSetIndex, representationIndex);
+    EXPECT_TRUE(mStreamAbstractionAAMP_MPD->ClaimCodecChangedStatus());
+    EXPECT_FALSE(mStreamAbstractionAAMP_MPD->ClaimCodecChangedStatus());
+}
+
+TEST_F(SwitchAudioTrackTests, CodecChangeRaceSeekAfterDiscontinuity)
+{
+    mPrivateInstanceAAMP->mLastConfiguredAudioFormat = FORMAT_AUDIO_ES_AAC;
+    EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _))
+        .Times(AnyNumber()).WillRepeatedly(Return(true));
+    ASSERT_EQ(InitializeMPD(CODEC_CHANGE_RACE_MANIFEST, TuneType::eTUNETYPE_SEEK, 15.0), eAAMPSTATUS_OK);
+
+    // P2 selects EC-3 and the discontinuity is processed/configured.
+    ASSERT_TRUE(mStreamAbstractionAAMP_MPD->ClaimCodecChangedStatus());
+    mPrivateInstanceAAMP->mLastConfiguredAudioFormat = FORMAT_AUDIO_ES_EC3;
+
+    // P4 has the same codec as the configured pipeline.
+    std::vector<AudioTrackInfo> tracks;
+    std::string trackIndex;
+    int adaptationSetIndex = -1;
+    int representationIndex = -1;
+    mStreamAbstractionAAMP_MPD->SelectAudioTrack(
+        tracks, trackIndex, adaptationSetIndex, representationIndex);
+    EXPECT_FALSE(mStreamAbstractionAAMP_MPD->GetCodecChangedStatus());
+    EXPECT_FALSE(mStreamAbstractionAAMP_MPD->ClaimCodecChangedStatus());
+}
