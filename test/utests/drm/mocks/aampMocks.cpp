@@ -728,7 +728,7 @@ BitsPerSecond PrivateInstanceAAMP::GetMinimumBitrate()
 	return 0;
 }
 
-bool PrivateInstanceAAMP::IsPlayEnabled()
+bool PrivateInstanceAAMP::IsPlayEnabled() const
 {
 	return true;
 }
