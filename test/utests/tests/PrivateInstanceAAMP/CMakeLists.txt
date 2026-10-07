@@ -53,7 +53,8 @@ set(TEST_SOURCES PauseAtTests.cpp
                  ClosedCaptionTests.cpp
                  PrivateInstanceAAMPTests.cpp
                  LocalTSBTests.cpp
-                 AsyncTuneAbortTests.cpp)
+                 AsyncTuneAbortTests.cpp
+                 BlockProgressMonitorTests.cpp)
 
 set(AAMP_SOURCES ${AAMP_ROOT}/priv_aamp.cpp
                  ${AAMP_ROOT}/CachedFragment.cpp)
