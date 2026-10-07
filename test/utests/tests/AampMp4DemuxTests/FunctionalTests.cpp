@@ -230,16 +230,25 @@ TEST_F(AampMp4DemuxerTests, SendInitSegmentWithValidCodecInfo)
 		.WillOnce([]() {
 			MediaCodecInfo codecInfo;
 			codecInfo.mCodecFormat = GST_FORMAT_VIDEO_ES_H264;
+			codecInfo.mNaluLengthPrefixed = true; // avcC: length-prefixed AVCC
 			return codecInfo;
 		}); // Return codec info
 	// No SendStreamTransfer calls expected for init segment
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(_, _, _)).Times(0);
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetStreamCaps(eMEDIATYPE_VIDEO, _)).Times(1); // Should set stream caps
+	bool capturedNaluLengthPrefixed = false;
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetStreamCaps(eMEDIATYPE_VIDEO, _))
+		.WillOnce([&](AampMediaType, MediaCodecInfo&& codecInfo) {
+			capturedNaluLengthPrefixed = codecInfo.mNaluLengthPrefixed;
+		}); // Should set stream caps
 	bool ptsError = false;
 	bool result = mDemuxer->sendSegment(std::move(initBuffer), 2.0, 0.0, 0.0, false, true, nullptr, ptsError);
 
 	EXPECT_TRUE(result);
 	EXPECT_FALSE(ptsError);
+	// The demuxer's length-prefixed determination must reach SetStreamCaps
+	// unchanged, since AampRialtoPlayer relies on it to pick AVC vs
+	// BYTE_STREAM independently of which object owns the Mp4Demux instance.
+	EXPECT_TRUE(capturedNaluLengthPrefixed);
 }
 
 /**
