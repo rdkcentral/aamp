@@ -996,7 +996,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 						aamp->rate = AAMP_NORMAL_PLAY_RATE;
 						aamp->mSinkPaused = false;
 						{
-							std::lock_guard<std::recursive_mutex> lock(aamp->GetStreamLock());
+							PrivateInstanceAAMP::SetRateProtect setRateLock(aamp);
 							aamp->TuneHelper(eTUNETYPE_SEEK, false);
 						}
 						// Notify speed change without state transition (keeps eSTATE_SEEKING)
@@ -1102,8 +1102,9 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 				aamp->CalculateTrickModePositionEOS();
 				aamp->EnableDownloads();
 				aamp->ResumeDownloads();
+
 				{
-					std::lock_guard<std::recursive_mutex> lock(aamp->GetStreamLock());
+					PrivateInstanceAAMP::SetRateProtect setRateLock(aamp);
 					aamp->TuneHelper(tuneTypePlay); // this unpauses pipeline as side effect
 				}
 			}
@@ -3404,10 +3405,12 @@ bool PlayerInstanceAAMP::InitAAMPConfig(const char *jsonStr)
 			aamp->curlhost[i] = new eCurlHostMap();
 		}
 	}
-
 	// also enable Ethan log redirection if Rialto is enabled using initconfig option.
 	AampLogManager::enableEthanLogRedirection = aamp->UsingRialto();
 	PlayerLogManager::SetLoggerInfo(AampLogManager::disableLogRedirection, AampLogManager::enableEthanLogRedirection, AampLogManager::aampLoglevel, AampLogManager::locked);
+
+	// Reapply event profiling config to AampEventManager
+	aamp->EnableEventProfiling();
 	return retVal;
 }
 
