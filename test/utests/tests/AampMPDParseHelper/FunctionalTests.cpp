@@ -1850,9 +1850,9 @@ INSTANTIATE_TEST_SUITE_P(TrimPeriodTail, TrimPeriodTailCasesTest, ::testing::Val
 	// The explicit t after a gap decides the start, not the accumulated durations
 	TrimCase{"UsesExplicitStartAfterGap", "duration=\"PT10S\"",
 		"<S t=\"0\" d=\"2000\" r=\"3\" /><S t=\"9800\" d=\"3200\" />", kVideoFitsPeriod, true, "", 1, 3},
-	// Without @duration the next Period's @start gives the end
-	TrimCase{"EndFromNextPeriodStart", "",
-		"<S t=\"0\" d=\"2000\" r=\"3\" /><S t=\"8000\" d=\"1800\" /><S t=\"9800\" d=\"3200\" />", kVideoFitsPeriod, true, "", 2, 0},
+	// An end inferred from the next Period's @start is not used
+	TrimCase{"NextPeriodStartAloneIsUntouched", "",
+		"<S t=\"0\" d=\"2000\" r=\"3\" /><S t=\"8000\" d=\"1800\" /><S t=\"9800\" d=\"3200\" />", kVideoFitsPeriod, true, "", 3, 0},
 	// A last Period with no @duration has an unknown end
 	TrimCase{"UnknownEndIsUntouched", "",
 		"<S t=\"0\" d=\"2000\" r=\"3\" /><S t=\"8000\" d=\"1800\" /><S t=\"9800\" d=\"3200\" />", kVideoFitsPeriod, false, "", 3, 0},

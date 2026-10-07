@@ -268,9 +268,9 @@ public :
 
 	/**
 	 * @fn TrimPeriodTailSegments
-	 * @brief Remove trailing SegmentTimeline segments that start within startToleranceSec of a known
-	 *        Period end and finish more than minOverhangSec after it (e.g. a segment duplicated by an
-	 *        ad splicer). The MPD is edited in place; call before Initialize().
+	 * @brief Remove trailing SegmentTimeline segments that start within startToleranceSec of a Period end
+	 *        given by its @duration, and finish more than minOverhangSec after it (e.g. a segment duplicated by an
+	 *        ad splicer). Periods without @duration are left alone. The MPD is edited in place; call before Initialize().
 	 * @param[in,out] mpd parsed MPD
 	 * @param[in] startToleranceSec start window before the Period end
 	 * @param[in] minOverhangSec minimum time the segment must run past the Period end

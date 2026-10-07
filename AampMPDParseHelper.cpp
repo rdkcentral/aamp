@@ -840,23 +840,18 @@ static std::optional<std::vector<TimelineEntry>> ReadTimelineEntries(const std::
 }
 
 /**
- * @brief Period end from @duration, else the next Period's @start minus this one's.
+ * @brief Period end from the published @duration only; an end inferred from the next Period's @start can appear after
+ *        a segment has already been accepted, so it is not used.
  *        Deliberately not GetPeriodDuration(): that applies the head-cull start delta and needs Initialize() to have run.
- * @retval nullopt if the end is unknown or not positive
+ * @retval nullopt if @duration is absent or not positive
  */
-static std::optional<double> KnownPeriodDurationSec(const std::vector<IPeriod *> &periods, size_t index)
+static std::optional<double> PublishedPeriodDurationSec(const IPeriod *period)
 {
-	const IPeriod *period = periods[index];
-	double durationSec = 0.0;
-	if (!period->GetDuration().empty())
+	if (period->GetDuration().empty())
 	{
-		durationSec = ParseISO8601Duration(period->GetDuration().c_str()) / 1000.0;
+		return std::nullopt;
 	}
-	else if (index + 1 < periods.size() && !period->GetStart().empty() && !periods[index + 1]->GetStart().empty())
-	{
-		durationSec = (ParseISO8601Duration(periods[index + 1]->GetStart().c_str()) -
-					   ParseISO8601Duration(period->GetStart().c_str())) / 1000.0;
-	}
+	const double durationSec = ParseISO8601Duration(period->GetDuration().c_str()) / 1000.0;
 	if (durationSec <= 0.0)
 	{
 		return std::nullopt;
@@ -963,7 +958,7 @@ static std::vector<PeriodTimeline> CollectPeriodTimelines(IPeriod *period)
 }
 
 /**
- * @brief Remove trailing timeline segments that start within the tolerance of a known Period end and run past it
+ * @brief Remove trailing timeline segments that start within the tolerance of a published Period @duration end and run past it
  */
 std::vector<DroppedSegment> AampMPDParseHelper::TrimPeriodTailSegments(dash::mpd::IMPD *mpd, double startToleranceSec, double minOverhangSec)
 {
@@ -973,17 +968,16 @@ std::vector<DroppedSegment> AampMPDParseHelper::TrimPeriodTailSegments(dash::mpd
 		return dropped;
 	}
 
-	const std::vector<IPeriod *> &periods = mpd->GetPeriods();
-	for (size_t periodIndex = 0; periodIndex < periods.size(); periodIndex++)
+	for (IPeriod *period : mpd->GetPeriods())
 	{
-		const std::optional<double> periodDurationSec = KnownPeriodDurationSec(periods, periodIndex);
+		const std::optional<double> periodDurationSec = PublishedPeriodDurationSec(period);
 		if (!periodDurationSec)
 		{
 			continue;
 		}
 
-		const TailDropRule rule{periods[periodIndex]->GetId(), *periodDurationSec, startToleranceSec, minOverhangSec};
-		for (const PeriodTimeline &track : CollectPeriodTimelines(periods[periodIndex]))
+		const TailDropRule rule{period->GetId(), *periodDurationSec, startToleranceSec, minOverhangSec};
+		for (const PeriodTimeline &track : CollectPeriodTimelines(period))
 		{
 			TrimTimelineTail(track, rule, dropped);
 		}
@@ -997,7 +991,7 @@ std::vector<DroppedSegment> AampMPDParseHelper::TrimPeriodTailSegments(dash::mpd
 std::vector<DroppedSegment> TailDropLog::Report(const std::vector<DroppedSegment> &dropped)
 {
 	std::vector<DroppedSegment> reported;
-	std::set<Key> current;
+	std::set<Key>current;
 	std::lock_guard<std::mutex> lock(mMutex);
 	for (const DroppedSegment &segment : dropped)
 	{
