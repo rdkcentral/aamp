@@ -167,7 +167,6 @@ void AampMp4Demuxer::TrickmodePtsRestamp(AampMediaSample& sample, double duratio
 {
 	// Store original values for logging
 	double originalPts = sample.mPts;
-	//double originalDts = sample.mDts; // unused
 	double originalDuration = sample.mDuration;
 	double fragmentPtsDelta = 0.0;
 	double restampedDuration = 0.0;
