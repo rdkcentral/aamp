@@ -298,7 +298,7 @@ Prefer:
 
 ```text
 Prompt 1: Review the ABR fallback logic in AampAbrManager.cpp
-          for the off-by-one issue described in VPAAMP-99.
+          for the off-by-one issue described previously.
 Prompt 2: Suggest a unit test for the corrected branch.
 ```
 

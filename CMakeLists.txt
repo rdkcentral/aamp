@@ -64,17 +64,7 @@ if(NOT RIALTO_FOUND)
 	if(NOT RIALTO_INCLUDE_DIRS)
 		set(RIALTO_INCLUDE_DIRS "${CMAKE_SOURCE_DIR}/.libs/include/rialto")
 	endif()
-	# Simulator builds always enable the Direct Rialto DRM adapter.
-	# Production Yocto recipes that have the real RialtoClient and want the DRM
-	# path must pass -DCMAKE_USE_DIRECT_RIALTO_ADAPTER=TRUE explicitly.
-	set(CMAKE_USE_DIRECT_RIALTO_ADAPTER TRUE)
 endif()
-
-# TODO - Remove this code?
-# Production Yocto recipes that have the real RialtoClient and want the DRM
-# path must pass -DCMAKE_USE_DIRECT_RIALTO_ADAPTER=TRUE explicitly.
-set(CMAKE_USE_DIRECT_RIALTO_ADAPTER TRUE)
-
 
 # External middleware-player-interface dependencies (required)
 # Components are sourced from the external middleware-player-interface repository.
@@ -262,8 +252,6 @@ include_directories(
 	${SUBTEC_INCLUDE_DIRS}
 )
 
-add_subdirectory(test/rialtoPOC)
-
 #if (CMAKE_INBUILT_AAMP_DEPENDENCIES)
 	message("Building aamp support libraries")
 	include_directories(support/aampmetrics)
@@ -347,7 +335,6 @@ if(CMAKE_WPEWEBKIT_JSBINDINGS OR APPLE OR CMAKE_PLATFORM_UBUNTU)
         message("Found JavaScriptCore.framework at ${JSCORE_FRAMEWORK}")
 
         set(LIBAAMPJSBINDINGS_DEPENDS "${LIBAAMPJSBINDINGS_DEPENDS}" ${JSCORE_FRAMEWORK})
-		set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DSUPPORT_JS_EVENTS -DAAMP_WPEWEBKIT_JSBINDINGS")
 
         target_link_libraries(aampjsbindings PUBLIC aamp tsb playergstinterface playerfbinterface ${AAMP_CLI_LD_FLAGS} ${LIBAAMPJSBINDINGS_DEPENDS})
         set_target_properties(aampjsbindings PROPERTIES
@@ -404,7 +391,6 @@ if(CMAKE_WPEWEBKIT_JSBINDINGS OR APPLE OR CMAKE_PLATFORM_UBUNTU)
 
         include_directories(${JSC_INCLUDE_DIRS})
         set(LIBAAMPJSBINDINGS_DEPENDS ${LIBAAMPJSBINDINGS_DEPENDS} ${JSC_LINK_LIBRARIES})
-        set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DSUPPORT_JS_EVENTS -DAAMP_WPEWEBKIT_JSBINDINGS")
 
         target_link_libraries(aampjsbindings PUBLIC aamp tsb playergstinterface playerfbinterface ${LIBAAMPJSBINDINGS_DEPENDS})
         set_target_properties(aampjsbindings PROPERTIES COMPILE_FLAGS "${LIBAAMPJSBINDINGS_DEFINES}")
@@ -447,7 +433,6 @@ if(CMAKE_WPEWEBKIT_JSBINDINGS OR APPLE OR CMAKE_PLATFORM_UBUNTU)
 		message("The WPE WebKit library found is ${WPE_WEBKIT_LINK_LIBRARIES}")
 		# Link WPE WebKit package to aampjsbindings
         set(LIBAAMPJSBINDINGS_DEPENDS ${LIBAAMPJSBINDINGS_DEPENDS} ${WPE_WEBKIT_LINK_LIBRARIES})
-		set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DSUPPORT_JS_EVENTS -DAAMP_WPEWEBKIT_JSBINDINGS")
 
         target_link_libraries(aampjsbindings PUBLIC aamp ${LIBAAMPJSBINDINGS_DEPENDS})
         set_target_properties(aampjsbindings PROPERTIES COMPILE_FLAGS "${LIBAAMPJSBINDINGS_DEFINES}")

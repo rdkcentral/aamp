@@ -142,6 +142,7 @@ public:
 	 */
 	bool SendSample(AampMediaType mediaType, AampMediaSample&& sample, bool morePending = false) override;
 
+
 	/**
 		 * @fn PipelineConfiguredForMedia
 		 * @param[in] type stream type
@@ -167,6 +168,7 @@ public:
 		 * @param[in] position playback seek position
 		 * @param[in] rate playback rate
 		 * @param[in] shouldTearDown flag indicates if pipeline should be destroyed if in invalid state
+		 * @param[in] positionIsAuthoritative true when position is the definitive resume position
 		 */
 	void Flush(double position, int rate, bool shouldTearDown, bool positionIsAuthoritative = false) override;
 	/**

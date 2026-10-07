@@ -621,7 +621,7 @@ TEST_F(AampDRMLicPreFetcherTests, MultiKey_UHDFailedHDSuccess_BothProcessed)
 }
 
 /**
- * @brief Test VSS period with failed key (VPLAY-11304)
+ * @brief Test VSS period with failed key
  */
 TEST_F(AampDRMLicPreFetcherTests, VPLAY11304_VssPreFetchThread_FailedKey_Handled)
 {

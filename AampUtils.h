@@ -349,18 +349,14 @@ uint32_t aamp_ComputeCRC32(const uint8_t *data, uint32_t size, uint32_t initial 
 
 namespace aamp_utils
 {
-	template<typename T, typename ...Args>
-	std::unique_ptr<T> make_unique(Args&& ...args)
-	{
-		return std::unique_ptr<T>(new T(std::forward<Args>(args)...));
-	}
-
 	/**
-	 * @brief Clear a vector and release its heap memory
+	 * @brief Clear a vector and release its heap memory.
 	 *
 	 * Swaps the target vector with a default-constructed temporary so that
-	 * the size becomes zero and the capacity is reduced to that of a
-	 * default-constructed vector (typically releasing its heap storage).
+	 * the size becomes zero and the capacity is unconditionally released.
+	 * The swap idiom is intentional: shrink_to_fit() is non-binding per the
+	 * standard and cannot be relied upon for guaranteed deallocation, whereas
+	 * swap with a temporary destructs the old allocation immediately.
 	 *
 	 * @tparam T Element type of the vector
 	 * @param[in,out] v Vector to clear and release

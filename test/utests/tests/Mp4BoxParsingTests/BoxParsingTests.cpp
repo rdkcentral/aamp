@@ -1199,7 +1199,7 @@ TEST(Mp4Demux_Gaps, SencHugeSubsampleCount)
 
 // ============================================================
 // Tests for ParseMetaBox, ParseSampleGroupDescription (sgpd),
-// and ParseSampleToGroup (sbgp) — added for VPAAMP-428 review.
+// and ParseSampleToGroup (sbgp) — added for review.
 // Each test wraps its target box inside a minimal 'moov' container
 // so DemuxHelper recurses into it normally.
 // ============================================================

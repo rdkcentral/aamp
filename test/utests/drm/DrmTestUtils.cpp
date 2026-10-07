@@ -50,7 +50,7 @@ TestUtilJsonWrapper::~TestUtilJsonWrapper()
 TestUtilDrm::TestUtilDrm(PrivateInstanceAAMP* privAamp)
 	: mAamp(privAamp)
 {
-	mLicenseManager = aamp_utils::make_unique<AampDRMLicenseManager>(2, mAamp);
+	mLicenseManager = std::make_unique<AampDRMLicenseManager>(2, mAamp);
 }
 
 TestUtilDrm::~TestUtilDrm()

@@ -139,7 +139,7 @@ static cJSON* TryParseAsJson(const char* input)
  */
 PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 	, std::function< void(const unsigned char *, int, int, int) > exportFrames
-	, bool powerEvt) : aamp(NULL), sp_aamp(nullptr), mJSBinding_DL(),mAsyncRunning(false),mConfig(),mAsyncTuneEnabled(false),mScheduler()
+	, bool powerEvt) : aamp(NULL), sp_aamp(nullptr), mAsyncRunning(false),mConfig(),mAsyncTuneEnabled(false),mScheduler()
 {
 	// Create very first instance of Aamp Config to read the cfg & Operator file .This is needed for very first
 	// tune only . After that every tune will use the same config parameters
@@ -166,7 +166,7 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 			
 		}
 
-		PlayerLogManager::SetLoggerInfo(AampLogManager::disableLogRedirection, gpGlobalConfig->IsConfigSet(eAAMPConfig_useRialtoSink), AampLogManager::aampLoglevel, AampLogManager::locked);
+		PlayerLogManager::SetLoggerInfo(AampLogManager::disableLogRedirection, gpGlobalConfig->IsUsingRialto(), AampLogManager::aampLoglevel, AampLogManager::locked);
 
 		//TR181 is not supported in firebolt
 		std::shared_ptr<PlayerExternalsInterface> pExternalsInterface = PlayerExternalsInterface::GetPlayerExternalsInterfaceInstance();
@@ -186,16 +186,6 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 	pExternalsInterface->SetPowerEvent(powerEvt);
 	pExternalsInterface->Initialize();
 
-#ifdef SUPPORT_JS_EVENTS
-#ifdef AAMP_WPEWEBKIT_JSBINDINGS //aamp_LoadJS defined in libaampjsbindings.so
-	const char* szJSLib = "libaampjsbindings.so";
-#else
-	const char* szJSLib = "libaamp.so";
-#endif
-	mJSBinding_DL = dlopen(szJSLib, RTLD_GLOBAL | RTLD_LAZY);
-	AAMPLOG_WARN("[AAMP_JS] dlopen(\"%s\")=%p", szJSLib, mJSBinding_DL);
-#endif
-
 #ifdef AAMP_BUILD_INFO
 		std::string tmpstr = MACRO_TO_STRING(AAMP_BUILD_INFO);
 		AAMPLOG_MIL("AAMP_BUILD_INFO: %s",tmpstr.c_str());
@@ -205,7 +195,7 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 	mConfig = *gpGlobalConfig;
 
 	// sd_journal logging doesn't work with AAMP/Rialto running in Container, so route to Ethan Logger instead
-	AampLogManager::enableEthanLogRedirection = mConfig.IsConfigSet(eAAMPConfig_useRialtoSink);
+	AampLogManager::enableEthanLogRedirection = mConfig.IsUsingRialto();
 
 	PlayerLogManager::SetLoggerInfo(AampLogManager::disableLogRedirection, AampLogManager::enableEthanLogRedirection, AampLogManager::aampLoglevel, AampLogManager::locked);
 	
@@ -291,13 +281,6 @@ PlayerInstanceAAMP::~PlayerInstanceAAMP()
 	{
 		PlayerCCManager::DestroyInstance();
 	}
-#ifdef SUPPORT_JS_EVENTS
-	if (mJSBinding_DL && isLastPlayerInstance)
-	{
-		AAMPLOG_WARN("[AAMP_JS] dlclose(%p)", mJSBinding_DL);
-		dlclose(mJSBinding_DL);
-	}
-#endif
 	if (isLastPlayerInstance)
 	{
 		ContentSecurityManager::DestroyInstance();
@@ -510,8 +493,8 @@ void PlayerInstanceAAMP::TuneInternal(const char *mainManifestUrl,
 	if(aamp)
 	{
 		UsingPlayerId playerId(aamp->mPlayerId);
-
-		if ( aamp->IsAsyncTuneAbortRequired(mainManifestUrl, contentType) )
+		double seekPos=GETCONFIGVALUE(eAAMPConfig_PlaybackOffset);
+		if ( aamp->IsAsyncTuneAbortRequired(mainManifestUrl, contentType, seekPos) )
 		{
 				AAMPLOG_INFO("Aborting tune early");
 				return;
@@ -533,7 +516,7 @@ void PlayerInstanceAAMP::TuneInternal(const char *mainManifestUrl,
 				IsOTAtoOTA = true;
 			}
 		}
-		if ((state != eSTATE_IDLE) && (state != eSTATE_RELEASED) && (!IsOTAtoOTA) && (!(aamp->IsAsyncTuneAbortRequired(mainManifestUrl, contentType))) )
+		if ((state != eSTATE_IDLE) && (state != eSTATE_RELEASED) && (!IsOTAtoOTA) && (!(aamp->IsAsyncTuneAbortRequired(mainManifestUrl, contentType, seekPos))) )
 		{
 			//Calling tune without closing previous tune
 			StopInternal(true, false);
@@ -543,7 +526,7 @@ void PlayerInstanceAAMP::TuneInternal(const char *mainManifestUrl,
 			AAMPLOG_INFO("Player is in state '%s'. Do not stop before tune", AAMPPlayerStateName(state));
 		}
 
-		if ( !aamp->IsAsyncTuneAbortRequired(mainManifestUrl, contentType) )
+		if ( !aamp->IsAsyncTuneAbortRequired(mainManifestUrl, contentType, seekPos) )
 		{
 			aamp->getAampCacheHandler()->StartPlaylistCache();
 			aamp->Tune(mainManifestUrl, autoPlay, contentType, bFirstAttempt, bFinalAttempt, traceUUID, audioDecoderStreamSync, refreshManifestUrl, mpdStitchingMode, std::move(sid),manifestData);
@@ -815,7 +798,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 
 		if (aamp->mpStreamAbstractionAAMP && !(aamp->mbUsingExternalPlayer))
 		{
-			if ( AAMP_SLOWMOTION_RATE != rate && !aamp->mIsIframeTrackPresent && rate != AAMP_NORMAL_PLAY_RATE && rate != 0 && aamp->mMediaFormat != eMEDIAFORMAT_PROGRESSIVE)
+			if ( AAMP_SLOWMOTION_RATE != rate && !aamp->mIsIframeTrackPresent && !aamp->IsVODIframeSynthesisEnabled() && rate != AAMP_NORMAL_PLAY_RATE && rate != 0 && aamp->mMediaFormat != eMEDIAFORMAT_PROGRESSIVE)
 			{
 				AAMPLOG_WARN("Ignoring trickplay. No iframe tracks in stream");
 				aamp->NotifySpeedChanged(AAMP_NORMAL_PLAY_RATE); // Send speed change event to XRE to reset the speed to normal play since the trickplay ignored at player level.
@@ -1013,7 +996,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 						aamp->rate = AAMP_NORMAL_PLAY_RATE;
 						aamp->mSinkPaused = false;
 						{
-							std::lock_guard<std::recursive_mutex> lock(aamp->GetStreamLock());
+							PrivateInstanceAAMP::SetRateProtect setRateLock(aamp);
 							aamp->TuneHelper(eTUNETYPE_SEEK, false);
 						}
 						// Notify speed change without state transition (keeps eSTATE_SEEKING)
@@ -1119,8 +1102,9 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 				aamp->CalculateTrickModePositionEOS();
 				aamp->EnableDownloads();
 				aamp->ResumeDownloads();
+
 				{
-					std::lock_guard<std::recursive_mutex> lock(aamp->GetStreamLock());
+					PrivateInstanceAAMP::SetRateProtect setRateLock(aamp);
 					aamp->TuneHelper(tuneTypePlay); // this unpauses pipeline as side effect
 				}
 			}
@@ -1608,7 +1592,7 @@ void PlayerInstanceAAMP::SetRateAndSeek(int rate, double secondsRelativeToTuneTi
 
 		if (aamp->mpStreamAbstractionAAMP)
 		{
-			if ((!aamp->mIsIframeTrackPresent && rate != AAMP_NORMAL_PLAY_RATE && rate != 0))
+			if ((!aamp->mIsIframeTrackPresent && !aamp->IsVODIframeSynthesisEnabled() && rate != AAMP_NORMAL_PLAY_RATE && rate != 0))
 			{
 				AAMPLOG_WARN("Ignoring trickplay. No iframe tracks in stream");
 				aamp->NotifySpeedChanged(AAMP_NORMAL_PLAY_RATE); // Send speed change event to XRE to reset the speed to normal play since the trickplay ignored at player level.
@@ -1790,43 +1774,6 @@ void PlayerInstanceAAMP::SubscribeResponseHeaders(std::vector<std::string> respo
 		}
 	}
 }
-
-#ifdef SUPPORT_JS_EVENTS
-
-/**
- *  @brief Load AAMP JS object in the specified JS context.
- */
-void PlayerInstanceAAMP::LoadJS(void* context)
-{
-	AAMPLOG_WARN("[AAMP_JS] (%p)", context);
-	if (mJSBinding_DL) {
-		void(*loadJS)(void*, void*);
-		const char* szLoadJS = "aamp_LoadJS";
-		loadJS = (void(*)(void*, void*))dlsym(mJSBinding_DL, szLoadJS);
-		if (loadJS) {
-			AAMPLOG_WARN("[AAMP_JS]  dlsym(%p, \"%s\")=%p", mJSBinding_DL, szLoadJS, loadJS);
-			loadJS(context, this);
-		}
-	}
-}
-
-/**
- *  @brief Unload AAMP JS object in the specified JS context.
- */
-void PlayerInstanceAAMP::UnloadJS(void* context)
-{
-	AAMPLOG_WARN("[AAMP_JS] (%p)", context);
-	if (mJSBinding_DL) {
-		void(*unloadJS)(void*);
-		const char* szUnloadJS = "aamp_UnloadJS";
-		unloadJS = (void(*)(void*))dlsym(mJSBinding_DL, szUnloadJS);
-		if (unloadJS) {
-			AAMPLOG_WARN("[AAMP_JS] dlsym(%p, \"%s\")=%p", mJSBinding_DL, szUnloadJS, unloadJS);
-			unloadJS(context);
-		}
-	}
-}
-#endif
 
 /**
  *  @brief Support multiple listeners for multiple event type
@@ -3459,8 +3406,8 @@ bool PlayerInstanceAAMP::InitAAMPConfig(const char *jsonStr)
 		}
 	}
 
-	// also enable Ethan log redirection if useRialtoSink enabled using initconfig option.
-	AampLogManager::enableEthanLogRedirection = ISCONFIGSET(eAAMPConfig_useRialtoSink);
+	// also enable Ethan log redirection if Rialto is enabled using initconfig option.
+	AampLogManager::enableEthanLogRedirection = aamp->UsingRialto();
 	PlayerLogManager::SetLoggerInfo(AampLogManager::disableLogRedirection, AampLogManager::enableEthanLogRedirection, AampLogManager::aampLoglevel, AampLogManager::locked);
 	return retVal;
 }

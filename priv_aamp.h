@@ -610,6 +610,65 @@ class PrivateInstanceAAMP : public DrmCallbacks, public std::enable_shared_from_
 	                       const TextTrackInfo& target) const;
 
 public:
+	/**
+	 * @class SetRateProtect
+	 * @brief A helper class to manage mutex protection around SetRate
+	 *        On construction this will acquire the stream mutex and set a
+	 *        (protected) flag to indicate that a SetRate is active and block
+	 *        MonitorProgress() from running concurrently.	
+	 */
+	class SetRateProtect
+	{
+		public:
+			SetRateProtect(PrivateInstanceAAMP *aamp): mAamp(aamp)
+			{
+				mAamp->mSetRateActiveMutex.lock(); // protect the gap between setting the flag and the stream lock
+				mAamp->mSetRateActive = true; // prevent MonitorProgress() running while doing trick mode
+				mAamp->GetStreamLock().lock();
+				mAamp->mSetRateActiveMutex.unlock();
+			}
+			~SetRateProtect()
+			{
+				mAamp->GetStreamLock().unlock();
+				mAamp->mSetRateActive = false; // allow MonitorProgress() to run again
+			}
+		private:
+			PrivateInstanceAAMP *mAamp;
+	};
+	/**
+	 * @class SetRateMonitor
+	 * @brief A helper class to check mutex state of SetRate
+     */
+	class SetRateMonitor
+	{
+		public:
+			SetRateMonitor(PrivateInstanceAAMP *aamp)
+				: mAamp(aamp), locked(false)
+			{
+				locked = mAamp->mSetRateActiveMutex.try_lock();
+			}
+			~SetRateMonitor()
+			{
+				if (locked)
+				{
+					mAamp->mSetRateActiveMutex.unlock();
+				}
+			}
+			bool active()
+			{
+				if  (!locked)
+				{
+					return true; // could not acquire the mutex so a SetRate is starting
+				}
+				return mAamp->mSetRateActive.load();
+			}
+
+		private:
+			PrivateInstanceAAMP *mAamp;
+			bool locked;
+	};
+
+
 	/* @fn RecalculatePTS
 	 * @param[in] mediaType stream type
 	 * @param[in] ptr buffer pointer
@@ -716,10 +775,11 @@ public:
 	 *
 	 * @param[in] manifestUrl       - manifest URL of the incoming tune
 	 * @param[in] contentTypeString - content-type string of the incoming tune (e.g. "LINEAR_TV")
+	 * @param[in] seek_pos           - seek position that is set of the incoming tune (e.g. "LINEAR_TV")
 	 * @return bool  true if SetEarlyAbortRequestFlag(true) has been called and the incoming
 	 *               tune type supports early abort
 	 */
-	bool IsAsyncTuneAbortRequired(const char* manifestUrl, const char* contentTypeString);
+	bool IsAsyncTuneAbortRequired(const char* manifestUrl, const char* contentTypeString, const double seek_pos);
 	/**
 	 * @fn TeardownStream
 	 *
@@ -1284,6 +1344,8 @@ public:
 
 	bool mIsFlushFdsInCurlStore;	/**< Mark to clear curl store instance in case of playback stopped due to download Error */
 	bool mIsFlushOperationInProgress;		/**< Flag to indicate pipeline flush operation is going on */
+	std::atomic<bool> mSetRateActive;
+	std::mutex mSetRateActiveMutex;
 
 	/**
 	 * @fn ProcessID3Metadata
@@ -1449,6 +1511,12 @@ public:
 	 * @param[in]  maxInitDownloadTimeMS Max time (ms) to retry init-segment
 	 *                                 downloads when AAMP TSB is enabled;
 	 *                                 pass 0 otherwise.
+	 * @param[in]  synthesizeIframeAbort    When true the CURL transfer is aborted
+	 *                                 as soon as the first I-frame payload has
+	 *                                 been received (VOD iframe synthesis mode).
+	 *                                 The caller must subsequently invoke
+	 *                                 IsoBmffHelper::ConvertToKeyFrame() to fix
+	 *                                 the MOOF metadata.  Default: false.
 	 * @return true on success, false on failure.
 	 */
 	bool GetFile( std::string remoteUrl, AampMediaType mediaType,
@@ -1457,7 +1525,8 @@ public:
 				const char *range = NULL, unsigned int curlInstance = 0,
 				bool resetBuffer = true, BitsPerSecond *bitrate = NULL,
 				int *fogError = NULL, double fragmentDurationS = 0,
-				ProfilerBucketType bucketType=PROFILE_BUCKET_TYPE_COUNT, int maxInitDownloadTimeMS = 0);
+				ProfilerBucketType bucketType=PROFILE_BUCKET_TYPE_COUNT,
+				int maxInitDownloadTimeMS = 0, bool synthesizeIframeAbort = false);
 
 	/**
 	 * @fn CheckSegmentIntegrity
@@ -2832,6 +2901,14 @@ public:
 	 *    @return string with Thumbnail information.
 	 */
 	std::string GetThumbnails(double start, double end);
+
+	/**
+	 *   @brief Check if playback is going through Rialto, via either the
+	 *          Rialto GStreamer sink or direct Rialto. Does not imply which.
+	 *
+	 *   @return true if either Rialto config is enabled.
+	 */
+	bool UsingRialto(void) const { return mConfig->IsUsingRialto(); }
 	/**
 	 *    @fn GetThumbnailTracks
 	 *
@@ -3687,6 +3764,23 @@ public:
 	}
 
 	/**
+	 *   @brief Is VOD iframe synthesis from video segments enabled.
+	 *          When true, AAMP downloads the regular video segment during trickplay
+	 *          and strips it to a single I-frame via IsoBmffHelper::ConvertToKeyFrame(),
+	 *          providing trickplay even when no iframe AdaptationSet is advertised.
+	 *          The feature is intentionally limited to VOD (non-live, non-local-TSB)
+	 *          streams; calling this on a live or local-TSB session always returns false.
+	 *
+	 *   @return bool — true only when the config flag is set AND the stream is VOD/non-TSB.
+	 */
+	bool IsVODIframeSynthesisEnabled()
+	{
+		return ISCONFIGSET_PRIV(eAAMPConfig_SynthesizeIframeForVOD)
+		       && !mIsLive
+		       && !mLocalAAMPTsb;
+	}
+
+	/**
 	 *   @fn GetLiveOffsetAppRequest
 	 *   @return bool
 	 */
@@ -4177,6 +4271,7 @@ public:
 	 */
 	bool IsAdPlaying();
 
+
 protected:
 
 	/**
@@ -4454,9 +4549,10 @@ private:
 	 *
 	 * @param[in] format  - media format to evaluate
 	 * @param[in] type    - content type to evaluate
+	 * @param[in] tuneType    - tune type to evaluate
 	 * @return bool true if async abort is supported for the given format/type
 	 */
-	bool IsAsyncTuneSupportedForType(MediaFormat format, ContentType type) const;
+	bool IsAsyncTuneSupportedForType(MediaFormat format, ContentType type, TuneType tuneType) const;
 
 	/**
 	 * @brief Play from the start of the TSB

@@ -1770,7 +1770,7 @@ TEST_F(AampRialtoPlayerDrmTest,
 	const uint8_t initData[] = {0x01};
  	PrivateInstanceAAMP encryptedAamp{};
  	m_player->SetEncryptedAamp(&encryptedAamp);
-	
+
 	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
 	m_player->QueueProtectionEvent(
 		"com.widevine.alpha", initData, sizeof(initData), eMEDIATYPE_VIDEO);
@@ -4525,7 +4525,7 @@ TEST_F(AampRialtoPlayerTest,
 	// Player is constructed in SetUp() but no pipeline is created yet.
 	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::IDLE)
 		<< "Precondition: player must be in IDLE state";
-	
+
 	// Flush() with shouldTearDown=true should call Stop() even in IDLE state.
 	m_player->Flush(/*position=*/10.0, /*rate=*/1, /*shouldTearDown=*/true);
 
@@ -4546,7 +4546,7 @@ TEST_F(AampRialtoPlayerTest,
 	 */
 	// Setup: DON'T call Configure() so player remains in IDLE state.
 	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::IDLE);
-	
+
 	// Flush() with shouldTearDown=false should NOT change state.
 	EXPECT_NO_FATAL_FAILURE(
 		m_player->Flush(/*position=*/5.0, /*rate=*/1, /*shouldTearDown=*/false));

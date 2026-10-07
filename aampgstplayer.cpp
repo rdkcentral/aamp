@@ -1117,10 +1117,8 @@ void AAMPGstPlayer::SetAudioVolume(int volume)
 /**
  *  @brief Flush cached GstBuffers and set seek position & rate
  */
-void AAMPGstPlayer::Flush(double position, int rate, bool shouldTearDown, bool positionIsAuthoritative)
+void AAMPGstPlayer::Flush(double position, int rate, bool shouldTearDown, bool /*positionIsAuthoritative*/)
 {
-	// positionIsAuthoritative is not used by the GStreamer pipeline path.
-	(void)positionIsAuthoritative;
 	if(ISCONFIGSET(eAAMPConfig_SuppressDecode))
 	{
 		return;
