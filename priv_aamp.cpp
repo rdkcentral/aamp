@@ -3665,6 +3665,7 @@ bool PrivateInstanceAAMP::ProcessPendingDiscontinuity()
 			// The same thread will be executing operations involving TeardownStream.
 			mpStreamAbstractionAAMP->StopInjection();
 
+			mSubtitleFormat = FORMAT_INVALID;
 			GetStreamFormat(mVideoFormat, mAudioFormat, mSubtitleFormat);
 
 			StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
@@ -6386,6 +6387,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		*/
 		AAMPLOG_MIL("Updated seek_pos_seconds %f culledSeconds/start %f culledOffset %f", seek_pos_seconds, culledSeconds, culledOffset);
 
+		mSubtitleFormat = FORMAT_INVALID;
 		GetStreamFormat(mVideoFormat, mAudioFormat, mSubtitleFormat);
 		AAMPLOG_INFO("TuneHelper : mVideoFormat %d, mAudioFormat %d mSubtitleFormat %d", mVideoFormat, mAudioFormat, mSubtitleFormat);
 
@@ -6585,6 +6587,14 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		if(mIsInbandCC)
 		{
 			PlayerCCManager::GetInstance()->RestoreCC(previousCCEnabled);
+			/* XIONE-19145: also re-assert the cached CC enable state for the
+			 * new tune. Release() during the previous teardown cleared
+			 * mEnabled, and if the app's SetCCStatus(true) ran while
+			 * mIsInbandCC was still stale-false from a prior OOB-subtitle
+			 * asset, SetStatus() was skipped - leaving the new tune's CC
+			 * subtitle source muted at InitializeCC(). subtitles_muted and
+			 * video_muted carry the user's intent, so re-evaluate it here. */
+			SetCCStatusInternal();
 		}
 	}
 
@@ -7599,7 +7609,7 @@ const std::tuple<std::string, std::string> PrivateInstanceAAMP::ExtractDrmInitDa
 /**
  *   @brief Check if autoplay enabled for current stream
  */
-bool PrivateInstanceAAMP::IsPlayEnabled()
+bool PrivateInstanceAAMP::IsPlayEnabled() const
 {
 	return mbPlayEnabled;
 }
