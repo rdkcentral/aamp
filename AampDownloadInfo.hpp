@@ -92,6 +92,7 @@ struct DownloadInfo
 	uint64_t fragmentOffset;	   /**< Offset of the fragment in byte range based stream */
 	bool isInitSegment;			   /**< Flag indicating if the fragment is an initialization segment */
 	bool isDiscontinuity;		   /**< Flag indicating if the fragment is discontinuous */
+	bool isCodecChanged;					/**< Flag indicating if the fragment follows an audio codec change */
 	bool isPlayingAd;			   /**< Flag indicating if an ad is playing */
 	bool failoverContentSegment;   /**< Flag indicating if the FCS content matched */
 	double pts;					   /**< Scaled PTS value from the fragment */
@@ -116,6 +117,7 @@ struct DownloadInfo
 		  fragmentOffset(0),
 		  isInitSegment(false),
 		  isDiscontinuity(false),
+		  isCodecChanged(false),
 		  isPlayingAd(false),
 		  failoverContentSegment(false),
 		  url(""),
@@ -148,8 +150,9 @@ struct DownloadInfo
 	 * @param bandwidth Bandwidth of the fragment
 	 * @param ptsOffset PTS offset
 	 * @param uriList List of all possible URLs with their respective bitrates
+	 * @param isCodecChanged Flag indicating if the fragment follows an audio codec change
 	 */
-	DownloadInfo(AampMediaType mediaType, AampCurlInstance curlInstance, double absolutePosition, double fragmentDurationSec, std::string range, int fragmentIndex, uint64_t fragmentOffset, bool isInitSegment, bool isDiscontinuity, bool isPlayingAd, bool failoverContentSegment, double pts, uint64_t fragmentNumber, uint32_t timeScale, uint32_t bandwidth, AampTime ptsOffset, URLBitrateMap uriList)
+	DownloadInfo(AampMediaType mediaType, AampCurlInstance curlInstance, double absolutePosition, double fragmentDurationSec, std::string range, int fragmentIndex, uint64_t fragmentOffset, bool isInitSegment, bool isDiscontinuity, bool isPlayingAd, bool failoverContentSegment, double pts, uint64_t fragmentNumber, uint32_t timeScale, uint32_t bandwidth, AampTime ptsOffset, URLBitrateMap uriList, bool isCodecChanged = false)
 		: mediaType(mediaType),
 		  curlInstance(curlInstance),
 		  absolutePosition(absolutePosition),
@@ -159,6 +162,7 @@ struct DownloadInfo
 		  fragmentOffset(fragmentOffset),
 		  isInitSegment(isInitSegment),
 		  isDiscontinuity(isDiscontinuity),
+		  isCodecChanged(isCodecChanged),
 		  isPlayingAd(isPlayingAd),
 		  failoverContentSegment(failoverContentSegment),
 		  pts(pts),

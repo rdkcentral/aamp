@@ -933,6 +933,7 @@ public:
 	 *   @return void
 	 */
 	virtual void GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &subtitleOutputFormat) = 0;
+	virtual bool IsAudioAtmos(void) const { return false; }
 
 	/**
 	 *   @brief Get current stream position.
@@ -1062,19 +1063,14 @@ public:
 	 *
 	 *   @return void
 	 */
-	void SetESChangeStatus(void){mAudiostateChangeCount++; mESChangeStatus = true;}
+	void SetESChangeStatus(void){mESChangeStatus = true;}
 
 	/**
 	 *   @brief Reset elementary stream type change status once the pipeline reconfigured.
 	 *
 	 *   @return void
 	 */
-	void ResetESChangeStatus(void){
-		if( (mAudiostateChangeCount > 0) && !(--mAudiostateChangeCount) )
-		{
-			mESChangeStatus = false;
-		}
-	}
+	void ResetESChangeStatus(void){mESChangeStatus = false;}
 
 	/**
 	 *   @brief Get elementary stream type change status for reconfigure the pipeline..
@@ -1082,6 +1078,10 @@ public:
 	 *   @retval mESChangeStatus flag value ( true or false )
 	 */
 	bool GetESChangeStatus(void){ return mESChangeStatus;}
+
+	void SetCodecChangedStatus(void){ mCodecChanged = true; }
+	bool GetCodecChangedStatus(void){ return mCodecChanged; }
+	void ResetCodecChangedStatus(void){ mCodecChanged = false; }
 
 
 	/**
@@ -2100,8 +2100,8 @@ protected:
 	int mABRMinBuffer;		    /**< ABR ramp down buffer*/
 	int mABRNwConsistency;		    /**< ABR Network consistency*/
 	bool mESChangeStatus;               /**< flag value which is used to call pipeline configuration if the audio type changed in mid stream */
+	bool mCodecChanged;                 /**< DASH audio codec change pending pipeline configuration */
 	bool mPipelineFlushStatus;			/**< flag value which is used to call pipeline flush on PTS jumps or PTO */
-	unsigned int mAudiostateChangeCount;/**< variable to know how many times player need to reconfigure the pipeline for audio type change*/
 	double mLastVideoFragParsedTimeMS;  /**< timestamp when last video fragment was parsed */
 
 	bool mIsPaused;                     /**< paused state or not */
