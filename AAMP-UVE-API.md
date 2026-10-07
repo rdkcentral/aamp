@@ -647,51 +647,49 @@ Returns one of the logical player states as a number.
 
 Deprecated states are included for completeness.
 
-```plantuml
-@startuml
-hide empty description
+```mermaid
+stateDiagram-v2
+    [*] --> released : player created
 
-[*] --> released : player created
-released --> initializing : load()
-idle --> initializing : load()
+    released --> initializing : load()
+    idle --> initializing : load()
 
-initializing --> initialized : tune configuration complete
-initialized --> preparing : acquire manifest/playlists
-preparing --> prepared : manifest/playlists parsed
-prepared --> playing : playback starts
+    initializing --> initialized : tune configuration complete
+    initialized --> preparing : acquire manifest/playlists
+    preparing --> prepared : manifest/playlists parsed
+    prepared --> playing : playback starts
 
-playing --> paused : pause() / setPlaybackRate(0)
-paused --> playing : play() / setPlaybackRate(1)
+    playing --> paused : pause() / setPlaybackRate(0)
+    paused --> playing : play() / setPlaybackRate(1)
 
-playing --> seeking : seek()
-paused --> seeking : seek()
-seeking --> playing : seek complete
-seeking --> paused : seek complete with keepPause
+    playing --> seeking : seek()
+    paused --> seeking : seek()
+    seeking --> playing : seek complete
+    seeking --> paused : seek complete with keepPause
 
-playing --> buffering : media buffer runs dry
-prepared --> buffering : initial fragment caching
-buffering --> playing : buffering complete
+    playing --> buffering : media buffer runs dry
+    prepared --> buffering : initial fragment caching
+    buffering --> playing : buffering complete
 
-playing --> complete : end of stream
-playing --> blocked : parental-control restriction
-blocked --> playing : restriction removed
-playing --> stopped : supported input stream stopped
+    playing --> complete : end of stream
+    playing --> blocked : parental-control restriction
+    blocked --> playing : restriction removed
+    playing --> stopped : supported input stream stopped
 
-initializing --> error : fatal tune error
-preparing --> error : fatal tune error
-prepared --> error : fatal playback error
-playing --> error : fatal playback error
-buffering --> error : fatal playback error
-seeking --> error : fatal playback error
+    initializing --> error : fatal tune error
+    preparing --> error : fatal tune error
+    prepared --> error : fatal playback error
+    playing --> error : fatal playback error
+    buffering --> error : fatal playback error
+    seeking --> error : fatal playback error
 
-stopping --> idle : stop complete
-idle --> released : release()
+    stopping --> idle : stop complete
+    idle --> released : release()
 
-note right of stopping
-    stop() can transition any active state
-    through stopping to idle.
-end note
-@enduml
+    note right of stopping
+        stop() can transition any active state
+        through stopping to idle
+    end note
 ```
 
 ---
