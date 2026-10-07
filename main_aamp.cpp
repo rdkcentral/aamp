@@ -357,7 +357,6 @@ void PlayerInstanceAAMP::Stop(bool sendStateChangeEvent, bool forceCleanup)
 	{
 		auto playerStopStartTime = NOW_STEADY_TS_MS;
 		UsingPlayerId playerId(aamp->mPlayerId);
-		AAMPPlayerState state = aamp->GetState();
 		auto suspendSchedulerStartTime = NOW_STEADY_TS_MS;
 
 		// Block new tasks from being scheduled
@@ -394,7 +393,7 @@ void PlayerInstanceAAMP::Stop(bool sendStateChangeEvent, bool forceCleanup)
 
 		auto suspendSchedulerEndTime = NOW_STEADY_TS_MS;
 		//state will be eSTATE_IDLE or eSTATE_RELEASED, right after an init or post-processing of a Stop call
-		state = aamp->GetState();
+		AAMPPlayerState state = aamp->GetState();
 		if (state != eSTATE_IDLE && state != eSTATE_RELEASED)
 		{
 			StopInternal(sendStateChangeEvent, forceCleanup);
