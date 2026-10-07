@@ -52,6 +52,7 @@ public:
 	MOCK_METHOD(void, abortWaitForVideoPTS, (), (override));
 	MOCK_METHOD(double, GetBufferedDuration, (), (override));
 	MOCK_METHOD(double, GetLastDownloadedPosition, (), (override));
+	MOCK_METHOD(uint32_t, GetManifestTimeScale, (), (const, override));
 	MOCK_METHOD(class StreamAbstractionAAMP*, GetContext, (), (override));
 	MOCK_METHOD(void, InjectFragmentInternal, (CachedFragment* cachedFragment, bool &fragmentDiscarded,bool isDiscontinuity), (override));
 	MOCK_METHOD(double, GetTotalInjectedDuration, (), (override));

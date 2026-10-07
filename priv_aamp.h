@@ -610,6 +610,65 @@ class PrivateInstanceAAMP : public DrmCallbacks, public std::enable_shared_from_
 	                       const TextTrackInfo& target) const;
 
 public:
+	/**
+	 * @class SetRateProtect
+	 * @brief A helper class to manage mutex protection around SetRate
+	 *        On construction this will acquire the stream mutex and set a
+	 *        (protected) flag to indicate that a SetRate is active and block
+	 *        MonitorProgress() from running concurrently.	
+	 */
+	class SetRateProtect
+	{
+		public:
+			SetRateProtect(PrivateInstanceAAMP *aamp): mAamp(aamp)
+			{
+				mAamp->mSetRateActiveMutex.lock(); // protect the gap between setting the flag and the stream lock
+				mAamp->mSetRateActive = true; // prevent MonitorProgress() running while doing trick mode
+				mAamp->GetStreamLock().lock();
+				mAamp->mSetRateActiveMutex.unlock();
+			}
+			~SetRateProtect()
+			{
+				mAamp->GetStreamLock().unlock();
+				mAamp->mSetRateActive = false; // allow MonitorProgress() to run again
+			}
+		private:
+			PrivateInstanceAAMP *mAamp;
+	};
+	/**
+	 * @class SetRateMonitor
+	 * @brief A helper class to check mutex state of SetRate
+     */
+	class SetRateMonitor
+	{
+		public:
+			SetRateMonitor(PrivateInstanceAAMP *aamp)
+				: mAamp(aamp), locked(false)
+			{
+				locked = mAamp->mSetRateActiveMutex.try_lock();
+			}
+			~SetRateMonitor()
+			{
+				if (locked)
+				{
+					mAamp->mSetRateActiveMutex.unlock();
+				}
+			}
+			bool active()
+			{
+				if  (!locked)
+				{
+					return true; // could not acquire the mutex so a SetRate is starting
+				}
+				return mAamp->mSetRateActive.load();
+			}
+
+		private:
+			PrivateInstanceAAMP *mAamp;
+			bool locked;
+	};
+
+
 	/* @fn RecalculatePTS
 	 * @param[in] mediaType stream type
 	 * @param[in] ptr buffer pointer
@@ -1279,6 +1338,8 @@ public:
 
 	bool mIsFlushFdsInCurlStore;	/**< Mark to clear curl store instance in case of playback stopped due to download Error */
 	bool mIsFlushOperationInProgress;		/**< Flag to indicate pipeline flush operation is going on */
+	std::atomic<bool> mSetRateActive;
+	std::mutex mSetRateActiveMutex;
 
 	/**
 	 * @fn ProcessID3Metadata
@@ -2834,6 +2895,14 @@ public:
 	 *    @return string with Thumbnail information.
 	 */
 	std::string GetThumbnails(double start, double end);
+
+	/**
+	 *   @brief Check if playback is going through Rialto, via either the
+	 *          Rialto GStreamer sink or direct Rialto. Does not imply which.
+	 *
+	 *   @return true if either Rialto config is enabled.
+	 */
+	bool UsingRialto(void) const { return mConfig->IsUsingRialto(); }
 	/**
 	 *    @fn GetThumbnailTracks
 	 *
@@ -2940,9 +3009,10 @@ public:
 	 * @fn StopTrackInjection
 	 *
 	 * @param[in] type Media type
+	 * @param[in] discard Unblock the injector thread so the caller can join it via StopInjectLoop
 	 * @return void
 	 */
-	void StopTrackInjection(AampMediaType type);
+	void StopTrackInjection(AampMediaType type, bool discard = false);
 
 	/**
 	 * @fn ResumeTrackInjection
@@ -3929,6 +3999,14 @@ public:
 	void UpdateMaxDRMSessions();
 
 	/**
+	 * @brief EnableEventProfiling - Apply the current event profiling config to AampEventManager.
+	 *        Reads eAAMPConfig_EnableEventProfiling and eAAMPConfig_EventProfilingThresholdMs
+	 *        from the active config and forwards them to the event manager.
+	 *        Called on construction and whenever InitAAMPConfig updates these settings.
+	 */
+	void EnableEventProfiling();
+
+	/**
 	 * @brief To add profile to blacklisted profile list
 	 */
 	void AddToBlacklistedProfiles(const StreamBlacklistProfileInfo &info)
@@ -4194,6 +4272,7 @@ public:
 	 * @return true if an ad is playing, false otherwise
 	 */
 	bool IsAdPlaying();
+
 
 protected:
 

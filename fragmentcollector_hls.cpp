@@ -3456,9 +3456,9 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 				// Check for text track changes and notify
 				NotifyTextTrackChanges();
 				
-				if(ISCONFIGSET(eAAMPConfig_useRialtoSink) && (currentTextTrackProfileIndex == -1))
+				if(aamp->UsingRialto() && (currentTextTrackProfileIndex == -1))
 				{
-					AAMPLOG_INFO("usingRialtoSink - No default text track is selected,configure default text track for rialto");
+					AAMPLOG_INFO("usingRialto - No default text track is selected,configure default text track for rialto");
 					SelectSubtitleTrack();
 				}
 			}
@@ -4895,7 +4895,7 @@ void TrackState::Stop(bool clearDRM)
 		fragmentCollectorThreadID.join();
 	}
 
-	aamp->StopTrackInjection((AampMediaType) type);
+	aamp->StopTrackInjection((AampMediaType) type, true);
 	StopInjectLoop();
 
 	//To be called after StopInjectLoop to avoid cues to be injected after cleanup
@@ -6389,7 +6389,7 @@ void StreamAbstractionAAMP_HLS::StopInjection(void)
 void TrackState::StopInjection()
 {
 	AbortWaitForCachedFragment();
-	aamp->StopTrackInjection((AampMediaType) type);
+	aamp->StopTrackInjection((AampMediaType) type, true);
 	if (playContext)
 	{
 		playContext->abort();
