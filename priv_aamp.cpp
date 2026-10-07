@@ -1299,6 +1299,8 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	, mIsChunkMode(false)
 	, prevFirstPeriodStartTime(0)
 	, mIsFlushOperationInProgress(false)
+	, mSetRateActive(false)
+	, mSetRateActiveMutex()
 	, mThumbnailLastProgramDateTime(0)
 	, mLastSleThumbnailInfo()
 {
@@ -2090,7 +2092,7 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 		(state != eSTATE_SEEKING))
 	{
 		// set position to 0 if the rewind operation has reached Beginning Of Stream
-		double position = beginningOfStream? 0: GetPositionMilliseconds();
+		double position = 0.0;
 		double duration = durationSeconds * 1000.0;
 		float speed = pipeline_paused ? 0 : rate;
 		double start = -1;
@@ -2100,161 +2102,174 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 		double audioBufferedDuration = 0.0;
 		bool bProcessEvent = true;
 		double latency = 0;
+		double reportFormattedCurrPos = 0.0;
+		double currentRate = 0.0;
+		BitsPerSecond bps = 0;
 
-
-		//Report Progress report position based on Availability Start Time
-		start = (culledSeconds*1000.0);
-		AAMPLOG_TRACE("position = %fms, start = %fms, ProgressReportOffset = %fms, ReportProgressPosn = %fms",
-						position, start , (mProgressReportOffset * 1000), mReportProgressPosn);
-		if((mProgressReportOffset >= 0) && !IsUninterruptedTSB())
-		{
-			end = (mAbsoluteEndPosition * 1000);
-		}
-		else
-		{
-			end = start + duration;
-		}
-
-		if (position > end)
-		{ // clamp end
-			//AAMPLOG_WARN("aamp clamp end");
-			position = end;
-		}
-		// If beginningOfStream is true or position < start, it means rewind has reached BoS
-		// Note: position could be = start immediately after tuning
-		else if (position < start || beginningOfStream)
-		{ // clamp start or handle BOS during rewind
-			AAMPLOG_TRACE("Reached start of TSB, position %fms < start %fms, beginningOfStream %d, rate %f",
-				position, start, beginningOfStream, rate);
-			position = start;
-			// Check the rate so that PlayFromTsbStart() is not called repeatedly
-			if (rate < AAMP_RATE_PAUSE)
+		{ // Set scope of lock with SetRateMonitor to clear lock before sending progress events
+			SetRateMonitor check(this); // Note - this will acquire a mutex that prevents SetRate from starting during the scope of this lock
+			if (check.active()) // Check to see if a SetRate operation is active
 			{
-				PlayFromTsbStart();
-			}
-		}
-		DeliverAdEvents(false, position); // use progress reporting as trigger to belatedly deliver ad events
-		ReportAdProgress(position);
-
-		if(ISCONFIGSET_PRIV(eAAMPConfig_ReportVideoPTS))
-		{
-			/*For HLS, tsprocessor.cpp removes the base PTS value and sends to gstreamer.
-			**In order to report PTS of video currently being played out, we add the base PTS
-			**to video PTS received from gstreamer
-			*/
-			/*For DASH,mVideoBasePTS value will be zero */
-			StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
-			if (sink)
-			{
-				videoPTS = sink->GetVideoPTS() + mVideoBasePTS;
-			}
-		}
-		{
-			std::lock_guard<std::recursive_mutex> guard(mStreamLock);
-			if (mpStreamAbstractionAAMP)
-			{
-				videoBufferedDuration = mpStreamAbstractionAAMP->GetBufferedVideoDurationSec() * 1000.0;
-				audioBufferedDuration = mpStreamAbstractionAAMP->GetBufferedAudioDurationSec() * 1000.0;
+				AAMPLOG_WARN("Progress reporting skipped whilst tune (set rate).");
+				return;
 			}
 
-		}
-		if ((mReportProgressPosn == position) && !pipeline_paused && beginningOfStream != true)
-		{
-			// Avoid sending the progress event, if the previous position and the current position is same when pipeline is in playing state.
-			// Added exception if it's beginning of stream to prevent JSPP not loading previous AD while rewind
-			bProcessEvent = false;
-		}
+			position = beginningOfStream? 0: GetPositionMilliseconds();
 
-		/**mNewSeekInfo is:
-		**  -Used by PlayerInstanceAAMP::SetRateInternal() to calculate seek position.
-		**  -Included for consistency with previous code but isn't directly related to reporting.
-		**  -A good candidate for future refactoring*/
-		mNewSeekInfo.Update(position, seek_pos_seconds);
-		int CurrentPositionDeltaToManifestEnd = end - position;
-
-		double offset = GetFormatPositionOffsetInMSecs();
-		/* Need to get the formatted position, start and end value */
-		double reportFormattedCurrPos = position - offset;
-		if (start != -1 && end != -1)
-		{
-			start -= offset;
-			end -= offset;
-		}
-
-		// If tsb is not available for linear send -1  for start and end
-		// so that xre detect this as tsbless playback
-		// Override above logic if mEnableSeekableRange is set, used by third-party apps
-		if (!ISCONFIGSET_PRIV(eAAMPConfig_EnableSeekRange) && (mContentType == ContentType_LINEAR && !mFogTSBEnabled && !IsLocalAAMPTsb()))
-		{
-			start = -1;
-			end = -1;
-		}
-
-		if(IsLiveStream())
-		{
-			if(mFirstFragmentTimeOffset > 0)
+			//Report Progress report position based on Availability Start Time
+			start = (culledSeconds*1000.0);
+			AAMPLOG_TRACE("position = %fms, start = %fms, ProgressReportOffset = %fms, ReportProgressPosn = %fms",
+							position, start , (mProgressReportOffset * 1000), mReportProgressPosn);
+			if((mProgressReportOffset >= 0) && !IsUninterruptedTSB())
 			{
-				latency = (mNewSeekInfo.GetInfo().getUpdateTime() - ((mFirstFragmentTimeOffset*1000) + mNewSeekInfo.GetInfo().getPosition())) + mEncoderDelay;
-				if(mProgressReportOffset >= 0)
-				{
-					// Correction with progress offset
-					latency += (mProgressReportOffset * 1000);
-				}
+				end = (mAbsoluteEndPosition * 1000);
 			}
 			else
 			{
-				latency = end - position;
+				end = start + duration;
 			}
-			SetCurrentLatency(latency);
-			// update available buffer to Manifest refresh cycle .
-			if(mMPDDownloaderInstance != nullptr)
+
+			if (position > end)
+			{ // clamp end
+				//AAMPLOG_WARN("aamp clamp end");
+				position = end;
+			}
+			// If beginningOfStream is true or position < start, it means rewind has reached BoS
+			// Note: position could be = start immediately after tuning
+			else if (position < start || beginningOfStream)
+			{ // clamp start or handle BOS during rewind
+				AAMPLOG_TRACE("Reached start of TSB, position %fms < start %fms, beginningOfStream %d, rate %f",
+					position, start, beginningOfStream, rate);
+				position = start;
+				// Check the rate so that PlayFromTsbStart() is not called repeatedly
+				if (rate < AAMP_RATE_PAUSE)
+				{
+					PlayFromTsbStart();
+				}
+			}
+			DeliverAdEvents(false, position); // use progress reporting as trigger to belatedly deliver ad events
+			ReportAdProgress(position);
+
+			if(ISCONFIGSET_PRIV(eAAMPConfig_ReportVideoPTS))
 			{
-				mMPDDownloaderInstance->SetBufferAvailability((int)videoBufferedDuration);
-				mMPDDownloaderInstance->SetCurrentPositionDeltaToManifestEnd(CurrentPositionDeltaToManifestEnd);
+				/*For HLS, tsprocessor.cpp removes the base PTS value and sends to gstreamer.
+				**In order to report PTS of video currently being played out, we add the base PTS
+				**to video PTS received from gstreamer
+				*/
+				/*For DASH,mVideoBasePTS value will be zero */
+				StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+				if (sink)
+				{
+					videoPTS = sink->GetVideoPTS() + mVideoBasePTS;
+				}
+			}
+			{
+				std::lock_guard<std::recursive_mutex> guard(mStreamLock);
+				if (mpStreamAbstractionAAMP)
+				{
+					videoBufferedDuration = mpStreamAbstractionAAMP->GetBufferedVideoDurationSec() * 1000.0;
+					audioBufferedDuration = mpStreamAbstractionAAMP->GetBufferedAudioDurationSec() * 1000.0;
+				}
+
+			}
+			if ((mReportProgressPosn == position) && !pipeline_paused && beginningOfStream != true)
+			{
+				// Avoid sending the progress event, if the previous position and the current position is same when pipeline is in playing state.
+				// Added exception if it's beginning of stream to prevent JSPP not loading previous AD while rewind
+				bProcessEvent = false;
+			}
+
+			/**mNewSeekInfo is:
+			**  -Used by PlayerInstanceAAMP::SetRateInternal() to calculate seek position.
+			**  -Included for consistency with previous code but isn't directly related to reporting.
+			**  -A good candidate for future refactoring*/
+			mNewSeekInfo.Update(position, seek_pos_seconds);
+			int CurrentPositionDeltaToManifestEnd = end - position;
+
+			double offset = GetFormatPositionOffsetInMSecs();
+			/* Need to get the formatted position, start and end value */
+			reportFormattedCurrPos = position - offset;
+			if (start != -1 && end != -1)
+			{
+				start -= offset;
+				end -= offset;
+			}
+
+			// If tsb is not available for linear send -1  for start and end
+			// so that xre detect this as tsbless playback
+			// Override above logic if mEnableSeekableRange is set, used by third-party apps
+			if (!ISCONFIGSET_PRIV(eAAMPConfig_EnableSeekRange) && (mContentType == ContentType_LINEAR && !mFogTSBEnabled && !IsLocalAAMPTsb()))
+			{
+				start = -1;
+				end = -1;
+			}
+
+			if(IsLiveStream())
+			{
+				if(mFirstFragmentTimeOffset > 0)
+				{
+					latency = (mNewSeekInfo.GetInfo().getUpdateTime() - ((mFirstFragmentTimeOffset*1000) + mNewSeekInfo.GetInfo().getPosition())) + mEncoderDelay;
+					if(mProgressReportOffset >= 0)
+					{
+						// Correction with progress offset
+						latency += (mProgressReportOffset * 1000);
+					}
+				}
+				else
+				{
+					latency = end - position;
+				}
+				SetCurrentLatency(latency);
+				// update available buffer to Manifest refresh cycle .
+				if(mMPDDownloaderInstance != nullptr)
+				{
+					mMPDDownloaderInstance->SetBufferAvailability((int)videoBufferedDuration);
+					mMPDDownloaderInstance->SetCurrentPositionDeltaToManifestEnd(CurrentPositionDeltaToManifestEnd);
+				}
+			}
+
+			if(GetCurrentlyAvailableBandwidth() != -1)
+			{
+				mNetworkBandwidth = GetCurrentlyAvailableBandwidth();
+			}
+
+			currentRate;
+			if(pipeline_paused)
+			{
+				currentRate = 0;
+			}
+			else if( (rate < 0) || (rate > GETCONFIGVALUE_PRIV(eAAMPConfig_MaxLatencyCorrectionPlaybackRate)) || (AAMP_SLOWMOTION_RATE == rate))
+			{
+				// This is trickplay or slow motion
+				currentRate = rate;
+			}
+			else if(mAampLLDashServiceData.lowLatencyMode)
+			{
+				currentRate = mLLDashCurrentPlayRate;
+			}
+			else if (!mAampLLDashServiceData.lowLatencyMode && ISCONFIGSET_PRIV(eAAMPConfig_EnableLiveLatencyCorrection) )
+			{
+				currentRate = mCorrectionRate;
+			}
+			else
+			{
+				currentRate  = rate;
+			}
+			// This is a short-term solution. We are not acquiring StreamLock here, so we could still access mpStreamAbstractionAAMP
+			// as its getting deleted. StreamLock is acquired for a lot stuff, so getting it here would lead to unexpected delays
+			// Another approach would be to save the bitrate in a local variable as bitrateChangedEvents are fired
+			// Planning a tech-debt to stop deleting mpStreamAbstractionAAMP in-between seek/trickplay
+			bps = 0;
+			if (mpStreamAbstractionAAMP)
+			{
+				bps = mpStreamAbstractionAAMP->GetVideoBitrate();
 			}
 		}
-
-		if(GetCurrentlyAvailableBandwidth() != -1)
-		{
-			mNetworkBandwidth = GetCurrentlyAvailableBandwidth();
-		}
-
-		double currentRate;
-		if(pipeline_paused)
-		{
-			currentRate = 0;
-		}
-		else if( (rate < 0) || (rate > GETCONFIGVALUE_PRIV(eAAMPConfig_MaxLatencyCorrectionPlaybackRate)) || (AAMP_SLOWMOTION_RATE == rate))
-		{
-			// This is trickplay or slow motion
-			currentRate = rate;
-		}
-		else if(mAampLLDashServiceData.lowLatencyMode)
-		{
-			currentRate = mLLDashCurrentPlayRate;
-		}
-		else if (!mAampLLDashServiceData.lowLatencyMode && ISCONFIGSET_PRIV(eAAMPConfig_EnableLiveLatencyCorrection) )
-		{
-			currentRate = mCorrectionRate;
-		}
-		else
-		{
-	   		currentRate  = rate;
-		}
-		// This is a short-term solution. We are not acquiring StreamLock here, so we could still access mpStreamAbstractionAAMP
-		// as its getting deleted. StreamLock is acquired for a lot stuff, so getting it here would lead to unexpected delays
-		// Another approach would be to save the bitrate in a local variable as bitrateChangedEvents are fired
-		// Planning a tech-debt to stop deleting mpStreamAbstractionAAMP in-between seek/trickplay
-		BitsPerSecond bps = 0;
-		if (mpStreamAbstractionAAMP)
-		{
-			bps = mpStreamAbstractionAAMP->GetVideoBitrate();
-		}
-
-		ProgressEventPtr evt = std::make_shared<ProgressEvent>(duration, reportFormattedCurrPos, start, end, speed, videoPTS, videoBufferedDuration, audioBufferedDuration, seiTimecode.c_str(), latency, bps, mNetworkBandwidth, currentRate, GetSessionId());
 
 		if (trickStartUTCMS >= 0 && (bProcessEvent || mFirstProgress))
 		{
+			ProgressEventPtr evt = std::make_shared<ProgressEvent>(duration, reportFormattedCurrPos, start, end, speed, videoPTS, videoBufferedDuration, audioBufferedDuration, seiTimecode.c_str(), latency, bps, mNetworkBandwidth, currentRate, GetSessionId());
+
 			if (mFirstProgress)
 			{
 				mFirstProgress = false;
@@ -8433,6 +8448,11 @@ void PrivateInstanceAAMP::ScheduleRetune(PlaybackErrorType errorType, AampMediaT
 void PrivateInstanceAAMP::SetState(AAMPPlayerState state, bool sendStateChangeEvent)
 {
 	//bool sentSync = true;
+
+	if (state == eSTATE_PLAYING || state == eSTATE_BUFFERING || state == eSTATE_PAUSED)
+	{
+		mSetRateActive = false; // make sure MonitorProgress() is not blocked after state change (flush has been done)
+	}
 
 	if (mState == state)
 	{ // noop

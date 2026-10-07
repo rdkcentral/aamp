@@ -864,9 +864,10 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 						aamp->seek_pos_seconds = aamp->GetPositionSeconds();
 						aamp->rate = AAMP_NORMAL_PLAY_RATE;
 						aamp->pipeline_paused = false;
-						aamp->AcquireStreamLock();
-						aamp->TuneHelper(eTUNETYPE_SEEK, false);
-						aamp->ReleaseStreamLock();
+						{
+							PrivateInstanceAAMP::SetRateProtect setRateLock(aamp);
+							aamp->TuneHelper(eTUNETYPE_SEEK, false);
+						}
 					}
 					else
 					{
@@ -951,9 +952,10 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 				aamp->CalculateTrickModePositionEOS();
 				aamp->EnableDownloads();
 				aamp->ResumeDownloads();
-				aamp->AcquireStreamLock();
-				aamp->TuneHelper(tuneTypePlay); // this unpauses pipeline as side effect
-				aamp->ReleaseStreamLock();
+				{
+					PrivateInstanceAAMP::SetRateProtect setRateLock(aamp);
+					aamp->TuneHelper(eTUNETYPE_SEEK, false);
+				}
 			}
 
 			if(retValue)
