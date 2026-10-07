@@ -4554,6 +4554,11 @@ private:
 	void PlayFromTsbStart();
 
 	void SetCMCDTrackData(AampMediaType mediaType);
+	/**
+	 * @brief Get the current video bitrate without waiting for the stream lock.
+	 * @return Current bitrate, or 0 if the lock or stream abstraction is unavailable.
+	 */
+	BitsPerSecond GetVideoBitrateNonBlocking();
 	std::vector<float> getSupportedPlaybackSpeeds(void);
 	bool IsFogUrl(const char *mainManifestUrl);
 
