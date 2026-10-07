@@ -1058,7 +1058,7 @@ lstring TrackState::GetNextFragmentUriFromPlaylist(bool& reloadUri, bool ignoreD
 								bool isDiffChkReq=true;
 								{
 									std::lock_guard<std::mutex> guard(context->mDiscoCheckMutex);
-									// RDKEMW-22611: Demoted from WARN to INFO — the telemetry marker
+									// Demoted from WARN to INFO — the telemetry marker
 									// AAMP_ERR_audioDiscontinue is pattern-matched from this log line.
 									// Logging at WARN here fires the marker for every normal playlist-
 									// refresh-latency event (transient, always recovers within one cycle).
@@ -3456,9 +3456,9 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 				// Check for text track changes and notify
 				NotifyTextTrackChanges();
 				
-				if(ISCONFIGSET(eAAMPConfig_useRialtoSink) && (currentTextTrackProfileIndex == -1))
+				if(aamp->UsingRialto() && (currentTextTrackProfileIndex == -1))
 				{
-					AAMPLOG_INFO("usingRialtoSink - No default text track is selected,configure default text track for rialto");
+					AAMPLOG_INFO("usingRialto - No default text track is selected,configure default text track for rialto");
 					SelectSubtitleTrack();
 				}
 			}
@@ -4895,7 +4895,7 @@ void TrackState::Stop(bool clearDRM)
 		fragmentCollectorThreadID.join();
 	}
 
-	aamp->StopTrackInjection((AampMediaType) type);
+	aamp->StopTrackInjection((AampMediaType) type, true);
 	StopInjectLoop();
 
 	//To be called after StopInjectLoop to avoid cues to be injected after cleanup
@@ -5071,7 +5071,7 @@ void StreamAbstractionAAMP_HLS::GetStreamFormat(StreamOutputFormat &primaryOutpu
 		// with the correct caps and gstreamer autoplugs once during preroll; reporting
 		// FORMAT_UNKNOWN leaves the appsrc uncapped until SetStreamCaps() runs on an
 		// already-running pipeline, which races the first data push - see the full explanation in
-		// StreamAbstractionAAMP_MPD::GetStreamFormat and VPAAMP-1039.
+		// StreamAbstractionAAMP_MPD::GetStreamFormat.
 		primaryOutputFormat = FORMAT_UNKNOWN;
 		audioOutputFormat = FORMAT_UNKNOWN;
 		if (!hasDrm)
@@ -5574,14 +5574,14 @@ const std::unique_ptr<aamp::MetadataProcessorIntf> & StreamAbstractionAAMP_HLS::
 		if (fmt == FORMAT_MPEGTS)
 		{
 			auto video_processor = std::make_shared<TSProcessor>(aamp, eStreamOp_DEMUX_ALL, mID3Handler, eMEDIATYPE_DSM_CC);
-			mMetadataProcessor = aamp_utils::make_unique<aamp::TSMetadataProcessor>(mID3Handler, mPtsOffsetUpdate, std::move(video_processor));
+			mMetadataProcessor = std::make_unique<aamp::TSMetadataProcessor>(mID3Handler, mPtsOffsetUpdate, std::move(video_processor));
 		}
 		else if (fmt == FORMAT_ISO_BMFF)
 		{
 			auto video_processor = std::dynamic_pointer_cast<IsoBmffProcessor>(GetMediaTrack(eTRACK_VIDEO)->playContext);
 			if (video_processor)
 			{
-				mMetadataProcessor = aamp_utils::make_unique<aamp::IsoBMFFMetadataProcessor>(mID3Handler, mPtsOffsetUpdate, video_processor);
+				mMetadataProcessor = std::make_unique<aamp::IsoBMFFMetadataProcessor>(mID3Handler, mPtsOffsetUpdate, video_processor);
 			}
 			else
 			{
@@ -6389,7 +6389,7 @@ void StreamAbstractionAAMP_HLS::StopInjection(void)
 void TrackState::StopInjection()
 {
 	AbortWaitForCachedFragment();
-	aamp->StopTrackInjection((AampMediaType) type);
+	aamp->StopTrackInjection((AampMediaType) type, true);
 	if (playContext)
 	{
 		playContext->abort();

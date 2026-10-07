@@ -386,6 +386,8 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false, "processLicenseFromEAP", eAAMPConfig_ProcessLicenseFromEAP, false},
 	{false, "enableProducerReferenceDelay", eAAMPConfig_EnableProducerReferenceDelay, false},
 	{true, "enableFlightDataRecorder", eAAMPConfig_EnableFlightDataRecorder, false},
+	{false, "synthesizeIframeForVOD", eAAMPConfig_SynthesizeIframeForVOD, false},
+	{false, "enableEventProfiling", eAAMPConfig_EnableEventProfiling, false},
 };
 
 #define CONFIG_INT_ALIAS_COUNT 2
@@ -490,6 +492,7 @@ static const ConfigLookupEntryInt mConfigLookupTableInt[AAMPCONFIG_INT_COUNT+CON
 	{DEFAULT_UNDERFLOW_HIGH_BUFFER_POLL_MS, "underflowHighBufferPollMs", eAAMPConfig_UnderflowHighBufferPollMs, true},
 	{5000, "flightDataRecorderMaxLines", eAAMPConfig_FlightDataRecorderMaxLines, false},
 	{15, "flightDataRecorderMaxSeconds", eAAMPConfig_FlightDataRecorderMaxSeconds, false},
+	{DEFAULT_EVENT_PROFILING_THRESHOLD_MS, "eventProfilingThresholdMs", eAAMPConfig_EventProfilingThresholdMs, false},
 	// Add new integer config entries above this line, before the aliases section.
 	//
 	// Aliases, kept for backwards compatibility
@@ -517,7 +520,6 @@ static const ConfigLookupEntryFloat mConfigLookupTableFloat[AAMPCONFIG_FLOAT_COU
 	{DEFAULT_MIN_RATE_CORRECTION_SPEED,"minLatencyCorrectionPlaybackRate",eAAMPConfig_MinLatencyCorrectionPlaybackRate,false},
 	{DEFAULT_MAX_RATE_CORRECTION_SPEED,"maxLatencyCorrectionPlaybackRate",eAAMPConfig_MaxLatencyCorrectionPlaybackRate,false},
 	{DEFAULT_NORMAL_RATE_CORRECTION_SPEED,"normalLatencyCorrectionPlaybackRate",eAAMPConfig_NormalLatencyCorrectionPlaybackRate,false},
-	{DEFAULT_MIN_BUFFER_LOW_LATENCY,"lowLatencyMinBuffer",eAAMPConfig_LowLatencyMinBuffer,true, eCONFIG_RANGE_LLDBUFFER},
 	{DEFAULT_TARGET_BUFFER_LOW_LATENCY,"lowLatencyTargetBuffer",eAAMPConfig_LowLatencyTargetBuffer,true, eCONFIG_RANGE_LLDBUFFER},
 	{GST_BW_TO_BUFFER_FACTOR,"bandwidthToBufferFactor", eAAMPConfig_BWToGstBufferFactor,true},
 	// Underflow monitor thresholds (seconds)
@@ -530,6 +532,7 @@ static const ConfigLookupEntryFloat mConfigLookupTableFloat[AAMPCONFIG_FLOAT_COU
 	{DEFAULT_REBUFFER_LATENCY_MAX_INCREMENT_SEC, "rebufferLatencyMaxIncrementSec", eAAMPConfig_RebufferLatencyMaxIncrementSec, false},
 	{DEFAULT_LATENCY_STABLE_DURATION_SEC, "latencyStableDurationSec", eAAMPConfig_LatencyStableDurationSec, false},
 	{DEFAULT_LATENCY_DANGER_BUFFER_SEC, "latencyDangerBufferSec", eAAMPConfig_LatencyDangerBufferSec, false},
+	{DEFAULT_LATENCY_RESTORATION_BUFFER_SEC, "latencyRestorationBufferSec", eAAMPConfig_LatencyRestorationBufferSec, false},
 	{DEFAULT_MIN_LOW_LATENCY, "lowLatencyMinValue", eAAMPConfig_LLMinLatency, true},
 	{DEFAULT_TARGET_LOW_LATENCY, "lowLatencyTargetValue", eAAMPConfig_LLTargetLatency, true},
 	{DEFAULT_MAX_LOW_LATENCY, "lowLatencyMaxValue", eAAMPConfig_LLMaxLatency, true},
@@ -905,6 +908,14 @@ void AampConfig::ApplyDeviceCapabilities()
 std::string AampConfig::GetUserAgentString() const
 {
 	return std::string(configValueString[eAAMPConfig_UserAgent].value);
+}
+
+/**
+ * @brief True if playback is going through Rialto, regardless of variant
+ */
+bool AampConfig::IsUsingRialto() const
+{
+	return IsConfigSet(eAAMPConfig_useRialtoSink) || IsConfigSet(eAAMPConfig_useDirectRialto);
 }
 
 /**
@@ -1941,6 +1952,24 @@ void AampConfig::ShowAAMPConfiguration()
  */
 void AampConfig::DoCustomSetting(ConfigPriority owner)
 {
+	// useDirectRialto is consumed in the PrivateInstanceAAMP constructor
+	// (PlayerCCManager/DRM session creator setup), stream-sink creation time,
+	// before the app can call InitAAMPConfig or before tune-time overrides apply,
+	// so overriding it after the player instance exists (stream/app/tune settings)
+	// has no effect; revert such attempts.
+	if((owner == AAMP_STREAM_SETTING || owner == AAMP_APPLICATION_SETTING || owner == AAMP_TUNE_SETTING)
+		&& GetConfigOwner(eAAMPConfig_useDirectRialto) == owner)
+	{
+		AAMPLOG_WARN("Config[%s] cannot be changed dynamically after player creation; reverting", GetConfigName(eAAMPConfig_useDirectRialto));
+		RestoreConfiguration(owner, eAAMPConfig_useDirectRialto);
+	}
+
+	if(IsConfigSet(eAAMPConfig_useDirectRialto) && !IsConfigSet(eAAMPConfig_UseMp4Demux))
+	{
+		AAMPLOG_WARN("useDirectRialto requires useMp4Demux; forcing it on");
+		SetConfigValue(GetConfigOwner(eAAMPConfig_useDirectRialto), eAAMPConfig_UseMp4Demux, true);
+	}
+
 	if(IsConfigSet(eAAMPConfig_StereoOnly))
 	{
 		// If Stereo Only flag is set , it will override all other sub setting with audio

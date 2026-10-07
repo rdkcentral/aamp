@@ -128,8 +128,10 @@ public:
 		{eAAMPConfig_EnablePTSReStamp, false},
 		{eAAMPConfig_LocalTSBEnabled, false},
 		{eAAMPConfig_EnableIFrameTrackExtract, false},
+		{eAAMPConfig_SynthesizeIframeForVOD, false},
 		{eAAMPConfig_GstSubtecEnabled, false},
 		{eAAMPConfig_useRialtoSink, false},
+		{eAAMPConfig_useDirectRialto, false},
 		{eAAMPConfig_UseMp4Demux, false},
 		{eAAMPConfig_ProcessLicenseFromEAP, false},
 	};

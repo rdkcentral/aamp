@@ -105,7 +105,7 @@ WebVTTSubtecDevParser::WebVTTSubtecDevParser(SubtitleMimeType type, int width, i
                screenWidth = width;
                screenHeight = height;
         }
-       mSubtecInterface = aamp_utils::make_unique<WebvttSubtecDevInterface>(screenWidth, screenHeight);
+       mSubtecInterface = std::make_unique<WebvttSubtecDevInterface>(screenWidth, screenHeight);
 }
 
 bool WebVTTSubtecDevParser::processData(const char *buffer, size_t bufferLen, double position, double duration)

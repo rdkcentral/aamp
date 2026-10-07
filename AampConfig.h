@@ -215,7 +215,7 @@ typedef enum
 	eAAMPConfig_EarlyID3Processing,					/**< To enable/disable early ID3 processing */
 	eAAMPConfig_SeamlessAudioSwitch,					/**< To enable audio Restart - Currently supported for HLS_MP4 on same codec streams*/
 	eAAMPConfig_useRialtoSink,                      /**< Enable/Disable player to use Rialto sink based video and audio pipeline */
-	eAAMPConfig_useDirectRialto,                    /**< Enable/Disable direct AampRialtoPlayer usage instead of AAMPGstPlayer */
+	eAAMPConfig_useDirectRialto,                    /**< Enable/Disable direct AampRialtoPlayer usage instead of AAMPGstPlayer. Only takes effect via device config/env/operator settings read before player creation; cannot be changed dynamically via InitAAMPConfig. Forces eAAMPConfig_UseMp4Demux on */
 	eAAMPConfig_LocalTSBEnabled,                                            /**< To enable/disable Local TSB in LLD */
 	eAAMPConfig_EnableIFrameTrackExtract,			/**< Config to enable and disable iFrame extraction from video track*/
 	eAAMPConfig_ForceMultiPeriodDiscontinuity,		/**< Config to forcefully process multiperiod discontinuity even if they are continuous in PTS */
@@ -223,7 +223,7 @@ typedef enum
 	eAAMPConfig_MonitorAV,						/**< enable background monitoring of audio/video positions to infer video freeze, audio drop, or av sync issues */
 	eAAMPConfig_HlsTsEnablePTSReStamp,
 	eAAMPConfig_OverrideMediaHeaderDuration, /**< enable overriding media header duration for live streams to 0 */
-	eAAMPConfig_UseMp4Demux,
+	eAAMPConfig_UseMp4Demux,                        /**< Demux fMP4 fragments internally; required (and auto-enabled) when eAAMPConfig_useDirectRialto is set */
 	eAAMPConfig_CurlThroughput,
 	eAAMPConfig_UseFireboltSDK,						/**< Config to use Firebolt SDK for license Acquisition */
 	eAAMPConfig_EnableChunkInjection,					/**< Config to enable chunk injection for low latency DASH */
@@ -237,6 +237,13 @@ typedef enum
 	eAAMPConfig_ProcessLicenseFromEAP,			/**< Config to enable non-VSS early available period DRM prefetch */
 	eAAMPConfig_EnableProducerReferenceDelay,		/**< Add PRT-derived encoder delay (from CalculateProducerReferenceTimeOffset) to DASH live latency calculation; default false */
 	eAAMPConfig_EnableFlightDataRecorder,			/**< Enable/Disable Flight Data Recorder for logging */
+	eAAMPConfig_SynthesizeIframeForVOD,			/**< When true, synthesize an I-frame-only segment from the regular video track
+	                                                         to support VOD trickplay on assets/ads that lack a dedicated iframe adaptation
+	                                                         set. The download is intentionally aborted after the first sample payload has
+	                                                         been received (using GetIframeByteCap() to derive the byte cap), then
+	                                                         IsoBmffHelper::ConvertToKeyFrame() fixes the MOOF metadata. Has no effect
+	                                                         outside VOD (live and local-TSB streams are not eligible). Default: false. */
+	eAAMPConfig_EnableEventProfiling,			/**< Enable event round-trip time profiling (async queue dwell + sync delivery). Default: false */
 	eAAMPConfig_BoolMaxValue				/**< Max value of bool config always last element */	
 
 } AAMPConfigSettingBool;
@@ -272,7 +279,7 @@ typedef enum
 	eAAMPConfig_DRMDecryptThreshold,					/**< Retry count on drm decryption failure*/
 	eAAMPConfig_SegmentInjectThreshold, 					/**< Retry count for segment injection discard/failure*/
 	eAAMPConfig_InitFragmentRetryCount, 					/**< Retry attempts for init frag curl timeout failures*/
-	eAAMPConfig_MinABRNWBufferRampDown, 					/**< Minimum ABR Buffer for Rampdown*/
+	eAAMPConfig_MinABRNWBufferRampDown, 					/**< Minimum buffer to switch to a lower bitrate to prevent rebuffering*/
 	eAAMPConfig_MaxABRNWBufferRampUp,					/**< Maximum ABR Buffer for Rampup*/
 	eAAMPConfig_PrePlayBufferCount, 					/**< Count of segments to be downloaded until play state */
 	eAAMPConfig_PreCachePlaylistTime,					/**< Max time to complete PreCaching .In Minutes  */
@@ -338,6 +345,7 @@ typedef enum
 	eAAMPConfig_UnderflowHighBufferPollMs,			/**< Underflow monitor polling interval for high buffer condition in milliseconds */
 	eAAMPConfig_FlightDataRecorderMaxLines,			/**< Maximum number of log lines to store in Flight Data Recorder */
 	eAAMPConfig_FlightDataRecorderMaxSeconds,		/**< Maximum age of log entries in Flight Data Recorder in seconds */
+	eAAMPConfig_EventProfilingThresholdMs,			/**< Round-trip threshold (ms): log only when async (dwell+delivery) or sync delivery time exceeds this value */
 	eAAMPConfig_IntMaxValue							/**< Max value of int config always last element*/
 } AAMPConfigSettingInt;
 #define AAMPCONFIG_INT_COUNT (eAAMPConfig_IntMaxValue)
@@ -358,7 +366,6 @@ typedef enum
 	eAAMPConfig_MinLatencyCorrectionPlaybackRate,       /**< Latency adjust/buffer correction min playback rate*/
 	eAAMPConfig_MaxLatencyCorrectionPlaybackRate,       /**< Latency correction max playback rate*/
 	eAAMPConfig_NormalLatencyCorrectionPlaybackRate,    /**< Normal playback rate for LLD stream; backdoor for debug*/
-	eAAMPConfig_LowLatencyMinBuffer,                    /**< Low Latency minimum buffer value*/
 	eAAMPConfig_LowLatencyTargetBuffer,                 /**< Low Latency target buffer value; Buffer needed for rate correction to trigger*/
 	eAAMPConfig_BWToGstBufferFactor,				/**< Factor by multiply GST Base Buffer is multiplied to accommodate HiFi Content*/
 	eAAMPConfig_UnderflowDetectThresholdSec,		/**< Underflow detection threshold in seconds */
@@ -369,7 +376,8 @@ typedef enum
 	eAAMPConfig_RebufferLatencyStepSec,				/**< Step value for latency increase when rebuffering occurs */
 	eAAMPConfig_RebufferLatencyMaxIncrementSec,		/**< Max latency increment allowed due to rebuffering */
 	eAAMPConfig_LatencyStableDurationSec,				/**< Duration (s) of consecutive healthy buffer required before one latency-threshold restoration step (default: DEFAULT_LATENCY_STABLE_DURATION_SEC) */
-	eAAMPConfig_LatencyDangerBufferSec,				/**< Buffer level (s) below which latency thresholds are increased; buffer must stay above this for latencyStableDurationSec before thresholds are restored (default: DEFAULT_LATENCY_DANGER_BUFFER_SEC) */
+	eAAMPConfig_LatencyDangerBufferSec,				/**< Buffer level (s) below which latency thresholds are increased (default: DEFAULT_LATENCY_DANGER_BUFFER_SEC) */
+	eAAMPConfig_LatencyRestorationBufferSec,		/**< Buffer level (s) required during the full stable window before one latency-threshold restoration step is applied (default: DEFAULT_LATENCY_RESTORATION_BUFFER_SEC) */
 	eAAMPConfig_LLMinLatency,						/**< Low Latency Min Latency Offset */
 	eAAMPConfig_LLTargetLatency,					/**< Low Latency Target Latency */
 	eAAMPConfig_LLMaxLatency,						/**< Low Latency Max Latency */
@@ -738,6 +746,15 @@ public:
 	bool CustomSearch( std::string url, int playerId , std::string appname);
 
 	std::string GetUserAgentString() const;
+
+	/**
+	 * @fn IsUsingRialto
+	 * @brief True if playback is going through Rialto, via either the Rialto
+	 *        GStreamer sink (eAAMPConfig_useRialtoSink) or direct Rialto
+	 *        (eAAMPConfig_useDirectRialto). Does not imply which of the two.
+	 * @return true if either Rialto config is enabled
+	 */
+	bool IsUsingRialto() const;
 private:
 
 	/**

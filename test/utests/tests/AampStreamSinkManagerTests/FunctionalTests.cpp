@@ -341,7 +341,7 @@ TEST_F(AampStreamSinkManagerTests, ChangeAampTests)
     EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetFirstPTS()).WillOnce(Return(flushPosition));
 
     EXPECT_CALL(*g_mockAampGstPlayer, ChangeAamp(mPrivateInstanceAAMP2, _)).Times(1);
-    EXPECT_CALL(*g_mockAampGstPlayer, Flush(flushPosition, _, true)).Times(1);
+    EXPECT_CALL(*g_mockAampGstPlayer, Flush(flushPosition, _, true, true)).Times(1);
     AampStreamSinkManager::GetInstance().ActivatePlayer(mPrivateInstanceAAMP2);
 }
 
@@ -500,7 +500,7 @@ TEST_F(AampStreamSinkManagerTests, ChangeAampTests_ProgressiveUsesStreamPosition
 
     EXPECT_CALL(*g_mockAampGstPlayer, ChangeAamp(mPrivateInstanceAAMP2, _))
         .Times(1);
-    EXPECT_CALL(*g_mockAampGstPlayer, Flush(flushPosition, _, true)).Times(1);
+    EXPECT_CALL(*g_mockAampGstPlayer, Flush(flushPosition, _, true, true)).Times(1);
     AampStreamSinkManager::GetInstance().ActivatePlayer(mPrivateInstanceAAMP2);
 }
 

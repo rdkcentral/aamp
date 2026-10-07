@@ -1,7 +1,7 @@
 # If not stated otherwise in this file or this component's license file the
 # following copyright and licenses apply:
 #
-# Copyright 2022 RDK Management
+# Copyright 2026 RDK Management
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,40 +17,36 @@
 
 include(GoogleTest)
 
-pkg_check_modules(CURL REQUIRED libcurl)
-
 set(AAMP_ROOT "../../../../")
 set(UTESTS_ROOT "../../")
-set(EXEC_NAME PlayerInstanceAAMP)
+set(EXEC_NAME AampTimingHistogramTests)
 
-# Include common test directories
-include(${CMAKE_CURRENT_LIST_DIR}/../CommonTestIncludes.cmake)
+# AampTimingHistogram.h is a header-only class in the AAMP root (alongside AampUtils.h).
+# No CommonTestIncludes needed — the class has zero AAMP-specific dependencies.
+include_directories(${AAMP_ROOT})
+include_directories(${GTEST_INCLUDE_DIRS})
+include_directories(${GMOCK_INCLUDE_DIRS})
 
-set(TEST_SOURCES PauseOnPlaybackTests.cpp
-                 PlayerInstanceAAMPTestsMain.cpp
-                 PlayerInstanceAAMPTests.cpp
-                 PlayerStateTests.cpp
-                 SetRateInternalIframeGuardTests.cpp)
+set(TEST_SOURCES
+    AampTimingHistogramTests.cpp
+    AampTimingHistogramTestCases.cpp)
 
-set(AAMP_SOURCES ${AAMP_ROOT}/main_aamp.cpp
-                 ${AAMP_ROOT}/CachedFragment.cpp)
+# Header-only class: no separate AAMP_SOURCES compilation unit required.
+add_executable(${EXEC_NAME} ${TEST_SOURCES})
 
-add_executable(${EXEC_NAME}
-               ${TEST_SOURCES}
-               ${AAMP_SOURCES})
 set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
 
-if (CMAKE_XCODE_BUILD_SYSTEM)
-  # XCode schema target
-  xcode_define_schema(${EXEC_NAME})
+if(CMAKE_XCODE_BUILD_SYSTEM)
+    xcode_define_schema(${EXEC_NAME})
 endif()
 
-if (COVERAGE_ENABLED)
+if(COVERAGE_ENABLED)
     include(CodeCoverage)
     APPEND_COVERAGE_COMPILER_FLAGS()
 endif()
 
-
-target_link_libraries(${EXEC_NAME} fakes -lpthread ${GLIB_LINK_LIBRARIES} ${OS_LD_FLAGS} ${GMOCK_LINK_LIBRARIES} ${GTEST_LINK_LIBRARIES} ${CURL_LIBRARIES})
+# No AAMP fakes needed — AampTimingHistogram has zero AAMP dependencies.
+target_link_libraries(${EXEC_NAME} -pthread
+    ${GMOCK_LINK_LIBRARIES} ${GTEST_LINK_LIBRARIES})
 
 aamp_utest_run_add(${EXEC_NAME})

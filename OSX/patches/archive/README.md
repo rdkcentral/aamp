@@ -14,7 +14,5 @@ to fix build failures on macOS and add the `setPtsOffset()` method missing from 
 4. `gst-plugins/CMakeLists.txt`: Added UUID pkg-config check and link dirs for macOS
 5. `subtitle/subtitleParser.h`, `subtec/subtecparser/WebVttSubtecParser.{cpp,hpp}`: Added `setPtsOffset()` virtual method
 
-**Why archived**: As of VPAAMP-881, middleware-player-interface HEAD (commit `a55c02d`, July 2025) includes
+**Why archived**: middleware-player-interface HEAD (commit `a55c02d`, July 2025) includes
 all these fixes natively. The pinned commit `bd2b3b1` and this patch are no longer used.
-
-**Related ticket**: VPAAMP-881 — Migrate to HEAD of middleware-player-interface

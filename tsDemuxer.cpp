@@ -21,7 +21,7 @@
 
 #include "priv_aamp.h"
 #include "AampLogManager.h"
-#include "AampUtils.h"        // for aamp_utils::ClearAndRelease
+#include "AampUtils.h"
 #include "DemuxDataTypes.h"  // for exchange utility
 // TS Demuxing defines
 

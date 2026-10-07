@@ -144,7 +144,7 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
     fi
     # GStreamer: prefer the macOS framework installer; fall back to Homebrew.
     # Mirrors the detection logic added to scripts/install_aampcli.sh in
-    # PR #1489 (VPAAMP-392).  The old code unconditionally prepended the
+    # PR #1489.  The old code unconditionally prepended the
     # framework path, causing an opaque cmake failure on machines that have
     # GStreamer installed via Homebrew instead of the standalone framework.
     _GST_FRAMEWORK_PKG="/Library/Frameworks/GStreamer.framework/Versions/1.0/lib/pkgconfig"
