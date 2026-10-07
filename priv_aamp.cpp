@@ -263,6 +263,7 @@ static const std::pair<std::string , std::string> gCDAIErrorDetails[] = {
 	{"", ""}
 };
 
+
 static constexpr const char *BITRATECHANGE_STR[] =
 {
 	(const char *)"BitrateChanged - Network adaptation",				// eAAMP_BITRATE_CHANGE_BY_ABR
@@ -474,6 +475,20 @@ static MediaTypeTelemetry aamp_GetMediaTypeForTelemetry(AampMediaType type)
 						break;
 	}
 	return ret;
+}
+
+static void UpdateLastConfiguredAudioFormat(PrivateInstanceAAMP *aamp)
+{
+	AudioTrackInfo audioTrack;
+	if (aamp->mpStreamAbstractionAAMP &&
+		aamp->mpStreamAbstractionAAMP->GetCurrentAudioTrack(audioTrack))
+	{
+		const FormatMap *format = GetAudioFormatForCodec(audioTrack.codec.c_str());
+		if (format)
+		{
+			aamp->mLastConfiguredAudioFormat = format->format;
+		}
+	}
 }
 
 double PrivateInstanceAAMP::RecalculatePTS(AampMediaType mediaType, const void *ptr, size_t len )
@@ -1701,8 +1716,8 @@ int PrivateInstanceAAMP::HandleSSLProgressCallback ( void *clientp, double dltot
  * @brief PrivateInstanceAAMP Constructor
  */
 PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPosn(0.0), mLastTelemetryTimeMS(0), mBufferingStartTimeMS(-1), mDiscontinuityFound(false), mTelemetryInterval(0), mLock(),
-	mpStreamAbstractionAAMP(NULL), mInitSuccess(false), mVideoFormat(FORMAT_INVALID), mAudioFormat(FORMAT_INVALID), mDownloadsDisabled(),
-	mDownloadsEnabled(true), profiler(), licenceFromManifest(false), previousAudioType(eAUDIO_UNKNOWN),isPreferredDRMConfigured(false),
+	mpStreamAbstractionAAMP(NULL), mInitSuccess(false), mVideoFormat(FORMAT_INVALID), mAudioFormat(FORMAT_INVALID), mLastConfiguredAudioFormat(FORMAT_INVALID), mDownloadsDisabled(),
+	mDownloadsEnabled(true), profiler(), licenceFromManifest(false), isPreferredDRMConfigured(false),
 	mbDownloadsBlocked(false), streamerIsActive(false), mFogTSBEnabled(false), mIscDVR(false), mLiveOffset(AAMP_LIVE_OFFSET),
 	seek_pos_seconds(-1), rate(0), mSinkPaused(false), mMaxLanguageCount(0), zoom_mode(VIDEO_ZOOM_NONE),
 	video_muted(false), subtitles_muted(true), audio_volume(100), subscribedTags(), manifestHeadersNeeded(), httpHeaderResponses(), timedMetadata(), timedMetadataNew(), IsTuneTypeNew(false), trickStartUTCMS(-1), durationSeconds(0.0), culledSeconds(0.0), culledOffset(0.0), maxRefreshPlaylistIntervalSecs(DEFAULT_INTERVAL_BETWEEN_PLAYLIST_UPDATES_MS/1000),
@@ -1753,7 +1768,6 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	, vDynamicDrmData()
 	, midFragmentSeekCache(false)
 	, mLiveOffsetDrift(AAMP_DEFAULT_LIVE_OFFSET_DRIFT)
-	, mPreviousAudioType (FORMAT_INVALID)
 	, mTsbRecordingId()
 	, mthumbIndexValue(-1)
 	, mManifestRefreshCount (0)
@@ -3752,6 +3766,7 @@ bool PrivateInstanceAAMP::ProcessPendingDiscontinuity()
 					GetStreamCodecInfo(),
 					mpStreamAbstractionAAMP->GetESChangeStatus(),
 					mIsTrackIdMismatch /*setReadyAfterPipelineCreation*/);
+				UpdateLastConfiguredAudioFormat(this);
 
 				/*
 				*  Truth table for Flush call as per previous impl for reference
@@ -6561,6 +6576,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 				{
 					sink->Configure(GetStreamCodecInfo(),
 						mpStreamAbstractionAAMP->GetESChangeStatus());
+					UpdateLastConfiguredAudioFormat(this);
 				}
 			}
 			else
@@ -10475,16 +10491,10 @@ void PrivateInstanceAAMP::SendMediaMetadataEvent(void)
 	event->setMediaFormat(mMediaFormatName[mMediaFormat]);
 
 	// Populate audio metadata (codec, mixType, isAtmos).
-	// previousAudioType (AudioType) tracks the DASH-selected audio type;
-	// eAUDIO_ATMOS means a JOC-flagged EC-3 track was selected on DASH.
-	// mPreviousAudioType (StreamOutputFormat) tracks the HLS-selected audio
-	// type; FORMAT_AUDIO_ES_ATMOS means an Atmos ES track was selected on HLS.
-	// Both trackers are checked so that isAtmos is correct for DASH and HLS.
 	AudioTrackInfo currentAudioTrack;
 	if (mpStreamAbstractionAAMP && mpStreamAbstractionAAMP->GetCurrentAudioTrack(currentAudioTrack))
 	{
-		bool isAtmos = (previousAudioType == eAUDIO_ATMOS) ||
-		               (mPreviousAudioType == FORMAT_AUDIO_ES_ATMOS);
+		bool isAtmos = mpStreamAbstractionAAMP->IsAudioAtmos();
 		event->SetAudioMetaData(currentAudioTrack.codec, currentAudioTrack.mixType, isAtmos);
 	}
 
@@ -11932,14 +11942,7 @@ std::string PrivateInstanceAAMP::GetAudioTrackInfo()
 				{
 					cJSON_AddStringToObject(item, "mixType", trackInfo.mixType.c_str());
 				}
-				// isAtmos: derived from both audio-type trackers so that
-				// getAudioTrackInfo() reflects the real-time Atmos status for both
-				// DASH (previousAudioType == eAUDIO_ATMOS) and HLS
-				// (mPreviousAudioType == FORMAT_AUDIO_ES_ATMOS) after period
-				// transitions (where mediaMetadata is not re-fired).
-				cJSON_AddBoolToObject(item, "isAtmos",
-				                      (previousAudioType == eAUDIO_ATMOS) ||
-				                      (mPreviousAudioType == FORMAT_AUDIO_ES_ATMOS));
+				cJSON_AddBoolToObject(item, "isAtmos", mpStreamAbstractionAAMP->IsAudioAtmos());
 				if (!trackInfo.mType.empty())
 				{
 					cJSON_AddStringToObject(item, "type", trackInfo.mType.c_str());
@@ -12573,6 +12576,7 @@ void PrivateInstanceAAMP::SetStreamFormat(StreamOutputFormat videoFormat, Stream
 		{
 			sink->Configure(GetStreamCodecInfo(),
 				false);
+			UpdateLastConfiguredAudioFormat(this);
 		}
 	}
 }

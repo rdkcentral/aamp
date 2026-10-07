@@ -194,6 +194,7 @@ public:
 	 * @param[out]  subtitleOutputFormat - format of subtitle track
 	 */
 	void GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &subtitleOutputFormat) override;
+	bool IsAudioAtmos(void) const override { return mPreviousAudioFormat == FORMAT_AUDIO_ES_ATMOS; }
 	/**
 	 * @fn GetStreamPosition
 	 */
@@ -957,7 +958,7 @@ protected:
 	 * @param ac4Tracks parsed track from preselection node
 	 * @param audioTrackIndex selected audio track index
 	 */
-	int GetBestAudioTrackByLanguage(int &desiredRepIdx,AudioType &selectedCodecType, std::vector<AudioTrackInfo> &ac4Tracks, std::string &audioTrackIndex);
+	int GetBestAudioTrackByLanguage(int &desiredRepIdx,StreamOutputFormat &selectedCodecType, std::vector<AudioTrackInfo> &ac4Tracks, std::string &audioTrackIndex);
 	int GetPreferredAudioTrackByLanguage();
 	/**
 	 * @fn CheckProducerReferenceTimeUTCTimeMatch
@@ -1026,7 +1027,7 @@ protected:
 	 * @param disableEC3 whether EC3 disabled by config
 	 * @param disableATMOS whether ATMOS audio disabled by config
 	  */
-	bool GetPreferredCodecIndex(IAdaptationSet *adaptationSet, int &selectedRepIdx, AudioType &selectedCodecType,
+	bool GetPreferredCodecIndex(IAdaptationSet *adaptationSet, int &selectedRepIdx, StreamOutputFormat &selectedCodecType,
 	uint32_t &selectedRepBandwidth, long &bestScore, bool disableEC3, bool disableATMOS, bool disableAC4, bool disableAC3, bool &disabled);
 
 	/**
@@ -1201,7 +1202,8 @@ protected:
 	double mStartTimeOfFirstPTS;
 	double mVideoPosRemainder;
 	double mFirstVideoFragPTS;
-	AudioType mAudioType;
+	StreamOutputFormat mAudioFormat;
+	StreamOutputFormat mPreviousAudioFormat;
 	int mPrevAdaptationSetCount;
 	std::vector<BitsPerSecond> mBitrateIndexVector;
 	double mLivePeriodCulledSeconds;
