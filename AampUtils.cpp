@@ -1009,6 +1009,8 @@ StreamOutputFormat GetMp4DemuxVideoFormatForCodec( const char *codecs )
 			}
 		}
 	}
+	AAMPLOG_WARN("Unable to match MP4 demux video codec: %s",
+		codecs ? codecs : "(null)");
 	return FORMAT_UNKNOWN;
 }
 
@@ -1031,6 +1033,8 @@ StreamOutputFormat GetMp4DemuxAudioFormatForCodec( const char *codecs )
 			}
 		}
 	}
+	AAMPLOG_WARN("Unable to match MP4 demux audio codec: %s",
+		codecs ? codecs : "(null)");
 	return FORMAT_UNKNOWN;
 }
 
