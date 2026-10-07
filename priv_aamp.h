@@ -3156,7 +3156,7 @@ public:
 	 *
 	 *   @return true if autoplay enabled
 	 */
-	bool IsPlayEnabled();
+	bool IsPlayEnabled() const;
 
 	/**
 	 * @fn detach
