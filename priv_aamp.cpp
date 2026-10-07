@@ -11495,24 +11495,39 @@ void PrivateInstanceAAMP::NotifyFirstVideoFrameDisplayed()
 			return;
 		}
 
-		AAMPLOG_INFO("Pausing Playback on First Frame Displayed");
-		if(mpStreamAbstractionAAMP)
+		// Don't re-pause if a resume raced in before the buffer/fragment was ready; just fall through to normal playing/buffering handling
+		MediaTrack *videoTrack = mpStreamAbstractionAAMP ? mpStreamAbstractionAAMP->GetMediaTrack(eTRACK_VIDEO) : nullptr;
+		bool bufferReady = videoTrack && ((videoTrack->numberOfFragmentsCached > 0) || (videoTrack->GetTotalInjectedDuration() > 0));
+
+		if(bufferReady)
 		{
-			mpStreamAbstractionAAMP->NotifyPlaybackPaused(true);
-		}
-		StopDownloads();
-		if(PausePipeline(true, false))
-		{
-			SetState(eSTATE_PAUSED);
+			AAMPLOG_INFO("Pausing Playback on First Frame Displayed");
+			if(mpStreamAbstractionAAMP)
+			{
+				mpStreamAbstractionAAMP->NotifyPlaybackPaused(true);
+			}
+			StopDownloads();
+			if(PausePipeline(true, false))
+			{
+				AAMPLOG_INFO("Set pipeline to Pause");
+				SetState(eSTATE_PAUSED);
+			}
+			else
+			{
+				AAMPLOG_ERR("Failed to pause pipeline for first frame displayed!");
+			}
+			return;
 		}
 		else
 		{
-			AAMPLOG_ERR("Failed to pause pipeline for first frame displayed!");
+			AAMPLOG_INFO("Buffer is not ready so ignore to set Pipeline into pause ");
 		}
+		
 	}
-	// Otherwise check for setting BUFFERING state
-	else if(!SetStateBufferingIfRequired())
+
+	if(!SetStateBufferingIfRequired())
 	{
+		AAMPLOG_INFO("Set Pipeline into Playing");
 		// If Buffering state was not needed, set PLAYING state
 		SetState(eSTATE_PLAYING);
 	}
