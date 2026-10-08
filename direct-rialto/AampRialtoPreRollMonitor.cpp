@@ -97,7 +97,7 @@ void AampRialtoPreRollMonitor::Start(Probe probe)
 	else
 	{
 		AAMPLOG_INFO("pre-roll monitor started floor=%u timeout=%lld ms",
-			m_config.minQueuedFrames,
+			m_config.minAcceptedFrames,
 			static_cast<long long>(m_config.timeoutMs));
 	}
 }
@@ -121,6 +121,21 @@ void AampRialtoPreRollMonitor::Stop()
 	if (wasRunning)
 	{
 		AAMPLOG_INFO("pre-roll monitor stopped before completion");
+	}
+	ReleaseProbe();
+}
+
+void AampRialtoPreRollMonitor::ReleaseProbe()
+{
+	// Moved out so the captured state is destroyed without m_mutex held.
+	Probe discarded;
+	{
+		std::lock_guard<std::mutex> lock(m_mutex);
+		if (!m_running)
+		{
+			discarded = std::move(m_probe);
+			m_probe = Probe{};
+		}
 	}
 }
 
@@ -146,20 +161,20 @@ bool AampRialtoPreRollMonitor::Poll()
 
 	if (keepPolling)
 	{
-		// Probes may perform Rialto IPC, so run them without the mutex held.
-		uint32_t frames = 0;
-		const bool haveFrames = probe.queuedFrames && probe.queuedFrames(frames);
+		// Probes run without the mutex held; they read other objects' state.
+		const uint32_t frames = probe.acceptedFrames ? probe.acceptedFrames() : 0u;
 		const bool eos = probe.endOfStream && probe.endOfStream();
+		const bool full = probe.bufferFull && probe.bufferFull();
 		const int64_t elapsedMs = m_clock() - startMs;
 
 		const char *reason = nullptr;
-		if (!haveFrames)
-		{
-			reason = "queued frames unavailable";
-		}
-		else if (frames >= m_config.minQueuedFrames)
+		if (frames >= m_config.minAcceptedFrames)
 		{
 			reason = "target reached";
+		}
+		else if (full)
+		{
+			reason = "buffer full";
 		}
 		else if (eos)
 		{
@@ -198,15 +213,16 @@ bool AampRialtoPreRollMonitor::Poll()
 			? static_cast<long long>(probe.injectedSpanMs()) : 0LL;
 		if (logProgress)
 		{
-			AAMPLOG_INFO("pre-roll progress queuedFrames=%u/%u injected=%lld ms "
-				"elapsed=%lld ms", frames, m_config.minQueuedFrames, spanMs,
+			AAMPLOG_INFO("pre-roll progress acceptedFrames=%u/%u injected=%lld ms "
+				"elapsed=%lld ms", frames, m_config.minAcceptedFrames, spanMs,
 				static_cast<long long>(elapsedMs));
 		}
 		if (complete)
 		{
-			AAMPLOG_MIL("pre-roll complete (%s) after %lld ms queuedFrames=%s%u "
+			AAMPLOG_MIL("pre-roll complete (%s) after %lld ms acceptedFrames=%u "
 				"injected=%lld ms", reason, static_cast<long long>(elapsedMs),
-				haveFrames ? "" : "unavailable:", frames, spanMs);
+				frames, spanMs);
+			ReleaseProbe();
 			m_onComplete();
 		}
 	}

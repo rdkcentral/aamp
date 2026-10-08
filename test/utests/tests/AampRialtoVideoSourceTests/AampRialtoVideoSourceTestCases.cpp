@@ -906,7 +906,7 @@ TEST_F(AampRialtoVideoSourceTest, AampRialtoVideoSource_HandleCancelNeedData_Cle
  * @brief Verify flushSource calls flush on the pipeline.
  *
  * setSourcePosition() is NOT called from flushSource() — it is deferred
- * to OnSourceFlushed() after the server confirms the flush.
+ * until the server confirms the flush (SEEK_DONE).
  */
 TEST_F(AampRialtoVideoSourceTest, AampRialtoVideoSource_FlushSource_CallsPipelineFlush)
 {
@@ -1466,6 +1466,96 @@ TEST_F(AampRialtoVideoSourceTest,
 
 	m_source.unblockInjection(m_pipelinePtr, "test");
 	EXPECT_EQ(m_source.injectedSpanMs(), 0);
+}
+
+/**
+ * @test AampRialtoVideoSource_AcceptedFrames_CountsOnlyAcceptedSegments
+ * @brief Verify acceptedFrames counts segments Rialto accepted, ignores
+ *        rejected ones, and resets with unblockInjection().
+ */
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_AcceptedFrames_CountsOnlyAcceptedSegments)
+{
+	EXPECT_EQ(m_source.acceptedFrames(), 0u);
+
+	auto codecInfo = MakeH264CodecInfo();
+	m_source.attachOrUpdate(*m_pipelinePtr, codecInfo, nullptr, -1);
+	EXPECT_CALL(*m_pipelinePtr, addSegment(_, _))
+		.WillOnce(Return(firebolt::rialto::AddSegmentStatus::OK))
+		.WillOnce(Return(firebolt::rialto::AddSegmentStatus::OK))
+		.WillOnce(Return(firebolt::rialto::AddSegmentStatus::ERROR));
+
+	for (uint32_t i = 0; i < 3; ++i)
+	{
+		{
+			auto &st = m_source.state();
+			std::lock_guard<std::mutex> lock(st.mu);
+			st.hasPending        = true;
+			st.pendingRequestId  = 68 + i;
+			st.pendingFrameCount = 1;
+			st.injectorActive    = true;
+		}
+		auto buf = std::make_shared<std::vector<uint8_t>>(
+			std::vector<uint8_t>{0x10, 0x20});
+		m_source.processDataFragment(*m_pipelinePtr, std::move(buf),
+			7.5 + (0.040 * i), 7.5 + (0.040 * i), 0.040, 0.0);
+	}
+
+	EXPECT_EQ(m_source.acceptedFrames(), 2u);
+
+	m_source.unblockInjection(m_pipelinePtr, "test");
+	EXPECT_EQ(m_source.acceptedFrames(), 0u);
+}
+
+/**
+ * @test AampRialtoVideoSource_BufferFull_SetByNoSpace_ClearedByUnblock
+ * @brief Verify bufferFull latches when addSegment returns NO_SPACE and
+ *        resets with unblockInjection().
+ */
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_BufferFull_SetByNoSpace_ClearedByUnblock)
+{
+	EXPECT_FALSE(m_source.bufferFull());
+
+	auto codecInfo = MakeH264CodecInfo();
+	m_source.attachOrUpdate(*m_pipelinePtr, codecInfo, nullptr, -1);
+	uint64_t gen = m_source.captureGeneration();
+	{
+		auto &st = m_source.state();
+		std::lock_guard<std::mutex> lock(st.mu);
+		st.hasPending        = true;
+		st.pendingRequestId  = 82;
+		st.pendingFrameCount = 1;
+		st.injectorActive    = true;
+	}
+	ON_CALL(*m_pipelinePtr, haveData(_, _)).WillByDefault(Return(true));
+	EXPECT_CALL(*m_pipelinePtr, addSegment(82, _))
+		.WillOnce(Return(firebolt::rialto::AddSegmentStatus::NO_SPACE));
+
+	AampMediaSample sample;
+	uint8_t data[] = {0x10, 0x11};
+	sample.mData = std::shared_ptr<const uint8_t>(data, [](const uint8_t *){});
+	sample.mDataSize = 2;
+	sample.mPts = 4.0;
+	sample.mDuration = 0.033;
+
+	// NO_SPACE leaves the injector waiting for the next needData.
+	std::thread injector([&] {
+		m_source.injectOneSample(*m_pipelinePtr, gen, std::move(sample), nullptr);
+	});
+	const auto deadline = std::chrono::steady_clock::now() +
+		std::chrono::milliseconds(200);
+	while (!m_source.bufferFull() &&
+		std::chrono::steady_clock::now() < deadline)
+	{
+		std::this_thread::sleep_for(std::chrono::milliseconds(1));
+	}
+	EXPECT_TRUE(m_source.bufferFull());
+
+	m_source.unblockInjection(m_pipelinePtr, "test");
+	injector.join();
+
+	EXPECT_FALSE(m_source.bufferFull());
 }
 
 /**

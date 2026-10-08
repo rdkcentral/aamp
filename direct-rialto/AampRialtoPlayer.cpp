@@ -210,9 +210,10 @@ namespace {
 	/// Pre-roll target, mirroring the GStreamer reference: the default
 	/// SocInterface queued-frame floor (REQUIRED_QUEUED_FRAMES_DEFAULT),
 	/// polled at DEFAULT_BUFFERING_TO_MS for up to DEFAULT_BUFFERING_MAX_MS.
-	constexpr uint32_t kPreRollMinQueuedFrames = 4;
-	constexpr guint    kPreRollPollIntervalMs  = 10;
-	constexpr int64_t  kPreRollTimeoutMs       = 1000;
+	/// The floor is applied to frames Rialto has accepted.
+	constexpr uint32_t kPreRollMinAcceptedFrames = 4;
+	constexpr guint    kPreRollPollIntervalMs    = 10;
+	constexpr int64_t  kPreRollTimeoutMs         = 1000;
 
 	const char *PlaybackStateName(firebolt::rialto::PlaybackState state)
 	{
@@ -319,7 +320,7 @@ AampRialtoPlayer::AampRialtoPlayer(
 {
 	m_preRollMonitor = std::make_unique<AampRialtoPreRollMonitor>(
 		AampRialtoPreRollMonitor::Config{
-			kPreRollMinQueuedFrames, kPreRollPollIntervalMs, kPreRollTimeoutMs},
+			kPreRollMinAcceptedFrames, kPreRollPollIntervalMs, kPreRollTimeoutMs},
 		[this]()
 		{
 			m_playbackController.ReleaseHold(PlayHold::PreRollIncomplete,
@@ -1305,27 +1306,22 @@ void AampRialtoPlayer::UngateAllSources(const char *reason)
 
 void AampRialtoPlayer::LogSourceSnapshot(const char *context)
 {
-	if (m_pipeline)
+	for (auto &source : m_sources)
 	{
-		for (auto &source : m_sources)
+		if (source && source->isAttached())
 		{
-			if (source && source->isAttached())
-			{
-				uint32_t queuedFrames = 0;
-				const bool haveFrames = m_pipeline->getQueuedFrames(
-					source->sourceId(), queuedFrames);
-				const int64_t firstPts = source->firstPtsMs();
-				// firstPtsMs stays unset until Rialto has accepted a
-				// segment, so it distinguishes "injected nothing yet"
-				// from "injected at PTS 0".
-				AAMPLOG_INFO("%s mediaType=%d sourceId=%d eos=%d "
-					"firstPtsMs=%s queuedFrames=%s%u",
-					context, static_cast<int>(source->mediaType()),
-					source->sourceId(), source->state().eos,
-					(firstPts == AampRialtoMediaSource::kFirstPtsNotSet)
-						? "none" : std::to_string(firstPts).c_str(),
-					haveFrames ? "" : "unavailable:", queuedFrames);
-			}
+			const int64_t firstPts = source->firstPtsMs();
+			// firstPtsMs stays unset until Rialto has accepted a segment, so
+			// it distinguishes "injected nothing yet" from "injected at PTS 0".
+			AAMPLOG_INFO("%s mediaType=%d sourceId=%d eos=%d firstPtsMs=%s "
+				"acceptedFrames=%u injected=%lld ms bufferFull=%d",
+				context, static_cast<int>(source->mediaType()),
+				source->sourceId(), source->state().eos,
+				(firstPts == AampRialtoMediaSource::kFirstPtsNotSet)
+					? "none" : std::to_string(firstPts).c_str(),
+				source->acceptedFrames(),
+				static_cast<long long>(source->injectedSpanMs()),
+				source->bufferFull());
 		}
 	}
 }
@@ -1369,18 +1365,25 @@ void AampRialtoPlayer::StartPreRoll(const char *reason)
 	}
 	else
 	{
+		// The Rialto API does not promise data requests before play(); PAUSED
+		// is the documented non-playing state, as in the reference.  If it is
+		// refused, the timeout still bounds the wait.
+		if (!m_pipeline->pause())
+		{
+			AAMPLOG_WARN("pause() failed for pre-roll (%s)", reason);
+		}
+
 		// Every other hold is clear, so sources are attached, no flush is in
 		// progress and the position is resolved: Rialto will not treat data
 		// sent now as stale.
 		UngateAllSources("PreRoll");
 
-		// Hold the pipeline by value so an in-flight poll survives Stop().
-		auto pipeline = m_pipeline;
 		const int32_t sourceId = primary->sourceId();
 		AampRialtoPreRollMonitor::Probe probe;
-		probe.queuedFrames = [pipeline, sourceId](uint32_t &frames)
+		probe.acceptedFrames = [this, primaryType]()
 		{
-			return pipeline->getQueuedFrames(sourceId, frames);
+			auto *source = getSource(primaryType);
+			return source ? source->acceptedFrames() : 0u;
 		};
 		probe.endOfStream = [this, primaryType]()
 		{
@@ -1392,6 +1395,11 @@ void AampRialtoPlayer::StartPreRoll(const char *reason)
 				eos = source->state().eos;
 			}
 			return eos;
+		};
+		probe.bufferFull = [this, primaryType]()
+		{
+			auto *source = getSource(primaryType);
+			return source ? source->bufferFull() : false;
 		};
 		probe.injectedSpanMs = [this, primaryType]()
 		{
@@ -2462,8 +2470,8 @@ void AampRialtoPlayer::StopBuffering(bool forceStop)
 	//   true  - resume playback unconditionally, regardless of buffer level.
 	//   false - resume only if enough decoded frames are queued in the decoder.
 	//
-	// The Rialto client API does not expose the server-side decoder's queued
-	// frame count, so there is no condition to gate the non-forced path on.
+	// Rialto's getQueuedFrames() reports server-implementation-specific
+	// decoder state, so it is not relied on to gate the non-forced path.
 	// Both cases therefore resume unconditionally via play().
 	AAMPLOG_INFO("ENTRY forceStop=%d", forceStop);
 	if (!m_pipeline)

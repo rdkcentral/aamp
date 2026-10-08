@@ -41,9 +41,9 @@ bool AampRialtoVideoSource::mapCodecToMime(
 	{
 		case GST_FORMAT_VIDEO_ES_H264:
 			mimeType = "video/h264";
-			// Length-prefixed (AVCC) vs Annex-B (byte-stream) is a property
-			// of how the demuxer produced this codecInfo, not of which
-			// object instance happens to own an Mp4Demux.
+			// naluLengthPrefixed (from the demuxed codecInfo) selects the
+			// Rialto format: AVC (length-prefixed, codec data is avcC) or
+			// BYTE_STREAM (Annex-B start codes).
 			streamFormat = naluLengthPrefixed
 				? firebolt::rialto::StreamFormat::AVC
 				: firebolt::rialto::StreamFormat::BYTE_STREAM;

@@ -106,6 +106,8 @@ void AampRialtoMediaSource::reset()
 
 	m_firstPtsMs.store(kFirstPtsNotSet, std::memory_order_relaxed);
 	m_lastAcceptedEndMs.store(kFirstPtsNotSet, std::memory_order_relaxed);
+	m_acceptedFrames.store(0, std::memory_order_relaxed);
+	m_bufferFull.store(false, std::memory_order_relaxed);
 }
 
 void AampRialtoMediaSource::unblockInjection(
@@ -151,6 +153,8 @@ void AampRialtoMediaSource::unblockInjection(
 	// baseline after the seek.  Written outside the lock (atomic).
 	m_firstPtsMs.store(kFirstPtsNotSet, std::memory_order_relaxed);
 	m_lastAcceptedEndMs.store(kFirstPtsNotSet, std::memory_order_relaxed);
+	m_acceptedFrames.store(0, std::memory_order_relaxed);
+	m_bufferFull.store(false, std::memory_order_relaxed);
 }
 
 void AampRialtoMediaSource::gateInjection(
@@ -278,7 +282,7 @@ bool AampRialtoMediaSource::sendHaveData(
 {
 	if (batch.hasFirstPts)
 	{
-		AAMPLOG_INFO("sourceId=%d mediaType=%d status=%d requestId=%u "
+		AAMPLOG_TRACE("sourceId=%d mediaType=%d status=%d requestId=%u "
 			"frameCount=%zu firstPtsSec=%.3f durationSecSum=%.3f "
 			"mediaBytes=%zu metadataBytes=%zu",
 			m_sourceId, static_cast<int>(mediaType()),
@@ -288,7 +292,7 @@ bool AampRialtoMediaSource::sendHaveData(
 	}
 	else
 	{
-		AAMPLOG_INFO("sourceId=%d mediaType=%d status=%d requestId=%u "
+		AAMPLOG_TRACE("sourceId=%d mediaType=%d status=%d requestId=%u "
 			"frameCount=%zu mediaBytes=%zu metadataBytes=%zu",
 			m_sourceId, static_cast<int>(mediaType()),
 			static_cast<int>(status), requestId, batch.frameCount,
@@ -312,6 +316,16 @@ int64_t AampRialtoMediaSource::injectedSpanMs() const
 		span = end - first;
 	}
 	return span;
+}
+
+uint32_t AampRialtoMediaSource::acceptedFrames() const
+{
+	return m_acceptedFrames.load(std::memory_order_relaxed);
+}
+
+bool AampRialtoMediaSource::bufferFull() const
+{
+	return m_bufferFull.load(std::memory_order_relaxed);
 }
 
 bool AampRialtoMediaSource::waitForAttach()
@@ -815,6 +829,10 @@ void AampRialtoMediaSource::handleAddSegmentNoSpace(
 	BatchSummary batch;
 	{
 		std::lock_guard<std::mutex> lock(m_state.mu);
+		if (m_state.generation == capturedGen)
+		{
+			m_bufferFull.store(true, std::memory_order_relaxed);
+		}
 		if (m_state.generation == capturedGen &&
 		    m_state.hasPending &&
 		    m_state.pendingRequestId == reqId)
@@ -832,16 +850,11 @@ void AampRialtoMediaSource::handleAddSegmentNoSpace(
 			AAMPLOG_WARN("haveData failed requestId=%u", reqId);
 		}
 	}
-	uint32_t queuedFrames = 0;
-	// Capacity ceiling: what the decoder was holding at the moment Rialto
-	// refused the segment.
-	const bool haveFrames = pipeline.getQueuedFrames(m_sourceId, queuedFrames);
 	AAMPLOG_INFO("addSegment NO_SPACE sourceId=%d mediaType=%d requestId=%u "
-		"acceptedThisBatch=%zu mediaBytes=%zu queuedFrames=%s%u "
+		"acceptedThisBatch=%zu mediaBytes=%zu acceptedFrames=%u "
 		"— waiting for next needData",
 		m_sourceId, static_cast<int>(mediaType()), reqId,
-		batch.frameCount, batch.mediaBytes,
-		haveFrames ? "" : "unavailable:", queuedFrames);
+		batch.frameCount, batch.mediaBytes, acceptedFrames());
 }
 
 void AampRialtoMediaSource::handleAddSegmentCompletion(
@@ -868,6 +881,7 @@ void AampRialtoMediaSource::handleAddSegmentCompletion(
 		m_lastAcceptedEndMs.store(
 			ptsMs + std::llround(sampleDurationSec * 1000.0),
 			std::memory_order_relaxed);
+		m_acceptedFrames.fetch_add(1, std::memory_order_relaxed);
 	}
 	else
 	{

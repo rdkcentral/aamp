@@ -22,10 +22,12 @@
  * @brief Unit tests for AampRialtoPreRollMonitor.
  *
  * Oracle: InterfacePlayerRDK::buffering_timeout (middleware-player-interface)
- * releases the pre-roll when the video decoder's queued frame count reaches
- * the platform floor, when that count cannot be read, or when the buffering
- * timeout expires.  End of stream is an additional exit here because a short
- * asset can EOS before the floor is ever reached.
+ * releases the pre-roll at a 4-frame floor or when the buffering timeout
+ * expires.  Here the floor counts frames Rialto has accepted rather than the
+ * server's decoder queue, so the gate does not depend on how a Rialto server
+ * is implemented.  End of stream is an additional exit because a short asset
+ * can EOS before the floor is ever reached, and NO_SPACE from Rialto because
+ * a buffer that is already full can never reach it either.
  */
 
 #include <gtest/gtest.h>
@@ -83,12 +85,9 @@ protected:
 	AampRialtoPreRollMonitor::Probe MakeProbe()
 	{
 		AampRialtoPreRollMonitor::Probe probe;
-		probe.queuedFrames = [this](uint32_t &frames)
-		{
-			frames = m_queuedFrames;
-			return m_framesAvailable;
-		};
+		probe.acceptedFrames = [this]() { return m_acceptedFrames; };
 		probe.endOfStream = [this]() { return m_eos; };
+		probe.bufferFull = [this]() { return m_bufferFull; };
 		probe.injectedSpanMs = [this]() { return m_spanMs; };
 		return probe;
 	}
@@ -99,9 +98,9 @@ protected:
 	gpointer m_timerData{nullptr};
 
 	int64_t m_nowMs{5000};
-	uint32_t m_queuedFrames{0};
-	bool m_framesAvailable{true};
+	uint32_t m_acceptedFrames{0};
 	bool m_eos{false};
+	bool m_bufferFull{false};
 	int64_t m_spanMs{0};
 	int m_completions{0};
 };
@@ -119,7 +118,7 @@ TEST_F(AampRialtoPreRollMonitorTest, Start_SchedulesPollTimer)
 TEST_F(AampRialtoPreRollMonitorTest, Poll_BelowFloor_KeepsPolling)
 {
 	m_monitor->Start(MakeProbe());
-	m_queuedFrames = kFloor - 1;
+	m_acceptedFrames = kFloor - 1;
 
 	EXPECT_TRUE(m_monitor->Poll());
 
@@ -130,7 +129,7 @@ TEST_F(AampRialtoPreRollMonitorTest, Poll_BelowFloor_KeepsPolling)
 TEST_F(AampRialtoPreRollMonitorTest, Poll_FloorReached_CompletesOnce)
 {
 	m_monitor->Start(MakeProbe());
-	m_queuedFrames = kFloor;
+	m_acceptedFrames = kFloor;
 
 	EXPECT_FALSE(m_monitor->Poll());
 	EXPECT_FALSE(m_monitor->Poll());
@@ -139,18 +138,17 @@ TEST_F(AampRialtoPreRollMonitorTest, Poll_FloorReached_CompletesOnce)
 	EXPECT_EQ(m_completions, 1);
 }
 
-TEST_F(AampRialtoPreRollMonitorTest, Poll_QueuedFramesUnavailable_Completes)
+TEST_F(AampRialtoPreRollMonitorTest, Poll_NothingAcceptedYet_KeepsPolling)
 {
 	/**
-	 * @brief The reference treats an unreadable decoder count as satisfied;
-	 *        waiting out the timeout on every tune would be pure latency.
+	 * @brief Regression: pre-roll used to complete on its first poll, before
+	 *        any data had flowed, because the server had no decoder yet.
 	 */
 	m_monitor->Start(MakeProbe());
-	m_framesAvailable = false;
 
-	EXPECT_FALSE(m_monitor->Poll());
+	EXPECT_TRUE(m_monitor->Poll());
 
-	EXPECT_EQ(m_completions, 1);
+	EXPECT_EQ(m_completions, 0);
 }
 
 TEST_F(AampRialtoPreRollMonitorTest, Poll_EndOfStream_Completes)
@@ -163,6 +161,22 @@ TEST_F(AampRialtoPreRollMonitorTest, Poll_EndOfStream_Completes)
 
 	EXPECT_FALSE(m_monitor->Poll());
 
+	EXPECT_EQ(m_completions, 1);
+}
+
+TEST_F(AampRialtoPreRollMonitorTest, Poll_BufferFull_Completes)
+{
+	/**
+	 * @brief Once Rialto has no space for more data, waiting for the floor
+	 *        can only end in the timeout.
+	 */
+	m_monitor->Start(MakeProbe());
+	m_acceptedFrames = kFloor - 1;
+	m_bufferFull = true;
+
+	EXPECT_FALSE(m_monitor->Poll());
+
+	EXPECT_FALSE(m_monitor->IsRunning());
 	EXPECT_EQ(m_completions, 1);
 }
 
@@ -185,7 +199,7 @@ TEST_F(AampRialtoPreRollMonitorTest, Stop_RemovesTimerAndSuppressesCompletion)
 	EXPECT_CALL(*m_mockGLib, g_source_remove(kTimerId)).Times(1);
 
 	m_monitor->Stop();
-	m_queuedFrames = kFloor;
+	m_acceptedFrames = kFloor;
 
 	EXPECT_FALSE(m_monitor->Poll());
 	EXPECT_FALSE(m_monitor->IsRunning());
@@ -218,7 +232,7 @@ TEST_F(AampRialtoPreRollMonitorTest, TimerCallback_DrivesPoll)
 
 	EXPECT_EQ(m_timerFn(m_timerData), G_SOURCE_CONTINUE);
 
-	m_queuedFrames = kFloor;
+	m_acceptedFrames = kFloor;
 	EXPECT_EQ(m_timerFn(m_timerData), G_SOURCE_REMOVE);
 	EXPECT_EQ(m_completions, 1);
 }
@@ -230,7 +244,7 @@ TEST_F(AampRialtoPreRollMonitorTest, Completed_StopDoesNotRemoveSelfRemovedTimer
 	 *        it again would log a GLib critical.
 	 */
 	m_monitor->Start(MakeProbe());
-	m_queuedFrames = kFloor;
+	m_acceptedFrames = kFloor;
 	m_timerFn(m_timerData);
 
 	EXPECT_CALL(*m_mockGLib, g_source_remove(_)).Times(0);
@@ -273,10 +287,86 @@ TEST_F(AampRialtoPreRollMonitorTest, Completion_MayRestartMonitor)
 	self = &monitor;
 
 	monitor.Start(MakeProbe());
-	m_queuedFrames = kFloor;
+	m_acceptedFrames = kFloor;
 	EXPECT_FALSE(monitor.Poll());
 
 	EXPECT_EQ(restarts, 1);
 	EXPECT_TRUE(monitor.IsRunning());
 	monitor.Stop();
+}
+
+class AampRialtoPreRollMonitorProbeLifetimeTest : public AampRialtoPreRollMonitorTest
+{
+protected:
+	/// A probe whose captured state we can watch: the weak_ptr expires once
+	/// the monitor no longer holds a copy of the probe.
+	AampRialtoPreRollMonitor::Probe MakeObservedProbe(std::weak_ptr<int> &observer)
+	{
+		auto token = std::make_shared<int>(0);
+		observer = token;
+		AampRialtoPreRollMonitor::Probe probe = MakeProbe();
+		probe.endOfStream = [token, this]() { return m_eos; };
+		return probe;
+	}
+};
+
+TEST_F(AampRialtoPreRollMonitorProbeLifetimeTest, Completion_ReleasesProbe)
+{
+	/**
+	 * @brief A probe may capture owning references (the player's once did,
+	 *        to the Rialto pipeline).  Once pre-roll completes nothing may
+	 *        keep them alive, or the pipeline's server session leaks.
+	 */
+	std::weak_ptr<int> observer;
+	m_monitor->Start(MakeObservedProbe(observer));
+	ASSERT_FALSE(observer.expired());
+
+	m_acceptedFrames = kFloor;
+	m_monitor->Poll();
+
+	EXPECT_TRUE(observer.expired());
+}
+
+TEST_F(AampRialtoPreRollMonitorProbeLifetimeTest, Stop_ReleasesProbe)
+{
+	std::weak_ptr<int> observer;
+	m_monitor->Start(MakeObservedProbe(observer));
+	ASSERT_FALSE(observer.expired());
+
+	m_monitor->Stop();
+
+	EXPECT_TRUE(observer.expired());
+}
+
+TEST_F(AampRialtoPreRollMonitorProbeLifetimeTest, Restart_ReleasesPreviousProbe)
+{
+	std::weak_ptr<int> first;
+	m_monitor->Start(MakeObservedProbe(first));
+
+	std::weak_ptr<int> second;
+	m_monitor->Start(MakeObservedProbe(second));
+
+	EXPECT_TRUE(first.expired());
+	EXPECT_FALSE(second.expired());
+}
+
+TEST_F(AampRialtoPreRollMonitorProbeLifetimeTest, StillRunning_KeepsProbe)
+{
+	std::weak_ptr<int> observer;
+	m_monitor->Start(MakeObservedProbe(observer));
+
+	m_acceptedFrames = kFloor - 1;
+	m_monitor->Poll();
+
+	EXPECT_FALSE(observer.expired());
+}
+
+TEST_F(AampRialtoPreRollMonitorProbeLifetimeTest, Destruction_ReleasesProbe)
+{
+	std::weak_ptr<int> observer;
+	m_monitor->Start(MakeObservedProbe(observer));
+
+	m_monitor.reset();
+
+	EXPECT_TRUE(observer.expired());
 }

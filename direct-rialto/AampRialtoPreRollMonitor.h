@@ -33,18 +33,20 @@
 
 /**
  * @class AampRialtoPreRollMonitor
- * @brief Polls the decoder queue until a pre-roll target is met.
+ * @brief Polls the primary track until a pre-roll target is met.
  *
  * Direct-Rialto counterpart of InterfacePlayerRDK's buffering_timeout: while
- * running it polls the primary track's queued frame count on a GLib timer
- * and signals completion exactly once, when the first of these is true:
- *  - queued frames have reached the configured floor;
- *  - the queued frame count cannot be read (mirrors the reference treating
- *    an unreadable count as satisfied);
+ * running it polls the number of primary-track frames Rialto has accepted on
+ * a GLib timer and signals completion exactly once, when the first of these
+ * is true:
+ *  - accepted frames have reached the configured floor;
+ *  - Rialto has refused data for lack of space;
  *  - the primary track has reached end of stream;
  *  - the timeout has elapsed.
  *
- * The injected duration is reported in the logs only; it does not gate.
+ * Counts are taken on the client side, not from the server's decoder, so the
+ * gate does not depend on how a Rialto server is implemented.  The injected
+ * duration is reported in the logs only; it does not gate.
  *
  * Thread-safe.  Start()/Stop() may be called from any thread; polling and
  * completion run on the GLib main loop.  The completion action is invoked
@@ -56,18 +58,20 @@ public:
 	/// Pre-roll target and timing.
 	struct Config
 	{
-		uint32_t minQueuedFrames; ///< Frame floor for the primary track.
-		guint    pollIntervalMs;  ///< Interval between polls.
-		int64_t  timeoutMs;       ///< Give up and complete after this long.
+		uint32_t minAcceptedFrames; ///< Frame floor for the primary track.
+		guint    pollIntervalMs;    ///< Interval between polls.
+		int64_t  timeoutMs;         ///< Give up and complete after this long.
 	};
 
 	/// Read-only views of the primary track, captured for one pre-roll.
 	struct Probe
 	{
-		/// Fill in the decoder's queued frame count; false if unavailable.
-		std::function<bool(uint32_t &)> queuedFrames;
+		/// Frames Rialto has accepted so far.
+		std::function<uint32_t()> acceptedFrames;
 		/// True once the primary track has signalled end of stream.
 		std::function<bool()> endOfStream;
+		/// True once Rialto has returned NO_SPACE for the primary track.
+		std::function<bool()> bufferFull;
 		/// Span of media accepted by Rialto so far, for logging.
 		std::function<int64_t()> injectedSpanMs;
 	};
@@ -112,6 +116,10 @@ public:
 
 private:
 	static gboolean TimerCallback(gpointer data);
+
+	/// Drop the stored probe, and anything it captured, once no pre-roll is
+	/// running.  No-op while one is.
+	void ReleaseProbe();
 
 	const Config m_config;
 	const Completion m_onComplete;

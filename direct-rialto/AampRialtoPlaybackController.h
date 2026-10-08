@@ -46,7 +46,7 @@ enum class PlayHold : uint32_t
 	PositionPending    = 1u << 2,
 	/// AAMP is refilling its fragment cache and has paused the pipeline.
 	FragmentCaching    = 1u << 3,
-	/// Sources are ungated and Rialto is buffering ahead of play().
+	/// Pre-roll is enabled and has not yet completed.
 	PreRollIncomplete  = 1u << 4,
 };
 
@@ -58,10 +58,6 @@ enum class PlayHold : uint32_t
  * adds or releases the holds that describe why playback cannot start yet.
  * Whenever a request is outstanding and no hold remains, the controller
  * fires the injected play action exactly once.
- *
- * This replaces the previous arrangement in which several call sites each
- * re-derived their own preconditions and raced to call play(), coordinated
- * by a hand-rolled sequentially-consistent rendezvous between two atomics.
  *
  * Thread-safe.  The play action is always invoked with the internal mutex
  * released, so it may call back into this object and may safely perform
@@ -126,7 +122,7 @@ private:
 	/// Caller must hold m_mutex.
 	bool ClaimPlayLocked();
 
-	/// Re-evaluate both thresholds after a state change.  Caller must hold
+	/// Decide which actions a state change has made due.  Caller must hold
 	/// m_mutex and invoke the returned actions after releasing it.
 	void EvaluateLocked(bool &issuePlay, bool &startPreRoll);
 

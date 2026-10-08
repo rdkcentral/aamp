@@ -298,10 +298,8 @@ TEST_F(AampRialtoPlaybackControllerTest, PlayActionMayReenterController)
 TEST_F(AampRialtoPlaybackControllerTest, ConcurrentRequestAndRelease_FiresOnce)
 {
 	/**
-	 * @brief Replaces the hand-rolled seq_cst rendezvous between
-	 *        m_playRequested and m_allSourcesAttachedFlag: when Stream()
-	 *        and CheckAllSourcesAttached() race, exactly one of them must
-	 *        issue play() — never zero, never two.
+	 * @brief When Stream() and CheckAllSourcesAttached() race, exactly one
+	 *        of them must issue play() — never zero, never two.
 	 */
 	constexpr int kIterations = 2000;
 

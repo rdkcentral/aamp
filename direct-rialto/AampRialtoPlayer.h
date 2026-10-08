@@ -477,7 +477,7 @@ private:
 	/// cannot start yet.  See AampRialtoPlaybackController.
 	AampRialtoPlaybackController m_playbackController;
 
-	/// Releases PlayHold::PreRollIncomplete once enough data is queued.
+	/// Releases PlayHold::PreRollIncomplete once pre-roll completes.
 	/// Declared after m_playbackController, which its completion calls into.
 	std::unique_ptr<AampRialtoPreRollMonitor> m_preRollMonitor;
 
@@ -489,21 +489,21 @@ private:
 	/// if pre-roll is enabled for @p rate, or release it otherwise.
 	void ArmPreRoll(int rate, const char *reason);
 
-	/// Ungate every source and start polling the primary track.  Invoked by
-	/// the playback controller when only PlayHold::PreRollIncomplete holds an
-	/// outstanding play request.
+	/// Pause the pipeline, ungate every source and start the pre-roll
+	/// monitor on the primary track.  Invoked by the playback controller when
+	/// only PlayHold::PreRollIncomplete holds an outstanding play request.
 	void StartPreRoll(const char *reason);
 
 	/// Ungate every source and issue play().  Invoked by the playback
 	/// controller once a play request has no remaining holds.
 	void IssuePlay(const char *reason);
 
-	/// Log one line per attached source recording attach/EOS state, whether
-	/// anything has been injected yet, and the decoder's queued frame count.
+	/// Log one line per attached source recording EOS state, the first
+	/// accepted PTS, and how much Rialto has accepted so far.
 	/// @param[in] context  Short tag identifying the sample point.
 	void LogSourceSnapshot(const char *context);
 
-	/// Arms the deferred-flush window: re-opens the flush-driver election so
+	/// Re-open the deferred-flush election and apply PlayHold::PositionPending.
 	///
 	/// The hold is released once a position is (re)established: either
 	/// AttachSource() commits a definitive baseline for a newly-attached

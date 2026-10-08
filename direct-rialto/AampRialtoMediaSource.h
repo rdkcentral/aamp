@@ -483,6 +483,18 @@ public:
 	int64_t injectedSpanMs() const;
 
 	/**
+	 * @brief Number of segments Rialto has accepted since the last reset or
+	 *        unblockInjection().
+	 */
+	virtual uint32_t acceptedFrames() const;
+
+	/**
+	 * @brief True if addSegment() has returned NO_SPACE since the last reset
+	 *        or unblockInjection().
+	 */
+	virtual bool bufferFull() const;
+
+	/**
 	 * @brief Signal end-of-stream for this source.
 	 */
 	void signalEos(firebolt::rialto::IMediaPipeline *pipeline);
@@ -591,6 +603,12 @@ protected:
 	/// End (PTS + duration, ms) of the last segment Rialto accepted since
 	/// the last reset or unblockInjection().  kFirstPtsNotSet = not set.
 	std::atomic<int64_t> m_lastAcceptedEndMs{kFirstPtsNotSet};
+
+	/// See acceptedFrames().
+	std::atomic<uint32_t> m_acceptedFrames{0};
+
+	/// See bufferFull().
+	std::atomic<bool> m_bufferFull{false};
 
 private:
 	// -----------------------------------------------------------------

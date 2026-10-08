@@ -555,7 +555,7 @@ TEST_F(AampRialtoAudioSourceTest, AampRialtoAudioSource_HandleCancelNeedData_Cle
  * @brief Verify flushSource calls flush on the pipeline.
  *
  * setSourcePosition() is NOT called from flushSource() — it is deferred
- * to OnSourceFlushed() after the server confirms the flush.
+ * until the server confirms the flush (SEEK_DONE).
  */
 TEST_F(AampRialtoAudioSourceTest, AampRialtoAudioSource_FlushSource_CallsPipelineFlush)
 {
