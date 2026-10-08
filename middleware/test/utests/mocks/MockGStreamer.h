@@ -43,6 +43,7 @@ public:
 	MOCK_METHOD(GstStateChangeReturn, gst_element_set_state,(GstElement *element, GstState state));
 	MOCK_METHOD(GstElement *, gst_bin_new, (const gchar *name));
 	MOCK_METHOD(gboolean, gst_bin_add, (GstBin *bin, GstElement *element));
+	MOCK_METHOD(gboolean, gst_element_sync_state_with_parent, (GstElement *element));
 	MOCK_METHOD(gboolean, gst_bin_remove, (GstBin *bin, GstElement *element));
 	MOCK_METHOD(gboolean, gst_element_link, (GstElement *src, GstElement *dest));
 	MOCK_METHOD(gboolean, gst_element_sync_state_with_parent, (GstElement *element));
