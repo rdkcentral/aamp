@@ -31,7 +31,11 @@
 #include <string>
 #include <tuple>
 #include <vector>
-#include "libdash/IMPD.h"
+
+namespace dash::mpd
+{
+class IMPD;
+}
 
 /**
  * @struct DroppedSegment
@@ -50,10 +54,9 @@ struct DroppedSegment
 };
 
 /**
- * @fn TrimPeriodTailSegments
- * @brief Remove trailing SegmentTimeline segments that start within startToleranceSec of a Period end
- *        given by its @duration, and finish more than minOverhangSec after it (e.g. an ad-splicer overhang).
- *        Periods without @duration are left alone. The MPD is edited in place; call before AampMPDParseHelper::Initialize().
+ * @brief Removes trailing segments that start within startToleranceSec of the Period @duration end and finish
+ *        more than minOverhangSec after it (e.g. an ad-splicer overhang). Periods without @duration are untouched.
+ *        Edits the MPD in place; call before AampMPDParseHelper::Initialize().
  * @param[in,out] mpd parsed MPD
  * @param[in] startToleranceSec start window before the Period end
  * @param[in] minOverhangSec minimum time the segment must run past the Period end
@@ -62,8 +65,7 @@ struct DroppedSegment
 std::vector<DroppedSegment> TrimPeriodTailSegments(dash::mpd::IMPD *mpd, double startToleranceSec, double minOverhangSec);
 
 /**
- * @fn LogDroppedSegment
- * @brief Warn about a dropped segment, giving its position and the Period end it overran
+ * @brief Warns with the segment's position and the Period end it overran
  */
 void LogDroppedSegment(const DroppedSegment &segment);
 

@@ -30,6 +30,14 @@
 #include <memory>
 #include <optional>
 
+using dash::mpd::IAdaptationSet;
+using dash::mpd::IPeriod;
+using dash::mpd::IRepresentation;
+using dash::mpd::ISegmentTemplate;
+using dash::mpd::ISegmentTimeline;
+using dash::mpd::ITimeline;
+using dash::mpd::Timeline;
+
 namespace
 {
 /**
@@ -118,9 +126,8 @@ std::optional<std::vector<TimelineEntry>> ReadTimelineEntries(const std::vector<
 }
 
 /**
- * @brief Period end from the published @duration only; an end inferred from the next Period's @start can appear after
- *        a segment has already been accepted, so it is not used.
- *        Deliberately not GetPeriodDuration(): that applies the head-cull start delta and needs Initialize() to have run.
+ * @brief Period end from @duration only; an end inferred from the next Period's @start can appear after a segment
+ *        was already accepted. Not GetPeriodDuration(): that applies the head-cull start delta and needs Initialize().
  * @retval nullopt if @duration is absent or not positive
  */
 std::optional<double> PublishedPeriodDurationSec(const IPeriod *period)

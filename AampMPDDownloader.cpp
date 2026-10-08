@@ -91,6 +91,18 @@ std::shared_ptr<_manifestDownloadResponse> _manifestDownloadResponse::clone()
 	return clonedDoc;
 }
 
+void _manifestDownloadResponse::trimPeriodTails()
+{
+	const std::vector<DroppedSegment> dropped = TrimPeriodTailSegments(mMPDInstance.get(), AAMP_DASH_PERIOD_TAIL_START_TOLERANCE_SEC, AAMP_DASH_PERIOD_TAIL_MIN_OVERHANG_SEC);
+	if (mTailDropTracker)
+	{
+		for (const DroppedSegment &segment : mTailDropTracker->Update(dropped))
+		{
+			LogDroppedSegment(segment);
+		}
+	}
+}
+
 /**
 *   @fn parseMPD
 *   @brief parseMPD function to parse the downloaded MPD file
@@ -133,14 +145,7 @@ void _manifestDownloadResponse::parseMPD()
 						if (mTrimPeriodTailSegments)
 						{
 							// Must precede Initialize(), which caches Period start/duration/end
-							const std::vector<DroppedSegment> dropped = TrimPeriodTailSegments(mMPDInstance.get(), AAMP_DASH_PERIOD_TAIL_START_TOLERANCE_SEC, AAMP_DASH_PERIOD_TAIL_MIN_OVERHANG_SEC);
-							if (mTailDropTracker)
-							{
-								for (const DroppedSegment &segment : mTailDropTracker->Update(dropped))
-								{
-									LogDroppedSegment(segment);
-								}
-							}
+							trimPeriodTails();
 						}
 						mMPDStatus = AAMPStatusType::eAAMPSTATUS_OK;
 						mMPDParseHelper->Initialize(mpd);

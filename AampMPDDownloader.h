@@ -95,7 +95,7 @@ typedef struct _manifestDownloadConfig
 	MPDStichOptions	mMPDStichOption;
 	bool mIsLLDConfigEnabled;
 	bool mCullManifestAtTuneStart;	// Remove the Start of the Manifest to the liveOffset
-	bool mTrimPeriodTailSegments;	// Trim trailing timeline segments that start near a Period's @duration end and run past it
+	bool mTrimPeriodTailSegments;	// Drop Period-tail segments that overrun @duration
 	int  mTSBDuration;			// pass the TSB duration of the manifest to be managed
 	int  mStartPosnToTSB;		// Position where MPD has to be truncated at the start of playback
 
@@ -153,6 +153,8 @@ typedef struct _manifestDownloadResponse
 	uint64_t mLastPlaylistDownloadTimeMs; // Last playlist refresh time
 private:
 	AampMPDParseHelperPtr	mMPDParseHelper;
+
+	void trimPeriodTails();
 
 public:
 	_manifestDownloadResponse() : mMPDDownloadResponse(std::make_shared<DownloadResponse>()), mMPDInstance(nullptr), mIsLiveManifest(false), mRefreshRequired(false), mTrimPeriodTailSegments(false), mMPDStatus(AAMPStatusType::eAAMPSTATUS_OK), mRootNode(NULL), mDashMpdDoc(nullptr), mLastPlaylistDownloadTimeMs(0), mMPDParseHelper(std::make_shared<AampMPDParseHelper>()) {}
