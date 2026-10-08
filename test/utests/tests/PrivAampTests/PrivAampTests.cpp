@@ -2035,8 +2035,10 @@ TEST_F(PrivAampTests, MonitorProgressRewindToBoS_DeDupeBypassedOnReachedStart)
 	EXPECT_CALL(*g_mockAampEventManager, SendEvent(_, _)).Times(testing::AnyNumber());
 	p_aamp->MonitorProgress(true, false);
 
-	// Now set seek_pos_seconds = 0 so that position < start on the next call.
-	p_aamp->seek_pos_seconds = 0.0;
+	// Now set seek_pos_seconds so position lands just below start on the next call,
+	// within AAMP_SEEKABLE_WINDOW_TOLERANCE_MS (a physical near-start value, not a
+	// spurious underflow that the position-sanitisation guard would reject).
+	p_aamp->seek_pos_seconds = 9.0;
 
 	// Clear generic expectations and set ordering requirements for the
 	// second call: progress must still be emitted despite de-dupe match.
@@ -2050,7 +2052,7 @@ TEST_F(PrivAampTests, MonitorProgressRewindToBoS_DeDupeBypassedOnReachedStart)
 	EXPECT_CALL(*g_mockAampEventManager,
 		SendEvent(SpeedChanged(AAMP_NORMAL_PLAY_RATE), _)).Times(1);
 
-	// Second call: position (0) < start (10000) → reachedStart = true.
+	// Second call: position (9000) < start (10000) → reachedStart = true.
 	// De-dupe (mReportProgressPosn == position after clamping) is bypassed.
 	p_aamp->MonitorProgress(true, false);
 }

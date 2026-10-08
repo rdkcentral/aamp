@@ -8484,7 +8484,41 @@ long long PrivateInstanceAAMP::GetPositionRelativeToSeekMilliseconds(long long r
 		position = (((elapsedTime > 1000) ? elapsedTime : 0) * rate);
 	}
 
+	// Trust boundary: a transiently invalid position (e.g. a spurious sink reading
+	// during flush/preroll/EOS) can place the absolute position far below the
+	// seekable start. Reject it so the seek base is held instead of propagating a
+	// wild value to progress / DRM / seek consumers.
+	if (position != 0 && seek_pos_seconds >= 0)
+	{
+		double startMs = 0.0, endMs = 0.0;
+		GetSeekableRangeMs(startMs, endMs);
+		const long long candidateAbs = (long long)(seek_pos_seconds * 1000.0) + position;
+		if (candidateAbs < (startMs - AAMP_SEEKABLE_WINDOW_TOLERANCE_MS))
+		{
+			AAMPLOG_WARN("[POS-GUARD] rejecting out-of-range position: rel %lld abs %lld below seekable start %.0f (window end %.0f) rate=%lld state=%d",
+				position, candidateAbs, startMs, endMs, rate, (int)GetState());
+			position = 0;
+		}
+	}
+
 	return position;
+}
+
+/**
+ * @fn GetSeekableRangeMs
+ * @brief Current seekable window [startMs, endMs] in ms.
+ */
+void PrivateInstanceAAMP::GetSeekableRangeMs(double &startMs, double &endMs)
+{
+	startMs = culledSeconds * 1000.0;
+	if (IsLocalAAMPTsb())
+	{
+		endMs = mAbsoluteEndPosition * 1000.0;
+	}
+	else
+	{
+		endMs = (double)GetDurationMs() + (culledSeconds * 1000.0);
+	}
 }
 
 /**
@@ -8556,6 +8590,30 @@ long long PrivateInstanceAAMP::GetPositionMilliseconds()
 				AAMPLOG_WARN("[POS-DIAG] trickplay pos %lld < start %.0f | seek_pos=%.3f trickStartUTCMS=%lld now=%lld elapsed=%lld relTerm=%lld rate=%.1f culled=%.3f state=%d",
 					positionMilliseconds, startMs, seek_pos_seconds_copy, trickStartUTCMS_copy,
 					nowMs, (nowMs - trickStartUTCMS_copy), relTermMs, rate_copy, culledSeconds, (int)GetState());
+			}
+		}
+
+		// Backstop (Layer A): never report a position below the seekable start. Guards
+		// all consumers if a spurious term slipped past the per-sample check above.
+		// Fall back to the last in-range reported position, else the seekable start.
+		{
+			double startMs = 0.0, endMs = 0.0;
+			GetSeekableRangeMs(startMs, endMs);
+			if (positionMilliseconds < (startMs - AAMP_SEEKABLE_WINDOW_TOLERANCE_MS))
+			{
+				long long fallback = (long long)startMs;
+				const auto prevInfo = mPrevPositionMilliseconds.GetInfo();
+				if (prevInfo.isPopulated())
+				{
+					const long long prev = prevInfo.getPosition();
+					if (prev >= (long long)startMs && prev <= (long long)endMs)
+					{
+						fallback = prev;
+					}
+				}
+				AAMPLOG_WARN("[POS-GUARD] position %lld below seekable start %.0f (window [%.0f..%.0f]) rate=%f state=%d -> %lld",
+					positionMilliseconds, startMs, startMs, endMs, rate_copy, (int)GetState(), fallback);
+				positionMilliseconds = fallback;
 			}
 		}
 

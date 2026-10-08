@@ -103,6 +103,18 @@
 #define FRAGMENT_DOWNLOAD_WARNING_THRESHOLD 2000    		/**< MAX Fragment download threshold time in Msec*/
 #define BITRATE_ALLOWED_VARIATION_BAND 100000       		/**< NW BW change beyond this will be ignored */
 #define MAX_DIFF_BETWEEN_PTS_POS_MS (3600*1000)
+/**< Max a reported position may legitimately sit below the seekable start before
+ * it is treated as spurious (e.g. a transient sink reading during flush/preroll)
+ * and rejected/clamped rather than propagated to progress, DRM and seek consumers.
+ * Value rationale: the only legitimate way a position is below the culled start is
+ * the pipeline presenting the fragment that just fell off the culled edge, bounded
+ * by one segment / cull quantum (~1.92 s observed). 2000 ms is a conservative fixed
+ * proxy for that (the per-stream fragment duration is not reachable lock-free in the
+ * GetPositionMilliseconds() path). Exact value is not delicate: spurious underflows
+ * are millions of ms, so the separation is ~1000x; tighter is safer (a larger value
+ * would let a moderately-wrong position through) and a false reject only yields the
+ * benign in-range fallback. */
+#define AAMP_SEEKABLE_WINDOW_TOLERANCE_MS (2000)
 #define MAX_SEG_DOWNLOAD_FAIL_COUNT 10              		/**< Max segment download failures to identify a playback failure. */
 #define MAX_DOWNLOAD_DELAY_LIMIT_MS 30000
 #define MAX_ERROR_DESCRIPTION_LENGTH 128

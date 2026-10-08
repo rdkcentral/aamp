@@ -1887,6 +1887,14 @@ public:
 	long long GetPositionMilliseconds(void);
 
 	/**
+	 *   @fn GetSeekableRangeMs
+	 *   @brief Current seekable window in ms (AAMP TSB / live / VOD).
+	 *   @param[out] startMs earliest seekable position (culled start)
+	 *   @param[out] endMs   latest seekable position (live edge / duration)
+	 */
+	void GetSeekableRangeMs(double &startMs, double &endMs);
+
+	/**
 	 *   @fn GetPositionSeconds
 	 *
 	 *   @return Position in seconds.
