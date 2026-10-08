@@ -5490,151 +5490,150 @@ void PrivateInstanceAAMP::GetOnVideoEndSessionStatData(std::string &data)
  */
 void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 {
-	std::unique_lock<std::recursive_mutex> lock(mLock);
-	//Have to perform this for trick and stop operations but avoid ad insertion related ones
-	AAMPLOG_MIL(" mProgressReportFromProcessDiscontinuity:%d mDiscontinuityTuneOperationId:%d newTune:%d", mProgressReportFromProcessDiscontinuity, mDiscontinuityTuneOperationId, newTune);
-	if ((mDiscontinuityTuneOperationId != 0) && (!newTune || mState == eSTATE_IDLE))
-	{
-		bool waitForDiscontinuityProcessing = true;
-		if (mProgressReportFromProcessDiscontinuity)
-		{
-			AAMPLOG_WARN("TeardownStream invoked while mProgressReportFromProcessDiscontinuity and mDiscontinuityTuneOperationId[%d] set!", mDiscontinuityTuneOperationId);
-			guint callbackID = aamp_GetSourceID();
-			if ((callbackID != 0 && mDiscontinuityTuneOperationId == callbackID) || mAsyncTuneEnabled)
-			{
-				AAMPLOG_WARN("TeardownStream idle callback id[%d] and mDiscontinuityTuneOperationId[%d] match. Ignore further discontinuity processing!", callbackID, mDiscontinuityTuneOperationId);
-				waitForDiscontinuityProcessing = false; // to avoid deadlock
-				mDiscontinuityTuneOperationInProgress = false;
-				mDiscontinuityTuneOperationId = 0;
-			}
-		}
-		if (waitForDiscontinuityProcessing)
-		{
-			//wait for discontinuity tune operation to finish before proceeding with stop
-			if (mDiscontinuityTuneOperationInProgress)
-			{
-				AAMPLOG_WARN("TeardownStream invoked while mDiscontinuityTuneOperationInProgress set. Wait until the Discontinuity Tune operation to complete!!");
-				mCondDiscontinuity.wait(lock);
-			}
-			else
-			{
-				RemoveAsyncTask(mDiscontinuityTuneOperationId);
-				mDiscontinuityTuneOperationId = 0;
-			}
-		}
-	}
-	// Maybe mDiscontinuityTuneOperationId is 0, ProcessPendingDiscontinuity can be invoked from NotifyEOSReached too
-	else if (mProgressReportFromProcessDiscontinuity || mDiscontinuityTuneOperationInProgress)
-	{
-		if(mDiscontinuityTuneOperationInProgress)
-		{
-			AAMPLOG_WARN("TeardownStream invoked while mDiscontinuityTuneOperationInProgress set. Wait until the pending discontinuity tune operation to complete !!");
-			mCondDiscontinuity.wait(lock);
-		}
-		else
-		{
-			AAMPLOG_WARN("TeardownStream invoked while mProgressReportFromProcessDiscontinuity set!");
-			mDiscontinuityTuneOperationInProgress = false;
-		}
-	}
-
-	//reset discontinuity related flags
-	ResetDiscontinuityInTracks();
-	UnblockWaitForDiscontinuityProcessToComplete();
-	ResetTrackDiscontinuityIgnoredStatus();
-	lock.unlock();
-	if (mpStreamAbstractionAAMP)
-	{
-		// Using StreamLock to make sure this is not interfering with GetFile() from PreCachePlaylistDownloadTask
-		AcquireStreamLock();
-		AAMPLOG_INFO("TeardownStream: Stopping StreamAbstraction");
-		mpStreamAbstractionAAMP->StopUnderflowMonitor();
-		mpStreamAbstractionAAMP->Stop(disableDownloads);
-
-		if(mContentType == ContentType_HDMIIN)
-		{
-			StreamAbstractionAAMP_HDMIIN::ResetInstance();
-			mpStreamAbstractionAAMP = NULL;
-		}
-		else if(mContentType == ContentType_COMPOSITEIN)
-		{
-			StreamAbstractionAAMP_COMPOSITEIN::ResetInstance();
-			mpStreamAbstractionAAMP = NULL;
-		}
-		else
-		{
-			if(!IsLocalAAMPTsb())
-			{
-				SAFE_DELETE(mpStreamAbstractionAAMP);
-			}
-		}
-		ReleaseStreamLock();
-	}
-	m_lastSubClockSyncTime = std::chrono::system_clock::time_point();
-
-	lock.lock();
-	mVideoFormat = FORMAT_INVALID;
-	mAudioFormat = FORMAT_INVALID;
-	mAudioOnlyPb = false;
-	mVideoOnlyPb = false;
-	lock.unlock();
-	if (streamerIsActive)
-	{
-		const bool forceStop = false;
-		if (!forceStop && !newTune)
-		{
-			if ((eMEDIAFORMAT_PROGRESSIVE == mMediaFormat) && (true == mSeekOperationInProgress))
-			{
-				AAMPLOG_TRACE("Skip mid-seek flushing of progressive pipeline to position 0");
-				// If format is progressive and we're doing a teardown to facilitate a seek operation, avoid a flushing seek to position 0.
-				// With progressive content, playbin will immediately start playback from position 0 and that may not be the desired position.
-				// TuneHelper() will perform a flushing seek to the correct position afterwards.
-			}
-			else
-			{
-				StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
-				if (sink)
-				{
-					sink->Flush(0, rate);
-				}
-			}
-		}
-		else
-		{
-			AAMPLOG_INFO("before CC Release - mTuneType:%d mbPlayEnabled:%d ", mTuneType, mbPlayEnabled);
-			if (mbPlayEnabled && mTuneType != eTUNETYPE_RETUNE)
-			{
-				PlayerCCManager::GetInstance()->Release(mCCId);
-				mCCId = 0;
-			}
-			else
-			{
-				AAMPLOG_WARN("CC Release - skipped ");
-			}
-			if(!mbUsingExternalPlayer)
-			{
-				StreamSink *sink = AampStreamSinkManager::GetInstance().GetStoppingStreamSink(this);
-				if (sink)
-				{
-					sink->Stop(!newTune);
-				}
-			}
-		}
-	}
-	else
-	{
-		for (int iTrack = 0; iTrack < AAMP_TRACK_COUNT; iTrack++)
-		{
-			mbTrackDownloadsBlocked[iTrack] = true;
-		}
-		streamerIsActive = true;
-	}
-	mAdProgressId = "";
-	std::queue<AAMPEventPtr> emptyEvQ;
-	{
-		std::lock_guard<std::mutex> lock(mAdEventQMtx);
-		std::swap( mAdEventsQ, emptyEvQ );
-	}
+    std::unique_lock<std::recursive_mutex> lock(mLock);
+    //Have to perform this for trick and stop operations but avoid ad insertion related ones
+    AAMPLOG_MIL(" mProgressReportFromProcessDiscontinuity:%d mDiscontinuityTuneOperationId:%d newTune:%d", mProgressReportFromProcessDiscontinuity, mDiscontinuityTuneOperationId, newTune);
+    if ((mDiscontinuityTuneOperationId != 0) && (!newTune || mState == eSTATE_IDLE))
+    {
+        bool waitForDiscontinuityProcessing = true;
+        if (mProgressReportFromProcessDiscontinuity)
+        {
+            AAMPLOG_WARN("TeardownStream invoked while mProgressReportFromProcessDiscontinuity and mDiscontinuityTuneOperationId[%d] set!", mDiscontinuityTuneOperationId);
+            guint callbackID = aamp_GetSourceID();
+            if ((callbackID != 0 && mDiscontinuityTuneOperationId == callbackID) || mAsyncTuneEnabled)
+            {
+                AAMPLOG_WARN("TeardownStream idle callback id[%d] and mDiscontinuityTuneOperationId[%d] match. Ignore further discontinuity processing!", callbackID, mDiscontinuityTuneOperationId);
+                waitForDiscontinuityProcessing = false; // to avoid deadlock
+                mDiscontinuityTuneOperationInProgress = false;
+                mDiscontinuityTuneOperationId = 0;
+            }
+        }
+        if (waitForDiscontinuityProcessing)
+        {
+            //wait for discontinuity tune operation to finish before proceeding with stop
+            if (mDiscontinuityTuneOperationInProgress)
+            {
+                AAMPLOG_WARN("TeardownStream invoked while mDiscontinuityTuneOperationInProgress set. Wait until the Discontinuity Tune operation to complete!!");
+                mCondDiscontinuity.wait(lock);
+            }
+            else
+            {
+                RemoveAsyncTask(mDiscontinuityTuneOperationId);
+                mDiscontinuityTuneOperationId = 0;
+            }
+        }
+    }
+    // Maybe mDiscontinuityTuneOperationId is 0, ProcessPendingDiscontinuity can be invoked from NotifyEOSReached too
+    else if (mProgressReportFromProcessDiscontinuity || mDiscontinuityTuneOperationInProgress)
+    {
+        if(mDiscontinuityTuneOperationInProgress)
+        {
+            AAMPLOG_WARN("TeardownStream invoked while mDiscontinuityTuneOperationInProgress set. Wait until the pending discontinuity tune operation to complete !!");
+            mCondDiscontinuity.wait(lock);
+        }
+        else
+        {
+            AAMPLOG_WARN("TeardownStream invoked while mProgressReportFromProcessDiscontinuity set!");
+            mDiscontinuityTuneOperationInProgress = false;
+        }
+    }
+ 
+    //reset discontinuity related flags
+    ResetDiscontinuityInTracks();
+    UnblockWaitForDiscontinuityProcessToComplete();
+    ResetTrackDiscontinuityIgnoredStatus();
+    lock.unlock();
+    if (mpStreamAbstractionAAMP)
+    {
+        // Using StreamLock to make sure this is not interfering with GetFile() from PreCachePlaylistDownloadTask
+        AcquireStreamLock();
+        AAMPLOG_INFO("TeardownStream: Stopping StreamAbstraction");
+        mpStreamAbstractionAAMP->StopUnderflowMonitor();
+        mpStreamAbstractionAAMP->Stop(disableDownloads);
+ 
+        if(mContentType == ContentType_HDMIIN)
+        {
+            StreamAbstractionAAMP_HDMIIN::ResetInstance();
+            mpStreamAbstractionAAMP = NULL;
+        }
+        else if(mContentType == ContentType_COMPOSITEIN)
+        {
+            StreamAbstractionAAMP_COMPOSITEIN::ResetInstance();
+            mpStreamAbstractionAAMP = NULL;
+        }
+        else
+        {
+            if(!IsLocalAAMPTsb())
+            {
+                SAFE_DELETE(mpStreamAbstractionAAMP);
+            }
+        }
+        ReleaseStreamLock();
+    }
+    m_lastSubClockSyncTime = std::chrono::system_clock::time_point();
+ 
+    lock.lock();
+    // Clear stale audio/video-only detection state before the next tune.
+    // This prevents the previous only-mode classification from leaking into a new stream.
+    ResetOnlyModeState(*this);
+    lock.unlock();
+    if (streamerIsActive)
+    {
+        const bool forceStop = false;
+        if (!forceStop && !newTune)
+        {
+            if ((eMEDIAFORMAT_PROGRESSIVE == mMediaFormat) && (true == mSeekOperationInProgress))
+            {
+                AAMPLOG_TRACE("Skip mid-seek flushing of progressive pipeline to position 0");
+                // If format is progressive and we're doing a teardown to facilitate a seek operation, avoid a flushing seek to position 0.
+                // With progressive content, playbin will immediately start playback from position 0 and that may not be the desired position.
+                // TuneHelper() will perform a flushing seek to the correct position afterwards.
+            }
+            else
+            {
+                StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+                if (sink)
+                {
+                    sink->Flush(0, rate);
+                }
+            }
+        }
+        else
+        {
+            AAMPLOG_INFO("before CC Release - mTuneType:%d mbPlayEnabled:%d ", mTuneType, mbPlayEnabled);
+            if (mbPlayEnabled && mTuneType != eTUNETYPE_RETUNE)
+            {
+                PlayerCCManager::GetInstance()->Release(mCCId);
+                mCCId = 0;
+            }
+            else
+            {
+                AAMPLOG_WARN("CC Release - skipped ");
+            }
+            if(!mbUsingExternalPlayer)
+            {
+                StreamSink *sink = AampStreamSinkManager::GetInstance().GetStoppingStreamSink(this);
+                if (sink)
+                {
+                    sink->Stop(!newTune);
+                }
+            }
+        }
+    }
+    else
+    {
+        for (int iTrack = 0; iTrack < AAMP_TRACK_COUNT; iTrack++)
+        {
+            mbTrackDownloadsBlocked[iTrack] = true;
+        }
+        streamerIsActive = true;
+    }
+    mAdProgressId = "";
+    std::queue<AAMPEventPtr> emptyEvQ;
+    {
+        std::lock_guard<std::mutex> lock(mAdEventQMtx);
+        std::swap( mAdEventsQ, emptyEvQ );
+    }
 }
 
 /**
@@ -14991,4 +14990,87 @@ void PrivateInstanceAAMP::SetStreamCaps(AampMediaType type, MediaCodecInfo&& cod
 	{
 		sink->SetStreamCaps(type, std::move(codecInfo));
 	}
+}
+
+static void ResetOnlyModeState(PrivateInstanceAAMP &aamp)
+{
+    aamp.mAudioOnlyPb = false;
+    aamp.mVideoOnlyPb = false;
+    aamp.mVideoFormat = FORMAT_INVALID;
+    aamp.mAudioFormat = FORMAT_INVALID;
+}
+
+lock.lock();
+ResetOnlyModeState(*this);
+lock.unlock();
+
+/**
+ * @brief Set stream format for audio/video tracks
+ */
+void PrivateInstanceAAMP::SetStreamFormat(StreamOutputFormat videoFormat, StreamOutputFormat audioFormat)
+{
+    bool reconfigure = false;
+    //AAMPLOG_MIL("Got format - videoFormat %d and audioFormat %d", videoFormat, audioFormat);
+
+    if (((mVideoFormat == FORMAT_INVALID || mAudioFormat == FORMAT_INVALID) &&
+        (videoFormat != FORMAT_INVALID || audioFormat != FORMAT_INVALID)))
+    {
+        // A previous audio-only/video-only detection can leave a stale only-mode
+        // state behind when the next tune starts with valid formats again.
+        ResetOnlyModeState(*this);
+    }
+
+    // 1. Modified Configure() not to recreate all playbins if there is a change in track's format.
+    // 2. For a demuxed scenario, this function will be called twice for each audio and video, so double the trouble.
+    // Hence call Configure() only for following scenarios to reduce the overhead,
+    // i.e FORMAT_INVALID to any KNOWN/FORMAT_UNKNOWN, FORMAT_UNKNOWN to any KNOWN and any FORMAT_KNOWN to FORMAT_KNOWN if it's not same.
+    // Truth table
+    // mVideFormat   videoFormat  reconfigure
+    // *          INVALID   false
+    // INVALID        INVALID       false
+    // INVALID        UNKNOWN       true
+    // INVALID    KNOWN         true
+    // UNKNOWN    INVALID   false
+    // UNKNOWN        UNKNOWN       false
+    // UNKNOWN    KNOWN     true
+    // KNOWN      INVALID   false
+    // KNOWN          UNKNOWN   false
+    // KNOWN          KNOWN         true if format changes, false if same
+    std::unique_lock<std::recursive_mutex> lock(mLock);
+    if (videoFormat != FORMAT_INVALID && mVideoFormat != videoFormat && (videoFormat != FORMAT_UNKNOWN || mVideoFormat == FORMAT_INVALID))
+    {
+        reconfigure = true;
+        mVideoFormat = videoFormat;
+    }
+    if (audioFormat != FORMAT_INVALID && mAudioFormat != audioFormat && (audioFormat != FORMAT_UNKNOWN || mAudioFormat == FORMAT_INVALID))
+    {
+        reconfigure = true;
+        mAudioFormat = audioFormat;
+    }
+    if (IsMuxedStream() && (mVideoComponentCount == 0 || mAudioComponentCount == 0)) //Can be a Muxed stream/Demuxed with either of audio or video-only stream
+    {
+        AAMPLOG_INFO(" TS Processing Done. Number of Audio Components : %d and Video Components : %d",mAudioComponentCount,mVideoComponentCount);
+        if (IsAudioOrVideoOnly(videoFormat, audioFormat))
+        {
+            bool newTune = IsNewTune();
+            lock.unlock();
+            StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+            if (sink)
+            {
+                sink->Stop(!newTune);
+            }
+            lock.lock();
+            reconfigure = true;
+        }
+    }
+    if (reconfigure)
+    {
+        // Configure pipeline as TSProcessor might have detected the actual stream type
+        // or even presence of audio
+        StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+        if (sink)
+        {
+            sink->Configure(mVideoFormat, mAudioFormat, mSubtitleFormat, false);
+        }
+    }
 }
