@@ -513,13 +513,6 @@ public:
 	void handleCancelNeedData();
 
 	/**
-	 * @brief Flush this source on the pipeline and set source position.
-	 */
-	void flushSource(
-		firebolt::rialto::IMediaPipeline &pipeline,
-		int64_t positionNs);
-
-	/**
 	 * @brief Returns true when inband closed-caption mode is active.
 	 *
 	 * Default returns false; AampRialtoSubtitleSource overrides to return

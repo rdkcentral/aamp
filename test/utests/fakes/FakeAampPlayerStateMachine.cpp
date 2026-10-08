@@ -105,7 +105,8 @@ void PlayerStateMachine::onPlaybackStarted()
 
 void PlayerStateMachine::onPlaybackPaused()
 {
-	if (s_fakeState == PlayerStateId::PLAYING)
+	if (s_fakeState == PlayerStateId::PLAYING ||
+	    s_fakeState == PlayerStateId::SOURCES_ATTACHED)
 	{
 		s_fakeState = PlayerStateId::PAUSED;
 	}

@@ -2755,7 +2755,7 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 // stale carried-over baseline) until that AttachSource()/Flush() resolves
 // the position afresh.
 TEST_F(AampRialtoPlayerWithDemuxTest,
-	GetPositionMilliseconds_AfterReconfigureWithoutNewFlush_CarriesOverPriorBaseline)
+	GetPositionMilliseconds_AfterReconfigureWithoutNewFlush_ReportsZeroUntilResolved)
 {
 	// First session: Flush() stages 5000 ms before the video source attaches.
 	Configure();
@@ -6702,6 +6702,23 @@ TEST_F(AampRialtoPlayerPreRollTest, Tune_PausesPipelineForPreRoll)
 	EXPECT_CALL(*m_mockPipelinePtr, pause()).Times(1).WillOnce(Return(true));
 
 	TuneAndStream();
+}
+
+TEST_F(AampRialtoPlayerPreRollTest, PausedDuringPreRoll_ThenPlay_ReachesPlaying)
+{
+	/**
+	 * @brief Rialto confirms pre-roll's pause() before play() is issued; the
+	 *        player must track that rather than ignore it.
+	 */
+	TuneAndStream();
+	PostPlaybackState(firebolt::rialto::PlaybackState::PAUSED);
+	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::PAUSED);
+
+	SetAcceptedFrames(4);
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).Times(1).WillOnce(Return(true));
+	PollPreRoll();
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::PLAYING);
 }
 
 TEST_F(AampRialtoPlayerPreRollTest, PauseRejected_StillPreRolls)

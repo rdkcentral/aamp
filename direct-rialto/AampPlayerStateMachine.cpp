@@ -91,6 +91,7 @@ public:
 	const char   *name() const override { return "SOURCES_ATTACHED"; }
 
 	std::unique_ptr<IPlayerState> onPlaybackStarted() override;
+	std::unique_ptr<IPlayerState> onPlaybackPaused()  override; // pre-roll pause()
 	std::unique_ptr<IPlayerState> onFlush()           override;
 	std::unique_ptr<IPlayerState> onStop()            override;
 	std::unique_ptr<IPlayerState> onError()           override;
@@ -233,6 +234,11 @@ std::unique_ptr<IPlayerState> SourcesAttachingState::onAllSourcesAttached()
 std::unique_ptr<IPlayerState> SourcesAttachedState::onPlaybackStarted()
 {
 	return std::make_unique<PlayingState>();
+}
+
+std::unique_ptr<IPlayerState> SourcesAttachedState::onPlaybackPaused()
+{
+	return std::make_unique<PausedState>();
 }
 
 std::unique_ptr<IPlayerState> SourcesAttachedState::onFlush()

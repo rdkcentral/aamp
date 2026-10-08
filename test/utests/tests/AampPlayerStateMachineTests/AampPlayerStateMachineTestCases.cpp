@@ -111,6 +111,19 @@ TEST_F(AampPlayerStateMachineTest, OnPlaybackStarted_FromSourcesAttached_Transit
 }
 
 /**
+ * @test SOURCES_ATTACHED + onPlaybackPaused → PAUSED (pipeline paused for
+ *       pre-roll before play() is issued).
+ */
+TEST_F(AampPlayerStateMachineTest, OnPlaybackPaused_FromSourcesAttached_TransitionsToPaused)
+{
+	m_sm.onPipelineLoaded();
+	m_sm.onSourceAttaching();
+	m_sm.onAllSourcesAttached();
+	m_sm.onPlaybackPaused();
+	EXPECT_EQ(m_sm.currentState(), PlayerStateId::PAUSED);
+}
+
+/**
  * @test PLAYING + onPlaybackPaused → PAUSED.
  */
 TEST_F(AampPlayerStateMachineTest, OnPlaybackPaused_FromPlaying_TransitionsToPaused)

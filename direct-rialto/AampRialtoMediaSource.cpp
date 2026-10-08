@@ -1095,29 +1095,6 @@ void AampRialtoMediaSource::handleCancelNeedData()
 }
 
 // ---------------------------------------------------------------------------
-// flushSource
-// ---------------------------------------------------------------------------
-
-void AampRialtoMediaSource::flushSource(
-	firebolt::rialto::IMediaPipeline &pipeline,
-	int64_t positionNs)
-{
-	if (m_sourceId >= 0)
-	{
-		bool async = false;
-		if (!pipeline.flush(m_sourceId, /*resetTime=*/true, async))
-		{
-			AAMPLOG_WARN("flush failed for sourceId=%d", m_sourceId);
-		}
-		// NOTE: setSourcePosition() is intentionally NOT called here.
-		// It is applied once the server confirms the flush (SEEK_DONE).
-		// Calling it here, while the server is still flushing, risks the
-		// SEGMENT event being discarded, leaving Rialto's EOS state
-		// un-cleared and causing an immediate END_OF_STREAM on next play().
-	}
-}
-
-// ---------------------------------------------------------------------------
 // processInitFragment
 // ---------------------------------------------------------------------------
 

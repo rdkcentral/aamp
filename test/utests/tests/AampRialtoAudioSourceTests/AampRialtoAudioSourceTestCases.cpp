@@ -546,27 +546,3 @@ TEST_F(AampRialtoAudioSourceTest, AampRialtoAudioSource_HandleCancelNeedData_Cle
 	EXPECT_FALSE(st.hasPending);
 }
 
-// ---------------------------------------------------------------------------
-// flushSource
-// ---------------------------------------------------------------------------
-
-/**
- * @test AampRialtoAudioSource_FlushSource_CallsPipelineFlush
- * @brief Verify flushSource calls flush on the pipeline.
- *
- * setSourcePosition() is NOT called from flushSource() — it is deferred
- * until the server confirms the flush (SEEK_DONE).
- */
-TEST_F(AampRialtoAudioSourceTest, AampRialtoAudioSource_FlushSource_CallsPipelineFlush)
-{
-	auto codecInfo = MakeAacCodecInfo();
-	m_source.attachOrUpdate(*m_pipelinePtr, codecInfo, nullptr, -1);
-
-	const int64_t posNs = 1'500'000'000LL;
-	EXPECT_CALL(*m_pipelinePtr, flush(m_source.sourceId(), true, _))
-		.WillOnce(Return(true));
-	EXPECT_CALL(*m_pipelinePtr, setSourcePosition(_, _, _, _, _)).Times(0);
-
-	m_source.flushSource(*m_pipelinePtr, posNs);
-}
-
