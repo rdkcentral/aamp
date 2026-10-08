@@ -1849,9 +1849,11 @@ TEST_F(PrivAampTests, MonitorProgressRewindToBeginningOfTSB)
 	constexpr double CULLED_SECONDS = 10.0;
 	constexpr double DURATION_SECONDS = 100.0;
 
-	// Setup: Configure player for rewind scenario reaching BOS
+	// Setup: Configure player for rewind scenario reaching BOS.
+	// seek_pos lands just below start (within AAMP_SEEKABLE_WINDOW_TOLERANCE_MS)
+	// so the position-based reached-start path is a physical near-start value.
 	p_aamp->rate = REWIND_RATE;
-	p_aamp->seek_pos_seconds = 0.0;
+	p_aamp->seek_pos_seconds = 9.0;
 	p_aamp->culledSeconds = CULLED_SECONDS;
 	p_aamp->durationSeconds = DURATION_SECONDS;
 	p_aamp->mDownloadsEnabled = true;
@@ -1979,9 +1981,9 @@ TEST_F(PrivAampTests, MonitorProgressRewindToBoS_ProgressBeforeSpeedChange)
 	EXPECT_CALL(*g_mockAampEventManager,
 		SendEvent(SpeedChanged(AAMP_NORMAL_PLAY_RATE), _)).Times(1);
 
-	// Trigger BoS handling. position < start (culledSeconds*1000) ensures
-	// the reachedStart branch is taken in MonitorProgress().
-	p_aamp->MonitorProgress(true, false);
+	// Trigger BoS handling via the authoritative beginningOfStream (EOS) signal,
+	// which drives reachedStart regardless of the extrapolated position.
+	p_aamp->MonitorProgress(true, true);
 }
 
 /**

@@ -2512,19 +2512,18 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 		// Note: position could be = start immediately after tuning
 		else if (position < start || beginningOfStream)
 		{
-			// Reached the start of the stream (start of AAMP TSB, beginning of VoD asset...)
+			const double underrunMs = start - position;
+			// Layer C: force a seek to the TSB start only on an authoritative start
+			// signal (beginningOfStream/EOS) or a position within one seekable tolerance
+			// of start. Layers A/B bound 'position'; a larger underrun is an untrustworthy
+			// sample and must not drive the destructive PlayFromTsbStart().
+			reachedStart = beginningOfStream || (underrunMs <= AAMP_SEEKABLE_WINDOW_TOLERANCE_MS);
 			AAMPLOG_INFO("Reached start, position %fms < start %fms, beginningOfStream %d, rate %f",
 				position, start, beginningOfStream, rate);
-			// DIAGNOSTIC (position-jump-to-TSB-start investigation): explicit, greppable
-			// record of every forced seek to TSB start, with the underrun magnitude and the
-			// position-extrapolation inputs, to confirm whether a future repro's jump is a
-			// genuine rewind-to-BoS (small/plausible underrun) or a spurious one (e.g. a
-			// stale/raced trickStartUTCMS - large underrun with a freshly-set trickStartUTCMS).
-			// Remove once the root cause is confirmed.
-			AAMPLOG_WARN("[TSB-START-JUMP] forcing seek to TSB start: position %fms underrun %fms below start %fms, beginningOfStream %d, rate %f seek_pos=%.3f trickStartUTCMS=%lld state=%d",
-				position, (start - position), start, beginningOfStream, rate, seek_pos_seconds, trickStartUTCMS, (int)GetState());
+			AAMPLOG_WARN("[TSB-START-JUMP] %s TSB start: position %fms underrun %fms below start %fms (tolerance %dms), beginningOfStream %d, rate %f seek_pos=%.3f trickStartUTCMS=%lld state=%d",
+				reachedStart ? "forcing seek to" : "SUPPRESSING untrustworthy seek to", position,
+				underrunMs, start, AAMP_SEEKABLE_WINDOW_TOLERANCE_MS, beginningOfStream, rate, seek_pos_seconds, trickStartUTCMS, (int)GetState());
 			position = start;
-			reachedStart = true;
 		}
 		DeliverAdEvents(false, position); // use progress reporting as trigger to belatedly deliver ad events
 		ReportAdProgress(position);
