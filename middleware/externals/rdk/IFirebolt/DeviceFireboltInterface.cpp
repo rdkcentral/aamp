@@ -43,6 +43,7 @@ IFirebolt folder to be deleted, as IARM is no longer available as an alternative
 #include <mutex>
 #include <chrono>
 #include <condition_variable>
+#include <thread>
 
 std::shared_ptr<DeviceFireboltInterface> s_pDeviceFireboltInterface = nullptr;
 
@@ -309,7 +310,12 @@ static void HDCPEventHandlerFirebolt(const Firebolt::Device::HDCPVersionMap& t_H
 		MW_LOG_ERR("Unknown HDCP protocol");
 	}
 
-	pInstance->SetHDMIStatus();
+	// Dispatch to detached worker thread — do NOT block the Firebolt event/dispatch
+	// thread with synchronous Device.hdcp()/videoResolution() queries (same hazard as
+	// the IARM dispatch-thread hang fixed by RDKEMW-20076 in the non-container branch).
+	std::thread([pInstance]() {
+		pInstance->SetHDMIStatus();
+	}).detach();
             
 }
 
@@ -318,24 +324,28 @@ static void HDCPEventHandlerFirebolt(const Firebolt::Device::HDCPVersionMap& t_H
  */
 static void ResolutionHandlerFirebolt(const std::string& t_res)
 {
-    int width = 1280;
-	int height = 720;
-
 	MW_LOG_INFO("Resolution: %s", t_res.c_str());
 
-	auto curr_network = Firebolt::IFireboltAampAccessor::Instance().DeviceInterface().videoResolution();
+	// Dispatch to detached worker thread — do NOT block the Firebolt event/dispatch
+	// thread with a synchronous videoResolution() query.
+	std::thread([]() {
+		int width = 1280;
+		int height = 720;
 
-	if(curr_network)
-	{
-		std::shared_ptr<PlayerExternalsRdkInterface> pInstance = PlayerExternalsRdkInterface::GetPlayerExternalsRdkInterfaceInstance();
-		width = curr_network.value()[0];
-		height = curr_network.value()[1];
-		pInstance->SetResolution(width, height);
-		MW_LOG_INFO("Updating resolution [%d][%d]", curr_network.value()[0], curr_network.value()[1]);
-	}
-	else
-	{
-		MW_LOG_ERR("Failed to get current resolution");
-	}
+		auto curr_network = Firebolt::IFireboltAampAccessor::Instance().DeviceInterface().videoResolution();
+
+		if(curr_network)
+		{
+			std::shared_ptr<PlayerExternalsRdkInterface> pInstance = PlayerExternalsRdkInterface::GetPlayerExternalsRdkInterfaceInstance();
+			width = curr_network.value()[0];
+			height = curr_network.value()[1];
+			pInstance->SetResolution(width, height);
+			MW_LOG_INFO("Updating resolution [%d][%d]", curr_network.value()[0], curr_network.value()[1]);
+		}
+		else
+		{
+			MW_LOG_ERR("Failed to get current resolution");
+		}
+	}).detach();
 
 }

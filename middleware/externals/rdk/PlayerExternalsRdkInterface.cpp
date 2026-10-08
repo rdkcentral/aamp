@@ -166,10 +166,18 @@ void PlayerExternalsRdkInterface::SetHDMIStatus()
 }
 #else
 /**
- * @brief Set the HDCP status using data from DeviceSettings
+ * @brief Set the HDCP status. In Firebolt/container environments this is served by
+ * DeviceFireboltInterface (Device.hdcp / Device.videoResolution); the IARM/DeviceSettings
+ * path below is only used on host builds where IARM is available.
  */
 void PlayerExternalsRdkInterface::SetHDMIStatus()
 {
+    std::unique_lock<std::mutex> lock(m_hdmiStatusMutex, std::try_to_lock);
+    if (!lock.owns_lock()) {
+        MW_LOG_WARN("SetHDMIStatus: Already in progress on another thread, skipping\n");
+        return;
+    }
+
     bool                    isConnected              = false;
     bool                    isHDCPCompliant          = false;
     bool                    isHDCPEnabled            = true;
@@ -243,8 +251,13 @@ void PlayerExternalsRdkInterface::SetHDMIStatus()
 
 	device::Manager::DeInitialize();
     }
+    catch (const std::exception& e) {
+        MW_LOG_WARN("DeviceSettings exception caught: %s\n", e.what());
+        try { device::Manager::DeInitialize(); } catch (...) {}
+    }
     catch (...) {
-        MW_LOG_WARN("DeviceSettings exception caught\n");
+        MW_LOG_WARN("DeviceSettings unknown exception caught\n");
+        try { device::Manager::DeInitialize(); } catch (...) {}
     }
 
     m_isHDCPEnabled = isHDCPEnabled;
