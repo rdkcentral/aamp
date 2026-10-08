@@ -15000,10 +15000,6 @@ static void ResetOnlyModeState(PrivateInstanceAAMP &aamp)
     aamp.mAudioFormat = FORMAT_INVALID;
 }
 
-lock.lock();
-ResetOnlyModeState(*this);
-lock.unlock();
-
 /**
  * @brief Set stream format for audio/video tracks
  */
