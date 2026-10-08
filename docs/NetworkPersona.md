@@ -290,8 +290,10 @@ be produced directly at session end:
 
 ## How it is emitted
 
-On `Stop()`, AAMP logs the persona as a single line (always on — this does
-**not** require any config flag):
+Set `enableNetworkPersonaLogging` to `true` to collect network metrics and log
+the persona as a single JSON line when the last active player in the process
+stops. It defaults to `false`; downloads made while it is disabled are not
+collected.
 
 ```cpp
 // priv_aamp.cpp
@@ -321,7 +323,7 @@ To replay a captured persona with the simnet tool, paste the JSON into
 
 ## How it works
 
-Metrics are fed to `NetPersonaFitter` during each instrumented `PrivateInstanceAAMP::GetFile` download; the `AampCurlDownloader` path is not instrumented. The fitter is process-wide, so requests from every AAMP player instance in the process, including background preroll players, contribute to the same persona snapshot.
+Metrics are fed to `NetPersonaFitter` during each instrumented `PrivateInstanceAAMP::GetFile` download while `enableNetworkPersonaLogging` is enabled; the `AampCurlDownloader` path is not instrumented. The fitter is process-wide, so requests from every enabled AAMP player instance in the process, including background preroll players, contribute to the same persona snapshot.
 
 ```
 Per download (NetTrace, one call per request):

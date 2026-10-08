@@ -4557,11 +4557,14 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 		CurlCallbackContext context(this, buffer);
 		context.synthesizeIframeAbort = synthesizeIframeAbort;
 
-		// Collect bounded streaming metrics for the inline persona.
-		static std::atomic<uint64_t> g_req_id{1};
-		std::unique_ptr<aamptrace::NetTrace> net_owner =
-			std::make_unique<aamptrace::NetTrace>(
+		// Trace allocation and write-callback sampling are opt-in.
+		std::unique_ptr<aamptrace::NetTrace> net_owner;
+		if (GETCONFIGVALUE_PRIV(eAAMPConfig_EnableNetworkPersonaLogging))
+		{
+			static std::atomic<uint64_t> g_req_id{1};
+			net_owner = std::make_unique<aamptrace::NetTrace>(
 				g_req_id.fetch_add(1), kNetTraceBurstGapThresholdS);
+		}
 
 		// RAII guard: nulls context.net when net_owner goes out of scope,
 		// preventing a dangling pointer on all return paths (normal and early).
@@ -8795,7 +8798,7 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 		{
 			// Atomic, exactly-once finalize: a concurrent last-stopper that runs
 			// after the accumulators are cleared gets an empty string and emits
-			// nothing, so the NET_PERSONA line and file are produced only once.
+			// nothing, so the NET_PERSONA line is emitted only once.
 			std::string inlinePersona = fitter.FinalizeSession(std::string{});
 			if (!inlinePersona.empty())
 			{

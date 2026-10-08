@@ -385,6 +385,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false, "enableProducerReferenceDelay", eAAMPConfig_EnableProducerReferenceDelay, false},
 	{false, "synthesizeIframeForVOD", eAAMPConfig_SynthesizeIframeForVOD, false},
 	{false, "enableEventProfiling", eAAMPConfig_EnableEventProfiling, false},
+	{false, "enableNetworkPersonaLogging", eAAMPConfig_EnableNetworkPersonaLogging, false},
 };
 
 #define CONFIG_INT_ALIAS_COUNT 2
