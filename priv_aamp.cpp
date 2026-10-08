@@ -5575,6 +5575,7 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
     lock.lock();
     // Clear stale audio/video-only detection state before the next tune.
     // This prevents the previous only-mode classification from leaking into a new stream.
+    AAMPLOG_INFO("before ResetOnlyModeState in TeardownStream \n");
     ResetOnlyModeState(*this);
     lock.unlock();
     if (streamerIsActive)
@@ -12074,7 +12075,7 @@ bool PrivateInstanceAAMP::PipelineValid(AampMediaType track)
 /**
  * @brief Set stream format for audio/video tracks
  */
-void PrivateInstanceAAMP::SetStreamFormat(StreamOutputFormat videoFormat, StreamOutputFormat audioFormat)
+/*void PrivateInstanceAAMP::SetStreamFormat(StreamOutputFormat videoFormat, StreamOutputFormat audioFormat)
 {
     bool reconfigure = false;
     std::unique_lock<std::recursive_mutex> lock(mLock);
@@ -12131,7 +12132,7 @@ void PrivateInstanceAAMP::SetStreamFormat(StreamOutputFormat videoFormat, Stream
             sink->Configure(mVideoFormat, mAudioFormat, mSubtitleFormat, false);
         }
     }
-}
+}*/
 #if 0
 void PrivateInstanceAAMP::SetStreamFormat(StreamOutputFormat videoFormat, StreamOutputFormat audioFormat)
 {
@@ -15000,23 +15001,21 @@ static void ResetOnlyModeState(PrivateInstanceAAMP &aamp)
     aamp.mAudioFormat = FORMAT_INVALID;
 }
 
-lock.lock();
-ResetOnlyModeState(*this);
-lock.unlock();
-
 /**
  * @brief Set stream format for audio/video tracks
  */
 void PrivateInstanceAAMP::SetStreamFormat(StreamOutputFormat videoFormat, StreamOutputFormat audioFormat)
 {
     bool reconfigure = false;
-    //AAMPLOG_MIL("Got format - videoFormat %d and audioFormat %d", videoFormat, audioFormat);
+    AAMPLOG_MIL("Got format - videoFormat %d and audioFormat %d", videoFormat, audioFormat);
+    AAMPLOG_MIL("Current format - videoFormat %d and audioFormat %d", mVideoFormat, mAudioFormat);
 
     if (((mVideoFormat == FORMAT_INVALID || mAudioFormat == FORMAT_INVALID) &&
         (videoFormat != FORMAT_INVALID || audioFormat != FORMAT_INVALID)))
     {
         // A previous audio-only/video-only detection can leave a stale only-mode
         // state behind when the next tune starts with valid formats again.
+	AAMPLOG_MIL("before ResetOnlyModeState in PrivateInstanceAAMP::SetStreamFormat \n");
         ResetOnlyModeState(*this);
     }
 
