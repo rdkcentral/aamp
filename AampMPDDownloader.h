@@ -58,12 +58,13 @@
 #include "AampDefine.h"
 #include "AampLogManager.h"
 #include "AampMPDParseHelper.h"
-#include "AampMPDTailTrim.h"
 #include "AampCMCDCollector.h"
 #include "dash/mpd/MPDModel.h"
 #include "dash/mpd/MPDSegmenter.h"
 #include "AampLLDASHData.h"
 #include "AampMPDUtils.h"
+
+class TailDropTracker;
 
 typedef void (*ManifestUpdateCallbackFunc)(void *);
 

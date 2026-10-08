@@ -25,6 +25,7 @@
 
 #include "AampCurlDownloader.h"
 #include "AampMPDDownloader.h"
+#include "AampMPDTailTrim.h"
 #include "AampUtils.h"
 #include "AampLogManager.h"
 #include <inttypes.h>

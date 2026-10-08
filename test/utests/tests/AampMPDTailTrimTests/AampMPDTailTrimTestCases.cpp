@@ -107,9 +107,6 @@ struct TrimCase
 
 static const char *kVideoFitsPeriod = "<S t=\"0\" d=\"2000\" r=\"4\" />";
 
-/**
- * @brief Parameterised fixture; each TrimCase describes one manifest and the audio timeline expected after the trim.
- */
 class TrimPeriodTailCasesTest : public ::testing::TestWithParam<TrimCase>
 {
 };
@@ -228,7 +225,7 @@ TEST(AampMPDTailTrimTests, TrimPeriodTail_SharedAdaptationSetTimeline_Trimmed)
 	ASSERT_NE(mpd, nullptr);
 
 	EXPECT_EQ(TimelinesOf(mpd, 0, 0).size(), 2u);
-	EXPECT_EQ(TrimTail(mpd).size(), 1u); // shared timeline is visited once, so reported once
+	EXPECT_EQ(TrimTail(mpd).size(), 1u);
 	EXPECT_EQ(TimelinesOf(mpd, 0, 0).size(), 1u);
 }
 

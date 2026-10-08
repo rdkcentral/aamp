@@ -67,7 +67,7 @@ struct PeriodTimeline
 };
 
 /**
- * @brief A segment's start and end, in seconds relative to the Period start
+ * @brief A segment's start in ticks, and its start and end in seconds relative to the Period start
  */
 struct SegmentSpan
 {
