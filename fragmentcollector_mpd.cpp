@@ -3278,8 +3278,10 @@ void StreamAbstractionAAMP_MPD::ProcessMetadataFromManifest( ManifestDownloadRes
 			aamp->ReportTimedMetadata(false);
 		}
 		// get Network time
-		mMPDParseHelper->SetHasServerUtcTime(mTimeSyncClient.FindServerUTCTime(aamp,root));
-		mMPDParseHelper->SetLocalTimeDelta(mTimeSyncClient.GetDelta());
+		// Use the response's own helper; mMPDParseHelper is reassigned by the fetcher thread.
+		AampMPDParseHelperPtr respParseHelper = mpdDnldResp->GetMPDParseHelper();
+		respParseHelper->SetHasServerUtcTime(mTimeSyncClient.FindServerUTCTime(aamp,root));
+		respParseHelper->SetLocalTimeDelta(mTimeSyncClient.GetDelta());
 		// Find the gaps in the Period
 		if(mIsFogTSB && ISCONFIGSET(eAAMPConfig_InterruptHandling))
 		{
