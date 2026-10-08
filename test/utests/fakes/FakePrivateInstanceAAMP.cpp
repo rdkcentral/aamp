@@ -2036,3 +2036,6 @@ bool PrivateInstanceAAMP::IsLatencyMonitorEnabled() const
 	return false;
 }
 
+void PrivateInstanceAAMP::EnableEventProfiling()
+{
+}

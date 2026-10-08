@@ -30,6 +30,7 @@
  */
 
 #include <gtest/gtest.h>
+#include <algorithm>
 #include "MP4Demux.h"
 #include "Mp4DemuxTestData.h"
 #include <vector>
@@ -119,6 +120,30 @@ TEST_F(Mp4DemuxFunctionalTests, ParseInitSegmentAndValidateCodecData)
 	EXPECT_EQ(codecInfo.mInfo.video.mWidth, 1280) << "Video width should be 1280";
 	EXPECT_EQ(codecInfo.mInfo.video.mHeight, 720) << "Video height should be 720";
 	EXPECT_TRUE(codecInfo.mNaluLengthPrefixed) << "avcC config implies length-prefixed (AVCC) NAL units";
+}
+
+TEST_F(Mp4DemuxFunctionalTests, ParseInitSegmentWithHvcCAndValidateNaluLengthPrefixed)
+{
+	std::vector<uint8_t> initSegment(initSegmentWithAvcC, initSegmentWithAvcC + sizeof(initSegmentWithAvcC));
+	const char avc1[] = "avc1";
+	auto compatibleBrand = std::search(initSegment.begin(), initSegment.end(), avc1, avc1 + 4);
+	ASSERT_NE(compatibleBrand, initSegment.end());
+	std::memcpy(&*compatibleBrand, "hvc1", 4);
+	auto sampleEntry = std::search(compatibleBrand + 4, initSegment.end(), avc1, avc1 + 4);
+	ASSERT_NE(sampleEntry, initSegment.end());
+	std::memcpy(&*sampleEntry, "hvc1", 4);
+	const char avcC[] = "avcC";
+	auto codecConfiguration = std::search(initSegment.begin(), initSegment.end(), avcC, avcC + 4);
+	ASSERT_NE(codecConfiguration, initSegment.end());
+	std::memcpy(&*codecConfiguration, "hvcC", 4);
+
+	bool result = mDemuxer->Parse(std::make_shared<std::vector<uint8_t>>(std::move(initSegment)));
+	ASSERT_TRUE(result) << "Parse should succeed for HEVC init segment";
+	EXPECT_EQ(mDemuxer->GetLastError(), MP4_PARSE_OK);
+
+	auto codecInfo = mDemuxer->GetCodecInfo();
+	EXPECT_EQ(codecInfo.mCodecFormat, GST_FORMAT_VIDEO_ES_HEVC) << "Codec format should be HEVC";
+	EXPECT_TRUE(codecInfo.mNaluLengthPrefixed) << "hvcC config implies length-prefixed NAL units";
 }
 
 /**
