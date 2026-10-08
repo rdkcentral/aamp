@@ -99,7 +99,7 @@ long AAMPGstPlayer::GetDurationMilliseconds(void)
 	return 0;
 }
 
-long long AAMPGstPlayer::GetPositionMilliseconds(void)
+std::optional<long long> AAMPGstPlayer::GetPositionMilliseconds(void)
 {
 	return 0;
 }

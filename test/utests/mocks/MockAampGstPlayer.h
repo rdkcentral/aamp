@@ -32,7 +32,7 @@ public:
 
     MockAAMPGstPlayer( PrivateInstanceAAMP *aamp) : AAMPGstPlayer( aamp, mock_id3_callback) { }
 
-    MOCK_METHOD( long long, GetPositionMilliseconds, (), (override));
+    MOCK_METHOD( std::optional<long long>, GetPositionMilliseconds, (), (override));
 
     MOCK_METHOD(bool, Pause, (bool pause, bool forceStopPreBuffering), (override));
 
