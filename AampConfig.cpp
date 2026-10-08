@@ -380,7 +380,6 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false, "disableWebVTT", eAAMPConfig_DisableWebVTT, false},
 	{false, "enableHTTP3", eAAMPConfig_EnableHTTP3, false},
 	{false, "enablePTSReStampLogging", eAAMPConfig_EnablePTSReStampLogging, false},
-	{false, "netTraceCsvDump", eAAMPConfig_NetTraceCsvDump, false},
 	{false, "logFilename", eAAMPConfig_LogFilename, false},
 	{false, "processLicenseFromEAP", eAAMPConfig_ProcessLicenseFromEAP, false},
 	{false, "enableProducerReferenceDelay", eAAMPConfig_EnableProducerReferenceDelay, false},

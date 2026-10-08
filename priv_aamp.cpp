@@ -50,14 +50,6 @@
  */
 static constexpr double kNetTraceBurstGapThresholdS = 0.005;  // 5 milliseconds
 
-/**
- * @brief Network trace late gap threshold (seconds)
- *
- * Purpose: Gaps exceeding this threshold mark bursts as "late" for QoS analysis.
- * Value of 120ms chosen to identify bursts delayed beyond typical buffering jitter.
- * Late bursts indicate potential network congestion or server-side delays.
- */
-static constexpr double kNetTraceLateGapThresholdS = 0.120;  // 120 milliseconds
 #include "hdmiin_shim.h"
 #include "compositein_shim.h"
 #include "ota_shim.h"
@@ -1411,10 +1403,6 @@ size_t PrivateInstanceAAMP::HandleSSLHeaderCallback ( const char *ptr, size_t si
 		{
 			AAMPLOG_INFO( "chunkedDownload: '%.*s'", (int)len, ptr );
 			context->chunkedDownload = true;
-			// Mark request as chunked for the recorder (request-level metadata)
-			if (context->net) {
-				context->net->MarkChunked();
-			}
 		}
 		else if (0 == context->buffer.capacity() )
 		{
@@ -4569,57 +4557,11 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 		CurlCallbackContext context(this, buffer);
 		context.synthesizeIframeAbort = synthesizeIframeAbort;
 
-		// ==== Begin additive instrumentation - no behavior change ====
-		// CSV path init: fires lazily on the first download where either the env
-		// override or netTraceCsvDump config is active. Double-checked locking
-		// ensures paths are set exactly once even under concurrent downloads.
-		// Unlike call_once, this retries on every download until a condition holds,
-		// so setting netTraceCsvDump=true in aamp.cfg is always honoured at runtime.
-		const bool netTracerEnabled = GETCONFIGVALUE_PRIV(eAAMPConfig_NetTraceCsvDump);
-		{
-			static std::mutex csv_init_mtx;
-			static std::atomic<bool> paths_set{false};
-			if (!paths_set.load(std::memory_order_acquire)) {
-				std::lock_guard<std::mutex> lk(csv_init_mtx);
-				if (!paths_set.load(std::memory_order_relaxed)) {
-					if (const char* R = std::getenv("AAMP_REQ_CSV")) {
-						const char* B = std::getenv("AAMP_BUR_CSV");
-						aamptrace::NetTrace::SetPathsWithPid(R, B ? B : "/tmp/aamp_net_bursts.csv");
-						paths_set.store(true, std::memory_order_release);
-					}
-					else if (netTracerEnabled) {
-						aamptrace::NetTrace::SetPathsWithPid(
-							"/tmp/aamp_net_requests.csv", "/tmp/aamp_net_bursts.csv");
-						paths_set.store(true, std::memory_order_release);
-					}
-					// Neither condition: retry next download until config is true
-				}
-			}
-		}
-
-		// extract path component (after domain) from URL — lambda defined once as
-		// a static local; actual call and media-type string only evaluated when the
-		// tracer is enabled to avoid per-download work on the disabled hot path.
-		static const auto pathOnly = [](const std::string& u)->std::string {
-			size_t s = 0, p = u.find("://");
-			s = (p==std::string::npos) ? 0 : (p+3);
-			s = u.find('/', s);
-			return (s==std::string::npos) ? u : u.substr(s);
-		};
+		// Collect bounded streaming metrics for the inline persona.
 		static std::atomic<uint64_t> g_req_id{1};
-		// Always instrument downloads so the inline persona (streaming, O(1)) has
-		// data regardless of netTraceCsvDump; CSV files are written only when the
-		// tracer is enabled via mKeepRecord below.
-		const char* mt_str =
-		(mediaType==eMEDIATYPE_VIDEO)    ? "video" :
-		(mediaType==eMEDIATYPE_AUDIO)    ? "audio" :
-		(mediaType==eMEDIATYPE_SUBTITLE) ? "text"  :
-		(mediaType==eMEDIATYPE_MANIFEST) ? "manifest" : "other";
 		std::unique_ptr<aamptrace::NetTrace> net_owner =
 			std::make_unique<aamptrace::NetTrace>(
-				g_req_id.fetch_add(1), pathOnly(remoteUrl), mt_str,
-				/*chunked=*/false, kNetTraceBurstGapThresholdS, kNetTraceLateGapThresholdS,
-				/*keep_record=*/netTracerEnabled);
+				g_req_id.fetch_add(1), kNetTraceBurstGapThresholdS);
 
 		// RAII guard: nulls context.net when net_owner goes out of scope,
 		// preventing a dangling pointer on all return paths (normal and early).
@@ -4897,47 +4839,14 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				}
 			}
 				// ---- Finalize recorder immediately after the perform ----
-				if (context.net) {
-					double t_namelookup=0, t_connect=0, t_appconnect=0, t_pretransfer=0;
-					double t_starttransfer=0, t_total=0, t_redirect=0;
-					char*  primary_ip = nullptr;
-					long   local_port = 0, num_connects = 0;
-					long   http_code_local = -1;
-					curl_off_t size_download = 0;
-					curl_easy_getinfo(curl, CURLINFO_NAMELOOKUP_TIME,    &t_namelookup);
-					curl_easy_getinfo(curl, CURLINFO_CONNECT_TIME,       &t_connect);
-					curl_easy_getinfo(curl, CURLINFO_APPCONNECT_TIME,    &t_appconnect);
-					curl_easy_getinfo(curl, CURLINFO_PRETRANSFER_TIME,   &t_pretransfer);
-					curl_easy_getinfo(curl, CURLINFO_STARTTRANSFER_TIME, &t_starttransfer);
-					curl_easy_getinfo(curl, CURLINFO_TOTAL_TIME,         &t_total);
-					curl_easy_getinfo(curl, CURLINFO_REDIRECT_TIME,      &t_redirect);
-					curl_easy_getinfo(curl, CURLINFO_PRIMARY_IP,         &primary_ip);
-					curl_easy_getinfo(curl, CURLINFO_LOCAL_PORT,         &local_port);
-					curl_easy_getinfo(curl, CURLINFO_NUM_CONNECTS,       &num_connects);
-					curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE,      &http_code_local);
-#if defined(CURL_HTTP_VERSION_3ONLY) || defined(AAMP_HTTP3_SUPPORTED)
-					{
-						long httpVersion = 0;
-						curl_off_t speedDownload = 0;
-						curl_easy_getinfo(curl, CURLINFO_HTTP_VERSION, &httpVersion);
-						curl_easy_getinfo(curl, CURLINFO_SPEED_DOWNLOAD_T, &speedDownload);
-						AAMPLOG_INFO("NET_TRACE mediaType=%d httpVersion=%ld speedBps=%" CURL_FORMAT_CURL_OFF_T " appconnect=%.3f total=%.3f reused=%ld",
-							mediaType, httpVersion, speedDownload, t_appconnect, t_total, (num_connects == 0) ? 1L : 0L);
-					}
-#endif
-#if LIBCURL_VERSION_NUM >= 0x073700 // CURL version >= 7.55.0
-					size_download = aamp_CurlEasyGetinfoOffset(curl, CURLINFO_SIZE_DOWNLOAD_T);
-#else
-					size_download = static_cast<curl_off_t>(aamp_CurlEasyGetinfoDouble(curl, CURLINFO_SIZE_DOWNLOAD));
-#endif
+				if (context.net)
+				{
+					double startTransferS = 0.0;
+					long numConnects = 0;
+					curl_easy_getinfo(curl, CURLINFO_STARTTRANSFER_TIME, &startTransferS);
+					curl_easy_getinfo(curl, CURLINFO_NUM_CONNECTS, &numConnects);
 					context.net->OnCompleteBytes();
-					context.net->SetCurlTimings(
-												  t_namelookup, t_connect, t_appconnect, t_pretransfer,
-												  t_starttransfer, t_total, t_redirect,
-												  http_code_local, (num_connects==0),
-												  primary_ip?std::string(primary_ip):std::string(), local_port,
-												  size_download);
-					// Note: FlushCsv() is called outside the retry loop
+					context.net->SetCurlTimings(startTransferS, numConnects == 0);
 				}
 
 				if(!mAampLLDashServiceData.lowLatencyMode)
@@ -5376,10 +5285,9 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 			}
 		}
 
-		// Flush NetTrace CSV after retry loop completes (success or terminal failure)
-		// This ensures only one CSV row per GetFile call, regardless of retry attempts
+		// Aggregate metrics after retry loop completion, once per GetFile call.
 		if (context.net) {
-			context.net->FlushCsv();
+			context.net->FlushPersona();
 		}
 
 		if (http_code == 200 || http_code == 206 || IsCurlTimeoutFailure (http_code) )
@@ -8845,8 +8753,7 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 	mProgressReportOffset = -1;
 	mProgressReportAvailabilityOffset = -1;
 	rate = 1;
-	// Log a minimal network persona inline (no file) from O(1) streaming data,
-	// then generate the full file-based persona when netTraceCsvDump is enabled.
+	// Log the bounded streaming network persona inline.
 	{
 		auto& fitter = aamptrace::NetPersonaFitter::GetInstance();
 		// TeardownStream above has flushed this player's downloads into the
@@ -8889,10 +8796,7 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 			// Atomic, exactly-once finalize: a concurrent last-stopper that runs
 			// after the accumulators are cleared gets an empty string and emits
 			// nothing, so the NET_PERSONA line and file are produced only once.
-			const bool dumpFile = GETCONFIGVALUE_PRIV(eAAMPConfig_NetTraceCsvDump);
-			std::string inlinePersona = fitter.FinalizeSession(
-				dumpFile ? std::string(aamptrace::NetPersonaFitter::kDefaultBasePath)
-						 : std::string{});
+			std::string inlinePersona = fitter.FinalizeSession(std::string{});
 			if (!inlinePersona.empty())
 			{
 				AAMPLOG_MIL("NET_PERSONA %s", inlinePersona.c_str());

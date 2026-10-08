@@ -22,7 +22,7 @@
  * @brief Fits a network persona JSON from in-memory request/burst trace data
  *
  * Purpose: C++ re-implementation of simnet/simnet/persona_fit.py. Accumulates
- * request and burst records from NetTrace::FlushCsv() and, on demand,
+ * request and burst records from NetTrace::FlushPersona() and, on demand,
  * computes a 19-field persona JSON describing RTT, throughput, cadence,
  * and burst characteristics for the LL-DASH network simulator (simnet).
  */
@@ -66,7 +66,7 @@ struct BurstRecord {
  * @brief Accumulates network trace data and generates a persona JSON file
  *
  * Purpose: Provides a process-wide singleton that collects request/burst
- * records from NetTrace::FlushCsv() calls. When GeneratePersonaJson() is
+ * records from NetTrace::FlushPersona() calls. When GeneratePersonaJson() is
  * invoked (typically at player Stop()), it performs statistical fitting
  * identical to persona_fit.py and writes the result as JSON.
  *
@@ -123,7 +123,7 @@ public:
 	 * the fixed-memory histograms backing the bursts_per_segment and
 	 * burst_bytes_cv persona fields. Unlike AddBurst(), which is order- and
 	 * group-independent, these fields require correct per-request grouping;
-	 * the caller (NetTrace::FlushCsv) already owns one request's complete burst
+	 * the caller (NetTrace::FlushPersona) already owns one request's complete burst
 	 * set, so it summarizes it in a single atomic call. This keeps the grouping
 	 * correct even when multiple media tracks flush concurrently, with bounded
 	 * memory (no per-request map retained).

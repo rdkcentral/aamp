@@ -321,7 +321,7 @@ To replay a captured persona with the simnet tool, paste the JSON into
 
 ## How it works
 
-Metrics are fed to `NetPersonaFitter` during each instrumented `PrivateInstanceAAMP::GetFile` download; the `AampCurlDownloader` path is not instrumented, and `netTraceCsvDump=true` also retains raw samples for the full file persona.
+Metrics are fed to `NetPersonaFitter` during each instrumented `PrivateInstanceAAMP::GetFile` download; the `AampCurlDownloader` path is not instrumented. The fitter is process-wide, so requests from every AAMP player instance in the process, including background preroll players, contribute to the same persona snapshot.
 
 ```
 Per download (NetTrace, one call per request):

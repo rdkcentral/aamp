@@ -290,7 +290,7 @@ TEST_F(NetPersonaFitterTest, StreamingComputesMinimalFields)
 	// Identical rate -> zero throughput spread; gaps 0.20 & 0.30 -> cadence 250ms
 	fitter.AddBurst(1, 0, 0.010, 100000, 0.20);
 	fitter.AddBurst(1, 1, 0.010, 100000, 0.30);
-	// Summarize the one request's 2 equal-sized bursts, as NetTrace::FlushCsv does.
+	// Summarize the one request's 2 equal-sized bursts, as NetTrace::FlushPersona does.
 	fitter.AddRequestBurstSummary(/*burstCount=*/2, /*bytesSum=*/200000.0, /*bytesSumSq=*/2.0e10);
 
 	std::string json = fitter.BuildMinimalPersonaJson();
