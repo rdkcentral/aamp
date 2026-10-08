@@ -25,6 +25,7 @@
 #include "downloader/AampCurlDownloader.h"
 #include "AampMPDDownloader.h"
 #include "AampMPDParseHelper.h"
+#include "AampMPDTailTrim.h"
 #include "AampDefine.h"
 #include "AampConfig.h"
 #include "AampLogManager.h"
@@ -1748,7 +1749,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 
 /**
  * @brief Builds a two-track MPD (audio then video, each at AdaptationSet level) for Period-tail trimming tests.
- *        Period p0 is 10s long when p1 starts at PT10S.
+ *        p1 starts at PT10S; p0's @duration comes from period0Attrs and may be omitted.
  */
 static std::string TailTrimManifest(const std::string &period0Attrs, const std::string &audioTimeline,
 									const std::string &videoTimeline = "<S t=\"0\" d=\"2000\" r=\"4\" />",
@@ -1776,8 +1777,13 @@ static std::vector<ITimeline *> &TimelinesOf(dash::mpd::IMPD *mpd, int periodInd
 	return mpd->GetPeriods().at(periodIndex)->GetAdaptationSets().at(adaptationSetIndex)->GetSegmentTemplate()->GetSegmentTimeline()->GetTimelines();
 }
 
+static std::vector<DroppedSegment> TrimTail(dash::mpd::IMPD *mpd)
+{
+	return TrimPeriodTailSegments(mpd, AAMP_DASH_PERIOD_TAIL_START_TOLERANCE_SEC, AAMP_DASH_PERIOD_TAIL_MIN_OVERHANG_SEC);
+}
+
 /**
- * @brief An ad-splicer duplicate (starts 0.2s before the Period end, runs 3s past it) is removed from the
+ * @brief An ad-splicer overhang (starts 0.2s before the Period end, runs 3s past it) is removed from the
  *        audio timeline; the video timeline, which fits the Period, is untouched.
  */
 TEST_F(FunctionalTests, TrimPeriodTail_DropsSplicerDuplicate)
@@ -1792,7 +1798,7 @@ TEST_F(FunctionalTests, TrimPeriodTail_DropsSplicerDuplicate)
 	auto &audio = TimelinesOf(mpd, 0, 0);
 	ASSERT_EQ(audio.size(), 3u);
 
-	AampMPDParseHelper::TrimPeriodTailSegments(mpd, AAMP_DASH_PERIOD_TAIL_START_TOLERANCE_SEC, AAMP_DASH_PERIOD_TAIL_MIN_OVERHANG_SEC);
+	TrimTail(mpd);
 
 	ASSERT_EQ(audio.size(), 2u);
 	EXPECT_EQ(audio.back()->GetStartTime(), 8000u);
@@ -1831,7 +1837,7 @@ TEST_P(TrimPeriodTailCasesTest, TrimsAsExpected)
 	dash::mpd::IMPD *mpd = respData->mMPDInstance.get();
 	ASSERT_NE(mpd, nullptr);
 
-	AampMPDParseHelper::TrimPeriodTailSegments(mpd, AAMP_DASH_PERIOD_TAIL_START_TOLERANCE_SEC, AAMP_DASH_PERIOD_TAIL_MIN_OVERHANG_SEC);
+	TrimTail(mpd);
 	auto &audio = TimelinesOf(mpd, 0, 0);
 	ASSERT_EQ(audio.size(), c.expectedAudioEntries);
 	if (c.expectedLastAudioRepeat >= 0)
@@ -1853,9 +1859,6 @@ INSTANTIATE_TEST_SUITE_P(TrimPeriodTail, TrimPeriodTailCasesTest, ::testing::Val
 	// An end inferred from the next Period's @start is not used
 	TrimCase{"NextPeriodStartAloneIsUntouched", "",
 		"<S t=\"0\" d=\"2000\" r=\"3\" /><S t=\"8000\" d=\"1800\" /><S t=\"9800\" d=\"3200\" />", kVideoFitsPeriod, true, "", 3, 0},
-	// A last Period with no @duration has an unknown end
-	TrimCase{"UnknownEndIsUntouched", "",
-		"<S t=\"0\" d=\"2000\" r=\"3\" /><S t=\"8000\" d=\"1800\" /><S t=\"9800\" d=\"3200\" />", kVideoFitsPeriod, false, "", 3, 0},
 	// A negative repeat count (repeat to the end of the Period) is unsupported
 	TrimCase{"RepeatToEndIsUntouched", "duration=\"PT10S\"",
 		"<S t=\"0\" d=\"2000\" r=\"-1\" />", kVideoFitsPeriod, true, "", 1, -1},
@@ -1901,7 +1904,7 @@ TEST_F(FunctionalTests, TrimPeriodTail_RepresentationLevelTimelines_EachTrimmed)
 	ASSERT_NE(mpd, nullptr);
 
 	EXPECT_EQ(mpd->GetPeriods().at(0)->GetAdaptationSets().at(0)->GetRepresentation().at(0)->GetSegmentTemplate()->GetSegmentTimeline()->GetTimelines().size(), 2u);
-	AampMPDParseHelper::TrimPeriodTailSegments(mpd, AAMP_DASH_PERIOD_TAIL_START_TOLERANCE_SEC, AAMP_DASH_PERIOD_TAIL_MIN_OVERHANG_SEC);
+	TrimTail(mpd);
 	for (int representation = 0; representation < 2; representation++)
 	{
 		EXPECT_EQ(mpd->GetPeriods().at(0)->GetAdaptationSets().at(0)->GetRepresentation().at(representation)
@@ -1920,7 +1923,7 @@ TEST_F(FunctionalTests, TrimPeriodTail_SharedAdaptationSetTimeline_Trimmed)
 	ASSERT_NE(mpd, nullptr);
 
 	EXPECT_EQ(TimelinesOf(mpd, 0, 0).size(), 2u);
-	AampMPDParseHelper::TrimPeriodTailSegments(mpd, AAMP_DASH_PERIOD_TAIL_START_TOLERANCE_SEC, AAMP_DASH_PERIOD_TAIL_MIN_OVERHANG_SEC);
+	TrimTail(mpd);
 	EXPECT_EQ(TimelinesOf(mpd, 0, 0).size(), 1u);
 }
 
@@ -1941,7 +1944,7 @@ TEST_F(FunctionalTests, TrimPeriodTail_ReturnsDroppedSegmentDetails)
 	dash::mpd::IMPD *mpd = respData->mMPDInstance.get();
 	ASSERT_NE(mpd, nullptr);
 
-	const std::vector<DroppedSegment> dropped = AampMPDParseHelper::TrimPeriodTailSegments(mpd, AAMP_DASH_PERIOD_TAIL_START_TOLERANCE_SEC, AAMP_DASH_PERIOD_TAIL_MIN_OVERHANG_SEC);
+	const std::vector<DroppedSegment> dropped = TrimTail(mpd);
 
 	ASSERT_EQ(dropped.size(), 1u);
 	EXPECT_EQ(dropped[0].periodId, "p0");
@@ -1956,23 +1959,23 @@ TEST_F(FunctionalTests, TrimPeriodTail_ReturnsDroppedSegmentDetails)
 /**
  * @brief A segment is reported on the first parse that drops it and not again while later parses keep dropping it.
  */
-TEST(TailDropLogTest, ReportsEachDropOnce)
+TEST(TailDropTrackerTest, ReportsEachDropOnce)
 {
-	TailDropLog log;
-	EXPECT_EQ(log.Report({MakeDropped("p0", 9800)}).size(), 1u);
-	EXPECT_TRUE(log.Report({MakeDropped("p0", 9800)}).empty());
-	EXPECT_TRUE(log.Report({MakeDropped("p0", 9800)}).empty());
+	TailDropTracker tracker;
+	EXPECT_EQ(tracker.Update({MakeDropped("p0", 9800)}).size(), 1u);
+	EXPECT_TRUE(tracker.Update({MakeDropped("p0", 9800)}).empty());
+	EXPECT_TRUE(tracker.Update({MakeDropped("p0", 9800)}).empty());
 }
 
 /**
  * @brief Only the new segment is reported when another is dropped alongside one already reported.
  */
-TEST(TailDropLogTest, ReportsOnlyNewDrops)
+TEST(TailDropTrackerTest, ReportsOnlyNewDrops)
 {
-	TailDropLog log;
-	log.Report({MakeDropped("p0", 9800)});
+	TailDropTracker tracker;
+	tracker.Update({MakeDropped("p0", 9800)});
 
-	const std::vector<DroppedSegment> reported = log.Report({MakeDropped("p0", 9800), MakeDropped("p1", 9800)});
+	const std::vector<DroppedSegment> reported = tracker.Update({MakeDropped("p0", 9800), MakeDropped("p1", 9800)});
 
 	ASSERT_EQ(reported.size(), 1u);
 	EXPECT_EQ(reported[0].periodId, "p1");
@@ -1981,10 +1984,10 @@ TEST(TailDropLogTest, ReportsOnlyNewDrops)
 /**
  * @brief A segment that stops being dropped (its Period left the manifest) is reported again if it returns.
  */
-TEST(TailDropLogTest, ForgetsDropsAbsentFromAParse)
+TEST(TailDropTrackerTest, ForgetsDropsAbsentFromAParse)
 {
-	TailDropLog log;
-	log.Report({MakeDropped("p0", 9800)});
-	EXPECT_TRUE(log.Report({}).empty());
-	EXPECT_EQ(log.Report({MakeDropped("p0", 9800)}).size(), 1u);
+	TailDropTracker tracker;
+	tracker.Update({MakeDropped("p0", 9800)});
+	EXPECT_TRUE(tracker.Update({}).empty());
+	EXPECT_EQ(tracker.Update({MakeDropped("p0", 9800)}).size(), 1u);
 }

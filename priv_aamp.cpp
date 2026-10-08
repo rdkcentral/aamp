@@ -14856,6 +14856,7 @@ std::shared_ptr<ManifestDownloadConfig> PrivateInstanceAAMP::prepareManifestDown
 	inpData->mDnldConfig->sCustomHeaders = std::move(sCustomHeaders);
 	inpData->mCMCDCollector = mCMCDCollector;
 	inpData->mIsLLDConfigEnabled	=	ISCONFIGSET_PRIV(eAAMPConfig_EnableLowLatencyDash);
+	// The overhang only matters when PTS restamping derives the next Period's PTS from the timeline
 	inpData->mTrimPeriodTailSegments	=	ISCONFIGSET_PRIV(eAAMPConfig_EnablePTSReStamp);
 	if(!mProvidedManifestFile.empty())
 	{

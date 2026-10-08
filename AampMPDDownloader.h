@@ -58,6 +58,7 @@
 #include "AampDefine.h"
 #include "AampLogManager.h"
 #include "AampMPDParseHelper.h"
+#include "AampMPDTailTrim.h"
 #include "AampCMCDCollector.h"
 #include "dash/mpd/MPDModel.h"
 #include "dash/mpd/MPDSegmenter.h"
@@ -144,8 +145,8 @@ typedef struct _manifestDownloadResponse
 	std::shared_ptr<dash::mpd::IMPD> mMPDInstance;
 	bool mIsLiveManifest;
 	bool mRefreshRequired;
-	bool mTrimPeriodTailSegments; /**< Trim the parsed MPD timeline tail before the parse helper is initialised */
-	std::shared_ptr<TailDropLog> mTailDropLog; /**< Shared with the downloader; null means dropped segments are not reported */
+	bool mTrimPeriodTailSegments; /**< Enables TrimPeriodTailSegments() in parseMPD() */
+	std::shared_ptr<TailDropTracker> mTailDropTracker; /**< Shared with the downloader; null means dropped segments are not reported */
 	AAMPStatusType mMPDStatus;
 	Node *mRootNode;
 	std::shared_ptr<DashMPDDocument> mDashMpdDoc;
@@ -169,14 +170,14 @@ public:
 	: mMPDDownloadResponse(other.mMPDDownloadResponse),
 	  mMPDInstance(other.mMPDInstance),
 	  mIsLiveManifest(other.mIsLiveManifest),
-	  mMPDStatus(other.mMPDStatus),
-	  mRootNode(other.mRootNode),
 	  mRefreshRequired(other.mRefreshRequired),
 	  mTrimPeriodTailSegments(other.mTrimPeriodTailSegments),
-	  mTailDropLog(other.mTailDropLog),
+	  mTailDropTracker(other.mTailDropTracker),
+	  mMPDStatus(other.mMPDStatus),
+	  mRootNode(other.mRootNode),
 	  mDashMpdDoc(other.mDashMpdDoc),
-	  mMPDParseHelper(std::make_shared<AampMPDParseHelper>(*(other.mMPDParseHelper))), // Copy the content
-	  mLastPlaylistDownloadTimeMs(other.mLastPlaylistDownloadTimeMs){}
+	  mLastPlaylistDownloadTimeMs(other.mLastPlaylistDownloadTimeMs),
+	  mMPDParseHelper(std::make_shared<AampMPDParseHelper>(*(other.mMPDParseHelper))){} // Copy the content
 
 
 public:
@@ -439,7 +440,7 @@ private:
 	// Download network configuration
 	ManifestDownloadConfigPtr mMPDDnldCfg;
 	// Remembers which tail-segment drops were already reported; reset by Initialize()
-	std::shared_ptr<TailDropLog> mTailDropLog;
+	std::shared_ptr<TailDropTracker> mTailDropTracker;
 	// Download data
 	ManifestDownloadResponsePtr mMPDData;
 	ManifestDownloadResponsePtr mCachedMPDData;
