@@ -7181,7 +7181,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateMediaTrackInfo(AampMediaType typ
 	else
 	{
 
-		AAMPLOG_WARN("[WARN] representationIndex[%d] is out of range (size[%d]), sending error event", pMediaStreamContext->representationIndex, pMediaStreamContext->adaptationSet->GetRepresentation().size());
+		AAMPLOG_WARN("[WARN] representationIndex[%d] is out of range (size[%zu]), sending error event", pMediaStreamContext->representationIndex, pMediaStreamContext->adaptationSet->GetRepresentation().size());
 		return ReportManifestContentError();
 	}
 
@@ -8653,7 +8653,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 			}
 			else
 			{
-				AAMPLOG_WARN("[WARN] representationIndex[%d] is out of range (size[%d]), sending error event", pMediaStreamContext->representationIndex, pMediaStreamContext->adaptationSet->GetRepresentation().size());
+				AAMPLOG_WARN("[WARN] representationIndex[%d] is out of range (size[%zu]), sending error event", pMediaStreamContext->representationIndex, pMediaStreamContext->adaptationSet->GetRepresentation().size());
 				return ReportManifestContentError();
 			}
 
