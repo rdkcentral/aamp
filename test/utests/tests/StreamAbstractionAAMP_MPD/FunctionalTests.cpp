@@ -3206,7 +3206,7 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
 </MPD>
 )";
 	// Initialize MPD. The video initialization segment is cached.
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _))
 		.WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
 	status = InitializeMPD(manifest);
@@ -3288,7 +3288,7 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
 </MPD>
 )";
 	// Initialize MPD. The video initialization segment is cached.
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _))
 		.WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
 	status = InitializeMPD(manifest);
