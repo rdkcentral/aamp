@@ -37,7 +37,7 @@ set (DASH_PARSER_SOURCES ${AAMP_ROOT}/dash/xml/DomDocument.cpp
 set(TEST_SOURCES AampMPDTailTrimTestCases.cpp
                  AampMPDTailTrimTests.cpp)
 
-# The tests need a parsed MPD, which the downloader's parseMPD() produces
+# AampMPDDownloader/AampCurlDownloader are linked only to turn manifest XML into an IMPD via parseMPD(); no downloader behaviour is tested (same as the AampMPDParseHelper suite)
 set(AAMP_SOURCES ${AAMP_ROOT}/downloader/AampCurlDownloader.cpp ${AAMP_ROOT}/AampUtils.cpp
                 ${AAMP_ROOT}/iso639map.cpp
                 ${AAMP_ROOT}/AampMPDTailTrim.cpp
