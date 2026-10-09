@@ -3263,6 +3263,7 @@ void StreamAbstractionAAMP_MPD::ProcessManifestHeaderResponse(ManifestDownloadRe
 void StreamAbstractionAAMP_MPD::ProcessMetadataFromManifest( ManifestDownloadResponsePtr mpdDnldResp, bool init)
 {
 	vector<std::string> locationUrl;
+	AampMPDParseHelperPtr respParseHelper = mpdDnldResp->GetMPDParseHelper();
 	// Store the mpd pointer which is already parsed in the MPDDownloader
 	dash::mpd::IMPD *tmpMPD			=	mpdDnldResp->mMPDInstance.get();
 
@@ -3272,20 +3273,18 @@ void StreamAbstractionAAMP_MPD::ProcessMetadataFromManifest( ManifestDownloadRes
 		//If bulk metadata is enabled for live, all metadata should be reported as bulkmetadata event
 		//and player should not send the same  events again.
 		bool bMetadata		=	ISCONFIGSET(eAAMPConfig_BulkTimedMetaReport) || ISCONFIGSET(eAAMPConfig_BulkTimedMetaReportLive);
-		FindTimedMetadata((dash::mpd::MPD *)tmpMPD, root, init, bMetadata);
+		FindTimedMetadata((dash::mpd::MPD *)tmpMPD, root, respParseHelper, init, bMetadata);
 		if(!init)
 		{
 			aamp->ReportTimedMetadata(false);
 		}
 		// get Network time
-		// Use the response's own helper; mMPDParseHelper is reassigned by the fetcher thread.
-		AampMPDParseHelperPtr respParseHelper = mpdDnldResp->GetMPDParseHelper();
 		respParseHelper->SetHasServerUtcTime(mTimeSyncClient.FindServerUTCTime(aamp,root));
 		respParseHelper->SetLocalTimeDelta(mTimeSyncClient.GetDelta());
 		// Find the gaps in the Period
 		if(mIsFogTSB && ISCONFIGSET(eAAMPConfig_InterruptHandling))
 		{
-			FindPeriodGapsAndReport();
+			FindPeriodGapsAndReport(respParseHelper);
 		}
 
 		if (ISCONFIGSET(eAAMPConfig_ProcessLicenseFromEAP) && mIsLiveManifest)
@@ -5188,11 +5187,11 @@ void StreamAbstractionAAMP_MPD::MPDUpdateCallbackExec()
  * @brief Check if Period is empty or not
  * @retval Return true on empty Period
  */
-void StreamAbstractionAAMP_MPD::FindPeriodGapsAndReport()
+void StreamAbstractionAAMP_MPD::FindPeriodGapsAndReport(AampMPDParseHelperPtr mpdParseHelper)
 {
 	double prevPeriodEndMs = aamp->culledSeconds * 1000;
 	double curPeriodStartMs = 0;
-	int numPeriods =	mMPDParseHelper->GetNumberOfPeriods();
+	int numPeriods =	mpdParseHelper->GetNumberOfPeriods();
 	for(int i = 0; i< numPeriods; i++)
 	{
 		auto tempPeriod = mpd->GetPeriods().at(i);
@@ -5203,7 +5202,7 @@ void StreamAbstractionAAMP_MPD::FindPeriodGapsAndReport()
 		}
 		if (STARTS_WITH_IGNORE_CASE(tempPeriod->GetId().c_str(), FOG_INSERTED_PERIOD_ID_PREFIX))
 		{
-			if(IsEmptyPeriod(i))
+			if(mpdParseHelper->IsEmptyPeriod(i, ShouldCheckOnlyIframeAdaptation()))
 			{
 				// Empty period indicates that the gap is growing, report event without duration
 				aamp->ReportContentGap((long long)(prevPeriodEndMs - (aamp->mProgressReportOffset*1000)), tempPeriod->GetId());
@@ -5225,8 +5224,8 @@ void StreamAbstractionAAMP_MPD::FindPeriodGapsAndReport()
 			double periodGapMS = (curPeriodStartMs - prevPeriodEndMs);
 			aamp->ReportContentGap((long long)(prevPeriodEndMs - (aamp->mProgressReportOffset*1000)), tempPeriod->GetId(), periodGapMS);
 		}
-		if(IsEmptyPeriod(i)) continue;
-		double periodDuration = mMPDParseHelper->aamp_GetPeriodDuration(i, mLastPlaylistDownloadTimeMs);
+		if(mpdParseHelper->IsEmptyPeriod(i, ShouldCheckOnlyIframeAdaptation())) continue;
+		double periodDuration = mpdParseHelper->aamp_GetPeriodDuration(i, mLastPlaylistDownloadTimeMs);
 		prevPeriodEndMs = curPeriodStartMs + periodDuration;
 	}
 }
@@ -5325,7 +5324,7 @@ bool TimeSyncClient::FindServerUTCTime(PrivateInstanceAAMP* aamp, Node* root)
 /**
  * @brief Find timed metadata from mainifest
  */
-void StreamAbstractionAAMP_MPD::FindTimedMetadata(MPD* mpd, Node* root, bool init, bool reportBulkMeta)
+void StreamAbstractionAAMP_MPD::FindTimedMetadata(MPD* mpd, Node* root, AampMPDParseHelperPtr mpdParseHelper, bool init, bool reportBulkMeta)
 {
 	std::vector<Node*> subNodes = root->GetSubNodes();
 
@@ -5354,11 +5353,11 @@ void StreamAbstractionAAMP_MPD::FindTimedMetadata(MPD* mpd, Node* root, bool ini
 						break;
 					}
 
-					uint64_t segmentStartPTS = mMPDParseHelper->GetFirstSegmentStartTime(period);
+					uint64_t segmentStartPTS = mpdParseHelper->GetFirstSegmentStartTime(period);
 					if (segmentStartPTS)
 					{
 						// Got a segment start time so convert it to ms and quit
-						uint64_t timescale = mMPDParseHelper->GetPeriodSegmentTimeScale(period);
+						uint64_t timescale = mpdParseHelper->GetPeriodSegmentTimeScale(period);
 						if (timescale > 1)
 						{
 							// We have a first segment start time so we will use that
@@ -5409,9 +5408,9 @@ void StreamAbstractionAAMP_MPD::FindTimedMetadata(MPD* mpd, Node* root, bool ini
 						periodStartMS = valueMS;
 				}
 				// Calculate startTime for Early Available Period (EAP) with no explicit start attribute.
-				else if ((periodCnt > 1) && mpd && (periodCnt == (int)mpd->GetPeriods().size()) && mMPDParseHelper && mMPDParseHelper->IsEmptyPeriod(periodCnt-1, (mPlayRate != AAMP_NORMAL_PLAY_RATE)))
+				else if ((periodCnt > 1) && mpd && (periodCnt == (int)mpd->GetPeriods().size()) && mpdParseHelper && mpdParseHelper->IsEmptyPeriod(periodCnt-1, (mPlayRate != AAMP_NORMAL_PLAY_RATE)))
 				{
-					periodStartMS += mMPDParseHelper->GetPeriodDuration(periodCnt-2, mLastPlaylistDownloadTimeMs, (mPlayRate != AAMP_NORMAL_PLAY_RATE), aamp->IsUninterruptedTSB());
+					periodStartMS += mpdParseHelper->GetPeriodDuration(periodCnt-2, mLastPlaylistDownloadTimeMs, (mPlayRate != AAMP_NORMAL_PLAY_RATE), aamp->IsUninterruptedTSB());
 					AAMPLOG_WARN("Early Available Period found, id=%s periodStartMS adjusted to %" PRIu64 " ms", node->GetAttributeValue("id").c_str(), periodStartMS);
 				}
 				periodDurationMS = 0;
