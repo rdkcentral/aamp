@@ -561,6 +561,11 @@ public:
 
 protected:
 	/**
+	 * @brief Send a manifest content error event and return its status.
+	 */
+	AAMPStatusType ReportManifestContentError();
+
+	/**
 	 * @fn StartFromAampLocalTsb
 	 *
 	 * @brief Start streaming from AAMP Local TSB
