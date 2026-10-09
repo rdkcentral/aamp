@@ -917,6 +917,14 @@ protected:
 	 */
 	AAMPStatusType UpdateTrackInfo(bool modifyDefaultBW, bool resetTimeLineIndex = false, bool isInit = false);
 	/**
+	 * @fn ResolveAdaptationSetForTrack
+	 * @param pMediaStreamContext Track object pointer
+	 * @param period Current period
+	 * @brief Resolve the track's AdaptationSet by its selected id, tolerant of AdaptationSet reordering across periods
+	 * @retval eAAMPSTATUS_OK on success, eAAMPSTATUS_MANIFEST_CONTENT_ERROR if the selected AdaptationSet id is not found
+	 */
+	AAMPStatusType ResolveAdaptationSetForTrack(class MediaStreamContext *pMediaStreamContext, IPeriod *period);
+	/**
 	 * @fn SkipToEnd
 	 * @param pMediaStreamContext Track object pointer
 	 */
