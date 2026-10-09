@@ -155,9 +155,13 @@ TEST_F(AampRialtoControlBackendTest,
 
 	AampRialtoControlBackend backend;
 
-	// Notify state change from a different thread after a short delay.
+	// capturedClient was already populated synchronously inside the
+	// registerClient() call above, so this thread can notify immediately:
+	// waitForRunning() uses a predicate-checked wait_for() that re-reads
+	// m_rialtoClientState under the same mutex, so it observes the new
+	// state whether this notification lands before or after it starts
+	// waiting - no wall-clock delay is needed to order the two threads.
 	std::thread notifier([&capturedClient]() {
-		std::this_thread::sleep_for(std::chrono::milliseconds(20));
 		auto client = capturedClient.lock();
 		ASSERT_NE(client, nullptr);
 		client->notifyApplicationState(

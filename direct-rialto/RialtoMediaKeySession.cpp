@@ -36,7 +36,7 @@ RialtoMediaKeySession::RialtoMediaKeySession(
 	AAMPLOG_INFO("RialtoMediaKeySession[%d]: created", m_keySessionId);
 }
 
-bool RialtoMediaKeySession::update(const uint8_t* keyMessage, uint16_t keyMessageLength)
+bool RialtoMediaKeySession::update(const uint8_t* keyMessage, uint32_t keyMessageLength)
 {
 	AAMPLOG_INFO("RialtoMediaKeySession[%d]: update, length=%u", m_keySessionId, keyMessageLength);
 
