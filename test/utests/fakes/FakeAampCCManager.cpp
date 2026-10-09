@@ -143,7 +143,3 @@ PlayerCCManagerBase *PlayerCCManager::GetInstance()
 	}
 	return mInstance;
 }
-
-void PlayerCCManager::SetRialto(bool bIsRialto, bool bIsDirectRialto)
-{
-}
