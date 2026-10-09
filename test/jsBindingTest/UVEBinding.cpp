@@ -34,6 +34,7 @@
 #include <vector>
 #include <map>
 #include <mutex>
+#include <atomic>
 
 // AAMP JS registration
 extern "C" void aamp_LoadJSController(JSGlobalContextRef context);
@@ -142,16 +143,23 @@ static JSValueRef js_clear_timeout(
 static const long kHttpTimeoutMs = 30000;
 
 struct HttpRequest {
-    JSGlobalContextRef ctx;
-    JSObjectRef        callback;
+    JSGlobalContextRef ctx = nullptr;
+    JSObjectRef        callback = nullptr;
     std::string        method;
     std::string        url;
     std::string        headerLines;
     std::string        body;
-    long               status;
+    long               status = 0;
     std::string        response;
+    std::string        effectiveUrl;
     std::string        error;
 };
+
+// gHttpWorkers is only touched on the main thread; workers hand results back via gHttpDone.
+static std::map<HttpRequest*, std::thread> gHttpWorkers;
+static std::vector<HttpRequest*>           gHttpDone;
+static std::mutex                          gHttpDoneMutex;
+static std::atomic<bool>                   gHttpShutdown{false};
 
 static std::string JSValueToStdString(JSContextRef ctx, JSValueRef value, JSValueRef* exception)
 {
@@ -170,13 +178,19 @@ static size_t http_write(char* ptr, size_t size, size_t nmemb, void* userData)
     return size * nmemb;
 }
 
-static gboolean http_complete(gpointer userData)
+static int http_progress(void* /*clientp*/, curl_off_t /*dltotal*/, curl_off_t /*dlnow*/,
+                         curl_off_t /*ultotal*/, curl_off_t /*ulnow*/)
 {
-    HttpRequest* req = static_cast<HttpRequest*>(userData);
+    return gHttpShutdown ? 1 : 0;
+}
+
+static void http_deliver(HttpRequest* req)
+{
     JSGlobalContextRef ctx = req->ctx;
 
     JSStringRef responseStr = JSStringCreateWithUTF8CString(req->response.c_str());
-    JSValueRef args[3];
+    JSStringRef effectiveUrlStr = JSStringCreateWithUTF8CString(req->effectiveUrl.c_str());
+    JSValueRef args[4];
     args[0] = JSValueMakeNumber(ctx, static_cast<double>(req->status));
     args[1] = JSValueMakeString(ctx, responseStr);
     if (req->error.empty()) {
@@ -186,13 +200,58 @@ static gboolean http_complete(gpointer userData)
         args[2] = JSValueMakeString(ctx, errorStr);
         JSStringRelease(errorStr);
     }
+    args[3] = JSValueMakeString(ctx, effectiveUrlStr);
     JSStringRelease(responseStr);
+    JSStringRelease(effectiveUrlStr);
 
     JSValueRef exc = nullptr;
-    JSObjectCallAsFunction(ctx, req->callback, nullptr, 3, args, &exc);
+    JSObjectCallAsFunction(ctx, req->callback, nullptr, 4, args, &exc);
     JSValueUnprotect(ctx, req->callback);
     delete req;
+}
+
+static gboolean http_drain(gpointer /*userData*/)
+{
+    std::vector<HttpRequest*> done;
+    {
+        std::lock_guard<std::mutex> lock(gHttpDoneMutex);
+        done.swap(gHttpDone);
+    }
+    for (HttpRequest* req : done) {
+        auto it = gHttpWorkers.find(req);
+        if (it != gHttpWorkers.end()) {
+            it->second.join();
+            gHttpWorkers.erase(it);
+        }
+        http_deliver(req);
+    }
     return G_SOURCE_REMOVE;
+}
+
+static void http_finish(HttpRequest* req)
+{
+    {
+        std::lock_guard<std::mutex> lock(gHttpDoneMutex);
+        gHttpDone.push_back(req);
+    }
+    g_idle_add(http_drain, nullptr);
+}
+
+/**
+ * Cancel and join outstanding requests; must run on the main thread after the
+ * loop exits and before the JS context is released.
+ */
+static void http_shutdown()
+{
+    gHttpShutdown = true;
+    for (auto& worker : gHttpWorkers) {
+        worker.second.join();
+        JSValueUnprotect(worker.first->ctx, worker.first->callback);
+        delete worker.first;
+    }
+    gHttpWorkers.clear();
+    std::lock_guard<std::mutex> lock(gHttpDoneMutex);
+    gHttpDone.clear();
 }
 
 static void http_worker(HttpRequest* req)
@@ -200,7 +259,7 @@ static void http_worker(HttpRequest* req)
     CURL* curl = curl_easy_init();
     if (!curl) {
         req->error = "curl_easy_init failed";
-        g_idle_add(http_complete, req);
+        http_finish(req);
         return;
     }
 
@@ -236,17 +295,23 @@ static void http_worker(HttpRequest* req)
     curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
     curl_easy_setopt(curl, CURLOPT_TIMEOUT_MS, kHttpTimeoutMs);
     curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
+    curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 0L);
+    curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION, http_progress);
 
     CURLcode rc = curl_easy_perform(curl);
     if (rc == CURLE_OK) {
         curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &req->status);
+        char* effectiveUrl = nullptr;
+        if (curl_easy_getinfo(curl, CURLINFO_EFFECTIVE_URL, &effectiveUrl) == CURLE_OK && effectiveUrl) {
+            req->effectiveUrl = effectiveUrl;
+        }
     } else {
         req->error = curl_easy_strerror(rc);
     }
 
     curl_slist_free_all(headers);
     curl_easy_cleanup(curl);
-    g_idle_add(http_complete, req);
+    http_finish(req);
 }
 
 static JSValueRef js_http_request(
@@ -266,16 +331,16 @@ static JSValueRef js_http_request(
     }
 
     JSGlobalContextRef globalCtx = JSContextGetGlobalContext(ctx);
-    HttpRequest* req = new HttpRequest{
-        globalCtx, cb,
-        JSValueToStdString(ctx, arguments[0], exception),
-        JSValueToStdString(ctx, arguments[1], exception),
-        JSValueToStdString(ctx, arguments[2], exception),
-        JSValueToStdString(ctx, arguments[3], exception),
-        0, std::string(), std::string()};
+    HttpRequest* req = new HttpRequest();
+    req->ctx         = globalCtx;
+    req->callback    = cb;
+    req->method      = JSValueToStdString(ctx, arguments[0], exception);
+    req->url         = JSValueToStdString(ctx, arguments[1], exception);
+    req->headerLines = JSValueToStdString(ctx, arguments[2], exception);
+    req->body        = JSValueToStdString(ctx, arguments[3], exception);
     JSValueProtect(globalCtx, cb);
 
-    std::thread(http_worker, req).detach();
+    gHttpWorkers.emplace(req, std::thread(http_worker, req));
     return JSValueMakeUndefined(ctx);
 }
 
@@ -372,7 +437,7 @@ function fetch(input, init) {
     }
     var body = (init.body === undefined || init.body === null) ? "" : String(init.body);
     return new Promise(function(resolve, reject) {
-        __httpRequest__(method, url, headerLines.join("\n"), body, function(status, text, error) {
+        __httpRequest__(method, url, headerLines.join("\n"), body, function(status, text, error, effectiveUrl) {
             if (error !== undefined) {
                 reject(new TypeError("fetch failed: " + error));
                 return;
@@ -380,7 +445,7 @@ function fetch(input, init) {
             resolve({
                 ok: status >= 200 && status < 300,
                 status: status,
-                url: url,
+                url: effectiveUrl || url,
                 text: function() { return Promise.resolve(text); },
                 json: function() { return Promise.resolve().then(function() { return JSON.parse(text); }); }
             });
@@ -583,6 +648,7 @@ static int main_func(int argc, char** argv)
 
     // Cleanup (only reached if loop exits)
     g_main_loop_unref(gMainLoop);
+    http_shutdown();
     JSGlobalContextRelease(ctx);
 
     return 0;
