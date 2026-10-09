@@ -7622,6 +7622,7 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 		if( mMediaStreamContext[i] )
 		{
 			mMediaStreamContext[i]->enabled = false;
+			mMediaStreamContext[i]->adaptationSetIdValid = false;
 		}
 	}
 
