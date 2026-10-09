@@ -22,7 +22,7 @@
 #include "MockAampDRMSessionManager.h"
 std::shared_ptr<MockDRMSessionManager> g_mockDRMSessionManager{};
 
-DrmSessionManager::DrmSessionManager(int maxDrmSessions, void *player, std::function<void(uint32_t, uint32_t, const std::string&)> watermarkSessionUpdateCallback, DrmSessionCreator creator)
+DrmSessionManager::DrmSessionManager(int maxDrmSessions, void *player, std::function<void(uint32_t, uint32_t, const std::string&)> watermarkSessionUpdateCallback) 
 {
 }
 
@@ -95,9 +95,10 @@ int DrmSession::decrypt(const uint8_t *f_pbIV, uint32_t f_cbIV, const uint8_t *p
 	return -1;
 }
 
-std::vector<std::vector<uint8_t>> DrmSession::getUsableKeys() const
+const std::vector<std::vector<uint8_t>>& DrmSession::getUsableKeys() const
 {
-	return {};
+	static const std::vector<std::vector<uint8_t>> emptyVector;
+	return emptyVector;
 }
 
 void DrmSessionManager::UpdateDRMConfig( bool useSecManager, bool enablePROutputProtection, bool propagateURIParam, bool isFakeTune, bool wideVineKIDWorkaround)
