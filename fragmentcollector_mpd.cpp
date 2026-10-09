@@ -7180,9 +7180,9 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateMediaTrackInfo(AampMediaType typ
 	}
 	else
 	{
-		AAMPLOG_WARN("Not able to find representation from manifest, sending error event");
-		aamp->SendErrorEvent(AAMP_TUNE_INIT_FAILED_MANIFEST_CONTENT_ERROR);
-		return eAAMPSTATUS_MANIFEST_CONTENT_ERROR;
+
+		AAMPLOG_WARN("[WARN] representationIndex[%d] is out of range (size[%zu]), sending error event", pMediaStreamContext->representationIndex, pMediaStreamContext->adaptationSet->GetRepresentation().size());
+		return ReportManifestContentError();
 	}
 
 	pMediaStreamContext->fragmentDescriptor.ClearMatchingBaseUrl();
@@ -7622,6 +7622,7 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 		if( mMediaStreamContext[i] )
 		{
 			mMediaStreamContext[i]->enabled = false;
+			mMediaStreamContext[i]->adaptationSetIdValid = false;
 		}
 	}
 
@@ -8030,6 +8031,96 @@ static bool IsVideoCodecAVC(const std::string &codec)
 }
 
 /**
+ * @brief Send the manifest content error event and return its status.
+ */
+AAMPStatusType StreamAbstractionAAMP_MPD::ReportManifestContentError()
+{
+	aamp->SendErrorEvent(AAMP_TUNE_INIT_FAILED_MANIFEST_CONTENT_ERROR);
+	return eAAMPSTATUS_MANIFEST_CONTENT_ERROR;
+}
+
+/**
+ * @brief Resolve the track's AdaptationSet in the given period, tolerant of AdaptationSet reordering
+ */
+AAMPStatusType StreamAbstractionAAMP_MPD::ResolveAdaptationSetForTrack(MediaStreamContext *pMediaStreamContext, IPeriod *period)
+{
+	// AdaptationSet order/count can change across manifest refresh. Once an explicit ID has been
+	// resolved (adaptationSetIdValid), detect reordering by id: if the retained index no
+	// longer points to the previously selected AdaptationSet, locate the matching id and
+	// use that index; if the id cannot be found, the selection is no longer valid.
+	// On the first resolve the id is not yet established, so trust the index chosen by
+	// StreamSelection and skip the reorder/error check.
+	const auto &curAdaptationSets = period->GetAdaptationSets();
+	const size_t numAdaptationSets = curAdaptationSets.size();
+
+	// Does the retained index still point to a valid AdaptationSet?
+	const bool indexInRange = pMediaStreamContext->adaptationSetIdx >= 0 &&
+		static_cast<size_t>(pMediaStreamContext->adaptationSetIdx) < numAdaptationSets;
+	// Has a real AdaptationSet id been established by a previous selection?
+	const bool storedIdValid = pMediaStreamContext->adaptationSetIdValid &&
+		pMediaStreamContext->adaptationSetId != UINT32_MAX;
+	// Only read the id at the retained index when that index is in range; when it is
+	// out of range the value is unused because !indexInRange already forces re-resolve.
+	uint32_t currentId = pMediaStreamContext->adaptationSetId;
+	if (indexInRange)
+	{
+		currentId = curAdaptationSets.at(pMediaStreamContext->adaptationSetIdx)->GetId();
+	}
+
+	AAMPLOG_WARN("ResolveAdaptationSetForTrack: period=%s track=%d idx=%d currentId=%u storedId=%u idValid=%d setCount=%zu",
+		period->GetId().c_str(), pMediaStreamContext->type, pMediaStreamContext->adaptationSetIdx,
+		currentId, pMediaStreamContext->adaptationSetId, storedIdValid, numAdaptationSets);
+
+	// Re-resolve when the index is stale, or when it no longer points at the
+	// previously selected id (AdaptationSets reordered across a manifest refresh).
+	const bool needResolve = !indexInRange ||
+		(storedIdValid && currentId != UINT32_MAX && currentId != pMediaStreamContext->adaptationSetId);
+	if (needResolve)
+	{
+		bool relocated = false;
+		// Find the AdaptationSet carrying the previously selected id and move to it.
+		if (storedIdValid)
+		{
+			for (uint32_t adaptIdx = 0; adaptIdx < numAdaptationSets; adaptIdx++)
+			{
+				if (curAdaptationSets.at(adaptIdx)->GetId() == pMediaStreamContext->adaptationSetId)
+				{
+					AAMPLOG_WARN("AdaptationSet order changed; relocating adaptationSetIdx %d -> %u for id %u",
+						pMediaStreamContext->adaptationSetIdx, adaptIdx, pMediaStreamContext->adaptationSetId);
+					pMediaStreamContext->adaptationSetIdx = adaptIdx;
+					relocated = true;
+					break;
+				}
+			}
+		}
+		if (!relocated)
+		{
+			AAMPLOG_WARN("Unable to resolve AdaptationSet idx %d for id %u in period %s",
+				pMediaStreamContext->adaptationSetIdx, pMediaStreamContext->adaptationSetId,
+				period->GetId().c_str());
+			return ReportManifestContentError();
+		}
+	}
+
+	// On the first resolve the id is not yet established and the index is trusted as-is,
+	// so guard it before access. Once the id is valid, the relocation logic above has
+	// already produced a valid index (or returned an error).
+	if (!pMediaStreamContext->adaptationSetIdValid &&
+		(pMediaStreamContext->adaptationSetIdx < 0 ||
+		 static_cast<size_t>(pMediaStreamContext->adaptationSetIdx) >= numAdaptationSets))
+	{
+		AAMPLOG_WARN("AdaptationSet index %d out of range after resolution", pMediaStreamContext->adaptationSetIdx);
+		return ReportManifestContentError();
+	}
+
+	pMediaStreamContext->adaptationSet = curAdaptationSets.at(pMediaStreamContext->adaptationSetIdx);
+	pMediaStreamContext->adaptationSetId = pMediaStreamContext->adaptationSet->GetId();
+	pMediaStreamContext->adaptationSetIdValid = true;
+
+	return eAAMPSTATUS_OK;
+}
+
+/**
  * @brief Updates track information based on current state
  */
 AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, bool resetTimeLineIndex, bool isInit)
@@ -8078,12 +8169,12 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 				pMediaStreamContext->representation = NULL;
 				continue;
 			}
-			if (pMediaStreamContext->adaptationSetIdx >= numAdaptationSets )
+			// AdaptationSet order/count can change across periods. Resolve the track's
+			// AdaptationSet by its selected id, tolerant of reordering.
+			if (eAAMPSTATUS_OK != ResolveAdaptationSetForTrack(pMediaStreamContext, period))
 			{
-				pMediaStreamContext->adaptationSetIdx = 0;
+				return eAAMPSTATUS_MANIFEST_CONTENT_ERROR;
 			}
-			pMediaStreamContext->adaptationSet = period->GetAdaptationSets().at(pMediaStreamContext->adaptationSetIdx);
-			pMediaStreamContext->adaptationSetId = pMediaStreamContext->adaptationSet->GetId();
 			std::string adapFrameRate = pMediaStreamContext->adaptationSet->GetFrameRate();
 			/*Populate StreamInfo for ABR Processing*/
 			if (i == eMEDIATYPE_VIDEO)
@@ -8598,9 +8689,8 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 			}
 			else
 			{
-				AAMPLOG_WARN("Not able to find representation from manifest, sending error event");
-				aamp->SendErrorEvent(AAMP_TUNE_INIT_FAILED_MANIFEST_CONTENT_ERROR);
-				return eAAMPSTATUS_MANIFEST_CONTENT_ERROR;
+				AAMPLOG_WARN("[WARN] representationIndex[%d] is out of range (size[%zu]), sending error event", pMediaStreamContext->representationIndex, pMediaStreamContext->adaptationSet->GetRepresentation().size());
+				return ReportManifestContentError();
 			}
 
 			// Only process content protection when there is a period change.
