@@ -121,7 +121,7 @@ function install_build_middleware_interface_fn()
             mw_src="${LOCAL_DEPS_BUILD_DIR}/middleware-player-interface"
         else
             echo "Cloning middleware-player-interface from GitHub (develop branch)..."
-            if ! do_clone_fn -b support/0.2.0-8.6_VIPA https://github.com/rdkcentral/middleware-player-interface.git; then
+            if ! do_clone_fn -b develop https://github.com/rdkcentral/middleware-player-interface.git; then
                 echo "Error: Failed to clone middleware-player-interface repository"
                 return 1
             fi
