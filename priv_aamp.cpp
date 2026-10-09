@@ -8457,22 +8457,23 @@ long long PrivateInstanceAAMP::GetPositionRelativeToSeekMilliseconds(long long r
 		{
 			auto gstPosition = sink->GetPositionMilliseconds();
 
+			/* Prevent spurious values being returned by this function during seek.
+			* PrivateInstanceAAMP::GetPositionMilliseconds() is called elsewhere e.g. setting seek_pos_seconds
+			* note for this to work correctly mState and seek_pos_seconds must updated atomically otherwise
+			* spuriously low (mState = eSTATE_SEEKING before seek_pos_seconds updated) or
+			* spuriously high (seek_pos_seconds updated before mState = eSTATE_SEEKING) values could result.
+			*/
 			if(mState == eSTATE_SEEKING)
 			{
-				if(gstPosition.has_value() && gstPosition.value() != 0)
+				if(gstPosition!=0)
 				{
-					AAMPLOG_WARN("Ignoring gst position of %lld ms and using seek_pos_seconds only until seek completes.", gstPosition.value());
+					AAMPLOG_WARN("Ignoring gst position of %lld ms and using seek_pos_seconds only until seek completes.", gstPosition);
 				}
-				position = 0;
-			}
-			else if (!gstPosition.has_value())
-			{
-				// Sink position unavailable (e.g. prerolling/flush/EOS) - hold the seek base.
 				position = 0;
 			}
 			else
 			{
-				position = gstPosition.value();
+				position = gstPosition;
 			}
 		}
 	}

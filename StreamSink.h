@@ -22,7 +22,6 @@
 
 #include <vector>
 #include <cstdint>
-#include <optional>
 #include "StreamOutputFormat.h"
 #include "AampMediaType.h"
 #include "AampDemuxDataTypes.h" // for AampMediaSample
@@ -186,10 +185,9 @@ public:
     /**
      *   @brief Get playback position in milliseconds
      *
-     *   @return Position in ms, or std::nullopt if a valid position is not
-     *           currently available (e.g. pipeline prerolling/flush/EOS).
+     *   @return Position in ms.
      */
-    virtual std::optional<long long> GetPositionMilliseconds(void){ return std::nullopt; };
+    virtual long long GetPositionMilliseconds(void){ return 0; };
 
     /**
      *   @brief Get Video 90 KHz Video PTS

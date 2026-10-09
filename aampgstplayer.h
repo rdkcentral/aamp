@@ -30,7 +30,6 @@
 
 #include <stddef.h>
 #include <functional>
-#include <optional>
 #include <gst/gst.h>
 #include "InterfacePlayerRDK.h"
 
@@ -141,8 +140,7 @@ public:
 	 * @param[in] mediaType stream type
 	 * @param[in] sample media sample
 	 */
-	bool SendSample(AampMediaType mediaType, AampMediaSample&& sample, bool morePending = false) override;
-
+	bool SendSample(AampMediaType mediaType, AampMediaSample&& sample, bool morePending = false) override;
 
 	/**
 		 * @fn PipelineConfiguredForMedia
@@ -180,9 +178,9 @@ public:
 	bool Pause(bool pause, bool forceStopPreBuffering) override;
 	/**
 		 * @fn GetPositionMilliseconds
-		 * @retval playback position in MS, or std::nullopt if unavailable
+		 * @retval playback position in MS
 		 */
-	std::optional<long long> GetPositionMilliseconds(void) override;
+	long long GetPositionMilliseconds(void) override;
 	/**
 		 * @fn GetDurationMilliseconds
 		 * @retval playback duration in MS

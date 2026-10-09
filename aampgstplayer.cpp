@@ -1035,19 +1035,10 @@ long AAMPGstPlayer::GetDurationMilliseconds(void)
 /**
  *  @brief Get playback position in MS
  */
-std::optional<long long> AAMPGstPlayer::GetPositionMilliseconds(void)
+long long AAMPGstPlayer::GetPositionMilliseconds(void)
 {
-	if (!playerInstance)
-	{
-		return std::nullopt;
-	}
-	const long long rc = playerInstance->GetPositionMilliseconds();
-	if (rc < 0)
-	{
-		// A negative sink position is never valid (e.g. pipeline prerolling/flush/EOS);
-		// report unavailable so callers hold a trusted position instead of a spurious one.
-		return std::nullopt;
-	}
+	long long rc ;
+	rc = playerInstance->GetPositionMilliseconds();
 	return rc;
 }
 
