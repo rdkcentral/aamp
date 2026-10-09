@@ -5484,6 +5484,7 @@ void PrivateInstanceAAMP::GetOnVideoEndSessionStatData(std::string &data)
 	return ;
 }
 
+static void ResetOnlyModeState(PrivateInstanceAAMP &aamp);
 
 /**
  * @brief Terminate the stream
