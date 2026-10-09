@@ -786,6 +786,16 @@ protected:
 		{
 			mMediaStreamContext[trackIdx]->profileChanged = value;
 		}
+
+		MediaStreamContext* GetMediaStreamContextForTest(int trackIdx)
+		{
+			return mMediaStreamContext[trackIdx];
+		}
+
+		AAMPStatusType CallResolveAdaptationSetForTrack(MediaStreamContext *pMediaStreamContext, IPeriod *period)
+		{
+			return ResolveAdaptationSetForTrack(pMediaStreamContext, period);
+		}
 	};
 
 	PrivateInstanceAAMP *mPrivateInstanceAAMP;
@@ -2605,6 +2615,170 @@ TEST_F(StreamAbstractionAAMP_MPDTest, UpdateTrackInfoTest_3)
 	bool modifyDefaultBW = false;
 	bool resetTimeLineIndex = true;
 	AAMPStatusType result = mStreamAbstractionAAMP_MPD->CallUpdateTrackInfo(modifyDefaultBW, resetTimeLineIndex); (void)result;
+}
+
+/**
+ * @brief Manifest with three AdaptationSets carrying distinct ids (1,2,3)
+ * at indices 0,1,2 respectively. Used by the ResolveAdaptationSetForTrack tests.
+ */
+static const char *kResolveAdaptationManifest =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="static" minBufferTime="PT2S" mediaPresentationDuration="PT1M0S" profiles="urn:mpeg:dash:profile:isoff-live:2011">
+	<Period id="p0" duration="PT1M0S">
+		<AdaptationSet id="1" contentType="video" mimeType="video/mp4">
+			<Representation id="v1" bandwidth="1000000" codecs="avc1.640028" width="640" height="360"/>
+		</AdaptationSet>
+		<AdaptationSet id="2" contentType="audio" mimeType="audio/mp4">
+			<Representation id="a1" bandwidth="128000" codecs="mp4a.40.2"/>
+		</AdaptationSet>
+		<AdaptationSet id="3" contentType="text" mimeType="application/mp4">
+			<Representation id="t1" bandwidth="2000"/>
+		</AdaptationSet>
+	</Period>
+</MPD>
+)";
+
+/**
+ * @brief ResolveAdaptationSetForTrack: in-range index whose id still matches the
+ * stored adaptationSetId is left untouched (no relocation).
+ */
+TEST_F(StreamAbstractionAAMP_MPDTest, ResolveAdaptationSetForTrack_IdMatches_NoRelocation)
+{
+	mManifest = kResolveAdaptationManifest;
+	ManifestDownloadResponsePtr response = GetManifestForMPDDownloader();
+	ASSERT_NE(response, nullptr);
+	ASSERT_NE(response->mMPDInstance.get(), nullptr);
+	ASSERT_GE(response->mMPDInstance->GetPeriods().size(), 1u);
+	IPeriod *period = response->mMPDInstance->GetPeriods().at(0);
+	ASSERT_EQ(period->GetAdaptationSets().size(), 3u);
+
+	mStreamAbstractionAAMP_MPD->SetupMediaStreamContexts(1);
+	MediaStreamContext *ctx = mStreamAbstractionAAMP_MPD->GetMediaStreamContextForTest(eMEDIATYPE_VIDEO);
+	ASSERT_NE(ctx, nullptr);
+
+	// Index 1 holds id 2; stored id also 2 -> no change expected.
+	ctx->adaptationSetIdx = 1;
+	ctx->adaptationSetId = 2;
+
+	AAMPStatusType status = mStreamAbstractionAAMP_MPD->CallResolveAdaptationSetForTrack(ctx, period);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+	EXPECT_EQ(ctx->adaptationSetIdx, 1);
+	ASSERT_NE(ctx->adaptationSet, nullptr);
+	EXPECT_EQ(ctx->adaptationSet->GetId(), 2u);
+}
+
+/**
+ * @brief ResolveAdaptationSetForTrack: when the AdaptationSet order changed so the
+ * retained index now points to a different id, the index is relocated to the one
+ * whose id matches the stored adaptationSetId.
+ */
+TEST_F(StreamAbstractionAAMP_MPDTest, ResolveAdaptationSetForTrack_ReorderedId_Relocates)
+{
+	mManifest = kResolveAdaptationManifest;
+	ManifestDownloadResponsePtr response = GetManifestForMPDDownloader();
+	ASSERT_NE(response, nullptr);
+	ASSERT_NE(response->mMPDInstance.get(), nullptr);
+	IPeriod *period = response->mMPDInstance->GetPeriods().at(0);
+	ASSERT_EQ(period->GetAdaptationSets().size(), 3u);
+
+	mStreamAbstractionAAMP_MPD->SetupMediaStreamContexts(1);
+	MediaStreamContext *ctx = mStreamAbstractionAAMP_MPD->GetMediaStreamContextForTest(eMEDIATYPE_VIDEO);
+	ASSERT_NE(ctx, nullptr);
+
+	// Index 0 holds id 1, but the previously selected id was 2 (now at index 1).
+	ctx->adaptationSetIdx = 0;
+	ctx->adaptationSetId = 2;
+
+	AAMPStatusType status = mStreamAbstractionAAMP_MPD->CallResolveAdaptationSetForTrack(ctx, period);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+	EXPECT_EQ(ctx->adaptationSetIdx, 1);
+	ASSERT_NE(ctx->adaptationSet, nullptr);
+	EXPECT_EQ(ctx->adaptationSet->GetId(), 2u);
+}
+
+/**
+ * @brief ResolveAdaptationSetForTrack: a retained index that is out of range for the
+ * current period is relocated to the AdaptationSet whose id matches, without throwing.
+ */
+TEST_F(StreamAbstractionAAMP_MPDTest, ResolveAdaptationSetForTrack_IndexOutOfRange_RelocatesById)
+{
+	mManifest = kResolveAdaptationManifest;
+	ManifestDownloadResponsePtr response = GetManifestForMPDDownloader();
+	ASSERT_NE(response, nullptr);
+	ASSERT_NE(response->mMPDInstance.get(), nullptr);
+	IPeriod *period = response->mMPDInstance->GetPeriods().at(0);
+	ASSERT_EQ(period->GetAdaptationSets().size(), 3u);
+
+	mStreamAbstractionAAMP_MPD->SetupMediaStreamContexts(1);
+	MediaStreamContext *ctx = mStreamAbstractionAAMP_MPD->GetMediaStreamContextForTest(eMEDIATYPE_VIDEO);
+	ASSERT_NE(ctx, nullptr);
+
+	// Stale index beyond the AdaptationSet count; stored id 3 lives at index 2.
+	ctx->adaptationSetIdx = 10;
+	ctx->adaptationSetId = 3;
+
+	AAMPStatusType status = mStreamAbstractionAAMP_MPD->CallResolveAdaptationSetForTrack(ctx, period);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+	EXPECT_EQ(ctx->adaptationSetIdx, 2);
+	ASSERT_NE(ctx->adaptationSet, nullptr);
+	EXPECT_EQ(ctx->adaptationSet->GetId(), 3u);
+}
+
+/**
+ * @brief ResolveAdaptationSetForTrack: when the stored id is not present in the period,
+ * the selection is reported as a manifest content error.
+ */
+TEST_F(StreamAbstractionAAMP_MPDTest, ResolveAdaptationSetForTrack_IdNotFound_ReturnsError)
+{
+	mManifest = kResolveAdaptationManifest;
+	ManifestDownloadResponsePtr response = GetManifestForMPDDownloader();
+	ASSERT_NE(response, nullptr);
+	ASSERT_NE(response->mMPDInstance.get(), nullptr);
+	IPeriod *period = response->mMPDInstance->GetPeriods().at(0);
+	ASSERT_EQ(period->GetAdaptationSets().size(), 3u);
+
+	mStreamAbstractionAAMP_MPD->SetupMediaStreamContexts(1);
+	MediaStreamContext *ctx = mStreamAbstractionAAMP_MPD->GetMediaStreamContextForTest(eMEDIATYPE_VIDEO);
+	ASSERT_NE(ctx, nullptr);
+
+	// In-range index (id 1) but the stored id 99 does not exist anywhere.
+	ctx->adaptationSetIdx = 0;
+	ctx->adaptationSetId = 99;
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+		SendErrorEvent(AAMP_TUNE_INIT_FAILED_MANIFEST_CONTENT_ERROR, _, _, _, _, _, _))
+		.Times(1);
+
+	AAMPStatusType status = mStreamAbstractionAAMP_MPD->CallResolveAdaptationSetForTrack(ctx, period);
+	EXPECT_EQ(status, eAAMPSTATUS_MANIFEST_CONTENT_ERROR);
+}
+
+/**
+ * @brief ResolveAdaptationSetForTrack: an out-of-range index whose stored id is also
+ * missing reports a content error without dereferencing the stale index.
+ */
+TEST_F(StreamAbstractionAAMP_MPDTest, ResolveAdaptationSetForTrack_OutOfRangeIdNotFound_ReturnsError)
+{
+	mManifest = kResolveAdaptationManifest;
+	ManifestDownloadResponsePtr response = GetManifestForMPDDownloader();
+	ASSERT_NE(response, nullptr);
+	ASSERT_NE(response->mMPDInstance.get(), nullptr);
+	IPeriod *period = response->mMPDInstance->GetPeriods().at(0);
+	ASSERT_EQ(period->GetAdaptationSets().size(), 3u);
+
+	mStreamAbstractionAAMP_MPD->SetupMediaStreamContexts(1);
+	MediaStreamContext *ctx = mStreamAbstractionAAMP_MPD->GetMediaStreamContextForTest(eMEDIATYPE_VIDEO);
+	ASSERT_NE(ctx, nullptr);
+
+	ctx->adaptationSetIdx = 10;
+	ctx->adaptationSetId = 99;
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+		SendErrorEvent(AAMP_TUNE_INIT_FAILED_MANIFEST_CONTENT_ERROR, _, _, _, _, _, _))
+		.Times(1);
+
+	AAMPStatusType status = mStreamAbstractionAAMP_MPD->CallResolveAdaptationSetForTrack(ctx, period);
+	EXPECT_EQ(status, eAAMPSTATUS_MANIFEST_CONTENT_ERROR);
 }
 
 TEST_F(StreamAbstractionAAMP_MPDTest, SeekInPeriodTest)

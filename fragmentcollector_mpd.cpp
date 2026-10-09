@@ -7882,6 +7882,43 @@ static bool IsVideoCodecAVC(const std::string &codec)
 }
 
 /**
+ * @brief Resolve the track's AdaptationSet in the given period, tolerant of AdaptationSet reordering
+ */
+AAMPStatusType StreamAbstractionAAMP_MPD::ResolveAdaptationSetForTrack(MediaStreamContext *pMediaStreamContext, IPeriod *period)
+{
+	// AdaptationSet order/count can change across periods. If the retained index no
+	// longer points to the previously selected AdaptationSet (matched by id), locate
+	// the matching id and use that index. The range test only guards the id access
+	// below; if the id cannot be found, the selection is no longer valid.
+	const auto &curAdaptationSets = period->GetAdaptationSets();
+	if (pMediaStreamContext->adaptationSetIdx >= curAdaptationSets.size() ||
+		curAdaptationSets.at(pMediaStreamContext->adaptationSetIdx)->GetId() != pMediaStreamContext->adaptationSetId)
+	{
+		bool relocated = false;
+		for (uint32_t adaptIdx = 0; adaptIdx < curAdaptationSets.size(); adaptIdx++)
+		{
+			if (curAdaptationSets.at(adaptIdx)->GetId() == pMediaStreamContext->adaptationSetId)
+			{
+				AAMPLOG_WARN("AdaptationSet order changed; relocating adaptationSetIdx %d -> %u for id %u",
+					pMediaStreamContext->adaptationSetIdx, adaptIdx, pMediaStreamContext->adaptationSetId);
+				pMediaStreamContext->adaptationSetIdx = adaptIdx;
+				relocated = true;
+				break;
+			}
+		}
+		if (!relocated)
+		{
+			AAMPLOG_WARN("Not able to find representation from manifest, sending error event");
+			aamp->SendErrorEvent(AAMP_TUNE_INIT_FAILED_MANIFEST_CONTENT_ERROR);
+			return eAAMPSTATUS_MANIFEST_CONTENT_ERROR;
+		}
+	}
+	pMediaStreamContext->adaptationSet = period->GetAdaptationSets().at(pMediaStreamContext->adaptationSetIdx);
+	pMediaStreamContext->adaptationSetId = pMediaStreamContext->adaptationSet->GetId();
+	return eAAMPSTATUS_OK;
+}
+
+/**
  * @brief Updates track information based on current state
  */
 AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, bool resetTimeLineIndex, bool isInit)
@@ -7930,12 +7967,12 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 				pMediaStreamContext->representation = NULL;
 				continue;
 			}
-			if (pMediaStreamContext->adaptationSetIdx >= numAdaptationSets )
+			// AdaptationSet order/count can change across periods. Resolve the track's
+			// AdaptationSet by its selected id, tolerant of reordering.
+			if (eAAMPSTATUS_OK != ResolveAdaptationSetForTrack(pMediaStreamContext, period))
 			{
-				pMediaStreamContext->adaptationSetIdx = 0;
+				return eAAMPSTATUS_MANIFEST_CONTENT_ERROR;
 			}
-			pMediaStreamContext->adaptationSet = period->GetAdaptationSets().at(pMediaStreamContext->adaptationSetIdx);
-			pMediaStreamContext->adaptationSetId = pMediaStreamContext->adaptationSet->GetId();
 			std::string adapFrameRate = pMediaStreamContext->adaptationSet->GetFrameRate();
 			/*Populate StreamInfo for ABR Processing*/
 			if (i == eMEDIATYPE_VIDEO)
