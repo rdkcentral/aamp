@@ -2663,6 +2663,7 @@ TEST_F(StreamAbstractionAAMP_MPDTest, ResolveAdaptationSetForTrack_IdMatches_NoR
 	// Index 1 holds id 2; stored id also 2 -> no change expected.
 	ctx->adaptationSetIdx = 1;
 	ctx->adaptationSetId = 2;
+	ctx->adaptationSetIdValid = true; // models an already-resolved selection
 
 	AAMPStatusType status = mStreamAbstractionAAMP_MPD->CallResolveAdaptationSetForTrack(ctx, period);
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
@@ -2692,6 +2693,7 @@ TEST_F(StreamAbstractionAAMP_MPDTest, ResolveAdaptationSetForTrack_ReorderedId_R
 	// Index 0 holds id 1, but the previously selected id was 2 (now at index 1).
 	ctx->adaptationSetIdx = 0;
 	ctx->adaptationSetId = 2;
+	ctx->adaptationSetIdValid = true; // models an already-resolved selection
 
 	AAMPStatusType status = mStreamAbstractionAAMP_MPD->CallResolveAdaptationSetForTrack(ctx, period);
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
@@ -2720,6 +2722,7 @@ TEST_F(StreamAbstractionAAMP_MPDTest, ResolveAdaptationSetForTrack_IndexOutOfRan
 	// Stale index beyond the AdaptationSet count; stored id 3 lives at index 2.
 	ctx->adaptationSetIdx = 10;
 	ctx->adaptationSetId = 3;
+	ctx->adaptationSetIdValid = true; // models an already-resolved selection
 
 	AAMPStatusType status = mStreamAbstractionAAMP_MPD->CallResolveAdaptationSetForTrack(ctx, period);
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
@@ -2748,6 +2751,7 @@ TEST_F(StreamAbstractionAAMP_MPDTest, ResolveAdaptationSetForTrack_IdNotFound_Re
 	// In-range index (id 1) but the stored id 99 does not exist anywhere.
 	ctx->adaptationSetIdx = 0;
 	ctx->adaptationSetId = 99;
+	ctx->adaptationSetIdValid = true; // models an already-resolved selection
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP,
 		SendErrorEvent(AAMP_TUNE_INIT_FAILED_MANIFEST_CONTENT_ERROR, _, _, _, _, _, _))
@@ -2776,6 +2780,7 @@ TEST_F(StreamAbstractionAAMP_MPDTest, ResolveAdaptationSetForTrack_OutOfRangeIdN
 
 	ctx->adaptationSetIdx = 10;
 	ctx->adaptationSetId = 99;
+	ctx->adaptationSetIdValid = true; // models an already-resolved selection
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP,
 		SendErrorEvent(AAMP_TUNE_INIT_FAILED_MANIFEST_CONTENT_ERROR, _, _, _, _, _, _))
