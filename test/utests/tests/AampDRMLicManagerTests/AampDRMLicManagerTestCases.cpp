@@ -123,7 +123,8 @@ public:
 		mUsableKeys.clear();
 	}
 
-	const std::vector<std::vector<uint8_t>> &getUsableKeys() const override
+	
+    std::vector<std::vector<uint8_t>> getUsableKeys() const override
 	{
 		return mUsableKeys;
 	}
