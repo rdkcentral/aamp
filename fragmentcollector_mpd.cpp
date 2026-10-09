@@ -7180,6 +7180,8 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateMediaTrackInfo(AampMediaType typ
 	}
 	else
 	{
+
+		AAMPLOG_WARN("[WARN] representationIndex[%d] is out of range (size[%d]), sending error event", pMediaStreamContext->representationIndex, pMediaStreamContext->adaptationSet->GetRepresentation().size());
 		return ReportManifestContentError();
 	}
 
