@@ -6947,9 +6947,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateMediaTrackInfo(AampMediaType typ
 	}
 	else
 	{
-		AAMPLOG_WARN("Not able to find representation from manifest, sending error event");
-		aamp->SendErrorEvent(AAMP_TUNE_INIT_FAILED_MANIFEST_CONTENT_ERROR);
-		return eAAMPSTATUS_MANIFEST_CONTENT_ERROR;
+		return ReportManifestContentError();
 	}
 
 	pMediaStreamContext->fragmentDescriptor.ClearMatchingBaseUrl();
@@ -7717,17 +7715,29 @@ static bool IsVideoCodecAVC(const std::string &codec)
 }
 
 /**
+ * @brief Send the manifest content error event and return its status.
+ */
+AAMPStatusType StreamAbstractionAAMP_MPD::ReportManifestContentError()
+{
+	aamp->SendErrorEvent(AAMP_TUNE_INIT_FAILED_MANIFEST_CONTENT_ERROR);
+	return eAAMPSTATUS_MANIFEST_CONTENT_ERROR;
+}
+
+/**
  * @brief Resolve the track's AdaptationSet in the given period, tolerant of AdaptationSet reordering
  */
 AAMPStatusType StreamAbstractionAAMP_MPD::ResolveAdaptationSetForTrack(MediaStreamContext *pMediaStreamContext, IPeriod *period)
 {
-	// AdaptationSet order/count can change across periods. If the retained index no
-	// longer points to the previously selected AdaptationSet (matched by id), locate
-	// the matching id and use that index. The range test only guards the id access
-	// below; if the id cannot be found, the selection is no longer valid.
+	// AdaptationSet order/count can change across manifest refresh. Once a selection has been
+	// resolved (adaptationSetIdValid), detect reordering by id: if the retained index no
+	// longer points to the previously selected AdaptationSet, locate the matching id and
+	// use that index; if the id cannot be found, the selection is no longer valid.
+	// On the first resolve the id is not yet established, so trust the index chosen by
+	// StreamSelection and skip the reorder/error check.
 	const auto &curAdaptationSets = period->GetAdaptationSets();
-	if (pMediaStreamContext->adaptationSetIdx >= curAdaptationSets.size() ||
-		curAdaptationSets.at(pMediaStreamContext->adaptationSetIdx)->GetId() != pMediaStreamContext->adaptationSetId)
+	if (pMediaStreamContext->adaptationSetIdValid &&
+		(pMediaStreamContext->adaptationSetIdx >= curAdaptationSets.size() ||
+		 curAdaptationSets.at(pMediaStreamContext->adaptationSetIdx)->GetId() != pMediaStreamContext->adaptationSetId))
 	{
 		bool relocated = false;
 		for (uint32_t adaptIdx = 0; adaptIdx < curAdaptationSets.size(); adaptIdx++)
@@ -7743,13 +7753,19 @@ AAMPStatusType StreamAbstractionAAMP_MPD::ResolveAdaptationSetForTrack(MediaStre
 		}
 		if (!relocated)
 		{
-			AAMPLOG_WARN("Not able to find representation from manifest, sending error event");
-			aamp->SendErrorEvent(AAMP_TUNE_INIT_FAILED_MANIFEST_CONTENT_ERROR);
-			return eAAMPSTATUS_MANIFEST_CONTENT_ERROR;
+				AAMPLOG_WARN("Not able to find adaptationset id [] indx[] from manifest, sending error event");
+			return ReportManifestContentError();
 		}
+	}
+	if (!pMediaStreamContext->adaptationSetIdValid &&
+		pMediaStreamContext->adaptationSetIdx >= curAdaptationSets.size())
+	{
+		AAMPLOG_WARN("AdaptationSet index out of range, sending error event");
+		return ReportManifestContentError();
 	}
 	pMediaStreamContext->adaptationSet = period->GetAdaptationSets().at(pMediaStreamContext->adaptationSetIdx);
 	pMediaStreamContext->adaptationSetId = pMediaStreamContext->adaptationSet->GetId();
+	pMediaStreamContext->adaptationSetIdValid = true;
 	return eAAMPSTATUS_OK;
 }
 
@@ -8321,9 +8337,8 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 			}
 			else
 			{
-				AAMPLOG_WARN("Not able to find representation from manifest, sending error event");
-				aamp->SendErrorEvent(AAMP_TUNE_INIT_FAILED_MANIFEST_CONTENT_ERROR);
-				return eAAMPSTATUS_MANIFEST_CONTENT_ERROR;
+				AAMPLOG_WARN("[WARN] representationIndex[%d] is out of range (size[%d]), sending error event", pMediaStreamContext->representationIndex, pMediaStreamContext->adaptationSet->GetRepresentation().size());
+				return ReportManifestContentError();
 			}
 
 			// Only process content protection when there is a period change.

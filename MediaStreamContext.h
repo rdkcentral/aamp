@@ -48,7 +48,7 @@ public:
             fragmentIndex(0), timeLineIndex(0), fragmentRepeatCount(0), fragmentOffset(0),
             eos(false), fragmentTime(0), periodStartOffset(0), timeStampOffset(0), IDX("fragment-IDX"),
 	        lastSegmentTime(0), lastSegmentNumber(0), lastSegmentDuration(0), adaptationSetIdx(0), representationIndex(0), profileChanged(true),
-            adaptationSetId(0), fragmentDescriptor(), context(ctx), initialization(""),
+            adaptationSetId(0), adaptationSetIdValid(false), fragmentDescriptor(), context(ctx), initialization(""),
             mDownloadedFragment("downloaded-fragment"), discontinuity(false), mSkipSegmentOnError(true),
             lastDownloadedPosition(0)//,mCMCDNetworkMetrics{-1,-1,-1}
 		   , scaledPTO(0)
@@ -271,6 +271,7 @@ public:
     StreamAbstractionAAMP_MPD* context;
     std::string initialization;
     uint32_t adaptationSetId;
+    bool adaptationSetIdValid;
     bool mSkipSegmentOnError;
     double scaledPTO;
     bool failAdjacentSegment;

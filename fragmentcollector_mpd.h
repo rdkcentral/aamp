@@ -584,10 +584,13 @@ protected:
 	 * @return true if the text track was added, false otherwise
 	 */
 	bool AddIfUnique(std::vector<TextTrackInfo> &tTracks, TextTrackInfo& value);
+	/**
+	 * @brief Send a manifest content error event and return its status.
+	 */
+	AAMPStatusType ReportManifestContentError();
 
 	/**
 	 * @fn StartFromAampLocalTsb
-	 *
 	 * @brief Start streaming from AAMP Local TSB
 	 */
 	void StartFromAampLocalTsb();
