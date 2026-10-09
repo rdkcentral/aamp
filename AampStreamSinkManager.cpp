@@ -817,7 +817,7 @@ bool AampStreamSinkManager::IsPlayerRegistered(const PrivateInstanceAAMP *aamp)
 	 * an opaque identity - this is a pure membership test, the pointer is never
 	 * dereferenced and the map keys are never modified through it. */
 	PrivateInstanceAAMP *player = const_cast<PrivateInstanceAAMP*>(aamp);
-	return (mActivePlayersMap.count(player) != 0) ||
-		   (mInactivePlayersMap.count(player) != 0) ||
+	return (mActiveGstPlayersMap.count(player) != 0) ||
+		   (mInactiveGstPlayersMap.count(player) != 0) ||
 		   (mClientStreamSinkMap.count(player) != 0);
 }
