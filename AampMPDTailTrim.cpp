@@ -64,6 +64,7 @@ struct PeriodTimeline
 	const ISegmentTimeline *timeline;
 	uint32_t timeScale;
 	uint64_t presentationTimeOffset;
+	TrackIdentity identity;
 };
 
 /**
@@ -82,7 +83,6 @@ struct SegmentSpan
  */
 struct TailDropRule
 {
-	std::string periodId;
 	double periodDurationSec;
 	double startToleranceSec;
 	double minOverhangSec;
@@ -163,7 +163,7 @@ uint32_t SegmentsToKeep(const TimelineEntry &entry, const PeriodTimeline &track,
 DroppedSegment MakeDroppedSegment(const PeriodTimeline &track, const TailDropRule &rule, const TimelineEntry &entry, uint32_t segmentIndex)
 {
 	const SegmentSpan span = SpanOf(track, entry, segmentIndex);
-	return {rule.periodId, span.startTicks, entry.durationTicks, track.timeScale, track.presentationTimeOffset, span.startSec, span.endSec, rule.periodDurationSec};
+	return {track.identity, span.startTicks, entry.durationTicks, track.timeScale, track.presentationTimeOffset, span.startSec, span.endSec, rule.periodDurationSec};
 }
 
 /**
@@ -226,7 +226,10 @@ std::vector<PeriodTimeline> CollectPeriodTimelines(IPeriod *period)
 			const uint32_t timeScale = segmentTemplates.GetTimescale();
 			if (segmentTimeline && timeScale != 0 && visited.insert(segmentTimeline).second)
 			{
-				result.push_back({segmentTimeline, timeScale, segmentTemplates.GetPresentationTimeOffset()});
+				const bool ownedByRepresentation = representationTemplate && representationTemplate->GetSegmentTimeline() == segmentTimeline;
+				const TrackIdentity identity{period->GetId(), adaptationSet->GetId(), adaptationSet->GetContentType(),
+											 ownedByRepresentation ? representations[i]->GetId() : std::string()};
+				result.push_back({segmentTimeline, timeScale, segmentTemplates.GetPresentationTimeOffset(), identity});
 			}
 		}
 	}
@@ -250,7 +253,7 @@ std::vector<DroppedSegment> TrimPeriodTailSegments(dash::mpd::IMPD *mpd, double 
 			continue;
 		}
 
-		const TailDropRule rule{period->GetId(), *periodDurationSec, startToleranceSec, minOverhangSec};
+		const TailDropRule rule{*periodDurationSec, startToleranceSec, minOverhangSec};
 		for (const PeriodTimeline &track : CollectPeriodTimelines(period))
 		{
 			TrimTimelineTail(track, rule, dropped);
@@ -261,8 +264,9 @@ std::vector<DroppedSegment> TrimPeriodTailSegments(dash::mpd::IMPD *mpd, double 
 
 void LogDroppedSegment(const DroppedSegment &segment)
 {
-	AAMPLOG_WARN("Period[%s] dropped tail segment t=%" PRIu64 " d=%" PRIu32 " (timescale %" PRIu32 ", pto %" PRIu64 "): starts %.3fs, ends %.3fs, Period end %.3fs",
-				 segment.periodId.c_str(), segment.startTicks, segment.durationTicks, segment.timeScale, segment.presentationTimeOffset,
+	AAMPLOG_WARN("Period[%s] AdaptationSet[%" PRIu32 "] %s Representation[%s] dropped tail segment t=%" PRIu64 " d=%" PRIu32 " (timescale %" PRIu32 ", pto %" PRIu64 "): starts %.3fs, ends %.3fs, Period end %.3fs",
+				 segment.track.periodId.c_str(), segment.track.adaptationSetId, segment.track.contentType.c_str(), segment.track.representationId.c_str(),
+				 segment.startTicks, segment.durationTicks, segment.timeScale, segment.presentationTimeOffset,
 				 segment.startSec, segment.endSec, segment.periodEndSec);
 }
 
@@ -270,7 +274,7 @@ std::vector<DroppedSegment> TailDropTracker::Update(const std::vector<DroppedSeg
 {
 	const auto keyOf = [](const DroppedSegment &segment)
 	{
-		return Key{segment.periodId, segment.startTicks, segment.durationTicks, segment.timeScale};
+		return Key{segment.track, segment.startTicks, segment.durationTicks, segment.timeScale};
 	};
 
 	std::set<Key> current;

@@ -207,7 +207,10 @@ TEST(AampMPDTailTrimTests, TrimPeriodTail_RepresentationLevelTimelines_EachTrimm
 	ASSERT_EQ(representations.size(), 2u);
 	EXPECT_EQ(representations.at(0)->GetSegmentTemplate()->GetSegmentTimeline()->GetTimelines().size(), 2u);
 
-	EXPECT_EQ(TrimTail(mpd).size(), 2u);
+	const std::vector<DroppedSegment> dropped = TrimTail(mpd);
+	ASSERT_EQ(dropped.size(), 2u);
+	EXPECT_EQ(dropped[0].track.representationId, "1");
+	EXPECT_EQ(dropped[1].track.representationId, "2");
 
 	for (const auto *representation : representations)
 	{
@@ -242,7 +245,9 @@ TEST(AampMPDTailTrimTests, TrimPeriodTail_OverrunningSegment_ReturnsItsDetails)
 	const std::vector<DroppedSegment> dropped = TrimTail(mpd);
 
 	ASSERT_EQ(dropped.size(), 1u);
-	EXPECT_EQ(dropped[0].periodId, "p0");
+	EXPECT_EQ(dropped[0].track.periodId, "p0");
+	EXPECT_EQ(dropped[0].track.contentType, "audio");
+	EXPECT_TRUE(dropped[0].track.representationId.empty());
 	EXPECT_EQ(dropped[0].startTicks, 9800u);
 	EXPECT_EQ(dropped[0].durationTicks, 3200u);
 	EXPECT_EQ(dropped[0].timeScale, 1000u);
@@ -251,9 +256,9 @@ TEST(AampMPDTailTrimTests, TrimPeriodTail_OverrunningSegment_ReturnsItsDetails)
 	EXPECT_DOUBLE_EQ(dropped[0].periodEndSec, 10.0);
 }
 
-static DroppedSegment MakeDropped(const char *periodId, uint64_t startTicks)
+static DroppedSegment MakeDropped(const char *periodId, uint64_t startTicks, const char *representationId = "")
 {
-	return DroppedSegment{periodId, startTicks, 3200, 1000, 0, startTicks / 1000.0, startTicks / 1000.0 + 3.2, 10.0};
+	return DroppedSegment{{periodId, 1, "audio", representationId}, startTicks, 3200, 1000, 0, startTicks / 1000.0, startTicks / 1000.0 + 3.2, 10.0};
 }
 
 /**
@@ -278,7 +283,18 @@ TEST(TailDropTrackerTests, Update_NewDropAmongKnown_ReportsOnlyNew)
 	const std::vector<DroppedSegment> reported = tracker.Update({MakeDropped("p0", 9800), MakeDropped("p1", 9800)});
 
 	ASSERT_EQ(reported.size(), 1u);
-	EXPECT_EQ(reported[0].periodId, "p1");
+	EXPECT_EQ(reported[0].track.periodId, "p1");
+}
+
+/**
+ * @brief Identical ticks on different Representations are separate drops: each is reported once.
+ */
+TEST(TailDropTrackerTests, Update_SameTicksDifferentRepresentations_EachReportedOnce)
+{
+	TailDropTracker tracker;
+	EXPECT_EQ(tracker.Update({MakeDropped("p0", 9800, "v1"), MakeDropped("p0", 9800, "v2")}).size(), 2u);
+	EXPECT_TRUE(tracker.Update({MakeDropped("p0", 9800, "v1"), MakeDropped("p0", 9800, "v2")}).empty());
+	EXPECT_EQ(tracker.Update({MakeDropped("p0", 9800, "v1"), MakeDropped("p0", 9800, "v2"), MakeDropped("p0", 9800, "v3")}).size(), 1u);
 }
 
 /**

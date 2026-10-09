@@ -38,12 +38,30 @@ class IMPD;
 }
 
 /**
+ * @struct TrackIdentity
+ * @brief Which SegmentTimeline a segment came from
+ */
+struct TrackIdentity
+{
+	std::string periodId;
+	uint32_t adaptationSetId;
+	std::string contentType;
+	std::string representationId;	/**< empty when the timeline is shared by the AdaptationSet's Representations */
+
+	bool operator<(const TrackIdentity &other) const
+	{
+		return std::tie(periodId, adaptationSetId, contentType, representationId) <
+			   std::tie(other.periodId, other.adaptationSetId, other.contentType, other.representationId);
+	}
+};
+
+/**
  * @struct DroppedSegment
  * @brief A timeline segment removed by TrimPeriodTailSegments
  */
 struct DroppedSegment
 {
-	std::string periodId;
+	TrackIdentity track;
 	uint64_t startTicks;
 	uint32_t durationTicks;
 	uint32_t timeScale;
@@ -86,7 +104,7 @@ public:
 	std::vector<DroppedSegment> Update(const std::vector<DroppedSegment> &dropped);
 
 private:
-	using Key = std::tuple<std::string, uint64_t, uint32_t, uint32_t>;
+	using Key = std::tuple<TrackIdentity, uint64_t, uint32_t, uint32_t>;
 
 	std::mutex mMutex;
 	std::set<Key> mPrevious{};
