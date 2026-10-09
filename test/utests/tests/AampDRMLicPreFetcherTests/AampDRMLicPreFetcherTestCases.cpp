@@ -109,7 +109,7 @@ public:
 		mUsableKeys.clear();
 	}
 
-    std::vector<std::vector<uint8_t>> getUsableKeys() const override
+	const std::vector<std::vector<uint8_t>> &getUsableKeys() const override
 	{
 		return mUsableKeys;
 	}
