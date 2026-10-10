@@ -33,7 +33,6 @@ static int PLAYERID_CNTR = 0;
 PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) :
 	profiler(),
 	licenceFromManifest(false),
-	previousAudioType(eAUDIO_UNKNOWN),
 	isPreferredDRMConfigured(false),
 	mFogTSBEnabled(false),
 	mLiveOffset(AAMP_LIVE_OFFSET),
@@ -137,7 +136,6 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) :
 	mLocalAAMPTsb(false),
 	mVideoFormat(),
 	mAudioFormat(),
-	mPreviousAudioType(),
 	mCurlShared(),
 	mIsChunkMode(false),
 	mLatencyMonitor(std::make_unique<AampLatencyMonitor>(this))
