@@ -237,11 +237,11 @@ uint64_t AampMPDParseHelper::GetFirstSegmentStartTime(IPeriod * period)
 	return 0;
 }
 
-void AampMPDParseHelper::GetStartAndDurationFromTimeline(IPeriod * period, int representationIdx, int adaptationSetIdx, AampTime &scaledStartTime, AampTime &duration)
+void AampMPDParseHelper::GetStartAndDurationFromTimeline(IPeriod * period, int representationIdx, int adaptationSetIdx, AampTime &scaledStartTime, AampTime &duration, double tailCutoffSec)
 {
 	if (g_mockAampMPDParseHelper)
 	{
-		g_mockAampMPDParseHelper->GetStartAndDurationFromTimeline(period, representationIdx, adaptationSetIdx, scaledStartTime, duration);
+		g_mockAampMPDParseHelper->GetStartAndDurationFromTimeline(period, representationIdx, adaptationSetIdx, scaledStartTime, duration, tailCutoffSec);
 	}
 }
 

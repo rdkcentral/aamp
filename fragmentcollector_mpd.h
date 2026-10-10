@@ -347,6 +347,30 @@ public:
 	 */
 	double SkipFragments( class MediaStreamContext *pMediaStreamContext, double skipTime, bool updateFirstPTS = false, bool skipToEnd = false);
 	/**
+	 * @fn ShouldTreatAsPeriodTailSliver
+	 * @brief Mirrors PushNextFragment's Period-tail tolerance check, so a seek
+	 * landing on the same negligible sliver fragment is treated as reaching
+	 * Period end instead of selecting it.
+	 * @param fragmentPositionSeconds position of the candidate fragment, in seconds from Period start
+	 * @param periodEndSeconds effective Period end, in seconds
+	 */
+	bool ShouldTreatAsPeriodTailSliver(double fragmentPositionSeconds, double periodEndSeconds);
+	/**
+	 * @fn GetPeriodDurationOvershootSec
+	 * @brief Seconds by which Period start + mPeriodDuration overshoots the real
+	 * Period end because the head was culled. Only Period@duration is left
+	 * untrimmed; start-time and segment based durations already exclude it.
+	 * @param period Period being played
+	 */
+	double GetPeriodDurationOvershootSec(IPeriod *period);
+	/**
+	 * @fn IsPeriodTailDropActive
+	 * @brief True if Period-tail segments are dropped for this Period. Shared by the
+	 * fetch decisions and the PTS offset bookkeeping so they cannot disagree.
+	 * @param period Period being played
+	 */
+	bool IsPeriodTailDropActive(IPeriod *period);
+	/**
 	 * @fn GetFirstPeriodStartTime
 	 */
 	double GetFirstPeriodStartTime(void) override;
@@ -893,11 +917,6 @@ protected:
 	 * @fn UpdateTrackInfo
 	 */
 	virtual AAMPStatusType UpdateTrackInfo(bool modifyDefaultBW, bool resetTimeLineIndex = false, bool isInit = false);
-	/**
-	 * @fn SkipToEnd
-	 * @param pMediaStreamContext Track object pointer
-	 */
-	void SkipToEnd( class MediaStreamContext *pMediaStreamContext); //Added to support rewind in multiperiod assets
 
 	/**
 	 * @fn HandleSeekEOSAndPeriodTransition
