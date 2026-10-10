@@ -8044,7 +8044,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::ReportManifestContentError()
  */
 AAMPStatusType StreamAbstractionAAMP_MPD::ResolveAdaptationSetForTrack(MediaStreamContext *pMediaStreamContext, IPeriod *period)
 {
-	// AdaptationSet order/count can change across manifest refresh. Once an explicit ID has been
+	/*// AdaptationSet order/count can change across manifest refresh. Once an explicit ID has been
 	// resolved (adaptationSetIdValid), detect reordering by id: if the retained index no
 	// longer points to the previously selected AdaptationSet, locate the matching id and
 	// use that index; if the id cannot be found, the selection is no longer valid.
@@ -8116,7 +8116,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::ResolveAdaptationSetForTrack(MediaStre
 	pMediaStreamContext->adaptationSet = curAdaptationSets.at(pMediaStreamContext->adaptationSetIdx);
 	pMediaStreamContext->adaptationSetId = pMediaStreamContext->adaptationSet->GetId();
 	pMediaStreamContext->adaptationSetIdValid = true;
-
+*/
 	return eAAMPSTATUS_OK;
 }
 
@@ -8171,10 +8171,12 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 			}
 			// AdaptationSet order/count can change across periods. Resolve the track's
 			// AdaptationSet by its selected id, tolerant of reordering.
-			if (eAAMPSTATUS_OK != ResolveAdaptationSetForTrack(pMediaStreamContext, period))
+			if (pMediaStreamContext->adaptationSetIdx >= numAdaptationSets )
 			{
-				return eAAMPSTATUS_MANIFEST_CONTENT_ERROR;
+				pMediaStreamContext->adaptationSetIdx = 0;
 			}
+			pMediaStreamContext->adaptationSet = period->GetAdaptationSets().at(pMediaStreamContext->adaptationSetIdx);
+			pMediaStreamContext->adaptationSetId = pMediaStreamContext->adaptationSet->GetId();
 			std::string adapFrameRate = pMediaStreamContext->adaptationSet->GetFrameRate();
 			/*Populate StreamInfo for ABR Processing*/
 			if (i == eMEDIATYPE_VIDEO)
