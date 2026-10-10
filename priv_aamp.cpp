@@ -4481,6 +4481,16 @@ void PrivateInstanceAAMP::SetCMCDTrackData(AampMediaType mediaType)
 	}
 }
 
+BitsPerSecond PrivateInstanceAAMP::GetVideoBitrateNonBlocking()
+{
+	std::unique_lock<std::recursive_mutex> lock(mStreamLock, std::try_to_lock);
+	if (lock.owns_lock() && mpStreamAbstractionAAMP)
+	{
+		return mpStreamAbstractionAAMP->GetVideoBitrate();
+	}
+	return 0;
+}
+
 /**
  * @brief Check if download has timed out after receiving some data based on curl code and abort reason
  */
@@ -5208,7 +5218,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 										if (buffer.size())
 										{
 											long downloadbps = ((long)(buffer.size() / downloadTimeMS) * 8000);
-											long currentProfilebps = mpStreamAbstractionAAMP->GetVideoBitrate();
+											long currentProfilebps = GetVideoBitrateNonBlocking();
 											if (currentProfilebps - downloadbps > BITRATE_ALLOWED_VARIATION_BAND)
 											{
 												loopAgain = false;
@@ -5332,10 +5342,18 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 						// example 18(0) if connection failure with PARTIAL_FILE code
 						timeoutClass = "(" + std::to_string(reqSize > 0) + ")";
 					}
+					BitsPerSecond currentVideoBitrate = context.bitrate;
+					if (currentVideoBitrate <= 0 &&
+						(mediaType == eMEDIATYPE_VIDEO ||
+						 mediaType == eMEDIATYPE_INIT_VIDEO ||
+						 mediaType == eMEDIATYPE_PLAYLIST_VIDEO))
+					{
+						currentVideoBitrate = GetVideoBitrateNonBlocking();
+					}
 
 					AAMPLOG(reqEndLogLevel, "HttpRequestEnd: %s%d,%d,%d%s,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%g,%ld,%ld,%" BITSPERSECOND_FORMAT ",%.500s%s%s",
 							appName.c_str(), mediaTypeTelemetry, mediaType, http_code, timeoutClass.c_str(), totalPerformRequest, total, connect, startTransfer, resolve, appConnect, preTransfer, redirect, dlSize, reqSize, downloadbps,
-					((mediaType == eMEDIATYPE_VIDEO || mediaType == eMEDIATYPE_INIT_VIDEO || mediaType == eMEDIATYPE_PLAYLIST_VIDEO) ? (context.bitrate > 0 ? context.bitrate : mpStreamAbstractionAAMP->GetVideoBitrate()): 0),((res == CURLE_OK) ? effectiveUrl.c_str() : remoteUrl.c_str()), // Effective URL could be different than remoteURL and it is updated only for CURLE_OK case
+					((mediaType == eMEDIATYPE_VIDEO || mediaType == eMEDIATYPE_INIT_VIDEO || mediaType == eMEDIATYPE_PLAYLIST_VIDEO) ? currentVideoBitrate : 0),((res == CURLE_OK) ? effectiveUrl.c_str() : remoteUrl.c_str()), // Effective URL could be different than remoteURL and it is updated only for CURLE_OK case
 									range?";":"", range?range:"");
 					// Log external processing delay if it exceeds 100 ms
 					if (context.processDelay > 100)
@@ -5393,7 +5411,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				if((buffer.size() > AbrThresholdSize) && (!GetLLDashServiceData()->lowLatencyMode ||
 							( GetLLDashServiceData()->lowLatencyMode  && ISCONFIGSET_PRIV(eAAMPConfig_DisableLowLatencyABR))))
 				{
-					long currentProfilebps  = mpStreamAbstractionAAMP->GetVideoBitrate();
+					long currentProfilebps = GetVideoBitrateNonBlocking();
 					long downloadbps = (long)mhAbrManager.CheckAbrThresholdSize((int)buffer.size(),downloadTimeMS,currentProfilebps,fragmentDurationMs,abortReason);
 					{
 						std::lock_guard<std::recursive_mutex> guard(mLock);
