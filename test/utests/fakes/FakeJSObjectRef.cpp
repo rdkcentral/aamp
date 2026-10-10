@@ -76,6 +76,10 @@ JSObjectRef JSContextGetGlobalObject(JSContextRef ctx)
 
 JSValueRef JSObjectCallAsFunction(JSContextRef ctx, JSObjectRef object, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
 {
+	if (g_mockJavaScriptCore != nullptr)
+	{
+		return g_mockJavaScriptCore->JSObjectCallAsFunction(ctx, object, thisObject, argumentCount, arguments, exception);
+	}
 	return NULL;
 }
 
