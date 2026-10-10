@@ -31,6 +31,8 @@ public:
     MOCK_METHOD(bool, IsKeyIdProcessed, (std::vector<uint8_t> keyIdArray, bool &status));
     MOCK_METHOD(KeyState, initializeDrmSession, (DrmHelperPtr drmHelper, int sessionSlot, int &err));
     MOCK_METHOD(DrmSession*, createDrmSession, (int &responseCode, int &err, DrmHelperPtr drmHelper, DrmCallbacks* Instance, int streamType, void* metaDataPtr));
+    // Captures whether a non-null DrmSessionCreator reached the DrmSessionManager constructor.
+    MOCK_METHOD(void, CaptureSessionCreator, (bool hasCreator));
 };
 
 extern std::shared_ptr<MockDRMSessionManager> g_mockDRMSessionManager;

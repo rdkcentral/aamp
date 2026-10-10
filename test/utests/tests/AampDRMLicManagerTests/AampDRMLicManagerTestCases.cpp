@@ -233,6 +233,37 @@ protected:
 	g_mockPrivateInstanceAAMP.reset();
 	}
 };
+
+/**
+ * @brief Verify a non-null DrmSessionCreator supplied to AampDRMLicenseManager
+ * is forwarded to the DrmSessionManager constructor.
+ *
+ * Guards against the forwarding being dropped or wired incorrectly, which
+ * would otherwise go undetected since FakeAampDRMSessionManager previously
+ * discarded the creator argument.
+ */
+TEST_F(AampDRMLicManagerTests, ConstructorForwardsNonNullCreatorToSessionManager)
+{
+	DrmSessionCreator creator = [](DrmHelperPtr, DrmCallbacks*) -> std::unique_ptr<DrmSession> {
+		return nullptr;
+	};
+
+	EXPECT_CALL(*g_mockDRMSessionManager, CaptureSessionCreator(true)).Times(1);
+
+	AampDRMLicenseManager licenseManagerWithCreator(5, mPrivateInstanceAAMP.get(), creator);
+}
+
+/**
+ * @brief Verify that omitting the creator argument (backward-compatible
+ * two-argument construction) forwards a null creator to DrmSessionManager.
+ */
+TEST_F(AampDRMLicManagerTests, ConstructorForwardsNullCreatorByDefault)
+{
+	EXPECT_CALL(*g_mockDRMSessionManager, CaptureSessionCreator(false)).Times(1);
+
+	AampDRMLicenseManager licenseManagerWithDefault(5, mPrivateInstanceAAMP.get());
+}
+
 /**
  * @brief Test OCDM session construction failure error mapping
  * 
