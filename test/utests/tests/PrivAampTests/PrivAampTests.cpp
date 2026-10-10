@@ -1605,6 +1605,25 @@ TEST_F(PrivAampTests, SendBufferChangeEvent_NoManifestRetry_SetsUnderflowStatus)
 	EXPECT_TRUE(p_aamp->GetBufUnderFlowStatus());
 }
 
+// Stop() while a buffering episode is in-flight must clear mBufferingStartTimeMS
+// stale start time would cause the next session to report a bogus
+// buffering duration derived from the previous session's clock).
+TEST_F(PrivAampTests, Stop_ClearsInFlightBufferingStartTime)
+{
+	// Start a buffering episode so mBufferingStartTimeMS is set.
+	p_aamp->SendBufferChangeEvent(true);
+	ASSERT_GE(p_aamp->GetBufferingStartTimeMS(), 0LL) << "Precondition: buffering start time must be set";
+
+	// Stop without a matching BufferChangeEvent(false) — simulates the race that
+	// caused VPAAMP-1105 (channel change / error path during underflow).
+	p_aamp->Stop(false);
+
+	// The sentinel value -1 must be restored so the next tune starts clean.
+	EXPECT_EQ(p_aamp->GetBufferingStartTimeMS(), -1LL)
+		<< "Stop() must reset mBufferingStartTimeMS to -1 to prevent stale "
+		   "buffering duration being reported in the next session";
+}
+
 TEST_F(PrivAampTests,PausePipelineTest)
 {
 	EXPECT_TRUE(p_aamp->PausePipeline(true,true));
