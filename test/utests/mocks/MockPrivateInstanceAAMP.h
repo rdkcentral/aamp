@@ -101,6 +101,7 @@ public:
 	MOCK_METHOD(bool, IsAtLivePoint, ());
 	MOCK_METHOD(bool, IsLiveStream, ());
 	MOCK_METHOD(bool, TrackDownloadsAreEnabled, (AampMediaType type));
+	MOCK_METHOD(bool, WillFlushOnDiscontinuity, ());
 	MOCK_METHOD(long, GetCurrentLatencyMs, ());
 	MOCK_METHOD(double, GetBufferedDurationSecs, ());
 	MOCK_METHOD(double, GetVideoBufferedDurationSecs, ());
