@@ -1310,6 +1310,8 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	mAampCacheHandler = new AampCacheHandler(mPlayerId);
 	// Create the event manager for player instance
 	mEventManager = new AampEventManager(mPlayerId);
+	// Apply profiling config immediately so it is active before the first tune
+	EnableEventProfiling();
 	// Create the CMCD collector
 	mCMCDCollector = new AampCMCDCollector();
 
@@ -5857,7 +5859,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		if(mIsInbandCC)
 		{
  			PlayerCCManager::GetInstance()->RestoreCC();
-			/* XIONE-19145: also re-assert the cached CC enable state for the
+			/* Also re-assert the cached CC enable state for the
 			 * new tune. Release() during the previous teardown cleared
 			 * mEnabled, and if the app's SetCCStatus(true) ran while
 			 * mIsInbandCC was still stale-false from a prior OOB-subtitle
@@ -13834,6 +13836,14 @@ void PrivateInstanceAAMP::UpdateMaxDRMSessions()
 	{
 		AAMPLOG_ERR("Discarded DRM session update as player is in state:%d", mState.load());
 	}
+}
+
+/**
+ * @brief EnableEventProfiling - Apply current event profiling config to AampEventManager
+ */
+void PrivateInstanceAAMP::EnableEventProfiling()
+{
+	mEventManager->SetEventProfilingConfig(ISCONFIGSET_PRIV(eAAMPConfig_EnableEventProfiling), GETCONFIGVALUE_PRIV(eAAMPConfig_EventProfilingThresholdMs));
 }
 
 /**
