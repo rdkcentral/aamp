@@ -152,6 +152,7 @@ enableEventProfiling		Enable event round-trip time profiling. When enabled, logs
 				event latency when the measured time meets or exceeds eventProfilingThresholdMs.
 				For async events the measured time is queue dwell time + sync delivery time combined.
 				For direct sync events only delivery time is measured. Default: false
+enableNetworkPersonaLogging	Collect network metrics and log a JSON network persona on Stop. Default: false
 info            		Enable/Disable logging of requested urls. Default: false
 gst             		Enable/Disable gstreamer logging including pipeline dump. Default: false
 gstlevel                String to set (final) override of gstreamer debug level, e.g. gstlevel=*:3,westeros*:5

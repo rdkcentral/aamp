@@ -135,11 +135,7 @@ public:
 	 */
 	void Add(double valueMs)
 	{
-		const double clamped = std::max(0.0, valueMs);
-		const std::size_t index = std::min(
-			static_cast<std::size_t>(clamped / mBucketWidthMs),
-			mBucketCount - 1);
-		++mCounts[index];
+		++mCounts[SafeBucketIndex(valueMs)];
 		++mSampleCount;
 	}
 
@@ -227,6 +223,111 @@ public:
 		return mCounts.back();
 	}
 
+	/**
+	 * @brief Count of samples at or above a threshold (O(bucketCount)).
+	 *
+	 * Returns the number of accumulated samples that fall in the bucket
+	 * containing @p thresholdMs or in any higher bucket. Useful for computing
+	 * tail fractions (e.g. the fraction of samples above a percentile or a
+	 * dynamically-derived threshold).
+	 *
+	 * @param thresholdMs  Lower threshold in milliseconds. Negative values are
+	 *                     clamped to 0 (counts every sample).
+	 * @return Number of samples in the threshold bucket and all higher buckets.
+	 */
+	uint64_t CountAtOrAboveMs(double thresholdMs) const
+	{
+		uint64_t count = 0;
+		for (std::size_t i = SafeBucketIndex(thresholdMs); i < mBucketCount; ++i)
+		{
+			count += mCounts[i];
+		}
+		return count;
+	}
+
+	/**
+	 * @brief Approximate mean of samples at or above a threshold (O(bucketCount)).
+	 *
+	 * Computes the count-weighted average of bucket midpoints for the bucket
+	 * containing @p thresholdMs and all higher buckets. The absolute error is
+	 * bounded by ±(bucketWidthMs/2), plus any clamping of overflow samples to
+	 * the last bucket's midpoint.
+	 *
+	 * @param thresholdMs  Lower threshold in milliseconds.
+	 * @return Approximate mean of the tail samples, or 0.0 if none are at or
+	 *         above the threshold.
+	 */
+	double ApproximateMeanAtOrAboveMs(double thresholdMs) const
+	{
+		uint64_t count = 0;
+		double weightedSum = 0.0;
+		for (std::size_t i = SafeBucketIndex(thresholdMs); i < mBucketCount; ++i)
+		{
+			const double midpoint =
+				static_cast<double>(i) * mBucketWidthMs + mBucketWidthMs * 0.5;
+			weightedSum += midpoint * static_cast<double>(mCounts[i]);
+			count += mCounts[i];
+		}
+		return (count > 0) ? (weightedSum / static_cast<double>(count)) : 0.0;
+	}
+
+	/**
+	 * @brief Count of samples strictly above a threshold's bucket (O(bucketCount)).
+	 *
+	 * Like CountAtOrAboveMs(), but excludes the bucket that contains
+	 * @p thresholdMs, so it mirrors a strict `value > threshold` tail test
+	 * rather than `value >= threshold`. Use this when the threshold is itself a
+	 * bucket midpoint (e.g. a percentile from ApproximatePercentileMs()) to
+	 * avoid counting the threshold bucket itself.
+	 *
+	 * When the threshold maps to the overflow bucket (the last bucket, which
+	 * collects every value >= maxTimingMs) there is no higher bucket to count.
+	 * Since that bucket is unbounded above, its samples are the extreme tail, so
+	 * they are counted rather than silently dropped.
+	 *
+	 * @param thresholdMs  Threshold in milliseconds. Negative values are
+	 *                     clamped to 0.
+	 * @return Number of samples in every bucket above the threshold bucket, or
+	 *         in the overflow bucket itself when the threshold maps to it.
+	 */
+	uint64_t CountAboveMs(double thresholdMs) const
+	{
+		const std::size_t start = StrictTailStartIndex(thresholdMs);
+		uint64_t count = 0;
+		for (std::size_t i = start; i < mBucketCount; ++i)
+		{
+			count += mCounts[i];
+		}
+		return count;
+	}
+
+	/**
+	 * @brief Approximate mean of samples strictly above a threshold's bucket.
+	 *
+	 * Strict-tail counterpart of ApproximateMeanAtOrAboveMs(): averages the
+	 * bucket midpoints for every bucket above the one containing @p thresholdMs.
+	 * When the threshold maps to the overflow bucket, that bucket's midpoint is
+	 * used so the extreme tail is reported rather than suppressed.
+	 *
+	 * @param thresholdMs  Threshold in milliseconds.
+	 * @return Approximate mean of the strict-tail samples, or 0.0 if none are
+	 *         above the threshold bucket.
+	 */
+	double ApproximateMeanAboveMs(double thresholdMs) const
+	{
+		const std::size_t start = StrictTailStartIndex(thresholdMs);
+		uint64_t count = 0;
+		double weightedSum = 0.0;
+		for (std::size_t i = start; i < mBucketCount; ++i)
+		{
+			const double midpoint =
+				static_cast<double>(i) * mBucketWidthMs + mBucketWidthMs * 0.5;
+			weightedSum += midpoint * static_cast<double>(mCounts[i]);
+			count += mCounts[i];
+		}
+		return (count > 0) ? (weightedSum / static_cast<double>(count)) : 0.0;
+	}
+
 private:
 	// ── Construction helpers ──────────────────────────────────────────────
 	// These run inside the member-initializer list, before any storage is
@@ -273,6 +374,36 @@ private:
 			return kMaxBucketCount;
 		}
 		return static_cast<std::size_t>(raw);
+	}
+
+	/// Map a millisecond value to a valid bucket index in [0, mBucketCount-1].
+	/// Guards the double->size_t conversion: NaN and non-positive values map to
+	/// bucket 0; +infinity and values at or beyond the histogram range map to
+	/// the last (overflow) bucket. The cast runs only on a finite in-range
+	/// ratio, so a malformed sample cannot trigger undefined behaviour.
+	std::size_t SafeBucketIndex(double valueMs) const
+	{
+		// NaN and values <= 0 fail this test and fall through to bucket 0.
+		if (valueMs > 0.0)
+		{
+			const double ratio = valueMs / mBucketWidthMs;
+			if (ratio < static_cast<double>(mBucketCount - 1))
+			{
+				return static_cast<std::size_t>(ratio);
+			}
+			return mBucketCount - 1;
+		}
+		return 0;
+	}
+
+	/// First bucket index for a strict `> threshold` tail scan. Normally one
+	/// past the threshold bucket, but when the threshold maps to the overflow
+	/// bucket (unbounded above) that bucket is itself the extreme tail, so it
+	/// is included rather than yielding an empty range.
+	std::size_t StrictTailStartIndex(double thresholdMs) const
+	{
+		const std::size_t bucket = SafeBucketIndex(thresholdMs);
+		return (bucket + 1 < mBucketCount) ? (bucket + 1) : (mBucketCount - 1);
 	}
 
 	// ── Data members ──────────────────────────────────────────────────────

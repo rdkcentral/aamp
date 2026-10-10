@@ -1058,6 +1058,10 @@ public:
 	int mPlaylistTimeoutMs;
 	bool mAsyncTuneEnabled;
 	std::atomic<bool> mAsyncTaskAbortEnabled;
+	/// Set true once this player's downloads are flushed into the network-persona
+	/// fitter during Stop(), so a concurrently stopping sibling does not finalize
+	/// the shared aggregate before this player's records arrive.
+	std::atomic<bool> mNetPersonaFlushComplete{false};
 	std::string mTsbType;
 	int mTsbDepthMs;
 	int mDownloadDelay;
