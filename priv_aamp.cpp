@@ -71,6 +71,7 @@ static constexpr double kNetTraceLateGapThresholdS = 0.120;  // 120 milliseconds
 #include "PlayerCCManager.h"
 #include "AampDRMLicPreFetcher.h"
 #include "AampDRMLicManager.h"
+#include "RialtoSessionCreator.h"
 
 #ifdef AAMP_TELEMETRY_SUPPORT
 #include <AampTelemetry2.hpp>
@@ -1921,7 +1922,8 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	mCMCDCollector = new AampCMCDCollector();
 
 	// Ensure the correct CC variant class will be used
-	PlayerCCManager::SetRialto(GETCONFIGVALUE_PRIV(eAAMPConfig_useRialtoSink));
+	PlayerCCManager::SetRialto(GETCONFIGVALUE_PRIV(eAAMPConfig_useRialtoSink),
+					GETCONFIGVALUE_PRIV(eAAMPConfig_useDirectRialto));
 
 	preferredLanguagesString = GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredAudioLanguage);
 	preferredRenditionString = GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredAudioRendition);
@@ -1933,7 +1935,12 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	preferredTextLabelString = GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredTextLabel);
 	preferredTextTypeString = GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredTextType);
 	int maxDrmSession = GETCONFIGVALUE_PRIV(eAAMPConfig_MaxDASHDRMSessions);
-	mDRMLicenseManager = new AampDRMLicenseManager(maxDrmSession, this);
+	DrmSessionCreator rialtoCreator;
+	if (GETCONFIGVALUE_PRIV(eAAMPConfig_useDirectRialto))
+	{
+		rialtoCreator = makeRialtoSessionCreator();
+	}
+	mDRMLicenseManager = new AampDRMLicenseManager(maxDrmSession, this, std::move(rialtoCreator));
 	mSubLanguage = GETCONFIGVALUE_PRIV(eAAMPConfig_SubTitleLanguage);
 	for (int i = 0; i < eCURLINSTANCE_MAX; i++)
 	{
@@ -11039,6 +11046,15 @@ bool PrivateInstanceAAMP::ReconfigureForElementaryStreamUpdate()
 }
 
 /**
+ * @brief Get if an explicit StreamSink Flush() is guaranteed to follow a discontinuity (from stream abstraction)
+ * @return true if StreamSink::Flush() will be called explicitly for the pending discontinuity
+ */
+bool PrivateInstanceAAMP::WillFlushOnDiscontinuity()
+{
+	return mpStreamAbstractionAAMP && mpStreamAbstractionAAMP->DoStreamSinkFlushOnDiscontinuity();
+}
+
+/**
  * @brief Sends an ID3 metadata event.
  */
 void PrivateInstanceAAMP::SendId3MetadataEvent(aamp::id3_metadata::CallbackData * id3Metadata)
@@ -12185,7 +12201,7 @@ void PrivateInstanceAAMP::SetTextTrack(int trackId, char *data)
 							SetPreferredTextTrack(std::move(track));
 							if((UsingRialto()) && ((mCurrentTextTrackIndex == -1) || (mCurrentTextTrackIndex == trackId)))
 							{ // by default text track is enabled and muted for Rialto; notify only if there is change in the subtitles
-								AAMPLOG_INFO("useRialtoSink mCurrentTextTrackIndex = %d trackId = %d",mCurrentTextTrackIndex,trackId);
+								AAMPLOG_INFO("useRialto mCurrentTextTrackIndex = %d trackId = %d",mCurrentTextTrackIndex,trackId);
 								mpStreamAbstractionAAMP->currentTextTrackProfileIndex = mCurrentTextTrackIndex = trackId;
 							}
 							else

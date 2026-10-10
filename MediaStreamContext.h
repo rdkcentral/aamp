@@ -168,10 +168,10 @@ public:
 	 *        semantics for the caching mode.
 	 */
 	static void TransferFragmentBuffer(CachedFragment *cached,
-									   const uint8_t *chunkPayload,
-									   std::vector<uint8_t> *downloadBuffer,
-									   size_t payloadSize,
-									   bool isChunkMode);
+			const uint8_t *chunkPayload,
+			std::vector<uint8_t> *downloadBuffer,
+			size_t payloadSize,
+			bool isChunkMode);
 
 	/**
 	 * @fn PopulateCommonMetadata
