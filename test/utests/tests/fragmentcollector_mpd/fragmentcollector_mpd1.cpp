@@ -69,7 +69,7 @@ protected:
 
 		void InvokeFindTimedMetadata(MPD *mpd, Node *root, bool init, bool reportBulkMeta)
 		{
-			FindTimedMetadata(mpd, root, init, reportBulkMeta);
+			FindTimedMetadata(mpd, root, mMPDParseHelper, init, reportBulkMeta);
 		}
 
 		void SetIsLiveManifest(bool isLive)
