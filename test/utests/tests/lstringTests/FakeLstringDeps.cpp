@@ -51,11 +51,11 @@
 // AampLogManager static member definitions
 // ---------------------------------------------------------------------------
 
-AAMP_LogLevel AampLogManager::aampLoglevel       = eLOGLEVEL_WARN;
-bool          AampLogManager::locked              = false;
-bool          AampLogManager::logFilename         = false;
-bool          AampLogManager::disableLogRedirection     = false;
-bool          AampLogManager::enableEthanLogRedirection = false;
+std::atomic<AAMP_LogLevel> AampLogManager::aampLoglevel(eLOGLEVEL_WARN);
+std::atomic<bool> AampLogManager::locked(false);
+std::atomic<bool> AampLogManager::logFilename(false);
+std::atomic<bool> AampLogManager::disableLogRedirection(false);
+std::atomic<bool> AampLogManager::enableEthanLogRedirection(false);
 
 // ---------------------------------------------------------------------------
 // Thread-local player-id used by the logging framework

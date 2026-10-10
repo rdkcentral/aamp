@@ -28,7 +28,9 @@
 #include <sstream>
 #include <atomic>
 #include <cstring>
+#include <mutex>
 #include "priv_aamp.h"
+#include "AampFlightDataRecorder.h"
 using namespace std;
 
 
@@ -74,22 +76,26 @@ static const char *mLogLevelStr[eLOGLEVEL_ERROR+1] =
 	"ERROR", // eLOGLEVEL_ERROR
 };
 
-bool AampLogManager::disableLogRedirection = false;
-bool AampLogManager::enableEthanLogRedirection = false;
-AAMP_LogLevel AampLogManager::aampLoglevel = eLOGLEVEL_WARN;
-bool AampLogManager::locked = false;
-bool AampLogManager::logFilename = false;
+std::atomic<bool> AampLogManager::disableLogRedirection(false);
+std::atomic<bool> AampLogManager::enableEthanLogRedirection(false);
+std::atomic<AAMP_LogLevel> AampLogManager::aampLoglevel(eLOGLEVEL_WARN);
+std::atomic<bool> AampLogManager::locked(false);
+std::atomic<bool> AampLogManager::logFilename(false);
 
 thread_local int gPlayerId = -1;
 
 // Sequential log counter for tracking missing log lines
 static std::atomic<uint32_t> gLogCounter(0);
+static std::recursive_mutex gLogMutex;
 
 /**
  * @brief Print logs to console / log file
  */
 void logprintf(AAMP_LogLevel logLevelIndex, const char* file, const char* func, int line, const char *format, ...)
 {
+	std::lock_guard<std::recursive_mutex> lock(gLogMutex);
+	uint64_t logTimestampMs = AampFlightDataRecorder::GetCurrentTimeMilliseconds();
+	auto logSteadyTime = std::chrono::steady_clock::now();
 	// Increment log counter for each log line
 	uint32_t logSeqNum = gLogCounter.fetch_add(1, std::memory_order_relaxed) % 1000;
 
@@ -111,8 +117,12 @@ void logprintf(AAMP_LogLevel logLevelIndex, const char* file, const char* func, 
 	}
 	
 	char format_buffer[512];
+	char user_message_buffer[2048];
 	char *format_ptr = NULL;
 	int format_bytes = 0;
+	char *user_message_ptr = NULL;
+	int user_message_bytes = 0;
+	
 	for( int pass=0; pass<2; pass++ )
 	{ // two pass: measure required bytes then populate format string
 		if( AampLogManager::logFilename )
@@ -152,49 +162,150 @@ void logprintf(AAMP_LogLevel logLevelIndex, const char* file, const char* func, 
 				format_bytes = sizeof(format_buffer);
 			}
 			format_ptr = format_buffer;
+			user_message_bytes = sizeof(user_message_buffer);
+			user_message_ptr = user_message_buffer;
 		}
 		else
 		{
-			va_list args;
+			va_list args, args_copy;
 			va_start(args, format);
-			if( AampLogManager::disableLogRedirection )
-			{ // aampcli
-				vprintf( format_ptr, args );
-			}
-			else if ( AampLogManager::enableEthanLogRedirection )
-			{ // remap AAMP log levels to Ethan log levels
-				int ethanLogLevel;
-				// Important: in production builds, Ethan logger filters out everything
-				// except ETHAN_LOG_MILESTONE and ETHAN_LOG_FATAL
-				switch (logLevelIndex)
-				{
-					case eLOGLEVEL_TRACE:
-					case eLOGLEVEL_DEBUG:
-						ethanLogLevel = ETHAN_LOG_DEBUG;
-						break;
-						
-					case eLOGLEVEL_ERROR:
-						ethanLogLevel = ETHAN_LOG_FATAL;
-						break;
-						
-					case eLOGLEVEL_INFO: // note: we rely on eLOGLEVEL_INFO at tune time for triage
-					case eLOGLEVEL_WARN:
-					case eLOGLEVEL_MIL:
-					default:
-						ethanLogLevel = ETHAN_LOG_MILESTONE;
-						break;
-				}
-				format_ptr[format_bytes-1] = 0x00; // strip explicit newline, since Ethan logger will add one and we don't want it doubled
-				vethanlog(ethanLogLevel,NULL,NULL,-1,format_ptr, args);
-			}
-			else
+			
+			va_copy(args_copy, args);
+			vsnprintf(user_message_ptr, user_message_bytes, format, args_copy);
+			va_end(args_copy);
+			
+			AampFlightDataRecorder& fdr = AampFlightDataRecorder::GetInstance();
+			bool fdrEnabled = fdr.IsEnabled();
+			AAMP_LogLevel configuredLevel = AampLogManager::aampLoglevel.load(std::memory_order_relaxed);
+			bool bypassFdr = !fdrEnabled || configuredLevel <= eLOGLEVEL_INFO;
+			bool queuedInFdr = false;
+			if (!bypassFdr && (logLevelIndex == eLOGLEVEL_INFO ||
+				logLevelIndex == eLOGLEVEL_WARN || logLevelIndex == eLOGLEVEL_MIL))
 			{
-				format_ptr[format_bytes-1] = 0x00; // strip not-needed newline (good for Ethan Logger, too?)
-				sd_journal_printv(LOG_NOTICE,format_ptr,args); // note: truncates to 2040 characters
+				FDRLogEntry entry;
+				entry.timestamp_ms = logTimestampMs;
+				entry.recorded_at = logSteadyTime;
+				entry.log_level = logLevelIndex;
+				entry.thread_id = std::this_thread::get_id();
+				entry.seq_num = logSeqNum;
+				entry.player_id = gPlayerId;
+				entry.file = file;
+				entry.func = func;
+				entry.line = line;
+				entry.source = "AAMP-PLAYER";
+				entry.message = user_message_ptr;
+				queuedInFdr = fdr.AddEntry(entry);
+			}
+
+			if (!bypassFdr && logLevelIndex == eLOGLEVEL_ERROR)
+			{
+				fdr.Flush(logLevelIndex, "AAMP-PLAYER");
+			}
+
+			bool forceImmediate = (fdrEnabled && fdr.IsEnabled() && bypassFdr);
+			if (!queuedInFdr && (forceImmediate || logLevelIndex >= configuredLevel))
+			{
+				if( AampLogManager::disableLogRedirection )
+				{ // aampcli
+					vprintf( format_ptr, args );
+				}
+				else if ( AampLogManager::enableEthanLogRedirection )
+				{ // remap AAMP log levels to Ethan log levels
+					int ethanLogLevel;
+					// Important: in production builds, Ethan logger filters out everything
+					// except ETHAN_LOG_MILESTONE and ETHAN_LOG_FATAL
+					switch (logLevelIndex)
+					{
+						case eLOGLEVEL_TRACE:
+						case eLOGLEVEL_DEBUG:
+							ethanLogLevel = ETHAN_LOG_DEBUG;
+							break;
+							
+						case eLOGLEVEL_ERROR:
+							ethanLogLevel = ETHAN_LOG_FATAL;
+							break;
+							
+						case eLOGLEVEL_INFO: // note: we rely on eLOGLEVEL_INFO at tune time for triage
+						case eLOGLEVEL_WARN:
+						case eLOGLEVEL_MIL:
+						default:
+							ethanLogLevel = ETHAN_LOG_MILESTONE;
+							break;
+					}
+					size_t outputLength = strnlen(format_ptr, sizeof(format_buffer));
+					if (outputLength > 0 && format_ptr[outputLength - 1] == '\n') format_ptr[outputLength - 1] = 0x00;
+					vethanlog(ethanLogLevel,NULL,NULL,-1,format_ptr, args);
+				}
+				else
+				{
+					size_t outputLength = strnlen(format_ptr, sizeof(format_buffer));
+					if (outputLength > 0 && format_ptr[outputLength - 1] == '\n') format_ptr[outputLength - 1] = 0x00;
+					sd_journal_printv(LOG_NOTICE,format_ptr,args); // note: truncates to 2040 characters
+				}
 			}
 			va_end(args);
+
 		}
 	}
+}
+
+/**
+ * @brief Map AAMP log level to Ethan log level.
+ */
+static int MapToEthanLogLevel(int logLevel)
+{
+	switch (logLevel)
+	{
+		case eLOGLEVEL_TRACE:
+		case eLOGLEVEL_DEBUG:
+			return ETHAN_LOG_DEBUG;
+		case eLOGLEVEL_ERROR:
+			return ETHAN_LOG_FATAL;
+		case eLOGLEVEL_INFO:
+		case eLOGLEVEL_WARN:
+		case eLOGLEVEL_MIL:
+		default:
+			return ETHAN_LOG_MILESTONE;
+	}
+}
+
+/**
+ * @brief Internal variadic wrapper for vethanlog/sd_journal_printv.
+ * Converts a pre-formatted string into a va_list-based call.
+ */
+static void emitLogLineVA(int logLevel, bool enableEthanRedirection,
+	const char* format, ...)
+{
+	va_list args;
+	va_start(args, format);
+	if (enableEthanRedirection)
+	{
+		vethanlog(MapToEthanLogLevel(logLevel), NULL, NULL, -1, format, args);
+	}
+	else
+	{
+		sd_journal_printv(LOG_NOTICE, format, args);
+	}
+	va_end(args);
+}
+
+void emitLogLine(int logLevel, const char* line,
+                 bool disableRedirection, bool enableEthanRedirection)
+{
+	if (disableRedirection)
+	{
+		printf("%s\n", line);
+	}
+	else
+	{
+		emitLogLineVA(logLevel, enableEthanRedirection, "%s", line);
+	}
+}
+
+void flushFlightDataRecorder(int triggerLevel, const char* triggerSource)
+{
+	std::lock_guard<std::recursive_mutex> lock(gLogMutex);
+	AampFlightDataRecorder::GetInstance().Flush(triggerLevel, triggerSource);
 }
 
 /**

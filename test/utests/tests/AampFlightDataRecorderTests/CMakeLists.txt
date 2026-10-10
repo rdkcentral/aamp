@@ -1,7 +1,7 @@
 # If not stated otherwise in this file or this component's license file the
 # following copyright and licenses apply:
 #
-# Copyright 20232 RDK Management
+# Copyright 2026 RDK Management
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,37 +19,41 @@ include(GoogleTest)
 
 set(AAMP_ROOT "../../../../")
 set(UTESTS_ROOT "../../")
-set(EXEC_NAME ConfigTests)
-set(CMAKE_CXX_FLAGS "-DUTEST")
+set(EXEC_NAME AampFlightDataRecorderTests)
 
-# Include common test directories
+# Include common test directories (adds AAMP_ROOT, mocks, fakes include paths)
 include(${CMAKE_CURRENT_LIST_DIR}/../CommonTestIncludes.cmake)
 
-set(TEST_SOURCES ConfigTests.cpp
-                 ConfigRun.cpp)
-set(FAKE_SOURCE ${UTESTS_ROOT}/fakes/FakeAampRfc.cpp)
-set(FDR_SOURCE ${AAMP_ROOT}/AampFlightDataRecorder.cpp)
-					 
-add_executable(${EXEC_NAME}
-               ${TEST_SOURCES}
-               ${FAKE_SOURCE}
-               ${FDR_SOURCE})
-target_link_directories(${EXEC_NAME} PUBLIC ${LIBCJSON_LIBRARY_DIRS})
+set(TEST_SOURCES
+    AampFlightDataRecorderTests.cpp
+    AampFlightDataRecorderTestCases.cpp)
 
-if (CMAKE_XCODE_BUILD_SYSTEM)
-  # XCode schema target
-  xcode_define_schema(${EXEC_NAME})
+# Only the component under test — fakes library provides AampLogManager stubs
+set(AAMP_SOURCES
+    ${AAMP_ROOT}/AampFlightDataRecorder.cpp)
+
+add_executable(${EXEC_NAME}
+    ${TEST_SOURCES}
+    ${AAMP_SOURCES})
+
+set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
+
+if(CMAKE_XCODE_BUILD_SYSTEM)
+    xcode_define_schema(${EXEC_NAME})
 endif()
 
-if (COVERAGE_ENABLED)
+if(COVERAGE_ENABLED)
     include(CodeCoverage)
     APPEND_COVERAGE_COMPILER_FLAGS()
 endif()
 
-target_link_libraries(${EXEC_NAME} "cjson")
-target_link_libraries(${EXEC_NAME} ${GLIB_LINK_LIBRARIES} ${OS_LD_FLAGS} fakes ${GMOCK_LINK_LIBRARIES} ${GTEST_LINK_LIBRARIES} -lpthread)
-
-
-set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
+# Link fakes FIRST so fake implementations take precedence over real ones
+target_link_libraries(${EXEC_NAME}
+    fakes
+    -pthread
+    ${GLIB_LINK_LIBRARIES}
+    ${OS_LD_FLAGS}
+    ${GMOCK_LINK_LIBRARIES}
+    ${GTEST_LINK_LIBRARIES})
 
 aamp_utest_run_add(${EXEC_NAME})
