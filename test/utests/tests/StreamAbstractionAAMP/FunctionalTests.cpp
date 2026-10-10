@@ -29,6 +29,7 @@
 #include "MockPrivateInstanceAAMP.h"
 #include "MockMediaTrack.h"
 #include "MockMediaProcessor.h"
+#include "MockABRManager.h"
 
 using ::testing::_;
 using ::testing::An;
@@ -102,6 +103,28 @@ protected:
 			return GetBufferValue(track);
 		}
 
+		void testGetDesiredProfileOnSteadyState(int curr, int &desired, long nwBW)
+		{
+			GetDesiredProfileOnSteadyState(curr, desired, nwBW);
+		}
+
+		void testSetABRMinBuffer(int v) { mABRMinBuffer = v; }
+		void testSetABRMaxBuffer(int v) { mABRMaxBuffer = v; }
+		void testSetMaxBufferCountCheck(int v) { mMaxBufferCountCheck = v; }
+		void testSetABRHighBufferCounter(int v) { mABRHighBufferCounter = v; }
+		void testSetABRLowBufferCounter(int v) { mABRLowBufferCounter = v; }
+		int testGetABRHighBufferCounter() { return mABRHighBufferCounter; }
+
+		StreamInfo mStreamInfos[8];
+		int mStreamInfoCount = 0;
+
+		virtual StreamInfo* GetStreamInfo(int idx) override
+		{
+			if(idx >= 0 && idx < mStreamInfoCount)
+				return &mStreamInfos[idx];
+			return nullptr;
+		}
+
 		MOCK_METHOD(void, clearFirstPTS, (), (override));
 
 	};
@@ -118,6 +141,11 @@ protected:
 			gpGlobalConfig =  new AampConfig();
 		}
 		g_mockAampConfig = std::make_shared<NiceMock<MockAampConfig>>();
+
+		if (g_mockABRManager == nullptr)
+		{
+			g_mockABRManager = std::make_shared<NiceMock<MockABRManager>>();
+		}
 
 		if (g_mockPrivateInstanceAAMP == nullptr)
 		{
@@ -160,6 +188,8 @@ protected:
 
 		delete gpGlobalConfig;
 		gpGlobalConfig = nullptr;
+
+		g_mockABRManager.reset();
 
 		g_mockAampConfig.reset();
 
@@ -449,4 +479,249 @@ TEST_F(StreamAbstractionAAMP_Test, GetBufferValue_ClampsToZero_WhenLiveEdgeDelta
 
 	EXPECT_DOUBLE_EQ(0.0, mStreamAbstractionAAMP->testGetBufferValue(
 		mStreamAbstractionAAMP->mMockVideoTrack));
+}
+
+/**
+ * @brief Verify live-edge bypass fires ramp-up when buffer is in the deadlock band.
+ */
+TEST_F(StreamAbstractionAAMP_Test, GetDesiredProfileOnSteadyState_LiveEdgeBypass_FiresInDeadlockBand)
+{
+	mStreamAbstractionAAMP->mIsAtLivePoint = true;
+	mStreamAbstractionAAMP->testSetABRMinBuffer(6);
+	mStreamAbstractionAAMP->testSetABRMaxBuffer(10);
+	mStreamAbstractionAAMP->testSetMaxBufferCountCheck(1);
+	mStreamAbstractionAAMP->testSetABRHighBufferCounter(0);
+	mStreamAbstractionAAMP->testSetABRLowBufferCounter(0);
+
+	mStreamAbstractionAAMP->mStreamInfoCount = 3;
+	mStreamAbstractionAAMP->mStreamInfos[0].bandwidthBitsPerSecond = 1000000;
+	mStreamAbstractionAAMP->mStreamInfos[1].bandwidthBitsPerSecond = 3000000;
+	mStreamAbstractionAAMP->mStreamInfos[2].bandwidthBitsPerSecond = 5000000;
+
+	mPrivateInstanceAAMP->GetLLDashServiceData()->lowLatencyMode = false;
+
+	EXPECT_CALL(*mStreamAbstractionAAMP->mMockVideoTrack, GetBufferedDuration())
+		.WillRepeatedly(Return(8.0));
+
+	EXPECT_CALL(*g_mockABRManager, getRampedUpProfileIndex(0, _))
+		.WillRepeatedly(Return(1));
+
+	EXPECT_CALL(*g_mockABRManager, CheckRampupFromSteadyState(0, _, _, _, _, _, _, _))
+		.WillOnce(DoAll(SetArgReferee<1>(1)));
+
+	int currProfile = 0;
+	int newProfile = 0;
+
+	mStreamAbstractionAAMP->testGetDesiredProfileOnSteadyState(currProfile, newProfile, 5000000);
+	mStreamAbstractionAAMP->testGetDesiredProfileOnSteadyState(currProfile, newProfile, 5000000);
+
+	EXPECT_GT(newProfile, currProfile);
+}
+
+/**
+ * @brief Verify live-edge bypass does NOT fire when not at the live point.
+ */
+TEST_F(StreamAbstractionAAMP_Test, GetDesiredProfileOnSteadyState_LiveEdgeBypass_DoesNotFire_NotAtLivePoint)
+{
+	mStreamAbstractionAAMP->mIsAtLivePoint = false;
+	mStreamAbstractionAAMP->testSetABRMinBuffer(6);
+	mStreamAbstractionAAMP->testSetABRMaxBuffer(10);
+	mStreamAbstractionAAMP->testSetMaxBufferCountCheck(1);
+	mStreamAbstractionAAMP->testSetABRHighBufferCounter(0);
+	mStreamAbstractionAAMP->testSetABRLowBufferCounter(0);
+
+	mPrivateInstanceAAMP->GetLLDashServiceData()->lowLatencyMode = false;
+
+	EXPECT_CALL(*mStreamAbstractionAAMP->mMockVideoTrack, GetBufferedDuration())
+		.WillRepeatedly(Return(8.0));
+
+	EXPECT_CALL(*g_mockABRManager, getRampedUpProfileIndex(_, _)).Times(0);
+	EXPECT_CALL(*g_mockABRManager, CheckRampupFromSteadyState(_, _, _, _, _, _, _, _)).Times(0);
+
+	int currProfile = 0;
+	int newProfile = 0;
+
+	for (int i = 0; i < 5; i++)
+	{
+		mStreamAbstractionAAMP->testGetDesiredProfileOnSteadyState(currProfile, newProfile, 5000000);
+	}
+
+	EXPECT_EQ(newProfile, currProfile);
+}
+
+/**
+ * @brief Verify live-edge bypass does NOT fire when buffer is below mABRMinBuffer.
+ */
+TEST_F(StreamAbstractionAAMP_Test, GetDesiredProfileOnSteadyState_LiveEdgeBypass_DoesNotFire_BufferBelowMinBuffer)
+{
+	mStreamAbstractionAAMP->mIsAtLivePoint = true;
+	mStreamAbstractionAAMP->testSetABRMinBuffer(6);
+	mStreamAbstractionAAMP->testSetABRMaxBuffer(10);
+	mStreamAbstractionAAMP->testSetMaxBufferCountCheck(1);
+	mStreamAbstractionAAMP->testSetABRHighBufferCounter(0);
+	mStreamAbstractionAAMP->testSetABRLowBufferCounter(0);
+
+	mPrivateInstanceAAMP->GetLLDashServiceData()->lowLatencyMode = false;
+
+	EXPECT_CALL(*mStreamAbstractionAAMP->mMockVideoTrack, GetBufferedDuration())
+		.WillRepeatedly(Return(4.0));
+
+	EXPECT_CALL(*g_mockABRManager, getRampedUpProfileIndex(_, _)).Times(0);
+	EXPECT_CALL(*g_mockABRManager, CheckRampupFromSteadyState(_, _, _, _, _, _, _, _)).Times(0);
+
+	int currProfile = 0;
+	int newProfile = 0;
+
+	mStreamAbstractionAAMP->testGetDesiredProfileOnSteadyState(currProfile, newProfile, 5000000);
+	mStreamAbstractionAAMP->testGetDesiredProfileOnSteadyState(currProfile, newProfile, 5000000);
+
+	EXPECT_EQ(mStreamAbstractionAAMP->testGetABRHighBufferCounter(), 0);
+}
+
+/**
+ * @brief Verify that when buffer is above mABRMaxBuffer and not in lowLatencyMode,
+ *        the normal high-buffer path fires instead of the bypass.
+ */
+TEST_F(StreamAbstractionAAMP_Test, GetDesiredProfileOnSteadyState_LiveEdgeBypass_DoesNotFire_BufferAboveMaxBuffer)
+{
+	mStreamAbstractionAAMP->mIsAtLivePoint = true;
+	mStreamAbstractionAAMP->testSetABRMinBuffer(6);
+	mStreamAbstractionAAMP->testSetABRMaxBuffer(10);
+	mStreamAbstractionAAMP->testSetMaxBufferCountCheck(1);
+	mStreamAbstractionAAMP->testSetABRHighBufferCounter(0);
+	mStreamAbstractionAAMP->testSetABRLowBufferCounter(0);
+
+	mStreamAbstractionAAMP->mStreamInfoCount = 3;
+	mStreamAbstractionAAMP->mStreamInfos[0].bandwidthBitsPerSecond = 1000000;
+	mStreamAbstractionAAMP->mStreamInfos[1].bandwidthBitsPerSecond = 3000000;
+	mStreamAbstractionAAMP->mStreamInfos[2].bandwidthBitsPerSecond = 5000000;
+
+	mPrivateInstanceAAMP->GetLLDashServiceData()->lowLatencyMode = false;
+
+	EXPECT_CALL(*mStreamAbstractionAAMP->mMockVideoTrack, GetBufferedDuration())
+		.WillRepeatedly(Return(12.0));
+
+	EXPECT_CALL(*g_mockABRManager, getRampedUpProfileIndex(0, _))
+		.WillRepeatedly(Return(1));
+
+	EXPECT_CALL(*g_mockABRManager, CheckRampupFromSteadyState(0, _, _, _, _, _, _, _))
+		.WillOnce(DoAll(SetArgReferee<1>(1)));
+
+	int currProfile = 0;
+	int newProfile = 0;
+
+	mStreamAbstractionAAMP->testGetDesiredProfileOnSteadyState(currProfile, newProfile, 5000000);
+	mStreamAbstractionAAMP->testGetDesiredProfileOnSteadyState(currProfile, newProfile, 5000000);
+
+	EXPECT_GT(newProfile, currProfile);
+}
+
+/**
+ * @brief Verify live-edge bypass fires for LLDASH in its deadlock band.
+ */
+TEST_F(StreamAbstractionAAMP_Test, GetDesiredProfileOnSteadyState_LiveEdgeBypass_LLDASH_FiresInDeadlockBand)
+{
+	mStreamAbstractionAAMP->mIsAtLivePoint = true;
+	mStreamAbstractionAAMP->testSetABRMinBuffer(3);
+	mStreamAbstractionAAMP->testSetABRMaxBuffer(4);
+	mStreamAbstractionAAMP->testSetMaxBufferCountCheck(1);
+	mStreamAbstractionAAMP->testSetABRHighBufferCounter(0);
+	mStreamAbstractionAAMP->testSetABRLowBufferCounter(0);
+
+	mStreamAbstractionAAMP->mStreamInfoCount = 3;
+	mStreamAbstractionAAMP->mStreamInfos[0].bandwidthBitsPerSecond = 1000000;
+	mStreamAbstractionAAMP->mStreamInfos[1].bandwidthBitsPerSecond = 3000000;
+	mStreamAbstractionAAMP->mStreamInfos[2].bandwidthBitsPerSecond = 5000000;
+
+	mPrivateInstanceAAMP->GetLLDashServiceData()->lowLatencyMode = true;
+
+	EXPECT_CALL(*mStreamAbstractionAAMP->mMockVideoTrack, GetBufferedDuration())
+		.WillRepeatedly(Return(3.5));
+
+	EXPECT_CALL(*g_mockABRManager, getRampedUpProfileIndex(0, _))
+		.WillRepeatedly(Return(1));
+
+	EXPECT_CALL(*g_mockABRManager, CheckRampupFromSteadyState(0, _, _, _, _, _, _, _))
+		.WillOnce(DoAll(SetArgReferee<1>(1)));
+
+	int currProfile = 0;
+	int newProfile = 0;
+
+	mStreamAbstractionAAMP->testGetDesiredProfileOnSteadyState(currProfile, newProfile, 5000000);
+	mStreamAbstractionAAMP->testGetDesiredProfileOnSteadyState(currProfile, newProfile, 5000000);
+
+	EXPECT_GT(newProfile, currProfile);
+}
+
+/**
+ * @brief Verify the patience counter requires N+1 segments before ramp-up fires.
+ */
+TEST_F(StreamAbstractionAAMP_Test, GetDesiredProfileOnSteadyState_LiveEdgeBypass_PatientCounter_RequiresNSegments)
+{
+	mStreamAbstractionAAMP->mIsAtLivePoint = true;
+	mStreamAbstractionAAMP->testSetABRMinBuffer(6);
+	mStreamAbstractionAAMP->testSetABRMaxBuffer(10);
+	mStreamAbstractionAAMP->testSetMaxBufferCountCheck(3);
+	mStreamAbstractionAAMP->testSetABRHighBufferCounter(0);
+	mStreamAbstractionAAMP->testSetABRLowBufferCounter(0);
+
+	mStreamAbstractionAAMP->mStreamInfoCount = 3;
+	mStreamAbstractionAAMP->mStreamInfos[0].bandwidthBitsPerSecond = 1000000;
+	mStreamAbstractionAAMP->mStreamInfos[1].bandwidthBitsPerSecond = 3000000;
+	mStreamAbstractionAAMP->mStreamInfos[2].bandwidthBitsPerSecond = 5000000;
+
+	mPrivateInstanceAAMP->GetLLDashServiceData()->lowLatencyMode = false;
+
+	EXPECT_CALL(*mStreamAbstractionAAMP->mMockVideoTrack, GetBufferedDuration())
+		.WillRepeatedly(Return(8.0));
+
+	EXPECT_CALL(*g_mockABRManager, getRampedUpProfileIndex(0, _))
+		.WillRepeatedly(Return(1));
+
+	EXPECT_CALL(*g_mockABRManager, CheckRampupFromSteadyState(0, _, _, _, _, _, _, _))
+		.WillOnce(DoAll(SetArgReferee<1>(1)));
+
+	int currProfile = 0;
+	int newProfile = 0;
+
+	for (int i = 0; i < 3; i++)
+	{
+		mStreamAbstractionAAMP->testGetDesiredProfileOnSteadyState(currProfile, newProfile, 5000000);
+		EXPECT_EQ(newProfile, currProfile);
+	}
+
+	mStreamAbstractionAAMP->testGetDesiredProfileOnSteadyState(currProfile, newProfile, 5000000);
+	EXPECT_GT(newProfile, currProfile);
+}
+
+/**
+ * @brief Verify mABRHighBufferCounter resets when ramp-down path is entered.
+ */
+TEST_F(StreamAbstractionAAMP_Test, GetDesiredProfileOnSteadyState_LiveEdgeBypass_CounterResets_OnRampdown)
+{
+	mStreamAbstractionAAMP->mIsAtLivePoint = true;
+	mStreamAbstractionAAMP->testSetABRMinBuffer(6);
+	mStreamAbstractionAAMP->testSetABRMaxBuffer(10);
+	mStreamAbstractionAAMP->testSetMaxBufferCountCheck(5);
+	mStreamAbstractionAAMP->testSetABRHighBufferCounter(0);
+	mStreamAbstractionAAMP->testSetABRLowBufferCounter(0);
+
+	mPrivateInstanceAAMP->GetLLDashServiceData()->lowLatencyMode = true;
+
+	EXPECT_CALL(*mStreamAbstractionAAMP->mMockVideoTrack, GetBufferedDuration())
+		.WillOnce(Return(8.0))
+		.WillOnce(Return(8.0))
+		.WillOnce(Return(4.0));
+
+	int currProfile = 0;
+	int newProfile = 0;
+
+	mStreamAbstractionAAMP->testGetDesiredProfileOnSteadyState(currProfile, newProfile, 5000000);
+	EXPECT_EQ(mStreamAbstractionAAMP->testGetABRHighBufferCounter(), 1);
+
+	mStreamAbstractionAAMP->testGetDesiredProfileOnSteadyState(currProfile, newProfile, 5000000);
+	EXPECT_EQ(mStreamAbstractionAAMP->testGetABRHighBufferCounter(), 2);
+
+	mStreamAbstractionAAMP->testGetDesiredProfileOnSteadyState(currProfile, newProfile, -1);
+	EXPECT_EQ(mStreamAbstractionAAMP->testGetABRHighBufferCounter(), 0);
 }
