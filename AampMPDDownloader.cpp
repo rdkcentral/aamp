@@ -25,6 +25,7 @@
 
 #include "AampCurlDownloader.h"
 #include "AampMPDDownloader.h"
+#include "AampMPDTailTrim.h"
 #include "AampUtils.h"
 #include "AampLogManager.h"
 #include <inttypes.h>
@@ -85,9 +86,22 @@ std::shared_ptr<_manifestDownloadResponse> _manifestDownloadResponse::clone()
 	clonedDoc->mMPDDownloadResponse->mDownloadData = mMPDDownloadResponse->mDownloadData;
 	clonedDoc->mMPDParseHelper = std::make_shared<AampMPDParseHelper>(*this->mMPDParseHelper);
 	clonedDoc->mRootNode = NULL;
+	clonedDoc->mTailDropTracker = nullptr; // no reporting: re-parses an already-reported manifest
 	clonedDoc->parseMPD();
 	AAMPLOG_TRACE("Exit");
 	return clonedDoc;
+}
+
+void _manifestDownloadResponse::trimPeriodTails()
+{
+	const std::vector<DroppedSegment> dropped = TrimPeriodTailSegments(mMPDInstance.get(), AAMP_DASH_PERIOD_TAIL_START_TOLERANCE_SEC, AAMP_DASH_PERIOD_TAIL_MIN_OVERHANG_SEC);
+	if (mTailDropTracker)
+	{
+		for (const DroppedSegment &segment : mTailDropTracker->Update(dropped))
+		{
+			LogDroppedSegment(segment);
+		}
+	}
 }
 
 /**
@@ -129,6 +143,11 @@ void _manifestDownloadResponse::parseMPD()
 						mpd->SetFetchTime(fetchTime);
 						std::shared_ptr<dash::mpd::IMPD> tmp_ptr(mpd);
 						mMPDInstance = std::move(tmp_ptr);
+						if (mTrimPeriodTailSegments)
+						{
+							// Must precede Initialize(), which caches Period start/duration/end
+							trimPeriodTails();
+						}
 						mMPDStatus = AAMPStatusType::eAAMPSTATUS_OK;
 						mMPDParseHelper->Initialize(mpd);
 					}
@@ -219,6 +238,7 @@ void AampMPDDownloader::Initialize(ManifestDownloadConfigPtr mpdDnldCfg, std::st
 
 	std::lock_guard<std::recursive_mutex> lock(mMPDDnldMutex);
 	mMPDDnldCfg = std::move(mpdDnldCfg);
+	mTailDropTracker = std::make_shared<TailDropTracker>();
 
 	if(mpdPreProcessFuncptr)
 	{
@@ -382,6 +402,8 @@ void AampMPDDownloader::downloadMPDThread1()
 			//mDownloader1.Clear();
 			AAMPLOG_INFO("aamp url:%d,%d,%d,%f,%s", eMEDIATYPE_TELEMETRY_MANIFEST, eMEDIATYPE_MANIFEST,eCURLINSTANCE_VIDEO,0.000000, tuneUrl.c_str());
 			mMPDData = MakeSharedManifestDownloadResponsePtr();
+			mMPDData->mTrimPeriodTailSegments = mMPDDnldCfg->mTrimPeriodTailSegments;
+			mMPDData->mTailDropTracker = mTailDropTracker;
 		}
 		//If Manifest data already provided use it ,not required to download the Manifest
 		if (!mMPDDnldCfg->mPreProcessedManifest.empty())

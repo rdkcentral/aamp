@@ -1,7 +1,7 @@
 # If not stated otherwise in this file or this component's license file the
 # following copyright and licenses apply:
 #
-# Copyright 2023 RDK Management
+# Copyright 2026 RDK Management
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 
 set(AAMP_ROOT "../../../../")
 set(UTESTS_ROOT "../../")
-set(EXEC_NAME AampMPDDownloader)
+set(EXEC_NAME AampMPDTailTrimTests)
 
 # Include common test directories
 include(${CMAKE_CURRENT_LIST_DIR}/../CommonTestIncludes.cmake)
@@ -34,17 +34,17 @@ set (DASH_PARSER_SOURCES ${AAMP_ROOT}/dash/xml/DomDocument.cpp
                 ${AAMP_ROOT}/dash/utils/StringEx.cpp
                 ${AAMP_ROOT}/dash/utils/Path.cpp)
 
-set(TEST_SOURCES FunctionalTests.cpp
-                 AampMPDDownloaderTest.cpp)
+set(TEST_SOURCES AampMPDTailTrimTestCases.cpp
+                 AampMPDTailTrimTests.cpp)
 
-
+# AampMPDDownloader/AampCurlDownloader are linked only to turn manifest XML into an IMPD via parseMPD(); no downloader behaviour is tested (same as the AampMPDParseHelper suite)
 set(AAMP_SOURCES ${AAMP_ROOT}/downloader/AampCurlDownloader.cpp ${AAMP_ROOT}/AampUtils.cpp
                 ${AAMP_ROOT}/iso639map.cpp
-		${AAMP_ROOT}/AampMPDParseHelper.cpp
-		${AAMP_ROOT}/AampMPDTailTrim.cpp
-		${AAMP_ROOT}/AampMPDDownloader.cpp
-		${AAMP_ROOT}/AampMPDUtils.cpp
-		${DASH_PARSER_SOURCES})
+                ${AAMP_ROOT}/AampMPDTailTrim.cpp
+                ${AAMP_ROOT}/AampMPDParseHelper.cpp
+                ${AAMP_ROOT}/AampMPDDownloader.cpp
+                ${AAMP_ROOT}/AampMPDUtils.cpp
+                ${DASH_PARSER_SOURCES})
 
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}
@@ -60,7 +60,7 @@ if (COVERAGE_ENABLED)
     APPEND_COVERAGE_COMPILER_FLAGS()
 endif()
 
-target_link_libraries(${EXEC_NAME} -lpthread ${LIBCJSON_LINK_LIBRARIES} -lcurl -lxml2 fakes ${LIBDASH_LINK_LIBRARIES} ${GLIB_LINK_LIBRARIES} ${OS_LD_FLAGS} ${GMOCK_LINK_LIBRARIES} ${GTEST_LINK_LIBRARIES})
+target_link_libraries(${EXEC_NAME} -lpthread ${LIBDASH_LINK_LIBRARIES} ${LIBCJSON_LINK_LIBRARIES} -lcurl -lxml2 fakes ${GLIB_LINK_LIBRARIES} ${OS_LD_FLAGS} ${GMOCK_LINK_LIBRARIES} ${GTEST_LINK_LIBRARIES})
 set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
 
 aamp_utest_run_add(${EXEC_NAME})
