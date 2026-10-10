@@ -3408,6 +3408,10 @@ AAMPStatusType StreamAbstractionAAMP_MPD::GetMPDFromManifest( ManifestDownloadRe
 		}
 		mIsLiveManifest		=	mMPDParseHelper->IsLiveManifest();
 		aamp->SetIsLive(mIsLiveManifest);
+		if (aamp->mCMCDCollector)
+		{
+			aamp->mCMCDCollector->CMCDSetLiveStatus(mIsLiveManifest);
+		}
 
 		if(init)
 		{
@@ -7899,7 +7903,10 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 		}
 		bitratelist.push_back(audioTrack.bandwidth);
 	}
-	aamp->mCMCDCollector->SetBitrates(eMEDIATYPE_AUDIO, std::move(bitratelist));
+	if (aamp->mCMCDCollector)
+	{
+		aamp->mCMCDCollector->SetBitrates(eMEDIATYPE_AUDIO, std::move(bitratelist));
+	}
 }
 
 
