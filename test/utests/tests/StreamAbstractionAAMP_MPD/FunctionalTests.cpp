@@ -4023,7 +4023,7 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _))
 		.WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
-	EXPECT_CALL(*g_mockAampStreamSinkManager, AddMediaHeader(2, _))
+	EXPECT_CALL(*g_mockAampStreamSinkManager, AddMediaHeader(_, 2, _))
 		.Times(2);
 
 	//StreamAbstractionAAMP_MPD::Init() will internally call ExtractAndAddSubtitleMediaHeader()
@@ -4046,19 +4046,19 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
 	std::shared_ptr<AampStreamSinkManager::MediaHeader> header = std::make_shared<AampStreamSinkManager::MediaHeader>();
 	header->url = "http://host/asset/sub1_init.mp4";
 	header->mimeType = "application/mp4";
-	EXPECT_CALL(*g_mockAampStreamSinkManager, GetMediaHeader(2))
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetMediaHeader(_, 2))
 		.WillRepeatedly(Return(header));
-	EXPECT_CALL(*g_mockAampStreamSinkManager, GetMediaHeader(0))
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetMediaHeader(_, 0))
 		.WillRepeatedly(Return(nullptr));
-	EXPECT_CALL(*g_mockAampStreamSinkManager, GetMediaHeader(1))
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetMediaHeader(_, 1))
 		.WillRepeatedly(Return(nullptr));
-	EXPECT_CALL(*g_mockAampStreamSinkManager, GetMediaHeader(3))
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetMediaHeader(_, 3))
 		.WillRepeatedly(Return(nullptr));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(_,_,_,_,_,_,_,_,_,_,_,_,_,_,_)).WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(_,_,_,_,_,_,_,_));
 
-	EXPECT_CALL(*g_mockAampStreamSinkManager, RemoveMediaHeader(2));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, RemoveMediaHeader(_, 2));
 
 	//StartInjection will internally call SendMediaHeaders()
 	this->mStreamAbstractionAAMP_MPD->StartInjection();
