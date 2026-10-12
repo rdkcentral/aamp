@@ -2574,21 +2574,24 @@ void AampRialtoPlayer::OnPlaybackState(firebolt::rialto::PlaybackState state)
 				m_notifiable->NotifyFirstFrameReceived(ccHandle);
 				m_notifiable->NotifyFirstVideoFrameDisplayed();
 			}
-			else if (m_notifiable->GetState() == eSTATE_PAUSED)
-			{
-				// Genuine resume-from-pause: flip state back to PLAYING via speed change.
-				m_notifiable->NotifyFirstBufferProcessed(GetVideoRectangle());
-				m_notifiable->NotifyFirstFrameReceived(ccHandle);
-				m_notifiable->NotifySpeedChanged(
-					static_cast<float>(m_rate.load(std::memory_order_relaxed)), // actual rate
-					/*changeState=*/true);
-			}
 			else
 			{
-				// Trickplay-induced FLUSHED->PLAYING: rate already notified by the
-				// SetRate path; skip the duplicate SPEED_CHANGED.
 				m_notifiable->NotifyFirstBufferProcessed(GetVideoRectangle());
 				m_notifiable->NotifyFirstFrameReceived(ccHandle);
+				// Only resume-to-normal-play needs a state-changing speed
+				// notification here. Trickplay rate changes (FF/REW) are
+				// already notified by the SetRate path, so re-emitting here
+				// duplicates AAMP_EVENT_SPEED_CHANGED. The discriminator is the
+				// rate, not the AAMP state: FF entered from pause leaves the
+				// state eSTATE_PAUSED, so a state check misses that case.
+				const int actualRate =
+					m_rate.load(std::memory_order_relaxed);
+				if (actualRate == AAMP_NORMAL_PLAY_RATE)
+				{
+					m_notifiable->NotifySpeedChanged(
+						static_cast<float>(actualRate),
+						/*changeState=*/true);
+				}
 			}
 			StartProgressTimer();
 

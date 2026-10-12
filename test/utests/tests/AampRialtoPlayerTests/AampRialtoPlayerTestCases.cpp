@@ -2043,18 +2043,29 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 }
 
 TEST_F(AampRialtoPlayerWithDemuxTest,
-	OnPlaybackState_Playing_TrickplayResume_DoesNotCallSpeedChanged)
+	OnPlaybackState_Playing_TrickplayFromPause_DoesNotCallSpeedChanged)
 {
 	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
 
+	// First PLAYING consumes the first-frame notification and reaches PLAYING.
 	ON_CALL(m_mockNotifiable, GetState())
 		.WillByDefault(Return(eSTATE_IDLE));
 	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::PLAYING);
 
-	// Trickplay deferred flush drives FLUSHED->PLAYING while already playing;
-	// the SetRate path already emitted SPEED_CHANGED, so this must not repeat it.
+	// Enter forward trickplay: Flush at rate=2, SEEK_DONE commits m_rate=2.
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(_)).WillOnce(Return(true));
+	m_player->Flush(10.0, 2, /*shouldTearDown=*/false);
+	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
+
+	// FF entered from pause leaves the AAMP state eSTATE_PAUSED; the deferred
+	// flush then drives FLUSHED->PLAYING.  The SetRate path already emitted
+	// SPEED_CHANGED for rate=2, so this transition must not repeat it — the
+	// guard keys off the (trickplay) rate, not the AAMP state.
 	ON_CALL(m_mockNotifiable, GetState())
-		.WillByDefault(Return(eSTATE_PLAYING));
+		.WillByDefault(Return(eSTATE_PAUSED));
 
 	EXPECT_CALL(m_mockNotifiable, NotifyFirstBufferProcessed(_)).Times(1);
 	EXPECT_CALL(m_mockNotifiable, NotifyFirstFrameReceived(_)).Times(1);
