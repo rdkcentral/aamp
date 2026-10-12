@@ -538,6 +538,29 @@ TEST_F(AampStreamSinkManagerTests, CheckEncyptedHeaders)
     EXPECT_EQ(set_headers, get_headers);
 }
 
+TEST_F(AampStreamSinkManagerTests, CheckEncryptedHeaders_AfterDetachWithoutStop_ReinjectsCachedHeaders)
+{
+    std::map<int, std::string> set_headers;
+    std::map<int, std::string> get_headers;
+
+    set_headers.insert({1, "Test String"});
+
+    EXPECT_CALL(*g_mockAampGstPlayer, ChangeAamp(mPrivateInstanceAAMP1, _)).Times(0);
+    AampStreamSinkManager::GetInstance().CreateStreamSink(mPrivateInstanceAAMP1, mId3HandlerCallback1);
+    AampStreamSinkManager::GetInstance().SetSinglePipelineMode(mPrivateInstanceAAMP1);
+
+    EXPECT_CALL(*g_mockAampGstPlayer, SetEncryptedAamp(mPrivateInstanceAAMP1));
+    AampStreamSinkManager::GetInstance().SetEncryptedHeaders(mPrivateInstanceAAMP1, set_headers);
+    AampStreamSinkManager::GetInstance().GetEncryptedHeaders(get_headers);
+    EXPECT_EQ(set_headers, get_headers);
+
+    // Simulate background detach / foreground switch without stopping the underlying pipeline.
+    AampStreamSinkManager::GetInstance().DeactivatePlayer(mPrivateInstanceAAMP1, false);
+
+    AampStreamSinkManager::GetInstance().GetEncryptedHeaders(get_headers);
+    EXPECT_EQ(set_headers, get_headers);
+}
+
 /*  @brief: - Tests the API GetActiveStreamSink
     Test procedure
     Set the singlepipeline mode and create streamsink X 2. First instance is active

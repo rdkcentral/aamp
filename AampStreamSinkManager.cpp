@@ -392,11 +392,14 @@ void AampStreamSinkManager::DeactivatePlayer(PrivateInstanceAAMP *aamp, bool sto
 			}
 			else if (mActivePlayersMap.begin()->first == aamp)
 			{
+				// A background/foreground switch keeps the encrypted init headers cached for the
+				// underlying pipeline, but the injection state must be cleared so the next player
+				// can reapply the encrypted caps instead of falling back to a clear configuration.
+				mEncryptedHeadersInjected = false;
 				if (stop)
 				{
 					//Do not edit or remove this log - it is used in L2 test
 					AAMPLOG_WARN("AampStreamSinkManager(%p) Single Pipeline mode, deactivating and stopping active PLAYER[%d]", this, aamp->mPlayerId);
-					mEncryptedHeadersInjected = false;
 					mEncryptedHeaders.clear();
 					for (auto& header : mMediaHeaders)
 					{
