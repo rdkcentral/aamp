@@ -540,7 +540,7 @@ protected:
 
 		void CallFindTimedMetadata(dash::mpd::MPD *mpd, Node *root, bool init, bool reportBulkMet)
 		{
-			FindTimedMetadata(mpd, root, init, reportBulkMet);
+			FindTimedMetadata(mpd, root, mMPDParseHelper, init, reportBulkMet);
 		}
 		void CallProcessPeriodSupplementalProperty(Node *node, std::string &AdID, uint64_t startMS, uint64_t durationMS, bool isInit, bool reportBulkMeta = false)
 		{
