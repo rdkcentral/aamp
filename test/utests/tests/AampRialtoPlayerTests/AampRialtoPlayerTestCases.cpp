@@ -2043,6 +2043,27 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 }
 
 TEST_F(AampRialtoPlayerWithDemuxTest,
+	OnPlaybackState_Playing_TrickplayResume_DoesNotCallSpeedChanged)
+{
+	Configure();
+
+	ON_CALL(m_mockNotifiable, GetState())
+		.WillByDefault(Return(eSTATE_IDLE));
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+
+	// Trickplay deferred flush drives FLUSHED->PLAYING while already playing;
+	// the SetRate path already emitted SPEED_CHANGED, so this must not repeat it.
+	ON_CALL(m_mockNotifiable, GetState())
+		.WillByDefault(Return(eSTATE_PLAYING));
+
+	EXPECT_CALL(m_mockNotifiable, NotifyFirstBufferProcessed(_)).Times(1);
+	EXPECT_CALL(m_mockNotifiable, NotifyFirstFrameReceived(_)).Times(1);
+	EXPECT_CALL(m_mockNotifiable, NotifySpeedChanged(_, _)).Times(0);
+
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
 	OnPlaybackState_EndOfStream_CallsNotifyEOSReached)
 {
 	Configure();

@@ -1450,7 +1450,7 @@ void AampRialtoPlayer::StopInternal(bool keepLastFrame, bool preservePendingPosi
 		m_monitorAV->stop();
 		m_monitorAV.reset();
 	}
-	
+
 	// Wake any in-flight data so it abandons the current batch.  No
 	// follow-up gateInjection(true) here — Stop() ends the session, so
 	// sources remain DROPPED (never blocking a caller thread) until the
@@ -2574,13 +2574,21 @@ void AampRialtoPlayer::OnPlaybackState(firebolt::rialto::PlaybackState state)
 				m_notifiable->NotifyFirstFrameReceived(ccHandle);
 				m_notifiable->NotifyFirstVideoFrameDisplayed();
 			}
-			else
+			else if (m_notifiable->GetState() == eSTATE_PAUSED)
 			{
+				// Genuine resume-from-pause: flip state back to PLAYING via speed change.
 				m_notifiable->NotifyFirstBufferProcessed(GetVideoRectangle());
 				m_notifiable->NotifyFirstFrameReceived(ccHandle);
 				m_notifiable->NotifySpeedChanged(
 					static_cast<float>(m_rate.load(std::memory_order_relaxed)), // actual rate
 					/*changeState=*/true);
+			}
+			else
+			{
+				// Trickplay-induced FLUSHED->PLAYING: rate already notified by the
+				// SetRate path; skip the duplicate SPEED_CHANGED.
+				m_notifiable->NotifyFirstBufferProcessed(GetVideoRectangle());
+				m_notifiable->NotifyFirstFrameReceived(ccHandle);
 			}
 			StartProgressTimer();
 
