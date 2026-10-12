@@ -1975,6 +1975,15 @@ MediaCodecInfo PrivateInstanceAAMP::GetMediaCodecInfo(AampMediaType type)
 	return MediaCodecInfo();
 }
 
+StreamCodecInfo PrivateInstanceAAMP::GetStreamCodecInfo()
+{
+	return StreamCodecInfo{
+		GetMediaCodecInfo(eMEDIATYPE_VIDEO),
+		GetMediaCodecInfo(eMEDIATYPE_AUDIO),
+		GetMediaCodecInfo(eMEDIATYPE_SUBTITLE)
+	};
+}
+
 void PrivateInstanceAAMP::QueueProtectionEvent(AampMediaType type, const std::vector<MediaProtectionInfo>& protectionEvents)
 {
 	if (g_mockPrivateInstanceAAMP)

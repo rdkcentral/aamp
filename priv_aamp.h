@@ -4232,6 +4232,14 @@ public:
 	MediaCodecInfo GetMediaCodecInfo(AampMediaType type);
 
 	/**
+	 * @fn GetStreamCodecInfo
+	 * @brief Build codec information for video/audio/subtitle tracks
+	 *
+	 * @return Stream codec information used for sink Configure calls
+	 */
+	StreamCodecInfo GetStreamCodecInfo();
+
+	/**
 	 * @fn QueueProtectionEvent
 	 * @brief Forward in-band PSSH data (parsed from an MP4 container) to the stream sink
 	 *

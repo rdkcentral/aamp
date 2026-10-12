@@ -54,8 +54,6 @@ public:
     /**
      *   @brief  Configure output formats
      *   @param[in]  codecInfo - Pipeline codec information (consumed).
-     *   @param[in]  format - Video output format.
-     *   @param[in]  audioFormat - Audio output format.
      *   @param[in]  bESChangeStatus - Flag to keep force configure the pipeline value
      *   @param[in]  setReadyAfterPipelineCreation - Flag denotes if pipeline has to be reset to ready or not
      *   @return void
