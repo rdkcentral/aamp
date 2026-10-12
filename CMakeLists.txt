@@ -350,6 +350,7 @@ if(CMAKE_WPEWEBKIT_JSBINDINGS OR APPLE OR CMAKE_PLATFORM_UBUNTU)
 			${GST_LIBRARIES}
 			${GLIB_LIBRARIES}
 			${JSCORE_FRAMEWORK}
+			${CURL_LINK_LIBRARIES}
 		)
 
 		set_target_properties(uveExecuter PROPERTIES
@@ -395,6 +396,7 @@ if(CMAKE_WPEWEBKIT_JSBINDINGS OR APPLE OR CMAKE_PLATFORM_UBUNTU)
             aampjsbindings
             ${GSTREAMER_LINK_LIBRARIES}
             ${JSC_LINK_LIBRARIES}
+            ${CURL_LINK_LIBRARIES}
         )
 
         install(TARGETS uveExecuter DESTINATION bin)

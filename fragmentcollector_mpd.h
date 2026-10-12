@@ -750,7 +750,7 @@ protected:
 	 * @param init true if this is the first playlist download for a tune/seek/trickplay
 	 * @param reportBulkMeta true if bulkTimedMetadata feature is enabled
 	 */
-	void FindTimedMetadata(MPD* mpd, Node* root, bool init = false, bool reportBulkMet = false);
+	void FindTimedMetadata(MPD* mpd, Node* root, AampMPDParseHelperPtr mpdParseHelper, bool init = false, bool reportBulkMet = false);
 	/**
 	 * @fn ProcessPeriodSupplementalProperty
 	 * @param node SupplementalProperty node
@@ -1251,7 +1251,7 @@ protected:
 	/**
 	 * @fn FindPeriodGapsAndReport
 	 */
-	void FindPeriodGapsAndReport();
+	void FindPeriodGapsAndReport(AampMPDParseHelperPtr mpdParseHelper);
 	/**
 	 * @fn IndexNewMPDDocument
 	 */
