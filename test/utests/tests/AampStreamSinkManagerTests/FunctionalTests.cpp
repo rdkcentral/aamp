@@ -678,6 +678,61 @@ TEST_F(AampStreamSinkManagerTests, MediaHeader_AddGetRemove)
     EXPECT_EQ(removed, nullptr);
 }
 
+/**
+ * @brief Stopping a multi-pipeline player clears cached media headers.
+ */
+TEST_F(AampStreamSinkManagerTests, DeactivatePlayer_MultiPipelineStop_ClearsMediaHeaders)
+{
+    auto& manager = AampStreamSinkManager::GetInstance();
+    MockStreamSink clientSink;
+    const unsigned trackId = eMEDIATYPE_SUBTITLE;
+
+    manager.SetStreamSink(mPrivateInstanceAAMP1, &clientSink);
+    manager.AddMediaHeader(trackId, std::make_shared<AampStreamSinkManager::MediaHeader>(
+        "http://test.url/init.mp4", "application/mp4"));
+
+    manager.DeactivatePlayer(mPrivateInstanceAAMP1, true);
+
+    EXPECT_EQ(manager.GetMediaHeader(trackId), nullptr);
+}
+
+/**
+ * @brief Deactivating without stopping preserves cached media headers.
+ */
+TEST_F(AampStreamSinkManagerTests, DeactivatePlayer_MultiPipelineWithoutStop_PreservesMediaHeaders)
+{
+    auto& manager = AampStreamSinkManager::GetInstance();
+    MockStreamSink clientSink;
+    const unsigned trackId = eMEDIATYPE_SUBTITLE;
+    auto header = std::make_shared<AampStreamSinkManager::MediaHeader>(
+        "http://test.url/init.mp4", "application/mp4");
+
+    manager.SetStreamSink(mPrivateInstanceAAMP1, &clientSink);
+    manager.AddMediaHeader(trackId, header);
+
+    manager.DeactivatePlayer(mPrivateInstanceAAMP1, false);
+
+    EXPECT_EQ(manager.GetMediaHeader(trackId), header);
+}
+
+/**
+ * @brief Deleting a multi-pipeline sink clears cached media headers.
+ */
+TEST_F(AampStreamSinkManagerTests, DeleteStreamSink_MultiPipeline_ClearsMediaHeaders)
+{
+    auto& manager = AampStreamSinkManager::GetInstance();
+    MockStreamSink clientSink;
+    const unsigned trackId = eMEDIATYPE_SUBTITLE;
+
+    manager.SetStreamSink(mPrivateInstanceAAMP1, &clientSink);
+    manager.AddMediaHeader(trackId, std::make_shared<AampStreamSinkManager::MediaHeader>(
+        "http://test.url/init.mp4", "application/mp4"));
+
+    manager.DeleteStreamSink(mPrivateInstanceAAMP1);
+
+    EXPECT_EQ(manager.GetMediaHeader(trackId), nullptr);
+}
+
 /*  @brief : - Specific error case leading to invalid encrypted headers
 */
 TEST_F(AampStreamSinkManagerTests, CheckEncryptedHeaders_PlayerNotDeactivated)
