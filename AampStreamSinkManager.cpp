@@ -368,6 +368,12 @@ void AampStreamSinkManager::GetEncryptedHeaders(std::map<int, std::string>& mapp
 	}
 }
 
+bool AampStreamSinkManager::IsEncryptedHeadersCached()
+{
+	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
+	return !mEncryptedHeaders.empty();
+}
+
 void AampStreamSinkManager::DeactivatePlayer(PrivateInstanceAAMP *aamp, bool stop)
 {
 	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
