@@ -7625,6 +7625,10 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 		if( mMediaStreamContext[i] )
 		{
 			mMediaStreamContext[i]->enabled = false;
+			// Intentional: this call re-picks adaptationSetIdx/representationIndex (new period, or reorder
+			// detected in IndexSelectedPeriod), so the new index is authoritative. Keeping the old ID would
+			// make ResolveAdaptationSetForTrack override it with a stale ID, mismatching representationIndex.
+			// Same-period live refresh (no StreamSelection) keeps the ID, so relocation by ID still applies there.
 			mMediaStreamContext[i]->adaptationSetIdValid = false;
 		}
 	}
@@ -8052,7 +8056,9 @@ AAMPStatusType StreamAbstractionAAMP_MPD::ResolveAdaptationSetForTrack(MediaStre
 	// longer points to the previously selected AdaptationSet, locate the matching id and
 	// use that index; if the id cannot be found, the selection is no longer valid.
 	// On the first resolve the id is not yet established, so trust the index chosen by
-	// StreamSelection and skip the reorder/error check.
+	// StreamSelection and skip the reorder/error check. StreamSelection() clears
+	// adaptationSetIdValid because it picks a fresh index/representation; do not "preserve" the
+	// old id across it (a reused id in a new period would point at the wrong track).
 	const auto &curAdaptationSets = period->GetAdaptationSets();
 	const size_t numAdaptationSets = curAdaptationSets.size();
 
@@ -10333,6 +10339,7 @@ bool StreamAbstractionAAMP_MPD::SelectSourceOrAdPeriod(bool &periodChanged, bool
 				{
 					if (mMediaStreamContext[i]->adaptationSetId != adaptationSets.at(mMediaStreamContext[i]->adaptationSetIdx)->GetId())
 					{
+						// StreamSelection() re-picks index and ID together; the stale ID is deliberately not kept.
 						AAMPLOG_WARN("AdaptationSet index changed; updating stream selection, track = %d", i);
 						requireStreamSelection = true;
 					}
