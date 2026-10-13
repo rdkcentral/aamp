@@ -373,7 +373,16 @@ private:
 	/// SetVideoRectangle() and returned by GetVideoRectangle().
 	std::string m_videoRectangle;
 
-	PrivateInstanceAAMP *m_aamp;                           ///< Owning AAMP instance
+	/// Owning AAMP instance.  Switched by ChangeAamp() on one thread while
+	/// others read it, so access it only through Aamp().
+	std::atomic<PrivateInstanceAAMP *> m_aamp;
+
+	/// Current owning AAMP instance.  Use once per function and keep the result,
+	/// as a later call may return a different instance.
+	PrivateInstanceAAMP *Aamp() const
+	{
+		return m_aamp.load(std::memory_order_acquire);
+	}
 
 	id3_callback_t m_ID3MetadataHandler;                   ///< Function to call to generate the JS event for in ID3 packet
 
@@ -410,8 +419,21 @@ private:
 	/// lock held, as its destructor performs Rialto IPC.
 	void SetPipeline(std::shared_ptr<firebolt::rialto::IMediaPipeline> pipeline);
 
-	/// DRM bridge used to create key sessions and obtain mks_ids.
+	/// DRM bridge used to create key sessions and obtain mks_ids.  Guarded by
+	/// m_drmBridgeMutex (a leaf lock); use it only through GetDrmBridge().
 	std::shared_ptr<IDrmBridge> m_drmBridge;
+
+	/// True when m_drmBridge was installed by SetEncryptedAamp() and so
+	/// deliberately targets a different AAMP instance than Aamp().  Guarded by
+	/// m_drmBridgeMutex.
+	bool m_drmBridgeIsExplicit{false};
+
+	mutable std::mutex m_drmBridgeMutex;
+
+	/// Snapshot of the DRM bridge, creating one for the current AAMP instance
+	/// if none exists.  The snapshot stays valid if ChangeAamp() drops the
+	/// bridge concurrently.
+	std::shared_ptr<IDrmBridge> GetDrmBridge();
 
 	// -----------------------------------------------------------------------
 	// Per-source state (polymorphic source hierarchy)

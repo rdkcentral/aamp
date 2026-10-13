@@ -45,3 +45,10 @@ public:
 /// Tests that exercise DRM behaviour point this at their local MockDrmBridge
 /// in SetUp() and reset it to nullptr in TearDown().
 extern MockDrmBridge *g_mockDrmBridge;
+
+class PrivateInstanceAAMP;
+
+/// AAMP instance passed to the most recently constructed FakeAampDrmBridge,
+/// and how many have been constructed.  Reset by the tests that read them.
+extern PrivateInstanceAAMP *g_lastDrmBridgeAamp;
+extern int g_drmBridgeCreateCount;

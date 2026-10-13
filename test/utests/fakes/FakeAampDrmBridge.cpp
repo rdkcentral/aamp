@@ -30,12 +30,17 @@
 #include "AampDrmBridge.h"
 #include "MockDrmBridge.h"
 
-/// Definition of the global declared in MockDrmBridge.h.
+/// Definition of the globals declared in MockDrmBridge.h.
 MockDrmBridge *g_mockDrmBridge = nullptr;
+PrivateInstanceAAMP *g_lastDrmBridgeAamp = nullptr;
+int g_drmBridgeCreateCount = 0;
 
-AampDrmBridge::AampDrmBridge(PrivateInstanceAAMP * /*aamp*/)
+AampDrmBridge::AampDrmBridge(PrivateInstanceAAMP *aamp)
 	: m_aamp(nullptr)
-{}
+{
+	g_lastDrmBridgeAamp = aamp;
+	++g_drmBridgeCreateCount;
+}
 
 int32_t AampDrmBridge::createSession(
 	const char    *systemId,

@@ -1917,6 +1917,8 @@ protected:
 	{
 		m_mockDrmBridge = std::make_unique<NiceMock<MockDrmBridge>>();
 		g_mockDrmBridge = m_mockDrmBridge.get();
+		g_lastDrmBridgeAamp = nullptr;
+		g_drmBridgeCreateCount = 0;
 		AampRialtoPlayerWithDemuxTest::SetUp();
 	}
 
@@ -1982,6 +1984,68 @@ TEST_F(AampRialtoPlayerDrmTest,
 	// and checking createSession is reachable through the mock.
 	EXPECT_CALL(*m_mockDrmBridge, clearSessions()).Times(0);
 	m_player->ClearProtectionEvent();
+}
+
+TEST_F(AampRialtoPlayerDrmTest,
+	ChangeAamp_DefaultBridge_IsRecreatedForNewInstance)
+{
+	/**
+	 * @brief Regression (H8): a bridge built for the previous AAMP instance
+	 *        would keep calling it after ChangeAamp(), which may have been
+	 *        destroyed.  The next attach must build one for the new instance.
+	 */
+	auto *original =
+		reinterpret_cast<PrivateInstanceAAMP *>(g_mockPrivateInstanceAAMP.get());
+	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
+	SendVideoInitFragment();
+	ASSERT_EQ(g_drmBridgeCreateCount, 1);
+	ASSERT_EQ(g_lastDrmBridgeAamp, original);
+
+	PrivateInstanceAAMP newAamp{};
+	m_player->ChangeAamp(&newAamp, nullptr);
+	m_player->SetStreamCaps(eMEDIATYPE_VIDEO, MakeVideoH264CodecInfo());
+
+	EXPECT_EQ(g_drmBridgeCreateCount, 2);
+	EXPECT_EQ(g_lastDrmBridgeAamp, &newAamp);
+}
+
+TEST_F(AampRialtoPlayerDrmTest,
+	ChangeAamp_AfterSetEncryptedAamp_KeepsEncryptedPlayerBridge)
+{
+	/**
+	 * @brief The bridge installed by SetEncryptedAamp() deliberately targets
+	 *        the encrypted player for a shared pipeline (pre-roll ads), so
+	 *        switching the active instance must not replace it.
+	 */
+	PrivateInstanceAAMP encryptedAamp{};
+	m_player->SetEncryptedAamp(&encryptedAamp);
+	ASSERT_EQ(g_drmBridgeCreateCount, 1);
+	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
+	SendVideoInitFragment();
+
+	PrivateInstanceAAMP newAamp{};
+	m_player->ChangeAamp(&newAamp, nullptr);
+	m_player->SetStreamCaps(eMEDIATYPE_VIDEO, MakeVideoH264CodecInfo());
+
+	EXPECT_EQ(g_drmBridgeCreateCount, 1);
+	EXPECT_EQ(g_lastDrmBridgeAamp, &encryptedAamp);
+}
+
+TEST_F(AampRialtoPlayerDrmTest,
+	SetEncryptedAamp_Null_RevertsToDefaultBridge)
+{
+	auto *original =
+		reinterpret_cast<PrivateInstanceAAMP *>(g_mockPrivateInstanceAAMP.get());
+	PrivateInstanceAAMP encryptedAamp{};
+	m_player->SetEncryptedAamp(&encryptedAamp);
+	m_player->SetEncryptedAamp(nullptr);
+
+	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
+	SendVideoInitFragment();
+
+	EXPECT_EQ(g_drmBridgeCreateCount, 2);
+	EXPECT_EQ(g_lastDrmBridgeAamp, original)
+		<< "a null encrypted instance must not leave a bridge with no target";
 }
 
 TEST_F(AampRialtoPlayerDrmTest,

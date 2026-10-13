@@ -631,7 +631,7 @@ bool AampRialtoPlayer::TryReuseExistingPipeline(
 		{
 			if (m_sources[i])
 			{
-				m_aamp->ResumeTrackDownloads(
+				Aamp()->ResumeTrackDownloads(
 					static_cast<AampMediaType>(i));
 			}
 		}
@@ -771,25 +771,26 @@ void AampRialtoPlayer::RegisterPipelineCallbacks()
 
 void AampRialtoPlayer::CreateMonitorAV()
 {
-	if (m_aamp->mConfig->IsConfigSet(eAAMPConfig_MonitorAV))
+	PrivateInstanceAAMP *aamp = Aamp();
+	if (aamp->mConfig->IsConfigSet(eAAMPConfig_MonitorAV))
 	{
 		const double progressSec =
-			m_aamp->mConfig->GetConfigValue(
+			aamp->mConfig->GetConfigValue(
 				eAAMPConfig_ReportProgressInterval);
 		AampRialtoMonitorAV::Config monCfg{};
 		monCfg.sampleIntervalMs =
 			static_cast<int>(progressSec * 1000.0);
 		monCfg.reportIntervalMs =
-			m_aamp->mConfig->GetConfigValue(
+			aamp->mConfig->GetConfigValue(
 				eAAMPConfig_MonitorAVReportingInterval);
 		monCfg.syncThresholdPositiveMs =
-			m_aamp->mConfig->GetConfigValue(
+			aamp->mConfig->GetConfigValue(
 				eAAMPConfig_MonitorAVSyncThresholdPositive);
 		monCfg.syncThresholdNegativeMs =
-			m_aamp->mConfig->GetConfigValue(
+			aamp->mConfig->GetConfigValue(
 				eAAMPConfig_MonitorAVSyncThresholdNegative);
 		monCfg.jumpThresholdMs =
-			m_aamp->mConfig->GetConfigValue(
+			aamp->mConfig->GetConfigValue(
 				eAAMPConfig_MonitorAVJumpThreshold);
 
 		m_monitorAV = std::make_unique<AampRialtoMonitorAV>(
@@ -895,7 +896,7 @@ void AampRialtoPlayer::CreateMediaSource(
 		// sequence has staged the correct position).  Must be set before
 		// AttachSource() is ever called for this source.
 		m_sources[type]->gateInjection(GetPipeline().get(), true, "Configure");
-		m_aamp->ResumeTrackDownloads(type);
+		Aamp()->ResumeTrackDownloads(type);
 		AAMPLOG_INFO("Created mediaType=%d source (format=%d)",
 			static_cast<int>(type), static_cast<int>(format));
 	}
@@ -1274,14 +1275,9 @@ bool AampRialtoPlayer::AttachSource(
 		m_stateMachine.onSourceAttaching();
 	}
 
-	// Ensure m_drmBridge is initialized before attaching source.
-	// Lazy initialization supports pre-roll ads: if SetEncryptedAamp was
-	// called, use that player's DRM session manager; otherwise, use m_aamp.
-	if (!m_drmBridge)
-	{
-		m_drmBridge = std::make_shared<AampDrmBridge>(m_aamp);
-		AAMPLOG_INFO("Creating m_drmBridge with m_aamp=%p", m_aamp);
-	}
+	// Lazily created for the current AAMP instance unless SetEncryptedAamp()
+	// installed one for the encrypted player (pre-roll ads).
+	const auto drmBridge = GetDrmBridge();
 
 	// HLS always queues content protection under eMEDIATYPE_VIDEO (see
 	// StreamAbstractionAAMP_HLS::InitiateDrmProcess), even when the
@@ -1311,7 +1307,7 @@ bool AampRialtoPlayer::AttachSource(
 	const int64_t attachPositionNs = m_segmentPosition.StagedPositionNs();
 
 	auto result = source.attachOrUpdate(
-		*pipeline, codecInfo, m_drmBridge.get(),
+		*pipeline, codecInfo, drmBridge.get(),
 		attachPositionNs,
 		protectionCopy,
 		appliedRate);
@@ -1445,8 +1441,9 @@ void AampRialtoPlayer::LogSourceSnapshot(const char *context)
 
 bool AampRialtoPlayer::IsPreRollEnabled(int rate) const
 {
-	return (rate == AAMP_NORMAL_PLAY_RATE) && (m_aamp != nullptr) &&
-		m_aamp->mConfig->IsConfigSet(eAAMPConfig_GStreamerBufferingBeforePlay);
+	PrivateInstanceAAMP *aamp = Aamp();
+	return (rate == AAMP_NORMAL_PLAY_RATE) && (aamp != nullptr) &&
+		aamp->mConfig->IsConfigSet(eAAMPConfig_GStreamerBufferingBeforePlay);
 }
 
 void AampRialtoPlayer::ArmPreRoll(int rate, const char *reason)
@@ -2347,9 +2344,10 @@ bool AampRialtoPlayer::Discontinuity(AampMediaType mediaType)
 		return false;
 	}
 
-	const bool esChangePending = m_aamp->ReconfigureForElementaryStreamUpdate();
+	PrivateInstanceAAMP *aamp = Aamp();
+	const bool esChangePending = aamp->ReconfigureForElementaryStreamUpdate();
 	const bool ptsRestampActive =
-		m_aamp->mConfig->IsConfigSet(eAAMPConfig_EnablePTSReStamp) &&
+		aamp->mConfig->IsConfigSet(eAAMPConfig_EnablePTSReStamp) &&
 		!esChangePending;
 
 	if (ptsRestampActive)
@@ -2385,7 +2383,7 @@ bool AampRialtoPlayer::Discontinuity(AampMediaType mediaType)
 		}
 
 		StopBuffering(true);
-		if (m_aamp->mConfig->IsConfigSet(eAAMPConfig_EnableAampUnderflowMonitor))
+		if (aamp->mConfig->IsConfigSet(eAAMPConfig_EnableAampUnderflowMonitor))
 		{
 			m_notifiable->NotifyPipelinePausedToUnderflowMonitor();
 		}
@@ -2401,7 +2399,7 @@ bool AampRialtoPlayer::Discontinuity(AampMediaType mediaType)
 	// arming would let SendSample() race an early implicit Flush() ahead of
 	// the guaranteed one, which would then redundantly re-flush and discard
 	// whatever was buffered in between.
-	if (!m_aamp->WillFlushOnDiscontinuity())
+	if (!aamp->WillFlushOnDiscontinuity())
 	{
 		ArmPositionPending("Discontinuity");
 	}
@@ -2772,9 +2770,10 @@ void AampRialtoPlayer::SetStreamCaps(AampMediaType type, MediaCodecInfo &&codecI
 			// ResumeTrackDownloads is never triggered by a Rialto NeedData
 			// callback after a caps update.  Clear the flag here so that the
 			// inject loop is unblocked once the new period init has been accepted.
-			if (type == eMEDIATYPE_SUBTITLE && m_aamp)
+			PrivateInstanceAAMP *aamp = Aamp();
+			if (type == eMEDIATYPE_SUBTITLE && aamp)
 			{
-				m_aamp->ResumeTrackDownloads(eMEDIATYPE_SUBTITLE);
+				aamp->ResumeTrackDownloads(eMEDIATYPE_SUBTITLE);
 			}
 		}
 		else
@@ -2790,7 +2789,7 @@ bool AampRialtoPlayer::IsAssociatedAamp(PrivateInstanceAAMP *aampInstance)
 {
 	bool ret = false;
 	AAMPLOG_INFO("ENTRY aampInstance=%p", aampInstance);
-	ret = (m_aamp == aampInstance);
+	ret = (Aamp() == aampInstance);
 	AAMPLOG_INFO("EXIT ret=%d", ret);
 	return ret;
 }
@@ -2805,7 +2804,19 @@ void AampRialtoPlayer::ChangeAamp(PrivateInstanceAAMP *newAamp, id3_callback_t i
 	}
 	else
 	{
-		m_aamp = newAamp;
+		m_aamp.store(newAamp, std::memory_order_release);
+		{
+			// A bridge made for the previous instance would keep using it.
+			// One installed by SetEncryptedAamp() targets another instance
+			// on purpose and is kept.  The old bridge is released outside the
+			// lock; an in-flight AttachSource() holds its own snapshot.
+			std::shared_ptr<IDrmBridge> staleBridge;
+			std::lock_guard<std::mutex> lock(m_drmBridgeMutex);
+			if (!m_drmBridgeIsExplicit)
+			{
+				staleBridge = std::move(m_drmBridge);
+			}
+		}
 		if (m_notifiableAdapter)
 		{
 			static_cast<PrivateInstanceAAMPNotifiable *>(
@@ -2821,9 +2832,31 @@ void AampRialtoPlayer::SetEncryptedAamp(PrivateInstanceAAMP *aamp)
 	// Create DRM bridge with the encrypted player's aamp to share its DRM
 	// session manager.  Supports pre-roll ads: clear ad player calls this
 	// with the encrypted VOD player so the pipeline is configured for DRM
-	// even though the first asset is unencrypted.
-	m_drmBridge = std::make_shared<AampDrmBridge>(aamp);
+	// even though the first asset is unencrypted.  Null reverts to the
+	// default bridge for the current instance.
+	std::shared_ptr<IDrmBridge> previousBridge;
+	{
+		std::lock_guard<std::mutex> lock(m_drmBridgeMutex);
+		previousBridge = std::move(m_drmBridge);
+		m_drmBridgeIsExplicit = (aamp != nullptr);
+		if (aamp != nullptr)
+		{
+			m_drmBridge = std::make_shared<AampDrmBridge>(aamp);
+		}
+	}
 	AAMPLOG_INFO("EXIT");
+}
+
+std::shared_ptr<IDrmBridge> AampRialtoPlayer::GetDrmBridge()
+{
+	std::lock_guard<std::mutex> lock(m_drmBridgeMutex);
+	if (!m_drmBridge)
+	{
+		PrivateInstanceAAMP *aamp = Aamp();
+		m_drmBridge = std::make_shared<AampDrmBridge>(aamp);
+		AAMPLOG_INFO("Creating m_drmBridge with aamp=%p", aamp);
+	}
+	return m_drmBridge;
 }
 
 void AampRialtoPlayer::ResetFirstFrame()

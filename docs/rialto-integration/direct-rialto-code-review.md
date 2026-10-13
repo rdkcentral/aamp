@@ -48,7 +48,7 @@ and should be confirmed before or while fixing.
 | H5 | Done | `PlaybackState::FAILURE` never reported to AAMP |
 | H6 | Done | `Stop()`/`Configure()` can wait forever for a flush |
 | H7 | Done | Play holds leak across sessions |
-| H8 | Open | `ChangeAamp` leaves stale pointers (DRM bridge) |
+| H8 | Done | `ChangeAamp` leaves stale pointers (DRM bridge) |
 
 ### H1. `m_pipeline` shared across threads without synchronisation (use-after-free)
 - `m_pipeline` is a `std::shared_ptr` reset in `StopInternal` and reassigned in `CreateAndLoadPipeline` (`AampRialtoPlayer.cpp`, `m_pipeline = ...createMediaPipeline`).
@@ -296,6 +296,12 @@ Rialto behaviours confirmed or disproved, test gaps, design decisions).
 | 2026-10-13 | H7 | `Reset()` restores only `SourcesNotAttached` (the construction state) and also clears the pre-roll-ready latch, otherwise a new session's pre-roll start would be suppressed. Not done: `Configure()` on the reuse path (no `Stop()`) still does not clear stale holds. |
 | 2026-10-13 | H7 | `Flush()`'s internal teardown-recovery `Stop()` also resets the holds. This is harmless because `Flush()` has already released `PositionPending` and releases `Flushing` itself immediately afterwards. |
 | 2026-10-13 | H7 | `CancelPlayRequest()` remains for `Pause(true)`, which must not drop the other holds. |
+| 2026-10-13 | H8 | `SetEncryptedAamp()` deliberately points DRM at a different instance (the encrypted VOD player) for a shared pipeline, so `ChangeAamp()` must not replace that bridge; only the default bridge made for `Aamp()` is dropped and rebuilt lazily. A test guards the explicit case. |
+| 2026-10-13 | H8 | Residual risk, outside `direct-rialto/`: a bridge installed by `SetEncryptedAamp()` holds a raw pointer to the encrypted instance and its lifetime depends on `AampStreamSinkManager`, which never calls `SetEncryptedAamp(nullptr)` when that player is deleted. Suggest the manager does so; the player now handles null by reverting to the default bridge. |
+| 2026-10-13 | H8 | Before the change `SetEncryptedAamp(nullptr)` built a bridge with no target, making every later `createSession` fail; it now falls back to the default bridge. |
+| 2026-10-13 | H8 | `Aamp()` returns a snapshot; functions that use the instance more than once (`CreateMonitorAV`, `Discontinuity`) take a single local so one call never mixes two instances. |
+| 2026-10-13 | H8 | Not covered: `PrivateInstanceAAMPNotifiable::m_aamp` is still a plain pointer written by `ChangeAamp` and read on callback threads (M14). `AampDrmBridge::m_aamp` is only written at construction. |
+| 2026-10-13 | H8 | Test fake `FakeAampDrmBridge` now records the target instance and creation count (`g_lastDrmBridgeAamp`, `g_drmBridgeCreateCount`), as the old fake discarded the constructor argument. |
 
 ## Verification Notes
 
@@ -321,3 +327,4 @@ Record each completed task: what was done, files changed, tests added or run.
 | 2026-10-13 | H5 | New `HandlePlaybackFailure()` (called from `OnPlaybackState`): records the state, moves the machine to `ERROR`, wakes flush waiters as before, and calls `NotifyPlaybackError(AAMP_TUNE_GST_PIPELINE_ERROR)` unless the prior state was `IDLE` or `ERROR`. | `direct-rialto/AampRialtoPlayer.cpp`, `direct-rialto/AampRialtoPlayer.h` | 3 new `PlaybackStateFailure_*` tests (2 fail without the fix; the third guards the stale-IDLE case). Player suite 279 pass; all 13 Rialto suites pass (490 tests). |
 | 2026-10-13 | H6 | `WaitForFlushToComplete` now uses `wait_for` with `m_flushCompleteTimeout` (5 s). On timeout it logs an error, moves the state machine out of `FLUSHING`, commits the staged rate, notifies waiters and releases `PlayHold::Flushing`. | `direct-rialto/AampRialtoPlayer.cpp`, `direct-rialto/AampRialtoPlayer.h` | 3 new tests (all hang without the fix): `Stop_FlushNeverCompletes_ReturnsAfterTimeout`, `Flush_PreviousFlushLost_RecoversAfterTimeout`, `Configure_FlushNeverCompletes_IssuesDeferredPlay`. Player suite 282 pass; all 13 Rialto suites pass (493 tests). |
 | 2026-10-13 | H7 | Added `AampRialtoPlaybackController::Reset()` (discard the play request, restore the initial hold set, clear the pre-roll latch; never issues `play()`) and call it from `StopInternal` in place of `CancelPlayRequest`. | `direct-rialto/AampRialtoPlaybackController.h`, `direct-rialto/AampRialtoPlaybackController.cpp`, `direct-rialto/AampRialtoPlayer.cpp` | 4 new tests: controller `Reset_DropsLeakedHoldsAndRequest`, `Reset_ForgetsPreRollReadiness`; player `Stop_AfterFailureDuringFlush_NextSessionPlays` and `Stop_DuringFragmentCaching_NextSessionPlays` (both fail with the old `Stop`). All 13 Rialto suites pass (497 tests). |
+| 2026-10-13 | H8 | `m_aamp` is now `std::atomic` and read through `Aamp()`. The DRM bridge is created and swapped under `m_drmBridgeMutex` via `GetDrmBridge()`, which returns a snapshot so an in-flight `AttachSource` is safe. `ChangeAamp()` drops the default bridge (kept if installed by `SetEncryptedAamp()`); `SetEncryptedAamp(nullptr)` reverts to the default. | `direct-rialto/AampRialtoPlayer.cpp`, `direct-rialto/AampRialtoPlayer.h`, `test/utests/fakes/FakeAampDrmBridge.cpp`, `test/utests/mocks/MockDrmBridge.h` | 3 new tests (2 fail without the fix; the third guards the explicit-bridge case). Player suite 287 pass; all 13 Rialto suites pass (502 tests). |
