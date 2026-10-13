@@ -1262,6 +1262,102 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
 }
 
+/**
+ * @test Regression (M5): the SEEK_DONE handler must release the Flushing hold
+ *       (and so issue the deferred play()) while the state machine is still
+ *       FLUSHING. Once it leaves FLUSHING a Flush() blocked in
+ *       WaitForFlushToComplete() can apply its own hold, and a release that
+ *       came afterwards would drop it and play() mid-flush.
+ */
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	SeekDone_ReleasesFlushingHoldBeforeLeavingFlushing)
+{
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(_)).WillOnce(Return(true));
+	m_player->Flush(5.0, 1, /*shouldTearDown=*/false);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
+
+	PlayerStateId stateAtPlay = PlayerStateId::IDLE;
+	EXPECT_CALL(*m_mockPipelinePtr, play(_))
+		.WillOnce(Invoke([&](bool &) {
+			stateAtPlay = m_player->GetCurrentPlayerState();
+			return true;
+		}));
+	m_player->Stream();
+	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
+
+	EXPECT_EQ(stateAtPlay, PlayerStateId::FLUSHING);
+	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHED);
+}
+
+/**
+ * @test Regression (M5): Flush() is documented as control-thread only but the
+ *       deferred flush also runs it from injector threads. Two overlapping
+ *       calls must not both be in flight (both claim FLUSHING and issue
+ *       setPosition) at once.
+ */
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Flush_ConcurrentCallers_NeverOverlapInFlight)
+{
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+
+	constexpr int kIterations = 40;
+	std::atomic<int> inFlight{0};
+	std::atomic<int> maxInFlight{0};
+	std::atomic<int> calls{0};
+	ON_CALL(*m_mockPipelinePtr, setPosition(_))
+		.WillByDefault(Invoke([&](int64_t) {
+			const int now = ++inFlight;
+			int seen = maxInFlight.load();
+			while (now > seen && !maxInFlight.compare_exchange_weak(seen, now))
+			{
+			}
+			++calls;
+			std::this_thread::sleep_for(std::chrono::microseconds(300));
+			--inFlight;
+			if (auto client = m_capturedClient.lock())
+			{
+				client->notifyPlaybackState(
+					firebolt::rialto::PlaybackState::SEEK_DONE);
+			}
+			return true;
+		}));
+
+	std::atomic<int> arrived{0};
+	std::atomic<int> round{0};
+	auto worker = [&](double pos) {
+		for (int i = 0; i < kIterations; ++i)
+		{
+			++arrived;
+			while (round.load() <= i)
+			{
+				std::this_thread::yield();
+			}
+			m_player->Flush(pos, 1, /*shouldTearDown=*/false);
+		}
+	};
+	std::thread a(worker, 5.0);
+	std::thread b(worker, 6.0);
+	for (int i = 0; i < kIterations; ++i)
+	{
+		while (arrived.load() < 2 * (i + 1))
+		{
+			std::this_thread::yield();
+		}
+		++round;
+	}
+	a.join();
+	b.join();
+
+	EXPECT_EQ(maxInFlight.load(), 1);
+	EXPECT_EQ(calls.load(), 2 * kIterations);
+}
+
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	Stream_PlayRequestReset_SubsequentFlushWhilePausedNoPlay)
 {
@@ -6957,9 +7053,14 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	ASSERT_TRUE(m_player->Discontinuity(eMEDIATYPE_VIDEO));
 
 	const int64_t expectedPosNs = 8'760'000'000LL;
+	std::atomic<bool> playIssued{false};
 	EXPECT_CALL(*m_mockPipelinePtr, setPosition(expectedPosNs))
 		.WillOnce(Return(true));
-	EXPECT_CALL(*m_mockPipelinePtr, play(_)).WillOnce(Return(true));
+	EXPECT_CALL(*m_mockPipelinePtr, play(_))
+		.WillOnce(Invoke([&playIssued](bool &) {
+			playIssued = true;
+			return true;
+		}));
 
 	// The flushing sample gates itself, so it blocks until SEEK_DONE -
 	// exactly as it would on the injector thread in production.
@@ -6971,10 +7072,16 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 
 	WaitFor([this]{
 		return m_player->GetCurrentPlayerState() == PlayerStateId::FLUSHING;
-	});
+	}, std::chrono::seconds(5));  // the sender thread can be starved under load
 	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
 
 	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
+
+	// play() ungates the sources; a needData posted while still gated is
+	// answered NO_AVAILABLE_SAMPLES and the sample is never injected.
+	WaitFor([&playIssued]{ return playIssued.load(); },
+		std::chrono::seconds(5));
+	EXPECT_TRUE(playIssued.load());
 
 	ON_CALL(*m_mockPipelinePtr, addSegment(7, _))
 		.WillByDefault(Return(firebolt::rialto::AddSegmentStatus::OK));
@@ -6983,7 +7090,13 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 		.WillByDefault(Return(true));
 	PostNeedData(/*sourceId=*/0, /*frameCount=*/1, /*requestId=*/7);
 
-	WaitFor([&sendDone]{ return sendDone.load(); });
+	WaitFor([&sendDone]{ return sendDone.load(); },
+		std::chrono::seconds(5));
+	if (!sendDone.load())
+	{
+		ADD_FAILURE() << "sample was never injected";
+		m_player->Stop(false);  // releases the blocked injector
+	}
 	sender.join();
 }
 

@@ -477,6 +477,15 @@ private:
 	/// init-fragment delivery from multiple download threads cannot race.
 	std::mutex m_attachMutex;
 
+	/// Serialises Flush() and StopInternal(), which both run on the AAMP
+	/// control thread and, for the deferred flush, on injector threads
+	/// (MaybeFlushForPendingPosition()).  Without it two flushes can both pass
+	/// the pre-flush state check and claim FLUSHING, sharing the single
+	/// PlayHold::Flushing bit, and a flush's trailing Stream() can race Stop().
+	/// Recursive because Flush() recovers through StopInternal().  Taken before
+	/// m_flushMutex; neither the SEEK_DONE handler nor any callback takes it.
+	std::recursive_mutex m_flushCallMutex;
+
 	/// Mutex guarding the flush-complete condition variable.
 	std::mutex m_flushMutex;
 

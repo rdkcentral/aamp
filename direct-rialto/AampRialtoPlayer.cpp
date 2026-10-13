@@ -1646,6 +1646,15 @@ void AampRialtoPlayer::MaybeFlushForPendingPosition(
 		return;
 	}
 
+	// Held across Flush() and the Stream() below so a concurrent Stop() sees
+	// either neither or both.  Re-check the hold afterwards: Stop() or a
+	// control-thread Flush() that ran while we waited has already resolved it.
+	std::lock_guard<std::recursive_mutex> serialise(m_flushCallMutex);
+	if (!m_playbackController.IsHeld(PlayHold::PositionPending))
+	{
+		return;
+	}
+
 	// Video and audio inject on separate threads; only one may drive the flush.
 	if (!m_segmentPosition.ClaimDeferredFlush())
 	{
@@ -1730,6 +1739,11 @@ void AampRialtoPlayer::StopInternal(bool keepLastFrame, bool preservePendingPosi
 	AAMPLOG_INFO("ENTRY keepLastFrame=%d preservePendingPosition=%d",
 		keepLastFrame, preservePendingPosition);
 
+	// Keep a deferred flush on an injector thread from interleaving with the
+	// teardown (its trailing Stream() would otherwise leave a stale play
+	// request behind the controller reset below).
+	std::lock_guard<std::recursive_mutex> serialise(m_flushCallMutex);
+
 	// Wait for any in-progress flush cycle to complete before stopping.
 	// This ensures the state machine has already exited FLUSHING so that
 	// onStop() transitions from a well-defined state (PLAYING, PAUSED,
@@ -1800,6 +1814,10 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown, boo
 {
 	AAMPLOG_INFO("ENTRY position=%f rate=%d shouldTearDown=%d positionIsAuthoritative=%d",
 		position, rate, shouldTearDown, positionIsAuthoritative);
+
+	// One Flush() at a time: the state check in step 2 and the claim in
+	// step 3 are only atomic with respect to other flushes under this lock.
+	std::lock_guard<std::recursive_mutex> serialise(m_flushCallMutex);
 
 	// Step 1: Wait for any previous flush cycle to complete (no claim yet).
 	// The teardown check below reads the current state AFTER any in-flight
@@ -3029,6 +3047,34 @@ void AampRialtoPlayer::HandleSeekDone()
 		// re-arm from a Discontinuity() that landed for a newer period
 		// while this flush was still in flight.
 
+		// Release the Flushing hold while the state machine is still
+		// FLUSHING.  Once it leaves FLUSHING a Flush() blocked in
+		// WaitForFlushToComplete() can proceed and apply its own hold, so
+		// releasing afterwards could drop that new flush's hold and let
+		// play() run part-way through it.
+		//
+		// Releasing the hold ungates and plays if Stream() was called while
+		// the flush was in progress, regardless of what onFlushComplete()
+		// restores.  For seek-while-playing the pre-flush (and thus
+		// restored) state is already PLAYING, so this is the only
+		// guaranteed point that ungates sources - waiting for a subsequent
+		// "redundant" Rialto PLAYING notification is an assumption, not a
+		// guarantee, and must not be relied on to avoid leaving sources
+		// gated forever.  Seek-while-paused is handled correctly: Stream()
+		// is not called in that path so no play request is outstanding and
+		// the gate is left for the later Pause(false)/StopBuffering() to
+		// clear.
+		//
+		// PlayHold::PositionPending may already be applied again here: a
+		// Discontinuity() can re-arm it for a newer period while this
+		// flush cycle was still in flight (see
+		// MaybeFlushForPendingPosition()).  In that case this SEEK_DONE
+		// only resolves the earlier, now-stale position - playing now
+		// would run past the still-owed newer one.  The controller
+		// retains the play request until that hold clears too.
+		m_playbackController.ReleaseHold(PlayHold::Flushing,
+			"OnPlaybackState(SEEK_DONE)");
+
 		// Transition FLUSHING -> FLUSHED and wake any thread blocked in
 		// WaitForFlushToComplete(). FLUSHED does not restore the
 		// pre-flush PLAYING/PAUSED state: Rialto is guaranteed to send
@@ -3041,28 +3087,6 @@ void AampRialtoPlayer::HandleSeekDone()
 			m_stateMachine.onFlushComplete();
 		}
 		m_flushCv.notify_all();
-
-		// Releasing the Flushing hold ungates and plays if Stream() was
-		// called while the flush was in progress, regardless of what
-		// onFlushComplete() just restored.  For seek-while-playing the
-		// pre-flush (and thus restored) state is already PLAYING, so
-		// this is the only guaranteed point that ungates sources —
-		// waiting for a subsequent "redundant" Rialto PLAYING
-		// notification is an assumption, not a guarantee, and must not
-		// be relied on to avoid leaving sources gated forever.
-		// Seek-while-paused is handled correctly: Stream() is not called
-		// in that path so no play request is outstanding and the gate is
-		// left for the later Pause(false)/StopBuffering() to clear.
-		//
-		// PlayHold::PositionPending may already be applied again here: a
-		// Discontinuity() can re-arm it for a newer period while this
-		// flush cycle was still in flight (see
-		// MaybeFlushForPendingPosition()).  In that case this SEEK_DONE
-		// only resolves the earlier, now-stale position - playing now
-		// would run past the still-owed newer one.  The controller
-		// retains the play request until that hold clears too.
-		m_playbackController.ReleaseHold(PlayHold::Flushing,
-			"OnPlaybackState(SEEK_DONE)");
 	}
 }
 
