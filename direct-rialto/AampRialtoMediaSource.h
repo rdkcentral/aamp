@@ -39,10 +39,12 @@
 #include <atomic>
 #include <condition_variable>
 #include <cstdint>
+#include <limits>
 #include <memory>
 #include <mutex>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "mp4demux/MP4Demux.h"
@@ -296,8 +298,8 @@ public:
 	// Source identity
 	// -----------------------------------------------------------------
 
-	int32_t sourceId() const { return m_sourceId; }
-	bool isAttached() const { return m_sourceId >= 0; }
+	int32_t sourceId() const { return m_sourceId.load(std::memory_order_acquire); }
+	bool isAttached() const { return sourceId() >= 0; }
 
 	/// Block if this source's Rialto attachment is still deferred (waiting
 	/// for video to attach first).  Returns true when injection may safely
@@ -306,13 +308,16 @@ public:
 	/// generation change from Flush/Stop).
 	bool waitForAttach();
 
-	int32_t mksId() const { return m_mksId; }
+	int32_t mksId() const { return m_mksId.load(std::memory_order_acquire); }
 
 	// -----------------------------------------------------------------
 	// Pacing state
 	// -----------------------------------------------------------------
 
 	SourceState &state() { return m_state; }
+
+	/// True once signalEos() has latched EOS; reads the flag under the lock.
+	bool isEos();
 	uint64_t captureGeneration();
 
 	// -----------------------------------------------------------------
@@ -337,7 +342,7 @@ public:
 	// -----------------------------------------------------------------
 
 	/// @brief Return the StreamOutputFormat recorded by setFormat().
-	StreamOutputFormat format() const { return m_streamFormat; }
+	StreamOutputFormat format() const { return m_streamFormat.load(); }
 
 	/// @brief Record the StreamOutputFormat for which this source was created.
 	///
@@ -345,7 +350,7 @@ public:
 	/// construction.  Used to detect format changes on subsequent Configure()
 	/// calls so the pipeline is only recreated when necessary.  Never
 	/// cleared by reset().
-	void setFormat(StreamOutputFormat f) { m_streamFormat = f; }
+	void setFormat(StreamOutputFormat f) { m_streamFormat.store(f); }
 
 	// -----------------------------------------------------------------
 	// Core operations
@@ -572,8 +577,10 @@ protected:
 	// -----------------------------------------------------------------
 
 	SourceState m_state;
-	int32_t m_sourceId{-1};
-	int32_t m_mksId{-1};
+	/// Written when the source attaches or resets, read from injector and Rialto
+	/// callback threads, so read them through sourceId() / mksId().
+	std::atomic<int32_t> m_sourceId{-1};
+	std::atomic<int32_t> m_mksId{-1};
 	/// Protection params last used to create the current DRM session (via
 	/// m_mksId). Compared against the params passed to attachOrUpdate() on
 	/// subsequent calls so a genuinely new PSSH/init-data triggers a new
@@ -581,11 +588,14 @@ protected:
 	/// every period) do not incur a redundant OCDM license round-trip.
 	std::optional<ProtectionParams> m_activeProtection;
 	std::unique_ptr<Mp4Demux> m_demuxer;
+	/// Staged by attachOrUpdate() and taken by the injector; guarded by
+	/// m_codecDataMutex.
 	std::shared_ptr<firebolt::rialto::CodecData> m_pendingCodecData;
+	std::mutex m_codecDataMutex;
 	/// Stream format passed to Configure() when this source was created.
 	/// Never cleared by reset() so Configure() can compare formats across
 	/// sessions without unnecessarily recreating the pipeline.
-	StreamOutputFormat m_streamFormat{FORMAT_INVALID};
+	std::atomic<StreamOutputFormat> m_streamFormat{FORMAT_INVALID};
 
 	/// PTS of the first sample injected since the last reset or
 	/// unblockInjection(), in milliseconds.  Set lazily via

@@ -172,7 +172,7 @@ AampRialtoSubtitleSource::createSegment(
 	const int64_t durationNs =
 		static_cast<int64_t>(sample.mDuration * kNsPerSecond);
 	auto segment = std::make_unique<firebolt::rialto::IMediaPipeline::MediaSegment>(
-		m_sourceId,
+		sourceId(),
 		firebolt::rialto::MediaSourceType::SUBTITLE,
 		ptsNs,
 		durationNs);
@@ -182,7 +182,7 @@ AampRialtoSubtitleSource::createSegment(
 	if (displayOffsetMs > 0)
 	{
 		AAMPLOG_INFO("subtitle setDisplayOffset sourceId=%d displayOffsetMs=%" PRId64,
-			m_sourceId, displayOffsetMs);
+			sourceId(), displayOffsetMs);
 		segment->setDisplayOffset(static_cast<uint64_t>(displayOffsetMs));
 	}
 
@@ -417,5 +417,5 @@ int64_t AampRialtoSubtitleSource::refineDisplayOffset(
 
 bool AampRialtoSubtitleSource::isInbandCC() const
 {
-	return m_streamFormat == FORMAT_INVALID;
+	return format() == FORMAT_INVALID;
 }

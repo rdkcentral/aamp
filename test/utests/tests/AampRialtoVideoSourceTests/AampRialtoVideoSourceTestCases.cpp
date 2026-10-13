@@ -556,6 +556,70 @@ TEST_F(AampRialtoVideoSourceTest, AampRialtoVideoSource_TakePendingCodecData_Ret
 	EXPECT_EQ(cd2, nullptr);
 }
 
+TEST_F(AampRialtoVideoSourceTest, AampRialtoVideoSource_IsEos_ReflectsSignalEosAndReset)
+{
+	EXPECT_FALSE(m_source.isEos());
+
+	m_source.signalEos(m_pipelinePtr);
+	EXPECT_TRUE(m_source.isEos());
+
+	m_source.reset();
+	EXPECT_FALSE(m_source.isEos());
+}
+
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_ConcurrentAttachResetAndReaders_SeeOnlyValidValues)
+{
+	/**
+	 * @brief Regression (M4): sourceId(), format() and takePendingCodecData()
+	 *        are read from injector and Rialto callback threads while the
+	 *        control thread attaches and resets.  Every value read must be one
+	 *        the source can legally hold; run under a thread sanitizer this
+	 *        also exposes the data race the plain members had.
+	 */
+	constexpr int kIterations = 300;
+	std::atomic<bool> done{false};
+	std::atomic<bool> invalidSeen{false};
+
+	auto reader = [&]
+	{
+		while (!done.load())
+		{
+			const int32_t id = m_source.sourceId();
+			if (id != -1 && (id < 10 || id >= 10 + kIterations))
+			{
+				invalidSeen = true;
+			}
+			const StreamOutputFormat fmt = m_source.format();
+			if (fmt != FORMAT_INVALID && fmt != FORMAT_ISO_BMFF)
+			{
+				invalidSeen = true;
+			}
+			auto cd = m_source.takePendingCodecData();
+			if (cd && cd->data.empty())
+			{
+				invalidSeen = true;
+			}
+		}
+	};
+	std::thread r1(reader);
+	std::thread r2(reader);
+
+	auto codecInfo = MakeH264CodecInfo();
+	for (int i = 0; i < kIterations; ++i)
+	{
+		m_source.setFormat(FORMAT_ISO_BMFF);
+		m_source.attachOrUpdate(*m_pipelinePtr, codecInfo, nullptr, -1);
+		m_source.reset();
+		m_source.setFormat(FORMAT_INVALID);
+	}
+	done = true;
+	r1.join();
+	r2.join();
+
+	EXPECT_FALSE(invalidSeen.load());
+}
+
 // ---------------------------------------------------------------------------
 // unblockInjection
 // ---------------------------------------------------------------------------

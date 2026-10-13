@@ -114,5 +114,5 @@ AampRialtoVideoSource::createSegment(
 	const int64_t durationNs = static_cast<int64_t>(sample.mDuration * kNsPerSecond);
 	return std::make_unique<
 		firebolt::rialto::IMediaPipeline::MediaSegmentVideo>(
-		m_sourceId, ptsNs, durationNs, m_width, m_height);
+		sourceId(), ptsNs, durationNs, m_width, m_height);
 }

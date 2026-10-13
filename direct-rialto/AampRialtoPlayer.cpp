@@ -1413,7 +1413,7 @@ void AampRialtoPlayer::LogSourceSnapshot(const char *context)
 			AAMPLOG_INFO("%s mediaType=%d sourceId=%d eos=%d firstPtsMs=%s "
 				"acceptedFrames=%u injected=%lld ms bufferFull=%d",
 				context, static_cast<int>(source->mediaType()),
-				source->sourceId(), source->state().eos,
+				source->sourceId(), source->isEos(),
 				(firstPts == AampRialtoMediaSource::kFirstPtsNotSet)
 					? "none" : std::to_string(firstPts).c_str(),
 				source->acceptedFrames(),
@@ -1696,7 +1696,7 @@ void AampRialtoPlayer::EndOfStreamReached(AampMediaType type)
 
 		if (subtitleSrc
 		    && subtitleSrc->isAttached()
-		    && !subtitleSrc->state().eos)
+		    && !subtitleSrc->isEos())
 		{
 			AAMPLOG_INFO("auto-signaling subtitle EOS: video at EOS");
 			subtitleSrc->signalEos(GetPipeline().get());
@@ -2356,7 +2356,7 @@ bool AampRialtoPlayer::Discontinuity(AampMediaType mediaType)
 		if (mediaType == eMEDIATYPE_VIDEO
 		    && subtitleSrc
 		    && subtitleSrc->isAttached()
-		    && !subtitleSrc->state().eos)
+		    && !subtitleSrc->isEos())
 		{
 			AAMPLOG_INFO("auto-signaling subtitle EOS: video discontinuity");
 			subtitleSrc->signalEos(GetPipeline().get());
