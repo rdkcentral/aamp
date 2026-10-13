@@ -263,7 +263,7 @@ void AampConfig::RestoreConfiguration(ConfigPriority owner, AAMPConfigSettingStr
 	}
 }
 
-bool AampConfig::ProcessConfigText(std::string &cfg, ConfigPriority owner)
+void AampConfig::ProcessConfigText(std::string &cfg, ConfigPriority owner)
 {
-	return false;
+	
 }

@@ -101,13 +101,18 @@ void AampStreamSinkManager::AddMediaHeader(unsigned track, std::shared_ptr<AampS
 {
 }
 
-void AampStreamSinkManager::RemoveMediaHeader(unsigned track)
+void AampStreamSinkManager::RemoveMediaHeader(unsigned track, const PrivateInstanceAAMP *aamp)
 {
 }
 
 std::shared_ptr<AampStreamSinkManager::MediaHeader> AampStreamSinkManager::GetMediaHeader(unsigned track)
 {
 	return {};
+}
+
+bool AampStreamSinkManager::IsPlayerRegistered(const PrivateInstanceAAMP *aamp)
+{
+	return false;
 }
 
 void AampStreamSinkManager::SetTuned(PrivateInstanceAAMP *aamp)

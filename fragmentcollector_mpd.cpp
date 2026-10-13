@@ -4650,12 +4650,40 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 		// Rialto does not support dynamic streams, so we need to extract and save the
 		// subtitle init fragment from the main vod asset, so that it can be injected
 		// later if a pre-roll advert is played that does not contain subtitles.
-		if (ISCONFIGSET(eAAMPConfig_useRialtoSink) &&
-		   !mIsLiveStream &&
-		   (!(AampStreamSinkManager::GetInstance().GetMediaHeader(eMEDIATYPE_SUBTITLE))))
+		if (ISCONFIGSET(eAAMPConfig_useRialtoSink))
 		{
-			AAMPLOG_MIL("StreamAbstractionAAMP_MPD: extract and add subtitleMedia header");
-			ExtractAndAddSubtitleMediaHeader();
+			/* XIONE-19145 / DELIA-71066: the foreground player owns the shared
+			 * Rialto pipeline's subtitle header slot - it always evicts any
+			 * stale header (regardless of owner) and caches the current asset's
+			 * init header, independent of the app-supplied content type.
+			 * Background sibling players (pre-roll ads) never write here; they
+			 * borrow the cached header so the shared Subtitle source keeps the
+			 * main asset's caps, else the source flips to
+			 * subtitle/x-subtitle-cc and the post-ad re-attach fails
+			 * "cannot update caps", killing subtitles on main content.
+			 * Foreground headers are cached for live assets too, so a
+			 * live-manifest sibling can keep caps consistent. */
+			if (aamp->IsPlayEnabled())
+			{
+				AampStreamSinkManager::GetInstance().RemoveMediaHeader(eMEDIATYPE_SUBTITLE, aamp);
+				AAMPLOG_MIL("StreamAbstractionAAMP_MPD: extract and add subtitleMedia header (foreground: evict and re-cache)");
+				ExtractAndAddSubtitleMediaHeader();
+			}
+			else if (!mIsLiveStream &&
+					 !(AampStreamSinkManager::GetInstance().GetMediaHeader(eMEDIATYPE_SUBTITLE)))
+			{
+				/* A background tune is not always an advert: the main VOD asset
+				 * itself is pre-tuned with autoplay disabled while its pre-roll
+				 * ad plays on the shared pipeline. Its subtitle header must be
+				 * cached here so it exists when the ad ends and the Subtitle
+				 * source is re-attached - observed failure: attach ran with an
+				 * empty slot -> "cannot update caps" -> no CC on main content.
+				 * Only fills an EMPTY slot: a background tune must never evict
+				 * or overwrite a header cached by another player (the ad must
+				 * not displace the main asset's header). */
+				AAMPLOG_MIL("StreamAbstractionAAMP_MPD: extract and add subtitleMedia header (background: empty slot only)");
+				ExtractAndAddSubtitleMediaHeader();
+			}
 		}
 
 		AAMPLOG_MIL("StreamAbstractionAAMP_MPD: fetch initialization fragments");
@@ -9566,15 +9594,25 @@ bool StreamAbstractionAAMP_MPD::ExtractAndAddSubtitleMediaHeader()
 					if (mMPDParseHelper->IsContentType(adaptationSet, eMEDIATYPE_SUBTITLE ))
 					{
 						size_t representationIndex = 0;
-						PeriodElement periodElement(adaptationSet, NULL);
-						std::string subtitleMimeType = periodElement.GetMimeType();
 
 						IRepresentation *representation = adaptationSet->GetRepresentation().at(representationIndex);
 						SegmentTemplates segmentTemplates(representation->GetSegmentTemplate(), adaptationSet->GetSegmentTemplate());
+						/* Resolve mimeType representation-first, matching
+						 * GetCurrentMimeType() precedence: the cached header's
+						 * mimeType decides the subtitle source caps that a
+						 * borrowing sibling player (pre-roll ad) attaches on
+						 * the shared Rialto session, and that attach must equal
+						 * the caps this asset itself uses after promotion -
+						 * Rialto cannot update caps on an attached source, so
+						 * an AS-level container mime (application/mp4 for
+						 * mp4-wrapped TTML) that differs from the selected
+						 * representation mime (application/ttml+xml) leaves the
+						 * shared source mistyped and every cue is dropped. */
+						std::string subtitleMimeType = representation->GetMimeType();
 						if( subtitleMimeType.empty() )
 						{
-							AAMPLOG_MIL("eMEDIATYPE_SUBTITLE:subtitleMimeType is empty. Try getting it from representation");
-							PeriodElement periodElement(adaptationSet, representation);
+							AAMPLOG_MIL("eMEDIATYPE_SUBTITLE:subtitleMimeType is empty. Try getting it from adaptationSet");
+							PeriodElement periodElement(adaptationSet, NULL);
 							subtitleMimeType = periodElement.GetMimeType();
 						}
 						AAMPLOG_MIL("eMEDIATYPE_SUBTITLE:subtitleMimeType = %s", subtitleMimeType.c_str());
@@ -9603,6 +9641,8 @@ bool StreamAbstractionAAMP_MPD::ExtractAndAddSubtitleMediaHeader()
 								AAMPLOG_MIL("[SUBTITLE]: mimeType:%s, init url %s", subtitleMimeType.c_str(), fragmentUrl.c_str());
 								subtitleHeader->url = std::move(fragmentUrl);
 								subtitleHeader->mimeType =  std::move(subtitleMimeType);
+								subtitleHeader->manifestUrl = aamp->GetManifestUrl();
+								subtitleHeader->owner = aamp;
 								AampStreamSinkManager::GetInstance().AddMediaHeader(eMEDIATYPE_SUBTITLE, std::move(subtitleHeader));
 								AAMPLOG_MIL("Saved subtitleHeader");
 								ret = true;
@@ -11720,6 +11760,42 @@ StreamOutputFormat GetSubtitleFormat(std::string mimeType)
 }
 
 /**
+ * @brief Check whether a cached media init header may be used by this player
+ *
+ * A cached header is usable by the asset that produced it (manifest match, or
+ * an untagged legacy header) - OR by a sibling player still registered in the
+ * same sink manager. The sibling case is the pre-roll/mid-roll ad sharing the
+ * main asset's Rialto session: the ad's own manifest can never match the
+ * cached manifest URL, but it MUST attach the shared Subtitle source with the
+ * main asset's caps anyway - Rialto cannot update caps on an attached source
+ * ("cannot update caps"), so an ad attaching subtitle/x-subtitle-cc
+ * permanently mistypes the source and every cue pushed after promotion is
+ * dropped by TextTrackAccessor ("Data received for ClosedCaptions").
+ * Only a live sibling qualifies: a foreground tune always evicts and
+ * re-caches its own header during Init before this check runs, so a
+ * foreign-manifest header seen here can only belong to a
+ * concurrently-registered background/ad sibling - or to a dead player, which
+ * IsPlayerRegistered filters out.
+ * Intentionally independent of IsPlayEnabled(): mbPlayEnabled can flip when a
+ * background tune is promoted between GetStreamFormat() and
+ * SendMediaHeaders(), which would leave a subtitle sink created but its init
+ * segment withheld. GetStreamFormat() and SendMediaHeaders() MUST both use
+ * this predicate so a sink is never created without its init being sent.
+ *
+ * @param header cached media header, may be null
+ * @param aamp   player attempting to use the header
+ * @retval true if the header may be used by this player
+ */
+static bool IsUsableCachedMediaHeader(const std::shared_ptr<AampStreamSinkManager::MediaHeader> &header, PrivateInstanceAAMP *aamp)
+{
+	return header &&
+	       (header->manifestUrl.empty() ||
+	        header->manifestUrl == aamp->GetManifestUrl() ||
+	        (header->owner && header->owner != aamp &&
+	         AampStreamSinkManager::GetInstance().IsPlayerRegistered(header->owner)));
+}
+
+/**
  * @brief Get output format of stream.
  *
  */
@@ -11766,6 +11842,14 @@ void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutpu
 			// presenting inband CC with PTS restamping enabled
 			else if(isInBandCcAvailable())
 			{
+				/* XIONE-19145: inband CC is the active text mode for this tune.
+				 * mIsInbandCC is sticky across tunes (cleared at mpd:SelectSubtitleTrack
+				 * when a previous asset selected an OOB subtitle AdaptationSet, and set
+				 * only by SetTextTrack). If it stays stale-false here, SetCCStatusInternal
+				 * takes the MuteSubtitles branch instead of PlayerCCManager::SetStatus(),
+				 * leaving mEnabled=0, so InitializeCC() -> Init() mutes the subtitle
+				 * source and inband CC data is dropped. */
+				aamp->mIsInbandCC = true;
 				subtitleOutputFormat = FORMAT_INVALID;
 			}
 			else
@@ -11778,6 +11862,17 @@ void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutpu
 		else
 		{
 			subtitleOutputFormat = FORMAT_INVALID;
+			/* XIONE-19145: no usable subtitle init header means no OOB
+			 * subtitle pipeline this tune; if the manifest advertises
+			 * inband CC, re-assert mIsInbandCC (stale false from a prior
+			 * OOB-subtitle tune misroutes SetCCStatusInternal to
+			 * MuteSubtitles and leaves the CC subtitle source muted).
+			 * Only ever set, never clear - the rendition descriptor is
+			 * optional, so absence is not proof of "no inband CC". */
+			if (isInBandCcAvailable())
+			{
+				aamp->mIsInbandCC = true;
+			}
 		}
 
 		// If subtitles are not enabled, we need to have an init fragment to inject otherwise
@@ -11785,7 +11880,13 @@ void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutpu
 		if (!mMediaStreamContext[eMEDIATYPE_SUBTITLE]->enabled && ISCONFIGSET(eAAMPConfig_useRialtoSink))
 		{
 			auto subtitleHeader = AampStreamSinkManager::GetInstance().GetMediaHeader(eMEDIATYPE_SUBTITLE);
-			if(subtitleHeader && !subtitleHeader->mimeType.empty())
+			/* XIONE-19145 / DELIA-71066: borrow the cached header when it is
+			 * usable by this player (see IsUsableCachedMediaHeader) so a
+			 * sibling ad attaches the shared Subtitle source with the main
+			 * asset's caps instead of x-subtitle-cc. The mimeType check is
+			 * local to this site: SendMediaHeaders() does not need it. */
+			if(subtitleHeader && !subtitleHeader->mimeType.empty() &&
+			   IsUsableCachedMediaHeader(subtitleHeader, aamp))
 			{
 				subtitleOutputFormat = GetSubtitleFormat(subtitleHeader->mimeType);
 				AAMPLOG_INFO("Using saved subtitle mime type, subtitleOutputFormat = %d", subtitleOutputFormat);
@@ -12499,7 +12600,10 @@ void StreamAbstractionAAMP_MPD::SendMediaHeaders()
 		if(track && !track->Enabled())
 		{
 			auto header = AampStreamSinkManager::GetInstance().GetMediaHeader(iTrack);
-			if(header)
+			/* Inject a cached header only when it is usable by this player -
+			 * IsUsableCachedMediaHeader is shared with GetStreamFormat() so a
+			 * subtitle sink is never created without its init being sent. */
+			if(IsUsableCachedMediaHeader(header, aamp))
 			{
 				AAMPLOG_INFO("Track is disabled; url for init segment found: %s", header->url.c_str());
 				std::vector<uint8_t> initSegment;
