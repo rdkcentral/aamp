@@ -6341,6 +6341,52 @@ TEST_F(PrivAampTests,GetFormatPositionOffsetTest)
 	EXPECT_EQ(offset, 1.2 * 1000); // Expect offset to be 0 since IsLiveStream() is false
 }
 
+/**
+ * @test PrivAampTests::SetStreamCapsForcesEncryptedWithInjectedHeaders
+ * @brief when MP4 demux is enabled and encrypted headers
+ *        were already injected, clear codec caps are forced to encrypted to avoid
+ *        encrypted->clear pipeline reconfiguration.
+ */
+TEST_F(PrivAampTests, SetStreamCapsForcesEncryptedWithInjectedHeaders)
+{
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseMp4Demux))
+		.WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, IsEncryptedHeadersCached())
+		.WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_))
+		.WillRepeatedly(Return(g_mockAampGstPlayer.get()));
+
+	MediaCodecInfo codecInfo(GST_FORMAT_VIDEO_ES_H264);
+	codecInfo.mIsEncrypted = false;
+
+	p_aamp->SetStreamCaps(eMEDIATYPE_VIDEO, std::move(codecInfo));
+
+	MediaCodecInfo updated = p_aamp->GetMediaCodecInfo(eMEDIATYPE_VIDEO);
+	EXPECT_TRUE(updated.mIsEncrypted);
+}
+
+/**
+ * @test PrivAampTests::SetStreamCapsKeepsClearWhenHeadersNotInjected
+ * @brief Verify that clear codec caps remain clear when the injected-header guard is false.
+ */
+TEST_F(PrivAampTests, SetStreamCapsKeepsClearWhenHeadersNotInjected)
+{
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseMp4Demux))
+		.WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, IsEncryptedHeadersCached())
+		.WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_))
+		.WillRepeatedly(Return(g_mockAampGstPlayer.get()));
+
+	MediaCodecInfo codecInfo(GST_FORMAT_VIDEO_ES_H264);
+	codecInfo.mIsEncrypted = false;
+
+	p_aamp->SetStreamCaps(eMEDIATYPE_VIDEO, std::move(codecInfo));
+
+	MediaCodecInfo updated = p_aamp->GetMediaCodecInfo(eMEDIATYPE_VIDEO);
+	EXPECT_FALSE(updated.mIsEncrypted);
+}
+
 TEST_F(PrivAampTests,VerifyPausedBehavior)
 {
         StreamAbstractionAAMP_MPD *streamAbstractionMpd = new StreamAbstractionAAMP_MPD(p_aamp, 0, 1, nullptr);     

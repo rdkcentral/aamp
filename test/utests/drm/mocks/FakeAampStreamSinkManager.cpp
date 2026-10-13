@@ -57,6 +57,11 @@ void AampStreamSinkManager::GetEncryptedHeaders(std::map<int, std::string> &mapp
 {
 }
 
+bool AampStreamSinkManager::IsEncryptedHeadersCached()
+{
+	return false;
+}
+
 void AampStreamSinkManager::ReinjectEncryptedHeaders()
 {
 }

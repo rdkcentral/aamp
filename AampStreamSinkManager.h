@@ -102,6 +102,12 @@ public:
 	 */
 	virtual void GetEncryptedHeaders(std::map<int, std::string>& mappedHeaders);
 	/**
+	 *  @fn IsEncryptedHeadersCached
+	 *  @brief Returns true if encrypted headers have already been cached in the current lifecycle.
+	 *         This can be used to keep downstream pipeline caps encrypted across clear/enc transitions.
+	 */
+	virtual bool IsEncryptedHeadersCached();
+	/**
 	 *  @fn ReinjectEncryptedHeaders
 	 *  @brief Clears the mEncryptedHeadersInjected flag so that GetEncryptedHeaders returns the headers on next call
 	 */
