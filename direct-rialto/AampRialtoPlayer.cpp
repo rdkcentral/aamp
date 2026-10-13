@@ -2552,9 +2552,15 @@ bool AampRialtoPlayer::SignalSubtitleClock()
 	return result;
 }
 
+// Pause-on-start-playback is not supported: playback starts normally.
 void AampRialtoPlayer::SetPauseOnStartPlayback(bool enable)
 {
 	AAMPLOG_INFO("ENTRY enable=%d", enable);
+	if (enable)
+	{
+		AAMPLOG_WARN("Pause on start playback is not supported by "
+			"AampRialtoPlayer - ignoring");
+	}
 	AAMPLOG_INFO("EXIT");
 }
 
