@@ -120,8 +120,8 @@ function install_build_middleware_interface_fn()
             echo "middleware-player-interface clone already present in .libs"
             mw_src="${LOCAL_DEPS_BUILD_DIR}/middleware-player-interface"
         else
-            echo "Cloning middleware-player-interface from GitHub (develop branch)..."
-            if ! do_clone_fn -b develop https://github.com/rdkcentral/middleware-player-interface.git; then
+            echo "Cloning middleware-player-interface from GitHub (0.2.0-r6_VIPA tag)..."
+            if ! do_clone_fn -b 0.2.0-r6_VIPA https://github.com/rdkcentral/middleware-player-interface.git; then
                 echo "Error: Failed to clone middleware-player-interface repository"
                 return 1
             fi
@@ -191,6 +191,7 @@ function install_build_middleware_interface_fn()
     }
 
     echo "Running cmake configuration for middleware-player-interface..."
+    local cmake_firebolt_flag="-DCMAKE_USE_FIREBOLT=OFF"
     local cmake_platform_flag=""
     if [[ "$OSTYPE" == "linux"* ]]; then
         cmake_platform_flag="-DCMAKE_PLATFORM_UBUNTU=ON"
@@ -239,6 +240,7 @@ function install_build_middleware_interface_fn()
 
     if ! PKG_CONFIG_PATH="${pkg_config_path_arg}:${PKG_CONFIG_PATH:-}" cmake "${mw_src}" \
             -DCMAKE_INSTALL_PREFIX="${LOCAL_DEPS_BUILD_DIR}" \
+            ${cmake_firebolt_flag} \
             ${cmake_platform_flag} \
             ${openssl_root_flag} \
             -DCMAKE_BUILD_TYPE=Debug; then
