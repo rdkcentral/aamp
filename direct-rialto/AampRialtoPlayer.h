@@ -47,6 +47,7 @@
 
 #include <array>
 #include <atomic>
+#include <chrono>
 #include <condition_variable>
 #include <deque>
 #include <functional>
@@ -321,6 +322,13 @@ public:
 	/// Public for testing purposes; called internally by the progress timer.
 	void OnProgressTimerTick();
 
+	/// @brief Override how long Configure()/Stop()/Flush() wait for SEEK_DONE
+	///        before abandoning a flush.  Public for testing purposes.
+	void SetFlushCompleteTimeout(std::chrono::milliseconds timeout)
+	{
+		m_flushCompleteTimeout = timeout;
+	}
+
 private:
 	/**
 	 * @brief Bridges Rialto client log messages into AAMP's logging system.
@@ -453,11 +461,17 @@ private:
 	/// early exit), allowing Configure()/Stop() to proceed safely.
 	std::condition_variable m_flushCv;
 
+	/// Upper bound on the wait for SEEK_DONE; generous because abandoning a
+	/// flush that is merely slow would drop its position commit.
+	std::chrono::milliseconds m_flushCompleteTimeout{5000};
+
 	/**
 	 * @brief Block until any in-progress flush cycle completes.
 	 *
 	 * Acquires m_flushMutex and waits on m_flushCv until the state machine
-	 * is no longer FLUSHING.
+	 * is no longer FLUSHING, or m_flushCompleteTimeout elapses.  On timeout
+	 * the flush is abandoned: the state machine leaves FLUSHING, the staged
+	 * rate is committed and PlayHold::Flushing is released.
 	 *
 	 * Used by Configure(), Stop(), and (via a separate claim step) Flush().
 	 * The claim-FLUSHING step in Flush() is done in a separate locked section

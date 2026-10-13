@@ -46,7 +46,7 @@ and should be confirmed before or while fixing.
 | H3 | Done | Null-pipeline dereference in `CreateSubtitleSource`; `AttachSource` contract violated |
 | H4 | Done | Failed attach is silent and can hang injection |
 | H5 | Done | `PlaybackState::FAILURE` never reported to AAMP |
-| H6 | Open | `Stop()`/`Configure()` can wait forever for a flush |
+| H6 | Done | `Stop()`/`Configure()` can wait forever for a flush |
 | H7 | Open | Play holds leak across sessions |
 | H8 | Open | `ChangeAamp` leaves stale pointers (DRM bridge) |
 
@@ -288,6 +288,10 @@ Rialto behaviours confirmed or disproved, test gaps, design decisions).
 | 2026-10-13 | H5 | `SendErrorEvent` only acts the first time (it is a no-op once AAMP is in `eSTATE_ERROR`), so a `FAILURE` that follows an earlier `PlaybackError` or attach failure is harmless. The player also reports only on the transition into `ERROR`, so repeats are not forwarded. |
 | 2026-10-13 | H5 | `FAILURE` in `IDLE` (a stale notification after `Stop()`, via a client still held by Rialto) is deliberately not reported, otherwise it could fail the next tune. The state machine still logs a "no transition" WARN for it (see P4). |
 | 2026-10-13 | H5 | The error is sent with retry enabled, matching `OnPlaybackError` and the GStreamer generic-pipeline-error path. |
+| 2026-10-13 | H6 | Timeout is 5 s, deliberately generous: abandoning a flush that is merely slow would skip `HandleSeekDone`'s position/rate commit, because a late `SEEK_DONE` arriving after the forced completion is ignored as "outside FLUSHING". The value is a guess and should be revisited if real-device `SEEK_DONE` latency data is available. |
+| 2026-10-13 | H6 | A forced completion releases `PlayHold::Flushing`, so an outstanding play request can be issued at that point (for `Stop()` this means a `play()` just before `stop()`; harmless but wasteful). It follows the existing `setPosition()`-failure path in `Flush()`. |
+| 2026-10-13 | H6 | Narrow race left as is: a `SEEK_DONE` handled at the same instant as the timeout can find the state already `FLUSHED`; `onFlushComplete` then logs a "no transition" WARN and the remaining steps are idempotent. |
+| 2026-10-13 | H6 | Added public `SetFlushCompleteTimeout()` so tests need not wait 5 s; same "public for testing" pattern as `OnProgressTimerTick()` (see A5). |
 
 ## Verification Notes
 
@@ -311,3 +315,4 @@ Record each completed task: what was done, files changed, tests added or run.
 | 2026-10-13 | H3 | `CreateSubtitleSource` now holds `m_attachMutex` around `AttachSource` for both the sidecar and inband-CC branches; `AttachSource` doc updated. | `direct-rialto/AampRialtoPlayer.cpp`, `direct-rialto/AampRialtoPlayer.h` | New `Configure_SubtitleAttach_HoldsAttachMutex` (fails without the lock), `Configure_PipelineCreationFails_AudioOnlyWithSubtitle_DoesNotCrash`. Player suite 272 pass; all 13 Rialto suites pass. |
 | 2026-10-13 | H4 | `AttachSource` now returns `bool`. New `ReportAttachFailure` clears `attachPending` (waking injectors blocked in `waitForAttach`) and calls `NotifyPlaybackError`, except when the codec is not yet identified. `SendTransfer` returns `false` when the attach fails. | `direct-rialto/AampRialtoPlayer.cpp`, `direct-rialto/AampRialtoPlayer.h` | 4 new tests (3 fail without the fix). Player suite 276 pass; all 13 Rialto suites pass (487 tests). |
 | 2026-10-13 | H5 | New `HandlePlaybackFailure()` (called from `OnPlaybackState`): records the state, moves the machine to `ERROR`, wakes flush waiters as before, and calls `NotifyPlaybackError(AAMP_TUNE_GST_PIPELINE_ERROR)` unless the prior state was `IDLE` or `ERROR`. | `direct-rialto/AampRialtoPlayer.cpp`, `direct-rialto/AampRialtoPlayer.h` | 3 new `PlaybackStateFailure_*` tests (2 fail without the fix; the third guards the stale-IDLE case). Player suite 279 pass; all 13 Rialto suites pass (490 tests). |
+| 2026-10-13 | H6 | `WaitForFlushToComplete` now uses `wait_for` with `m_flushCompleteTimeout` (5 s). On timeout it logs an error, moves the state machine out of `FLUSHING`, commits the staged rate, notifies waiters and releases `PlayHold::Flushing`. | `direct-rialto/AampRialtoPlayer.cpp`, `direct-rialto/AampRialtoPlayer.h` | 3 new tests (all hang without the fix): `Stop_FlushNeverCompletes_ReturnsAfterTimeout`, `Flush_PreviousFlushLost_RecoversAfterTimeout`, `Configure_FlushNeverCompletes_IssuesDeferredPlay`. Player suite 282 pass; all 13 Rialto suites pass (493 tests). |

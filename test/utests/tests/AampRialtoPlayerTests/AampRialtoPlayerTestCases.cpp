@@ -5990,6 +5990,73 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 			/*bESChangeStatus=*/true, /*setReadyAfterPipelineCreation=*/false));
 }
 
+/**
+ * @test Regression (H6): if Rialto never sends SEEK_DONE, Stop() - the
+ *       recovery path - must not block forever.
+ */
+TEST_F(AampRialtoPlayerWithDemuxTest, Stop_FlushNeverCompletes_ReturnsAfterTimeout)
+{
+	m_player->SetFlushCompleteTimeout(std::chrono::milliseconds(50));
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(_)).WillOnce(Return(true));
+	m_player->Flush(10.0, 4, /*shouldTearDown=*/false);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
+
+	m_player->Stop(false);
+
+	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::IDLE);
+}
+
+/**
+ * @test Regression (H6): a Flush() that follows a flush whose SEEK_DONE was
+ *       lost must recover and issue its own seek rather than block.
+ */
+TEST_F(AampRialtoPlayerWithDemuxTest, Flush_PreviousFlushLost_RecoversAfterTimeout)
+{
+	m_player->SetFlushCompleteTimeout(std::chrono::milliseconds(50));
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(_)).Times(2).WillRepeatedly(Return(true));
+	m_player->Flush(5.0, 1, /*shouldTearDown=*/false);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
+
+	m_player->Flush(6.0, 1, /*shouldTearDown=*/false);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
+
+	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
+	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHED);
+}
+
+/**
+ * @test Regression (H6): abandoning a flush must release PlayHold::Flushing so
+ *       a play request made during it is not deferred forever.
+ */
+TEST_F(AampRialtoPlayerWithDemuxTest, Configure_FlushNeverCompletes_IssuesDeferredPlay)
+{
+	m_player->SetFlushCompleteTimeout(std::chrono::milliseconds(50));
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(_)).WillOnce(Return(true));
+	m_player->Flush(5.0, 1, /*shouldTearDown=*/false);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
+
+	// Deferred behind the Flushing hold.
+	m_player->Stream();
+
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).Times(1).WillOnce(Return(true));
+	m_player->Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_INVALID,
+		/*bESChangeStatus=*/false, /*setReadyAfterPipelineCreation=*/false);
+}
+
 // ===========================================================================
 // Closed-caption / setTextTrackIdentifier / setCCMute
 // ===========================================================================

@@ -494,15 +494,36 @@ bool AampRialtoPlayer::ShouldRecreatePipeline(
 
 void AampRialtoPlayer::WaitForFlushToComplete()
 {
-	std::unique_lock<std::mutex> lock(m_flushMutex);
-	// Block until the state machine leaves FLUSHING.  Holds m_flushMutex
-	// while the predicate is evaluated so that the optional claim below is
-	// atomic with the check: no concurrent caller can pass the predicate
-	// and also claim FLUSHING before us.
-	m_flushCv.wait(lock, [this]()
+	bool timedOut = false;
 	{
-		return m_stateMachine.currentState() != PlayerStateId::FLUSHING;
-	});
+		std::unique_lock<std::mutex> lock(m_flushMutex);
+		// Block until the state machine leaves FLUSHING.  Holds m_flushMutex
+		// while the predicate is evaluated so that the optional claim below is
+		// atomic with the check: no concurrent caller can pass the predicate
+		// and also claim FLUSHING before us.
+		timedOut = !m_flushCv.wait_for(lock, m_flushCompleteTimeout, [this]()
+		{
+			return m_stateMachine.currentState() != PlayerStateId::FLUSHING;
+		});
+		if (timedOut)
+		{
+			// SEEK_DONE completes the flush under this same mutex, so the
+			// state is still FLUSHING here.
+			m_stateMachine.onFlushComplete();
+		}
+	}
+
+	if (timedOut)
+	{
+		// Without this, a lost SEEK_DONE would block Stop() - the recovery
+		// path - and Configure() forever.  Mirrors the setPosition() failure
+		// path in Flush().
+		AAMPLOG_ERR("SEEK_DONE not received within %lld ms - abandoning flush",
+			static_cast<long long>(m_flushCompleteTimeout.count()));
+		m_rate.store(m_segmentPosition.StagedRate(), std::memory_order_relaxed);
+		m_flushCv.notify_all();
+		m_playbackController.ReleaseHold(PlayHold::Flushing, "FlushTimeout");
+	}
 }
 
 void AampRialtoPlayer::ArmPositionPendingForConfigure()
