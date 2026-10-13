@@ -902,6 +902,7 @@ void AampRialtoPlayer::CreateSubtitleSource(
 						: GST_FORMAT_SUBTITLE_TTML;
 			AAMPLOG_INFO("Queueing subtitle attachment for format=%d",
 				static_cast<int>(subFormat));
+			std::lock_guard<std::mutex> lock(m_attachMutex);
 			AttachSource(*m_sources[eMEDIATYPE_SUBTITLE], ci);
 		}
 	}
@@ -919,7 +920,10 @@ void AampRialtoPlayer::CreateSubtitleSource(
 				GetPipeline().get(), true, "Configure");
 			MediaCodecInfo ci{};
 			ci.mCodecFormat = GST_FORMAT_UNKNOWN;
-			AttachSource(*m_sources[eMEDIATYPE_SUBTITLE], ci);
+			{
+				std::lock_guard<std::mutex> lock(m_attachMutex);
+				AttachSource(*m_sources[eMEDIATYPE_SUBTITLE], ci);
+			}
 			AAMPLOG_INFO("Created inband CC subtitle source");
 		}
 	}

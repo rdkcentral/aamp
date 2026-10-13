@@ -705,6 +705,68 @@ TEST_F(AampRialtoPlayerTest, Configure_AllThreeFormats_CreatesAllThreeSources)
 	EXPECT_NE(m_mockSources[eMEDIATYPE_SUBTITLE], nullptr);
 }
 
+TEST_F(AampRialtoPlayerTest, Configure_SubtitleAttach_HoldsAttachMutex)
+{
+	/**
+	 * @brief Regression (H3): CreateSubtitleSource() calls AttachSource(),
+	 *        which requires m_attachMutex.  SetVideoMute() takes the same
+	 *        mutex, so a call started from inside attachSource() must wait
+	 *        until Configure() has released it.
+	 */
+	std::atomic<bool> muteReturned{false};
+	bool returnedDuringAttach = true;
+	std::thread muteThread;
+
+	EXPECT_CALL(*m_mockPipelinePtr, attachSource(_))
+		.WillOnce(Invoke(
+			[&](const std::unique_ptr<
+				firebolt::rialto::IMediaPipeline::MediaSource> &src)
+			{
+				const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
+					*src).setId(m_nextSourceId++);
+				muteThread = std::thread([&]
+				{
+					m_player->SetVideoMute(true);
+					muteReturned = true;
+				});
+				std::this_thread::sleep_for(std::chrono::milliseconds(100));
+				returnedDuringAttach = muteReturned.load();
+				return true;
+			}));
+
+	Configure(FORMAT_INVALID, FORMAT_INVALID, FORMAT_SUBTITLE_TTML);
+
+	if (muteThread.joinable())
+	{
+		muteThread.join();
+	}
+	EXPECT_FALSE(returnedDuringAttach)
+		<< "subtitle attach ran without holding m_attachMutex";
+	EXPECT_TRUE(muteReturned.load());
+}
+
+TEST_F(AampRialtoPlayerTest,
+	Configure_PipelineCreationFails_AudioOnlyWithSubtitle_DoesNotCrash)
+{
+	/**
+	 * @brief Regression (H3): with no video source the subtitle attach is not
+	 *        deferred, so a failed pipeline creation must not be dereferenced.
+	 */
+	ON_CALL(*m_mockFactory, createMediaPipeline(_, _))
+		.WillByDefault(Invoke(
+			[this](std::weak_ptr<firebolt::rialto::IMediaPipelineClient> client,
+			       const firebolt::rialto::VideoRequirements &)
+				-> std::unique_ptr<firebolt::rialto::IMediaPipeline>
+			{
+				m_capturedClient = client;
+				return nullptr;
+			}));
+
+	EXPECT_NO_THROW(
+		Configure(FORMAT_INVALID, FORMAT_ISO_BMFF, FORMAT_SUBTITLE_TTML));
+	EXPECT_NE(m_mockSources[eMEDIATYPE_SUBTITLE], nullptr);
+}
+
 // ===========================================================================
 // Phase 3 — CheckAllSourcesAttached
 // ===========================================================================

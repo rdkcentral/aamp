@@ -715,7 +715,8 @@ private:
 	/**
 	 * @brief Attach a source via its polymorphic attachOrUpdate method.
 	 *
-	 * Caller must hold m_attachMutex and verify m_pipeline is non-null.
+	 * Caller must hold m_attachMutex.  A missing pipeline is logged and the
+	 * attach is skipped.
 	 */
 	void AttachSource(AampRialtoMediaSource &source, MediaCodecInfo &codecInfo);
 
