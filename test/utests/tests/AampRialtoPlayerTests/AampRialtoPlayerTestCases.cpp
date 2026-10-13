@@ -918,6 +918,82 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 }
 
 // ===========================================================================
+// Phase 4c — Failed attach is reported (H4)
+// ===========================================================================
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	SendTransfer_AttachSourceFails_ReportsErrorAndReturnsFalse)
+{
+	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
+	ON_CALL(*m_mockPipelinePtr, attachSource(_)).WillByDefault(Return(false));
+
+	EXPECT_CALL(m_mockNotifiable,
+		NotifyPlaybackError(AAMP_TUNE_GST_PIPELINE_ERROR, _, false)).Times(1);
+
+	ON_CALL(*g_mockMp4Demux, Parse(_)).WillByDefault(Return(true));
+	ON_CALL(*g_mockMp4Demux, GetCodecInfo())
+		.WillByDefault([]() { return MakeVideoH264CodecInfo(); });
+	std::vector<uint8_t> buf = {0x00, 0x00, 0x00, 0x01};
+	EXPECT_FALSE(m_player->SendTransfer(eMEDIATYPE_VIDEO, std::move(buf),
+		0, 0, 0, 0, /*initFragment=*/true));
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	SendTransfer_DeferredSourceAttachFails_ReleasesBlockedInjectorAndReports)
+{
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+	ON_CALL(*m_mockPipelinePtr, attachSource(testing::Truly([](const auto &src) {
+		return dynamic_cast<
+			const firebolt::rialto::IMediaPipeline::MediaSourceAudio *>(
+				src.get()) != nullptr;
+	}))).WillByDefault(Return(false));
+
+	// Audio arrives first and is deferred, so injectors would block on it.
+	SendAudioInitFragment();
+	{
+		auto &st = m_mockSources[eMEDIATYPE_AUDIO]->state();
+		std::lock_guard<std::mutex> lock(st.mu);
+		ASSERT_TRUE(st.attachPending);
+	}
+
+	EXPECT_CALL(m_mockNotifiable,
+		NotifyPlaybackError(AAMP_TUNE_GST_PIPELINE_ERROR, _, false)).Times(1);
+	SendVideoInitFragment();
+
+	auto &st = m_mockSources[eMEDIATYPE_AUDIO]->state();
+	std::lock_guard<std::mutex> lock(st.mu);
+	EXPECT_FALSE(st.attachPending)
+		<< "a failed deferred attach must release injectors blocked on it";
+}
+
+TEST_F(AampRialtoPlayerTest, SetStreamCaps_UnsupportedCodec_ReportsError)
+{
+	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
+	ON_CALL(*m_mockSources[eMEDIATYPE_VIDEO], mapCodecToMime(_, _, _, _))
+		.WillByDefault(Return(false));
+
+	EXPECT_CALL(m_mockNotifiable,
+		NotifyPlaybackError(AAMP_TUNE_GST_PIPELINE_ERROR, _, false)).Times(1);
+
+	MediaCodecInfo ci{};
+	ci.mCodecFormat = GST_FORMAT_VIDEO_ES_MPEG2;
+	m_player->SetStreamCaps(eMEDIATYPE_VIDEO, std::move(ci));
+}
+
+TEST_F(AampRialtoPlayerTest, SetStreamCaps_CodecNotYetIdentified_DoesNotReportError)
+{
+	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
+	ON_CALL(*m_mockSources[eMEDIATYPE_VIDEO], mapCodecToMime(_, _, _, _))
+		.WillByDefault(Return(false));
+
+	EXPECT_CALL(m_mockNotifiable, NotifyPlaybackError(_, _, _)).Times(0);
+
+	MediaCodecInfo ci{};
+	ci.mCodecFormat = GST_FORMAT_UNKNOWN;
+	m_player->SetStreamCaps(eMEDIATYPE_VIDEO, std::move(ci));
+}
+
+// ===========================================================================
 // Phase 5 — Segment injection baseline
 // ===========================================================================
 

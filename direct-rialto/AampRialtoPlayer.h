@@ -717,8 +717,16 @@ private:
 	 *
 	 * Caller must hold m_attachMutex.  A missing pipeline is logged and the
 	 * attach is skipped.
+	 *
+	 * @return false if the attach failed or there was no pipeline; true if the
+	 *         source is attached or its attach was deferred behind video.
 	 */
-	void AttachSource(AampRialtoMediaSource &source, MediaCodecInfo &codecInfo);
+	bool AttachSource(AampRialtoMediaSource &source, MediaCodecInfo &codecInfo);
+
+	/// Release injectors blocked on a deferred attach and, unless the codec is
+	/// simply not identified yet, raise a playback error to AAMP.
+	void ReportAttachFailure(
+		AampRialtoMediaSource &source, const MediaCodecInfo &codecInfo);
 
 	/**
 	 * @brief Apply m_audioVolume to the current pipeline.

@@ -1136,7 +1136,10 @@ bool AampRialtoPlayer::SendTransfer(
 			std::lock_guard<std::mutex> lock(m_attachMutex);
 			if (GetPipeline())
 			{
-				AttachSource(*source, *codecInfo);
+				if (!AttachSource(*source, *codecInfo))
+				{
+					result = false;
+				}
 			}
 			else
 			{
@@ -1163,7 +1166,44 @@ bool AampRialtoPlayer::SendTransfer(
 // AttachSource - unified attach via polymorphic source
 // ---------------------------------------------------------------------------
 
-void AampRialtoPlayer::AttachSource(
+void AampRialtoPlayer::ReportAttachFailure(
+	AampRialtoMediaSource &source, const MediaCodecInfo &codecInfo)
+{
+	const auto type = source.mediaType();
+
+	// Wake injectors blocked on a deferred attach; they now discard their frame.
+	{
+		auto &st = source.state();
+		std::lock_guard<std::mutex> lock(st.mu);
+		st.attachPending = false;
+		st.cv.notify_all();
+	}
+
+	// An unidentified codec (muxed HLS-TS before PMT parsing) is expected to be
+	// resolved by a later Configure(), so it is not a playback error.  Inband CC
+	// legitimately uses GST_FORMAT_UNKNOWN, so it is excluded from that case.
+	const bool codecNotYetKnown =
+		(codecInfo.mCodecFormat == GST_FORMAT_UNKNOWN) &&
+		(type != eMEDIATYPE_SUBTITLE);
+	if (codecNotYetKnown)
+	{
+		AAMPLOG_WARN("attach of mediaType=%d skipped: codec not yet identified",
+			static_cast<int>(type));
+	}
+	else
+	{
+		AAMPLOG_ERR("attach failed for mediaType=%d codecFormat=%d",
+			static_cast<int>(type), static_cast<int>(codecInfo.mCodecFormat));
+		m_notifiable->NotifyPlaybackError(
+			AAMP_TUNE_GST_PIPELINE_ERROR,
+			"Rialto attach failed: mediaType=" +
+				std::to_string(static_cast<int>(type)) + " codecFormat=" +
+				std::to_string(static_cast<int>(codecInfo.mCodecFormat)),
+			/*isRetryEnabled=*/false);
+	}
+}
+
+bool AampRialtoPlayer::AttachSource(
 	AampRialtoMediaSource &source, MediaCodecInfo &codecInfo)
 {
 	const auto type = source.mediaType();
@@ -1197,7 +1237,7 @@ void AampRialtoPlayer::AttachSource(
 			st.attachPending = true;
 		}
 		m_pendingAttach[type] = std::move(codecInfo);
-		return;
+		return true;
 	}
 
 	const auto pipeline = GetPipeline();
@@ -1205,7 +1245,7 @@ void AampRialtoPlayer::AttachSource(
 	{
 		AAMPLOG_ERR("pipeline not created - cannot attach mediaType=%d",
 			static_cast<int>(type));
-		return;
+		return false;
 	}
 
 	if (!source.isAttached())
@@ -1340,6 +1380,12 @@ void AampRialtoPlayer::AttachSource(
 
 		CheckAllSourcesAttached();
 	}
+	else if (result == AampRialtoMediaSource::AttachResult::FAILED)
+	{
+		ReportAttachFailure(source, codecInfo);
+	}
+
+	return result != AampRialtoMediaSource::AttachResult::FAILED;
 }
 
 void AampRialtoPlayer::UngateAllSources(const char *reason)
