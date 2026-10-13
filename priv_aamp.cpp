@@ -103,8 +103,8 @@ static constexpr double kNetTraceLateGapThresholdS = 0.120;  // 120 milliseconds
 #include "AuthTokenErrors.h"
 
 #define LOCAL_HOST_IP       "127.0.0.1"
-#define AAMP_MAX_TIME_BW_UNDERFLOWS_TO_TRIGGER_RETUNE_MS (20*1000LL)
-#define AAMP_MAX_TIME_LL_BW_UNDERFLOWS_TO_TRIGGER_RETUNE_MS (AAMP_MAX_TIME_BW_UNDERFLOWS_TO_TRIGGER_RETUNE_MS/10)
+#define AAMP_MAX_TIME_BW_PTS_ERRORS_TO_TRIGGER_RETUNE_MS (20*1000LL)
+#define AAMP_MAX_TIME_LL_BW_PTS_ERRORS_TO_TRIGGER_RETUNE_MS (AAMP_MAX_TIME_BW_PTS_ERRORS_TO_TRIGGER_RETUNE_MS/10)
 
 //Description size
 #define MAX_DESCRIPTION_SIZE 128
@@ -1956,7 +1956,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	{
 		mbTrackDownloadsBlocked[i] = false;
 		mTrackInjectionBlocked[i] = false;
-		lastUnderFlowTimeMs[i] = 0;
+		lastPtsErrorTimeMs[i] = 0;
 		mProcessingDiscontinuity[i] = false;
 		mIsDiscontinuityIgnored[i] = false;
 		mbNewSegmentEvtSent[i] = true;
@@ -3687,8 +3687,8 @@ bool PrivateInstanceAAMP::ProcessPendingDiscontinuity()
 		// This can lead to discontinuity stall detection kicking in. So once we start discontinuity processing, reset the flags
 		ResetDiscontinuityInTracks();
 		ResetTrackDiscontinuityIgnoredStatus();
-		lastUnderFlowTimeMs[eMEDIATYPE_VIDEO] = 0;
-		lastUnderFlowTimeMs[eMEDIATYPE_AUDIO] = 0;
+		lastPtsErrorTimeMs[eMEDIATYPE_VIDEO] = 0;
+		lastPtsErrorTimeMs[eMEDIATYPE_AUDIO] = 0;
 
 		{
 			double newPosition = GetPositionSeconds();
@@ -6111,7 +6111,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	aampApplyThreadPrioFromEnv("AAMP_AV_PIPELINE_PRIORITY", SCHED_OTHER, 0);
 	for (int i = 0; i < AAMP_TRACK_COUNT; i++)
 	{
-		lastUnderFlowTimeMs[i] = 0;
+		lastPtsErrorTimeMs[i] = 0;
 	}
 	{
 		std::lock_guard<std::recursive_mutex> guard(mFragmentCachingLock);
@@ -9257,8 +9257,13 @@ bool PrivateInstanceAAMP::Discontinuity(AampMediaType track, bool setDiscontinui
 /**
  * @brief Schedules retune or discontinuity processing based on state.
  */
-void PrivateInstanceAAMP::ScheduleRetune(PlaybackErrorType errorType, AampMediaType trackType, bool bufferFull)
+void PrivateInstanceAAMP::ScheduleRetune(PlaybackErrorType errorType, AampMediaType trackType)
 {
+	if (eGST_ERROR_UNDERFLOW == errorType)
+	{
+		AAMPLOG_WARN("PrivateInstanceAAMP: Ignoring retune request for %s underflow", GetMediaTypeName(trackType));
+		return;
+	}
 	std::unique_lock<std::mutex> gLock(gMutex, std::defer_lock);
 	if (AAMP_NORMAL_PLAY_RATE == rate && ContentType_EAS != mContentType)
 	{
@@ -9322,23 +9327,6 @@ void PrivateInstanceAAMP::ScheduleRetune(PlaybackErrorType errorType, AampMediaT
 			return;
 		}
 
-		MediaTrack* mediaTrack = (mpStreamAbstractionAAMP != NULL) ? (mpStreamAbstractionAAMP->GetMediaTrack((TrackType)trackType)) : NULL;
-
-		if((ISCONFIGSET_PRIV(eAAMPConfig_ReportBufferEvent)) &&
-		(errorType == eGST_ERROR_UNDERFLOW) &&
-		(trackType == eMEDIATYPE_VIDEO) &&
-		(mediaTrack) &&
-		(mediaTrack->GetBufferStatus() == BUFFER_STATUS_RED)
-		&& (!bufferFull)
-		)
-		{
-			SendBufferChangeEvent(true);  // Buffer state changed, buffer Under flow started
-			if (!mSinkPaused.load() &&  !PausePipeline(true, true))
-			{
-					AAMPLOG_ERR("Failed to pause the Pipeline");
-			}
-		}
-
 		SendAnomalyEvent(ANOMALY_WARNING, "%s %s", GetMediaTypeName(trackType), getStringForPlaybackError(errorType));
 		bool activeAAMPFound = false;
 		gLock.lock();
@@ -9353,10 +9341,10 @@ void PrivateInstanceAAMP::ScheduleRetune(PlaybackErrorType errorType, AampMediaT
 				}
 				else
 				{
-					if(eGST_ERROR_PTS == errorType || eGST_ERROR_UNDERFLOW == errorType)
+					if(eGST_ERROR_PTS == errorType)
 					{
 						long long now = aamp_GetCurrentTimeMS();
-						long long lastErrorReportedTimeMs = lastUnderFlowTimeMs[trackType];
+						long long lastErrorReportedTimeMs = lastPtsErrorTimeMs[trackType];
 						int ptsErrorThresholdValue = GETCONFIGVALUE_PRIV(eAAMPConfig_PTSErrorThreshold);
 						if (lastErrorReportedTimeMs)
 						{
@@ -9364,14 +9352,14 @@ void PrivateInstanceAAMP::ScheduleRetune(PlaybackErrorType errorType, AampMediaT
 							long long diffMs = (now - lastErrorReportedTimeMs);
 							if(GetLLDashServiceData()->lowLatencyMode )
 							{
-								if (diffMs < AAMP_MAX_TIME_LL_BW_UNDERFLOWS_TO_TRIGGER_RETUNE_MS)
+								if (diffMs < AAMP_MAX_TIME_LL_BW_PTS_ERRORS_TO_TRIGGER_RETUNE_MS)
 								{
 									isRetuneRequired = true;
 								}
 							}
 							else
 							{
-								if (diffMs < AAMP_MAX_TIME_BW_UNDERFLOWS_TO_TRIGGER_RETUNE_MS)
+								if (diffMs < AAMP_MAX_TIME_BW_PTS_ERRORS_TO_TRIGGER_RETUNE_MS)
 								{
 									isRetuneRequired = true;
 								}
@@ -9387,7 +9375,7 @@ void PrivateInstanceAAMP::ScheduleRetune(PlaybackErrorType errorType, AampMediaT
 									gAAMPInstance->reTune = true;
 									AAMPLOG_WARN("PrivateInstanceAAMP: Schedule Retune. diffMs %lld < threshold %lld",
 										diffMs, GetLLDashServiceData()->lowLatencyMode?
-										AAMP_MAX_TIME_LL_BW_UNDERFLOWS_TO_TRIGGER_RETUNE_MS:AAMP_MAX_TIME_BW_UNDERFLOWS_TO_TRIGGER_RETUNE_MS);
+										AAMP_MAX_TIME_LL_BW_PTS_ERRORS_TO_TRIGGER_RETUNE_MS:AAMP_MAX_TIME_BW_PTS_ERRORS_TO_TRIGGER_RETUNE_MS);
 									AdditionalTuneFailLogEntries();
 									ScheduleAsyncTask(PrivateInstanceAAMP_Retune, (void *)this, "PrivateInstanceAAMP_Retune");
 								}
@@ -9397,7 +9385,7 @@ void PrivateInstanceAAMP::ScheduleRetune(PlaybackErrorType errorType, AampMediaT
 								gAAMPInstance->numPtsErrors = 0;
 								AAMPLOG_ERR("PrivateInstanceAAMP: Not scheduling reTune since (diff %lld > threshold %lld) numPtsErrors %d, ptsErrorThreshold %d.",
 									diffMs, GetLLDashServiceData()->lowLatencyMode?
-									AAMP_MAX_TIME_LL_BW_UNDERFLOWS_TO_TRIGGER_RETUNE_MS:AAMP_MAX_TIME_BW_UNDERFLOWS_TO_TRIGGER_RETUNE_MS,
+									AAMP_MAX_TIME_LL_BW_PTS_ERRORS_TO_TRIGGER_RETUNE_MS:AAMP_MAX_TIME_BW_PTS_ERRORS_TO_TRIGGER_RETUNE_MS,
 									gAAMPInstance->numPtsErrors, ptsErrorThresholdValue);
 							}
 						}
@@ -9406,7 +9394,7 @@ void PrivateInstanceAAMP::ScheduleRetune(PlaybackErrorType errorType, AampMediaT
 							gAAMPInstance->numPtsErrors = 0;
 							AAMPLOG_WARN("PrivateInstanceAAMP: Not scheduling reTune since first %s.", getStringForPlaybackError(errorType));
 						}
-						lastUnderFlowTimeMs[trackType] = now;
+						lastPtsErrorTimeMs[trackType] = now;
 					}
 					else
 					{
