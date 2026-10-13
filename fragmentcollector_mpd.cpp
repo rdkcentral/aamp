@@ -2049,6 +2049,7 @@ bool StreamAbstractionAAMP_MPD::HandleSeekEOSAndPeriodTransition(double remainin
 		bool                  enabled;
 		int                   adaptationSetIdx;
 		uint32_t              adaptationSetId;
+		bool                  adaptationSetIdValid;
 		int                   representationIndex;
 		bool                  profileChanged;
 		const IAdaptationSet  *adaptationSet;
@@ -2071,6 +2072,7 @@ bool StreamAbstractionAAMP_MPD::HandleSeekEOSAndPeriodTransition(double remainin
 				ctx->enabled,
 				ctx->adaptationSetIdx,
 				ctx->adaptationSetId,
+				ctx->adaptationSetIdValid,
 				ctx->representationIndex,
 				ctx->profileChanged,
 				ctx->adaptationSet,
@@ -2139,6 +2141,7 @@ bool StreamAbstractionAAMP_MPD::HandleSeekEOSAndPeriodTransition(double remainin
 				ctx->enabled             = snap.enabled;
 				ctx->adaptationSetIdx    = snap.adaptationSetIdx;
 				ctx->adaptationSetId     = snap.adaptationSetId;
+				ctx->adaptationSetIdValid = snap.adaptationSetIdValid;
 				ctx->representationIndex = snap.representationIndex;
 				ctx->profileChanged      = snap.profileChanged;
 				ctx->adaptationSet       = snap.adaptationSet;

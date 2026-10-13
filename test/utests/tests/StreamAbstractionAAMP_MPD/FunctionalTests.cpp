@@ -2803,6 +2803,37 @@ TEST_F(StreamAbstractionAAMP_MPDTest, ResolveAdaptationSetForTrack_IdMatches_NoR
 }
 
 /**
+ * @brief ResolveAdaptationSetForTrack: on first resolve (adaptationSetIdValid false) the
+ * index chosen by StreamSelection is trusted even though the stale id differs; the id and
+ * validity are then established from that index.
+ */
+TEST_F(StreamAbstractionAAMP_MPDTest, ResolveAdaptationSetForTrack_FirstResolve_TrustsIndex)
+{
+	mManifest = kResolveAdaptationManifest;
+	ManifestDownloadResponsePtr response = GetManifestForMPDDownloader();
+	ASSERT_NE(response, nullptr);
+	ASSERT_NE(response->mMPDInstance.get(), nullptr);
+	IPeriod *period = response->mMPDInstance->GetPeriods().at(0);
+	ASSERT_EQ(period->GetAdaptationSets().size(), 3u);
+
+	mStreamAbstractionAAMP_MPD->SetupMediaStreamContexts(1);
+	MediaStreamContext *ctx = mStreamAbstractionAAMP_MPD->GetMediaStreamContextForTest(eMEDIATYPE_VIDEO);
+	ASSERT_NE(ctx, nullptr);
+
+	// Index 0 holds id 1; stale id 2 must not trigger relocation when validity is false.
+	ctx->adaptationSetIdx = 0;
+	ctx->adaptationSetId = 2;
+	ctx->adaptationSetIdValid = false;
+
+	AAMPStatusType status = mStreamAbstractionAAMP_MPD->CallResolveAdaptationSetForTrack(ctx, period);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+	EXPECT_EQ(ctx->adaptationSetIdx, 0);
+	ASSERT_NE(ctx->adaptationSet, nullptr);
+	EXPECT_EQ(ctx->adaptationSetId, 1u);
+	EXPECT_TRUE(ctx->adaptationSetIdValid);
+}
+
+/**
  * @brief ResolveAdaptationSetForTrack: when the AdaptationSet order changed so the
  * retained index now points to a different id, the index is relocated to the one
  * whose id matches the stored adaptationSetId.
