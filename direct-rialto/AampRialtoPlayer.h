@@ -43,6 +43,7 @@
 #include "AampRialtoPreRollMonitor.h"
 #include "AampRialtoSegmentPosition.h"
 #include "IDirectRialtoCC.h"
+#include "AampRialtoGlibTimer.h"
 #include "AampRialtoMonitorAV.h"
 
 #include <array>
@@ -605,13 +606,11 @@ private:
 	///
 	/// Fires immediately on start, then continues at specified interval.
 	/// Can be kicked to force immediate dispatch while maintaining interval.
+	/// All methods are thread-safe; see AampRialtoGlibTimer.
 	class ProgressTimer
 	{
 	public:
 		using Callback = std::function<void()>;
-
-		ProgressTimer() = default;
-		~ProgressTimer();
 
 		/// Start the timer: fires immediately, then at interval.
 		/// Does nothing if already running.
@@ -620,31 +619,23 @@ private:
 		/// Force immediate callback dispatch and restart the interval.
 		void kick();
 
-		/// Stop the timer and clean up resources.
+		/// Stop the timer; no callback runs once this returns.
 		void stop();
 
 		/// Return true if the timer is currently running.
-		bool isRunning() const { return started; }
+		bool isRunning() const { return m_timer.IsRunning(); }
 
 	private:
-		guint interval = 0;
-		Callback callback;
+		AampRialtoGlibTimer m_timer;
 
-		guint source_id = 0;
-		bool started = false;
-
-	private:
-		// Periodic timeout handler (will be called with AampRialtoPlayer as data)
-		static gboolean timeout_handler(gpointer data);
-
-		// Run callback once
-		void runOnce();
-
-		friend class AampRialtoPlayer;
+		/// Guards m_interval and m_callback, which kick() reads.
+		std::mutex m_mutex;
+		guint m_interval{0};
+		Callback m_callback;
 	};
 
 	/// Progress timer instance.
-	std::unique_ptr<ProgressTimer> m_progressTimer;
+	ProgressTimer m_progressTimer;
 
 	/// AV health monitor.  Non-null only when eAAMPConfig_MonitorAV is true
 	/// and a pipeline has been successfully created.

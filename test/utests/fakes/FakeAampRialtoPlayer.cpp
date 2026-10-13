@@ -121,8 +121,6 @@ void AampRialtoPlayer::StartProgressTimer() {}
 void AampRialtoPlayer::StopProgressTimer() {}
 void AampRialtoPlayer::OnProgressTimerTick() {}
 
-AampRialtoPlayer::ProgressTimer::~ProgressTimer() {}
-
 void AampRialtoPlayer::RialtoLogHandler::log(
 	Level, const std::string &, int,
 	const std::string &, const std::string &) {}

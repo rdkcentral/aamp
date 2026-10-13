@@ -33,6 +33,7 @@
 #include <atomic>
 #include <chrono>
 #include <functional>
+#include <future>
 #include <thread>
 
 #include "AampRialtoPlayer.h"
@@ -2996,6 +2997,77 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 		.Times(1);
 
 	m_player->StartProgressTimer();
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest, StopProgressTimer_WaitsForTickInProgress)
+{
+	/**
+	 * @brief Regression (M1): Stop() must not return while a tick is still
+	 *        running on the GLib thread, or the owner can be torn down under it.
+	 */
+	Configure();
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+	ASSERT_NE(m_progressTimerCallback, nullptr);
+
+	std::promise<void> tickEntered;
+	std::promise<void> releaseTick;
+	auto released = releaseTick.get_future();
+	EXPECT_CALL(m_mockNotifiable, MonitorProgress(false, false))
+		.WillOnce(Invoke([&](bool, bool)
+		{
+			tickEntered.set_value();
+			released.wait();
+		}));
+
+	std::thread tickThread([this] {
+		m_progressTimerCallback(m_progressTimerUserData);
+	});
+	tickEntered.get_future().wait();
+
+	std::atomic<bool> stopReturned{false};
+	std::thread stopThread([&] {
+		m_player->StopProgressTimer();
+		stopReturned = true;
+	});
+	std::this_thread::sleep_for(std::chrono::milliseconds(100));
+	EXPECT_FALSE(stopReturned.load())
+		<< "StopProgressTimer() returned while a tick was still running";
+
+	releaseTick.set_value();
+	tickThread.join();
+	stopThread.join();
+	EXPECT_TRUE(stopReturned.load());
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest, ProgressTimer_DispatchAfterStop_DoesNothing)
+{
+	Configure();
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+	ASSERT_NE(m_progressTimerCallback, nullptr);
+	m_player->StopProgressTimer();
+
+	EXPECT_CALL(m_mockNotifiable, MonitorProgress(_, _)).Times(0);
+
+	EXPECT_EQ(m_progressTimerCallback(m_progressTimerUserData), G_SOURCE_REMOVE);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest, ProgressTimer_DispatchAfterPlayerDestroyed_IsSafe)
+{
+	/**
+	 * @brief Regression (M1): a dispatch GLib had already picked up when the
+	 *        player was destroyed must find the timer inactive rather than
+	 *        use freed memory.
+	 */
+	Configure();
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+	ASSERT_NE(m_progressTimerCallback, nullptr);
+	GSourceFunc dispatch = m_progressTimerCallback;
+	gpointer data = m_progressTimerUserData;
+
+	m_player.reset();
+
+	EXPECT_CALL(m_mockNotifiable, MonitorProgress(_, _)).Times(0);
+	EXPECT_EQ(dispatch(data), G_SOURCE_REMOVE);
 }
 
 // Configure() unconditionally applies PlayHold::PositionPending (it cannot tell
