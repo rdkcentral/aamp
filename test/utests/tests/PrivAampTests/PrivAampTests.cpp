@@ -37,6 +37,7 @@
 #include "AampConfig.h"
 #include "AampTSBSessionManager.h"
 #include "MockAampConfig.h"
+#include "MockAampScheduler.h"
 #include "MockAampGstPlayer.h"
 #include "MockStreamAbstractionAAMP.h"
 #include "MockStreamAbstractionAAMP_MPD.h"
@@ -4586,6 +4587,22 @@ TEST_F(PrivAampTests,ScheduleAsyncTaskTest)
 {
 	IdleTask task;void *arg;
 	p_aamp->ScheduleAsyncTask(task,arg,"taskName");
+}
+
+TEST_F(PrivAampTests, RialtoServerCrashSchedulesOneRetune)
+{
+	AampScheduler scheduler;
+	auto schedulerMock = std::make_shared<NiceMock<MockAampScheduler>>();
+	g_mockAampScheduler = schedulerMock;
+	p_aamp->SetScheduler(&scheduler);
+	p_aamp->SetState(eSTATE_PLAYING, false);
+	EXPECT_CALL(*schedulerMock, ScheduleTask(_)).Times(1).WillOnce(Return(1));
+
+	p_aamp->RialtoServerCrashed();
+	p_aamp->RialtoServerCrashed();
+
+	p_aamp->SetScheduler(nullptr);
+	g_mockAampScheduler.reset();
 }
 
 TEST_F(PrivAampTests,RemoveAsyncTaskTest)

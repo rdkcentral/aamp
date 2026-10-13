@@ -1356,6 +1356,7 @@ public:
 	 * @return void
 	 */
 	void LicenseRenewal(DrmHelperPtr drmHelper,void* userData) override;
+	void RialtoServerCrashed() override;
 	/**
 	 * @fn CurlTerm
 	 *

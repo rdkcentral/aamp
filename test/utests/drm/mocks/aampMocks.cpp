@@ -1119,6 +1119,10 @@ void PrivateInstanceAAMP::LicenseRenewal(DrmHelperPtr drmHelper, void *userData)
 {
 }
 
+void PrivateInstanceAAMP::RialtoServerCrashed()
+{
+}
+
 void PrivateInstanceAAMP::ID3MetadataHandler(AampMediaType, const uint8_t *, size_t,
 											 const SegmentInfo_t &, const char *scheme_uri)
 {

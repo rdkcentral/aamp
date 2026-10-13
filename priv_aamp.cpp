@@ -3311,6 +3311,35 @@ void PrivateInstanceAAMP::LicenseRenewal(DrmHelperPtr drmHelper, void* userData)
 	mDRMLicenseManager->renewLicense(std::move(drmHelper), userData, this);
 }
 
+void PrivateInstanceAAMP::RialtoServerCrashed()
+{
+	if (!mDRMLicenseManager)
+	{
+		return;
+	}
+	AAMPPlayerState state = GetState();
+	if (state == eSTATE_IDLE || state == eSTATE_STOPPING ||
+		state == eSTATE_RELEASED)
+	{
+		mDRMLicenseManager->markRialtoServerCrashed();
+		return;
+	}
+
+	mDRMLicenseManager->markRialtoServerCrashed();
+	std::lock_guard<std::mutex> lock(gMutex);
+	auto activeAamp = std::find_if(gActivePrivAAMPs.begin(), gActivePrivAAMPs.end(),
+		[this](const gActivePrivAAMP_t& entry) { return entry.pAAMP == this; });
+	if (activeAamp != gActivePrivAAMPs.end() && !activeAamp->reTune)
+	{
+		activeAamp->reTune = true;
+		if (ScheduleAsyncTask(PrivateInstanceAAMP_Retune, this,
+							"RialtoServerCrashRetune") == AAMP_TASK_ID_INVALID)
+		{
+			activeAamp->reTune = false;
+		}
+	}
+}
+
 /**
  * @brief Send event to listeners
  */

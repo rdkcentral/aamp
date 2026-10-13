@@ -30,6 +30,7 @@
 #include "DrmSession.h"
 #include "AampCurlDownloader.h"
 #include "DrmSessionManager.h"
+#include <atomic>
 
 enum ProfilerAction
 {
@@ -59,6 +60,7 @@ public:
 	std::vector<std::thread> mLicenseRenewalThreads;
 	AampLicensePreFetcher* mLicensePrefetcher; /**< DRM license prefetcher instance */
 	PrivateInstanceAAMP *aampInstance; /** AAMP instance **/
+	std::atomic<bool> mRialtoCrashRecoveryPending{false};
 	/**
 	 * @fn          setLicenseRequestAbort
 	 * @param       isAbort bool flag to curl abort
@@ -135,6 +137,7 @@ public:
 	 * @return	void.
 	 */
 	void clearDrmSession(bool forceClearSession = false);
+	void markRialtoServerCrashed();
 
 	/**
 	* @fn		clearFailedKeyIds

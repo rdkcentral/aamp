@@ -1467,19 +1467,22 @@ void AampDRMLicenseManager::UpdateMaxDRMSessions(int maxSessions)
  */
 void AampDRMLicenseManager::clearDrmSession(bool forceClearSession)
 {
+	forceClearSession = forceClearSession || mRialtoCrashRecoveryPending.exchange(false);
 	mDrmSessionManager->clearDrmSession(forceClearSession);
 	for (int i = 0; i < mMaxDRMSessions; i++)
 	{
 		bool isFailedKeyEntries = mDrmSessionManager->getFailedKeyIdStatus(i);
 		if ((mDrmSessionManager->drmSessionContexts != NULL && (isFailedKeyEntries || forceClearSession)))
 		{
-			if (mDrmSessionManager->drmSessionContexts[i].drmSession != NULL)
-			{
-				AAMPLOG_INFO("Clearing Session %d, isFailedKeyEntries=%d, forceClearSession=%d", i, isFailedKeyEntries, forceClearSession);
-				mLicenseDownloader[i].Clear();
-			}
+			AAMPLOG_INFO("Clearing Session %d, isFailedKeyEntries=%d, forceClearSession=%d", i, isFailedKeyEntries, forceClearSession);
+			mLicenseDownloader[i].Clear();
 		}
 	}
+}
+
+void AampDRMLicenseManager::markRialtoServerCrashed()
+{
+	mRialtoCrashRecoveryPending.store(true);
 }
 
 /**

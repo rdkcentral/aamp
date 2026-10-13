@@ -1402,6 +1402,10 @@ void PrivateInstanceAAMP::LicenseRenewal(DrmHelperPtr drmHelper,void* userData)
 {
 }
 
+void PrivateInstanceAAMP::RialtoServerCrashed()
+{
+}
+
 bool PrivateInstanceAAMP::IsEventListenerAvailable(AAMPEventType eventType)
 {
 	return false;
