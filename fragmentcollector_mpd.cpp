@@ -8069,11 +8069,6 @@ AAMPStatusType StreamAbstractionAAMP_MPD::ResolveAdaptationSetForTrack(MediaStre
 	{
 		currentId = curAdaptationSets.at(pMediaStreamContext->adaptationSetIdx)->GetId();
 	}
-
-	AAMPLOG_WARN("ResolveAdaptationSetForTrack: period=%s track=%d idx=%d currentId=%u storedId=%u idValid=%d setCount=%zu",
-		period->GetId().c_str(), pMediaStreamContext->type, pMediaStreamContext->adaptationSetIdx,
-		currentId, pMediaStreamContext->adaptationSetId, storedIdValid, numAdaptationSets);
-
 	// Re-resolve when the index is stale, or when it no longer points at the
 	// previously selected id (AdaptationSets reordered across a manifest refresh).
 	const bool needResolve = !indexInRange ||
