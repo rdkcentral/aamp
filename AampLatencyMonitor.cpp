@@ -469,20 +469,13 @@ void AampLatencyMonitor::ResetToNormalRate()
  */
 void AampLatencyMonitor::IncreaseThresholdsLocked()
 {
-	const double previousAccumulated = mLatencyIncrementAccumulatedMs;
-	double newAccumulated = previousAccumulated
+	double newAccumulated = mLatencyIncrementAccumulatedMs
 		+ mConfig.rebufferingLatencyStepMs;
 
 	if (mConfig.rebufferingLatencyMaxIncrementMs > 0.0)
 	{
 		newAccumulated = std::min(newAccumulated,
 			mConfig.rebufferingLatencyMaxIncrementMs);
-	}
-
-	const double appliedShiftMs = newAccumulated - previousAccumulated;
-	if (appliedShiftMs <= 0.0)
-	{
-		return;
 	}
 
 	mLatencyIncrementAccumulatedMs = newAccumulated;
@@ -492,7 +485,7 @@ void AampLatencyMonitor::IncreaseThresholdsLocked()
 
 	AAMPLOG_INFO("[LatencyMonitor] thresholds shifted +%.0fms "
 		"(accumulated=%.0fms) -> min=%.0fms target=%.0fms max=%.0fms",
-		appliedShiftMs, mLatencyIncrementAccumulatedMs,
+		mConfig.rebufferingLatencyStepMs, mLatencyIncrementAccumulatedMs,
 		mMinLatencyMs, mTargetLatencyMs, mMaxLatencyMs);
 }
 
