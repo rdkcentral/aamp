@@ -6740,9 +6740,14 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 		AampRialtoMediaSource::GateMode::BLOCKED);
 
 	const int64_t expectedPosNs = 42'000'000'000LL;
+	std::atomic<bool> playIssued{false};
 	EXPECT_CALL(*m_mockPipelinePtr, setPosition(expectedPosNs))
 		.WillOnce(Return(true));
-	EXPECT_CALL(*m_mockPipelinePtr, play(_)).WillOnce(Return(true));
+	EXPECT_CALL(*m_mockPipelinePtr, play(_))
+		.WillOnce(Invoke([&playIssued](bool &) {
+			playIssued = true;
+			return true;
+		}));
 
 	std::atomic<bool> sendDone{false};
 	std::thread sender([this, &sendDone]() {
@@ -6757,6 +6762,12 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 
 	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
 
+	// play() ungates the sources.  The sender's Stream() may run before or
+	// after SEEK_DONE, so wait for it: a needData posted while still gated is
+	// answered NO_AVAILABLE_SAMPLES and the sample is never injected.
+	WaitFor([&playIssued]{ return playIssued.load(); });
+	EXPECT_TRUE(playIssued.load());
+
 	ON_CALL(*m_mockPipelinePtr, addSegment(0, _))
 		.WillByDefault(Return(firebolt::rialto::AddSegmentStatus::OK));
 	ON_CALL(*m_mockPipelinePtr, haveData(
@@ -6765,6 +6776,11 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	PostNeedData(/*sourceId=*/0, /*frameCount=*/1, /*requestId=*/0);
 
 	WaitFor([&sendDone]{ return sendDone.load(); });
+	if (!sendDone.load())
+	{
+		ADD_FAILURE() << "sample was never injected";
+		m_player->Stop(false);  // releases the blocked injector
+	}
 	sender.join();
 }
 
