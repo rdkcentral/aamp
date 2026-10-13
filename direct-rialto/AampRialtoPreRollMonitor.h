@@ -25,6 +25,8 @@
 #ifndef AAMP_RIALTO_PRE_ROLL_MONITOR_H
 #define AAMP_RIALTO_PRE_ROLL_MONITOR_H
 
+#include "AampRialtoGlibTimer.h"
+
 #include <glib.h>
 
 #include <cstdint>
@@ -49,7 +51,8 @@
  * duration is reported in the logs only; it does not gate.
  *
  * Thread-safe.  Start()/Stop() may be called from any thread; polling and
- * completion run on the GLib main loop.  The completion action is invoked
+ * completion run on the GLib main loop.  Stop() waits for a Poll in progress,
+ * so no completion fires once it returns.  The completion action is invoked
  * without the internal mutex held.
  */
 class AampRialtoPreRollMonitor
@@ -115,8 +118,6 @@ public:
 	bool Poll();
 
 private:
-	static gboolean TimerCallback(gpointer data);
-
 	/// Drop the stored probe, and anything it captured, once no pre-roll is
 	/// running.  No-op while one is.
 	void ReleaseProbe();
@@ -130,11 +131,14 @@ private:
 	/// already in flight cannot complete an abandoned pre-roll.
 	uint64_t m_epoch{0};
 	bool m_running{false};
-	guint m_timerId{0};
 	int64_t m_startMs{0};
 	uint32_t m_lastLoggedFrames{0};
 	bool m_haveLoggedFrames{false};
 	Probe m_probe;
+
+	/// Runs Poll() on the GLib main loop.  Stopping it waits for a Poll in
+	/// progress.
+	AampRialtoGlibTimer m_timer;
 };
 
 #endif // AAMP_RIALTO_PRE_ROLL_MONITOR_H

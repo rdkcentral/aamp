@@ -52,40 +52,32 @@ AampRialtoPreRollMonitor::~AampRialtoPreRollMonitor()
 
 void AampRialtoPreRollMonitor::Start(Probe probe)
 {
-	guint previousTimer = 0;
+	// Cancels any previous timer and waits for a Poll still running on it, so
+	// that Poll cannot read the probe replaced below.
+	m_timer.Stop();
+
 	uint64_t epoch = 0;
 	{
 		std::lock_guard<std::mutex> lock(m_mutex);
-		previousTimer = m_timerId;
-		m_timerId = 0;
 		epoch = ++m_epoch;
 		m_running = true;
 		m_probe = std::move(probe);
 		m_startMs = m_clock();
 		m_haveLoggedFrames = false;
 	}
-	if (previousTimer != 0)
-	{
-		g_source_remove(previousTimer);
-	}
 
-	const guint timerId = g_timeout_add(m_config.pollIntervalMs,
-		&AampRialtoPreRollMonitor::TimerCallback, this);
+	const bool scheduled = m_timer.Start(m_config.pollIntervalMs,
+		[this]() { return Poll(); });
 
 	bool completeNow = false;
 	{
 		std::lock_guard<std::mutex> lock(m_mutex);
-		if (m_running && (m_epoch == epoch))
+		// Not scheduled but running means another thread started it first.
+		if (!scheduled && !m_timer.IsRunning() && m_running &&
+		    (m_epoch == epoch))
 		{
-			if (timerId == 0)
-			{
-				m_running = false;
-				completeNow = true;
-			}
-			else
-			{
-				m_timerId = timerId;
-			}
+			m_running = false;
+			completeNow = true;
 		}
 	}
 
@@ -104,20 +96,15 @@ void AampRialtoPreRollMonitor::Start(Probe probe)
 
 void AampRialtoPreRollMonitor::Stop()
 {
-	guint timerId = 0;
 	bool wasRunning = false;
 	{
 		std::lock_guard<std::mutex> lock(m_mutex);
-		timerId = m_timerId;
-		m_timerId = 0;
 		wasRunning = m_running;
 		m_running = false;
 		++m_epoch;
 	}
-	if (timerId != 0)
-	{
-		g_source_remove(timerId);
-	}
+	// Waits for a Poll in progress, so no completion fires after this returns.
+	m_timer.Stop();
 	if (wasRunning)
 	{
 		AAMPLOG_INFO("pre-roll monitor stopped before completion");
@@ -195,9 +182,7 @@ bool AampRialtoPreRollMonitor::Poll()
 			}
 			else if (reason != nullptr)
 			{
-				// Returning false removes the GLib source, so forget its id.
 				m_running = false;
-				m_timerId = 0;
 				keepPolling = false;
 				complete = true;
 			}
@@ -228,10 +213,4 @@ bool AampRialtoPreRollMonitor::Poll()
 	}
 
 	return keepPolling;
-}
-
-gboolean AampRialtoPreRollMonitor::TimerCallback(gpointer data)
-{
-	auto *self = static_cast<AampRialtoPreRollMonitor *>(data);
-	return self->Poll() ? G_SOURCE_CONTINUE : G_SOURCE_REMOVE;
 }

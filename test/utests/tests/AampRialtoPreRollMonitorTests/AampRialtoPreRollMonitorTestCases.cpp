@@ -33,6 +33,11 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 
+#include <atomic>
+#include <chrono>
+#include <future>
+#include <thread>
+
 #include "AampRialtoPreRollMonitor.h"
 #include "MockGLib.h"
 
@@ -249,6 +254,74 @@ TEST_F(AampRialtoPreRollMonitorTest, Completed_StopDoesNotRemoveSelfRemovedTimer
 
 	EXPECT_CALL(*m_mockGLib, g_source_remove(_)).Times(0);
 	m_monitor->Stop();
+}
+
+TEST_F(AampRialtoPreRollMonitorTest, Stop_WaitsForPollInProgress)
+{
+	/**
+	 * @brief Regression (M3): Stop() must not return while a Poll is still
+	 *        running on the GLib thread - its probe reads objects the caller
+	 *        is about to replace or destroy.
+	 */
+	std::promise<void> pollEntered;
+	std::promise<void> releasePoll;
+	auto released = releasePoll.get_future();
+	AampRialtoPreRollMonitor::Probe probe = MakeProbe();
+	probe.acceptedFrames = [&]() -> uint32_t
+	{
+		pollEntered.set_value();
+		released.wait();
+		return 0u;
+	};
+	m_monitor->Start(std::move(probe));
+	ASSERT_NE(m_timerFn, nullptr);
+
+	std::thread pollThread([this] { m_timerFn(m_timerData); });
+	pollEntered.get_future().wait();
+
+	std::atomic<bool> stopReturned{false};
+	std::thread stopThread([&] {
+		m_monitor->Stop();
+		stopReturned = true;
+	});
+	std::this_thread::sleep_for(std::chrono::milliseconds(100));
+	EXPECT_FALSE(stopReturned.load())
+		<< "Stop() returned while a Poll was still running";
+
+	releasePoll.set_value();
+	pollThread.join();
+	stopThread.join();
+	EXPECT_TRUE(stopReturned.load());
+	EXPECT_EQ(m_completions, 0);
+}
+
+TEST_F(AampRialtoPreRollMonitorTest, DispatchAfterStop_DoesNothing)
+{
+	m_monitor->Start(MakeProbe());
+	ASSERT_NE(m_timerFn, nullptr);
+	m_monitor->Stop();
+	m_acceptedFrames = kFloor;
+
+	EXPECT_EQ(m_timerFn(m_timerData), G_SOURCE_REMOVE);
+	EXPECT_EQ(m_completions, 0);
+}
+
+TEST_F(AampRialtoPreRollMonitorTest, DispatchAfterDestruction_IsSafe)
+{
+	/**
+	 * @brief Regression (M3): a dispatch GLib had already picked up when the
+	 *        monitor was destroyed must not use the destroyed object.
+	 */
+	m_monitor->Start(MakeProbe());
+	ASSERT_NE(m_timerFn, nullptr);
+	GSourceFunc fn = m_timerFn;
+	gpointer data = m_timerData;
+	m_acceptedFrames = kFloor;
+
+	m_monitor.reset();
+
+	EXPECT_EQ(fn(data), G_SOURCE_REMOVE);
+	EXPECT_EQ(m_completions, 0);
 }
 
 TEST_F(AampRialtoPreRollMonitorTest, TimerUnavailable_CompletesImmediately)
