@@ -561,6 +561,18 @@ public:
 
 protected:
 	/**
+	 * @fn AddIfUnique
+	 * @brief Adds a text track to the list if it is not already present.
+	 *
+	 * @param[in,out] tTracks Collection of text tracks to update.
+	 * @param[in] value Text track passed by value. The function may move from
+	 *        this local copy when inserting into @p tTracks.
+	 *
+	 * @return true if the text track was added, false otherwise.
+	 */
+	bool AddIfUnique(std::vector<TextTrackInfo> &tTracks, TextTrackInfo value);
+
+	/**
 	 * @fn StartFromAampLocalTsb
 	 *
 	 * @brief Start streaming from AAMP Local TSB
