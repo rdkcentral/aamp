@@ -6941,3 +6941,38 @@ TEST_F(AampRialtoPlayerPreRollTest, StopThenReconfigure_SecondPipelineCreatedAft
 
 	EXPECT_TRUE(firstGoneAtCreate);
 }
+
+TEST_F(AampRialtoPlayerWithDemuxTest, Stop_DuringPipelineCall_KeepsPipelineAliveUntilCallReturns)
+{
+	/**
+	 * @brief Regression (H1): a pipeline call made on one thread must not
+	 *        have the pipeline destroyed under it when Stop() runs on
+	 *        another.  Stop() is invoked from inside getPosition() to model
+	 *        that overlap deterministically.
+	 */
+	auto pipelineDestroyed = std::make_shared<std::atomic<bool>>(false);
+	m_mockPipeline = std::make_unique<DestructionTrackingPipeline>(pipelineDestroyed);
+	m_mockPipelinePtr = m_mockPipeline.get();
+	ResetMockPipelineDefaults();
+
+	Configure();
+	m_player->Flush(/*position=*/1.0, /*rate=*/1, /*shouldTearDown=*/false);
+	SendVideoInitFragment();
+
+	bool destroyedDuringCall = true;
+	EXPECT_CALL(*m_mockPipelinePtr, getPosition(_))
+		.WillOnce(Invoke([&](int64_t &position)
+		{
+			m_player->Stop(false);
+			destroyedDuringCall = pipelineDestroyed->load();
+			position = 2'000'000'000LL;
+			return true;
+		}));
+
+	m_player->GetPositionMilliseconds();
+
+	EXPECT_FALSE(destroyedDuringCall)
+		<< "pipeline destroyed while a call on it was still in progress";
+	EXPECT_TRUE(pipelineDestroyed->load())
+		<< "pipeline must be released once the in-flight call has returned";
+}

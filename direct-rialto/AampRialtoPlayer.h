@@ -387,7 +387,20 @@ private:
 	/// Callable for creating per-track media source objects.
 	SourceCreator m_sourceCreator;
 	std::shared_ptr<AampRialtoMediaPipelineClient> m_client;
+
+	/// Guarded by m_pipelineMutex; read it only through GetPipeline().
 	std::shared_ptr<firebolt::rialto::IMediaPipeline> m_pipeline;
+	/// Leaf lock: held only to copy or swap m_pipeline, never across a call.
+	mutable std::mutex m_pipelineMutex;
+
+	/// Snapshot of the current pipeline (nullptr if none).  The returned
+	/// reference keeps the pipeline alive for the caller even if Stop()
+	/// releases it concurrently.
+	std::shared_ptr<firebolt::rialto::IMediaPipeline> GetPipeline() const;
+
+	/// Replace the current pipeline; the old one is released without the
+	/// lock held, as its destructor performs Rialto IPC.
+	void SetPipeline(std::shared_ptr<firebolt::rialto::IMediaPipeline> pipeline);
 
 	/// DRM bridge used to create key sessions and obtain mks_ids.
 	std::shared_ptr<IDrmBridge> m_drmBridge;
