@@ -2584,14 +2584,8 @@ void AampRialtoPlayer::OnPlaybackState(firebolt::rialto::PlaybackState state)
 				// duplicates AAMP_EVENT_SPEED_CHANGED. The discriminator is the
 				// rate, not the AAMP state: FF entered from pause leaves the
 				// state eSTATE_PAUSED, so a state check misses that case.
-				const int actualRate =
-					m_rate.load(std::memory_order_relaxed);
-				if (actualRate == AAMP_NORMAL_PLAY_RATE)
-				{
-					m_notifiable->NotifySpeedChanged(
-						static_cast<float>(actualRate),
-						/*changeState=*/true);
-				}
+
+
 			}
 			StartProgressTimer();
 
