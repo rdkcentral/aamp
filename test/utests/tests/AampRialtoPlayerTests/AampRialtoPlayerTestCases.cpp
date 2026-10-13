@@ -1134,6 +1134,55 @@ TEST_F(AampRialtoPlayerWithDemuxTest, Stream_CallsPlay)
 	m_player->Stream();
 }
 
+TEST_F(AampRialtoPlayerWithDemuxTest, PlaybackStateFailure_ReportsErrorOnce)
+{
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+
+	EXPECT_CALL(m_mockNotifiable,
+		NotifyPlaybackError(AAMP_TUNE_GST_PIPELINE_ERROR, _, true)).Times(1);
+
+	PostPlaybackState(firebolt::rialto::PlaybackState::FAILURE);
+	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::ERROR);
+
+	// A repeat FAILURE for the same session must not be reported again.
+	PostPlaybackState(firebolt::rialto::PlaybackState::FAILURE);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest, PlaybackStateFailure_NoActiveSession_NotReported)
+{
+	Configure();
+	m_player->Stop(false);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::IDLE);
+
+	EXPECT_CALL(m_mockNotifiable, NotifyPlaybackError(_, _, _)).Times(0);
+
+	PostPlaybackState(firebolt::rialto::PlaybackState::FAILURE);
+	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::IDLE);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest, PlaybackStateFailure_DuringFlush_LeavesFlushingAndReports)
+{
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(_)).WillOnce(Return(true));
+	m_player->Flush(/*position=*/5.0, /*rate=*/1, /*shouldTearDown=*/false);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
+
+	EXPECT_CALL(m_mockNotifiable,
+		NotifyPlaybackError(AAMP_TUNE_GST_PIPELINE_ERROR, _, _)).Times(1);
+
+	PostPlaybackState(firebolt::rialto::PlaybackState::FAILURE);
+
+	// Stop() blocks while FLUSHING, so reaching ERROR is what lets it proceed.
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::ERROR);
+	m_player->Stop(false);
+}
+
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	Stream_DeferredDuringFlush_SeekDoneIssuesPlay)
 {

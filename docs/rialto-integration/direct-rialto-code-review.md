@@ -45,7 +45,7 @@ and should be confirmed before or while fixing.
 | H2 | Done | Destruction order lets Rialto callbacks hit destroyed members |
 | H3 | Done | Null-pipeline dereference in `CreateSubtitleSource`; `AttachSource` contract violated |
 | H4 | Done | Failed attach is silent and can hang injection |
-| H5 | Open | `PlaybackState::FAILURE` never reported to AAMP |
+| H5 | Done | `PlaybackState::FAILURE` never reported to AAMP |
 | H6 | Open | `Stop()`/`Configure()` can wait forever for a flush |
 | H7 | Open | Play holds leak across sessions |
 | H8 | Open | `ChangeAamp` leaves stale pointers (DRM bridge) |
@@ -284,6 +284,10 @@ Rialto behaviours confirmed or disproved, test gaps, design decisions).
 | 2026-10-13 | H4 | `FORMAT_UNKNOWN` on a video/audio source (muxed HLS-TS before the codec is identified, reached via `SendCopy`'s `SetStreamCaps` loop) also yields `FAILED`, but a later `Configure()` recovers it. It is logged and not reported, to avoid turning a recoverable case into a fatal error. Inband CC legitimately uses `GST_FORMAT_UNKNOWN`, so subtitle is excluded from that exemption. |
 | 2026-10-13 | H4 | `PrivateInstanceAAMP::SendStreamTransfer` ignores `SendTransfer()`'s return value, so returning `false` on a failed attach has no side effect for callers. |
 | 2026-10-13 | H4 | Possible follow-up: a failed subtitle or inband-CC attach could be made non-fatal (drop that source and continue) rather than ending the tune. Not done here as it changes tune semantics. |
+| 2026-10-13 | H5 | The `PlaybackState::FAILURE` branch had no unit tests at all before this change. |
+| 2026-10-13 | H5 | `SendErrorEvent` only acts the first time (it is a no-op once AAMP is in `eSTATE_ERROR`), so a `FAILURE` that follows an earlier `PlaybackError` or attach failure is harmless. The player also reports only on the transition into `ERROR`, so repeats are not forwarded. |
+| 2026-10-13 | H5 | `FAILURE` in `IDLE` (a stale notification after `Stop()`, via a client still held by Rialto) is deliberately not reported, otherwise it could fail the next tune. The state machine still logs a "no transition" WARN for it (see P4). |
+| 2026-10-13 | H5 | The error is sent with retry enabled, matching `OnPlaybackError` and the GStreamer generic-pipeline-error path. |
 
 ## Verification Notes
 
@@ -306,3 +310,4 @@ Record each completed task: what was done, files changed, tests added or run.
 | 2026-10-13 | H2 | `~AampRialtoPlayer` now tears down in order: stop pre-roll and progress timer, unblock sources (pipeline snapshot scoped so it is released), reset `m_monitorAV`, `SetPipeline(nullptr)`, then `m_client->ClearCallbacks()`. Added `AampRialtoMediaPipelineClient::ClearCallbacks()`. No `stop()` is issued, as before. | `direct-rialto/AampRialtoPlayer.cpp`, `direct-rialto/AampRialtoMediaPipelineClient.h` | New `Destructor_PipelineReleasedWhilePlayerStillValid` (crashes without the fix), `Destructor_ClearsClientCallbacks`, `ClearCallbacks_RemovesInstalledCallbacks`. All 13 Rialto L1 suites pass (481 tests). |
 | 2026-10-13 | H3 | `CreateSubtitleSource` now holds `m_attachMutex` around `AttachSource` for both the sidecar and inband-CC branches; `AttachSource` doc updated. | `direct-rialto/AampRialtoPlayer.cpp`, `direct-rialto/AampRialtoPlayer.h` | New `Configure_SubtitleAttach_HoldsAttachMutex` (fails without the lock), `Configure_PipelineCreationFails_AudioOnlyWithSubtitle_DoesNotCrash`. Player suite 272 pass; all 13 Rialto suites pass. |
 | 2026-10-13 | H4 | `AttachSource` now returns `bool`. New `ReportAttachFailure` clears `attachPending` (waking injectors blocked in `waitForAttach`) and calls `NotifyPlaybackError`, except when the codec is not yet identified. `SendTransfer` returns `false` when the attach fails. | `direct-rialto/AampRialtoPlayer.cpp`, `direct-rialto/AampRialtoPlayer.h` | 4 new tests (3 fail without the fix). Player suite 276 pass; all 13 Rialto suites pass (487 tests). |
+| 2026-10-13 | H5 | New `HandlePlaybackFailure()` (called from `OnPlaybackState`): records the state, moves the machine to `ERROR`, wakes flush waiters as before, and calls `NotifyPlaybackError(AAMP_TUNE_GST_PIPELINE_ERROR)` unless the prior state was `IDLE` or `ERROR`. | `direct-rialto/AampRialtoPlayer.cpp`, `direct-rialto/AampRialtoPlayer.h` | 3 new `PlaybackStateFailure_*` tests (2 fail without the fix; the third guards the stale-IDLE case). Player suite 279 pass; all 13 Rialto suites pass (490 tests). |

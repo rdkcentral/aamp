@@ -704,6 +704,10 @@ private:
 	/// Handle PlaybackState::SEEK_DONE, completing the flush cycle.
 	void HandleSeekDone();
 
+	/// Handle PlaybackState::FAILURE: move to ERROR, wake flush waiters and
+	/// report the failure to AAMP once per session.
+	void HandlePlaybackFailure();
+
 	/// Re-apply the video segment position so its GStreamer segment event
 	/// carries the trickplay applied_rate.  No-op at normal play rate.
 	void ApplyTrickplaySegmentPosition(int64_t positionNs, int rate);

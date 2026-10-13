@@ -3029,6 +3029,37 @@ void AampRialtoPlayer::HandleSeekDone()
 	}
 }
 
+void AampRialtoPlayer::HandlePlaybackFailure()
+{
+	PlayerStateId previousState = PlayerStateId::IDLE;
+	{
+		// A failure can arrive while FLUSHING; the CV notify below wakes any
+		// thread blocked in WaitForFlushToComplete().
+		std::lock_guard<std::mutex> lock(m_flushMutex);
+		previousState = m_stateMachine.currentState();
+		m_stateMachine.onError();
+	}
+	m_flushCv.notify_all();
+
+	// IDLE means no live session, so the failure is stale; ERROR means it was
+	// already reported.
+	if (previousState == PlayerStateId::IDLE ||
+	    previousState == PlayerStateId::ERROR)
+	{
+		AAMPLOG_WARN("Rialto FAILURE ignored in state %d - %s",
+			static_cast<int>(previousState),
+			(previousState == PlayerStateId::IDLE) ? "no active session"
+			                                       : "already reported");
+	}
+	else
+	{
+		m_notifiable->NotifyPlaybackError(
+			AAMP_TUNE_GST_PIPELINE_ERROR,
+			"Rialto PlaybackState FAILURE",
+			/*isRetryEnabled=*/true);
+	}
+}
+
 void AampRialtoPlayer::OnPlaybackState(firebolt::rialto::PlaybackState state)
 {
 	AAMPLOG_INFO("Rialto reported %s (state=%d), player state=%s",
@@ -3055,13 +3086,7 @@ void AampRialtoPlayer::OnPlaybackState(firebolt::rialto::PlaybackState state)
 			m_notifiable->NotifyEOSReached();
 			break;
 		case firebolt::rialto::PlaybackState::FAILURE:
-			// A failure can arrive while FLUSHING; wake any thread blocked in
-			// WaitForFlushToComplete() so it does not hang indefinitely.
-			{
-				std::lock_guard<std::mutex> lock(m_flushMutex);
-				m_stateMachine.onError();
-			}
-			m_flushCv.notify_all();
+			HandlePlaybackFailure();
 			break;
 		case firebolt::rialto::PlaybackState::SEEKING:
 			AAMPLOG_INFO("SEEKING notification received (state=%s)",
