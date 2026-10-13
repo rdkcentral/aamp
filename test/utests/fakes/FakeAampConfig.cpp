@@ -262,8 +262,3 @@ void AampConfig::RestoreConfiguration(ConfigPriority owner, AAMPConfigSettingStr
 		return g_mockAampConfig->RestoreConfiguration(owner,cfg);
 	}
 }
-
-bool AampConfig::ProcessConfigText(std::string &cfg, ConfigPriority owner)
-{
-	return false;
-}
