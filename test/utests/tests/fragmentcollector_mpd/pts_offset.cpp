@@ -35,6 +35,24 @@ public:
 	FRIEND_TEST(fragmentcollector_mpd, UpdatePtsOffsetTest1);
 	FRIEND_TEST(fragmentcollector_mpd, UpdatePtsOffsetTest_WithTrickPlayRate);
 	FRIEND_TEST(fragmentcollector_mpd, UpdatePtsOffsetTest_WithShortAd);
+
+	void SetTracks(MediaStreamContext *ms)
+	{
+		mMediaStreamContext[eMEDIATYPE_AUDIO] = ms;
+		mMediaStreamContext[eMEDIATYPE_VIDEO] = ms;
+	}
+
+	void UpdatePtsOffsetForPeriod(IPeriod *period, double periodDurationMs, PrivateCDAIObjectMPD *cdai, AampMPDParseHelperPtr parseHelper)
+	{
+		mCurrentPeriod = period;
+		mPeriodDuration = periodDurationMs;
+		mCdaiObject = cdai;
+		mMPDParseHelper = parseHelper;
+		mIsLiveManifest = false;
+		mNextPts = 0;
+		mPTSOffset = 0;
+		UpdatePtsOffset(true);
+	}
 };
 
 class fragmentcollector_mpd : public ::testing::Test
@@ -214,6 +232,30 @@ protected:
 		GetMPDFromManifest(response);
 		return response;
 	}
+
+	// Runs UpdatePtsOffset for a 10s Period and checks the tail cutoff passed to both timeline queries.
+	void RunTailCutoffCase(bool restampEnabled, bool adPlaying, double expectedCutoffSec)
+	{
+		static const char *manifest = R"(<?xml version="1.0"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011">
+<Period id="p0"><AdaptationSet><Representation/></AdaptationSet></Period>
+</MPD>)";
+		mManifest = manifest;
+		ManifestDownloadResponsePtr respData = GetManifestForMPDDownloader();
+
+		ON_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp)).WillByDefault(Return(restampEnabled));
+		EXPECT_CALL(*g_mockAampMPDParseHelper, GetStartAndDurationFromTimeline(_, _, _, _, _, DoubleNear(expectedCutoffSec, 1e-9)))
+			.Times(2)
+			.WillRepeatedly(DoAll(SetArgReferee<3>(0.0), SetArgReferee<4>(10.0)));
+
+		ToBeTestedStub stub(mPrivateInstanceAAMP, 0.0, AAMP_NORMAL_PLAY_RATE);
+		MediaStreamContext ms(eTRACK_VIDEO, &stub, mPrivateInstanceAAMP, "TEST");
+		PrivateCDAIObjectMPD cdai(mPrivateInstanceAAMP);
+		cdai.mAdState = adPlaying ? AdState::IN_ADBREAK_AD_PLAYING : AdState::OUTSIDE_ADBREAK;
+		stub.SetTracks(&ms);
+
+		stub.UpdatePtsOffsetForPeriod(respData->mMPDInstance->GetPeriods().at(0), 10000.0, &cdai, respData->GetMPDParseHelper());
+	}
 };
 
 TEST_F(fragmentcollector_mpd, UpdatePtsOffsetTest1)
@@ -274,20 +316,20 @@ TEST_F(fragmentcollector_mpd, UpdatePtsOffsetTest1)
 	{
 
 //for isNewPeriod == true
-		EXPECT_CALL(*g_mockAampMPDParseHelper, GetStartAndDurationFromTimeline(_, _, _, _, _))
+		EXPECT_CALL(*g_mockAampMPDParseHelper, GetStartAndDurationFromTimeline(_, _, _, _, _, _))
 			.InSequence(s1)
 			.WillOnce(DoAll(SetArgReferee<3>(tbl[p].aStart), SetArgReferee<4>(tbl[p].aDuration)));
 
-		EXPECT_CALL(*g_mockAampMPDParseHelper, GetStartAndDurationFromTimeline(_, _, _, _, _))
+		EXPECT_CALL(*g_mockAampMPDParseHelper, GetStartAndDurationFromTimeline(_, _, _, _, _, _))
 			.InSequence(s1)
 			.WillOnce(DoAll(SetArgReferee<3>(tbl[p].vStart), SetArgReferee<4>(tbl[p].vDuration)));
 
 //for isNewPeriod == false
-					EXPECT_CALL(*g_mockAampMPDParseHelper, GetStartAndDurationFromTimeline(_, _, _, _, _))
+		EXPECT_CALL(*g_mockAampMPDParseHelper, GetStartAndDurationFromTimeline(_, _, _, _, _, _))
 			.InSequence(s1)
 			.WillOnce(DoAll(SetArgReferee<3>(tbl[p].aStart), SetArgReferee<4>(tbl[p].aDuration)));
 
-		EXPECT_CALL(*g_mockAampMPDParseHelper, GetStartAndDurationFromTimeline(_, _, _, _, _))
+		EXPECT_CALL(*g_mockAampMPDParseHelper, GetStartAndDurationFromTimeline(_, _, _, _, _, _))
 			.InSequence(s1)
 			.WillOnce(DoAll(SetArgReferee<3>(tbl[p].vStart), SetArgReferee<4>(tbl[p].vDuration)));
 
@@ -343,10 +385,10 @@ TEST_F(fragmentcollector_mpd, UpdatePtsOffsetTest_WithTrickPlayRate)
 
 	// Mock GetStartAndDurationFromTimeline (called for audio then video)
 	Sequence s1;
-	EXPECT_CALL(*g_mockAampMPDParseHelper, GetStartAndDurationFromTimeline(_, _, _, _, _))
+	EXPECT_CALL(*g_mockAampMPDParseHelper, GetStartAndDurationFromTimeline(_, _, _, _, _, _))
 		.InSequence(s1)
 		.WillOnce(DoAll(SetArgReferee<3>(start), SetArgReferee<4>(duration)));
-	EXPECT_CALL(*g_mockAampMPDParseHelper, GetStartAndDurationFromTimeline(_, _, _, _, _))
+	EXPECT_CALL(*g_mockAampMPDParseHelper, GetStartAndDurationFromTimeline(_, _, _, _, _, _))
 		.InSequence(s1)
 		.WillOnce(DoAll(SetArgReferee<3>(start), SetArgReferee<4>(duration)));
 
@@ -392,7 +434,7 @@ TEST_F(fragmentcollector_mpd, UpdatePtsOffsetTest_WithShortAd)
 	const double duration = 10.0;
 
 	// Mock GetStartAndDurationFromTimeline (called for video)
-	EXPECT_CALL(*g_mockAampMPDParseHelper, GetStartAndDurationFromTimeline(_, _, _, _, _))
+	EXPECT_CALL(*g_mockAampMPDParseHelper, GetStartAndDurationFromTimeline(_, _, _, _, _, _))
 		.WillOnce(DoAll(SetArgReferee<3>(start), SetArgReferee<4>(duration)));
 	// Return period duration in ms
 	EXPECT_CALL(*g_mockAampMPDParseHelper, GetPeriodDuration(_, _, _, _))
@@ -412,4 +454,28 @@ TEST_F(fragmentcollector_mpd, UpdatePtsOffsetTest_WithShortAd)
 	EXPECT_DOUBLE_EQ(streamAbstractionStub.mPTSOffset.inSeconds(), 0.0);
 	EXPECT_DOUBLE_EQ(streamAbstractionStub.mNextPts.inSeconds(), 10.0);
 	EXPECT_FLOAT_EQ(streamAbstractionStub.mPlayRate, trickPlayRate);
+}
+
+/**
+ * @brief With restamping on, the timeline durations stop at Period end less the tail tolerance.
+ */
+TEST_F(fragmentcollector_mpd, UpdatePtsOffset_TailCutoff_Enabled)
+{
+	RunTailCutoffCase(true, false, 10.0 - AAMP_DASH_PERIOD_TAIL_TOLERANCE_SEC);
+}
+
+/**
+ * @brief With restamping off, no cutoff is applied.
+ */
+TEST_F(fragmentcollector_mpd, UpdatePtsOffset_TailCutoff_RestampDisabled)
+{
+	RunTailCutoffCase(false, false, -1.0);
+}
+
+/**
+ * @brief While an ad plays the fetcher keeps tail segments, so no cutoff is applied.
+ */
+TEST_F(fragmentcollector_mpd, UpdatePtsOffset_TailCutoff_ActiveAd)
+{
+	RunTailCutoffCase(true, true, -1.0);
 }

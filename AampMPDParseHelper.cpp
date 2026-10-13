@@ -22,6 +22,7 @@
 * @brief Helper Class for MPD Parsing
 **************************************/
 
+#include <cmath>
 #include "AampMPDParseHelper.h"
 #include "AampUtils.h"
 #include "AampLogManager.h"
@@ -1741,9 +1742,10 @@ uint64_t AampMPDParseHelper::GetFirstSegmentStartTime(IPeriod * period)
  * @param[in]   adaptationSetIdx being used in current period
  * @param[out]  scaledStartTime (seconds) of selected timeline returned
  * @param[out]  duration (seconds) of selected timeline returned
+ * @param[in]   tailCutoffSec segments starting at or after this offset from the timeline start are excluded from duration; negative disables
  * @return void
  */
-void AampMPDParseHelper::GetStartAndDurationFromTimeline(IPeriod * period, int representationIdx, int adaptationSetIdx, AampTime &scaledStartTime, AampTime &duration)
+void AampMPDParseHelper::GetStartAndDurationFromTimeline(IPeriod * period, int representationIdx, int adaptationSetIdx, AampTime &scaledStartTime, AampTime &duration, double tailCutoffSec)
 {
 
 	duration = 0.0;
@@ -1780,7 +1782,27 @@ void AampMPDParseHelper::GetStartAndDurationFromTimeline(IPeriod * period, int r
 				ITimeline *timeline = timelines.at(timeLineIndex);
 				uint32_t repeatCount = timeline->GetRepeatCount();
 				double timelineDuration = ComputeFragmentDuration(timeline->GetDuration(), timeScale);
-				duration += ((repeatCount + 1) * timelineDuration);
+				uint32_t segmentCount = repeatCount + 1;
+				if (tailCutoffSec >= 0.0)
+				{
+					double remainingSec = tailCutoffSec - duration.inSeconds();
+					if (remainingSec <= 0.0)
+					{
+						break;
+					}
+					// Count only segments that start before the cutoff
+					if (timelineDuration > 0.0)
+					{
+						uint32_t startsBeforeCutoff = static_cast<uint32_t>(std::ceil(remainingSec / timelineDuration));
+						if (startsBeforeCutoff < segmentCount)
+						{
+							segmentCount = startsBeforeCutoff;
+							duration += (segmentCount * timelineDuration);
+							break;
+						}
+					}
+				}
+				duration += (segmentCount * timelineDuration);
 				AAMPLOG_TRACE("timeLineIndex[%d] size [%zu] updated duration[%lf]", timeLineIndex, timelines.size(), duration.inSeconds());
 				timeLineIndex++;
 			}

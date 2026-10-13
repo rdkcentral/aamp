@@ -471,8 +471,9 @@ public :
 	 * @param[in]   adaptationSetIdx being used in current period
 	 * @param[out]  scaledStartTime (seconds) of selected timeline returned
 	 * @param[out]  duration (seconds) of selected timeline returned
+	 * @param[in]   tailCutoffSec segments starting at or after this offset from the timeline start are excluded from duration; negative disables
 	 */
-	void GetStartAndDurationFromTimeline(IPeriod * period, int representationIdx, int adaptationSetIdx, AampTime &scaledStartTime, AampTime &duration);
+	void GetStartAndDurationFromTimeline(IPeriod * period, int representationIdx, int adaptationSetIdx, AampTime &scaledStartTime, AampTime &duration, double tailCutoffSec = -1.0);
 
 	/**
 	 * @brief  A helper function to  check if period has segment timeline for video track

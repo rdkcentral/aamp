@@ -736,6 +736,14 @@ TEST_F(FunctionalTests, SegmentTimeline1)
 	double aExpected = 92160.0 / timeScale * (5 + 1);
 	EXPECT_DOUBLE_EQ(duration.inSeconds(), aExpected);
 	EXPECT_DOUBLE_EQ(scaledStartTime.inSeconds(), (144000.0 / timeScale));
+
+	// Video segments start at 0, 1.92, ... 11.52; a cutoff of 11.5 excludes the one starting at 11.52
+	ParseHelper->GetStartAndDurationFromTimeline(periods.at(1), 0, 1, scaledStartTime, duration, 11.5);
+	EXPECT_DOUBLE_EQ(duration.inSeconds(), 24576.0 / 12800 * 6);
+
+	// A cutoff beyond the last segment start leaves the full duration
+	ParseHelper->GetStartAndDurationFromTimeline(periods.at(1), 0, 1, scaledStartTime, duration, 12.0);
+	EXPECT_DOUBLE_EQ(duration.inSeconds(), vExpected);
 }
 
 /* @brief Test case for a single period with a starting time tag in a live stream*/
