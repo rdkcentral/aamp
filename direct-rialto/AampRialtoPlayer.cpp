@@ -3101,7 +3101,11 @@ void AampRialtoPlayer::OnProgressTimerTick()
 	}
 	else
 	{
-		LogSourceSnapshot("steady-state");
+		// Fires every progress interval, so only emitted at TRACE.
+		if (AampLogManager::isLogLevelAllowed(eLOGLEVEL_TRACE))
+		{
+			LogSourceSnapshot("steady-state");
+		}
 		m_notifiable->MonitorProgress(/*sync=*/false,
 			/*beginningOfStream=*/false);
 	}
