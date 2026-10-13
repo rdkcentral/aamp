@@ -638,8 +638,13 @@ private:
 	ProgressTimer m_progressTimer;
 
 	/// AV health monitor.  Non-null only when eAAMPConfig_MonitorAV is true
-	/// and a pipeline has been successfully created.
+	/// and a pipeline has been successfully created.  Guarded by
+	/// m_monitorMutex (a leaf lock); replace it only through SetMonitorAV().
 	std::unique_ptr<AampRialtoMonitorAV> m_monitorAV;
+	std::mutex m_monitorMutex;
+
+	/// Install @p monitor (nullptr to remove) and destroy the previous one.
+	void SetMonitorAV(std::unique_ptr<AampRialtoMonitorAV> monitor);
 
 	/// GoF State-pattern state machine tracking the player lifecycle.
 	PlayerStateMachine m_stateMachine;

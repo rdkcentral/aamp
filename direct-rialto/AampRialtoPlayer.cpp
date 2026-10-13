@@ -349,7 +349,7 @@ AampRialtoPlayer::~AampRialtoPlayer()
 	}
 	// Members declared after m_pipeline are destroyed before it, so release
 	// the pipeline (and every other holder of it) while they are still valid.
-	m_monitorAV.reset();
+	SetMonitorAV(nullptr);
 	SetPipeline(nullptr);
 	if (m_client)
 	{
@@ -765,7 +765,7 @@ void AampRialtoPlayer::CreateMonitorAV()
 			aamp->mConfig->GetConfigValue(
 				eAAMPConfig_MonitorAVJumpThreshold);
 
-		m_monitorAV = std::make_unique<AampRialtoMonitorAV>(
+		SetMonitorAV(std::make_unique<AampRialtoMonitorAV>(
 			GetPipeline(),
 			m_notifiable,
 			[this]() -> int32_t
@@ -779,9 +779,21 @@ void AampRialtoPlayer::CreateMonitorAV()
 				return m_stateMachine.currentState()
 					== PlayerStateId::PLAYING;
 			},
-			monCfg);
+			monCfg));
 
 		AAMPLOG_MIL("AampRialtoMonitorAV created");
+	}
+}
+
+void AampRialtoPlayer::SetMonitorAV(std::unique_ptr<AampRialtoMonitorAV> monitor)
+{
+	// The old monitor is destroyed outside the lock: its destructor waits for
+	// a tick in progress.
+	std::unique_ptr<AampRialtoMonitorAV> previous;
+	{
+		std::lock_guard<std::mutex> lock(m_monitorMutex);
+		previous = std::move(m_monitorAV);
+		m_monitorAV = std::move(monitor);
 	}
 }
 
@@ -1727,11 +1739,7 @@ void AampRialtoPlayer::StopInternal(bool keepLastFrame, bool preservePendingPosi
 
 	StopProgressTimer();
 	m_preRollMonitor->Stop();
-	if (m_monitorAV)
-	{
-		m_monitorAV->stop();
-		m_monitorAV.reset();
-	}
+	SetMonitorAV(nullptr);
 	
 	// Wake any in-flight data so it abandons the current batch.  No
 	// follow-up gateInjection(true) here — Stop() ends the session, so
@@ -2927,9 +2935,12 @@ void AampRialtoPlayer::HandlePlaybackStarted()
 	}
 	StartProgressTimer();
 
-	if (m_monitorAV)
 	{
-		m_monitorAV->start();
+		std::lock_guard<std::mutex> lock(m_monitorMutex);
+		if (m_monitorAV)
+		{
+			m_monitorAV->start();
+		}
 	}
 }
 

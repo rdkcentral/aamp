@@ -47,6 +47,11 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 
+#include <atomic>
+#include <chrono>
+#include <future>
+#include <thread>
+
 #include "AampRialtoMonitorAV.h"
 #include "MockIMediaPipeline.h"
 #include "MockIStreamSinkNotifiable.h"
@@ -255,6 +260,77 @@ TEST_F(AampRialtoMonitorAVTest, destructor_StopsTimersWhenRunning)
 	EXPECT_CALL(*m_mockGLib, g_source_remove(kReportTimerId)).Times(1);
 
 	m_monitor.reset(); // triggers destructor
+}
+
+TEST_F(AampRialtoMonitorAVTest, stop_WaitsForTickInProgress)
+{
+	/**
+	 * @brief Regression (M2): stop() must not return while a tick is still
+	 *        running on the GLib thread, or the monitor and the pipeline it
+	 *        holds can be torn down under it.
+	 */
+	m_monitor->start();
+	ASSERT_NE(m_sampleCb, nullptr);
+
+	std::promise<void> tickEntered;
+	std::promise<void> releaseTick;
+	auto released = releaseTick.get_future();
+	EXPECT_CALL(*m_mockPipeline, getPosition(_))
+		.WillOnce(Invoke([&](int64_t &position)
+		{
+			tickEntered.set_value();
+			released.wait();
+			position = 500LL * kNsPerMs;
+			return true;
+		}));
+
+	std::thread tickThread([this] { m_sampleCb(m_sampleData); });
+	tickEntered.get_future().wait();
+
+	std::atomic<bool> stopReturned{false};
+	std::thread stopThread([&] {
+		m_monitor->stop();
+		stopReturned = true;
+	});
+	std::this_thread::sleep_for(std::chrono::milliseconds(100));
+	EXPECT_FALSE(stopReturned.load())
+		<< "stop() returned while a tick was still running";
+
+	releaseTick.set_value();
+	tickThread.join();
+	stopThread.join();
+	EXPECT_TRUE(stopReturned.load());
+}
+
+TEST_F(AampRialtoMonitorAVTest, dispatchAfterStop_DoesNothing)
+{
+	m_monitor->start();
+	ASSERT_NE(m_sampleCb, nullptr);
+	ASSERT_NE(m_reportCb, nullptr);
+	m_monitor->stop();
+
+	EXPECT_CALL(*m_mockPipeline, getPosition(_)).Times(0);
+	EXPECT_CALL(*m_mockPipeline, getStats(_, _, _)).Times(0);
+
+	EXPECT_EQ(m_sampleCb(m_sampleData), G_SOURCE_REMOVE);
+	EXPECT_EQ(m_reportCb(m_reportData), G_SOURCE_REMOVE);
+}
+
+TEST_F(AampRialtoMonitorAVTest, dispatchAfterDestruction_IsSafe)
+{
+	/**
+	 * @brief Regression (M2): a dispatch GLib had already picked up when the
+	 *        monitor was destroyed must not use the destroyed object.
+	 */
+	m_monitor->start();
+	ASSERT_NE(m_sampleCb, nullptr);
+	GSourceFunc sampleCb = m_sampleCb;
+	gpointer sampleData = m_sampleData;
+
+	m_monitor.reset();
+
+	EXPECT_CALL(*m_mockPipeline, getPosition(_)).Times(0);
+	EXPECT_EQ(sampleCb(sampleData), G_SOURCE_REMOVE);
 }
 
 // ---------------------------------------------------------------------------

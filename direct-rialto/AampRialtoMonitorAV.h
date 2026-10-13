@@ -38,6 +38,7 @@
 
 #include "IStreamSinkNotifiable.h"
 #include "IMediaPipeline.h"
+#include "AampRialtoGlibTimer.h"
 
 #include <functional>
 #include <memory>
@@ -127,12 +128,6 @@ private:
 	/// Called by the report timer: reads getStats() and fires SendMonitorAvEvent().
 	void onReportTick();
 
-	/// GLib timeout callback for the sample timer.
-	static gboolean sampleTimerCb(gpointer data);
-
-	/// GLib timeout callback for the report timer.
-	static gboolean reportTimerCb(gpointer data);
-
 	// -----------------------------------------------------------------------
 	// Dependencies (injected at construction)
 	// -----------------------------------------------------------------------
@@ -170,10 +165,11 @@ private:
 	bool m_happy{false};
 
 	// -----------------------------------------------------------------------
-	// GLib timer IDs (0 = not running)
+	// Timers.  Stopping one waits for a tick in progress, so the classification
+	// state above is only touched from ticks that cannot outlive stop().
 	// -----------------------------------------------------------------------
-	guint m_sampleTimerId{0};
-	guint m_reportTimerId{0};
+	AampRialtoGlibTimer m_sampleTimer;
+	AampRialtoGlibTimer m_reportTimer;
 };
 
 #endif // AAMP_RIALTO_MONITOR_AV_H

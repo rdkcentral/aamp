@@ -2999,6 +2999,69 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	m_player->StartProgressTimer();
 }
 
+TEST_F(AampRialtoPlayerWithDemuxTest, Stop_WaitsForMonitorAvTickInProgress)
+{
+	/**
+	 * @brief Regression (M2): Stop() resets the MonitorAV, whose timers run on
+	 *        the GLib thread; it must wait for a tick in progress rather than
+	 *        destroy the monitor under it.
+	 */
+	constexpr guint kSampleIntervalMs = 750;
+	ON_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_MonitorAV))
+		.WillByDefault(Return(true));
+	ON_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_ReportProgressInterval))
+		.WillByDefault(Return(0.75));
+	ON_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MonitorAVReportingInterval))
+		.WillByDefault(Return(5000));
+
+	GSourceFunc sampleDispatch = nullptr;
+	gpointer sampleData = nullptr;
+	ON_CALL(*g_mockGLib, g_timeout_add(kSampleIntervalMs, _, _))
+		.WillByDefault(Invoke(
+			[&](guint, GSourceFunc fn, gpointer data) -> guint
+			{
+				sampleDispatch = fn;
+				sampleData = data;
+				return 9001;
+			}));
+
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::PLAYING);
+	ASSERT_NE(sampleDispatch, nullptr) << "MonitorAV sample timer was not started";
+
+	std::promise<void> tickEntered;
+	std::promise<void> releaseTick;
+	auto released = releaseTick.get_future();
+	EXPECT_CALL(*m_mockPipelinePtr, getPosition(_))
+		.WillOnce(Invoke([&](int64_t &position)
+		{
+			tickEntered.set_value();
+			released.wait();
+			position = 1'000'000'000LL;
+			return true;
+		}));
+
+	std::thread tickThread([&] { sampleDispatch(sampleData); });
+	tickEntered.get_future().wait();
+
+	std::atomic<bool> stopReturned{false};
+	std::thread stopThread([&] {
+		m_player->Stop(false);
+		stopReturned = true;
+	});
+	std::this_thread::sleep_for(std::chrono::milliseconds(100));
+	EXPECT_FALSE(stopReturned.load())
+		<< "Stop() returned while a MonitorAV tick was still running";
+
+	releaseTick.set_value();
+	tickThread.join();
+	stopThread.join();
+	EXPECT_TRUE(stopReturned.load());
+}
+
 TEST_F(AampRialtoPlayerWithDemuxTest, StopProgressTimer_WaitsForTickInProgress)
 {
 	/**

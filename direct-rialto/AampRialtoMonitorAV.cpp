@@ -88,36 +88,26 @@ AampRialtoMonitorAV::~AampRialtoMonitorAV()
 void AampRialtoMonitorAV::start()
 {
 	bool started = false;
-	if (m_sampleTimerId == 0)
+	if (m_sampleTimer.Start(static_cast<guint>(m_config.sampleIntervalMs),
+			[this]() { onSampleTick(); return true; }))
 	{
-		m_sampleTimerId = g_timeout_add(
-			static_cast<guint>(m_config.sampleIntervalMs),
-			sampleTimerCb,
-			this);
-		if (m_sampleTimerId == 0)
-		{
-			AAMPLOG_WARN("MonitorAvTimer failed to start sample timer");
-		}
-		else
-		{
-			started = true;
-		}
+		started = true;
 	}
-	if (m_reportTimerId == 0)
+	else if (!m_sampleTimer.IsRunning())
 	{
-		m_reportTimerId = g_timeout_add(
-			static_cast<guint>(m_config.reportIntervalMs),
-			reportTimerCb,
-			this);
-		if (m_reportTimerId == 0)
-		{
-			AAMPLOG_WARN("MonitorAvTimer failed to start report timer");
-		}
-		else
-		{
-			started = true;
-		}
+		AAMPLOG_WARN("MonitorAvTimer failed to start sample timer");
 	}
+
+	if (m_reportTimer.Start(static_cast<guint>(m_config.reportIntervalMs),
+			[this]() { onReportTick(); return true; }))
+	{
+		started = true;
+	}
+	else if (!m_reportTimer.IsRunning())
+	{
+		AAMPLOG_WARN("MonitorAvTimer failed to start report timer");
+	}
+
 	if (started)
 	{
 		AAMPLOG_MIL("MonitorAvTimer started with interval %d ms", 
@@ -127,35 +117,9 @@ void AampRialtoMonitorAV::start()
 
 void AampRialtoMonitorAV::stop()
 {
-	if (m_sampleTimerId != 0)
-	{
-		g_source_remove(m_sampleTimerId);
-		m_sampleTimerId = 0;
-	}
-	if (m_reportTimerId != 0)
-	{
-		g_source_remove(m_reportTimerId);
-		m_reportTimerId = 0;
-	}
+	m_sampleTimer.Stop();
+	m_reportTimer.Stop();
 	AAMPLOG_MIL("MonitorAvTimer stopped");
-}
-
-// ---------------------------------------------------------------------------
-// GLib timer callbacks
-// ---------------------------------------------------------------------------
-
-gboolean AampRialtoMonitorAV::sampleTimerCb(gpointer data)
-{
-	auto *self = static_cast<AampRialtoMonitorAV *>(data);
-	self->onSampleTick();
-	return G_SOURCE_CONTINUE;
-}
-
-gboolean AampRialtoMonitorAV::reportTimerCb(gpointer data)
-{
-	auto *self = static_cast<AampRialtoMonitorAV *>(data);
-	self->onReportTick();
-	return G_SOURCE_CONTINUE;
 }
 
 // ---------------------------------------------------------------------------
