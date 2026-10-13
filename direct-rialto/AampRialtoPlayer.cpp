@@ -365,13 +365,23 @@ AampRialtoPlayer::~AampRialtoPlayer()
 {
 	m_preRollMonitor->Stop();
 	StopProgressTimer();
-	const auto pipeline = GetPipeline();
-	for (auto &source : m_sources)
 	{
-		if (source)
+		const auto pipeline = GetPipeline();
+		for (auto &source : m_sources)
 		{
-			source->unblockInjection(pipeline.get(), "~AampRialtoPlayer");
+			if (source)
+			{
+				source->unblockInjection(pipeline.get(), "~AampRialtoPlayer");
+			}
 		}
+	}
+	// Members declared after m_pipeline are destroyed before it, so release
+	// the pipeline (and every other holder of it) while they are still valid.
+	m_monitorAV.reset();
+	SetPipeline(nullptr);
+	if (m_client)
+	{
+		m_client->ClearCallbacks();
 	}
 	// The CC manager singleton may still hold this object's IDirectRialtoCC*
 	// (e.g. multi-pipeline mode, where its GetId()/Release() refcount is

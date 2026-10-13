@@ -137,6 +137,26 @@ TEST_F(AampRialtoMediaPipelineClientTest,
 	EXPECT_EQ(callCount, 10);
 }
 
+TEST_F(AampRialtoMediaPipelineClientTest, ClearCallbacks_RemovesInstalledCallbacks)
+{
+	int callCount = 0;
+	m_client->SetNeedDataCallback([&](int32_t, size_t, uint32_t) { callCount++; });
+	m_client->SetPlaybackStateCallback(
+		[&](firebolt::rialto::PlaybackState) { callCount++; });
+	m_client->SetBufferUnderflowCallback([&](int32_t) { callCount++; });
+	m_client->SetPlaybackErrorCallback(
+		[&](int32_t, firebolt::rialto::PlaybackError) { callCount++; });
+
+	m_client->ClearCallbacks();
+
+	m_client->notifyNeedMediaData(1, 1, 1, nullptr);
+	m_client->notifyPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+	m_client->notifyBufferUnderflow(1);
+	m_client->notifyPlaybackError(1, firebolt::rialto::PlaybackError::UNKNOWN);
+
+	EXPECT_EQ(callCount, 0);
+}
+
 TEST_F(AampRialtoMediaPipelineClientTest,
 	AllOtherNotifications_DoNotCrash)
 {

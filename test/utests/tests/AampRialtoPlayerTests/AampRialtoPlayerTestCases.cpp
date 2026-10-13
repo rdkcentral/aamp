@@ -5663,6 +5663,62 @@ TEST_F(AampRialtoPlayerTest,
 	g_mockPlayerCCManager.reset();
 }
 
+/**
+ * @test Regression (H2): the pipeline must be released while the player's
+ *       other members are still alive, so a notification fired during pipeline
+ *       destruction is still handled by a valid player.
+ */
+TEST_F(AampRialtoPlayerTest, Destructor_PipelineReleasedWhilePlayerStillValid)
+{
+	class NotifyOnDestroyPipeline : public NiceMock<MockIMediaPipeline>
+	{
+	public:
+		std::function<void()> onDestroy;
+		~NotifyOnDestroyPipeline() override
+		{
+			if (onDestroy)
+			{
+				onDestroy();
+			}
+		}
+	};
+
+	auto pipeline = std::make_unique<NotifyOnDestroyPipeline>();
+	auto *rawPipeline = pipeline.get();
+	m_mockPipeline = std::move(pipeline);
+	m_mockPipelinePtr = rawPipeline;
+	ResetMockPipelineDefaults();
+
+	Configure();
+	auto client = m_capturedClient.lock();
+	ASSERT_NE(client, nullptr);
+	rawPipeline->onDestroy = [&client]()
+	{
+		client->notifyPlaybackState(firebolt::rialto::PlaybackState::END_OF_STREAM);
+	};
+
+	EXPECT_CALL(m_mockNotifiable, NotifyEOSReached()).Times(1);
+
+	m_player.reset();
+}
+
+/**
+ * @test Regression (H2): once the player is destroyed, a client that is still
+ *       referenced elsewhere must not call back into it.
+ */
+TEST_F(AampRialtoPlayerTest, Destructor_ClearsClientCallbacks)
+{
+	Configure();
+	auto client = m_capturedClient.lock();
+	ASSERT_NE(client, nullptr);
+
+	m_player.reset();
+
+	EXPECT_CALL(m_mockNotifiable, NotifyEOSReached()).Times(0);
+	client->notifyPlaybackState(firebolt::rialto::PlaybackState::END_OF_STREAM);
+	client->notifyNeedMediaData(0, 1, 1, nullptr);
+}
+
 // ===========================================================================
 // WaitForFlushToComplete — Configure blocks until flush cycle finishes
 // ===========================================================================

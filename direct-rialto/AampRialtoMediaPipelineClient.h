@@ -134,6 +134,19 @@ public:
 		m_playbackErrorCallback = std::move(cb);
 	}
 
+	/// @brief Remove every installed callback.
+	void ClearCallbacks()
+	{
+		m_needDataCallback = nullptr;
+		m_cancelNeedDataCallback = nullptr;
+		m_playbackStateCallback = nullptr;
+		m_positionCallback = nullptr;
+		m_durationCallback = nullptr;
+		m_bufferUnderflowCallback = nullptr;
+		m_sourceFlushedCallback = nullptr;
+		m_playbackErrorCallback = nullptr;
+	}
+
 	// IMediaPipelineClient Implementation (All required pure virtuals)
 	void notifyNetworkState(NetworkState state) override;
 	void notifyPlaybackState(PlaybackState state) override;

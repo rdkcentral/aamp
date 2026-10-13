@@ -42,7 +42,7 @@ and should be confirmed before or while fixing.
 | ID | Status | Title |
 |---|---|---|
 | H1 | Done | `m_pipeline` shared across threads without synchronisation |
-| H2 | Open | Destruction order lets Rialto callbacks hit destroyed members |
+| H2 | Done | Destruction order lets Rialto callbacks hit destroyed members |
 | H3 | Open | Null-pipeline dereference in `CreateSubtitleSource`; `AttachSource` contract violated |
 | H4 | Open | Failed attach is silent and can hang injection |
 | H5 | Open | `PlaybackState::FAILURE` never reported to AAMP |
@@ -275,6 +275,9 @@ Rialto behaviours confirmed or disproved, test gaps, design decisions).
 | 2026-10-13 | H1 | `IMediaPipelineFactory::createMediaPipeline` returns `unique_ptr`; the player converts it to `shared_ptr` when installing it. |
 | 2026-10-13 | H1 | `ApplyTrickplaySegmentPosition` dereferenced `m_pipeline` with no null check; it is now guarded. |
 | 2026-10-13 | H1 | `GetPipeline()`/`SetPipeline()` are the only accessors; any new code touching the pipeline must use them. `m_pipelineMutex` is a leaf lock (held only to copy or swap). |
+| 2026-10-13 | H2 | `AampRialtoMonitorAV` holds its own `shared_ptr` to the pipeline, so `m_monitorAV` must be reset before `SetPipeline(nullptr)` or the pipeline outlives the call (same constraint as `Stop()`). |
+| 2026-10-13 | H2 | Reordering the members was rejected: the pipeline destructor performs Rialto IPC and may fire final callbacks, so it must run explicitly, first, in the destructor body rather than depend on declaration order. |
+| 2026-10-13 | H2 | `AampRialtoMediaPipelineClient::ClearCallbacks()` assigns the `std::function` members with no lock, so it is only safe after the pipeline is destroyed. A callback already executing on the Rialto thread is still not covered; that is M8. |
 
 ## Verification Notes
 
@@ -294,3 +297,4 @@ Record each completed task: what was done, files changed, tests added or run.
 | Date | ID(s) | What was done | Files changed | Tests |
 |---|---|---|---|---|
 | 2026-10-13 | H1 | Added `GetPipeline()` (mutex-guarded snapshot) and `SetPipeline()` (swap, old pipeline released outside the lock). All ~45 pipeline use sites in `AampRialtoPlayer.cpp` now use a local snapshot, so a concurrent `Stop()` cannot destroy the pipeline under an in-flight call. `AttachSource` and the SEEK_DONE helpers gained a null guard. `Stop()` still releases the pipeline before returning. | `direct-rialto/AampRialtoPlayer.h`, `direct-rialto/AampRialtoPlayer.cpp` | New `Stop_DuringPipelineCall_KeepsPipelineAliveUntilCallReturns` (fails without the fix, passes with it). All 13 Rialto L1 suites pass (Player 268). |
+| 2026-10-13 | H2 | `~AampRialtoPlayer` now tears down in order: stop pre-roll and progress timer, unblock sources (pipeline snapshot scoped so it is released), reset `m_monitorAV`, `SetPipeline(nullptr)`, then `m_client->ClearCallbacks()`. Added `AampRialtoMediaPipelineClient::ClearCallbacks()`. No `stop()` is issued, as before. | `direct-rialto/AampRialtoPlayer.cpp`, `direct-rialto/AampRialtoMediaPipelineClient.h` | New `Destructor_PipelineReleasedWhilePlayerStillValid` (crashes without the fix), `Destructor_ClearsClientCallbacks`, `ClearCallbacks_RemovesInstalledCallbacks`. All 13 Rialto L1 suites pass (481 tests). |
