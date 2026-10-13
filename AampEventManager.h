@@ -68,6 +68,8 @@ private:
 	typedef std::map<guint, bool> AsyncEventList;		  /**< Collection of Async tasks pending */
 	typedef std::map<guint, bool>::iterator AsyncEventListIter;
 	AsyncEventList	mPendingAsyncEvents;
+	bool mIsFirstProgressSent;			  /**< Flag denotes if first progress event is sent */
+
 
 protected:
 	int mPlayerId;
@@ -182,7 +184,6 @@ public:
 	 */
 	void RemoveEventListener(AAMPEventType eventType, std::shared_ptr<EventListener>& eventListener);
 
-
 	/**
 	 * @fn IsEventListenerAvailable - Check if any listeners present for this event
 	 * @param eventType - Aamp Event Type
@@ -201,14 +202,14 @@ public:
 	 */
 	void FlushPendingEvents();
 	/**
-         * @brief Copy constructor disabled
-         *
-         */
+	 * @brief Copy constructor disabled
+	 *
+	 */
 	AampEventManager(const AampEventManager&) = delete;
 	/**
-         * @brief assignment operator disabled
-         *
-         */
+	 * @brief assignment operator disabled
+	 *
+	 */
 	AampEventManager& operator=(const AampEventManager&) = delete;
 };
 
