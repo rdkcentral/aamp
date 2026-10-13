@@ -104,6 +104,16 @@ public:
 	/// Discard any outstanding play request without issuing play().
 	void CancelPlayRequest(const char *reason);
 
+	/**
+	 * @brief End-of-session reset: discard any play request and restore the
+	 *        state of a freshly constructed controller.
+	 *
+	 * Drops every hold except PlayHold::SourcesNotAttached, so a hold left by
+	 * the old session (e.g. Flushing after a failure, FragmentCaching) cannot
+	 * defer play() in the next one.  Never issues play().
+	 */
+	void Reset(const char *reason);
+
 	/// Add @p hold.  Never issues play().
 	void AddHold(PlayHold hold, const char *reason);
 
@@ -118,6 +128,10 @@ public:
 	bool IsPlayPending() const;
 
 private:
+	/// Holds applied to a freshly constructed controller and after Reset().
+	static constexpr uint32_t kInitialHolds =
+		static_cast<uint32_t>(PlayHold::SourcesNotAttached);
+
 	/// Consume the outstanding request if it can be satisfied now.
 	/// Caller must hold m_mutex.
 	bool ClaimPlayLocked();

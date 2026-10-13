@@ -223,6 +223,36 @@ TEST_F(AampRialtoPlaybackControllerTest, CancelPlayRequest_PreventsDeferredPlay)
 	EXPECT_EQ(m_playCount, 0);
 }
 
+TEST_F(AampRialtoPlaybackControllerTest, Reset_DropsLeakedHoldsAndRequest)
+{
+	/**
+	 * @brief Mirrors Stop(): holds left behind by the old session (a flush
+	 *        that never completed, fragment caching) must not defer play()
+	 *        in the next one, and the old play request must not survive.
+	 */
+	m_controller->AddHold(PlayHold::Flushing, "Flush");
+	m_controller->AddHold(PlayHold::FragmentCaching, "caching");
+	m_controller->AddHold(PlayHold::PositionPending, "Discontinuity");
+	m_controller->AddHold(PlayHold::PreRollIncomplete, "arm");
+	m_controller->RequestPlay("Stream");
+	ASSERT_TRUE(m_controller->IsPlayPending());
+
+	m_controller->Reset("Stop");
+
+	EXPECT_TRUE(m_controller->IsHeld(PlayHold::SourcesNotAttached));
+	EXPECT_FALSE(m_controller->IsHeld(PlayHold::Flushing));
+	EXPECT_FALSE(m_controller->IsHeld(PlayHold::FragmentCaching));
+	EXPECT_FALSE(m_controller->IsHeld(PlayHold::PositionPending));
+	EXPECT_FALSE(m_controller->IsHeld(PlayHold::PreRollIncomplete));
+	EXPECT_FALSE(m_controller->IsPlayPending());
+	EXPECT_EQ(m_playCount, 0) << "Reset must never issue play()";
+
+	// The next session plays as soon as its sources attach.
+	m_controller->RequestPlay("Stream");
+	m_controller->ReleaseHold(PlayHold::SourcesNotAttached, "attach");
+	EXPECT_EQ(m_playCount, 1);
+}
+
 TEST_F(AampRialtoPlaybackControllerTest, AddHold_IsIdempotent)
 {
 	/**
@@ -458,6 +488,25 @@ TEST_F(AampRialtoPlaybackControllerPreRollTest,
 
 	m_controller->AddHold(PlayHold::Flushing, "Flush");
 	m_controller->ReleaseHold(PlayHold::Flushing, "SEEK_DONE");
+
+	EXPECT_EQ(m_preRollCount, 2);
+	EXPECT_EQ(m_playCount, 0);
+}
+
+TEST_F(AampRialtoPlaybackControllerPreRollTest, Reset_ForgetsPreRollReadiness)
+{
+	/**
+	 * @brief After Reset() the next session must get its own pre-roll start,
+	 *        not have it suppressed by the previous session having fired it.
+	 */
+	HoldOnlyPreRoll();
+	m_controller->RequestPlay("Stream");
+	ASSERT_EQ(m_preRollCount, 1);
+
+	m_controller->Reset("Stop");
+
+	HoldOnlyPreRoll();
+	m_controller->RequestPlay("Stream");
 
 	EXPECT_EQ(m_preRollCount, 2);
 	EXPECT_EQ(m_playCount, 0);

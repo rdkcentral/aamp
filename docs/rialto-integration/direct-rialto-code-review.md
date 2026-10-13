@@ -47,7 +47,7 @@ and should be confirmed before or while fixing.
 | H4 | Done | Failed attach is silent and can hang injection |
 | H5 | Done | `PlaybackState::FAILURE` never reported to AAMP |
 | H6 | Done | `Stop()`/`Configure()` can wait forever for a flush |
-| H7 | Open | Play holds leak across sessions |
+| H7 | Done | Play holds leak across sessions |
 | H8 | Open | `ChangeAamp` leaves stale pointers (DRM bridge) |
 
 ### H1. `m_pipeline` shared across threads without synchronisation (use-after-free)
@@ -292,6 +292,10 @@ Rialto behaviours confirmed or disproved, test gaps, design decisions).
 | 2026-10-13 | H6 | A forced completion releases `PlayHold::Flushing`, so an outstanding play request can be issued at that point (for `Stop()` this means a `play()` just before `stop()`; harmless but wasteful). It follows the existing `setPosition()`-failure path in `Flush()`. |
 | 2026-10-13 | H6 | Narrow race left as is: a `SEEK_DONE` handled at the same instant as the timeout can find the state already `FLUSHED`; `onFlushComplete` then logs a "no transition" WARN and the remaining steps are idempotent. |
 | 2026-10-13 | H6 | Added public `SetFlushCompleteTimeout()` so tests need not wait 5 s; same "public for testing" pattern as `OnProgressTimerTick()` (see A5). |
+| 2026-10-13 | H7 | Both leaks in the review were reproduced before the fix: a `Flushing` hold left by a flush that ended in `FAILURE`, and a `FragmentCaching` hold from an unfinished caching cycle, each stopped `Stream()` from issuing `play()` in the next session. |
+| 2026-10-13 | H7 | `Reset()` restores only `SourcesNotAttached` (the construction state) and also clears the pre-roll-ready latch, otherwise a new session's pre-roll start would be suppressed. Not done: `Configure()` on the reuse path (no `Stop()`) still does not clear stale holds. |
+| 2026-10-13 | H7 | `Flush()`'s internal teardown-recovery `Stop()` also resets the holds. This is harmless because `Flush()` has already released `PositionPending` and releases `Flushing` itself immediately afterwards. |
+| 2026-10-13 | H7 | `CancelPlayRequest()` remains for `Pause(true)`, which must not drop the other holds. |
 
 ## Verification Notes
 
@@ -316,3 +320,4 @@ Record each completed task: what was done, files changed, tests added or run.
 | 2026-10-13 | H4 | `AttachSource` now returns `bool`. New `ReportAttachFailure` clears `attachPending` (waking injectors blocked in `waitForAttach`) and calls `NotifyPlaybackError`, except when the codec is not yet identified. `SendTransfer` returns `false` when the attach fails. | `direct-rialto/AampRialtoPlayer.cpp`, `direct-rialto/AampRialtoPlayer.h` | 4 new tests (3 fail without the fix). Player suite 276 pass; all 13 Rialto suites pass (487 tests). |
 | 2026-10-13 | H5 | New `HandlePlaybackFailure()` (called from `OnPlaybackState`): records the state, moves the machine to `ERROR`, wakes flush waiters as before, and calls `NotifyPlaybackError(AAMP_TUNE_GST_PIPELINE_ERROR)` unless the prior state was `IDLE` or `ERROR`. | `direct-rialto/AampRialtoPlayer.cpp`, `direct-rialto/AampRialtoPlayer.h` | 3 new `PlaybackStateFailure_*` tests (2 fail without the fix; the third guards the stale-IDLE case). Player suite 279 pass; all 13 Rialto suites pass (490 tests). |
 | 2026-10-13 | H6 | `WaitForFlushToComplete` now uses `wait_for` with `m_flushCompleteTimeout` (5 s). On timeout it logs an error, moves the state machine out of `FLUSHING`, commits the staged rate, notifies waiters and releases `PlayHold::Flushing`. | `direct-rialto/AampRialtoPlayer.cpp`, `direct-rialto/AampRialtoPlayer.h` | 3 new tests (all hang without the fix): `Stop_FlushNeverCompletes_ReturnsAfterTimeout`, `Flush_PreviousFlushLost_RecoversAfterTimeout`, `Configure_FlushNeverCompletes_IssuesDeferredPlay`. Player suite 282 pass; all 13 Rialto suites pass (493 tests). |
+| 2026-10-13 | H7 | Added `AampRialtoPlaybackController::Reset()` (discard the play request, restore the initial hold set, clear the pre-roll latch; never issues `play()`) and call it from `StopInternal` in place of `CancelPlayRequest`. | `direct-rialto/AampRialtoPlaybackController.h`, `direct-rialto/AampRialtoPlaybackController.cpp`, `direct-rialto/AampRialtoPlayer.cpp` | 4 new tests: controller `Reset_DropsLeakedHoldsAndRequest`, `Reset_ForgetsPreRollReadiness`; player `Stop_AfterFailureDuringFlush_NextSessionPlays` and `Stop_DuringFragmentCaching_NextSessionPlays` (both fail with the old `Stop`). All 13 Rialto suites pass (497 tests). |

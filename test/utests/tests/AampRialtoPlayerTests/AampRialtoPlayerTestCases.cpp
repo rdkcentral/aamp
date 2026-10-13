@@ -1183,6 +1183,50 @@ TEST_F(AampRialtoPlayerWithDemuxTest, PlaybackStateFailure_DuringFlush_LeavesFlu
 	m_player->Stop(false);
 }
 
+/**
+ * @test Regression (H7): a flush that ends in FAILURE never sees SEEK_DONE, so
+ *       its Flushing hold must not outlive the session and defer play() in the
+ *       next tune.
+ */
+TEST_F(AampRialtoPlayerWithDemuxTest, Stop_AfterFailureDuringFlush_NextSessionPlays)
+{
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(_)).WillOnce(Return(true));
+	m_player->Flush(5.0, 1, /*shouldTearDown=*/false);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
+	PostPlaybackState(firebolt::rialto::PlaybackState::FAILURE);
+	m_player->Stop(false);
+
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).Times(1).WillOnce(Return(true));
+	m_player->Stream();
+}
+
+/**
+ * @test Regression (H7): fragment caching that was never completed before
+ *       Stop() must not defer play() in the next tune.
+ */
+TEST_F(AampRialtoPlayerWithDemuxTest, Stop_DuringFragmentCaching_NextSessionPlays)
+{
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+	m_player->NotifyFragmentCachingOngoing();
+	m_player->Stop(false);
+
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).Times(1).WillOnce(Return(true));
+	m_player->Stream();
+}
+
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	Stream_DeferredDuringFlush_SeekDoneIssuesPlay)
 {

@@ -57,7 +57,7 @@ AampRialtoPlaybackController::AampRialtoPlaybackController(PlayAction onPlay,
 	PreRollAction onPreRollReady)
 	: m_onPlay(std::move(onPlay))
 	, m_onPreRollReady(std::move(onPreRollReady))
-	, m_holds(static_cast<uint32_t>(PlayHold::SourcesNotAttached))
+	, m_holds(kInitialHolds)
 	, m_playPending(false)
 	, m_preRollReady(false)
 {
@@ -140,6 +140,24 @@ void AampRialtoPlaybackController::CancelPlayRequest(const char *reason)
 	{
 		AAMPLOG_INFO("pending play request discarded by %s", reason);
 	}
+}
+
+void AampRialtoPlaybackController::Reset(const char *reason)
+{
+	bool discardedRequest = false;
+	uint32_t droppedHolds = 0u;
+	{
+		std::lock_guard<std::mutex> lock(m_mutex);
+		discardedRequest = m_playPending;
+		m_playPending = false;
+		m_preRollReady = false;
+		droppedHolds = m_holds.load(std::memory_order_relaxed) &
+			~kInitialHolds;
+		m_holds.store(kInitialHolds, std::memory_order_relaxed);
+	}
+
+	AAMPLOG_INFO("controller reset by %s (playRequestDiscarded=%d "
+		"holdsDropped=0x%x)", reason, discardedRequest, droppedHolds);
 }
 
 void AampRialtoPlaybackController::AddHold(PlayHold hold, const char *reason)

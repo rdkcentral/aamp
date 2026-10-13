@@ -1794,11 +1794,11 @@ void AampRialtoPlayer::StopInternal(bool keepLastFrame, bool preservePendingPosi
 	// mirroring rialto-gstreamer's removeControlBackend() on READY->NULL.
 	// Configure() lazily recreates it on the next tune.
 	m_controlBackend.reset();
-	// Reset play intent so a new tune's Configure() starts clean.
+	// Reset play intent and holds so a new tune's Configure() starts clean.
 	// This is the canonical place to discard a pending play request: Stop()
 	// ends the current session, whereas Configure() may be called mid-session
 	// for a codec change and must not discard a pending Stream() request.
-	m_playbackController.CancelPlayRequest("Stop");
+	m_playbackController.Reset("Stop");
 	if (!preservePendingPosition)
 	{
 		// A normal Stop() ends the session outright, so any staged seek
