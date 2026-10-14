@@ -124,6 +124,15 @@ function rialto_install_build_fn()
         OPTION_RIALTO_BUILD=false
     fi
 
+    # --rialto-force-simulator overrides the 'rialto' option: clear
+    # OPTION_RIALTO_BUILD here so both the dependency build below and
+    # aampcli_install_build_linux_fn's aamp-cli build skip the real-Rialto
+    # path instead of silently building it anyway.
+    if [ "${OPTION_RIALTO_BUILD}" = true ] && [ "${OPTION_RIALTO_FORCE_SIMULATOR}" = true ]; then
+        echo "WARNING: --rialto-force-simulator was specified; building the simulator instead of real Rialto."
+        OPTION_RIALTO_BUILD=false
+    fi
+
     # OPTION_CLEAN == true
     if [ ${1} == true ] ; then
         echo " clean"

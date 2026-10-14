@@ -69,7 +69,7 @@ public:
 	 * @brief Deliver a license response to the Rialto server.
 	 * @return true on success, false on failure.
 	 */
-	bool update(const uint8_t* keyMessage, uint16_t keyMessageLength);
+	bool update(const uint8_t* keyMessage, uint32_t keyMessageLength);
 
 	/**
 	 * @brief Close the key session on the Rialto server.

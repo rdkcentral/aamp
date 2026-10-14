@@ -31,6 +31,7 @@
 
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
+#include <atomic>
 #include <thread>
 #include <chrono>
 
@@ -42,6 +43,32 @@ using ::testing::Return;
 using ::testing::DoAll;
 using ::testing::SetArgReferee;
 using ::testing::Invoke;
+
+namespace
+{
+	/// Joins the wrapped thread on destruction (or explicit join()) so a
+	/// GoogleTest ASSERT_* early-return can never destroy a still-joinable
+	/// std::thread (which would call std::terminate()).
+	class JoiningThread
+	{
+	public:
+		explicit JoiningThread(std::thread t) : m_thread(std::move(t)) {}
+		~JoiningThread() { join(); }
+		JoiningThread(const JoiningThread &) = delete;
+		JoiningThread &operator=(const JoiningThread &) = delete;
+
+		void join()
+		{
+			if (m_thread.joinable())
+			{
+				m_thread.join();
+			}
+		}
+
+	private:
+		std::thread m_thread;
+	};
+}
 
 // ---------------------------------------------------------------------------
 // Fixture
@@ -155,17 +182,22 @@ TEST_F(AampRialtoControlBackendTest,
 
 	AampRialtoControlBackend backend;
 
-	// Notify state change from a different thread after a short delay.
-	std::thread notifier([&capturedClient]() {
-		std::this_thread::sleep_for(std::chrono::milliseconds(20));
-		auto client = capturedClient.lock();
-		ASSERT_NE(client, nullptr);
-		client->notifyApplicationState(
-			firebolt::rialto::ApplicationState::RUNNING);
-	});
+	// No production test-hook exists to prove waitForRunning() has entered
+	// its blocked wait before this notifies, so this only asserts the
+	// observable contract: a concurrent state change makes it return true,
+	// regardless of which internal path (fast-path or blocked-then-woken)
+	// handled it.
+	std::atomic<bool> waitResult{false};
+	JoiningThread waiter(std::thread([&]() {
+		waitResult.store(backend.waitForRunning(2000));
+	}));
 
-	EXPECT_TRUE(backend.waitForRunning(2000));
-	notifier.join();
+	auto client = capturedClient.lock();
+	ASSERT_NE(client, nullptr);
+	client->notifyApplicationState(firebolt::rialto::ApplicationState::RUNNING);
+
+	waiter.join();
+	EXPECT_TRUE(waitResult.load());
 }
 
 TEST_F(AampRialtoControlBackendTest,

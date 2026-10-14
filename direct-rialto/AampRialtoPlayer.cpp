@@ -381,7 +381,21 @@ bool AampRialtoPlayer::ShouldRecreatePipeline(
 	const int rate = m_rate.load(std::memory_order_relaxed);
 	if(rate == AAMP_NORMAL_PLAY_RATE)
 	{
-		if ((subtitleSrc == nullptr) || (subtitleSrc->format() != subFormat))
+		// A missing subtitle source only forces recreation when a sidecar
+		// subtitle format is actually requested - e.g. an audio-only
+		// pipeline has no subtitle source at all and subFormat stays
+		// FORMAT_INVALID, which must not trigger a rebuild.
+		if (subtitleSrc == nullptr)
+		{
+			if (subFormat == FORMAT_SUBTITLE_TTML ||
+			    subFormat == FORMAT_SUBTITLE_MP4 ||
+			    subFormat == FORMAT_SUBTITLE_WEBVTT)
+			{
+				AAMPLOG_INFO("Need to add subtitle source: ShouldRecreatePipeline true");
+				return true;
+			}
+		}
+		else if (subtitleSrc->format() != subFormat)
 		{
 			AAMPLOG_INFO("subFormat=%d, subtitleSrc->format()=%d. ShouldRecreatePipeline true", subFormat, subtitleSrc->format());
 			return true;
@@ -743,6 +757,12 @@ void AampRialtoPlayer::Configure(
 		}
 	}
 
+	if (!m_pipeline)
+	{
+		AAMPLOG_INFO("EXIT - no pipeline created");
+		return;
+	}
+
 	// Create per-source objects based on configured formats.
 	// FORMAT_ISO_BMFF: AampRialtoPlayer demuxes via SendTransfer; the demuxer
 	//                  is created lazily on the first SendTransfer call.
@@ -769,6 +789,15 @@ void AampRialtoPlayer::Configure(
 			AAMPLOG_INFO("Created video source (format=%d)", static_cast<int>(videoFormat));
 		}
 	}
+	else
+	{
+		// A reused-pipeline check above only skips teardown/recreation when
+		// the source set is unchanged; reaching here means at least one
+		// track changed, so a stale video source from the previous pipeline
+		// must not survive into this one - otherwise
+		// CheckAllSourcesAttached() would wait forever on it.
+		m_sources[eMEDIATYPE_VIDEO].reset();
+	}
 	if (audioFormat != FORMAT_INVALID)
 	{
 		auto src = m_sourceCreator(eMEDIATYPE_AUDIO);
@@ -781,6 +810,10 @@ void AampRialtoPlayer::Configure(
 			m_aamp->ResumeTrackDownloads(eMEDIATYPE_AUDIO);
 			AAMPLOG_INFO("Created audio source (format=%d)", static_cast<int>(audioFormat));
 		}
+	}
+	else
+	{
+		m_sources[eMEDIATYPE_AUDIO].reset();
 	}
 #if !defined(RIALTO_PLAYER_DISABLE_SUBTITLES)
 	if (subFormat == FORMAT_SUBTITLE_TTML || subFormat == FORMAT_SUBTITLE_MP4 || subFormat == FORMAT_SUBTITLE_WEBVTT)
@@ -827,6 +860,13 @@ void AampRialtoPlayer::Configure(
 			AttachSource(*m_sources[eMEDIATYPE_SUBTITLE], ci);
 			AAMPLOG_INFO("Created inband CC subtitle source");
 		}
+	}
+	else
+	{
+		// No video means no inband-CC subtitle either, and no sidecar
+		// format was requested - drop any stale subtitle source left over
+		// from the previous pipeline.
+		m_sources[eMEDIATYPE_SUBTITLE].reset();
 	}
 #endif
 	AAMPLOG_INFO("EXIT");
@@ -1518,10 +1558,6 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown, boo
 	// Stage the requested position/rate unconditionally, before the
 	// teardown/flushable branching below, so every exit path (including
 	// the Stop(true) teardown path) records the caller's intent.
-	// Clamp to >= 0: no caller has a legitimate reason to seek before the
-	// start of the timeline, and a negative value would otherwise flow
-	// unclamped into the pipeline-level setPosition() call and the
-	// SEEK_DONE-committed segment-start baseline (m_segmentStartPositionNs).
 	int64_t posNs = static_cast<int64_t>(position * kNsPerSecond);
 	m_pendingPositionNs.store(posNs, std::memory_order_relaxed);
 	m_pendingFlushRate.store(rate, std::memory_order_relaxed);
@@ -2484,6 +2520,10 @@ void AampRialtoPlayer::SetEncryptedAamp(PrivateInstanceAAMP *aamp)
 void AampRialtoPlayer::ResetFirstFrame()
 {
 	AAMPLOG_INFO("ENTRY");
+	// Mirrors Configure()'s own reset: ActivatePlayer() calls this to resume
+	// an incomplete tune in single-pipeline mode, so a stale true here would
+	// skip the first-frame/tune-complete notification for the resumed session.
+	m_firstFrameNotified.store(false, std::memory_order_relaxed);
 	AAMPLOG_INFO("EXIT");
 }
 

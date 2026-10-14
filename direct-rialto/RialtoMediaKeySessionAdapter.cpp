@@ -250,7 +250,7 @@ int RialtoMediaKeySessionAdapter::processDRMKey(DrmData* key, uint32_t timeout)
 	if (key)
 	{
 		const uint8_t* keyMessage = reinterpret_cast<const uint8_t*>(key->getData().c_str());
-		const uint16_t keyMsgLength = static_cast<uint16_t>(key->getDataLength());
+		const uint32_t keyMsgLength = static_cast<uint32_t>(key->getDataLength());
 
 		AAMPLOG_INFO("RialtoMediaKeySessionAdapter::processDRMKey: calling update, length=%u",
 		            keyMsgLength);
