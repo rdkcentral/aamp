@@ -17,8 +17,8 @@
  * limitations under the License.
  */
 
-#ifndef RialtoMediaKeySessionAdapter_h
-#define RialtoMediaKeySessionAdapter_h
+#ifndef AAMP_RIALTO_MEDIA_KEY_SESSION_ADAPTER_H
+#define AAMP_RIALTO_MEDIA_KEY_SESSION_ADAPTER_H
 
 /**
  * @file RialtoMediaKeySessionAdapter.h
@@ -133,4 +133,4 @@ private:
 	long long m_timeBeforeCallback;
 };
 
-#endif // RialtoMediaKeySessionAdapter_h
+#endif // AAMP_RIALTO_MEDIA_KEY_SESSION_ADAPTER_H

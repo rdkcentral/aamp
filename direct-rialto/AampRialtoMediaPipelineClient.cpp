@@ -81,7 +81,8 @@ void AampRialtoMediaPipelineClient::notifyNeedMediaData(
 	uint32_t needDataRequestId,
 	const std::shared_ptr<MediaPlayerShmInfo> &mediaPlayerShmInfo)
 {
-	AAMPLOG_TRACE("ENTRY sourceId=%d frameCount=%zu needDataRequestId=%u", sourceId, frameCount, needDataRequestId);
+	AAMPLOG_TRACE("ENTRY sourceId=%d frameCount=%zu needDataRequestId=%u",
+		sourceId, frameCount, needDataRequestId);
 	const auto callback = Snapshot(m_needDataCallback);
 	if (callback)
 	{

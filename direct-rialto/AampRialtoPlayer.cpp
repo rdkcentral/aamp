@@ -1093,7 +1093,9 @@ bool AampRialtoPlayer::SendCopy(
 	double fdts,
 	double fDuration)
 {
-	AAMPLOG_TRACE("ENTRY mediaType=%d bufferSize=%zu fpts=%f fdts=%f fDuration=%f", static_cast<int>(mediaType), buffer.size(), fpts, fdts, fDuration);
+	AAMPLOG_TRACE("ENTRY mediaType=%d bufferSize=%zu fpts=%f fdts=%f "
+		"fDuration=%f", static_cast<int>(mediaType), buffer.size(),
+		fpts, fdts, fDuration);
 	bool success = false;
 	const auto pipeline = GetPipeline();
 

@@ -130,8 +130,9 @@ bool RialtoMediaKeySession::isKeyOutputRestricted(const uint8_t* keyId, size_t k
 	return false;
 }
 
-void RialtoMediaKeySession::updateKeyStatus(const std::vector<uint8_t>& keyId,
-                                            firebolt::rialto::KeyStatus status)
+void RialtoMediaKeySession::updateKeyStatus(
+	const std::vector<uint8_t>& keyId,
+	firebolt::rialto::KeyStatus status)
 {
 	std::lock_guard<std::mutex> lock(m_keyStatusMutex);
 	m_keyStatuses[keyId] = status;

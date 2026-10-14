@@ -31,7 +31,8 @@
  * Rialto session ID assigned by the server during opencdm_construct_session().
  */
 
-#pragma once
+#ifndef AAMP_IDRM_BRIDGE_H
+#define AAMP_IDRM_BRIDGE_H
 
 #include <cstddef>
 #include <cstdint>
@@ -76,3 +77,5 @@ public:
 		size_t          len,
 		AampMediaType   type) = 0;
 };
+
+#endif // AAMP_IDRM_BRIDGE_H

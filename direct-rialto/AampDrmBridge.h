@@ -33,7 +33,8 @@
  *       thread, which is acceptable.
  */
 
-#pragma once
+#ifndef AAMP_DRM_BRIDGE_H
+#define AAMP_DRM_BRIDGE_H
 
 #include "IDrmBridge.h"
 
@@ -85,3 +86,5 @@ public:
 private:
 	PrivateInstanceAAMP *m_aamp; ///< Non-owning pointer; lifetime guaranteed by AampRialtoPlayer
 };
+
+#endif // AAMP_DRM_BRIDGE_H

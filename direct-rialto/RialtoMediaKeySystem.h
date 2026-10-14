@@ -17,8 +17,8 @@
  * limitations under the License.
  */
 
-#ifndef RialtoMediaKeySystem_h
-#define RialtoMediaKeySystem_h
+#ifndef AAMP_RIALTO_MEDIA_KEY_SYSTEM_H
+#define AAMP_RIALTO_MEDIA_KEY_SYSTEM_H
 
 /**
  * @file RialtoMediaKeySystem.h
@@ -146,4 +146,4 @@ private:
 	std::shared_ptr<MediaKeysClient>              m_client;
 };
 
-#endif // RialtoMediaKeySystem_h
+#endif // AAMP_RIALTO_MEDIA_KEY_SYSTEM_H

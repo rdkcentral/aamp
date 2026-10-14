@@ -260,7 +260,8 @@ void PrivateInstanceAAMPNotifiable::NotifyBufferUnderflow(AampMediaType type)
 	ScheduleOwned(aamp, "NotifyBufferUnderflow",
 		[type](PrivateInstanceAAMP *target) {
 			if (target->mConfig &&
-			    target->mConfig->IsConfigSet(eAAMPConfig_EnableAampUnderflowMonitor))
+			    target->mConfig->IsConfigSet(
+				    eAAMPConfig_EnableAampUnderflowMonitor))
 			{
 				AAMPLOG_INFO(
 					"Underflow will be handled by AampUnderflowMonitor, "
@@ -287,7 +288,8 @@ void PrivateInstanceAAMPNotifiable::NotifyPlaybackError(
 	}
 	ScheduleOwned(aamp, "NotifyPlaybackError",
 		[failure, description, isRetryEnabled](PrivateInstanceAAMP *target) {
-			target->SendErrorEvent(failure, description.c_str(), isRetryEnabled);
+			target->SendErrorEvent(
+				failure, description.c_str(), isRetryEnabled);
 		});
 }
 

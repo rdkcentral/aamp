@@ -17,8 +17,8 @@
  * limitations under the License.
  */
 
-#ifndef RialtoMediaKeySession_h
-#define RialtoMediaKeySession_h
+#ifndef AAMP_RIALTO_MEDIA_KEY_SESSION_H
+#define AAMP_RIALTO_MEDIA_KEY_SESSION_H
 
 /**
  * @file RialtoMediaKeySession.h
@@ -129,4 +129,4 @@ private:
 	mutable std::mutex m_keyStatusMutex;
 };
 
-#endif // RialtoMediaKeySession_h
+#endif // AAMP_RIALTO_MEDIA_KEY_SESSION_H
