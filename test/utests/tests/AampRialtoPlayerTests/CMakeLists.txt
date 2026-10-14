@@ -28,6 +28,7 @@ set(TEST_SOURCES
 
 set(AAMP_SOURCES
 	${AAMP_ROOT}/direct-rialto/AampRialtoPlayer.cpp
+	${AAMP_ROOT}/direct-rialto/AampRialtoPipelineSession.cpp
 	${AAMP_ROOT}/direct-rialto/AampRialtoMediaSource.cpp
 	${AAMP_ROOT}/direct-rialto/AampRialtoPlaybackController.cpp
 	${AAMP_ROOT}/direct-rialto/AampRialtoSegmentPosition.cpp

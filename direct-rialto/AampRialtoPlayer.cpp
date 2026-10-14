@@ -24,7 +24,6 @@
  */
 
 #include "AampRialtoPlayer.h"
-#include "AampRialtoMediaPipelineClient.h"
 #include "AampRialtoMediaSource.h"
 #include "AampDrmBridge.h"
 #include "AampLogManager.h"
@@ -47,56 +46,10 @@
 //#define RIALTO_PLAYER_DISABLE_SUBTITLES
 
 // ---------------------------------------------------------------------------
-// Rialto -> AAMP log bridge
-// ---------------------------------------------------------------------------
-
-void AampRialtoPlayer::RialtoLogHandler::log(
-	Level level,
-	const std::string &file,
-	int line,
-	const std::string &function,
-	const std::string &message)
-{
-	const char *tag = "RialtoClient";
-	switch (level)
-	{
-	case Level::Fatal:
-	case Level::Error:
-		AAMPLOG_ERR("%s [%s:%d %s] %s",
-			tag, file.c_str(), line, function.c_str(), message.c_str());
-		break;
-	case Level::Warning:
-		AAMPLOG_WARN("%s [%s:%d %s] %s",
-			tag, file.c_str(), line, function.c_str(), message.c_str());
-		break;
-	case Level::Milestone:
-		AAMPLOG_MIL("%s [%s:%d %s] %s",
-			tag, file.c_str(), line, function.c_str(), message.c_str());
-		break;
-	case Level::Info:
-		AAMPLOG_INFO("%s [%s:%d %s] %s",
-			tag, file.c_str(), line, function.c_str(), message.c_str());
-		break;
-	case Level::Debug:
-	case Level::External:
-	default:
-		AAMPLOG_TRACE("%s [%s:%d %s] %s",
-			tag, file.c_str(), line, function.c_str(), message.c_str());
-		break;
-	}
-}
-
-// ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
 namespace {
-	/// Upper bound for the wait on Rialto's application state transitioning
-	/// to RUNNING.  In practice the transition completes in a few milliseconds;
-	/// the timeout exists only to avoid a permanent hang if the Rialto server
-	/// never reports RUNNING.
-	constexpr int kRialtoRunningTimeoutMs = 2000;
-
 	constexpr unsigned int kMsPerSecond = 1000;
 
 	/// Pre-roll target, mirroring the GStreamer reference: the default
@@ -106,18 +59,6 @@ namespace {
 	constexpr uint32_t kPreRollMinAcceptedFrames = 4;
 	constexpr guint    kPreRollPollIntervalMs    = 10;
 	constexpr int64_t  kPreRollTimeoutMs         = 1000;
-
-	/// Rialto compares these only with its primary-video minimum, to choose
-	/// the primary decoder; a smaller value would select the secondary one.
-	constexpr std::uint32_t kMaxVideoWidth  = 3840;
-	constexpr std::uint32_t kMaxVideoHeight = 2160;
-
-	/// Rialto ignores the URL for MSE playback.
-	constexpr const char *kMseUrl = "mse://1";
-
-	/// Left false: true makes the server enable decoder rate correction, on top
-	/// of AAMP's own live latency control.
-	constexpr bool kPipelineIsLive = false;
 
 	const char *PlaybackStateName(firebolt::rialto::PlaybackState state)
 	{
@@ -153,28 +94,6 @@ namespace {
 				break;
 		}
 		return name;
-	}
-}
-
-// ---------------------------------------------------------------------------
-// Pipeline access
-// ---------------------------------------------------------------------------
-
-std::shared_ptr<firebolt::rialto::IMediaPipeline>
-AampRialtoPlayer::GetPipeline() const
-{
-	std::lock_guard<std::mutex> lock(m_pipelineMutex);
-	return m_pipeline;
-}
-
-void AampRialtoPlayer::SetPipeline(
-	std::shared_ptr<firebolt::rialto::IMediaPipeline> pipeline)
-{
-	std::shared_ptr<firebolt::rialto::IMediaPipeline> previous;
-	{
-		std::lock_guard<std::mutex> lock(m_pipelineMutex);
-		previous = std::move(m_pipeline);
-		m_pipeline = std::move(pipeline);
 	}
 }
 
@@ -252,11 +171,9 @@ AampRialtoPlayer::AampRialtoPlayer(
 	SourceCreator sourceCreator)
 	: m_aamp(aamp)
 	, m_ID3MetadataHandler{std::move(id3HandlerCallback)}
-	, m_controlBackend(std::move(controlBackend))
 	, m_sourceCreator(sourceCreator ? std::move(sourceCreator)
 	                                : makeDefaultSourceCreator())
-	, m_client(nullptr)
-	, m_pipeline(nullptr)
+	, m_session(std::move(controlBackend))
 	, m_playbackController(
 		[this](const char *reason) { IssuePlay(reason); },
 		[this](const char *reason) { StartPreRoll(reason); })
@@ -296,14 +213,11 @@ AampRialtoPlayer::~AampRialtoPlayer()
 			}
 		}
 	}
-	// Members declared after m_pipeline are destroyed before it, so release
+	// Members declared after m_session are destroyed before it, so release
 	// the pipeline (and every other holder of it) while they are still valid.
 	SetMonitorAV(nullptr);
-	SetPipeline(nullptr);
-	if (m_client)
-	{
-		m_client->ClearCallbacks();
-	}
+	m_session.SetPipeline(nullptr);
+	m_session.ClearClientCallbacks();
 	// The CC manager singleton may still hold this object's IDirectRialtoCC*
 	// (e.g. multi-pipeline mode, where its GetId()/Release() refcount is
 	// shared with other, still-live AampRialtoPlayer instances). Clear it
@@ -601,10 +515,7 @@ void AampRialtoPlayer::BeginNewSession()
 	// PLAYING notification correctly.
 	m_firstFrameNotified.store(false, std::memory_order_relaxed);
 
-	if (!m_client)
-	{
-		m_client = std::make_shared<AampRialtoMediaPipelineClient>();
-	}
+	m_session.EnsureClient();
 
 	for (const auto &source : SnapshotSources())
 	{
@@ -636,88 +547,6 @@ void AampRialtoPlayer::BeginNewSession()
 	{
 		pa.reset();
 	}
-}
-
-void AampRialtoPlayer::RegisterRialtoLogHandler()
-{
-	if (!m_rialtoLogHandler)
-	{
-		m_rialtoLogHandler = std::make_shared<RialtoLogHandler>();
-		auto logControlFactory =
-			firebolt::rialto::IClientLogControlFactory::createFactory();
-		if (logControlFactory)
-		{
-			logControlFactory->createClientLogControl()
-				.registerLogHandler(m_rialtoLogHandler,
-					/*ignoreLogLevels=*/true);
-		}
-		else
-		{
-			AAMPLOG_WARN("Failed to create IClientLogControlFactory - Rialto logs suppressed");
-		}
-	}
-}
-
-void AampRialtoPlayer::EnsureRialtoFactories()
-{
-	// Registering with Rialto's IControl is deferred to the first Configure()
-	// call (mirrors rialto-gstreamer's PullModePlaybackDelegate, which creates
-	// its ControlBackend on the NULL->READY state change) rather than at
-	// construction time, so a player instance that is created but never
-	// tuned does not register a client with the Rialto server.
-	if (!m_controlBackend)
-	{
-		m_controlBackend = std::make_unique<AampRialtoControlBackend>();
-	}
-	if (!m_pipelineFactory)
-	{
-		m_pipelineFactory = firebolt::rialto::IMediaPipelineFactory::createFactory();
-	}
-	if (!m_pipelineCapabilities)
-	{
-		auto capFactory =
-			firebolt::rialto::IMediaPipelineCapabilitiesFactory::createFactory();
-		if (capFactory)
-		{
-			m_pipelineCapabilities = capFactory->createMediaPipelineCapabilities();
-		}
-		else
-		{
-			AAMPLOG_WARN("Failed to create IMediaPipelineCapabilitiesFactory");
-		}
-	}
-}
-
-void AampRialtoPlayer::RegisterPipelineCallbacks()
-{
-	m_client->SetNeedDataCallback(
-		[this](int32_t sid, size_t fc, uint32_t rid) {
-			OnNeedMediaData(sid, fc, rid);
-		});
-	m_client->SetCancelNeedDataCallback(
-		[this](int32_t sid) {
-			OnCancelNeedMediaData(sid);
-		});
-	m_client->SetPlaybackStateCallback(
-		[this](firebolt::rialto::PlaybackState state) {
-			OnPlaybackState(state);
-		});
-	m_client->SetPositionCallback(
-		[this](int64_t posNs) {
-			OnPosition(posNs);
-		});
-	m_client->SetDurationCallback(
-		[this](int64_t durNs) {
-			OnDuration(durNs);
-		});
-	m_client->SetBufferUnderflowCallback(
-		[this](int32_t sid) {
-			OnBufferUnderflow(sid);
-		});
-	m_client->SetPlaybackErrorCallback(
-		[this](int32_t sid, firebolt::rialto::PlaybackError error) {
-			OnPlaybackError(sid, error);
-		});
 }
 
 void AampRialtoPlayer::CreateMonitorAV()
@@ -778,66 +607,48 @@ void AampRialtoPlayer::SetMonitorAV(std::unique_ptr<AampRialtoMonitorAV> monitor
 
 void AampRialtoPlayer::CreateAndLoadPipeline()
 {
-	RegisterRialtoLogHandler();
-	EnsureRialtoFactories();
+	AampRialtoPipelineSession::Callbacks callbacks;
+	callbacks.needData =
+		[this](int32_t sid, size_t fc, uint32_t rid) {
+			OnNeedMediaData(sid, fc, rid);
+		};
+	callbacks.cancelNeedData =
+		[this](int32_t sid) {
+			OnCancelNeedMediaData(sid);
+		};
+	callbacks.playbackState =
+		[this](firebolt::rialto::PlaybackState state) {
+			OnPlaybackState(state);
+		};
+	callbacks.position =
+		[this](int64_t posNs) {
+			OnPosition(posNs);
+		};
+	callbacks.duration =
+		[this](int64_t durNs) {
+			OnDuration(durNs);
+		};
+	callbacks.bufferUnderflow =
+		[this](int32_t sid) {
+			OnBufferUnderflow(sid);
+		};
+	callbacks.playbackError =
+		[this](int32_t sid, firebolt::rialto::PlaybackError error) {
+			OnPlaybackError(sid, error);
+		};
 
-	if (!m_pipelineFactory)
+	if (m_session.CreateAndLoad(callbacks) ==
+	    AampRialtoPipelineSession::CreateResult::Loaded)
 	{
-		AAMPLOG_ERR("Failed to create IMediaPipelineFactory - is the Rialto server running?");
-	}
-	else
-	{
-		// Wait for the Rialto server to report ApplicationState::RUNNING before
-		// creating the media pipeline - ensures the proxy ctor sees RUNNING from
-		// its internal registerClient() call, preventing NeedMediaData events
-		// from being silently dropped.
-		if (m_controlBackend && !m_controlBackend->waitForRunning(kRialtoRunningTimeoutMs))
-		{
-			AAMPLOG_WARN(
-				"Proceeding to createMediaPipeline despite Rialto state not RUNNING");
-		}
+		// Advance state machine: pipeline is now created and loaded.
+		m_stateMachine.onPipelineLoaded();
 
-		firebolt::rialto::VideoRequirements kRequirements{kMaxVideoWidth, kMaxVideoHeight};
-		std::shared_ptr<firebolt::rialto::IMediaPipeline> pipeline =
-			m_pipelineFactory->createMediaPipeline(
-				std::weak_ptr<firebolt::rialto::IMediaPipelineClient>(m_client),
-				kRequirements);
-		SetPipeline(pipeline);
-		if (!pipeline)
-		{
-			AAMPLOG_ERR("createMediaPipeline returned nullptr - check Rialto server logs (syslog) for details");
-		}
-		else
-		{
-			AAMPLOG_INFO("Created pipeline %p", pipeline.get());
+		// Re-apply cached audio volume/mute - a freshly created
+		// pipeline defaults to full volume, so any previously
+		// requested value must be re-sent here.
+		applyAudioVolume();
 
-			// Install before load(): events Rialto delivers while loading
-			// would otherwise be dropped.
-			RegisterPipelineCallbacks();
-
-			if (!pipeline->load(
-					firebolt::rialto::MediaType::MSE,
-					"",
-					kMseUrl,
-					kPipelineIsLive))
-			{
-				AAMPLOG_ERR("load() failed - Rialto will reject attachSource calls");
-			}
-			else
-			{
-				AAMPLOG_INFO("load() succeeded");
-
-				// Advance state machine: pipeline is now created and loaded.
-				m_stateMachine.onPipelineLoaded();
-
-				// Re-apply cached audio volume/mute - a freshly created
-				// pipeline defaults to full volume, so any previously
-				// requested value must be re-sent here.
-				applyAudioVolume();
-
-				CreateMonitorAV();
-			}
-		}
+		CreateMonitorAV();
 	}
 }
 
@@ -1799,7 +1610,7 @@ void AampRialtoPlayer::StopInternal(bool keepLastFrame, bool preservePendingPosi
 	// Deregister from Rialto's IControl now that the session has ended,
 	// mirroring rialto-gstreamer's removeControlBackend() on READY->NULL.
 	// Configure() lazily recreates it on the next tune.
-	m_controlBackend.reset();
+	m_session.ReleaseControlBackend();
 	// Reset play intent and holds so a new tune's Configure() starts clean.
 	// This is the canonical place to discard a pending play request: Stop()
 	// ends the current session, whereas Configure() may be called mid-session
@@ -3266,10 +3077,10 @@ double AampRialtoPlayer::computeAppliedRate(int candidateRate, AampMediaType typ
 	// normal play rate the result is always 1.0 - skip the isVideoMaster
 	// IPC round-trip entirely in both cases.
 	if (type == eMEDIATYPE_VIDEO && candidateRate != AAMP_NORMAL_PLAY_RATE &&
-		m_pipelineCapabilities)
+		m_session.Capabilities())
 	{
 		bool videoMaster = false;
-		if (m_pipelineCapabilities->isVideoMaster(videoMaster) && !videoMaster)
+		if (m_session.Capabilities()->isVideoMaster(videoMaster) && !videoMaster)
 		{
 			return static_cast<double>(candidateRate);
 		}

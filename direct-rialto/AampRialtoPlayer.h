@@ -33,9 +33,6 @@
 #include "StreamSink.h"
 #include "ID3Metadata.hpp"
 #include "IMediaPipeline.h"
-#include "IMediaPipelineCapabilities.h"
-#include "IClientLogControl.h"
-#include "IClientLogHandler.h"
 #include "StreamOutputFormat.h"
 #include "AampDemuxDataTypes.h"
 #include "IDrmBridge.h"
@@ -49,6 +46,7 @@
 #include "IDirectRialtoCC.h"
 #include "AampRialtoGlibTimer.h"
 #include "AampRialtoProgressTimer.h"
+#include "AampRialtoPipelineSession.h"
 #include "AampRialtoMonitorAV.h"
 
 #include <array>
@@ -66,7 +64,6 @@
 
 class PrivateInstanceAAMP;
 class PrivateInstanceAAMPNotifiable;
-class AampRialtoMediaPipelineClient;
 class Mp4Demux;
 
 /// Callable that creates a per-track AampRialtoMediaSource.
@@ -341,20 +338,6 @@ public:
 	}
 
 private:
-	/**
-	 * @brief Bridges Rialto client log messages into AAMP's logging system.
-	 */
-	class RialtoLogHandler : public firebolt::rialto::IClientLogHandler
-	{
-	public:
-		void log(
-			Level level,
-			const std::string &file,
-			int line,
-			const std::string &function,
-			const std::string &message) override;
-	};
-
 	/// Current playback rate, updated by Flush().  Used by
 	/// GetPositionMilliseconds() to mirror GStreamer's rate multiplication:
 	///   elapsed * rate
@@ -415,33 +398,28 @@ private:
 	/// Non-null only when no test notifiable was injected.
 	std::unique_ptr<IStreamSinkNotifiable> m_notifiableAdapter;
 
-	std::shared_ptr<RialtoLogHandler> m_rialtoLogHandler; ///< Rialto log bridge
-	/// Rialto pipeline factory; null until Configure() calls createFactory().
-	std::shared_ptr<firebolt::rialto::IMediaPipelineFactory> m_pipelineFactory;
-	/// Rialto pipeline capabilities; created once in Configure() so that
-	/// computeAppliedRate() and any future callers share a single instance.
-	std::unique_ptr<firebolt::rialto::IMediaPipelineCapabilities>
-		m_pipelineCapabilities;
-	/// Control backend used to wait for ApplicationState::RUNNING before
-	/// creating the media pipeline.
-	std::unique_ptr<IRialtoControlBackend> m_controlBackend;
 	/// Callable for creating per-track media source objects.
 	SourceCreator m_sourceCreator;
-	std::shared_ptr<AampRialtoMediaPipelineClient> m_client;
 
-	/// Guarded by m_pipelineMutex; read it only through GetPipeline().
-	std::shared_ptr<firebolt::rialto::IMediaPipeline> m_pipeline;
-	/// Leaf lock: held only to copy or swap m_pipeline, never across a call.
-	mutable std::mutex m_pipelineMutex;
+	/// The Rialto pipeline, its client, factories and control backend.  Held
+	/// before the members that use the pipeline so it is destroyed after
+	/// them; the destructor still releases it explicitly first.
+	AampRialtoPipelineSession m_session;
 
 	/// Snapshot of the current pipeline (nullptr if none).  The returned
 	/// reference keeps the pipeline alive for the caller even if Stop()
 	/// releases it concurrently.
-	std::shared_ptr<firebolt::rialto::IMediaPipeline> GetPipeline() const;
+	std::shared_ptr<firebolt::rialto::IMediaPipeline> GetPipeline() const
+	{
+		return m_session.GetPipeline();
+	}
 
 	/// Replace the current pipeline; the old one is released without the
 	/// lock held, as its destructor performs Rialto IPC.
-	void SetPipeline(std::shared_ptr<firebolt::rialto::IMediaPipeline> pipeline);
+	void SetPipeline(std::shared_ptr<firebolt::rialto::IMediaPipeline> pipeline)
+	{
+		m_session.SetPipeline(std::move(pipeline));
+	}
 
 	/// DRM bridge used to create key sessions and obtain mks_ids.  Guarded by
 	/// m_drmBridgeMutex (a leaf lock); use it only through GetDrmBridge().
@@ -522,7 +500,7 @@ private:
 	///   m_attachMutex    -> the playback controller's play lock
 	/// m_attachMutex and m_flushCallMutex are never held together: AttachSource
 	/// (run under m_attachMutex) never calls Flush/Stop/Configure.  The leaf
-	/// mutexes (m_pipelineMutex, m_sourcesMutex, m_drmBridgeMutex,
+	/// mutexes (the pipeline session's mutex, m_sourcesMutex, m_drmBridgeMutex,
 	/// m_pendingAttachMutex, m_pendingProtectionMutex, m_ptsCheckMutex,
 	/// m_videoRectangleMutex, m_monitorMutex, m_id3HandlerMutex) are taken last.  The only call made while holding one
 	/// is m_monitorMutex -> AampRialtoMonitorAV::start(), which takes just the
@@ -650,7 +628,7 @@ private:
 	void MaybeFlushForPendingPosition(AampMediaType mediaType, double position);
 
 	/// Cached subtitle mute state.  Set by SetSubtitleMute() and re-applied
-	/// via m_pipeline->setMute() whenever the subtitle source first attaches.
+	/// via the pipeline's setMute() whenever the subtitle source first attaches.
 	bool m_subtitleMuted{true};
 
 	/// Cached audio volume (0-100), matching PrivateInstanceAAMP::audio_volume.
@@ -733,18 +711,9 @@ private:
 	/// run mid-session.
 	void ReleasePipelineForReconfigure();
 
-	/// Register the Rialto -> AAMP log bridge.  Idempotent.
-	void RegisterRialtoLogHandler();
-
-	/// Lazily create the control backend, pipeline factory and capabilities.
-	void EnsureRialtoFactories();
-
 	/// Create the Rialto pipeline, load it, and wire up its callbacks and
-	/// monitors.  Leaves m_pipeline null if any step fails.
+	/// monitors.  Leaves the session's pipeline null if any step fails.
 	void CreateAndLoadPipeline();
-
-	/// Route the pipeline client's notifications to this player.
-	void RegisterPipelineCallbacks();
 
 	/// Create the AV health monitor when eAAMPConfig_MonitorAV is set.
 	void CreateMonitorAV();

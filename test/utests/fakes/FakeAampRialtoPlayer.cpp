@@ -34,9 +34,7 @@ AampRialtoPlayer::AampRialtoPlayer(
 	std::function<void(const unsigned char *, int, int, int)> /*exportFrames*/)
 	: m_aamp(aamp)
 	, m_drmBridge(nullptr)
-	, m_controlBackend(nullptr)
-	, m_client(nullptr)
-	, m_pipeline(nullptr)
+	, m_session(nullptr)
 	, m_playbackController([](const char *) {})
 {
 }
@@ -121,6 +119,3 @@ void AampRialtoPlayer::StartProgressTimer() {}
 void AampRialtoPlayer::StopProgressTimer() {}
 void AampRialtoPlayer::OnProgressTimerTick() {}
 
-void AampRialtoPlayer::RialtoLogHandler::log(
-	Level, const std::string &, int,
-	const std::string &, const std::string &) {}
