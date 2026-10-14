@@ -22,6 +22,7 @@
 
 #include "IMediaPipeline.h"
 #include <functional>
+#include <mutex>
 #include <memory>
 #include <iostream>
 #include <vector>
@@ -89,54 +90,63 @@ public:
 	/// @brief Install callback for notifyNeedMediaData events.
 	void SetNeedDataCallback(NeedDataCallback cb)
 	{
+		std::lock_guard<std::mutex> lock(m_callbackMutex);
 		m_needDataCallback = std::move(cb);
 	}
 
 	/// @brief Install callback for notifyCancelNeedMediaData events.
 	void SetCancelNeedDataCallback(CancelNeedDataCallback cb)
 	{
+		std::lock_guard<std::mutex> lock(m_callbackMutex);
 		m_cancelNeedDataCallback = std::move(cb);
 	}
 
 	/// @brief Install callback for notifyPlaybackState events.
 	void SetPlaybackStateCallback(PlaybackStateCallback cb)
 	{
+		std::lock_guard<std::mutex> lock(m_callbackMutex);
 		m_playbackStateCallback = std::move(cb);
 	}
 
 	/// @brief Install callback for notifyPosition events.
 	void SetPositionCallback(PositionCallback cb)
 	{
+		std::lock_guard<std::mutex> lock(m_callbackMutex);
 		m_positionCallback = std::move(cb);
 	}
 
 	/// @brief Install callback for notifyDuration events.
 	void SetDurationCallback(DurationCallback cb)
 	{
+		std::lock_guard<std::mutex> lock(m_callbackMutex);
 		m_durationCallback = std::move(cb);
 	}
 
 	/// @brief Install callback for notifyBufferUnderflow events.
 	void SetBufferUnderflowCallback(BufferUnderflowCallback cb)
 	{
+		std::lock_guard<std::mutex> lock(m_callbackMutex);
 		m_bufferUnderflowCallback = std::move(cb);
 	}
 
 	/// @brief Install callback for notifySourceFlushed events.
 	void SetSourceFlushedCallback(SourceFlushedCallback cb)
 	{
+		std::lock_guard<std::mutex> lock(m_callbackMutex);
 		m_sourceFlushedCallback = std::move(cb);
 	}
 
 	/// @brief Install callback for notifyPlaybackError events.
 	void SetPlaybackErrorCallback(PlaybackErrorCallback cb)
 	{
+		std::lock_guard<std::mutex> lock(m_callbackMutex);
 		m_playbackErrorCallback = std::move(cb);
 	}
 
 	/// @brief Remove every installed callback.
 	void ClearCallbacks()
 	{
+		std::lock_guard<std::mutex> lock(m_callbackMutex);
 		m_needDataCallback = nullptr;
 		m_cancelNeedDataCallback = nullptr;
 		m_playbackStateCallback = nullptr;
@@ -176,6 +186,17 @@ public:
 	void notifyFirstFrameReceived(int32_t sourceId) override;
 
 private:
+	/// Copy @p cb under the lock so it can be invoked without holding it: the
+	/// setters run on the control thread while Rialto delivers events on its
+	/// own thread, and a callback may itself call a setter.
+	template <typename Callback>
+	Callback Snapshot(const Callback &cb) const
+	{
+		std::lock_guard<std::mutex> lock(m_callbackMutex);
+		return cb;
+	}
+
+	mutable std::mutex m_callbackMutex;
 	NeedDataCallback m_needDataCallback;
 	CancelNeedDataCallback m_cancelNeedDataCallback;
 	PlaybackStateCallback m_playbackStateCallback;

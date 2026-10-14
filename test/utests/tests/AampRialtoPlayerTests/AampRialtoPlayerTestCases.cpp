@@ -3670,6 +3670,29 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 }
 
 TEST_F(AampRialtoPlayerWithDemuxTest,
+	Configure_EventDeliveredDuringLoad_IsNotDropped)
+{
+	/**
+	 * @brief Regression (M8): the pipeline callbacks were installed only after
+	 *        load() succeeded, so anything Rialto reported while loading was
+	 *        dropped.  A duration reported from inside load() must reach the
+	 *        player.
+	 */
+	ON_CALL(*m_mockPipelinePtr, load(_, _, _, _))
+		.WillByDefault(Invoke([this](auto, auto, auto, auto) {
+			if (auto client = m_capturedClient.lock())
+			{
+				client->notifyDuration(7'000'000'000LL);
+			}
+			return true;
+		}));
+
+	Configure();
+
+	EXPECT_EQ(m_player->GetDurationMilliseconds(), 7000);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
 	SetVideoRectangle_CallsPipelineSetVideoWindow)
 {
 	Configure();

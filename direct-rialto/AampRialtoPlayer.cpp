@@ -835,6 +835,10 @@ void AampRialtoPlayer::CreateAndLoadPipeline()
 		{
 			AAMPLOG_INFO("Created pipeline %p", pipeline.get());
 
+			// Install before load(): events Rialto delivers while loading
+			// would otherwise be dropped.
+			RegisterPipelineCallbacks();
+
 			// TODO: How do we determine value for isLive
 			std::string utf8url = "mse://1";
 			if (!pipeline->load(
@@ -848,8 +852,6 @@ void AampRialtoPlayer::CreateAndLoadPipeline()
 			else
 			{
 				AAMPLOG_INFO("load() succeeded");
-
-				RegisterPipelineCallbacks();
 
 				// Advance state machine: pipeline is now created and loaded.
 				m_stateMachine.onPipelineLoaded();

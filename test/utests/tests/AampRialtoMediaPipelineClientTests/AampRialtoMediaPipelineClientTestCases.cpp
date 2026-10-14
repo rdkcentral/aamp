@@ -28,6 +28,12 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 
+#include <array>
+#include <future>
+#include <atomic>
+#include <memory>
+#include <thread>
+
 #include "AampRialtoMediaPipelineClient.h"
 
 using ::testing::_;
@@ -266,3 +272,82 @@ TEST_F(AampRialtoMediaPipelineClientTest,
 	EXPECT_EQ(callCount, 10);
 }
 
+TEST_F(AampRialtoMediaPipelineClientTest,
+	Callbacks_ConcurrentInstallAndDelivery_OnlyRunsWholeCallbacks)
+{
+	/**
+	 * @brief Regression (M8): the callbacks are std::function members that
+	 *        Set*Callback()/ClearCallbacks() assign on the control thread
+	 *        while Rialto delivers events on its own thread.  The capture is
+	 *        large enough to be heap allocated, so an unguarded copy or
+	 *        assignment can run a half-replaced callable.  Under a thread
+	 *        sanitizer the unguarded members are also reported as a race.
+	 */
+	std::atomic<bool> done{false};
+	std::atomic<int> calls{0};
+	std::atomic<bool> corrupted{false};
+
+	std::thread deliverer([&] {
+		while (!done.load())
+		{
+			m_client->notifyNeedMediaData(1, 1, 1, nullptr);
+			m_client->notifyPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+		}
+	});
+
+	for (int i = 0; i < 2000; ++i)
+	{
+		const auto guard = std::make_shared<std::atomic<int>>(0x5A5A);
+		std::array<int, 16> padding{};
+		padding.fill(0x5A5A);
+		m_client->SetNeedDataCallback(
+			[&, guard, padding](int32_t, size_t, uint32_t) {
+				if (guard->load() != 0x5A5A || padding[15] != 0x5A5A)
+				{
+					corrupted = true;
+				}
+				++calls;
+			});
+		m_client->SetPlaybackStateCallback(
+			[&, guard](firebolt::rialto::PlaybackState) {
+				if (guard->load() != 0x5A5A)
+				{
+					corrupted = true;
+				}
+			});
+		if ((i % 7) == 0)
+		{
+			m_client->ClearCallbacks();
+		}
+	}
+	done = true;
+	deliverer.join();
+
+	EXPECT_FALSE(corrupted.load());
+}
+
+TEST_F(AampRialtoMediaPipelineClientTest,
+	Callback_MayReplaceItselfWhileRunning_DoesNotDeadlock)
+{
+	/**
+	 * @brief The callback is invoked without the client's lock, so a callback
+	 *        that installs another callback (or clears them) must not
+	 *        deadlock.
+	 */
+	int first = 0;
+	int second = 0;
+	m_client->SetNeedDataCallback([&](int32_t, size_t, uint32_t) {
+		++first;
+		m_client->SetNeedDataCallback(
+			[&](int32_t, size_t, uint32_t) { ++second; });
+	});
+
+	auto result = std::async(std::launch::async, [&] {
+		m_client->notifyNeedMediaData(1, 1, 1, nullptr);
+		m_client->notifyNeedMediaData(1, 1, 2, nullptr);
+	});
+	ASSERT_EQ(result.wait_for(std::chrono::seconds(5)),
+		std::future_status::ready);
+	EXPECT_EQ(first, 1);
+	EXPECT_EQ(second, 1);
+}
