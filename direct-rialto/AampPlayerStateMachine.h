@@ -178,6 +178,8 @@ public:
 	void onPipelineLoaded();
 
 	/// @see IPlayerState::onSourceAttaching
+	/// Ignored without a WARN once past PIPELINE_CREATED (only the first
+	/// source moves the machine on).
 	void onSourceAttaching();
 
 	/// @see IPlayerState::onAllSourcesAttached
@@ -202,6 +204,7 @@ public:
 	void onFlushComplete();
 
 	/// @see IPlayerState::onStop
+	/// Ignored without a WARN when already IDLE.
 	void onStop();
 
 	/// @see IPlayerState::onError

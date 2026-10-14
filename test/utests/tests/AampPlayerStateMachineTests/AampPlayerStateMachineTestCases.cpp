@@ -194,11 +194,11 @@ TEST_F(AampPlayerStateMachineTest, OnFlush_FromPaused_TransitionsToFlushing)
 }
 
 /**
- * @test onSourceAttaching from FLUSHING is ignored (no valid transition).
+ * @test onSourceAttaching from FLUSHING leaves the machine in FLUSHING.
  *
  * There is no direct FLUSHING→SOURCES_ATTACHING path; a pipeline rebuild
- * always goes through onReconfigure (→IDLE) first.  The dispatch layer
- * emits a WARN and leaves the machine in FLUSHING.
+ * always goes through onReconfigure (→IDLE) first.  Another source
+ * attaching is not an error, so it is ignored without a WARN.
  */
 TEST_F(AampPlayerStateMachineTest, OnSourceAttaching_FromFlushing_IsIgnored)
 {
@@ -206,8 +206,89 @@ TEST_F(AampPlayerStateMachineTest, OnSourceAttaching_FromFlushing_IsIgnored)
 	m_sm.onSourceAttaching();
 	m_sm.onAllSourcesAttached();
 	m_sm.onFlush();
-	m_sm.onSourceAttaching();   // no transition defined — dispatch warns
+	m_sm.onSourceAttaching();   // ignored
 	EXPECT_EQ(m_sm.currentState(), PlayerStateId::FLUSHING);
+}
+
+/**
+ * @test The second and third source attaching after the first moved the
+ *       machine to SOURCES_ATTACHING is normal and must not log a WARN.
+ */
+TEST_F(AampPlayerStateMachineTest, OnSourceAttaching_WhileAlreadyAttaching_DoesNotWarn)
+{
+	m_sm.onPipelineLoaded();
+	m_sm.onSourceAttaching();
+
+	testing::internal::CaptureStdout();
+	m_sm.onSourceAttaching();
+	m_sm.onSourceAttaching();
+	const std::string log = testing::internal::GetCapturedStdout();
+
+	EXPECT_EQ(m_sm.currentState(), PlayerStateId::SOURCES_ATTACHING);
+	EXPECT_EQ(log.find("[WARN]"), std::string::npos) << log;
+}
+
+/**
+ * @test A source attaching after all sources attached (a deferred source,
+ *       or one added while playing) leaves the state alone without a WARN.
+ */
+TEST_F(AampPlayerStateMachineTest, OnSourceAttaching_AfterAllAttached_DoesNotWarn)
+{
+	m_sm.onPipelineLoaded();
+	m_sm.onSourceAttaching();
+	m_sm.onAllSourcesAttached();
+	m_sm.onPlaybackStarted();
+
+	testing::internal::CaptureStdout();
+	m_sm.onSourceAttaching();
+	const std::string log = testing::internal::GetCapturedStdout();
+
+	EXPECT_EQ(m_sm.currentState(), PlayerStateId::PLAYING);
+	EXPECT_EQ(log.find("[WARN]"), std::string::npos) << log;
+}
+
+/**
+ * @test onSourceAttaching with no pipeline (IDLE) is unexpected and still
+ *       logs a WARN, leaving the machine in IDLE.
+ */
+TEST_F(AampPlayerStateMachineTest, OnSourceAttaching_FromIdle_StillWarns)
+{
+	testing::internal::CaptureStdout();
+	m_sm.onSourceAttaching();
+	const std::string log = testing::internal::GetCapturedStdout();
+
+	EXPECT_EQ(m_sm.currentState(), PlayerStateId::IDLE);
+	EXPECT_NE(log.find("[WARN]"), std::string::npos) << log;
+}
+
+/**
+ * @test onSourceAttaching from ERROR is unexpected and still logs a WARN.
+ */
+TEST_F(AampPlayerStateMachineTest, OnSourceAttaching_FromError_StillWarns)
+{
+	m_sm.onPipelineLoaded();
+	m_sm.onError();
+
+	testing::internal::CaptureStdout();
+	m_sm.onSourceAttaching();
+	const std::string log = testing::internal::GetCapturedStdout();
+
+	EXPECT_EQ(m_sm.currentState(), PlayerStateId::ERROR);
+	EXPECT_NE(log.find("[WARN]"), std::string::npos) << log;
+}
+
+/**
+ * @test Stop() on an idle player (including one already stopped) is not an
+ *       error: the machine stays IDLE and nothing is logged as a WARN.
+ */
+TEST_F(AampPlayerStateMachineTest, OnStop_FromIdle_DoesNotWarn)
+{
+	testing::internal::CaptureStdout();
+	m_sm.onStop();
+	const std::string log = testing::internal::GetCapturedStdout();
+
+	EXPECT_EQ(m_sm.currentState(), PlayerStateId::IDLE);
+	EXPECT_EQ(log.find("[WARN]"), std::string::npos) << log;
 }
 
 /**

@@ -357,6 +357,20 @@ void PlayerStateMachine::onPipelineLoaded()
 
 void PlayerStateMachine::onSourceAttaching()
 {
+	{
+		// Only the first source moves the machine on; later sources, and
+		// sources added once all are attached, are not errors.
+		std::lock_guard<std::mutex> lock(m_mutex);
+		const PlayerStateId id = m_state->id();
+		if (id != PlayerStateId::IDLE
+			&& id != PlayerStateId::PIPELINE_CREATED
+			&& id != PlayerStateId::ERROR)
+		{
+			AAMPLOG_TRACE("PlayerState: onSourceAttaching in %s - already past "
+				"PIPELINE_CREATED, ignored", m_state->name());
+			return;
+		}
+	}
 	dispatch(&IPlayerState::onSourceAttaching, "onSourceAttaching");
 }
 
@@ -397,6 +411,15 @@ void PlayerStateMachine::onFlushComplete()
 
 void PlayerStateMachine::onStop()
 {
+	{
+		// Stop() on an idle player, or one that is already stopped, is normal.
+		std::lock_guard<std::mutex> lock(m_mutex);
+		if (m_state->id() == PlayerStateId::IDLE)
+		{
+			AAMPLOG_TRACE("PlayerState: onStop in IDLE - nothing to stop");
+			return;
+		}
+	}
 	dispatch(&IPlayerState::onStop, "onStop");
 }
 
