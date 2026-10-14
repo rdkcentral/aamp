@@ -201,7 +201,8 @@ char * DeviceFireboltInterface::GetTR181Config(const char * paramName, size_t & 
 
 /**
  * @brief Queries Device.hdcp and Device.videoResolution via Firebolt and updates player HDCP/resolution state.
- * Implements xrn:firebolt:capability:device:info for SetHDMIStatus on RDK-E (USE_FIREBOLT) builds.
+ * Firebolt-based dsmgr replacement for the IARM/DeviceSettings SetHDMIStatus path, which
+ * fails inside app containers (VIPA) where IARM is unavailable
  */
 void DeviceFireboltInterface::SetHDMIStatus()
 {
