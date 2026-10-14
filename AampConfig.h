@@ -243,6 +243,7 @@ typedef enum
 	                                                         IsoBmffHelper::ConvertToKeyFrame() fixes the MOOF metadata. Has no effect
 	                                                         outside VOD (live and local-TSB streams are not eligible). Default: false. */
 	eAAMPConfig_EnableEventProfiling,			/**< Enable event round-trip time profiling (async queue dwell + sync delivery). Default: false */
+	eAAMPConfig_PreferInbandCC,				/**< When a text language is available both as TTML subtitles and as in-band CC, select in-band CC (true) or TTML (false). Default: true (in-band CC, matches legacy behaviour) */
 	eAAMPConfig_BoolMaxValue				/**< Max value of bool config always last element */	
 
 } AAMPConfigSettingBool;

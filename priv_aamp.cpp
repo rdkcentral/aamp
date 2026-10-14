@@ -12131,6 +12131,41 @@ static char* createJsonData(TextTrackInfo& track)
 }
 
 /**
+ * @brief Find a text track of the given format (in-band CC or not) for a language
+ * @param[in] tracks available text tracks
+ * @param[in] language language to match (normalized before comparison)
+ * @param[in] isCC true to look for in-band CC, false for subtitles (TTML)
+ * @param[in] langCodePreference language code normalization preference
+ * @return index of the first matching track, or -1 if none
+ */
+static int FindTextTrackIndexByFormat(const std::vector<TextTrackInfo> &tracks,
+		const std::string &language, bool isCC, LangCodePreference langCodePreference)
+{
+	if (language.empty())
+	{
+		AAMPLOG_WARN("Empty language, cannot match %s track", isCC ? "in-band CC" : "TTML");
+		return -1;
+	}
+	const std::string lang = Getiso639map_NormalizeLanguageCode(language, langCodePreference);
+	if (lang.empty())
+	{
+		AAMPLOG_WARN("Language '%s' normalized to empty, cannot match %s track", language.c_str(), isCC ? "in-band CC" : "TTML");
+		return -1;
+	}
+	for (size_t i = 0; i < tracks.size(); i++)
+	{
+		if ((tracks[i].isCC == isCC) &&
+			(Getiso639map_NormalizeLanguageCode(tracks[i].language, langCodePreference) == lang))
+		{
+			AAMPLOG_WARN("Found %s track at index %zu for lang=%s", isCC ? "in-band CC" : "TTML", i, lang.c_str());
+			return static_cast<int>(i);
+		}
+	}
+	AAMPLOG_WARN("No %s track found for lang=%s", isCC ? "in-band CC" : "TTML", lang.c_str());
+	return -1;
+}
+
+/**
  * @brief Set text track
  */
 void PrivateInstanceAAMP::SetTextTrack(int trackId, char *data)
@@ -12155,6 +12190,26 @@ void PrivateInstanceAAMP::SetTextTrack(int trackId, char *data)
 			std::vector<TextTrackInfo> tracks = mpStreamAbstractionAAMP->GetAvailableTextTracks();
 			if (!tracks.empty() && (trackId >= 0 && trackId < tracks.size()))
 			{
+				const bool preferInbandCC = ISCONFIGSET_PRIV(eAAMPConfig_PreferInbandCC);
+				AAMPLOG_WARN("preferInbandCC=%d requested trackId=%d isCC=%d lang=%s",
+						preferInbandCC, trackId, tracks[trackId].isCC, tracks[trackId].language.c_str());
+				if (tracks[trackId].isCC != preferInbandCC)
+				{
+					// Same language available in the preferred format; switch to it
+					int altTrackId = FindTextTrackIndexByFormat(tracks, tracks[trackId].language,
+							preferInbandCC, GetLangCodePreference());
+					if (altTrackId >= 0)
+					{
+						AAMPLOG_WARN("preferInbandCC=%d: trackId %d replaced by %d (lang=%s)",
+								preferInbandCC, trackId, altTrackId, tracks[trackId].language.c_str());
+						trackId = altTrackId;
+					}
+					else
+					{
+						AAMPLOG_WARN("preferInbandCC=%d: no preferred-format track for lang=%s, keeping trackId %d",
+								preferInbandCC, tracks[trackId].language.c_str(), trackId);
+					}
+				}
 				TextTrackInfo track = tracks[trackId];
 				// Check if CC / Subtitle track
 				if (track.isCC)
@@ -13580,6 +13635,7 @@ int PrivateInstanceAAMP::FindClosedCaptionTrackIndex(const std::vector<TextTrack
 	int closedCaptionLanguageTrackIdx = -1;
 	int trackIdx = -1;
 	int closedCaptionTrackIdx = -1;
+	const bool preferInbandCC = ISCONFIGSET_PRIV(eAAMPConfig_PreferInbandCC);
 	for (const auto &track : trackInfo)
 	{
 		trackIdx++;
@@ -13588,7 +13644,18 @@ int PrivateInstanceAAMP::FindClosedCaptionTrackIndex(const std::vector<TextTrack
 			std::string firstLanguage = preferredTextLanguagesList.at(0);
 			if ((track.language == firstLanguage) && track.isCC && preferredRenditionString != "subtitle")
 			{
-				closedCaptionLanguageTrackIdx = trackIdx;
+				// Language match only: honour TTML preference if a TTML track exists for it
+				if (preferInbandCC || (FindTextTrackIndexByFormat(trackInfo, track.language, false, GetLangCodePreference()) < 0))
+				{
+					AAMPLOG_WARN("preferInbandCC=%d: selecting in-band CC trackIdx %d (lang=%s)",
+							preferInbandCC, trackIdx, track.language.c_str());
+					closedCaptionLanguageTrackIdx = trackIdx;
+				}
+				else
+				{
+					AAMPLOG_WARN("preferInbandCC=%d: skipping in-band CC trackIdx %d, TTML available for lang=%s",
+							preferInbandCC, trackIdx, track.language.c_str());
+				}
 			}
 		}
 		if (track.instreamId == preferredInstreamIdString && track.isCC)

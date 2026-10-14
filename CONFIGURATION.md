@@ -207,6 +207,7 @@ Network timeout configurations control how long AAMP waits for various network o
 |----------|------|---------|-------------|
 | `bulkTimedMetadata` | Boolean | false | Report timed metadata as single bulk event |
 | `nativeCCRendering` | Boolean | false | Enable native caption rendering |
+| `preferInbandCC` | Boolean | true | When the same text language is available both as TTML subtitles and as in-band CC (CEA-608/708), `setTextTrack` and `setPreferredTextLanguage` select in-band CC when `true`, TTML when `false`. Languages available in only one format are unaffected. |
 | `id3` | Boolean | false | Enable ID3 tag processing |
 | `enableSubscribedTags` | Boolean | true | Enable subscribed tags |
 

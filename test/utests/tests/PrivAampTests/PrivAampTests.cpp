@@ -4728,6 +4728,108 @@ TEST_F(PrivAampTests, SetTextTrack_CCTrack_ArmsGuardAndEnablesCCManager)
 	EXPECT_EQ(p_aamp->GetPreferredTextTrack().instreamId, "CC1");
 }
 
+// preferInbandCC=false (TTML preferred): selecting an in-band CC track
+// whose language also exists as TTML must select the TTML track instead.
+TEST_F(PrivAampTests, SetTextTrack_PreferTtml_CCRequestSwitchesToTtml)
+{
+	TextTrackInfo ttmlTrack;
+	ttmlTrack.index    = "1-0";
+	ttmlTrack.language = "eng";
+	ttmlTrack.isCC     = false;
+
+	TextTrackInfo ccTrack;
+	ccTrack.language   = "eng";
+	ccTrack.isCC       = true;
+	ccTrack.instreamId = "CC1";
+
+	// TTML at index 0: the fake GetTextTrack() returns 0 so no retune is triggered
+	std::vector<TextTrackInfo> tracks = { ttmlTrack, ccTrack };
+
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
+	p_aamp->mIsInbandCC = true;
+
+	ON_CALL(*g_mockAampUtils, Getiso639map_NormalizeLanguageCode(_, _))
+		.WillByDefault(Invoke([](std::string lang, LangCodePreference) { return lang; }));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_PreferInbandCC))
+		.WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableTextTracks(false))
+		.WillOnce(ReturnRef(tracks));
+	EXPECT_CALL(*g_mockPlayerCCManager, SetTrack(_, _)).Times(0);
+
+	p_aamp->SetTextTrack(1, nullptr);
+
+	EXPECT_FALSE(p_aamp->mIsInbandCC);
+}
+
+// preferInbandCC=true: selecting a TTML track whose language also exists as
+// in-band CC must select the CC track instead.
+TEST_F(PrivAampTests, SetTextTrack_PreferInbandCC_TtmlRequestSwitchesToCC)
+{
+	TextTrackInfo ttmlTrack;
+	ttmlTrack.index    = "1-0";
+	ttmlTrack.language = "eng";
+	ttmlTrack.isCC     = false;
+
+	TextTrackInfo ccTrack;
+	ccTrack.language   = "eng";
+	ccTrack.isCC       = true;
+	ccTrack.instreamId = "CC1";
+
+	std::vector<TextTrackInfo> tracks = { ttmlTrack, ccTrack };
+
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
+	p_aamp->mIsInbandCC = false;
+	p_aamp->subtitles_muted = false;
+
+	ON_CALL(*g_mockAampUtils, Getiso639map_NormalizeLanguageCode(_, _))
+		.WillByDefault(Invoke([](std::string lang, LangCodePreference) { return lang; }));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_PreferInbandCC))
+		.WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableTextTracks(false))
+		.WillOnce(ReturnRef(tracks));
+	EXPECT_CALL(*g_mockPlayerCCManager, SetTrack("CC1", _)).WillOnce(Return(0));
+
+	p_aamp->SetTextTrack(0, nullptr);
+
+	EXPECT_TRUE(p_aamp->mIsInbandCC);
+	EXPECT_TRUE(p_aamp->GetPreferredTextTrack().isCC);
+	EXPECT_EQ(p_aamp->GetPreferredTextTrack().instreamId, "CC1");
+}
+
+// A language available only as in-band CC is selected as CC regardless of
+// the TTML preference.
+TEST_F(PrivAampTests, SetTextTrack_PreferTtml_CCOnlyLanguageStaysCC)
+{
+	TextTrackInfo ttmlTrack;
+	ttmlTrack.index    = "1-0";
+	ttmlTrack.language = "spa";
+	ttmlTrack.isCC     = false;
+
+	TextTrackInfo ccTrack;
+	ccTrack.language   = "eng";
+	ccTrack.isCC       = true;
+	ccTrack.instreamId = "CC1";
+
+	std::vector<TextTrackInfo> tracks = { ttmlTrack, ccTrack };
+
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
+	p_aamp->mIsInbandCC = false;
+	p_aamp->subtitles_muted = false;
+
+	ON_CALL(*g_mockAampUtils, Getiso639map_NormalizeLanguageCode(_, _))
+		.WillByDefault(Invoke([](std::string lang, LangCodePreference) { return lang; }));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_PreferInbandCC))
+		.WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableTextTracks(false))
+		.WillOnce(ReturnRef(tracks));
+	EXPECT_CALL(*g_mockPlayerCCManager, SetTrack("CC1", _)).WillOnce(Return(0));
+
+	p_aamp->SetTextTrack(1, nullptr);
+
+	EXPECT_TRUE(p_aamp->mIsInbandCC);
+	EXPECT_EQ(p_aamp->GetPreferredTextTrack().instreamId, "CC1");
+}
+
 TEST_F(PrivAampTests,SetCCStatusPreTune)
 {
 	// Test basic CC status functionality
