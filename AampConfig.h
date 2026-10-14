@@ -242,6 +242,7 @@ typedef enum
 	                                                         been received (using GetIframeByteCap() to derive the byte cap), then
 	                                                         IsoBmffHelper::ConvertToKeyFrame() fixes the MOOF metadata. Has no effect
 	                                                         outside VOD (live and local-TSB streams are not eligible). Default: false. */
+	eAAMPConfig_EnableEventProfiling,			/**< Enable event round-trip time profiling (async queue dwell + sync delivery). Default: false */
 	eAAMPConfig_BoolMaxValue				/**< Max value of bool config always last element */	
 
 } AAMPConfigSettingBool;
@@ -341,6 +342,7 @@ typedef enum
 	eAAMPConfig_UnderflowLowBufferPollMs,			/**< Underflow monitor polling interval for low buffer condition in milliseconds */
 	eAAMPConfig_UnderflowMediumBufferPollMs,		/**< Underflow monitor polling interval for medium buffer condition in milliseconds */
 	eAAMPConfig_UnderflowHighBufferPollMs,			/**< Underflow monitor polling interval for high buffer condition in milliseconds */
+	eAAMPConfig_EventProfilingThresholdMs,			/**< Round-trip threshold (ms): log only when async (dwell+delivery) or sync delivery time exceeds this value */
 	eAAMPConfig_IntMaxValue							/**< Max value of int config always last element*/
 } AAMPConfigSettingInt;
 #define AAMPCONFIG_INT_COUNT (eAAMPConfig_IntMaxValue)

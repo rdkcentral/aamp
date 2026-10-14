@@ -385,6 +385,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false, "processLicenseFromEAP", eAAMPConfig_ProcessLicenseFromEAP, false},
 	{false, "enableProducerReferenceDelay", eAAMPConfig_EnableProducerReferenceDelay, false},
 	{false, "synthesizeIframeForVOD", eAAMPConfig_SynthesizeIframeForVOD, false},
+	{false, "enableEventProfiling", eAAMPConfig_EnableEventProfiling, false},
 };
 
 #define CONFIG_INT_ALIAS_COUNT 2
@@ -487,6 +488,7 @@ static const ConfigLookupEntryInt mConfigLookupTableInt[AAMPCONFIG_INT_COUNT+CON
 	{DEFAULT_UNDERFLOW_LOW_BUFFER_POLL_MS, "underflowLowBufferPollMs", eAAMPConfig_UnderflowLowBufferPollMs, true},
 	{DEFAULT_UNDERFLOW_MEDIUM_BUFFER_POLL_MS, "underflowMediumBufferPollMs", eAAMPConfig_UnderflowMediumBufferPollMs, true},
 	{DEFAULT_UNDERFLOW_HIGH_BUFFER_POLL_MS, "underflowHighBufferPollMs", eAAMPConfig_UnderflowHighBufferPollMs, true},
+	{DEFAULT_EVENT_PROFILING_THRESHOLD_MS, "eventProfilingThresholdMs", eAAMPConfig_EventProfilingThresholdMs, false},
 	// Add new integer config entries above this line, before the aliases section.
 	//
 	// Aliases, kept for backwards compatibility

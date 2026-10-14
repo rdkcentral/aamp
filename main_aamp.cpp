@@ -357,7 +357,6 @@ void PlayerInstanceAAMP::Stop(bool sendStateChangeEvent, bool forceCleanup)
 	{
 		auto playerStopStartTime = NOW_STEADY_TS_MS;
 		UsingPlayerId playerId(aamp->mPlayerId);
-		AAMPPlayerState state = aamp->GetState();
 		auto suspendSchedulerStartTime = NOW_STEADY_TS_MS;
 
 		// Block new tasks from being scheduled
@@ -394,7 +393,7 @@ void PlayerInstanceAAMP::Stop(bool sendStateChangeEvent, bool forceCleanup)
 
 		auto suspendSchedulerEndTime = NOW_STEADY_TS_MS;
 		//state will be eSTATE_IDLE or eSTATE_RELEASED, right after an init or post-processing of a Stop call
-		state = aamp->GetState();
+		AAMPPlayerState state = aamp->GetState();
 		if (state != eSTATE_IDLE && state != eSTATE_RELEASED)
 		{
 			StopInternal(sendStateChangeEvent, forceCleanup);
@@ -827,7 +826,8 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 					StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(aamp);
 					if (sink)
 					{
-						sink->Configure(aamp->mVideoFormat, aamp->mAudioFormat, aamp->mSubtitleFormat, aamp->mpStreamAbstractionAAMP->GetESChangeStatus());
+						sink->Configure(aamp->GetStreamCodecInfo(),
+							aamp->mpStreamAbstractionAAMP->GetESChangeStatus());
 						aamp->ResumeDownloads(); //To make sure that the playback resumes after a player switch if player was in paused state before being at background
 						aamp->mpStreamAbstractionAAMP->StartInjection();
 						sink->Stream();
@@ -996,7 +996,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 						aamp->rate = AAMP_NORMAL_PLAY_RATE;
 						aamp->mSinkPaused = false;
 						{
-							std::lock_guard<std::recursive_mutex> lock(aamp->GetStreamLock());
+							PrivateInstanceAAMP::SetRateProtect setRateLock(aamp);
 							aamp->TuneHelper(eTUNETYPE_SEEK, false);
 						}
 						// Notify speed change without state transition (keeps eSTATE_SEEKING)
@@ -1102,8 +1102,9 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 				aamp->CalculateTrickModePositionEOS();
 				aamp->EnableDownloads();
 				aamp->ResumeDownloads();
+
 				{
-					std::lock_guard<std::recursive_mutex> lock(aamp->GetStreamLock());
+					PrivateInstanceAAMP::SetRateProtect setRateLock(aamp);
 					aamp->TuneHelper(tuneTypePlay); // this unpauses pipeline as side effect
 				}
 			}
@@ -3404,10 +3405,12 @@ bool PlayerInstanceAAMP::InitAAMPConfig(const char *jsonStr)
 			aamp->curlhost[i] = new eCurlHostMap();
 		}
 	}
-
 	// also enable Ethan log redirection if Rialto is enabled using initconfig option.
 	AampLogManager::enableEthanLogRedirection = aamp->UsingRialto();
 	PlayerLogManager::SetLoggerInfo(AampLogManager::disableLogRedirection, AampLogManager::enableEthanLogRedirection, AampLogManager::aampLoglevel, AampLogManager::locked);
+
+	// Reapply event profiling config to AampEventManager
+	aamp->EnableEventProfiling();
 	return retVal;
 }
 
