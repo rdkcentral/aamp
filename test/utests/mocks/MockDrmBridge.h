@@ -37,8 +37,6 @@ public:
 	MOCK_METHOD(int32_t, createSession,
 		(const char *systemId, const void *initData, size_t len, AampMediaType type),
 		(override));
-
-	MOCK_METHOD(void, clearSessions, (), (override));
 };
 
 /// Global mock instance delegated to by FakeAampDrmBridge.

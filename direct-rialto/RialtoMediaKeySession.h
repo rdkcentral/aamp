@@ -71,7 +71,7 @@ public:
 	 * @brief Deliver a license response to the Rialto server.
 	 * @return true on success, false on failure.
 	 */
-	bool update(const uint8_t* keyMessage, uint16_t keyMessageLength);
+	bool update(const uint8_t* keyMessage, size_t keyMessageLength);
 
 	/**
 	 * @brief Close the key session on the Rialto server.
@@ -94,7 +94,7 @@ public:
 	 * @param keyIdSize Length of keyId.
 	 * @return true if the key status is USABLE.
 	 */
-	bool isKeyUsable(const uint8_t* keyId, uint8_t keyIdSize) const;
+	bool isKeyUsable(const uint8_t* keyId, size_t keyIdSize) const;
 
 	/**
 	 * @brief Check if a key has OUTPUT_RESTRICTED status.
@@ -103,7 +103,7 @@ public:
 	 * @param keyIdSize Length of keyId.
 	 * @return true if the key status is OUTPUT_RESTRICTED.
 	 */
-	bool isKeyOutputRestricted(const uint8_t* keyId, uint8_t keyIdSize) const;
+	bool isKeyOutputRestricted(const uint8_t* keyId, size_t keyIdSize) const;
 
 	/**
 	 * @brief Get the Rialto media key session ID.

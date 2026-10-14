@@ -29,6 +29,8 @@
 #include "DrmMediaFormat.h"
 #include "AampLogManager.h"
 
+#include <limits>
+
 AampDrmBridge::AampDrmBridge(PrivateInstanceAAMP *aamp)
 	: m_aamp(aamp)
 {
@@ -45,6 +47,12 @@ int32_t AampDrmBridge::createSession(
 	if (!m_aamp || !systemId || !initData || len == 0)
 	{
 		AAMPLOG_WARN("AampDrmBridge::createSession: invalid arguments");
+	}
+	else if (len > std::numeric_limits<uint16_t>::max())
+	{
+		AAMPLOG_ERR("AampDrmBridge::createSession: init data of %zu bytes exceeds the "
+			"%u byte limit of the DRM session manager",
+			len, static_cast<unsigned>(std::numeric_limits<uint16_t>::max()));
 	}
 	else
 	{
@@ -70,9 +78,11 @@ int32_t AampDrmBridge::createSession(
 			DrmMetaDataEventPtr eventHandle = std::make_shared<DrmMetaDataEvent>(
 				AAMP_TUNE_FAILURE_UNKNOWN, "", 0, 0, false, m_aamp->GetSessionId());
 
+			// The DRM helpers choose their behaviour by manifest type, so pass
+			// the type of the current tune and not a fixed one.
 			DrmSession *session = licMgr->createDrmSession(
 				systemId,
-				eMEDIAFORMAT_DASH,
+				m_aamp->mMediaFormat,
 				static_cast<const unsigned char *>(initData),
 				static_cast<uint16_t>(len),
 				streamType,
@@ -93,17 +103,4 @@ int32_t AampDrmBridge::createSession(
 	}
 
 	return mksId;
-}
-
-void AampDrmBridge::clearSessions()
-{
-	AAMPLOG_INFO("AampDrmBridge::clearSessions");
-	if (!m_aamp)
-		return;
-
-	AampDRMLicenseManager *licMgr = m_aamp->mDRMLicenseManager;
-	if (licMgr && licMgr->mDrmSessionManager)
-	{
-		licMgr->mDrmSessionManager->clearDrmSession(/*forceClearSession=*/true);
-	}
 }

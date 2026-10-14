@@ -44,9 +44,9 @@ RialtoMediaKeySession::~RialtoMediaKeySession()
 	}
 }
 
-bool RialtoMediaKeySession::update(const uint8_t* keyMessage, uint16_t keyMessageLength)
+bool RialtoMediaKeySession::update(const uint8_t* keyMessage, size_t keyMessageLength)
 {
-	AAMPLOG_INFO("RialtoMediaKeySession[%d]: update, length=%u", m_keySessionId, keyMessageLength);
+	AAMPLOG_INFO("RialtoMediaKeySession[%d]: update, length=%zu", m_keySessionId, keyMessageLength);
 
 	const std::vector<uint8_t> responseData(keyMessage, keyMessage + keyMessageLength);
 	firebolt::rialto::MediaKeyErrorStatus status =
@@ -104,7 +104,7 @@ bool RialtoMediaKeySession::destruct()
 	return (status == firebolt::rialto::MediaKeyErrorStatus::OK);
 }
 
-bool RialtoMediaKeySession::isKeyUsable(const uint8_t* keyId, uint8_t keyIdSize) const
+bool RialtoMediaKeySession::isKeyUsable(const uint8_t* keyId, size_t keyIdSize) const
 {
 	std::lock_guard<std::mutex> lock(m_keyStatusMutex);
 	const std::vector<uint8_t> key(keyId, keyId + keyIdSize);
@@ -117,7 +117,7 @@ bool RialtoMediaKeySession::isKeyUsable(const uint8_t* keyId, uint8_t keyIdSize)
 	return false;
 }
 
-bool RialtoMediaKeySession::isKeyOutputRestricted(const uint8_t* keyId, uint8_t keyIdSize) const
+bool RialtoMediaKeySession::isKeyOutputRestricted(const uint8_t* keyId, size_t keyIdSize) const
 {
 	std::lock_guard<std::mutex> lock(m_keyStatusMutex);
 	const std::vector<uint8_t> key(keyId, keyId + keyIdSize);

@@ -2107,10 +2107,9 @@ TEST_F(AampRialtoPlayerDrmTest,
 	m_player->QueueProtectionEvent(
 		"com.widevine.alpha", initData, sizeof(initData), eMEDIATYPE_VIDEO);
 
-	// ClearProtectionEvent must NOT call clearSessions — it only clears the
-	// buffered init data so that a subsequent Configure/attachOrUpdate does
-	// not re-use stale protection params.
-	EXPECT_CALL(*m_mockDrmBridge, clearSessions()).Times(0);
+	// ClearProtectionEvent only clears the buffered init data so that a
+	// subsequent Configure/attachOrUpdate does not re-use stale protection
+	// params.
 	m_player->ClearProtectionEvent();
 }
 
@@ -2127,10 +2126,9 @@ TEST_F(AampRialtoPlayerDrmTest,
  	PrivateInstanceAAMP encryptedAamp{};
  	m_player->SetEncryptedAamp(&encryptedAamp);
 
-	// ClearProtectionEvent only clears pending params — it does not call
-	// clearSessions.  Verify that the bridge was created by queuing protection
-	// and checking createSession is reachable through the mock.
-	EXPECT_CALL(*m_mockDrmBridge, clearSessions()).Times(0);
+	// ClearProtectionEvent only clears pending params.  Verify that the
+	// bridge was created by queuing protection and checking createSession is
+	// reachable through the mock.
 	m_player->ClearProtectionEvent();
 }
 
@@ -2206,7 +2204,6 @@ TEST_F(AampRialtoPlayerDrmTest,
 	SendVideoInitFragment();
 
 	// ClearProtectionEvent only clears pending params, not DRM sessions.
-	EXPECT_CALL(*m_mockDrmBridge, clearSessions()).Times(0);
 	m_player->ClearProtectionEvent();
 }
 

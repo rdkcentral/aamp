@@ -66,7 +66,8 @@ public:
 	 * Internally calls DrmSessionManager::createDrmSession() which drives
 	 * the full OCDM license acquisition flow.  On success the mks_id
 	 * stored inside the OCDMSessionAdapter is returned; on failure -1 is
-	 * returned.
+	 * returned.  Init data longer than 65535 bytes is rejected because the
+	 * DRM session manager takes a 16-bit length.
 	 *
 	 * @param[in] systemId   DRM system UUID string.
 	 * @param[in] initData   PSSH init data blob.
@@ -80,11 +81,6 @@ public:
 		const void    *initData,
 		size_t         len,
 		AampMediaType  type) override;
-
-	/**
-	 * @brief Release all DRM sessions via AAMP's DrmSessionManager.
-	 */
-	void clearSessions() override;
 
 private:
 	PrivateInstanceAAMP *m_aamp; ///< Non-owning pointer; lifetime guaranteed by AampRialtoPlayer

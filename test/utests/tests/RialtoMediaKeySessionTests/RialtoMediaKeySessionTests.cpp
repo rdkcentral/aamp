@@ -30,7 +30,9 @@ int main(int argc, char **argv)
 }
 
 using ::testing::_;
+using ::testing::DoAll;
 using ::testing::Return;
+using ::testing::SaveArg;
 using ::testing::NiceMock;
 
 class RialtoMediaKeySessionTest : public ::testing::Test
@@ -78,6 +80,24 @@ TEST_F(RialtoMediaKeySessionTest, UpdateFailure)
 		.WillOnce(Return(firebolt::rialto::MediaKeyErrorStatus::FAIL));
 
 	EXPECT_FALSE(session->update(keyMsg, sizeof(keyMsg)));
+}
+
+TEST_F(RialtoMediaKeySessionTest, Update_LargeResponse_IsDeliveredWhole)
+{
+	/**
+	 * @brief Regression (L5): the response length was narrowed to 16 bits, so a
+	 *        license response over 64 KB reached Rialto truncated.
+	 */
+	auto session = createSession();
+	const std::vector<uint8_t> response(70000, 0x33);
+	std::vector<uint8_t> received;
+
+	EXPECT_CALL(m_mockMediaKeys, updateSession(TEST_SESSION_ID, _))
+		.WillOnce(DoAll(SaveArg<1>(&received),
+		                Return(firebolt::rialto::MediaKeyErrorStatus::OK)));
+
+	EXPECT_TRUE(session->update(response.data(), response.size()));
+	EXPECT_EQ(received.size(), response.size());
 }
 
 TEST_F(RialtoMediaKeySessionTest, CloseSuccess)
@@ -138,6 +158,20 @@ TEST_F(RialtoMediaKeySessionTest, IsKeyUsableAfterUpdate)
 	session->updateKeyStatus(keyId, firebolt::rialto::KeyStatus::USABLE);
 
 	EXPECT_TRUE(session->isKeyUsable(keyId.data(), static_cast<uint8_t>(keyId.size())));
+}
+
+TEST_F(RialtoMediaKeySessionTest, IsKeyUsable_LongKeyId_IsLookedUpByFullId)
+{
+	/**
+	 * @brief Regression (L5): the key id length was narrowed to 8 bits, so an id
+	 *        over 255 bytes was looked up truncated and missed.
+	 */
+	auto session = createSession();
+	const std::vector<uint8_t> keyId(300, 0x42);
+
+	session->updateKeyStatus(keyId, firebolt::rialto::KeyStatus::USABLE);
+
+	EXPECT_TRUE(session->isKeyUsable(keyId.data(), keyId.size()));
 }
 
 TEST_F(RialtoMediaKeySessionTest, IsKeyUsableReturnsFalseForExpired)

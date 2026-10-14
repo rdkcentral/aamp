@@ -54,11 +54,3 @@ int32_t AampDrmBridge::createSession(
 	}
 	return -1;
 }
-
-void AampDrmBridge::clearSessions()
-{
-	if (g_mockDrmBridge)
-	{
-		g_mockDrmBridge->clearSessions();
-	}
-}

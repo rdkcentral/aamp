@@ -29,6 +29,8 @@ class MockAampLicenseManager
 public:
     MOCK_METHOD(void, setVideoWindowSize, (int width, int height));
     MOCK_METHOD(DrmSession*, createDrmSession, (std::shared_ptr<DrmHelper> drmHelper, DrmCallbacks* aampInstance,  DrmMetaDataEventPtr eventHandle, int streamTypeIn));
+    /// The system-id overload (used by AampDrmBridge); the extra arguments are not captured.
+    MOCK_METHOD(DrmSession*, createDrmSessionBySystemId, (const char* systemId, MediaFormat mediaFormat, const unsigned char* initDataPtr, unsigned short initDataLen, int streamType));
     MOCK_METHOD(void, setSessionMgrState, (SessionMgrState state));
     MOCK_METHOD(bool, queueContentProtection, (DrmHelperPtr drmHelper, std::string periodId, uint32_t adapIdx, AampMediaType type, bool isVssPeriod));
     MOCK_METHOD(void, queueProtectionEvent, (DrmHelperPtr drmHelper, std::string periodId, uint32_t adapIdx, AampMediaType type));

@@ -45,7 +45,7 @@ void RialtoMediaKeySystem::MediaKeysClient::onLicenseRequest(
 	AAMPLOG_INFO("RialtoMediaKeySystem::MediaKeysClient: onLicenseRequest session=%d url=%s size=%zu",
 	            keySessionId, url.c_str(), licenseRequestMessage.size());
 
-	std::function<void(const char*, const uint8_t*, uint16_t)> onChallenge;
+	std::function<void(const char*, const uint8_t*, size_t)> onChallenge;
 	{
 		std::lock_guard<std::mutex> lock(mutex);
 		auto it = callbacks.find(keySessionId);
@@ -58,7 +58,7 @@ void RialtoMediaKeySystem::MediaKeysClient::onLicenseRequest(
 	{
 		onChallenge(url.c_str(),
 		            licenseRequestMessage.data(),
-		            static_cast<uint16_t>(licenseRequestMessage.size()));
+		            licenseRequestMessage.size());
 	}
 	else
 	{
@@ -103,7 +103,7 @@ void RialtoMediaKeySystem::MediaKeysClient::onKeyStatusesChanged(
 
 	// Update the session caches under the lock, but run the callbacks without
 	// it: a callback may deregister its own session or take other locks.
-	std::function<void(const uint8_t*, uint8_t)> onKeyUpdate;
+	std::function<void(const uint8_t*, size_t)> onKeyUpdate;
 	std::function<void()> onKeysUpdated;
 	{
 		std::lock_guard<std::mutex> lock(mutex);
@@ -137,8 +137,7 @@ void RialtoMediaKeySystem::MediaKeysClient::onKeyStatusesChanged(
 	{
 		for (const auto& entry : keyStatuses)
 		{
-			onKeyUpdate(entry.first.data(),
-			            static_cast<uint8_t>(entry.first.size()));
+				onKeyUpdate(entry.first.data(), entry.first.size());
 		}
 	}
 

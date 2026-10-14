@@ -103,10 +103,10 @@ void RialtoMediaKeySessionAdapter::generateDRMSession(
 
 	callbacks.onChallenge = [this](const char* destUrl,
 	                               const uint8_t* challenge,
-	                               uint16_t challengeSize)
+	                               size_t challengeSize)
 	{
 		long long elapsed = aamp_GetCurrentTimeMS() - m_timeBeforeCallback;
-		AAMPLOG_INFO("RialtoMediaKeySessionAdapter: onChallenge received, elapsed=%lld ms size=%u destUrl=%s",
+		AAMPLOG_INFO("RialtoMediaKeySessionAdapter: onChallenge received, elapsed=%lld ms size=%zu destUrl=%s",
 		            elapsed, challengeSize, destUrl);
 
 		const std::string challengeData(reinterpret_cast<const char*>(challenge), challengeSize);
@@ -134,9 +134,9 @@ void RialtoMediaKeySessionAdapter::generateDRMSession(
 		m_challengeReady.notify_all();
 	};
 
-	callbacks.onKeyUpdate = [this](const uint8_t* key, uint8_t keySize)
+	callbacks.onKeyUpdate = [this](const uint8_t* key, size_t keySize)
 	{
-		AAMPLOG_INFO("RialtoMediaKeySessionAdapter: onKeyUpdate keySize=%u", keySize);
+		AAMPLOG_INFO("RialtoMediaKeySessionAdapter: onKeyUpdate keySize=%zu", keySize);
 
 		if (key != nullptr && keySize > 0)
 		{
@@ -268,9 +268,9 @@ int RialtoMediaKeySessionAdapter::processDRMKey(DrmData* key, uint32_t timeout)
 	if (key)
 	{
 		const uint8_t* keyMessage = reinterpret_cast<const uint8_t*>(key->getData().c_str());
-		const uint16_t keyMsgLength = static_cast<uint16_t>(key->getDataLength());
+		const size_t keyMsgLength = key->getDataLength();
 
-		AAMPLOG_INFO("RialtoMediaKeySessionAdapter::processDRMKey: calling update, length=%u",
+		AAMPLOG_INFO("RialtoMediaKeySessionAdapter::processDRMKey: calling update, length=%zu",
 		            keyMsgLength);
 
 		// A new response is about to be applied, so wait for the key status
@@ -319,12 +319,12 @@ int RialtoMediaKeySessionAdapter::processDRMKey(DrmData* key, uint32_t timeout)
 		std::lock_guard<std::mutex> lock(m_usableKeysMutex);
 		for (const auto& keyData : m_usableKeys)
 		{
-			if (session->isKeyUsable(keyData.data(), static_cast<uint8_t>(keyData.size())))
+			if (session->isKeyUsable(keyData.data(), keyData.size()))
 			{
 				keyUsable = true;
 				break;
 			}
-			if (session->isKeyOutputRestricted(keyData.data(), static_cast<uint8_t>(keyData.size())))
+			if (session->isKeyOutputRestricted(keyData.data(), keyData.size()))
 			{
 				AAMPLOG_WARN("RialtoMediaKeySessionAdapter::processDRMKey: output restricted");
 				retValue = HDCP_OUTPUT_PROTECTION_FAILURE;

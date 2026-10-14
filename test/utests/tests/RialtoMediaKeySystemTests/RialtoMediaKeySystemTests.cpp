@@ -211,7 +211,7 @@ TEST_F(RialtoMediaKeySystemTest, OnLicenseRequestRoutesToCallback)
 	std::string receivedUrl;
 
 	RialtoSessionCallbacks callbacks;
-	callbacks.onChallenge = [&](const char* url, const uint8_t* challenge, uint16_t size)
+	callbacks.onChallenge = [&](const char* url, const uint8_t* challenge, size_t size)
 	{
 		challengeReceived = true;
 		receivedUrl = url;
@@ -227,6 +227,66 @@ TEST_F(RialtoMediaKeySystemTest, OnLicenseRequestRoutesToCallback)
  	client->onLicenseRequest(TEST_SESSION_ID, challengeMsg, url);
  	EXPECT_TRUE(challengeReceived);
  	EXPECT_EQ(receivedUrl, url);
+}
+
+TEST_F(RialtoMediaKeySystemTest, OnLicenseRequest_LargeChallenge_IsDeliveredWithFullSize)
+{
+	/**
+	 * @brief Regression (L5): the challenge size was narrowed to 16 bits, so a
+	 *        challenge over 64 KB reached the callback truncated.
+	 */
+	auto system = createSystemWithMediaKeys();
+	constexpr size_t kChallengeSize = 70000;
+	size_t receivedSize = 0;
+	RialtoSessionCallbacks callbacks;
+	callbacks.onChallenge = [&](const char*, const uint8_t*, size_t size)
+	{
+		receivedSize = size;
+	};
+
+	std::weak_ptr<firebolt::rialto::IMediaKeysClient> weakClient;
+	auto session = createSessionCapturingClient(*system, callbacks, weakClient);
+	ASSERT_NE(nullptr, session);
+	auto client = weakClient.lock();
+	ASSERT_NE(nullptr, client);
+
+	client->onLicenseRequest(TEST_SESSION_ID,
+		std::vector<unsigned char>(kChallengeSize, 0x5A), "https://license.example.com");
+
+	EXPECT_EQ(receivedSize, kChallengeSize);
+}
+
+TEST_F(RialtoMediaKeySystemTest, OnKeyStatusesChanged_LongKeyId_IsDeliveredWithFullSize)
+{
+	/**
+	 * @brief Regression (L5): the key id size was narrowed to 8 bits, so an id
+	 *        over 255 bytes reached the callback truncated and its status
+	 *        lookup missed.
+	 */
+	auto system = createSystemWithMediaKeys();
+	const std::vector<uint8_t> longKey(300, 0x42);
+	RialtoMediaKeySession* sessionPtr = nullptr;
+	size_t receivedSize = 0;
+	bool usable = false;
+	RialtoSessionCallbacks callbacks;
+	callbacks.onKeyUpdate = [&](const uint8_t* key, size_t size)
+	{
+		receivedSize = size;
+		usable = sessionPtr->isKeyUsable(key, size);
+	};
+
+	std::weak_ptr<firebolt::rialto::IMediaKeysClient> weakClient;
+	auto session = createSessionCapturingClient(*system, callbacks, weakClient);
+	ASSERT_NE(nullptr, session);
+	sessionPtr = session.get();
+	auto client = weakClient.lock();
+	ASSERT_NE(nullptr, client);
+
+	client->onKeyStatusesChanged(TEST_SESSION_ID,
+		{{longKey, firebolt::rialto::KeyStatus::USABLE}});
+
+	EXPECT_EQ(receivedSize, longKey.size());
+	EXPECT_TRUE(usable);
 }
 
 TEST_F(RialtoMediaKeySystemTest, CreateSessionOnInvalidSystem)
@@ -253,7 +313,7 @@ TEST_F(RialtoMediaKeySystemTest, OnKeyStatusesChanged_UpdatesSessionThenRunsCall
 	std::vector<bool> usableWhenNotified;
 	int keysUpdatedCalls = 0;
 	RialtoSessionCallbacks callbacks;
-	callbacks.onKeyUpdate = [&](const uint8_t* key, uint8_t size)
+	callbacks.onKeyUpdate = [&](const uint8_t* key, size_t size)
 	{
 		usableWhenNotified.push_back(sessionPtr->isKeyUsable(key, size));
 	};

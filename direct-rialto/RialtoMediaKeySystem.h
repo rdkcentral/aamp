@@ -50,11 +50,11 @@
 struct RialtoSessionCallbacks
 {
 	/// Fired when a license challenge is ready to be sent to the license server.
-	std::function<void(const char* url, const uint8_t* challenge, uint16_t size)>
+	std::function<void(const char* url, const uint8_t* challenge, size_t size)>
 		onChallenge;
 
 	/// Fired when the status of a single key changes.
-	std::function<void(const uint8_t* key, uint8_t keySize)>
+	std::function<void(const uint8_t* key, size_t keySize)>
 		onKeyUpdate;
 
 	/// Fired once after all key status changes for an update have been delivered.
