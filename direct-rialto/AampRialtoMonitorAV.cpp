@@ -56,6 +56,23 @@ static constexpr int kAudioIdx = 1;
 /// Nanoseconds per millisecond.
 static constexpr int64_t kNsPerMs = 1'000'000LL;
 
+const char *AampRialtoMonitorAV::toString(AvHealth health)
+{
+	switch (health)
+	{
+		case AvHealth::Ok:          return "ok";
+		case AvHealth::Stall:       return "stall";
+		case AvHealth::VideoFreeze: return "video freeze";
+		case AvHealth::AudioDrop:   return "audio drop";
+		case AvHealth::Eos:         return "eos";
+		case AvHealth::Trickplay:   return "trickplay";
+		case AvHealth::AvSync:      return "avsync";
+		case AvHealth::Jump:        return "jump";
+		case AvHealth::None:        break;
+	}
+	return "none";
+}
+
 // ---------------------------------------------------------------------------
 // Construction / destruction
 // ---------------------------------------------------------------------------
@@ -160,7 +177,7 @@ void AampRialtoMonitorAV::onSampleTick()
 	// Skip the audio track during trickplay to match GStreamer behaviour.
 	const int maxTracks = (rate == AAMP_NORMAL_PLAY_RATE) ? 2 : 1;
 
-	const char *description = nullptr;
+	AvHealth health = AvHealth::None;
 	int numTracks = 0;
 	bool bigJump = false;
 
@@ -178,14 +195,16 @@ void AampRialtoMonitorAV::onSampleTick()
 		if (posMs == m_avPositionMs[i])
 		{
 			// Position unchanged since last sample — track has stalled.
-			if (description)
+			if (health != AvHealth::None)
 			{
 				// Both tracks stalled.
-				description = "stall";
+				health = AvHealth::Stall;
 			}
 			else
 			{
-				description = (i == kVideoIdx) ? "video freeze" : "audio drop";
+				// Single-track freeze needs per-source positions from Rialto.
+				health = (i == kVideoIdx) ? AvHealth::VideoFreeze
+				                          : AvHealth::AudioDrop;
 			}
 		}
 		else if (i == kVideoIdx && m_happy)
@@ -212,10 +231,10 @@ void AampRialtoMonitorAV::onSampleTick()
 	switch (numTracks)
 	{
 		case 0:
-			description = "eos";
+			health = AvHealth::Eos;
 			break;
 		case 1:
-			description = "trickplay";
+			health = AvHealth::Trickplay;
 			break;
 		case 2:
 		{
@@ -224,15 +243,15 @@ void AampRialtoMonitorAV::onSampleTick()
 			if (delta > m_config.syncThresholdPositiveMs
 				|| delta < m_config.syncThresholdNegativeMs)
 			{
-				if (!description)
+				if (health == AvHealth::None)
 				{
 					// Both tracks moving, but diverged.
-					description = "avsync";
+					health = AvHealth::AvSync;
 				}
 			}
 			else if (bigJump)
 			{
-				description = "jump";
+				health = AvHealth::Jump;
 			}
 		}
 			break;
@@ -240,20 +259,20 @@ void AampRialtoMonitorAV::onSampleTick()
 			break;
 	}
 
-	if (!description)
+	if (health == AvHealth::None)
 	{
-		description = "ok";
+		health = AvHealth::Ok;
 	}
 
-	if (m_description != description)
+	if (m_health != health)
 	{
 		// Log only when the classification changes.
-		if (m_description)
+		if (m_health != AvHealth::None)
 		{
 			// Log the outgoing state with its duration.
 			AAMPLOG_MIL(
 				"MonitorAV_%s: %" PRId64 ",%" PRId64 ",%d, %" PRId64,
-				m_description,
+				toString(m_health),
 				m_avPositionMs[kVideoIdx],
 				m_avPositionMs[kAudioIdx],
 				static_cast<int>(m_avPositionMs[kVideoIdx] - m_avPositionMs[kAudioIdx]),
@@ -262,18 +281,18 @@ void AampRialtoMonitorAV::onSampleTick()
 		// Log the incoming state.
 		AAMPLOG_MIL(
 			"MonitorAV_%s: %" PRId64 ",%" PRId64 ",%d,0",
-			description,
+			toString(health),
 			m_avPositionMs[kVideoIdx],
 			m_avPositionMs[kAudioIdx],
 			static_cast<int>(m_avPositionMs[kVideoIdx] - m_avPositionMs[kAudioIdx]));
 
 		m_tLastReported = m_tLastSampled;
-		m_description = description;
+		m_health = health;
 	}
 
 	// Track whether we are in the healthy "ok" state; used to gate jump
 	// detection on the next tick (mirrors MonitorAVState::happy behaviour).
-	m_happy = (description != nullptr && std::string(description) == "ok");
+	m_happy = (health == AvHealth::Ok);
 }
 
 // ---------------------------------------------------------------------------
@@ -282,7 +301,7 @@ void AampRialtoMonitorAV::onSampleTick()
 
 void AampRialtoMonitorAV::onReportTick()
 {
-	if (m_tLastSampled == 0 || m_description == nullptr)
+	if (m_tLastSampled == 0 || m_health == AvHealth::None)
 	{
 		// No sample has been taken yet; nothing useful to report.
 		AAMPLOG_TRACE("AampRialtoMonitorAV: report tick skipped - no sample yet");
@@ -316,7 +335,7 @@ void AampRialtoMonitorAV::onReportTick()
 	}
 
 	m_notifiable->SendMonitorAvEvent(
-		m_description,
+		toString(m_health),
 		m_videoPositionMs,
 		m_audioPositionMs,
 		static_cast<uint64_t>(timeInState),

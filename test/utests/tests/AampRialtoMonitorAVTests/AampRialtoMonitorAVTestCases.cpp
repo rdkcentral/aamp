@@ -451,6 +451,45 @@ TEST_F(AampRialtoMonitorAVTest, sampleTick_TrickplayRate_ClassifiesTrickplay)
 	triggerReportTick();
 }
 
+TEST_F(AampRialtoMonitorAVTest, sampleTick_LargeForwardJumpWhenHealthy_ClassifiesJump)
+{
+	// Tick 1 (500 ms) is "ok".  Tick 2 is one sample interval later but the
+	// position moved by 2000 ms, beyond the interval plus the jump threshold.
+	m_monitor->start();
+	triggerSampleTick();
+
+	ON_CALL(*m_mockPipeline, getPosition(_))
+		.WillByDefault(DoAll(
+			SetArgReferee<0>(2500LL * kNsPerMs),
+			Return(true)));
+	triggerSampleTick();
+
+	EXPECT_CALL(*m_mockNotifiable, SendMonitorAvEvent(
+		std::string{"jump"}, _, _, _, _)).Times(1);
+
+	triggerReportTick();
+}
+
+TEST_F(AampRialtoMonitorAVTest, sampleTick_JumpAfterUnhealthyTick_IsNotReportedAsJump)
+{
+	// The jump check only applies when the previous tick was "ok", so the
+	// first advance after a stall is reported as "ok" again.
+	m_monitor->start();
+	triggerSampleTick();	// ok at 500 ms
+	triggerSampleTick();	// unchanged -> stall
+
+	ON_CALL(*m_mockPipeline, getPosition(_))
+		.WillByDefault(DoAll(
+			SetArgReferee<0>(2500LL * kNsPerMs),
+			Return(true)));
+	triggerSampleTick();
+
+	EXPECT_CALL(*m_mockNotifiable, SendMonitorAvEvent(
+		std::string{"ok"}, _, _, _, _)).Times(1);
+
+	triggerReportTick();
+}
+
 // ---------------------------------------------------------------------------
 // Report tick — event firing
 // ---------------------------------------------------------------------------

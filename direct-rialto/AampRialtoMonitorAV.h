@@ -122,6 +122,23 @@ public:
 	void stop();
 
 private:
+	/// AV health classification; None until the first sample.
+	enum class AvHealth
+	{
+		None,
+		Ok,
+		Stall,
+		VideoFreeze,
+		AudioDrop,
+		Eos,
+		Trickplay,
+		AvSync,
+		Jump
+	};
+
+	/// Text used in logs and SendMonitorAvEvent() for a classification.
+	static const char *toString(AvHealth health);
+
 	/// Called by the sample timer: queries position and classifies AV state.
 	void onSampleTick();
 
@@ -148,8 +165,8 @@ private:
 	/// Wall-clock time (ms) of the last successful position sample.
 	int64_t m_tLastSampled{0};
 
-	/// Current AV health classification string; nullptr until first sample.
-	const char *m_description{nullptr};
+	/// Current AV health classification.
+	AvHealth m_health{AvHealth::None};
 
 	/// Most recently sampled positions: [0]=video, [1]=audio.
 	/// In the direct-Rialto path both entries hold the same pipeline position
