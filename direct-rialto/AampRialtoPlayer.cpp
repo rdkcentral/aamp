@@ -2578,14 +2578,6 @@ void AampRialtoPlayer::OnPlaybackState(firebolt::rialto::PlaybackState state)
 			{
 				m_notifiable->NotifyFirstBufferProcessed(GetVideoRectangle());
 				m_notifiable->NotifyFirstFrameReceived(ccHandle);
-				// Only resume-to-normal-play needs a state-changing speed
-				// notification here. Trickplay rate changes (FF/REW) are
-				// already notified by the SetRate path, so re-emitting here
-				// duplicates AAMP_EVENT_SPEED_CHANGED. The discriminator is the
-				// rate, not the AAMP state: FF entered from pause leaves the
-				// state eSTATE_PAUSED, so a state check misses that case.
-
-
 			}
 			StartProgressTimer();
 
