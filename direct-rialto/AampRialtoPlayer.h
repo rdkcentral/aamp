@@ -35,7 +35,6 @@
 #include "AampDemuxDataTypes.h"
 #include "IDrmBridge.h"
 #include "AampPlayerStateMachine.h"
-#include "AampDemuxDataTypes.h"
 #include "IRialtoControlBackend.h"
 #include "IStreamSinkNotifiable.h"
 #include "AampRialtoMediaSource.h"
@@ -50,15 +49,14 @@
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
-#include <deque>
 #include <functional>
 #include <memory>
 #include <mutex>
 #include <optional>
 #include <string>
-#include <thread>
 #include <vector>
 #include <cstdint>
+#include <glib.h>
 
 class PrivateInstanceAAMP;
 class PrivateInstanceAAMPNotifiable;

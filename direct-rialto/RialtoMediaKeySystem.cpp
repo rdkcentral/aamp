@@ -24,6 +24,7 @@
 
 #include "RialtoMediaKeySystem.h"
 #include "AampLogManager.h"
+#include <utility>
 
 // ---------------------------------------------------------------------------
 // RialtoMediaKeySystem::MediaKeysClient

@@ -38,6 +38,7 @@
 #include <chrono>
 #include <cinttypes>
 #include <algorithm>
+#include <utility>
 
 // Running with real Rialto on Ubuntu locks up intermittently
 // due to no TextTrack sink on Rialto Server, this disables

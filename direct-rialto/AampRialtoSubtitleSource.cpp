@@ -28,6 +28,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <utility>
 
 // ---------------------------------------------------------------------------
 // parseTimeToMs  (TTML clock-value H:MM:SS[.fff] → milliseconds)

@@ -29,6 +29,8 @@
 #include <algorithm>
 #include <cinttypes>
 #include <cmath>
+#include <limits>
+#include <utility>
 
 // ---------------------------------------------------------------------------
 // Anonymous helpers

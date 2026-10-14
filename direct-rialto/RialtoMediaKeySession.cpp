@@ -24,6 +24,7 @@
 
 #include "RialtoMediaKeySession.h"
 #include "AampLogManager.h"
+#include <utility>
 
 RialtoMediaKeySession::RialtoMediaKeySession(
 	int32_t keySessionId,

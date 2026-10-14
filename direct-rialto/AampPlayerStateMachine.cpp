@@ -29,6 +29,7 @@
 #include "AampPlayerStateMachine.h"
 #include "AampLogManager.h"
 #include <cassert>
+#include <utility>
 
 // ============================================================================
 // Concrete state declarations (internal to this TU)

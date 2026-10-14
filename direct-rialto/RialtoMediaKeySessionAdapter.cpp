@@ -29,6 +29,7 @@
 #include <algorithm>
 #include <chrono>
 #include <set>
+#include <utility>
 
 RialtoMediaKeySessionAdapter::RialtoMediaKeySessionAdapter(
 	DrmHelperPtr drmHelper,

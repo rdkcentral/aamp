@@ -24,7 +24,7 @@
 #include <functional>
 #include <mutex>
 #include <memory>
-#include <iostream>
+#include <utility>
 #include <vector>
 
 /**
@@ -37,14 +37,13 @@ struct NeedDataRequestEvent
 	size_t frameCount;
 };
 
-using namespace firebolt::rialto;
-
 /**
  * @class AampRialtoMediaPipelineClient
  * @brief IMediaPipelineClient implementation that forwards need-data
  *        and cancel-need-data events via installed callbacks.
  */
-class AampRialtoMediaPipelineClient : public IMediaPipelineClient
+class AampRialtoMediaPipelineClient
+	: public firebolt::rialto::IMediaPipelineClient
 {
 public:
 	/// Callback invoked when Rialto requests media data.
@@ -58,7 +57,8 @@ public:
 
 	/// Callback invoked when the Rialto server transitions to a new state.
 	/// Parameter: PlaybackState
-	using PlaybackStateCallback = std::function<void(PlaybackState)>;
+	using PlaybackStateCallback =
+		std::function<void(firebolt::rialto::PlaybackState)>;
 
 	/// Callback invoked when Rialto reports current position.
 	/// Parameter: position in nanoseconds
@@ -80,7 +80,7 @@ public:
 	/// Callback invoked when Rialto reports a non-fatal playback error.
 	/// Parameters: sourceId, PlaybackError
 	using PlaybackErrorCallback =
-		std::function<void(int32_t, PlaybackError)>;
+		std::function<void(int32_t, firebolt::rialto::PlaybackError)>;
 
 	AampRialtoMediaPipelineClient();
 	~AampRialtoMediaPipelineClient() override;
@@ -156,17 +156,18 @@ public:
 	}
 
 	// IMediaPipelineClient Implementation (All required pure virtuals)
-	void notifyNetworkState(NetworkState state) override;
-	void notifyPlaybackState(PlaybackState state) override;
+	void notifyNetworkState(firebolt::rialto::NetworkState state) override;
+	void notifyPlaybackState(firebolt::rialto::PlaybackState state) override;
 	void notifyPosition(int64_t position) override;
 	void notifyNeedMediaData(
 		int32_t sourceId,
 		size_t frameCount,
 		uint32_t needDataRequestId,
-		const std::shared_ptr<MediaPlayerShmInfo>
+		const std::shared_ptr<firebolt::rialto::MediaPlayerShmInfo>
 			&mediaPlayerShmInfo) override;
 	void notifyQos(
-		int32_t sourceId, const QosInfo &qosInfo) override;
+		int32_t sourceId,
+		const firebolt::rialto::QosInfo &qosInfo) override;
 	void notifyBufferUnderflow(int32_t sourceId) override;
 	void notifyDuration(int64_t duration) override;
 	void notifyNativeSize(
@@ -177,10 +178,10 @@ public:
 	void notifyCancelNeedMediaData(int32_t sourceId) override;
 	void notifyPlaybackError(
 		int32_t sourceId,
-		PlaybackError error) override;
+		firebolt::rialto::PlaybackError error) override;
 	void notifySourceFlushed(int32_t sourceId) override;
 	void notifyPlaybackInfo(
-		const PlaybackInfo &playbackInfo) override;
+		const firebolt::rialto::PlaybackInfo &playbackInfo) override;
 	void notifyFirstFrameReceived(int32_t sourceId) override;
 
 private:

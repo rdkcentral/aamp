@@ -26,6 +26,7 @@
 #include "RialtoMediaKeySystem.h"
 #include "RialtoMediaKeySessionAdapter.h"
 #include "AampLogManager.h"
+#include <utility>
 
 DrmSessionCreator makeRialtoSessionCreator()
 {

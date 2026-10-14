@@ -24,6 +24,7 @@
 
 #include "AampRialtoPlaybackController.h"
 #include "AampLogManager.h"
+#include <utility>
 
 namespace {
 
