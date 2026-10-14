@@ -15000,6 +15000,8 @@ static void ResetOnlyModeState(PrivateInstanceAAMP &aamp)
     aamp.mVideoOnlyPb = false;
     aamp.mVideoFormat = FORMAT_INVALID;
     aamp.mAudioFormat = FORMAT_INVALID;
+    aamp.mVideoComponentCount = -1;
+    aamp.mAudioComponentCount = -1;
 }
 
 /**
