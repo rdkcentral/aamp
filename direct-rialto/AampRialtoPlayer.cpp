@@ -810,7 +810,7 @@ void AampRialtoPlayer::CreateMonitorAV()
 				eAAMPConfig_ReportProgressInterval);
 		AampRialtoMonitorAV::Config monCfg{};
 		monCfg.sampleIntervalMs =
-			static_cast<int>(progressSec * 1000.0);
+			static_cast<int>(SecondsToMs(progressSec));
 		monCfg.reportIntervalMs =
 			aamp->mConfig->GetConfigValue(
 				eAAMPConfig_MonitorAVReportingInterval);
@@ -1905,7 +1905,7 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown, boo
 	// the Stop(true) teardown path) records the caller's intent.
 	// The position is passed through unclamped; AttachSource() clamps to >= 0
 	// when it applies the value to a newly attached source.
-	int64_t posNs = static_cast<int64_t>(position * kNsPerSecond);
+	int64_t posNs = SecondsToNs(position);
 	m_segmentPosition.StageRequested(posNs, rate, positionIsAuthoritative);
 
 	// The position this call was armed to resolve is now known (staged
@@ -2157,7 +2157,6 @@ long long AampRialtoPlayer::GetPositionMilliseconds()
 {
 	AAMPLOG_INFO("ENTRY");
 
-	constexpr int64_t kNsPerMs = 1'000'000LL;
 	long long result = 0LL;
 
 	if (m_stateMachine.currentState() == PlayerStateId::FLUSHING)
@@ -3254,7 +3253,6 @@ void AampRialtoPlayer::OnPosition(int64_t positionNs)
 
 void AampRialtoPlayer::OnDuration(int64_t durationNs)
 {
-	constexpr int64_t kNsPerMs = 1'000'000LL;
 	m_durationMs.store(durationNs / kNsPerMs, std::memory_order_relaxed);
 	AAMPLOG_INFO("duration updated: %" PRId64 " ms", m_durationMs.load());
 }

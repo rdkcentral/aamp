@@ -35,6 +35,7 @@
 #include "AampMediaType.h"
 #include "IDrmBridge.h"
 #include "StreamOutputFormat.h"
+#include "AampRialtoTime.h"
 
 #include <atomic>
 #include <condition_variable>
@@ -48,9 +49,6 @@
 #include <vector>
 
 #include "mp4demux/MP4Demux.h"
-
-/// Nanoseconds per second — shared by all source classes.
-constexpr int64_t kNsPerSecond = 1'000'000'000LL;
 
 /**
  * @class AampRialtoMediaSource

@@ -36,6 +36,7 @@
  */
 
 #include "AampRialtoMonitorAV.h"
+#include "AampRialtoTime.h"
 #include "AampUtils.h"
 #include "AampLogManager.h"
 #include "AampDefine.h"
@@ -52,9 +53,6 @@ static constexpr int kVideoIdx = 0;
 
 /// Audio track index (matches eMEDIATYPE_AUDIO = 1).
 static constexpr int kAudioIdx = 1;
-
-/// Nanoseconds per millisecond.
-static constexpr int64_t kNsPerMs = 1'000'000LL;
 
 const char *AampRialtoMonitorAV::toString(AvHealth health)
 {

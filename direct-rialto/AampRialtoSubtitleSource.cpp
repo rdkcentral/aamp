@@ -37,9 +37,9 @@ int64_t AampRialtoSubtitleSource::parseTimeToMs(const std::string &timeStr)
 {
 	int   hours = 0;
 	int   mins  = 0;
-	float secs  = 0.f;
+	double secs = 0.0;
 
-	if (std::sscanf(timeStr.c_str(), "%d:%d:%f", &hours, &mins, &secs) != 3)
+	if (std::sscanf(timeStr.c_str(), "%d:%d:%lf", &hours, &mins, &secs) != 3)
 	{
 		return 0;
 	}
@@ -47,7 +47,7 @@ int64_t AampRialtoSubtitleSource::parseTimeToMs(const std::string &timeStr)
 	return (static_cast<int64_t>(hours) * 3600LL +
 	        static_cast<int64_t>(mins)  * 60LL)
 	       * 1000LL
-	       + static_cast<int64_t>(secs * 1000.f);
+	       + SecondsToMs(secs);
 }
 
 // ---------------------------------------------------------------------------
@@ -167,10 +167,8 @@ std::unique_ptr<firebolt::rialto::IMediaPipeline::MediaSegment>
 AampRialtoSubtitleSource::createSegment(
 	const AampMediaSample &sample) const
 {
-	const int64_t ptsNs =
-		static_cast<int64_t>(sample.mPts * kNsPerSecond);
-	const int64_t durationNs =
-		static_cast<int64_t>(sample.mDuration * kNsPerSecond);
+	const int64_t ptsNs      = SecondsToNs(sample.mPts);
+	const int64_t durationNs = SecondsToNs(sample.mDuration);
 	auto segment = std::make_unique<firebolt::rialto::IMediaPipeline::MediaSegment>(
 		sourceId(),
 		firebolt::rialto::MediaSourceType::SUBTITLE,
@@ -279,8 +277,8 @@ bool AampRialtoSubtitleSource::processDataFragment(
 		//   pipeline clock — displayOffset = 0 and no correction is needed.
 
 		const int64_t displayOffsetMs = m_applyTextTransform
-			? static_cast<int64_t>(fragmentPTSoffset * 1000.0)
-			: -static_cast<int64_t>(fragmentPTSoffset * 1000.0);
+			? SecondsToMs(fragmentPTSoffset)
+			: -SecondsToMs(fragmentPTSoffset);
 
 		AampMediaSample sample;
 		sample.mData     = std::shared_ptr<const uint8_t>(
@@ -320,8 +318,8 @@ int64_t AampRialtoSubtitleSource::refineDisplayOffset(
 		return displayOffsetMs;
 	}
 
-	const int64_t ptsMs      = static_cast<int64_t>(sample.mPts      * 1000.0);
-	const int64_t durationMs = static_cast<int64_t>(sample.mDuration * 1000.0);
+	const int64_t ptsMs      = SecondsToMs(sample.mPts);
+	const int64_t durationMs = SecondsToMs(sample.mDuration);
 
 	if (m_transformContentType == ContentType::PASSTHROUGH)
 	{

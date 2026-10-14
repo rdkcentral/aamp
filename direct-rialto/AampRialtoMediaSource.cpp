@@ -915,7 +915,7 @@ void AampRialtoMediaSource::handleAddSegmentCompletion(
 {
 	if (addStatus == firebolt::rialto::AddSegmentStatus::OK)
 	{
-		const int64_t ptsMs = static_cast<int64_t>(samplePts * 1000.0);
+		const int64_t ptsMs = SecondsToMs(samplePts);
 		int64_t expected = kFirstPtsNotSet;
 		if (m_firstPtsMs.compare_exchange_strong(
 				expected, ptsMs, std::memory_order_relaxed))
@@ -924,7 +924,7 @@ void AampRialtoMediaSource::handleAddSegmentCompletion(
 				ptsMs, sourceId());
 		}
 		m_lastAcceptedEndMs.store(
-			ptsMs + std::llround(sampleDurationSec * 1000.0),
+			ptsMs + SecondsToMs(sampleDurationSec),
 			std::memory_order_relaxed);
 		m_acceptedFrames.fetch_add(1, std::memory_order_relaxed);
 	}

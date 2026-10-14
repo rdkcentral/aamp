@@ -1164,6 +1164,59 @@ TEST_F(AampRialtoVideoSourceTest, AampRialtoVideoSource_InjectOneSample_EosDurin
 	EXPECT_TRUE(result);
 }
 
+/**
+ * @test AampRialtoVideoSource_InjectOneSample_PtsNotExactInBinary_IsRounded
+ * @brief 1.001 s and 1.003 s are not exact doubles, so truncating
+ *        seconds * 1e9 gave 1000999999 ns and 1002999999 ns (and 1000 ms for
+ *        the first PTS).  Conversions must round to nearest.
+ */
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_InjectOneSample_PtsNotExactInBinary_IsRounded)
+{
+	auto codecInfo = MakeH264CodecInfo();
+	m_source.attachOrUpdate(*m_pipelinePtr, codecInfo, nullptr, -1);
+
+	uint64_t gen = m_source.captureGeneration();
+	{
+		auto &st = m_source.state();
+		std::lock_guard<std::mutex> lock(st.mu);
+		st.hasPending            = true;
+		st.pendingRequestId      = 43;
+		st.pendingFrameCount     = 10;
+		st.segmentsAddedInBatch  = 3;
+		st.eos                   = true;
+		st.injectorActive        = true;
+	}
+
+	int64_t timestampNs = 0;
+	int64_t durationNs  = 0;
+	EXPECT_CALL(*m_pipelinePtr, addSegment(43, _))
+		.WillOnce(Invoke([&](uint32_t,
+			const std::unique_ptr<firebolt::rialto::IMediaPipeline::MediaSegment> &seg)
+			{
+				timestampNs = seg->getTimeStamp();
+				durationNs  = seg->getDuration();
+				return firebolt::rialto::AddSegmentStatus::OK;
+			}));
+	EXPECT_CALL(*m_pipelinePtr,
+		haveData(firebolt::rialto::MediaSourceStatus::EOS, 43))
+		.WillOnce(Return(true));
+
+	AampMediaSample sample;
+	uint8_t data[] = {0xCA, 0xFE};
+	sample.mData = std::shared_ptr<const uint8_t>(data, [](const uint8_t *) {});
+	sample.mDataSize = 2;
+	sample.mPts = 1.001;
+	sample.mDuration = 1.003;
+
+	EXPECT_TRUE(m_source.injectOneSample(
+		*m_pipelinePtr, gen, std::move(sample), nullptr));
+
+	EXPECT_EQ(timestampNs, 1'001'000'000LL);
+	EXPECT_EQ(durationNs, 1'003'000'000LL);
+	EXPECT_EQ(m_source.firstPtsMs(), 1001);
+}
+
 // ---------------------------------------------------------------------------
 // injectOneSample — EOS set while waiting, needData arrives
 // ---------------------------------------------------------------------------

@@ -41,6 +41,7 @@ class TestableAampRialtoSubtitleSource : public AampRialtoSubtitleSource
 public:
 	using AampRialtoSubtitleSource::mapCodecToMime;
 	using AampRialtoSubtitleSource::createSegment;
+	using AampRialtoSubtitleSource::updateCachedMetadata;
 	using AampRialtoMediaSource::handleNeedData;
 };
 
@@ -309,6 +310,55 @@ TEST_F(AampRialtoSubtitleSourceTest,
 
 	ASSERT_NE(seg, nullptr);
 	EXPECT_FALSE(seg->getDisplayOffset().has_value());
+}
+
+/**
+ * @test AampRialtoSubtitleSource_CreateSegment_PtsNotExactInBinary_IsRounded
+ * @brief 1.001 s and 1.003 s are not exact doubles; truncating
+ *        seconds * 1e9 gave 1000999999 ns and 1002999999 ns.
+ */
+TEST_F(AampRialtoSubtitleSourceTest,
+	AampRialtoSubtitleSource_CreateSegment_PtsNotExactInBinary_IsRounded)
+{
+	AampMediaSample sample{};
+	sample.mPts      = 1.001;
+	sample.mDuration = 1.003;
+
+	auto seg = m_source.createSegment(sample);
+
+	ASSERT_NE(seg, nullptr);
+	EXPECT_EQ(seg->getTimeStamp(), 1'001'000'000LL);
+	EXPECT_EQ(seg->getDuration(), 1'003'000'000LL);
+}
+
+/**
+ * @test AampRialtoSubtitleSource_CreateSegment_TtmlBeginTime_IsNotTruncated
+ * @brief The TTML clock value 00:00:00.251 was parsed through a float, which
+ *        gives 250.99998 ms and truncated to 250.  The first begin= minus the
+ *        container PTS is the display offset applied to the segment.
+ */
+TEST_F(AampRialtoSubtitleSourceTest,
+	AampRialtoSubtitleSource_CreateSegment_TtmlBeginTime_IsNotTruncated)
+{
+	MediaCodecInfo ci{};
+	ci.mCodecFormat = GST_FORMAT_SUBTITLE_TTML;
+	m_source.updateCachedMetadata(ci);
+
+	const std::string ttml =
+		"<tt><body><div><p begin=\"00:00:00.251\" end=\"00:00:02.000\"/></div></body></tt>";
+	auto buffer = std::make_shared<std::vector<uint8_t>>(ttml.begin(), ttml.end());
+
+	AampMediaSample sample{};
+	sample.mData     = std::shared_ptr<const uint8_t>(buffer, buffer->data());
+	sample.mDataSize = buffer->size();
+	sample.mPts      = 0.0;
+	sample.mDuration = 0.002;
+
+	auto seg = m_source.createSegment(sample);
+
+	ASSERT_NE(seg, nullptr);
+	ASSERT_TRUE(seg->getDisplayOffset().has_value());
+	EXPECT_EQ(*seg->getDisplayOffset(), 251u);
 }
 
 // ---------------------------------------------------------------------------

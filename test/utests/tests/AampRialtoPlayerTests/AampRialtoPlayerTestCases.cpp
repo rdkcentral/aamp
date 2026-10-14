@@ -381,8 +381,8 @@ protected:
 						.WillByDefault(Invoke(
 						[](const AampMediaSample &sample)
 						{
-							const int64_t ptsNs      = static_cast<int64_t>(sample.mPts      * kNsPerSecond);
-							const int64_t durationNs = static_cast<int64_t>(sample.mDuration * kNsPerSecond);
+							const int64_t ptsNs      = SecondsToNs(sample.mPts);
+							const int64_t durationNs = SecondsToNs(sample.mDuration);
 							return std::make_unique<
 								firebolt::rialto::IMediaPipeline::MediaSegmentVideo>(
 									0, ptsNs, durationNs, 0, 0);
@@ -5694,6 +5694,25 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	// (12000 ms) as a single event: (500 - 12000) * -4 = 46000 ms.
 	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
 	EXPECT_EQ(m_player->GetPositionMilliseconds(), 46'000LL);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Flush_PositionNotExactInBinary_IsRoundedToNearestMillisecond)
+{
+	/**
+	 * @brief 1.001 s is not an exact double, so truncating seconds * 1e9
+	 *        staged 1000999999 ns and the FLUSHING position read back as
+	 *        1000 ms instead of 1001 ms.
+	 */
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(_)).WillOnce(Return(true));
+	m_player->Flush(/*position=*/1.001, /*rate=*/1, /*shouldTearDown=*/false);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
+
+	EXPECT_EQ(m_player->GetPositionMilliseconds(), 1'001LL);
 }
 
 // ===========================================================================
