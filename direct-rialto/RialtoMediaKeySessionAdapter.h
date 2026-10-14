@@ -90,11 +90,22 @@ public:
 	std::vector<std::vector<uint8_t>> getUsableKeys() const override;
 
 private:
+	/// Snapshot of m_session for use outside m_sessionMutex.
+	std::shared_ptr<RialtoMediaKeySession> getSession() const;
+
+	/// Set the key state and wake waiters.  Stores under m_eventMutex so a
+	/// waitForState() cannot test its predicate, miss this change and then
+	/// sleep until its timeout.
+	void setState(KeyState state);
+
 	/// Owned Rialto key system.
 	std::unique_ptr<RialtoMediaKeySystem> m_system;
 
-	/// Active session — created in generateDRMSession().
-	std::unique_ptr<RialtoMediaKeySession> m_session;
+	/// Active session — created in generateDRMSession().  Shared so that a
+	/// processDRMKey() in progress keeps it alive while clearDecryptContext()
+	/// releases it; read it only through getSession().
+	std::shared_ptr<RialtoMediaKeySession> m_session;
+	mutable std::mutex m_sessionMutex;
 
 	DrmHelperPtr m_drmHelper;
 	DrmCallbacks* m_drmCallbacks;
