@@ -121,6 +121,14 @@ void PlayerStateMachine::onFlush()
 	}
 }
 
+void PlayerStateMachine::onFlushComplete()
+{
+	if (s_fakeState == PlayerStateId::FLUSHING)
+	{
+		s_fakeState = PlayerStateId::FLUSHED;
+	}
+}
+
 void PlayerStateMachine::onStop()
 {
 	s_fakeState = PlayerStateId::IDLE;
