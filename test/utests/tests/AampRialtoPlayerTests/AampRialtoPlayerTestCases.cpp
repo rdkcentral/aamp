@@ -5135,22 +5135,40 @@ TEST_F(AampRialtoPlayerTest,
 }
 
 TEST_F(AampRialtoPlayerTest,
-	Configure_AudioOnlyNoSubtitleSource_SecondCallDoesNotDereferenceNull)
+	Configure_AudioOnlyNoSubtitleSource_SecondCallDoesNotRecreate)
 {
 	/**
-	 * @brief Audio-only content creates no subtitle source: the sidecar
-	 *        branch needs a subtitle subFormat and the inband-CC fallback
-	 *        only runs when a video source exists.  A second Configure()
-	 *        must therefore evaluate the subtitle branch of
-	 *        ShouldRecreatePipeline() against a null subtitle source
-	 *        without dereferencing it, and still report that the pipeline
-	 *        needs recreating.
+	 * @brief Regression (L2): audio-only content creates no subtitle source,
+	 *        and a second Configure() with the same formats and no subtitle
+	 *        format must not rebuild the pipeline (it used to, on every
+	 *        normal-rate Configure()).  The null subtitle source must also
+	 *        not be dereferenced.
+	 */
+	EXPECT_CALL(*m_mockFactory, createMediaPipeline(_, _)).Times(1);
+	Configure(FORMAT_INVALID, FORMAT_ISO_BMFF, FORMAT_INVALID);
+	ASSERT_EQ(m_mockSources[eMEDIATYPE_SUBTITLE], nullptr);
+
+	m_player->Configure(FORMAT_INVALID, FORMAT_ISO_BMFF, FORMAT_INVALID,
+		/*bESChangeStatus=*/false,
+		/*setReadyAfterPipelineCreation=*/false);
+}
+
+TEST_F(AampRialtoPlayerTest,
+	Configure_AudioOnly_SubtitleFormatAppears_RecreatesPipeline)
+{
+	/**
+	 * @brief A subtitle format that was not present before still requires a
+	 *        rebuild: the missing subtitle source is a change only when a
+	 *        subtitle format is requested.
 	 */
 	EXPECT_CALL(*m_mockFactory, createMediaPipeline(_, _)).Times(2);
 	Configure(FORMAT_INVALID, FORMAT_ISO_BMFF, FORMAT_INVALID);
 	ASSERT_EQ(m_mockSources[eMEDIATYPE_SUBTITLE], nullptr);
 
-	Configure(FORMAT_INVALID, FORMAT_ISO_BMFF, FORMAT_INVALID);
+	ResetMockPipeline();
+	m_player->Configure(FORMAT_INVALID, FORMAT_ISO_BMFF, FORMAT_SUBTITLE_WEBVTT,
+		/*bESChangeStatus=*/false,
+		/*setReadyAfterPipelineCreation=*/false);
 }
 
 TEST_F(AampRialtoPlayerTest,

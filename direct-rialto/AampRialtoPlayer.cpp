@@ -462,9 +462,13 @@ bool AampRialtoPlayer::ShouldRecreatePipeline(
 	const int rate = m_rate.load(std::memory_order_relaxed);
 	if(rate == AAMP_NORMAL_PLAY_RATE)
 	{
-		// Audio-only content never creates a subtitle source, so the log
-		// must tolerate subtitleSrc being null here.
-		if ((subtitleSrc == nullptr) || (subtitleSrc->format() != subFormat))
+		// A missing subtitle source is a change only when a subtitle format is
+		// wanted: audio-only content never creates one, and treating that as
+		// a change would rebuild the pipeline on every Configure().
+		const bool subtitleMissing =
+			(subtitleSrc == nullptr) && (subFormat != FORMAT_INVALID);
+		if (subtitleMissing ||
+		    ((subtitleSrc != nullptr) && (subtitleSrc->format() != subFormat)))
 		{
 			AAMPLOG_INFO("Subtitle %s (subFormat=%d, existing=%d): ShouldRecreatePipeline true",
 				subtitleSrc ? "codec changed" : "source missing",
