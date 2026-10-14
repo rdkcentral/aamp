@@ -3904,7 +3904,8 @@ bool InterfacePlayerRDK::IdleTaskAdd(GstTaskControlData& taskDetails, Background
 	{
 		taskDetails.taskIsPending = false;
 		taskDetails.taskID = g_idle_add_full(G_PRIORITY_HIGH, (GSourceFunc)funcPtr, (gpointer)this, NULL);
-		// Wait for g_idle_add response , if failed to create task for wrong state , not to make pending flag as true		if(0 != taskDetails.taskID)
+		// Wait for g_idle_add response , if failed to create task for wrong state , not to make pending flag as true
+		if(0 != taskDetails.taskID)
 		{
 			taskDetails.taskIsPending = true;
 			ret = true;

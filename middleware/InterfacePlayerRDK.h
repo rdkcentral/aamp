@@ -768,7 +768,12 @@ class InterfacePlayerRDK
 		const MonitorAVState& GetMonitorAVState();
 
 	private:
+		/**
+		 * @brief Cancel any pending idle/timer callbacks scheduled against this instance, so they can't fire after destruction.
+		 */
+		void CancelPendingCallbacks();
 		InterfacePlayerPriv *interfacePlayerPriv;
+		GstHandlerControl idleCallbackControl; /**< guards IdleCallbackOnFirstFrame/OnEOS/IdleCallback/FirstVideoFrameDisplayed */
 };
 struct data
 {
