@@ -34,6 +34,8 @@ set(TEST_SOURCES PauseAtTests.cpp
                  ChunkedTransferTests.cpp
                  PlayerStateTests.cpp
                  AsyncTuneAbortTests.cpp)
+                 AsyncTuneAbortTests.cpp
+                 BlockProgressMonitorTests.cpp)
 
 set(AAMP_SOURCES ${AAMP_ROOT}/priv_aamp.cpp
                  ${AAMP_ROOT}/CachedFragment.cpp)

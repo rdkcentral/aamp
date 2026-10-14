@@ -976,9 +976,9 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 						aamp->SetState(eSTATE_SEEKING);
 						aamp->seek_pos_seconds = aamp->GetPositionSeconds();
 						aamp->rate = AAMP_NORMAL_PLAY_RATE;
-						aamp->mSinkPaused = false;
+						aamp->pipeline_paused = false;
 						{
-							std::lock_guard<std::recursive_mutex> lock(aamp->GetStreamLock());
+							PrivateInstanceAAMP::SetRateProtect setRateLock(aamp);
 							aamp->TuneHelper(eTUNETYPE_SEEK, false);
 						}
 						// Notify speed change without state transition (keeps eSTATE_SEEKING)
@@ -1085,8 +1085,8 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 				aamp->EnableDownloads();
 				aamp->ResumeDownloads();
 				{
-					std::lock_guard<std::recursive_mutex> lock(aamp->GetStreamLock());
-					aamp->TuneHelper(tuneTypePlay); // this unpauses pipeline as side effect
+					PrivateInstanceAAMP::SetRateProtect setRateLock(aamp);
+					aamp->TuneHelper(eTUNETYPE_SEEK, false);
 				}
 			}
 
