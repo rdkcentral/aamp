@@ -20,6 +20,11 @@
 /**
  * @file AampRialtoPlayer.h
  * @brief Rialto client based player for AAMP.
+ *
+ * No GStreamer headers are included in direct-rialto.  The GStreamer-named
+ * enums it uses (StreamOutputFormat and GST_FORMAT_* from StreamOutputFormat.h,
+ * eGST_ERROR_* from priv_aamp.h) are values of the shared StreamSink and
+ * PrivateInstanceAAMP interfaces.
  */
 
 #ifndef AAMP_RIALTO_PLAYER_H
@@ -308,6 +313,13 @@ public:
 	/// @copydoc IDirectRialtoCC::setCCMute
 	bool setCCMute(bool muted) override;
 
+	// -------------------------------------------------------------------
+	// Test hooks
+	//
+	// Public only so the L1 tests can drive them; nothing outside this
+	// class calls them.  Do not use them from other production code.
+	// -------------------------------------------------------------------
+
 	/// @brief Start periodic MonitorProgress() reporting.
 	///
 	/// Fires immediately on first call, then at configured interval.
@@ -318,12 +330,10 @@ public:
 	void StopProgressTimer();
 
 	/// @brief Timer tick handler that forwards progress to AAMP.
-	///
-	/// Public for testing purposes; called internally by the progress timer.
 	void OnProgressTimerTick();
 
 	/// @brief Override how long Configure()/Stop()/Flush() wait for SEEK_DONE
-	///        before abandoning a flush.  Public for testing purposes.
+	///        before abandoning a flush.
 	void SetFlushCompleteTimeout(std::chrono::milliseconds timeout)
 	{
 		m_flushCompleteTimeout = timeout;
