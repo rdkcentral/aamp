@@ -30,6 +30,9 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 
+#include <atomic>
+#include <thread>
+
 #include "PrivateInstanceAAMPNotifiable.h"
 #include "MockAampConfig.h"
 #include "MockPrivateInstanceAAMP.h"
@@ -402,4 +405,84 @@ TEST_F(PrivateInstanceAAMPNotifiableTest,
 		.Times(0);
 
 	EXPECT_NO_THROW(m_notifiable->NotifyPipelinePausedToUnderflowMonitor());
+}
+
+// ===========================================================================
+// M14: the wrapped instance changes while notifications are delivered
+// ===========================================================================
+
+TEST_F(PrivateInstanceAAMPNotifiableTest,
+	NullInstance_NotificationsAreDroppedAndGetStateIsIdle)
+{
+	/**
+	 * @brief Regression (M14): every method but GetProgressReportIntervalSeconds
+	 *        dereferenced the instance without a null check.  With no instance
+	 *        they must do nothing, and GetState() must report IDLE.
+	 */
+	PrivateInstanceAAMPNotifiable notifiable(nullptr);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, ScheduleAsyncTask(_, _, _)).Times(0);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).Times(0);
+
+	notifiable.NotifyFirstFrameReceived(1);
+	notifiable.NotifyFirstBufferProcessed("0,0,1,1");
+	notifiable.NotifyFirstVideoFrameDisplayed();
+	notifiable.LogFirstFrame();
+	notifiable.LogTuneComplete();
+	notifiable.NotifyEOSReached();
+	notifiable.MonitorProgress(true, false);
+	notifiable.NotifySpeedChanged(1.0f, true);
+	notifiable.NotifyBufferUnderflow(eMEDIATYPE_VIDEO);
+	notifiable.NotifyPlaybackError(AAMP_TUNE_FAILURE_UNKNOWN, "x", false);
+	notifiable.NotifyOutputProtectionRecovered();
+	notifiable.CompleteDiscontinuityDataDeliverForPTSRestamp(eMEDIATYPE_VIDEO);
+	notifiable.NotifyPipelinePausedToUnderflowMonitor();
+	notifiable.SendMonitorAvEvent("ok", 1, 2, 3, 4);
+
+	EXPECT_EQ(notifiable.GetState(), eSTATE_IDLE);
+	EXPECT_EQ(notifiable.GetProgressReportIntervalSeconds(), 0.0);
+}
+
+TEST_F(PrivateInstanceAAMPNotifiableTest,
+	ChangeAamp_ToNull_StopsForwarding)
+{
+	m_notifiable->ChangeAamp(nullptr);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, ScheduleAsyncTask(_, _, _)).Times(0);
+
+	m_notifiable->NotifyEOSReached();
+	EXPECT_EQ(m_notifiable->GetState(), eSTATE_IDLE);
+}
+
+TEST_F(PrivateInstanceAAMPNotifiableTest,
+	ChangeAamp_ConcurrentWithNotifications_IsRaceFree)
+{
+	/**
+	 * @brief Regression (M14): m_aamp was a plain pointer written by
+	 *        ChangeAamp() while callback threads read it, and each method read
+	 *        it more than once.  Under a thread sanitizer the old code is
+	 *        reported as a data race.
+	 */
+	PrivateInstanceAAMP other{};
+	ON_CALL(*g_mockPrivateInstanceAAMP, ScheduleAsyncTask(_, _, _))
+		.WillByDefault(Return(0));  // AAMP_TASK_ID_INVALID: the adapter frees its args
+	ON_CALL(*g_mockPrivateInstanceAAMP, GetState())
+		.WillByDefault(Return(eSTATE_PLAYING));
+
+	std::atomic<bool> done{false};
+	auto deliverer = [&] {
+		while (!done.load())
+		{
+			m_notifiable->NotifyEOSReached();
+			m_notifiable->NotifyFirstBufferProcessed("0,0,1,1");
+			m_notifiable->GetState();
+		}
+	};
+	std::thread t1(deliverer);
+	std::thread t2(deliverer);
+	for (int i = 0; i < 2000; ++i)
+	{
+		m_notifiable->ChangeAamp((i % 2) ? &other : &m_aamp);
+	}
+	done = true;
+	t1.join();
+	t2.join();
 }

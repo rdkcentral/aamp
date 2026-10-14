@@ -34,6 +34,8 @@
 
 #include "IStreamSinkNotifiable.h"
 
+#include <atomic>
+
 class PrivateInstanceAAMP;
 
 /**
@@ -98,7 +100,12 @@ public:
 		uint64_t droppedFrames) override;
 
 private:
-	PrivateInstanceAAMP *m_aamp{nullptr};
+	/// Written by ChangeAamp() while Rialto and injector threads read it, so
+	/// each notification takes one snapshot through Target() and uses only
+	/// that; Target() is null (and logged) when there is no instance.
+	PrivateInstanceAAMP *Target(const char *caller) const;
+
+	std::atomic<PrivateInstanceAAMP *> m_aamp{nullptr};
 };
 
 #endif // PRIVATE_INSTANCE_AAMP_NOTIFIABLE_H
