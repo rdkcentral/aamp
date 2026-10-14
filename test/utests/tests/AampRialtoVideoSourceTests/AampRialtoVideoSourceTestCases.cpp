@@ -58,13 +58,15 @@ static MediaCodecInfo MakeH264CodecInfo(
 }
 
 static MediaCodecInfo MakeHevcCodecInfo(
-	uint16_t width = 1920, uint16_t height = 1080)
+	uint16_t width = 1920, uint16_t height = 1080,
+	bool naluLengthPrefixed = false)
 {
 	MediaCodecInfo ci{};
 	ci.mCodecFormat           = GST_FORMAT_VIDEO_ES_HEVC;
 	ci.mInfo.video.mWidth     = width;
 	ci.mInfo.video.mHeight    = height;
 	ci.mCodecData             = {0x01, 0x02};
+	ci.mNaluLengthPrefixed    = naluLengthPrefixed;
 	return ci;
 }
 
@@ -201,6 +203,54 @@ TEST_F(AampRialtoVideoSourceTest, AampRialtoVideoSource_AttachHevc_Success)
 	EXPECT_TRUE(m_source.isAttached());
 	EXPECT_EQ(m_source.width(), 3840);
 	EXPECT_EQ(m_source.height(), 2160);
+}
+
+/**
+ * @test AampRialtoVideoSource_AttachHevc_StreamFormatFollowsNaluPrefix
+ * @brief Regression (L4): HEVC was always attached as HVC1, so Annex-B HEVC
+ *        (e.g. HLS-TS) was mislabelled.  Length-prefixed (hvcC) HEVC is HVC1;
+ *        Annex-B is BYTE_STREAM, as for H.264.
+ */
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_AttachHevc_StreamFormatFollowsNaluPrefix)
+{
+	const struct
+	{
+		bool naluLengthPrefixed;
+		firebolt::rialto::StreamFormat expected;
+	} kCases[] = {
+		{true,  firebolt::rialto::StreamFormat::HVC1},
+		{false, firebolt::rialto::StreamFormat::BYTE_STREAM},
+	};
+
+	for (const auto &c : kCases)
+	{
+		AampRialtoVideoSource source;
+		firebolt::rialto::StreamFormat captured =
+			firebolt::rialto::StreamFormat::UNDEFINED;
+		EXPECT_CALL(*m_pipelinePtr, attachSource(_))
+			.WillOnce(Invoke([&](const std::unique_ptr<
+				firebolt::rialto::IMediaPipeline::MediaSource> &src)
+			{
+				auto *video = dynamic_cast<
+					firebolt::rialto::IMediaPipeline::MediaSourceVideo *>(src.get());
+				if (video)
+				{
+					captured = video->getStreamFormat();
+				}
+				const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
+					*src).setId(m_nextSourceId++);
+				return true;
+			}));
+
+		auto codecInfo = MakeHevcCodecInfo(1920, 1080, c.naluLengthPrefixed);
+		const auto result = source.attachOrUpdate(
+			*m_pipelinePtr, codecInfo, nullptr, -1);
+
+		EXPECT_EQ(result, AampRialtoMediaSource::AttachResult::NEWLY_ATTACHED);
+		EXPECT_EQ(captured, c.expected)
+			<< "naluLengthPrefixed=" << c.naluLengthPrefixed;
+	}
 }
 
 // ---------------------------------------------------------------------------
