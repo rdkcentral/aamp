@@ -86,7 +86,11 @@ std::shared_ptr<_manifestDownloadResponse> _manifestDownloadResponse::clone()
 	clonedDoc->mMPDDownloadResponse->mDownloadData = mMPDDownloadResponse->mDownloadData;
 	clonedDoc->mMPDParseHelper = std::make_shared<AampMPDParseHelper>(*this->mMPDParseHelper);
 	clonedDoc->mRootNode = NULL;
-	clonedDoc->mTailDropTracker = nullptr; // no reporting: re-parses an already-reported manifest
+	
+	// No reporting: this is a backup clone used for manifest refresh fallback.
+	// The original manifest was already parsed and drops were reported.
+	// Re-parsing the same timeline should not re-report the same segments.
+	clonedDoc->mTailDropTracker = nullptr;
 	clonedDoc->parseMPD();
 	AAMPLOG_TRACE("Exit");
 	return clonedDoc;
@@ -556,6 +560,8 @@ void AampMPDDownloader::downloadMPDThread1()
 
 		if(mCachedMPDData != nullptr)
 		{
+			// Create a backup before refresh; if refresh fails, this will be used for stitching.
+			// Clear the tracker to avoid re-reporting drops that were already logged.
 			cachedBackupData = mCachedMPDData->clone();
 			AAMPLOG_TRACE("Created copy of cached:%p backup:%p", mCachedMPDData.get(), cachedBackupData.get());
 			AAMPLOG_TRACE("Created copy of cachedMPD:%p backupMPD:%p", mCachedMPDData->mDashMpdDoc.get(), cachedBackupData->mDashMpdDoc.get());
