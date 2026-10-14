@@ -109,7 +109,7 @@ and should be confirmed before or while fixing.
 | M7 | Done | Unsynchronised plain members (`m_videoRectangle`, `m_audioVolume`, etc.) |
 | M8 | Done | Rialto callback setters race with delivery |
 | M9 | Done | Possible deadlock: `m_attachMutex` held across DRM/IPC |
-| M10 | Needs verification | Blocking Rialto IPC from the Rialto callback thread |
+| M10 | Done | Blocking Rialto IPC from the Rialto callback thread |
 | M11 | Open | `MediaKeysClient::onKeyStatusesChanged` invokes callbacks under mutex |
 | M12 | Open | `RialtoMediaKeySessionAdapter` lost wakeups and stale state |
 | M13 | Open | `AampRialtoControlBackend` member order |
@@ -373,6 +373,10 @@ Rialto behaviours confirmed or disproved, test gaps, design decisions).
 | 2026-10-14 | M9 | Lock order checked and written beside `m_attachMutex` in `AampRialtoPlayer.h`: `m_flushCallMutex` -> `m_flushMutex` and -> the controller play lock; `m_attachMutex` -> the controller play lock; the two outer mutexes are never held together (`AttachSource` never calls Flush/Stop/Configure; `ApplySubtitleSegmentPosition` is only called from `HandleSeekDone`). No cycle found. |
 | 2026-10-14 | M9 | Left as is, by decision: `m_attachMutex` is still held by an injector thread across a DRM license fetch inside `AttachSource`, and `SetVideoMute`, `SetSubtitleMute`, `setCCMute` and the SEEK_DONE subtitle-position update take the same mutex. A slow licence fetch therefore stalls those calls (and the pipeline event thread for SEEK_DONE) for its duration. Shortening it means releasing the lock around `createSession`, which changes the serialisation of attach against caps updates, and needs a device test; not done here. |
 | 2026-10-14 | M9 | The lock-order check was done by reading the code (a static call scan over-approximated and was discarded); it is not enforced by a test or a tool. |
+| 2026-10-14 | M10 | Verified from Rialto's client source (`MediaPipelineIpc.cpp`): server notifications are queued to a dedicated event thread (`rialto-media-player-events`); the blocking RPCs `HandleSeekDone` makes (`setSourcePosition`, `play`, `haveData`) wait on the IPC channel thread, which no handler occupies. Blocking IPC from the notification thread therefore cannot deadlock. See Verification Notes. |
+| 2026-10-14 | M10 | Why `rialto-gstreamer` bounces these calls to a worker: not established. The reason may be latency (the event thread is held for each round trip, so later events queue behind it) rather than deadlock; I did not find a statement of intent in the sources read. |
+| 2026-10-14 | M10 | Not changed, by decision: `HandleSeekDone` still issues `setSourcePosition`, `play()` and `haveData()` from the event thread. Moving them to a worker would add a thread and an ordering problem (SEEK_DONE handling must finish before the next event) for a latency benefit that has not been measured. Revisit if a trace shows events delayed behind these calls. |
+| 2026-10-14 | M10 | Source reading, not a runtime test; the Rialto version on the target was not checked. |
 
 ## Verification Notes
 
@@ -408,3 +412,4 @@ Record each completed task: what was done, files changed, tests added or run.
 | 2026-10-14 | M7 | Guarded `m_videoRectangle` (mutex), `m_audioVolume` (atomic, single read per apply) and `m_pendingAttach` (leaf mutex). | AampRialtoPlayer.{h,cpp} | Player: VideoRectangle_ConcurrentSetAndGet_NeverReadsATornValue and SetAudioVolume_ConcurrentCallers_ForwardOnlyWrittenValues (pass normally on old and new code; TSAN reports races on the old code, none on the new); 14 suites pass |
 | 2026-10-14 | M8 | Client callbacks guarded by `m_callbackMutex` with copy-then-invoke delivery; player callbacks installed before `load()`. | AampRialtoMediaPipelineClient.{h,cpp}, AampRialtoPlayer.cpp | Client: Callbacks_ConcurrentInstallAndDelivery_OnlyRunsWholeCallbacks (TSAN red on old, clean on new), Callback_MayReplaceItselfWhileRunning_DoesNotDeadlock (guard). Player: Configure_EventDeliveredDuringLoad_IsNotDropped (red on old, green now). 14 suites pass. |
 | 2026-10-14 | M9 | Documented the lock order and the long-hold caveat on `m_attachMutex`; verified the thread model from Rialto's source; no behaviour change. | AampRialtoPlayer.h (comment only) | None added (comment-only change). Player suite builds and passes. |
+| 2026-10-14 | M10 | Verified the thread model and recorded the outcome; no code change. | docs only | None (verification task). |
