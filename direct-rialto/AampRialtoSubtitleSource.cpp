@@ -179,10 +179,11 @@ AampRialtoSubtitleSource::createSegment(
 
 	const int64_t displayOffsetMs =
 		refineDisplayOffset(sample);
-	if (displayOffsetMs > 0)
+	if (displayOffsetMs != 0)
 	{
 		AAMPLOG_INFO("subtitle setDisplayOffset sourceId=%d displayOffsetMs=%" PRId64,
 			sourceId(), displayOffsetMs);
+		// Rialto's field is unsigned but the server reads it back as signed.
 		segment->setDisplayOffset(static_cast<uint64_t>(displayOffsetMs));
 	}
 

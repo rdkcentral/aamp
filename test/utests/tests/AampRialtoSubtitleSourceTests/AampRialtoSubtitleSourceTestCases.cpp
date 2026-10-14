@@ -255,6 +255,62 @@ TEST_F(AampRialtoSubtitleSourceTest,
 		static_cast<int64_t>(0.5 * 1'000'000'000LL));
 }
 
+/**
+ * @test AampRialtoSubtitleSource_CreateSegment_NegativeDisplayOffset_IsApplied
+ * @brief Regression (L3): processDataFragment() deliberately passes a
+ *        negative display offset for WebVTT, but createSegment() only applied
+ *        offsets > 0.  Rialto's API takes a uint64; the server stores it in
+ *        GST_BUFFER_OFFSET and the text-track sink reads it back as signed, so
+ *        a negative value must be passed as its two's-complement form.
+ */
+TEST_F(AampRialtoSubtitleSourceTest,
+	AampRialtoSubtitleSource_CreateSegment_NegativeDisplayOffset_IsApplied)
+{
+	AampMediaSample sample{};
+	sample.mPts             = 1.5;
+	sample.mDuration        = 0.5;
+	sample.mDisplayOffsetMs = -2000;
+
+	auto seg = m_source.createSegment(sample);
+
+	ASSERT_NE(seg, nullptr);
+	ASSERT_TRUE(seg->getDisplayOffset().has_value());
+	EXPECT_EQ(static_cast<int64_t>(*seg->getDisplayOffset()), -2000);
+}
+
+/**
+ * @test AampRialtoSubtitleSource_CreateSegment_PositiveDisplayOffset_IsApplied
+ * @brief A positive display offset is still passed through unchanged.
+ */
+TEST_F(AampRialtoSubtitleSourceTest,
+	AampRialtoSubtitleSource_CreateSegment_PositiveDisplayOffset_IsApplied)
+{
+	AampMediaSample sample{};
+	sample.mDisplayOffsetMs = 1500;
+
+	auto seg = m_source.createSegment(sample);
+
+	ASSERT_NE(seg, nullptr);
+	ASSERT_TRUE(seg->getDisplayOffset().has_value());
+	EXPECT_EQ(*seg->getDisplayOffset(), 1500u);
+}
+
+/**
+ * @test AampRialtoSubtitleSource_CreateSegment_ZeroDisplayOffset_IsNotSet
+ * @brief No offset is set on the segment when there is nothing to correct.
+ */
+TEST_F(AampRialtoSubtitleSourceTest,
+	AampRialtoSubtitleSource_CreateSegment_ZeroDisplayOffset_IsNotSet)
+{
+	AampMediaSample sample{};
+	sample.mDisplayOffsetMs = 0;
+
+	auto seg = m_source.createSegment(sample);
+
+	ASSERT_NE(seg, nullptr);
+	EXPECT_FALSE(seg->getDisplayOffset().has_value());
+}
+
 // ---------------------------------------------------------------------------
 // Inband CC
 // ---------------------------------------------------------------------------
