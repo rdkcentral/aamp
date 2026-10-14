@@ -111,6 +111,7 @@ void AampRialtoMediaSource::reset()
 	m_lastAcceptedEndMs.store(kFirstPtsNotSet, std::memory_order_relaxed);
 	m_acceptedFrames.store(0, std::memory_order_relaxed);
 	m_bufferFull.store(false, std::memory_order_relaxed);
+	m_droppedSampleCount.store(0, std::memory_order_relaxed);
 }
 
 void AampRialtoMediaSource::unblockInjection(
@@ -675,10 +676,23 @@ bool AampRialtoMediaSource::injectOneSample(
 		{
 			// Build the segment outside the lock (polymorphic).
 			auto segment = createSegment(sample);
+			// A sample that cannot be injected correctly is dropped the same
+			// way as one whose segment could not be created.
+			if (segment &&
+			    sample.mDataSize > std::numeric_limits<uint32_t>::max())
+			{
+				AAMPLOG_ERR("Dropping sample for sourceId=%d: %zu bytes do not "
+					"fit the 32-bit segment size", sourceId(), sample.mDataSize);
+				segment.reset();
+			}
+			else if (segment && !annotateEncryption(sample, *segment))
+			{
+				segment.reset();
+			}
 			if (!segment)
 			{
-				AAMPLOG_WARN("createSegment returned null for sourceId=%d",
-					sourceId());
+				AAMPLOG_WARN("no segment for sourceId=%d (creation failed or "
+					"sample rejected)", sourceId());
 				// Always respond if we still own this request — dropping it
 				// silently (as a non-EOS createSegment() failure previously
 				// did) would leak it forever, since nothing else will ever
@@ -718,7 +732,6 @@ bool AampRialtoMediaSource::injectOneSample(
 				{
 					segment->setCodecData(codecData);
 				}
-				annotateEncryption(sample, *segment);
 				segment->setData(
 					static_cast<uint32_t>(sample.mDataSize),
 					sample.mData.get());
@@ -748,16 +761,40 @@ bool AampRialtoMediaSource::injectOneSample(
 // injectOneSample helpers
 // ---------------------------------------------------------------------------
 
-void AampRialtoMediaSource::annotateEncryption(
+bool AampRialtoMediaSource::annotateEncryption(
 	const AampMediaSample &sample,
 	firebolt::rialto::IMediaPipeline::MediaSegment &segment) const
 {
+	constexpr size_t kSubSampleEntrySize = 6;
+	constexpr uint32_t kDropLogInterval = 100;
+
+	const auto &raw = sample.mDrmMetadata.mSubSamples;
+	const char *rejection = nullptr;
 	if (sample.mDrmMetadata.mIsEncrypted && mksId() < 0)
 	{
-		AAMPLOG_WARN("Encrypted sample for sourceId=%d but no DRM session (mksId=%d)"
-			" — segment will be injected without encryption metadata",
-			sourceId(), mksId());
+		rejection = "no DRM session";
 	}
+	else if (sample.mDrmMetadata.mIsEncrypted &&
+	         raw.size() < sample.mDrmMetadata.mNumSubSamples * kSubSampleEntrySize)
+	{
+		rejection = "sub-sample table shorter than declared";
+	}
+
+	if (rejection != nullptr)
+	{
+		const uint32_t dropped =
+			m_droppedSampleCount.fetch_add(1, std::memory_order_relaxed) + 1;
+		if (dropped == 1 || (dropped % kDropLogInterval) == 0)
+		{
+			AAMPLOG_ERR("Dropping encrypted sample for sourceId=%d: %s "
+				"(mksId=%d numSubSamples=%u tableBytes=%zu, %u dropped)",
+				sourceId(), rejection, mksId(),
+				static_cast<unsigned>(sample.mDrmMetadata.mNumSubSamples),
+				raw.size(), dropped);
+		}
+		return false;
+	}
+
 	if (sample.mDrmMetadata.mIsEncrypted && mksId() >= 0)
 	{
 		segment.setEncrypted(true);
@@ -792,16 +829,10 @@ void AampRialtoMediaSource::annotateEncryption(
 
 		if (sample.mDrmMetadata.mNumSubSamples > 0)
 		{
-			const size_t kEntrySize = 6;
-			const auto  &raw        = sample.mDrmMetadata.mSubSamples;
 			for (uint32_t s = 0;
 			     s < sample.mDrmMetadata.mNumSubSamples; ++s)
 			{
-				const size_t offset = s * kEntrySize;
-				if (offset + kEntrySize > raw.size())
-				{
-					break;
-				}
+				const size_t offset = s * kSubSampleEntrySize;
 				const uint16_t clearBytes =
 					(static_cast<uint16_t>(raw[offset])     << 8) |
 					 static_cast<uint16_t>(raw[offset + 1]);
@@ -830,6 +861,7 @@ void AampRialtoMediaSource::annotateEncryption(
 			"session (mksId=%d) — segment sent without encryption metadata",
 			sourceId(), mksId());
 	}
+	return true;
 }
 
 void AampRialtoMediaSource::handleAddSegmentNoSpace(

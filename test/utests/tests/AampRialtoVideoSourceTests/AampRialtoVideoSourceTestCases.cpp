@@ -1335,6 +1335,182 @@ TEST_F(AampRialtoVideoSourceTest,
 	EXPECT_FALSE(st.hasPending);
 }
 
+// ---------------------------------------------------------------------------
+// injectOneSample — encrypted samples that cannot be injected correctly (L6)
+// ---------------------------------------------------------------------------
+
+namespace
+{
+/// An encrypted sample whose sub-sample table holds @p tableBytes bytes while
+/// it declares @p numSubSamples entries (6 bytes each).
+AampMediaSample MakeEncryptedSample(uint16_t numSubSamples, size_t tableBytes)
+{
+	static const uint8_t kData[] = {0x01, 0x02, 0x03};
+	AampMediaSample sample;
+	sample.mData = std::shared_ptr<const uint8_t>(kData, [](const uint8_t *){});
+	sample.mDataSize = sizeof(kData);
+	sample.mPts = 1.0;
+	sample.mDuration = 0.033;
+	sample.mDrmMetadata.mIsEncrypted = true;
+	sample.mDrmMetadata.mKeyId.assign(16, 0xAA);
+	sample.mDrmMetadata.mIV.assign(16, 0xBB);
+	sample.mDrmMetadata.mCipher = CIPHER_TYPE_CENC;
+	sample.mDrmMetadata.mNumSubSamples = numSubSamples;
+	sample.mDrmMetadata.mSubSamples.assign(tableBytes, 0x00);
+	return sample;
+}
+} // namespace
+
+/**
+ * @test AampRialtoVideoSource_InjectOneSample_EncryptedWithoutDrmSession_IsDroppedAndAnswered
+ * @brief Regression (L6): an encrypted sample for a source with no DRM
+ *        session was injected without encryption metadata (WARN only).  It
+ *        must be dropped, and the request still answered so it is not leaked.
+ */
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_InjectOneSample_EncryptedWithoutDrmSession_IsDroppedAndAnswered)
+{
+	auto codecInfo = MakeH264CodecInfo();
+	m_source.attachOrUpdate(*m_pipelinePtr, codecInfo, nullptr, -1);
+	ASSERT_EQ(m_source.mksId(), -1);
+
+	{
+		auto &st = m_source.state();
+		std::lock_guard<std::mutex> lock(st.mu);
+		st.hasPending        = true;
+		st.pendingRequestId  = 910;
+		st.pendingFrameCount = 1;
+	}
+
+	EXPECT_CALL(*m_pipelinePtr, addSegment(_, _)).Times(0);
+	EXPECT_CALL(*m_pipelinePtr,
+		haveData(firebolt::rialto::MediaSourceStatus::NO_AVAILABLE_SAMPLES, 910))
+		.WillOnce(Return(true));
+
+	const uint64_t gen = m_source.captureGeneration();
+	EXPECT_FALSE(m_source.injectOneSample(
+		*m_pipelinePtr, gen, MakeEncryptedSample(0, 0), nullptr));
+
+	auto &st = m_source.state();
+	std::lock_guard<std::mutex> lock(st.mu);
+	EXPECT_FALSE(st.hasPending);
+}
+
+/**
+ * @test AampRialtoVideoSource_InjectOneSample_ShortSubSampleTable_IsDroppedAndAnswered
+ * @brief Regression (L6): a sub-sample table shorter than the declared count
+ *        was cut short silently and the sample injected anyway.
+ */
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_InjectOneSample_ShortSubSampleTable_IsDroppedAndAnswered)
+{
+	NiceMock<MockDrmBridge> mockDrm;
+	EXPECT_CALL(mockDrm, createSession(_, _, _, eMEDIATYPE_VIDEO))
+		.WillOnce(Return(42));
+	AampRialtoMediaSource::ProtectionParams prot;
+	prot.systemId = "edef8ba9-79d6-4ace-a3c8-27dcd51d21ed";
+	prot.initData = {0xCA, 0xFE};
+	prot.type     = eMEDIATYPE_VIDEO;
+	auto codecInfo = MakeH264CodecInfo();
+	m_source.attachOrUpdate(*m_pipelinePtr, codecInfo, &mockDrm, -1, prot);
+	ASSERT_EQ(m_source.mksId(), 42);
+
+	{
+		auto &st = m_source.state();
+		std::lock_guard<std::mutex> lock(st.mu);
+		st.hasPending        = true;
+		st.pendingRequestId  = 911;
+		st.pendingFrameCount = 1;
+	}
+
+	EXPECT_CALL(*m_pipelinePtr, addSegment(_, _)).Times(0);
+	EXPECT_CALL(*m_pipelinePtr,
+		haveData(firebolt::rialto::MediaSourceStatus::NO_AVAILABLE_SAMPLES, 911))
+		.WillOnce(Return(true));
+
+	// Two entries declared, one present.
+	const uint64_t gen = m_source.captureGeneration();
+	EXPECT_FALSE(m_source.injectOneSample(
+		*m_pipelinePtr, gen, MakeEncryptedSample(2, 6), nullptr));
+}
+
+/**
+ * @test AampRialtoVideoSource_InjectOneSample_SampleOver32BitSize_IsDroppedAndAnswered
+ * @brief Regression (L6): a sample size was cast to 32 bits for the segment,
+ *        so a size above 4 GiB reached Rialto truncated.  The check runs before
+ *        the payload is read, so a small buffer stands in for the payload.
+ */
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_InjectOneSample_SampleOver32BitSize_IsDroppedAndAnswered)
+{
+	if (sizeof(size_t) < 8)
+	{
+		GTEST_SKIP() << "size_t is 32 bit";
+	}
+
+	auto codecInfo = MakeH264CodecInfo();
+	m_source.attachOrUpdate(*m_pipelinePtr, codecInfo, nullptr, -1);
+
+	{
+		auto &st = m_source.state();
+		std::lock_guard<std::mutex> lock(st.mu);
+		st.hasPending        = true;
+		st.pendingRequestId  = 913;
+		st.pendingFrameCount = 1;
+	}
+
+	EXPECT_CALL(*m_pipelinePtr, addSegment(_, _)).Times(0);
+	EXPECT_CALL(*m_pipelinePtr,
+		haveData(firebolt::rialto::MediaSourceStatus::NO_AVAILABLE_SAMPLES, 913))
+		.WillOnce(Return(true));
+
+	AampMediaSample sample;
+	static const uint8_t kData[] = {0x01};
+	sample.mData = std::shared_ptr<const uint8_t>(kData, [](const uint8_t *){});
+	sample.mDataSize = (static_cast<size_t>(1) << 32) + 1;
+	sample.mPts = 1.0;
+	sample.mDuration = 0.033;
+
+	const uint64_t gen = m_source.captureGeneration();
+	EXPECT_FALSE(m_source.injectOneSample(
+		*m_pipelinePtr, gen, std::move(sample), nullptr));
+}
+
+/**
+ * @test AampRialtoVideoSource_InjectOneSample_CompleteSubSampleTable_IsInjected
+ * @brief Guard for the L6 checks: an encrypted sample with a DRM session and
+ *        a complete sub-sample table is still injected.
+ */
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_InjectOneSample_CompleteSubSampleTable_IsInjected)
+{
+	NiceMock<MockDrmBridge> mockDrm;
+	EXPECT_CALL(mockDrm, createSession(_, _, _, eMEDIATYPE_VIDEO))
+		.WillOnce(Return(42));
+	AampRialtoMediaSource::ProtectionParams prot;
+	prot.systemId = "edef8ba9-79d6-4ace-a3c8-27dcd51d21ed";
+	prot.initData = {0xCA, 0xFE};
+	prot.type     = eMEDIATYPE_VIDEO;
+	auto codecInfo = MakeH264CodecInfo();
+	m_source.attachOrUpdate(*m_pipelinePtr, codecInfo, &mockDrm, -1, prot);
+	ASSERT_EQ(m_source.mksId(), 42);
+
+	{
+		auto &st = m_source.state();
+		std::lock_guard<std::mutex> lock(st.mu);
+		st.hasPending        = true;
+		st.pendingRequestId  = 912;
+		st.pendingFrameCount = 1;
+	}
+
+	EXPECT_CALL(*m_pipelinePtr, addSegment(912, _))
+		.WillOnce(Return(firebolt::rialto::AddSegmentStatus::OK));
+
+	const uint64_t gen = m_source.captureGeneration();
+	EXPECT_TRUE(m_source.injectOneSample(
+		*m_pipelinePtr, gen, MakeEncryptedSample(2, 12), nullptr));
+}
+
 // ===========================================================================
 // Fixture: AampRialtoVideoSourceWithDemuxTest
 // Extends AampRialtoVideoSourceTest with a fake Mp4Demux backed by

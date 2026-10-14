@@ -622,12 +622,19 @@ private:
 	 * @brief Populate DRM/encryption metadata on a segment.
 	 *
 	 * No-op (other than a trace log) when the sample is not encrypted.
-	 * Logs a warning when the sample is encrypted but no DRM session
-	 * exists (m_mksId < 0).
+	 *
+	 * @return false when the sample must not be injected: it is encrypted
+	 *         but no DRM session exists (m_mksId < 0), or its sub-sample
+	 *         table is shorter than it declares.  Injecting such a sample
+	 *         would hand Rialto ciphertext without usable metadata.
 	 */
-	void annotateEncryption(
+	bool annotateEncryption(
 		const AampMediaSample &sample,
 		firebolt::rialto::IMediaPipeline::MediaSegment &segment) const;
+
+	/// Samples dropped for an annotateEncryption() failure since reset();
+	/// limits how often the failure is logged.
+	mutable std::atomic<uint32_t> m_droppedSampleCount{0};
 
 	/**
 	 * @brief Handle an AddSegmentStatus::NO_SPACE result from addSegment().
