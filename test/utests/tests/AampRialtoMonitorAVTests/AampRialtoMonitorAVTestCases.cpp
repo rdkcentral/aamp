@@ -179,9 +179,17 @@ protected:
 
 	std::unique_ptr<AampRialtoMonitorAV> makeSUT()
 	{
-		AampRialtoMonitorAV::Config cfg{
+		return makeSUTWithIntervals(
 			static_cast<int>(kSampleIntervalMs),
-			static_cast<int>(kReportIntervalMs),
+			static_cast<int>(kReportIntervalMs));
+	}
+
+	std::unique_ptr<AampRialtoMonitorAV> makeSUTWithIntervals(
+		int sampleIntervalMs, int reportIntervalMs)
+	{
+		AampRialtoMonitorAV::Config cfg{
+			sampleIntervalMs,
+			reportIntervalMs,
 			kSyncPosThreshMs,
 			kSyncNegThreshMs,
 			kJumpThreshMs};
@@ -225,6 +233,32 @@ TEST_F(AampRialtoMonitorAVTest, start_RegistersSampleAndReportTimers)
 		g_timeout_add(kReportIntervalMs, _, _)).Times(1);
 
 	m_monitor->start();
+}
+
+TEST_F(AampRialtoMonitorAVTest, start_NonPositiveInterval_DoesNotRegisterAnyTimer)
+{
+	/**
+	 * @brief Regression (L11): the intervals were passed to g_timeout_add
+	 *        unchecked; zero busy-loops the main loop and a negative value wraps
+	 *        to a huge unsigned interval.  Neither timer may start unless both
+	 *        intervals are positive.
+	 */
+	const struct { int sampleMs; int reportMs; } kCases[] = {
+		{0, static_cast<int>(kReportIntervalMs)},
+		{static_cast<int>(kSampleIntervalMs), 0},
+		{-1, static_cast<int>(kReportIntervalMs)},
+		{static_cast<int>(kSampleIntervalMs), -1},
+	};
+
+	for (const auto &c : kCases)
+	{
+		EXPECT_CALL(*m_mockGLib, g_timeout_add(_, _, _)).Times(0);
+
+		auto monitor = makeSUTWithIntervals(c.sampleMs, c.reportMs);
+		monitor->start();
+
+		::testing::Mock::VerifyAndClearExpectations(m_mockGLib.get());
+	}
 }
 
 TEST_F(AampRialtoMonitorAVTest, start_WhenAlreadyRunning_IsIdempotent)

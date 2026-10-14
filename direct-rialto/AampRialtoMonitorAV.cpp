@@ -87,6 +87,14 @@ AampRialtoMonitorAV::~AampRialtoMonitorAV()
 
 void AampRialtoMonitorAV::start()
 {
+	// Zero would spin the main loop and a negative value wraps to a huge guint.
+	if (m_config.sampleIntervalMs <= 0 || m_config.reportIntervalMs <= 0)
+	{
+		AAMPLOG_WARN("MonitorAV not started: invalid interval (sample=%d ms, "
+			"report=%d ms)", m_config.sampleIntervalMs, m_config.reportIntervalMs);
+		return;
+	}
+
 	bool started = false;
 	if (m_sampleTimer.Start(static_cast<guint>(m_config.sampleIntervalMs),
 			[this]() { onSampleTick(); return true; }))

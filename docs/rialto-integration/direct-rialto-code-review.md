@@ -175,7 +175,7 @@ and should be confirmed before or while fixing.
 | L8 | Done | Test-only constructor with null `sourceCreator` throws on `Configure` |
 | L9 | Needs verification | `NO_AVAILABLE_SAMPLES` on gated `needData` relies on Rialto re-requesting |
 | L10 | Open | Per-frame `haveData` round trip on single-sample paths |
-| L11 | Open | Timer intervals unchecked (zero/negative) |
+| L11 | Done | Timer intervals unchecked (zero/negative) |
 | L12 | Needs verification | All GLib timers use the default `GMainContext` |
 | L13 | Open | Hard-coded pipeline requirements, `isLive=false`, `"mse://1"` (TODO) |
 
@@ -419,6 +419,7 @@ Rialto behaviours confirmed or disproved, test gaps, design decisions).
 | 2026-10-14 | L7 | Test change: `Flush_NullPipeline_ShouldTearDownTrue_CallsStop` asserted only that the state stayed IDLE, which holds with or without the Stop, so it could never show the behaviour its name claimed. It is renamed `..._StaysIdle` with an accurate description; the new test observes the control backend instead (the mock backend must survive and be the one `Configure()` waits on). |
 | 2026-10-14 | L8 | The injected-notifiable `AampRialtoPlayer` constructor defaulted `sourceCreator` to `nullptr` and stored it as is, so `Configure()` threw `std::bad_function_call` for any caller that omitted it. An empty creator now selects `makeDefaultSourceCreator()`, the same one the production constructor passes (the test fakes link a creator that returns no sources). Documented on the constructor. |
 | 2026-10-14 | L8 | No caller in the tree relied on the old behaviour: every existing test passes its own creator. |
+| 2026-10-14 | L11 | `AampRialtoMonitorAV::start()` passed `sampleIntervalMs` and `reportIntervalMs` (plain `int`s read from config) to `g_timeout_add` after a bare `static_cast<guint>`: zero would run the callback on every main-loop iteration, a negative value wraps to a huge unsigned interval (about 49 days, effectively never). `start()` now logs a warning and starts neither timer unless both are positive: the report tick only summarises what the sample tick collected, so one timer alone is of no use. `ProgressTimer` already refused a zero interval (`StartProgressTimer()`), and `AampRialtoPreRollMonitor` takes a compile-time constant, so no other change was needed. |
 
 ## Verification Notes
 
@@ -467,3 +468,4 @@ Record each completed task: what was done, files changed, tests added or run.
 | 2026-10-14 | L6 | Encrypted samples without a DRM session or with a short sub-sample table, and samples over 4 GiB, are dropped and their request answered; logging is rate limited. | `direct-rialto/AampRialtoMediaSource.h`, `direct-rialto/AampRialtoMediaSource.cpp`, `test/utests/tests/AampRialtoVideoSourceTests/AampRialtoVideoSourceTestCases.cpp` | New: InjectOneSample_EncryptedWithoutDrmSession, _ShortSubSampleTable, _SampleOver32BitSize (all red on old code for the right reason: the sample was injected) and _CompleteSubSampleTable_IsInjected (guard). Video suite 67 tests; 16 suites pass. |
 | 2026-10-14 | L7 | The recovery Stop is skipped when there is nothing to tear down (IDLE, no pipeline). | `direct-rialto/AampRialtoPlayer.cpp`, `test/utests/tests/AampRialtoPlayerTests/AampRialtoPlayerTestCases.cpp` | New: Flush_NullPipeline_ShouldTearDownTrue_DoesNotRunRecoveryStop (red on old code: the backend was destroyed before it was used), Flush_PipelineNotFlushable_ShouldTearDownTrue_StillStopsPipeline (guard). Player suite 302 tests; only the player suite compiles this file. |
 | 2026-10-14 | L8 | An empty source creator selects the default creator instead of throwing in `Configure()`. | `direct-rialto/AampRialtoPlayer.cpp`, `direct-rialto/AampRialtoPlayer.h`, `test/utests/tests/AampRialtoPlayerTests/AampRialtoPlayerTestCases.cpp` | New: Constructor_EmptySourceCreator_ConfigureDoesNotThrow (red on old code: throws `std::bad_function_call`). Player suite 303 tests; 16 suites pass. |
+| 2026-10-14 | L11 | MonitorAV does not start when either interval is zero or negative. | `direct-rialto/AampRialtoMonitorAV.cpp`, `test/utests/tests/AampRialtoMonitorAVTests/AampRialtoMonitorAVTestCases.cpp` | New: start_NonPositiveInterval_DoesNotRegisterAnyTimer (four cases: zero and negative for each interval; red on old code, which registered timers). MonitorAV suite 20 tests; 16 suites pass. |
