@@ -64,6 +64,8 @@
 #include "AampLLDASHData.h"
 #include "AampMPDUtils.h"
 
+class TailDropTracker;
+
 typedef void (*ManifestUpdateCallbackFunc)(void *);
 
 /**
@@ -94,6 +96,7 @@ typedef struct _manifestDownloadConfig
 	MPDStichOptions	mMPDStichOption;
 	bool mIsLLDConfigEnabled;
 	bool mCullManifestAtTuneStart;	// Remove the Start of the Manifest to the liveOffset
+	bool mTrimPeriodTailSegments;	// Drop Period-tail segments that overrun @duration
 	int  mTSBDuration;			// pass the TSB duration of the manifest to be managed
 	int  mStartPosnToTSB;		// Position where MPD has to be truncated at the start of playback
 
@@ -106,13 +109,13 @@ typedef struct _manifestDownloadConfig
 
 
 	_manifestDownloadConfig( int playerId ) :mDnldConfig(std::make_shared<DownloadConfig> ()),mTuneUrl(),mStichUrl(),
-									mIsLLDConfigEnabled(false),	mCullManifestAtTuneStart(false),mTSBDuration(-1),
+									mIsLLDConfigEnabled(false),	mCullManifestAtTuneStart(false),mTrimPeriodTailSegments(false),mTSBDuration(-1),
 									mStartPosnToTSB(-1),mCMCDCollector(nullptr),mMPDStichOption(OPT_1_FULL_MANIFEST_TUNE),
 									mHarvestCountLimit(0),mHarvestConfig(0),mHarvestPathConfigured(),mPreProcessedManifest(),mPlayerId(playerId) {}
 
 	_manifestDownloadConfig(const _manifestDownloadConfig& other): mDnldConfig(other.mDnldConfig),mTuneUrl(other.mTuneUrl),
 								mStichUrl(other.mStichUrl),mIsLLDConfigEnabled(other.mIsLLDConfigEnabled),
-								mCullManifestAtTuneStart(other.mCullManifestAtTuneStart), mTSBDuration(other.mTSBDuration),
+								mCullManifestAtTuneStart(other.mCullManifestAtTuneStart), mTrimPeriodTailSegments(other.mTrimPeriodTailSegments), mTSBDuration(other.mTSBDuration),
 								mStartPosnToTSB(other.mStartPosnToTSB),mCMCDCollector(other.mCMCDCollector),
 								mMPDStichOption(other.mMPDStichOption),mHarvestCountLimit(other.mHarvestCountLimit),
 								mHarvestConfig(other.mHarvestConfig),mHarvestPathConfigured(other.mHarvestPathConfigured),mPreProcessedManifest(other.mPreProcessedManifest),mPlayerId(other.mPlayerId) {}
@@ -143,6 +146,8 @@ typedef struct _manifestDownloadResponse
 	std::shared_ptr<dash::mpd::IMPD> mMPDInstance;
 	bool mIsLiveManifest;
 	bool mRefreshRequired;
+	bool mTrimPeriodTailSegments; /**< Enables TrimPeriodTailSegments() in parseMPD() */
+	std::shared_ptr<TailDropTracker> mTailDropTracker; /**< Shared with the downloader; null means dropped segments are not reported */
 	AAMPStatusType mMPDStatus;
 	Node *mRootNode;
 	std::shared_ptr<DashMPDDocument> mDashMpdDoc;
@@ -150,8 +155,10 @@ typedef struct _manifestDownloadResponse
 private:
 	AampMPDParseHelperPtr	mMPDParseHelper;
 
+	void trimPeriodTails();
+
 public:
-	_manifestDownloadResponse() : mMPDDownloadResponse(std::make_shared<DownloadResponse>()), mMPDInstance(nullptr), mIsLiveManifest(false), mRefreshRequired(false), mMPDStatus(AAMPStatusType::eAAMPSTATUS_OK), mRootNode(NULL), mDashMpdDoc(nullptr), mLastPlaylistDownloadTimeMs(0), mMPDParseHelper(std::make_shared<AampMPDParseHelper>()) {}
+	_manifestDownloadResponse() : mMPDDownloadResponse(std::make_shared<DownloadResponse>()), mMPDInstance(nullptr), mIsLiveManifest(false), mRefreshRequired(false), mTrimPeriodTailSegments(false), mMPDStatus(AAMPStatusType::eAAMPSTATUS_OK), mRootNode(NULL), mDashMpdDoc(nullptr), mLastPlaylistDownloadTimeMs(0), mMPDParseHelper(std::make_shared<AampMPDParseHelper>()) {}
 
 	_manifestDownloadResponse& operator=(const _manifestDownloadResponse& other)
 	{
@@ -166,12 +173,14 @@ public:
 	: mMPDDownloadResponse(other.mMPDDownloadResponse),
 	  mMPDInstance(other.mMPDInstance),
 	  mIsLiveManifest(other.mIsLiveManifest),
+	  mRefreshRequired(other.mRefreshRequired),
+	  mTrimPeriodTailSegments(other.mTrimPeriodTailSegments),
+	  mTailDropTracker(other.mTailDropTracker),
 	  mMPDStatus(other.mMPDStatus),
 	  mRootNode(other.mRootNode),
-	  mRefreshRequired(other.mRefreshRequired),
 	  mDashMpdDoc(other.mDashMpdDoc),
-	  mMPDParseHelper(std::make_shared<AampMPDParseHelper>(*(other.mMPDParseHelper))), // Copy the content
-	  mLastPlaylistDownloadTimeMs(other.mLastPlaylistDownloadTimeMs){}
+	  mLastPlaylistDownloadTimeMs(other.mLastPlaylistDownloadTimeMs),
+	  mMPDParseHelper(std::make_shared<AampMPDParseHelper>(*(other.mMPDParseHelper))){} // Copy the content
 
 
 public:
@@ -433,6 +442,8 @@ private:
 	std::recursive_mutex mMPDDnldMutex;
 	// Download network configuration
 	ManifestDownloadConfigPtr mMPDDnldCfg;
+	// Remembers which tail-segment drops were already reported; reset by Initialize()
+	std::shared_ptr<TailDropTracker> mTailDropTracker;
 	// Download data
 	ManifestDownloadResponsePtr mMPDData;
 	ManifestDownloadResponsePtr mCachedMPDData;

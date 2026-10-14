@@ -780,6 +780,27 @@ protected:
 			mMaxTracks = numTracks;
 		}
 
+		void SetupStreamFormatContexts(IRepresentation *videoRepresentation,
+			IRepresentation *audioRepresentation, bool drm)
+		{
+			SetupMediaStreamContexts(2);
+			mMediaStreamContext[eMEDIATYPE_VIDEO]->representation = videoRepresentation;
+			mMediaStreamContext[eMEDIATYPE_VIDEO]->enabled = true;
+			mMediaStreamContext[eMEDIATYPE_AUDIO]->representation = audioRepresentation;
+			mMediaStreamContext[eMEDIATYPE_AUDIO]->enabled = true;
+			hasDrm = drm;
+		}
+
+		void SetupPrimaryAudioOnlyFormatContext(IRepresentation *audioOnPrimaryRepresentation, bool drm)
+		{
+			SetupMediaStreamContexts(2);
+			mMediaStreamContext[eMEDIATYPE_VIDEO]->representation = audioOnPrimaryRepresentation;
+			mMediaStreamContext[eMEDIATYPE_VIDEO]->enabled = true;
+			mMediaStreamContext[eMEDIATYPE_AUDIO]->representation = nullptr;
+			mMediaStreamContext[eMEDIATYPE_AUDIO]->enabled = false;
+			hasDrm = drm;
+		}
+
 		bool GetProfileChanged(int trackIdx) const
 		{
 			return mMediaStreamContext[trackIdx]->profileChanged;
@@ -788,6 +809,16 @@ protected:
 		void SetProfileChanged(int trackIdx, bool value)
 		{
 			mMediaStreamContext[trackIdx]->profileChanged = value;
+		}
+
+		MediaStreamContext* GetMediaStreamContextForTest(int trackIdx)
+		{
+			return mMediaStreamContext[trackIdx];
+		}
+
+		AAMPStatusType CallResolveAdaptationSetForTrack(MediaStreamContext *pMediaStreamContext, IPeriod *period)
+		{
+			return ResolveAdaptationSetForTrack(pMediaStreamContext, period);
 		}
 	};
 
@@ -842,6 +873,101 @@ protected:
 		g_mockAampConfig.reset();
 	}
 };
+
+class StreamFormatMPDTest : public StreamAbstractionAAMP_MPDTest,
+	public ::testing::WithParamInterface<bool>
+{
+};
+
+/** @brief Verify MP4 demux derives clear and DRM stream formats from manifest codecs. */
+TEST_P(StreamFormatMPDTest, GetStreamFormat_UseMp4Demux_ReturnsCodecFormats)
+{
+	static const char *manifest =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="static" mediaPresentationDuration="PT1M">
+	<Period>
+		<AdaptationSet contentType="video">
+			<Representation id="video" mimeType="video/mp4" codecs="avc1.640028" bandwidth="1000000" />
+		</AdaptationSet>
+		<AdaptationSet contentType="audio">
+			<Representation id="audio" mimeType="audio/mp4" codecs="mp4a.40.2" bandwidth="128000" />
+		</AdaptationSet>
+	</Period>
+</MPD>)";
+
+	ManifestDownloadResponsePtr response = MakeSharedManifestDownloadResponsePtr();
+	response->mMPDDownloadResponse->mDownloadData.assign(manifest, manifest + strlen(manifest));
+	GetMPDFromManifest(response);
+	ASSERT_NE(response->mMPDInstance, nullptr);
+	ASSERT_EQ(response->mMPDInstance->GetPeriods().size(), 1u);
+	const auto& adaptationSets = response->mMPDInstance->GetPeriods()[0]->GetAdaptationSets();
+	ASSERT_EQ(adaptationSets.size(), 2u);
+	ASSERT_EQ(adaptationSets[0]->GetRepresentation().size(), 1u);
+	ASSERT_EQ(adaptationSets[1]->GetRepresentation().size(), 1u);
+
+	mStreamAbstractionAAMP_MPD->SetupStreamFormatContexts(
+		adaptationSets[0]->GetRepresentation()[0],
+		adaptationSets[1]->GetRepresentation()[0], GetParam());
+
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseMp4Demux))
+		.WillOnce(Return(true));
+
+	StreamOutputFormat primaryOutputFormat{};
+	StreamOutputFormat audioOutputFormat{};
+	StreamOutputFormat subtitleOutputFormat{};
+	mStreamAbstractionAAMP_MPD->GetStreamFormat(primaryOutputFormat,
+		audioOutputFormat, subtitleOutputFormat);
+
+	EXPECT_EQ(primaryOutputFormat, FORMAT_VIDEO_ES_H264);
+	EXPECT_EQ(audioOutputFormat, FORMAT_AUDIO_ES_AAC_RAW);
+	EXPECT_EQ(subtitleOutputFormat, FORMAT_INVALID);
+}
+
+/** @brief Verify audio-only primary-slot codecs remap primary output to audio format for MP4 demux. */
+TEST_F(StreamAbstractionAAMP_MPDTest, GetStreamFormat_UseMp4Demux_AudioOnlyPrimaryCodec_RemapsPrimaryToAudio)
+{
+	static const char *manifest =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="static" mediaPresentationDuration="PT1M">
+	<Period>
+		<AdaptationSet contentType="audio">
+			<Representation id="audio" mimeType="audio/mp4" codecs="mp4a.40.2" bandwidth="128000" />
+		</AdaptationSet>
+	</Period>
+</MPD>)";
+
+	ManifestDownloadResponsePtr response = MakeSharedManifestDownloadResponsePtr();
+	response->mMPDDownloadResponse->mDownloadData.assign(manifest, manifest + strlen(manifest));
+	GetMPDFromManifest(response);
+	ASSERT_NE(response->mMPDInstance, nullptr);
+	ASSERT_EQ(response->mMPDInstance->GetPeriods().size(), 1u);
+	const auto& adaptationSets = response->mMPDInstance->GetPeriods()[0]->GetAdaptationSets();
+	ASSERT_EQ(adaptationSets.size(), 1u);
+	ASSERT_EQ(adaptationSets[0]->GetRepresentation().size(), 1u);
+
+	mStreamAbstractionAAMP_MPD->SetupPrimaryAudioOnlyFormatContext(
+		adaptationSets[0]->GetRepresentation()[0], false);
+
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseMp4Demux))
+		.WillRepeatedly(Return(true));
+
+	StreamOutputFormat primaryOutputFormat{};
+	StreamOutputFormat audioOutputFormat{};
+	StreamOutputFormat subtitleOutputFormat{};
+	mStreamAbstractionAAMP_MPD->GetStreamFormat(primaryOutputFormat,
+		audioOutputFormat, subtitleOutputFormat);
+
+	EXPECT_EQ(primaryOutputFormat, FORMAT_AUDIO_ES_AAC_RAW);
+	EXPECT_EQ(audioOutputFormat, FORMAT_INVALID);
+	EXPECT_EQ(subtitleOutputFormat, FORMAT_INVALID);
+}
+
+INSTANTIATE_TEST_SUITE_P(ClearAndDrm, StreamFormatMPDTest,
+	::testing::Values(false, true),
+	[](const ::testing::TestParamInfo<bool>& info)
+	{
+		return info.param ? "Drm" : "Clear";
+	});
 
 /**
  * @brief Functional tests class.
@@ -2571,6 +2697,20 @@ TEST_F(StreamAbstractionAAMP_MPDTest, PushEncryptedHeadersTest)
 	mStreamAbstractionAAMP_MPD->CallPushEncryptedHeaders(mappedHeaders);
 }
 
+/** @brief Verify tracks are marked encrypted before encrypted headers are injected. */
+TEST_F(StreamAbstractionAAMP_MPDTest, PushEncryptedHeadersMarksTracksEncryptedBeforeInjection)
+{
+	std::map<int, std::string> mappedHeaders = {
+		{eMEDIATYPE_VIDEO, "video-init.mp4"},
+		{eMEDIATYPE_AUDIO, "audio-init.mp4"}
+	};
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetTrackEncrypted(eMEDIATYPE_VIDEO, true));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetTrackEncrypted(eMEDIATYPE_AUDIO, true));
+
+	mStreamAbstractionAAMP_MPD->CallPushEncryptedHeaders(mappedHeaders);
+}
+
 TEST_F(StreamAbstractionAAMP_MPDTest, GetProfileIdxForBandwidthNotificationTest)
 {
 	uint32_t bandwidth = 22;
@@ -2609,6 +2749,206 @@ TEST_F(StreamAbstractionAAMP_MPDTest, UpdateTrackInfoTest_3)
 	bool modifyDefaultBW = false;
 	bool resetTimeLineIndex = true;
 	AAMPStatusType result = mStreamAbstractionAAMP_MPD->CallUpdateTrackInfo(modifyDefaultBW, resetTimeLineIndex); (void)result;
+}
+
+/**
+ * @brief Manifest with three AdaptationSets carrying distinct ids (1,2,3)
+ * at indices 0,1,2 respectively. Used by the ResolveAdaptationSetForTrack tests.
+ */
+static const char *kResolveAdaptationManifest =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="static" minBufferTime="PT2S" mediaPresentationDuration="PT1M0S" profiles="urn:mpeg:dash:profile:isoff-live:2011">
+	<Period id="p0" duration="PT1M0S">
+		<AdaptationSet id="1" contentType="video" mimeType="video/mp4">
+			<Representation id="v1" bandwidth="1000000" codecs="avc1.640028" width="640" height="360"/>
+		</AdaptationSet>
+		<AdaptationSet id="2" contentType="audio" mimeType="audio/mp4">
+			<Representation id="a1" bandwidth="128000" codecs="mp4a.40.2"/>
+		</AdaptationSet>
+		<AdaptationSet id="3" contentType="text" mimeType="application/mp4">
+			<Representation id="t1" bandwidth="2000"/>
+		</AdaptationSet>
+	</Period>
+</MPD>
+)";
+
+/**
+ * @brief ResolveAdaptationSetForTrack: in-range index whose id still matches the
+ * stored adaptationSetId is left untouched (no relocation).
+ */
+TEST_F(StreamAbstractionAAMP_MPDTest, ResolveAdaptationSetForTrack_IdMatches_NoRelocation)
+{
+	mManifest = kResolveAdaptationManifest;
+	ManifestDownloadResponsePtr response = GetManifestForMPDDownloader();
+	ASSERT_NE(response, nullptr);
+	ASSERT_NE(response->mMPDInstance.get(), nullptr);
+	ASSERT_GE(response->mMPDInstance->GetPeriods().size(), 1u);
+	IPeriod *period = response->mMPDInstance->GetPeriods().at(0);
+	ASSERT_EQ(period->GetAdaptationSets().size(), 3u);
+
+	mStreamAbstractionAAMP_MPD->SetupMediaStreamContexts(1);
+	MediaStreamContext *ctx = mStreamAbstractionAAMP_MPD->GetMediaStreamContextForTest(eMEDIATYPE_VIDEO);
+	ASSERT_NE(ctx, nullptr);
+
+	// Index 1 holds id 2; stored id also 2 -> no change expected.
+	ctx->adaptationSetIdx = 1;
+	ctx->adaptationSetId = 2;
+	ctx->adaptationSetIdValid = true; // models an already-resolved selection
+
+	AAMPStatusType status = mStreamAbstractionAAMP_MPD->CallResolveAdaptationSetForTrack(ctx, period);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+	EXPECT_EQ(ctx->adaptationSetIdx, 1);
+	ASSERT_NE(ctx->adaptationSet, nullptr);
+	EXPECT_EQ(ctx->adaptationSet->GetId(), 2u);
+}
+
+/**
+ * @brief ResolveAdaptationSetForTrack: on first resolve (adaptationSetIdValid false) the
+ * index chosen by StreamSelection is trusted even though the stale id differs; the id and
+ * validity are then established from that index.
+ */
+TEST_F(StreamAbstractionAAMP_MPDTest, ResolveAdaptationSetForTrack_FirstResolve_TrustsIndex)
+{
+	mManifest = kResolveAdaptationManifest;
+	ManifestDownloadResponsePtr response = GetManifestForMPDDownloader();
+	ASSERT_NE(response, nullptr);
+	ASSERT_NE(response->mMPDInstance.get(), nullptr);
+	IPeriod *period = response->mMPDInstance->GetPeriods().at(0);
+	ASSERT_EQ(period->GetAdaptationSets().size(), 3u);
+
+	mStreamAbstractionAAMP_MPD->SetupMediaStreamContexts(1);
+	MediaStreamContext *ctx = mStreamAbstractionAAMP_MPD->GetMediaStreamContextForTest(eMEDIATYPE_VIDEO);
+	ASSERT_NE(ctx, nullptr);
+
+	// Index 0 holds id 1; stale id 2 must not trigger relocation when validity is false.
+	ctx->adaptationSetIdx = 0;
+	ctx->adaptationSetId = 2;
+	ctx->adaptationSetIdValid = false;
+
+	AAMPStatusType status = mStreamAbstractionAAMP_MPD->CallResolveAdaptationSetForTrack(ctx, period);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+	EXPECT_EQ(ctx->adaptationSetIdx, 0);
+	ASSERT_NE(ctx->adaptationSet, nullptr);
+	EXPECT_EQ(ctx->adaptationSetId, 1u);
+	EXPECT_TRUE(ctx->adaptationSetIdValid);
+}
+
+/**
+ * @brief ResolveAdaptationSetForTrack: when the AdaptationSet order changed so the
+ * retained index now points to a different id, the index is relocated to the one
+ * whose id matches the stored adaptationSetId.
+ */
+TEST_F(StreamAbstractionAAMP_MPDTest, ResolveAdaptationSetForTrack_ReorderedId_Relocates)
+{
+	mManifest = kResolveAdaptationManifest;
+	ManifestDownloadResponsePtr response = GetManifestForMPDDownloader();
+	ASSERT_NE(response, nullptr);
+	ASSERT_NE(response->mMPDInstance.get(), nullptr);
+	IPeriod *period = response->mMPDInstance->GetPeriods().at(0);
+	ASSERT_EQ(period->GetAdaptationSets().size(), 3u);
+
+	mStreamAbstractionAAMP_MPD->SetupMediaStreamContexts(1);
+	MediaStreamContext *ctx = mStreamAbstractionAAMP_MPD->GetMediaStreamContextForTest(eMEDIATYPE_VIDEO);
+	ASSERT_NE(ctx, nullptr);
+
+	// Index 0 holds id 1, but the previously selected id was 2 (now at index 1).
+	ctx->adaptationSetIdx = 0;
+	ctx->adaptationSetId = 2;
+	ctx->adaptationSetIdValid = true; // models an already-resolved selection
+
+	AAMPStatusType status = mStreamAbstractionAAMP_MPD->CallResolveAdaptationSetForTrack(ctx, period);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+	EXPECT_EQ(ctx->adaptationSetIdx, 1);
+	ASSERT_NE(ctx->adaptationSet, nullptr);
+	EXPECT_EQ(ctx->adaptationSet->GetId(), 2u);
+}
+
+/**
+ * @brief ResolveAdaptationSetForTrack: a retained index that is out of range for the
+ * current period is relocated to the AdaptationSet whose id matches, without throwing.
+ */
+TEST_F(StreamAbstractionAAMP_MPDTest, ResolveAdaptationSetForTrack_IndexOutOfRange_RelocatesById)
+{
+	mManifest = kResolveAdaptationManifest;
+	ManifestDownloadResponsePtr response = GetManifestForMPDDownloader();
+	ASSERT_NE(response, nullptr);
+	ASSERT_NE(response->mMPDInstance.get(), nullptr);
+	IPeriod *period = response->mMPDInstance->GetPeriods().at(0);
+	ASSERT_EQ(period->GetAdaptationSets().size(), 3u);
+
+	mStreamAbstractionAAMP_MPD->SetupMediaStreamContexts(1);
+	MediaStreamContext *ctx = mStreamAbstractionAAMP_MPD->GetMediaStreamContextForTest(eMEDIATYPE_VIDEO);
+	ASSERT_NE(ctx, nullptr);
+
+	// Stale index beyond the AdaptationSet count; stored id 3 lives at index 2.
+	ctx->adaptationSetIdx = 10;
+	ctx->adaptationSetId = 3;
+	ctx->adaptationSetIdValid = true; // models an already-resolved selection
+
+	AAMPStatusType status = mStreamAbstractionAAMP_MPD->CallResolveAdaptationSetForTrack(ctx, period);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+	EXPECT_EQ(ctx->adaptationSetIdx, 2);
+	ASSERT_NE(ctx->adaptationSet, nullptr);
+	EXPECT_EQ(ctx->adaptationSet->GetId(), 3u);
+}
+
+/**
+ * @brief ResolveAdaptationSetForTrack: when the stored id is not present in the period,
+ * the selection is reported as a manifest content error.
+ */
+TEST_F(StreamAbstractionAAMP_MPDTest, ResolveAdaptationSetForTrack_IdNotFound_ReturnsError)
+{
+	mManifest = kResolveAdaptationManifest;
+	ManifestDownloadResponsePtr response = GetManifestForMPDDownloader();
+	ASSERT_NE(response, nullptr);
+	ASSERT_NE(response->mMPDInstance.get(), nullptr);
+	IPeriod *period = response->mMPDInstance->GetPeriods().at(0);
+	ASSERT_EQ(period->GetAdaptationSets().size(), 3u);
+
+	mStreamAbstractionAAMP_MPD->SetupMediaStreamContexts(1);
+	MediaStreamContext *ctx = mStreamAbstractionAAMP_MPD->GetMediaStreamContextForTest(eMEDIATYPE_VIDEO);
+	ASSERT_NE(ctx, nullptr);
+
+	// In-range index (id 1) but the stored id 99 does not exist anywhere.
+	ctx->adaptationSetIdx = 0;
+	ctx->adaptationSetId = 99;
+	ctx->adaptationSetIdValid = true; // models an already-resolved selection
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+		SendErrorEvent(AAMP_TUNE_INIT_FAILED_MANIFEST_CONTENT_ERROR, _, _, _, _, _, _))
+		.Times(1);
+
+	AAMPStatusType status = mStreamAbstractionAAMP_MPD->CallResolveAdaptationSetForTrack(ctx, period);
+	EXPECT_EQ(status, eAAMPSTATUS_MANIFEST_CONTENT_ERROR);
+}
+
+/**
+ * @brief ResolveAdaptationSetForTrack: an out-of-range index whose stored id is also
+ * missing reports a content error without dereferencing the stale index.
+ */
+TEST_F(StreamAbstractionAAMP_MPDTest, ResolveAdaptationSetForTrack_OutOfRangeIdNotFound_ReturnsError)
+{
+	mManifest = kResolveAdaptationManifest;
+	ManifestDownloadResponsePtr response = GetManifestForMPDDownloader();
+	ASSERT_NE(response, nullptr);
+	ASSERT_NE(response->mMPDInstance.get(), nullptr);
+	IPeriod *period = response->mMPDInstance->GetPeriods().at(0);
+	ASSERT_EQ(period->GetAdaptationSets().size(), 3u);
+
+	mStreamAbstractionAAMP_MPD->SetupMediaStreamContexts(1);
+	MediaStreamContext *ctx = mStreamAbstractionAAMP_MPD->GetMediaStreamContextForTest(eMEDIATYPE_VIDEO);
+	ASSERT_NE(ctx, nullptr);
+
+	ctx->adaptationSetIdx = 10;
+	ctx->adaptationSetId = 99;
+	ctx->adaptationSetIdValid = true; // models an already-resolved selection
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+		SendErrorEvent(AAMP_TUNE_INIT_FAILED_MANIFEST_CONTENT_ERROR, _, _, _, _, _, _))
+		.Times(1);
+
+	AAMPStatusType status = mStreamAbstractionAAMP_MPD->CallResolveAdaptationSetForTrack(ctx, period);
+	EXPECT_EQ(status, eAAMPSTATUS_MANIFEST_CONTENT_ERROR);
 }
 
 TEST_F(StreamAbstractionAAMP_MPDTest, SeekInPeriodTest)
@@ -3893,7 +4233,7 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _))
 		.WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
-	EXPECT_CALL(*g_mockAampStreamSinkManager, AddMediaHeader(2, _))
+	EXPECT_CALL(*g_mockAampStreamSinkManager, AddMediaHeader(_, 2, _))
 		.Times(2);
 
 	//StreamAbstractionAAMP_MPD::Init() will internally call ExtractAndAddSubtitleMediaHeader()
@@ -3916,19 +4256,19 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
 	std::shared_ptr<AampStreamSinkManager::MediaHeader> header = std::make_shared<AampStreamSinkManager::MediaHeader>();
 	header->url = "http://host/asset/sub1_init.mp4";
 	header->mimeType = "application/mp4";
-	EXPECT_CALL(*g_mockAampStreamSinkManager, GetMediaHeader(2))
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetMediaHeader(_, 2))
 		.WillRepeatedly(Return(header));
-	EXPECT_CALL(*g_mockAampStreamSinkManager, GetMediaHeader(0))
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetMediaHeader(_, 0))
 		.WillRepeatedly(Return(nullptr));
-	EXPECT_CALL(*g_mockAampStreamSinkManager, GetMediaHeader(1))
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetMediaHeader(_, 1))
 		.WillRepeatedly(Return(nullptr));
-	EXPECT_CALL(*g_mockAampStreamSinkManager, GetMediaHeader(3))
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetMediaHeader(_, 3))
 		.WillRepeatedly(Return(nullptr));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(_,_,_,_,_,_,_,_,_,_,_,_,_,_,_)).WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(_,_,_,_,_,_,_,_));
 
-	EXPECT_CALL(*g_mockAampStreamSinkManager, RemoveMediaHeader(2));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, RemoveMediaHeader(_, 2));
 
 	//StartInjection will internally call SendMediaHeaders()
 	this->mStreamAbstractionAAMP_MPD->StartInjection();
