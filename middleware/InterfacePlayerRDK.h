@@ -36,6 +36,7 @@
 #include <any>
 #include "SocUtils.h"
 #include "GstUtils.h"
+#include "GstHandlerControl.h"
 
 class InterfacePlayerPriv;
 
