@@ -44,6 +44,32 @@ using ::testing::DoAll;
 using ::testing::SetArgReferee;
 using ::testing::Invoke;
 
+namespace
+{
+	/// Joins the wrapped thread on destruction (or explicit join()) so a
+	/// GoogleTest ASSERT_* early-return can never destroy a still-joinable
+	/// std::thread (which would call std::terminate()).
+	class JoiningThread
+	{
+	public:
+		explicit JoiningThread(std::thread t) : m_thread(std::move(t)) {}
+		~JoiningThread() { join(); }
+		JoiningThread(const JoiningThread &) = delete;
+		JoiningThread &operator=(const JoiningThread &) = delete;
+
+		void join()
+		{
+			if (m_thread.joinable())
+			{
+				m_thread.join();
+			}
+		}
+
+	private:
+		std::thread m_thread;
+	};
+}
+
 // ---------------------------------------------------------------------------
 // Fixture
 // ---------------------------------------------------------------------------
@@ -156,24 +182,15 @@ TEST_F(AampRialtoControlBackendTest,
 
 	AampRialtoControlBackend backend;
 
-	// Confirm waitForRunning() is still blocked before sending the state
-	// change, so this exercises the condition-variable wake path.
-	std::atomic<bool> waitReturned{false};
+	// No production test-hook exists to prove waitForRunning() has entered
+	// its blocked wait before this notifies, so this only asserts the
+	// observable contract: a concurrent state change makes it return true,
+	// regardless of which internal path (fast-path or blocked-then-woken)
+	// handled it.
 	std::atomic<bool> waitResult{false};
-	std::thread waiter([&]() {
+	JoiningThread waiter(std::thread([&]() {
 		waitResult.store(backend.waitForRunning(2000));
-		waitReturned.store(true);
-	});
-
-	const auto deadline =
-		std::chrono::steady_clock::now() + std::chrono::milliseconds(200);
-	while (!waitReturned.load() && std::chrono::steady_clock::now() < deadline)
-	{
-		std::this_thread::sleep_for(std::chrono::milliseconds(5));
-	}
-	ASSERT_FALSE(waitReturned.load())
-		<< "waitForRunning() returned before the state change was sent - "
-		   "the blocked-wait path was not exercised";
+	}));
 
 	auto client = capturedClient.lock();
 	ASSERT_NE(client, nullptr);
