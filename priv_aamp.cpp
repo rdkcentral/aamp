@@ -13644,12 +13644,14 @@ int PrivateInstanceAAMP::FindClosedCaptionTrackIndex(const std::vector<TextTrack
 			std::string firstLanguage = preferredTextLanguagesList.at(0);
 			if ((track.language == firstLanguage) && track.isCC && preferredRenditionString != "subtitle")
 			{
+				closedCaptionLanguageTrackIdx = trackIdx;
+
 				// Language match only: honour TTML preference if a TTML track exists for it
 				if (preferInbandCC || (FindTextTrackIndexByFormat(trackInfo, track.language, false, GetLangCodePreference()) < 0))
 				{
 					AAMPLOG_WARN("preferInbandCC=%d: selecting in-band CC trackIdx %d (lang=%s)",
 							preferInbandCC, trackIdx, track.language.c_str());
-					closedCaptionLanguageTrackIdx = trackIdx;
+				//	closedCaptionLanguageTrackIdx = trackIdx;
 				}
 				else
 				{
