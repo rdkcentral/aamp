@@ -6894,13 +6894,14 @@ void StreamAbstractionAAMP_MPD::SelectSubtitleTrack(bool newTune, std::vector<Te
 
 	// Skip OOB subtitle scoring when a CC track is explicitly selected or
 	// TTML processing is disabled. Preserve the current track selection.
-	TextTrackInfo preferredTrack = aamp->GetPreferredTextTrack();
 	if (ISCONFIGSET(eAAMPConfig_DisableTTML))
 	{
+		TextTrackInfo preferredTrack = aamp->GetPreferredTextTrack();
 		preferredTrack.isCC = true;
+		aamp->SetPreferredTextTrack(preferredTrack);
 		AAMPLOG_INFO("SelectSubtitleTrack: TTML processing disabled, skipping OOB subtitle selection");
 	}
-	if (preferredTrack.isCC)
+	if (aamp->GetPreferredTextTrack().isCC)
 	{
 		tTracks = mTextTracks;
 		tTrackIdx = mTextTrackIndex;
