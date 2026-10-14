@@ -486,3 +486,44 @@ TEST_F(PrivateInstanceAAMPNotifiableTest,
 	t1.join();
 	t2.join();
 }
+
+// ===========================================================================
+// Arguments survive the hop to the scheduler thread (P1)
+// ===========================================================================
+
+TEST_F(PrivateInstanceAAMPNotifiableTest,
+	NotifyPlaybackError_ForwardsEveryArgumentToTheScheduledTask)
+{
+	/**
+	 * @brief Characterization (P1): the task state used to be a hand-managed
+	 *        struct and is now owned by the dispatch helper.  The description
+	 *        is copied into the task, so it must still be intact after the
+	 *        caller's string is gone, and both retry values must arrive.
+	 */
+	for (const bool retry : {true, false})
+	{
+		IdleTask scheduled = nullptr;
+		void *scheduledArg = nullptr;
+		EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+			ScheduleAsyncTask(_, _, std::string("NotifyPlaybackError")))
+			.WillOnce([&](IdleTask task, void *arg, std::string) -> int {
+				scheduled = task;
+				scheduledArg = arg;
+				return 1;
+			});
+		{
+			const std::string description = "pipeline broke";
+			m_notifiable->NotifyPlaybackError(
+				AAMP_TUNE_GST_PIPELINE_ERROR, description, retry);
+		}
+
+		EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+			SendErrorEvent(AAMP_TUNE_GST_PIPELINE_ERROR,
+				testing::StrEq("pipeline broke"), retry, _, _, _, _))
+			.Times(1);
+		ASSERT_NE(scheduled, nullptr);
+		scheduled(scheduledArg);
+
+		testing::Mock::VerifyAndClearExpectations(g_mockPrivateInstanceAAMP.get());
+	}
+}
