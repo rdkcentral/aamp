@@ -109,6 +109,36 @@ static MediaCodecInfo MakeSubtitleTtmlCodecInfo()
 	return ci;
 }
 
+/// Mock source that records its destruction through a flag the test keeps.
+class TrackedMockSource : public NiceMock<MockAampRialtoMediaSource>
+{
+public:
+	explicit TrackedMockSource(std::shared_ptr<std::atomic<bool>> destroyed)
+		: m_destroyed(std::move(destroyed))
+	{
+	}
+
+	~TrackedMockSource() override { m_destroyed->store(true); }
+
+private:
+	std::shared_ptr<std::atomic<bool>> m_destroyed;
+};
+
+/// Mock pipeline that records its destruction through a flag the test keeps.
+class TrackedMockPipeline : public NiceMock<MockIMediaPipeline>
+{
+public:
+	explicit TrackedMockPipeline(std::shared_ptr<std::atomic<bool>> destroyed)
+		: m_destroyed(std::move(destroyed))
+	{
+	}
+
+	~TrackedMockPipeline() override { m_destroyed->store(true); }
+
+private:
+	std::shared_ptr<std::atomic<bool>> m_destroyed;
+};
+
 // ---------------------------------------------------------------------------
 // Base test fixture
 // ---------------------------------------------------------------------------
@@ -232,8 +262,12 @@ protected:
 			{
 				++m_createSourceCallCount;
 
-				auto src = std::make_unique<
-					NiceMock<MockAampRialtoMediaSource>>();
+				auto destroyedFlag = std::make_shared<std::atomic<bool>>(false);
+				if (static_cast<size_t>(type) < m_sourceDestroyed.size())
+				{
+					m_sourceDestroyed[static_cast<size_t>(type)] = destroyedFlag;
+				}
+				auto src = std::make_unique<TrackedMockSource>(destroyedFlag);
 				auto *rawPtr = src.get();
 
 					ON_CALL(*rawPtr, mediaType())
@@ -600,6 +634,8 @@ protected:
 	NiceMock<MockIStreamSinkNotifiable>                         m_mockNotifiable;
 	MockIRialtoControlBackend *                                 m_mockControlBackend{nullptr};
 	std::array<NiceMock<MockAampRialtoMediaSource> *, 3>        m_mockSources{};
+	/// Destruction flag of the most recently created source of each type.
+	std::array<std::shared_ptr<std::atomic<bool>>, 3>           m_sourceDestroyed{};
 	int                                                         m_createSourceCallCount{0};
 	int32_t                                                     m_nextSourceId{0};
 	GSourceFunc                                                 m_progressTimerCallback{nullptr};
@@ -4972,6 +5008,130 @@ TEST_F(AampRialtoPlayerTest,
 	m_player->Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_INVALID,
 		/*bESChangeStatus=*/false,
 		/*setReadyAfterPipelineCreation=*/false);
+}
+
+TEST_F(AampRialtoPlayerTest,
+	Configure_Recreate_StopsAndReleasesOldPipelineBeforeCreatingNewOne)
+{
+	/**
+	 * @brief Regression (L1): rebuilding the pipeline on an elementary-stream
+	 *        change must stop and release the old pipeline first.  Rialto
+	 *        opens a server session per createMediaPipeline(), so two live
+	 *        sessions can fail where only one primary video session exists.
+	 */
+	auto firstDestroyed = std::make_shared<std::atomic<bool>>(false);
+	m_mockPipeline = std::make_unique<TrackedMockPipeline>(firstDestroyed);
+	m_mockPipelinePtr = m_mockPipeline.get();
+	ResetMockPipelineDefaults();
+	auto *firstPipeline = m_mockPipelinePtr;
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+
+	ResetMockPipeline();
+	::testing::Sequence order;
+	EXPECT_CALL(*firstPipeline, stop())
+		.InSequence(order)
+		.WillOnce(Return(true));
+	EXPECT_CALL(*m_mockFactory, createMediaPipeline(_, _))
+		.InSequence(order)
+		.WillOnce(Invoke(
+			[&](std::weak_ptr<firebolt::rialto::IMediaPipelineClient> client,
+			    const firebolt::rialto::VideoRequirements &)
+				-> std::unique_ptr<firebolt::rialto::IMediaPipeline>
+			{
+				EXPECT_TRUE(firstDestroyed->load())
+					<< "old pipeline still alive when the new one is created";
+				m_capturedClient = client;
+				return std::move(m_mockPipeline);
+			}));
+
+	m_player->Configure(FORMAT_VIDEO_ES_H264, FORMAT_ISO_BMFF, FORMAT_INVALID,
+		/*bESChangeStatus=*/false,
+		/*setReadyAfterPipelineCreation=*/false);
+}
+
+TEST_F(AampRialtoPlayerTest,
+	Configure_Recreate_ReleasesOldPipelineHeldByMonitorAV)
+{
+	/**
+	 * @brief Regression (L1): the AV monitor keeps its own reference to the
+	 *        pipeline, so it must be released with the pipeline or the old
+	 *        Rialto session outlives the creation of the new one.
+	 */
+	ON_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_MonitorAV))
+		.WillByDefault(Return(true));
+	ON_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_ReportProgressInterval))
+		.WillByDefault(Return(0.75));
+	ON_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MonitorAVReportingInterval))
+		.WillByDefault(Return(5000));
+
+	auto firstDestroyed = std::make_shared<std::atomic<bool>>(false);
+	m_mockPipeline = std::make_unique<TrackedMockPipeline>(firstDestroyed);
+	m_mockPipelinePtr = m_mockPipeline.get();
+	ResetMockPipelineDefaults();
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+
+	ResetMockPipeline();
+	EXPECT_CALL(*m_mockFactory, createMediaPipeline(_, _))
+		.WillOnce(Invoke(
+			[&](std::weak_ptr<firebolt::rialto::IMediaPipelineClient> client,
+			    const firebolt::rialto::VideoRequirements &)
+				-> std::unique_ptr<firebolt::rialto::IMediaPipeline>
+			{
+				EXPECT_TRUE(firstDestroyed->load())
+					<< "old pipeline still alive (held by the AV monitor?)";
+				m_capturedClient = client;
+				return std::move(m_mockPipeline);
+			}));
+
+	m_player->Configure(FORMAT_VIDEO_ES_H264, FORMAT_ISO_BMFF, FORMAT_INVALID,
+		/*bESChangeStatus=*/false,
+		/*setReadyAfterPipelineCreation=*/false);
+}
+
+TEST_F(AampRialtoPlayerTest,
+	Configure_Recreate_KeepsReplacedSourceAliveWhileInjectorIsInsideIt)
+{
+	/**
+	 * @brief Regression (L1): an injector thread inside a source when
+	 *        Configure() replaces it must not have the source destroyed
+	 *        under it; the source is released once the injector leaves.
+	 */
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+	auto *oldVideo = m_mockSources[eMEDIATYPE_VIDEO];
+	ASSERT_NE(oldVideo, nullptr);
+	const auto oldVideoDestroyed = m_sourceDestroyed[eMEDIATYPE_VIDEO];
+	ASSERT_NE(oldVideoDestroyed, nullptr);
+
+	std::promise<void> entered;
+	std::promise<void> release;
+	auto released = release.get_future();
+	ON_CALL(*oldVideo, injectSingleSample(_, _, _))
+		.WillByDefault(Invoke(
+			[&](firebolt::rialto::IMediaPipeline &, AampMediaSample &&, bool)
+			{
+				entered.set_value();
+				released.wait();
+				return false;
+			}));
+
+	std::thread injector([&]
+	{
+		m_player->SendSample(eMEDIATYPE_VIDEO, MakeSample(), false);
+	});
+	entered.get_future().wait();
+
+	ResetMockPipeline();
+	m_player->Configure(FORMAT_VIDEO_ES_H264, FORMAT_ISO_BMFF, FORMAT_INVALID,
+		/*bESChangeStatus=*/false,
+		/*setReadyAfterPipelineCreation=*/false);
+
+	EXPECT_FALSE(oldVideoDestroyed->load())
+		<< "source destroyed while an injector was still inside it";
+
+	release.set_value();
+	injector.join();
+	EXPECT_TRUE(oldVideoDestroyed->load())
+		<< "replaced source was not released after the injector left";
 }
 
 TEST_F(AampRialtoPlayerTest,

@@ -445,10 +445,24 @@ private:
 	/// Maximum number of source types (VIDEO=0, AUDIO=1, SUBTITLE=2).
 	static constexpr size_t kMaxSourceTypes = 3;
 
+	using SourcePtr = std::shared_ptr<AampRialtoMediaSource>;
+
 	/// Per-track source objects.  Each entry owns pacing state, demuxer,
-	/// DRM session, codec data, and type-specific metadata.
-	std::array<std::unique_ptr<AampRialtoMediaSource>, kMaxSourceTypes>
-		m_sources;
+	/// DRM session, codec data, and type-specific metadata.  Shared so an
+	/// injector thread keeps its source alive for the length of a call even
+	/// if Configure() replaces it.  Guarded by m_sourcesMutex; read it only
+	/// through getSource() and SnapshotSources().
+	std::array<SourcePtr, kMaxSourceTypes> m_sources;
+	/// Leaf lock: held only to copy or swap entries of m_sources, never
+	/// across a call (a replaced source is destroyed after it is released).
+	mutable std::mutex m_sourcesMutex;
+
+	/// Copy of every entry of m_sources (null for a type with no source).
+	std::array<SourcePtr, kMaxSourceTypes> SnapshotSources() const;
+
+	/// Install @p source for @p type; the previous source is released after
+	/// the lock is dropped.
+	void SetSource(AampMediaType type, SourcePtr source);
 
 	/// Player-level protection buffer.  QueueProtectionEvent stores here
 	/// unconditionally so that protection data survives even if no source
@@ -470,12 +484,13 @@ private:
 		m_pendingAttach;
 	std::mutex m_pendingAttachMutex;
 
-	/// Look up a source by media type; returns nullptr if not created.
-	AampRialtoMediaSource *getSource(AampMediaType type);
+	/// Look up a source by media type; returns nullptr if not created.  The
+	/// returned reference keeps the source alive for the caller.
+	SourcePtr getSource(AampMediaType type) const;
 
 	/// Find a source by its Rialto-assigned source ID; returns nullptr if
 	/// no source matches.
-	AampRialtoMediaSource *findSourceByRialtoId(int32_t rialtoSourceId);
+	SourcePtr findSourceByRialtoId(int32_t rialtoSourceId) const;
 
 	/// Serialises AttachSource / CheckAllSourcesAttached so that concurrent
 	/// init-fragment delivery from multiple download threads cannot race.
@@ -486,9 +501,9 @@ private:
 	///   m_attachMutex    -> the playback controller's play lock
 	/// m_attachMutex and m_flushCallMutex are never held together: AttachSource
 	/// (run under m_attachMutex) never calls Flush/Stop/Configure.  The leaf
-	/// mutexes (m_pipelineMutex, m_drmBridgeMutex, m_pendingAttachMutex,
-	/// m_pendingProtectionMutex, m_ptsCheckMutex, m_videoRectangleMutex,
-	/// m_monitorMutex) are taken last.  The only call made while holding one
+	/// mutexes (m_pipelineMutex, m_sourcesMutex, m_drmBridgeMutex,
+	/// m_pendingAttachMutex, m_pendingProtectionMutex, m_ptsCheckMutex,
+	/// m_videoRectangleMutex, m_monitorMutex) are taken last.  The only call made while holding one
 	/// is m_monitorMutex -> AampRialtoMonitorAV::start(), which takes just the
 	/// monitor's own timer lock.
 	/// m_attachMutex can be held for the length of a DRM license fetch, so
@@ -722,6 +737,12 @@ private:
 
 	/// Reset the per-session state a rebuilt pipeline starts from.
 	void BeginNewSession();
+
+	/// Stop and release the current pipeline (if any) before a new one is
+	/// created, so Rialto never holds two sessions for this player.  Unlike
+	/// Stop() it keeps the play intent and control backend: Configure() may
+	/// run mid-session.
+	void ReleasePipelineForReconfigure();
 
 	/// Register the Rialto -> AAMP log bridge.  Idempotent.
 	void RegisterRialtoLogHandler();
