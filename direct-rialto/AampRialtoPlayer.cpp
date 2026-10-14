@@ -1274,19 +1274,14 @@ bool AampRialtoPlayer::AttachSource(
 {
 	const auto type = source.mediaType();
 
-	// THEORY (unproven - revert this block if disproved):
-	// In the failing first-tune log, audio attached first (id=1) and video
-	// second (id=2); the Rialto server then reported:
-	//   "audsrc: not-linked (-1)"
-	// and transitioned SOURCES_ATTACHED -> ERROR.  In the passing second-tune
-	// log, video happened to attach first and no error occurred.  The
-	// hypothesis is that the Rialto server's internal pipeline construction
-	// requires the video source to be attached before the audio source in
-	// order to correctly link the audio sink pad.  This has NOT been
-	// confirmed via Rialto documentation or a controlled experiment (e.g.
-	// forcing audio-first on the second tune to reproduce the failure).
-	// Alternative explanations: cold-start pipeline state, different DRM
-	// latency (mksId=0 vs mksId=1), or a first-pipeline-after-boot race.
+	// Non-video sources wait for video to attach first.  Observed, not
+	// root-caused: a first tune that attached audio (id=1) before video
+	// (id=2) made the Rialto server log "audsrc: not-linked (-1)" and go
+	// SOURCES_ATTACHED -> ERROR, while a tune where video attached first did
+	// not.  The order is not confirmed by Rialto documentation or an
+	// audio-first reproduction; a cold-start pipeline, DRM latency (mksId=0
+	// vs mksId=1) or a first-pipeline-after-boot race would explain it too.
+	// If an audio-first run shows no failure, this deferral can be removed.
 	const auto videoSource = getSource(eMEDIATYPE_VIDEO);
 	if (type != eMEDIATYPE_VIDEO &&
 	    videoSource &&
@@ -1398,7 +1393,7 @@ bool AampRialtoPlayer::AttachSource(
 		}
 
 		// After video attaches, drain any non-video sources that were deferred
-		// by the video-before-audio ordering theory above.
+		// by the video-before-audio ordering above.
 		if (type == eMEDIATYPE_VIDEO)
 		{
 			for (size_t i = 0; i < kMaxSourceTypes; ++i)

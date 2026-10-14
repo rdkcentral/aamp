@@ -129,10 +129,12 @@ public:
 		/// unblockInjection() (flush/stop/pause-notify: abort now, never
 		/// block a caller thread again) and to BLOCKED or NONE by
 		/// gateInjection(gate), called via AampRialtoPlayer::UngateAllSources()
-		/// (gate=false) at each site that actually issues (or confirms)
-		/// pipeline play() — Stream(), CheckAllSourcesAttached(),
-		/// Pause(false), StopBuffering(), NotifyInjectorToResume(), the
-		/// SEEK_DONE play branch, and the PLAYING playback-state handler —
+		/// (gate=false) at each site that issues pipeline play() or resumes
+		/// injection — IssuePlay() (reached from Stream(),
+		/// CheckAllSourcesAttached() and the SEEK_DONE play branch through the
+		/// playback controller once no hold remains), StartPreRoll(),
+		/// Pause(false), StopBuffering() and NotifyInjectorToResume(); the
+		/// PLAYING playback-state handler does not ungate —
 		/// or (gate=true) by Configure() and Flush()'s flushable path, which
 		/// expect genuinely-wanted data to arrive shortly and must block it
 		/// rather than drop it.
@@ -274,7 +276,7 @@ public:
 	///                  EOS resolution must be replayed (gate=false).
 	/// @param gate      true to enter BLOCKED; false to clear to NONE.
 	/// @param reason    Short human-readable description of the caller
-	///                  (e.g. "Stream", "OnPlaybackState(PLAYING)"),
+		///                  (e.g. "Stream", "PreRoll"),
 	///                  included in the log line.
 	void gateInjection(firebolt::rialto::IMediaPipeline *pipeline,
 		bool gate, const char *reason);

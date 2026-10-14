@@ -843,9 +843,11 @@ private:
 	 * @brief Clear (ungate) injection on every source, logging the reason.
 	 *
 	 * Must be called only from the specific points where pipeline play()
-	 * is actually issued or confirmed — Stream(), CheckAllSourcesAttached(),
-	 * Pause(false), StopBuffering(), the SEEK_DONE play branch, and the
-	 * PLAYING playback-state handler.  See the gateMode field
+	 * is issued or injection resumes: IssuePlay() (reached from Stream(),
+	 * CheckAllSourcesAttached() and the SEEK_DONE play branch through the
+	 * playback controller), StartPreRoll(), Pause(false), StopBuffering()
+	 * and NotifyInjectorToResume().  The PLAYING playback-state handler
+	 * deliberately does not ungate.  See the gateMode field
 	 * comment in AampRialtoMediaSource.h for the rationale.
 	 *
 	 * @param reason  Short human-readable description of the caller,

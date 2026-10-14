@@ -22,10 +22,11 @@
  * @brief Narrow callback interface used by StreamSink implementations to
  *        notify the player core of playback lifecycle events.
  *
- * Only the push-notification methods are included here — methods that the
- * sink calls on the player when it observes a new state.  Query methods and
- * download-control methods that the sink pulls from the player remain on
- * PrivateInstanceAAMP directly.
+ * Mainly the push-notification methods — those the sink calls on the player
+ * when it observes a new state — plus two small queries the direct path
+ * needs while handling them (GetState, GetProgressReportIntervalSeconds).
+ * Other query methods and download-control methods that the sink pulls from
+ * the player remain on PrivateInstanceAAMP directly.
  *
  * This interface exists so that direct-rialto/ code under test can be
  * exercised with a lightweight mock rather than a reinterpret_cast of
@@ -42,7 +43,8 @@
 
 /**
  * @interface IStreamSinkNotifiable
- * @brief Push-notification contract between a StreamSink and the AAMP core.
+ * @brief Notification contract (with two queries) between a StreamSink and
+ *        the AAMP core.
  *
  * Implementations forward each call to PrivateInstanceAAMP.  In tests a
  * lightweight mock is used instead so assertions can be made without
