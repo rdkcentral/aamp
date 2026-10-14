@@ -39,6 +39,7 @@
 #include "AampRialtoPlayer.h"
 #include "AampRialtoMediaPipelineClient.h"
 #include "AampRialtoMediaSource.h"
+#include "AampSegmentInfo.hpp"
 #include "IDirectRialtoCC.h"
 #include "MockIMediaPipeline.h"
 #include "MockIMediaPipelineFactory.h"
@@ -4170,6 +4171,190 @@ TEST_F(AampRialtoPlayerTest,
 
 	EXPECT_TRUE(result);
 	EXPECT_EQ(log.find("[INFO]"), std::string::npos) << log;
+}
+
+// ---------------------------------------------------------------------------
+// ID3 metadata: the sink reports ID3-headed audio, video and DSM_CC buffers
+// ---------------------------------------------------------------------------
+
+namespace
+{
+struct Id3Call
+{
+	AampMediaType mediaType{eMEDIATYPE_VIDEO};
+	std::vector<uint8_t> data;
+	double pts{0.0};
+	double dts{0.0};
+	double duration{0.0};
+};
+
+/// "ID3" v2.4 header with a zero-length body.
+const std::vector<uint8_t> kId3Packet = {'I', 'D', '3', 4, 0, 0, 0, 0, 0, 0};
+const std::vector<uint8_t> kNotId3Packet =
+	{0x47, 0x40, 0x11, 0x10, 0x00, 0x02, 0xB0, 0x0D, 0x00, 0x01};
+}
+
+class AampRialtoPlayerId3Test : public AampRialtoPlayerTest
+{
+protected:
+	void InstallHandler()
+	{
+		m_player->ChangeAamp(
+			reinterpret_cast<PrivateInstanceAAMP *>(g_mockPrivateInstanceAAMP.get()),
+			[this](AampMediaType type, const uint8_t *ptr, size_t len,
+				const SegmentInfo_t &info, const char *)
+			{
+				m_calls.push_back(Id3Call{type,
+					std::vector<uint8_t>(ptr, ptr + len),
+					info.pts_s, info.dts_s, info.duration});
+			});
+	}
+
+	std::vector<Id3Call> m_calls;
+};
+
+TEST_F(AampRialtoPlayerId3Test,
+	SendCopy_Id3HeadedDsmCcPacket_ReachesHandlerWithTiming)
+{
+	InstallHandler();
+
+	std::vector<uint8_t> packet = kId3Packet;
+	m_player->SendCopy(eMEDIATYPE_DSM_CC, std::move(packet),
+		/*fpts=*/1.5, /*fdts=*/1.4, /*fDuration=*/0.1);
+
+	ASSERT_EQ(m_calls.size(), 1u);
+	EXPECT_EQ(m_calls[0].mediaType, eMEDIATYPE_DSM_CC);
+	EXPECT_EQ(m_calls[0].data, kId3Packet);
+	EXPECT_DOUBLE_EQ(m_calls[0].pts, 1.5);
+	EXPECT_DOUBLE_EQ(m_calls[0].dts, 1.4);
+	EXPECT_DOUBLE_EQ(m_calls[0].duration, 0.1);
+}
+
+TEST_F(AampRialtoPlayerId3Test, SendCopy_PacketWithoutId3Header_IsNotReported)
+{
+	InstallHandler();
+
+	std::vector<uint8_t> packet = kNotId3Packet;
+	m_player->SendCopy(eMEDIATYPE_DSM_CC, std::move(packet), 1.5, 1.4, 0.1);
+
+	EXPECT_TRUE(m_calls.empty());
+}
+
+TEST_F(AampRialtoPlayerId3Test, SendCopy_ShortOrEmptyBuffer_IsNotReported)
+{
+	InstallHandler();
+
+	std::vector<uint8_t> shortBuffer = {'I', 'D'};
+	m_player->SendCopy(eMEDIATYPE_DSM_CC, std::move(shortBuffer), 1.0, 1.0, 0.1);
+	std::vector<uint8_t> empty;
+	m_player->SendCopy(eMEDIATYPE_DSM_CC, std::move(empty), 1.0, 1.0, 0.1);
+
+	EXPECT_TRUE(m_calls.empty());
+}
+
+TEST_F(AampRialtoPlayerId3Test, SendCopy_NoHandlerInstalled_DoesNotCrash)
+{
+	std::vector<uint8_t> packet = kId3Packet;
+	EXPECT_NO_THROW(m_player->SendCopy(
+		eMEDIATYPE_DSM_CC, std::move(packet), 1.5, 1.4, 0.1));
+}
+
+TEST_F(AampRialtoPlayerId3Test,
+	SendCopy_Id3HeadedAudioBuffer_IsReportedAndStillInjected)
+{
+	Configure(FORMAT_INVALID, FORMAT_ISO_BMFF);
+	m_player->SetStreamCaps(eMEDIATYPE_AUDIO, MakeAudioAacCodecInfo());
+	ASSERT_NE(m_mockSources[eMEDIATYPE_AUDIO], nullptr);
+	InstallHandler();
+
+	EXPECT_CALL(*m_mockSources[eMEDIATYPE_AUDIO],
+		processDataFragment(_, _, _, _, _, _))
+		.WillOnce(Return(true));
+
+	std::vector<uint8_t> packet = kId3Packet;
+	EXPECT_TRUE(m_player->SendCopy(eMEDIATYPE_AUDIO, std::move(packet),
+		/*fpts=*/2.0, /*fdts=*/2.0, /*fDuration=*/0.1));
+
+	ASSERT_EQ(m_calls.size(), 1u);
+	EXPECT_EQ(m_calls[0].mediaType, eMEDIATYPE_AUDIO);
+}
+
+TEST_F(AampRialtoPlayerId3Test, SendTransfer_Id3HeadedDsmCcPacket_ReachesHandler)
+{
+	InstallHandler();
+
+	std::vector<uint8_t> packet = kId3Packet;
+	m_player->SendTransfer(eMEDIATYPE_DSM_CC, std::move(packet),
+		/*fpts=*/3.0, /*fdts=*/2.9, /*fDuration=*/0.2,
+		/*fragmentPTSoffset=*/0.0, /*initFragment=*/false,
+		/*discontinuity=*/false);
+
+	ASSERT_EQ(m_calls.size(), 1u);
+	EXPECT_EQ(m_calls[0].mediaType, eMEDIATYPE_DSM_CC);
+	EXPECT_DOUBLE_EQ(m_calls[0].pts, 3.0);
+	EXPECT_DOUBLE_EQ(m_calls[0].dts, 2.9);
+	EXPECT_DOUBLE_EQ(m_calls[0].duration, 0.2);
+}
+
+TEST_F(AampRialtoPlayerId3Test, SendSample_Id3HeadedDsmCcSample_ReachesHandler)
+{
+	InstallHandler();
+
+	auto buffer = std::make_shared<std::vector<uint8_t>>(kId3Packet);
+	AampMediaSample sample;
+	sample.mData = std::shared_ptr<const uint8_t>(buffer, buffer->data());
+	sample.mDataSize = buffer->size();
+	sample.mPts = 4.0;
+	sample.mDts = 3.9;
+	sample.mDuration = 0.3;
+	m_player->SendSample(eMEDIATYPE_DSM_CC, std::move(sample), false);
+
+	ASSERT_EQ(m_calls.size(), 1u);
+	EXPECT_EQ(m_calls[0].data, kId3Packet);
+	EXPECT_DOUBLE_EQ(m_calls[0].pts, 4.0);
+	EXPECT_DOUBLE_EQ(m_calls[0].dts, 3.9);
+	EXPECT_DOUBLE_EQ(m_calls[0].duration, 0.3);
+}
+
+TEST_F(AampRialtoPlayerId3Test, ChangeAamp_ReplacesTheHandler)
+{
+	InstallHandler();
+	int replacementCalls = 0;
+	m_player->ChangeAamp(
+		reinterpret_cast<PrivateInstanceAAMP *>(g_mockPrivateInstanceAAMP.get()),
+		[&](AampMediaType, const uint8_t *, size_t, const SegmentInfo_t &,
+			const char *) { ++replacementCalls; });
+
+	std::vector<uint8_t> packet = kId3Packet;
+	m_player->SendCopy(eMEDIATYPE_DSM_CC, std::move(packet), 1.5, 1.4, 0.1);
+
+	EXPECT_TRUE(m_calls.empty());
+	EXPECT_EQ(replacementCalls, 1);
+}
+
+TEST_F(AampRialtoPlayerId3Test, ChangeAamp_ConcurrentWithSendCopy_IsRaceFree)
+{
+	/**
+	 * @brief Injector threads read the handler while ChangeAamp() replaces it;
+	 *        run under ThreadSanitizer to see the race on an unguarded member.
+	 */
+	std::atomic<int> calls{0};
+	std::thread injector([&] {
+		for (int i = 0; i < 2000; ++i)
+		{
+			std::vector<uint8_t> packet = kId3Packet;
+			m_player->SendCopy(eMEDIATYPE_DSM_CC, std::move(packet), 1.0, 1.0, 0.1);
+		}
+	});
+	for (int i = 0; i < 2000; ++i)
+	{
+		m_player->ChangeAamp(
+			reinterpret_cast<PrivateInstanceAAMP *>(g_mockPrivateInstanceAAMP.get()),
+			[&](AampMediaType, const uint8_t *, size_t, const SegmentInfo_t &,
+				const char *) { ++calls; });
+	}
+	injector.join();
+	EXPECT_GE(calls.load(), 0);
 }
 
 TEST_F(AampRialtoPlayerTest,

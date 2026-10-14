@@ -398,6 +398,17 @@ private:
 
 	id3_callback_t m_ID3MetadataHandler;                   ///< Function to call to generate the JS event for in ID3 packet
 
+	/// Leaf lock for m_ID3MetadataHandler: ChangeAamp() replaces it while
+	/// injector threads read it.
+	std::mutex m_id3HandlerMutex;
+
+	/// Pass a buffer to the ID3 handler when it is audio, video or DSM_CC
+	/// data that starts with an ID3 header, as AAMPGstPlayer does for every
+	/// buffer it sends.  Called before the per-track source lookup so ID3
+	/// packets, which have no Rialto source, are still reported.
+	void ReportID3Metadata(AampMediaType mediaType, const uint8_t *data,
+		size_t size, double pts, double dts, double duration);
+
 	IStreamSinkNotifiable *m_notifiable{nullptr};          ///< Playback-state notifier (not owned)
 	/// Owned adapter wrapping PrivateInstanceAAMP as an IStreamSinkNotifiable.
 	/// Non-null only when no test notifiable was injected.
@@ -512,7 +523,7 @@ private:
 	/// (run under m_attachMutex) never calls Flush/Stop/Configure.  The leaf
 	/// mutexes (m_pipelineMutex, m_sourcesMutex, m_drmBridgeMutex,
 	/// m_pendingAttachMutex, m_pendingProtectionMutex, m_ptsCheckMutex,
-	/// m_videoRectangleMutex, m_monitorMutex) are taken last.  The only call made while holding one
+	/// m_videoRectangleMutex, m_monitorMutex, m_id3HandlerMutex) are taken last.  The only call made while holding one
 	/// is m_monitorMutex -> AampRialtoMonitorAV::start(), which takes just the
 	/// monitor's own timer lock.
 	/// m_attachMutex can be held for the length of a DRM license fetch, so

@@ -30,6 +30,7 @@
 #include "AampLogManager.h"
 #include "PrivateInstanceAAMPNotifiable.h"
 #include "priv_aamp.h"
+#include "AampSegmentInfo.hpp"
 #include "IControl.h"
 #include "AampRialtoControlBackend.h"
 #include "AampRialtoMonitorAV.h"
@@ -1086,6 +1087,26 @@ static GstStreamOutputFormat toGstStreamOutputFormat(StreamOutputFormat fmt)
 	return gstFmt;
 }
 
+void AampRialtoPlayer::ReportID3Metadata(AampMediaType mediaType,
+	const uint8_t *data, size_t size, double pts, double dts, double duration)
+{
+	namespace aih = aamp::id3_metadata::helpers;
+	if (data && aih::IsValidMediaType(mediaType) &&
+	    aih::IsValidHeader(data, size))
+	{
+		id3_callback_t handler;
+		{
+			std::lock_guard<std::mutex> lock(m_id3HandlerMutex);
+			handler = m_ID3MetadataHandler;
+		}
+		if (handler)
+		{
+			handler(mediaType, data, size,
+				SegmentInfo_t{pts, dts, duration}, nullptr);
+		}
+	}
+}
+
 bool AampRialtoPlayer::SendCopy(
 	AampMediaType mediaType,
 	std::vector<uint8_t> &&buffer,
@@ -1098,6 +1119,9 @@ bool AampRialtoPlayer::SendCopy(
 		fpts, fdts, fDuration);
 	bool success = false;
 	const auto pipeline = GetPipeline();
+
+	ReportID3Metadata(mediaType, buffer.data(), buffer.size(),
+		fpts, fdts, fDuration);
 
 	const auto source = getSource(mediaType);
 	if (!source)
@@ -1167,6 +1191,9 @@ bool AampRialtoPlayer::SendTransfer(
 				static_cast<int>(mediaType), buffer.size(),
 				fpts, fdts, fDuration, fragmentPTSoffset,
 				initFragment, discontinuity);
+
+	ReportID3Metadata(mediaType, buffer.data(), buffer.size(),
+		fpts, fdts, fDuration);
 
 	const auto source = getSource(mediaType);
 	if (!source)
@@ -1660,6 +1687,9 @@ bool AampRialtoPlayer::SendSample(AampMediaType mediaType, AampMediaSample &&sam
 		static_cast<int>(mediaType), sample.mPts, sample.mDuration, morePending);
 
 	bool result = false;
+
+	ReportID3Metadata(mediaType, sample.mData.get(), sample.mDataSize,
+		sample.mPts, sample.mDts, sample.mDuration);
 
 	const auto source = getSource(mediaType);
 	if (!source)
@@ -2878,7 +2908,10 @@ bool AampRialtoPlayer::IsAssociatedAamp(PrivateInstanceAAMP *aampInstance)
 void AampRialtoPlayer::ChangeAamp(PrivateInstanceAAMP *newAamp, id3_callback_t id3HandlerCallback)
 {
 	AAMPLOG_INFO("ENTRY newAamp=%p", newAamp);
-	m_ID3MetadataHandler = std::move(id3HandlerCallback);
+	{
+		std::lock_guard<std::mutex> lock(m_id3HandlerMutex);
+		m_ID3MetadataHandler = std::move(id3HandlerCallback);
+	}
 	if (newAamp == nullptr)
 	{
 		AAMPLOG_WARN("newAamp is null in ChangeAamp; keeping current association");

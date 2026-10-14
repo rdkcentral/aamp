@@ -36,6 +36,7 @@ set(AAMP_SOURCES
 	${AAMP_ROOT}/direct-rialto/AampPlayerStateMachine.cpp
 	${AAMP_ROOT}/direct-rialto/PrivateInstanceAAMPNotifiable.cpp
 	${AAMP_ROOT}/direct-rialto/AampRialtoMonitorAV.cpp
+	${AAMP_ROOT}/ID3Metadata.cpp
 )
 
 add_executable(${EXEC_NAME}
