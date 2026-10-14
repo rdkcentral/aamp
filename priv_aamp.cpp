@@ -4387,9 +4387,10 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 						print_headerResponse(context.allResponseHeaders, mediaType);
 
 					}
-					if (res == CURLE_COULDNT_CONNECT || IsCurlTimeoutFailure(res) || (isDownloadStalled && (eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT != abortReason)) || res == CURLE_COULDNT_RESOLVE_HOST)
+					if (res == CURLE_COULDNT_CONNECT || IsCurlTimeoutFailure(res) ||
+						(isDownloadStalled && (eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT != abortReason)) ||
+						res == CURLE_SEND_ERROR || res == CURLE_COULDNT_RESOLVE_HOST)
 					{
-						
 						if(mpStreamAbstractionAAMP)
 						{
 							switch (mediaType)
@@ -4453,7 +4454,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 								break;
 							}
 						}
-						AAMPLOG_WARN("Download failed due to curl timeout or isDownloadStalled:%d Retrying:%d Attempt:%d abortReason:%d", isDownloadStalled, loopAgain && (downloadAttempt < maxDownloadAttempt), downloadAttempt, abortReason);
+						AAMPLOG_WARN("Download failed due to curl error %d or isDownloadStalled:%d Retrying:%d Attempt:%d abortReason:%d", res, isDownloadStalled, loopAgain && (downloadAttempt < maxDownloadAttempt), downloadAttempt, abortReason);
 					}
 
 					/*
