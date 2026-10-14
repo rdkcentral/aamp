@@ -27,10 +27,10 @@
 class MockAampConfig
 {
 public:
-	MOCK_METHOD(void, SetConfigValue, (AAMPConfigSettingBool cfg, const bool &value));
-	MOCK_METHOD(void, SetConfigValue, (AAMPConfigSettingInt cfg, const int &value));
-	MOCK_METHOD(void, SetConfigValue, (AAMPConfigSettingFloat cfg, const double &value));
-	MOCK_METHOD(void, SetConfigValue, (AAMPConfigSettingString cfg, const std::string &value));
+	MOCK_METHOD(bool, SetConfigValue, (AAMPConfigSettingBool cfg, const bool &value));
+	MOCK_METHOD(bool, SetConfigValue, (AAMPConfigSettingInt cfg, const int &value));
+	MOCK_METHOD(bool, SetConfigValue, (AAMPConfigSettingFloat cfg, const double &value));
+	MOCK_METHOD(bool, SetConfigValue, (AAMPConfigSettingString cfg, const std::string &value));
 
     MOCK_METHOD(bool, IsConfigSet, (AAMPConfigSettingBool cfg));
 	MOCK_METHOD(bool, GetConfigValue, (AAMPConfigSettingBool cfg));

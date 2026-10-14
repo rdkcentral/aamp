@@ -35,23 +35,42 @@ void AampConfig::Initialize()
 {
 }
 
-void AampConfig::SetConfigValue(ConfigPriority owner, AAMPConfigSettingBool cfg , const bool &value){}
-void AampConfig::SetConfigValue(ConfigPriority owner, AAMPConfigSettingInt cfg , const int &value)
+bool AampConfig::SetConfigValue(ConfigPriority owner, AAMPConfigSettingBool cfg, const bool &value)
 {
+    bool ret = false;
     if (g_mockAampConfig != nullptr)
     {
-        return g_mockAampConfig->SetConfigValue(cfg,value);
+        ret = g_mockAampConfig->SetConfigValue(cfg, value);
     }
+    return ret;
 }
-void AampConfig::SetConfigValue(ConfigPriority owner, AAMPConfigSettingFloat cfg , const double &value)
+bool AampConfig::SetConfigValue(ConfigPriority owner, AAMPConfigSettingInt cfg, const int &value)
 {
+    bool ret = false;
     if (g_mockAampConfig != nullptr)
     {
-        return g_mockAampConfig->SetConfigValue(cfg,value);
+        ret = g_mockAampConfig->SetConfigValue(cfg, value);
     }
+    return ret;
 }
-void AampConfig::SetConfigValue(ConfigPriority owner, AAMPConfigSettingString cfg , const std::string &value){}
-
+bool AampConfig::SetConfigValue(ConfigPriority owner, AAMPConfigSettingFloat cfg, const double &value)
+{
+    bool ret = false;
+    if (g_mockAampConfig != nullptr)
+    {
+        ret = g_mockAampConfig->SetConfigValue(cfg, value);
+    }
+    return ret;
+}
+bool AampConfig::SetConfigValue(ConfigPriority owner, AAMPConfigSettingString cfg, const std::string &value)
+{
+    bool ret = false;
+    if (g_mockAampConfig != nullptr)
+    {
+        ret = g_mockAampConfig->SetConfigValue(cfg, value);
+    }
+    return ret;
+}
 
 bool AampConfig::IsConfigSet(AAMPConfigSettingBool cfg) const
 {
@@ -265,5 +284,5 @@ void AampConfig::RestoreConfiguration(ConfigPriority owner, AAMPConfigSettingStr
 
 bool AampConfig::ProcessConfigText(std::string &cfg, ConfigPriority owner)
 {
-	return false;
+    return false;
 }

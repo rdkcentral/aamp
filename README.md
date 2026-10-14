@@ -543,3 +543,117 @@ Setting up VM on Windows 10
 
 
 ---
+
+## ⚠️ API Deprecation Notice
+
+### Configuration Setter APIs (Deprecated)
+
+The following configuration setter APIs are **deprecated** and will be removed in a future release. Please migrate to using `InitAAMPConfig()` with config string format, which provides a cleaner, more flexible interface for setting AAMP configuration values.
+
+#### New Unified API: InitAAMPConfig()
+
+The `InitAAMPConfig()` method now automatically detects whether you're passing JSON or a simple config string:
+
+```cpp
+// Config string format (recommended for single values)
+player->InitAAMPConfig("networkTimeout=10.0");
+player->InitAAMPConfig("abr=true");
+player->InitAAMPConfig("userAgent=CustomAgent/1.0");
+
+// JSON format (recommended for multiple values)
+player->InitAAMPConfig("{\"networkTimeout\": 10.0, \"abr\": true}");
+```
+
+#### Deprecated APIs and Their Replacements
+
+| Deprecated API | Config Name | Example |
+|----------------|-------------|---------|
+| `SetStereoOnlyPlayback(bool)` | `stereoOnly` | `player->InitAAMPConfig("stereoOnly=true");` |
+| `SetBulkTimedMetaReport(bool)` | `bulkTimedMetadata` | `player->InitAAMPConfig("bulkTimedMetadata=false");` |
+| `SetBulkTimedMetaReportLive(bool)` | `bulkTimedMetadataLive` | `player->InitAAMPConfig("bulkTimedMetadataLive=true");` |
+| `SetRetuneForUnpairedDiscontinuity(bool)` | `useRetuneForUnpairedDiscontinuity` | `player->InitAAMPConfig("useRetuneForUnpairedDiscontinuity=false");` |
+| `SetRetuneForGSTInternalError(bool)` | `useRetuneForGstInternalError` | `player->InitAAMPConfig("useRetuneForGstInternalError=true");` |
+| `SetAnonymousRequest(bool)` | `licenseAnonymousRequest` | `player->InitAAMPConfig("licenseAnonymousRequest=true");` |
+| `SetAvgBWForABR(bool)` | `useAverageBandwidth` | `player->InitAAMPConfig("useAverageBandwidth=true");` |
+| `SetPreCacheTimeWindow(int)` | `preCachePlaylistTime` | `player->InitAAMPConfig("preCachePlaylistTime=5");` |
+| `SetVODTrickplayFPS(int)` | `vodTrickPlayFps` | `player->InitAAMPConfig("vodTrickPlayFps=4");` |
+| `SetLinearTrickplayFPS(int)` | `linearTrickPlayFps` | `player->InitAAMPConfig("linearTrickPlayFps=8");` |
+| `SetLiveOffset(double)` | `liveOffset` | `player->InitAAMPConfig("liveOffset=15.0");` |
+| `SetLiveOffset4K(double)` | `liveOffset4K` | `player->InitAAMPConfig("liveOffset4K=20.0");` |
+| `SetStallErrorCode(int)` | `stallErrorCode` | `player->InitAAMPConfig("stallErrorCode=7600");` |
+| `SetStallTimeout(int)` | `stallTimeout` | `player->InitAAMPConfig("stallTimeout=10000");` |
+| `SetReportInterval(int)` | `progressReportingInterval` | `player->InitAAMPConfig("progressReportingInterval=1");` |
+| `SetInitFragTimeoutRetryCount(int)` | `initFragmentRetryCount` | `player->InitAAMPConfig("initFragmentRetryCount=3");` |
+| `SetNetworkTimeout(double)` | `networkTimeout` | `player->InitAAMPConfig("networkTimeout=10.0");` |
+| `SetManifestTimeout(double)` | `manifestTimeout` | `player->InitAAMPConfig("manifestTimeout=10.0");` |
+| `SetPlaylistTimeout(double)` | `playlistTimeout` | `player->InitAAMPConfig("playlistTimeout=10.0");` |
+| `SetDownloadBufferSize(int)` | `downloadBuffer` | `player->InitAAMPConfig("downloadBuffer=3");` |
+| `SetNetworkProxy(const char*)` | `networkProxy` | `player->InitAAMPConfig("networkProxy=http://proxy:8080");` |
+| `SetLicenseReqProxy(const char*)` | `licenseProxy` | `player->InitAAMPConfig("licenseProxy=http://proxy:8080");` |
+| `SetDownloadStallTimeout(int)` | `downloadStallTimeout` | `player->InitAAMPConfig("downloadStallTimeout=10");` |
+| `SetDownloadStartTimeout(int)` | `downloadStartTimeout` | `player->InitAAMPConfig("downloadStartTimeout=10");` |
+| `SetDownloadLowBWTimeout(int)` | `downloadLowBWTimeout` | `player->InitAAMPConfig("downloadLowBWTimeout=10");` |
+| `SetAsyncTuneConfig(bool)` | `asyncTune` | `player->InitAAMPConfig("asyncTune=true");` |
+| `SetWesterosSinkConfig(bool)` | `useWesterosSink` | `player->InitAAMPConfig("useWesterosSink=true");` |
+| `SetLicenseCaching(bool)` | `setLicenseCaching` | `player->InitAAMPConfig("setLicenseCaching=true");` |
+| `SetOutputResolutionCheck(bool)` | `limitResolution` | `player->InitAAMPConfig("limitResolution=true");` |
+| `SetMatchingBaseUrlConfig(bool)` | `useMatchingBaseUrl` | `player->InitAAMPConfig("useMatchingBaseUrl=true");` |
+| `SetPropagateUriParameters(bool)` | `propagateUriParameters` | `player->InitAAMPConfig("propagateUriParameters=true");` |
+| `SetSslVerifyPeerConfig(bool)` | `sslVerifyPeer` | `player->InitAAMPConfig("sslVerifyPeer=true");` |
+| `SetNewABRConfig(bool)` | `useNewABR` | `player->InitAAMPConfig("useNewABR=true");` |
+| `SetNewAdBreakerConfig(bool)` | `useNewAdBreaker` | `player->InitAAMPConfig("useNewAdBreaker=true");` |
+| `SetBase64LicenseWrapping(bool)` | `b64LicenseWrapping` | `player->InitAAMPConfig("b64LicenseWrapping=true");` |
+| `SetTuneEventConfig(int)` | `tuneEventConfig` | `player->InitAAMPConfig("tuneEventConfig=0");` |
+| `SetRampDownLimit(int)` | `fragmentRetryLimit` | `player->InitAAMPConfig("fragmentRetryLimit=-1");` |
+| `SetInitRampdownLimit(int)` | `initRampdownLimit` | `player->InitAAMPConfig("initRampdownLimit=10");` |
+| `SetMinimumBitrate(long)` | `minBitrate` | `player->InitAAMPConfig("minBitrate=500000");` |
+| `SetMaximumBitrate(long)` | `maxBitrate` | `player->InitAAMPConfig("maxBitrate=4000000");` |
+| `SetSegmentInjectFailCount(int)` | `segmentInjectFailThreshold` | `player->InitAAMPConfig("segmentInjectFailThreshold=10");` |
+| `SetSegmentDecryptFailCount(int)` | `drmDecryptFailThreshold` | `player->InitAAMPConfig("drmDecryptFailThreshold=10");` |
+| `SetInitialBufferDuration(int)` | `initialBuffer` | `player->InitAAMPConfig("initialBuffer=0");` |
+| `SetNativeCCRendering(bool)` | `nativeCCRendering` | `player->InitAAMPConfig("nativeCCRendering=false");` |
+| `SetAudioOnlyPlayback(bool)` | `audioOnlyPlayback` | `player->InitAAMPConfig("audioOnlyPlayback=false");` |
+| `SetMaxPlaylistCacheSize(int)` | `maxPlaylistCacheSize` | `player->InitAAMPConfig("maxPlaylistCacheSize=3");` |
+| `EnableSeekableRange(bool)` | `enableSeekableRange` | `player->InitAAMPConfig("enableSeekableRange=true");` |
+| `SetReportVideoPTS(bool)` | `reportVideoPTS` | `player->InitAAMPConfig("reportVideoPTS=false");` |
+| `SetDisable4K(bool)` | `disable4K` | `player->InitAAMPConfig("disable4K=false");` |
+| `PersistBitRateOverSeek(bool)` | `persistBitrateOverSeek` | `player->InitAAMPConfig("persistBitrateOverSeek=false");` |
+| `SetPausedBehavior(int)` | `livePauseBehavior` | `player->InitAAMPConfig("livePauseBehavior=0");` |
+| `SetUseAbsoluteTimeline(bool)` | `useAbsoluteTimeline` | `player->InitAAMPConfig("useAbsoluteTimeline=false");` |
+| `SetRepairIframes(bool)` | `repairIframes` | `player->InitAAMPConfig("repairIframes=false");` |
+| `SetLicenseCustomData(const char*)` | `customLicenseData` | `player->InitAAMPConfig("customLicenseData=custom_data");` |
+| `SetContentProtectionDataUpdateTimeout(int)` | `contentProtectionDataUpdateTimeout` | `player->InitAAMPConfig("contentProtectionDataUpdateTimeout=3000");` |
+| `SetRuntimeDRMConfigSupport(bool)` | `configRuntimeDRM` | `player->InitAAMPConfig("configRuntimeDRM=false");` |
+
+#### Migration Example
+
+**Before (Deprecated):**
+```cpp
+PlayerInstanceAAMP *player = new PlayerInstanceAAMP();
+player->SetNetworkTimeout(10.0);
+player->SetInitialBufferDuration(5);
+player->SetAnonymousRequest(true);
+player->SetNetworkProxy("http://proxy:8080");
+```
+
+**After (Recommended):**
+```cpp
+PlayerInstanceAAMP *player = new PlayerInstanceAAMP();
+player->InitAAMPConfig("networkTimeout=10.0");
+player->InitAAMPConfig("initialBuffer=5");
+player->InitAAMPConfig("licenseAnonymousRequest=true");
+player->InitAAMPConfig("networkProxy=http://proxy:8080");
+```
+
+**Or using JSON for multiple configs:**
+```cpp
+PlayerInstanceAAMP *player = new PlayerInstanceAAMP();
+player->InitAAMPConfig(R"({
+    "networkTimeout": 10.0,
+    "initialBuffer": 5,
+    "licenseAnonymousRequest": true,
+    "networkProxy": "http://proxy:8080"
+})");
+```
+
+---
