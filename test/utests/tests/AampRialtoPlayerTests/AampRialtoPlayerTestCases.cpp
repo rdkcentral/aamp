@@ -5338,26 +5338,54 @@ TEST_F(AampRialtoPlayerTest,
 // ===========================================================================
 
 TEST_F(AampRialtoPlayerTest,
-	Flush_NullPipeline_ShouldTearDownTrue_CallsStop)
+	Flush_NullPipeline_ShouldTearDownTrue_StaysIdle)
 {
 	/**
 	 * @brief When the player is in IDLE state (no pipeline) and shouldTearDown=true,
-	 *        Flush() must call Stop(true) to tear down gracefully.
-	 *
-	 * This mirrors GStreamer's behavior: if the pipeline is in an invalid
-	 * state (GST_STATE_NULL), it calls stopCallback(true) to tear down.
+	 *        there is nothing to tear down: Flush() leaves the player IDLE.
 	 */
 	// Setup: DON'T call Configure() so player remains in IDLE state.
 	// Player is constructed in SetUp() but no pipeline is created yet.
 	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::IDLE)
 		<< "Precondition: player must be in IDLE state";
 
-	// Flush() with shouldTearDown=true should call Stop() even in IDLE state.
 	m_player->Flush(/*position=*/10.0, /*rate=*/1, /*shouldTearDown=*/true);
 
-	// Stop() transitions to IDLE; PlayerStateId::STOPPED is unreachable.
 	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::IDLE)
 		<< "Player remains in IDLE after Flush(shouldTearDown=true) with no pipeline";
+}
+
+TEST_F(AampRialtoPlayerTest,
+	Flush_NullPipeline_ShouldTearDownTrue_DoesNotRunRecoveryStop)
+{
+	/**
+	 * @brief Regression (L7): Flush(shouldTearDown=true) before Configure() ran
+	 *        the recovery Stop() although nothing existed to stop, which
+	 *        deregistered the control backend; the following Configure() then
+	 *        had to create a new one.  The existing backend must survive and
+	 *        be the one Configure() waits on.
+	 */
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::IDLE);
+	EXPECT_CALL(*m_mockControlBackend, waitForRunning(_))
+		.Times(1)
+		.WillOnce(Return(true));
+
+	m_player->Flush(/*position=*/10.0, /*rate=*/1, /*shouldTearDown=*/true);
+	Configure();
+}
+
+TEST_F(AampRialtoPlayerTest,
+	Flush_PipelineNotFlushable_ShouldTearDownTrue_StillStopsPipeline)
+{
+	/**
+	 * @brief Guard for L7: when a pipeline exists but the state is not
+	 *        flushable, the recovery Stop() still runs.
+	 */
+	Configure();
+	ASSERT_NE(m_player->GetCurrentPlayerState(), PlayerStateId::IDLE);
+	EXPECT_CALL(*m_mockPipelinePtr, stop()).Times(1).WillOnce(Return(true));
+
+	m_player->Flush(/*position=*/5.0, /*rate=*/1, /*shouldTearDown=*/true);
 }
 
 TEST_F(AampRialtoPlayerTest,

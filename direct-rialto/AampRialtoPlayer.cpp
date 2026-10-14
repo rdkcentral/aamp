@@ -1929,17 +1929,27 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown, boo
 
 	if (!isFlushableState && shouldTearDown)
 	{
-		// Player is not in a flushable state; recover by stopping.
-		// Stop() will call WaitForFlushToComplete() which returns immediately
-		// since we have not claimed FLUSHING.
-		// preservePendingPosition=true: the position/rate staged above are
-		// for the caller's benefit (typically a pre-Configure() seek
-		// pre-stage) and must survive this recovery Stop(), unlike a normal
-		// caller-initiated Stop() which ends the session outright.
-		AAMPLOG_WARN("Player was not in PLAYING/PAUSED/SOURCES_ATTACHED/FLUSHED "
-			"(pre-flush state=%d) and shouldTearDown=true - calling Stop(true)",
-			static_cast<int>(preFlushState));
-		StopInternal(true, /*preservePendingPosition=*/true);
+		if (preFlushState == PlayerStateId::IDLE && !GetPipeline())
+		{
+			// Typically a pre-Configure() seek pre-stage.  Stop() would only
+			// deregister the control backend again for nothing.
+			AAMPLOG_INFO("Flush() with shouldTearDown=true but nothing to tear "
+				"down (IDLE, no pipeline) - not stopping");
+		}
+		else
+		{
+			// Player is not in a flushable state; recover by stopping.
+			// Stop() will call WaitForFlushToComplete() which returns
+			// immediately since we have not claimed FLUSHING.
+			// preservePendingPosition=true: the position/rate staged above are
+			// for the caller's benefit (typically a pre-Configure() seek
+			// pre-stage) and must survive this recovery Stop(), unlike a
+			// normal caller-initiated Stop() which ends the session outright.
+			AAMPLOG_WARN("Player was not in PLAYING/PAUSED/SOURCES_ATTACHED/FLUSHED "
+				"(pre-flush state=%d) and shouldTearDown=true - calling Stop(true)",
+				static_cast<int>(preFlushState));
+			StopInternal(true, /*preservePendingPosition=*/true);
+		}
 		m_playbackController.ReleaseHold(PlayHold::Flushing,
 			"Flush(teardown)");
 		AAMPLOG_INFO("EXIT - teardown requested");
