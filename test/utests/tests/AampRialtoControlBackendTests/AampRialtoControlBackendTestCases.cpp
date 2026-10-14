@@ -186,3 +186,101 @@ TEST_F(AampRialtoControlBackendTest,
 	// Should have waited approximately 50ms (allow some slack).
 	EXPECT_GE(elapsed, std::chrono::milliseconds(40));
 }
+
+TEST_F(AampRialtoControlBackendTest,
+	NotificationAfterBackendDestroyed_DoesNotTouchFreedBackend)
+{
+	/**
+	 * @brief Regression (M13): the client held a reference to the backend, and
+	 *        the backend's mutex and condition variable were destroyed before
+	 *        the IControl that can still deliver a notification.  A
+	 *        notification arriving after the backend is gone must be harmless.
+	 *        Run under AddressSanitizer to see the old fault.
+	 */
+	std::weak_ptr<firebolt::rialto::IControlClient> capturedClient;
+	EXPECT_CALL(*g_mockControlFactory, createControl())
+		.WillOnce(Return(m_mockControl));
+	EXPECT_CALL(*m_mockControl, registerClient(_, _))
+		.WillOnce(Invoke(
+			[&capturedClient](
+				std::weak_ptr<firebolt::rialto::IControlClient> client,
+				firebolt::rialto::ApplicationState &appState)
+			{
+				capturedClient = client;
+				appState = firebolt::rialto::ApplicationState::UNKNOWN;
+				return true;
+			}));
+
+	auto backend = std::make_unique<AampRialtoControlBackend>();
+	// Rialto's event thread holds the client for the length of a notification.
+	auto heldClient = capturedClient.lock();
+	ASSERT_NE(heldClient, nullptr);
+
+	backend.reset();
+	m_mockControl.reset();
+
+	heldClient->notifyApplicationState(firebolt::rialto::ApplicationState::RUNNING);
+}
+
+TEST_F(AampRialtoControlBackendTest,
+	RegisterClient_NotificationDuringRegistration_IsNotOverwritten)
+{
+	/**
+	 * @brief Regression (M13): registerClient() reports the state at the time
+	 *        it was called and could be delivered after a newer notification;
+	 *        the stale value must not replace it.
+	 */
+	EXPECT_CALL(*g_mockControlFactory, createControl())
+		.WillOnce(Return(m_mockControl));
+	EXPECT_CALL(*m_mockControl, registerClient(_, _))
+		.WillOnce(Invoke(
+			[](std::weak_ptr<firebolt::rialto::IControlClient> client,
+			   firebolt::rialto::ApplicationState &appState)
+			{
+				// Rialto's thread reports RUNNING while registerClient() is
+				// still returning the older UNKNOWN.
+				if (auto c = client.lock())
+				{
+					c->notifyApplicationState(
+						firebolt::rialto::ApplicationState::RUNNING);
+				}
+				appState = firebolt::rialto::ApplicationState::UNKNOWN;
+				return true;
+			}));
+
+	AampRialtoControlBackend backend;
+	EXPECT_TRUE(backend.waitForRunning(50));
+}
+
+TEST_F(AampRialtoControlBackendTest,
+	RegisterClient_ConcurrentNotification_IsRaceFree)
+{
+	/**
+	 * @brief Regression (M13): registerClient() wrote the state member that a
+	 *        notification writes under the lock, with no lock.  Under a thread
+	 *        sanitizer the old code is reported as a data race.
+	 */
+	EXPECT_CALL(*g_mockControlFactory, createControl())
+		.WillOnce(Return(m_mockControl));
+	std::thread notifier;
+	EXPECT_CALL(*m_mockControl, registerClient(_, _))
+		.WillOnce(Invoke(
+			[&notifier](std::weak_ptr<firebolt::rialto::IControlClient> client,
+			            firebolt::rialto::ApplicationState &appState)
+			{
+				notifier = std::thread([client]() {
+					if (auto c = client.lock())
+					{
+						c->notifyApplicationState(
+							firebolt::rialto::ApplicationState::RUNNING);
+					}
+				});
+				appState = firebolt::rialto::ApplicationState::UNKNOWN;
+				std::this_thread::sleep_for(std::chrono::milliseconds(5));
+				return true;
+			}));
+
+	AampRialtoControlBackend backend;
+	notifier.join();
+	EXPECT_TRUE(backend.waitForRunning(2000));
+}

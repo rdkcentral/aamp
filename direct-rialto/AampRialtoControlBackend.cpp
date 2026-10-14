@@ -34,7 +34,14 @@
 void AampRialtoControlBackend::ControlClient::notifyApplicationState(
 	firebolt::rialto::ApplicationState state)
 {
-	m_backend.onApplicationStateChanged(state);
+	AAMPLOG_INFO("AampRialtoControlBackend: application state changed to %d",
+		static_cast<int>(state));
+	{
+		std::lock_guard<std::mutex> lock{m_state->mutex};
+		m_state->state = state;
+		m_state->notified = true;
+	}
+	m_state->cv.notify_all();
 }
 
 // ---------------------------------------------------------------------------
@@ -42,7 +49,8 @@ void AampRialtoControlBackend::ControlClient::notifyApplicationState(
 // ---------------------------------------------------------------------------
 
 AampRialtoControlBackend::AampRialtoControlBackend()
-	: m_controlClient{std::make_shared<ControlClient>(*this)}
+	: m_state{std::make_shared<SharedState>()}
+	, m_controlClient{std::make_shared<ControlClient>(m_state)}
 {
 	auto factory = firebolt::rialto::IControlFactory::createFactory();
 	if (!factory)
@@ -58,43 +66,40 @@ AampRialtoControlBackend::AampRialtoControlBackend()
 		return;
 	}
 
-	if (!m_control->registerClient(m_controlClient, m_rialtoClientState))
+	// registerClient() may deliver a notification (on Rialto's thread) before it
+	// returns, so it gets a local and the result is merged under the lock.
+	firebolt::rialto::ApplicationState initialState =
+		firebolt::rialto::ApplicationState::UNKNOWN;
+	if (!m_control->registerClient(m_controlClient, initialState))
 	{
 		AAMPLOG_ERR("AampRialtoControlBackend: IControl::registerClient failed");
 		m_control.reset();
 		return;
 	}
 
+	{
+		std::lock_guard<std::mutex> lock{m_state->mutex};
+		if (!m_state->notified)
+		{
+			m_state->state = initialState;
+		}
+	}
+	m_state->cv.notify_all();
+
 	AAMPLOG_INFO("AampRialtoControlBackend: registered, initial state=%d",
-		static_cast<int>(m_rialtoClientState));
+		static_cast<int>(initialState));
 }
 
 bool AampRialtoControlBackend::waitForRunning(int timeoutMs)
 {
-	std::unique_lock<std::mutex> lock{m_mutex};
-	if (firebolt::rialto::ApplicationState::RUNNING == m_rialtoClientState)
-	{
-		return true;
-	}
-	m_stateCv.wait_for(
+	std::unique_lock<std::mutex> lock{m_state->mutex};
+	m_state->cv.wait_for(
 		lock,
 		std::chrono::milliseconds{timeoutMs},
 		[this]
 		{
-			return m_rialtoClientState ==
+			return m_state->state ==
 				firebolt::rialto::ApplicationState::RUNNING;
 		});
-	return firebolt::rialto::ApplicationState::RUNNING == m_rialtoClientState;
-}
-
-void AampRialtoControlBackend::onApplicationStateChanged(
-	firebolt::rialto::ApplicationState state)
-{
-	AAMPLOG_INFO("AampRialtoControlBackend: application state changed to %d",
-		static_cast<int>(state));
-	{
-		std::lock_guard<std::mutex> lock{m_mutex};
-		m_rialtoClientState = state;
-	}
-	m_stateCv.notify_one();
+	return firebolt::rialto::ApplicationState::RUNNING == m_state->state;
 }
