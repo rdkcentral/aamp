@@ -15010,6 +15010,7 @@ void PrivateInstanceAAMP::SetStreamFormat(StreamOutputFormat videoFormat, Stream
     bool reconfigure = false;
     AAMPLOG_MIL("Got format - videoFormat %d and audioFormat %d", videoFormat, audioFormat);
     AAMPLOG_MIL("Current format - videoFormat %d and audioFormat %d", mVideoFormat, mAudioFormat);
+    AAMPLOG_MIL("mAudioOnlyPb %d and mVideoOnlyPb %d", mAudioOnlyPb, mVideoOnlyPb);
 #if 0
     if (((mVideoFormat == FORMAT_INVALID || mAudioFormat == FORMAT_INVALID) &&
         (videoFormat != FORMAT_INVALID || audioFormat != FORMAT_INVALID)))
@@ -15019,15 +15020,18 @@ void PrivateInstanceAAMP::SetStreamFormat(StreamOutputFormat videoFormat, Stream
 	AAMPLOG_MIL("before ResetOnlyModeState in PrivateInstanceAAMP::SetStreamFormat \n");
         ResetOnlyModeState(*this);
     }
-#endif
 
 	const bool validFormatTransition =
 		((videoFormat != FORMAT_INVALID && mVideoFormat != FORMAT_INVALID && videoFormat != mVideoFormat) ||
 		 (audioFormat != FORMAT_INVALID && mAudioFormat != FORMAT_INVALID && audioFormat != mAudioFormat));
 	AAMPLOG_MIL("validFormatTransition = %d \n", validFormatTransition);
-	if ((((mVideoFormat == FORMAT_INVALID || mAudioFormat == FORMAT_INVALID) &&
+#endif
+	/*if ((((mVideoFormat == FORMAT_INVALID || mAudioFormat == FORMAT_INVALID) &&
 		(videoFormat != FORMAT_INVALID || audioFormat != FORMAT_INVALID)) ||
-		(validFormatTransition && (mAudioOnlyPb || mVideoOnlyPb))))
+		(validFormatTransition && (mAudioOnlyPb || mVideoOnlyPb))))*/
+	if ((((mVideoFormat == FORMAT_INVALID || mAudioFormat == FORMAT_INVALID) &&
+(videoFormat != FORMAT_INVALID || audioFormat != FORMAT_INVALID)) ||
+((mAudioOnlyPb || mVideoOnlyPb) && (videoFormat != FORMAT_INVALID || audioFormat != FORMAT_INVALID))))
 	{
 		// A previous audio-only/video-only detection can leave a stale only-mode
 		// state behind when the next tune starts with valid formats again, or when
