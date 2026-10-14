@@ -110,7 +110,7 @@ and should be confirmed before or while fixing.
 | M8 | Done | Rialto callback setters race with delivery |
 | M9 | Done | Possible deadlock: `m_attachMutex` held across DRM/IPC |
 | M10 | Done | Blocking Rialto IPC from the Rialto callback thread |
-| M11 | Open | `MediaKeysClient::onKeyStatusesChanged` invokes callbacks under mutex |
+| M11 | Done | `MediaKeysClient::onKeyStatusesChanged` invokes callbacks under mutex |
 | M12 | Open | `RialtoMediaKeySessionAdapter` lost wakeups and stale state |
 | M13 | Open | `AampRialtoControlBackend` member order |
 | M14 | Open | `PrivateInstanceAAMPNotifiable::m_aamp` racy and not null-checked |
@@ -377,6 +377,11 @@ Rialto behaviours confirmed or disproved, test gaps, design decisions).
 | 2026-10-14 | M10 | Why `rialto-gstreamer` bounces these calls to a worker: not established. The reason may be latency (the event thread is held for each round trip, so later events queue behind it) rather than deadlock; I did not find a statement of intent in the sources read. |
 | 2026-10-14 | M10 | Not changed, by decision: `HandleSeekDone` still issues `setSourcePosition`, `play()` and `haveData()` from the event thread. Moving them to a worker would add a thread and an ordering problem (SEEK_DONE handling must finish before the next event) for a latency benefit that has not been measured. Revisit if a trace shows events delayed behind these calls. |
 | 2026-10-14 | M10 | Source reading, not a runtime test; the Rialto version on the target was not checked. |
+| 2026-10-14 | M11 | `MediaKeysClient::onKeyStatusesChanged` ran the per-key and keys-updated callbacks while holding the client mutex. A callback that destructs its own session (which deregisters under that mutex) deadlocked; the new test hangs on the old code and is killed at its timeout. The session caches are now updated under the lock, the callbacks copied out, and run after the lock is released (as `onLicenseRequest` and `onLicenseRenewal` already did). |
+| 2026-10-14 | M11 | `RialtoMediaKeySession` had a defaulted destructor, so a session dropped without `destruct()` left a dangling raw pointer in `MediaKeysClient::sessions`; the next key-status event wrote to freed memory. AddressSanitizer on the old code reports a heap-use-after-free in `updateKeyStatus`. The destructor now deregisters, and `destruct()` clears its deregister callback so the destructor does not repeat it. Because deregistering takes the client mutex that the cache update also holds, a session cannot be destroyed in the middle of an update. |
+| 2026-10-14 | M11 | Behaviour change: the session's key-status cache is now fully updated for every key in an event before any `onKeyUpdate` callback runs; before, the callback for key N saw only keys up to N updated. A callback that queries other keys of the same update now sees their new status. The callbacks still run in the same order and `onKeysUpdated` still fires last. |
+| 2026-10-14 | M11 | A session dropped without `destruct()` now drops its callbacks (no further events reach them) but the Rialto-side key session is still not released: that needs `destruct()`, by design, and is not changed. |
+| 2026-10-14 | M11 | The moderate-load run after M11 had 14/240 failures, all in `AampRialtoPlayerWithDemuxTest` tests of the T3 family and clustered in time across workers; the player suite does not link the key-system sources, and no kernel soft lockups were logged in the window. Recorded as environment noise, not evidence about M11 (see section 6). |
 
 ## Verification Notes
 
@@ -413,3 +418,4 @@ Record each completed task: what was done, files changed, tests added or run.
 | 2026-10-14 | M8 | Client callbacks guarded by `m_callbackMutex` with copy-then-invoke delivery; player callbacks installed before `load()`. | AampRialtoMediaPipelineClient.{h,cpp}, AampRialtoPlayer.cpp | Client: Callbacks_ConcurrentInstallAndDelivery_OnlyRunsWholeCallbacks (TSAN red on old, clean on new), Callback_MayReplaceItselfWhileRunning_DoesNotDeadlock (guard). Player: Configure_EventDeliveredDuringLoad_IsNotDropped (red on old, green now). 14 suites pass. |
 | 2026-10-14 | M9 | Documented the lock order and the long-hold caveat on `m_attachMutex`; verified the thread model from Rialto's source; no behaviour change. | AampRialtoPlayer.h (comment only) | None added (comment-only change). Player suite builds and passes. |
 | 2026-10-14 | M10 | Verified the thread model and recorded the outcome; no code change. | docs only | None (verification task). |
+| 2026-10-14 | M11 | Callbacks in `onKeyStatusesChanged` run outside the client mutex; `RialtoMediaKeySession` destructor deregisters (with `destruct()` clearing its callback). | RialtoMediaKeySystem.cpp, RialtoMediaKeySession.{h,cpp} | KeySystem: OnKeyStatusesChanged_UpdatesSessionThenRunsCallbacks (behaviour), _CallbackMayDestructItsSession_DoesNotDeadlock (hangs on old), _AfterSessionDroppedWithoutDestruct_IsIgnored (ASAN use-after-free on old). 14 suites pass. |

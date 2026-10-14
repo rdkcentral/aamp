@@ -36,6 +36,14 @@ RialtoMediaKeySession::RialtoMediaKeySession(
 	AAMPLOG_INFO("RialtoMediaKeySession[%d]: created", m_keySessionId);
 }
 
+RialtoMediaKeySession::~RialtoMediaKeySession()
+{
+	if (m_deregister)
+	{
+		m_deregister(m_keySessionId);
+	}
+}
+
 bool RialtoMediaKeySession::update(const uint8_t* keyMessage, uint16_t keyMessageLength)
 {
 	AAMPLOG_INFO("RialtoMediaKeySession[%d]: update, length=%u", m_keySessionId, keyMessageLength);
@@ -89,6 +97,7 @@ bool RialtoMediaKeySession::destruct()
 	if (m_deregister)
 	{
 		m_deregister(m_keySessionId);
+		m_deregister = nullptr;
 	}
 
 	AAMPLOG_INFO("RialtoMediaKeySession[%d]: destruct complete", m_keySessionId);

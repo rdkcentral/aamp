@@ -101,39 +101,51 @@ void RialtoMediaKeySystem::MediaKeysClient::onKeyStatusesChanged(
 	AAMPLOG_INFO("RialtoMediaKeySystem::MediaKeysClient: onKeyStatusesChanged session=%d count=%zu",
 	            keySessionId, keyStatuses.size());
 
-	std::lock_guard<std::mutex> lock(mutex);
-
-	auto cbIt = callbacks.find(keySessionId);
-	auto sessIt = sessions.find(keySessionId);
-
-	for (const auto& [keyId, status] : keyStatuses)
+	// Update the session caches under the lock, but run the callbacks without
+	// it: a callback may deregister its own session or take other locks.
+	std::function<void(const uint8_t*, uint8_t)> onKeyUpdate;
+	std::function<void()> onKeysUpdated;
 	{
-		if (AampLogManager::isLogLevelAllowed(eLOGLEVEL_TRACE))
-		{
-			AAMPLOG_TRACE("RialtoMediaKeySystem::MediaKeysClient: "
-			             "key status=%d keyIdSize=%zu",
-			             static_cast<int>(status), keyId.size());
-			DumpBlob(keyId.data(), keyId.size());
-		}
+		std::lock_guard<std::mutex> lock(mutex);
 
-		// Update the session's own key status cache.
-		if (sessIt != sessions.end())
+		auto cbIt = callbacks.find(keySessionId);
+		if (cbIt != callbacks.end())
 		{
-			sessIt->second->updateKeyStatus(keyId, status);
+			onKeyUpdate = cbIt->second.onKeyUpdate;
+			onKeysUpdated = cbIt->second.onKeysUpdated;
 		}
+		auto sessIt = sessions.find(keySessionId);
 
-		// Fire the per-key update callback.
-		if (cbIt != callbacks.end() && cbIt->second.onKeyUpdate)
+		for (const auto& [keyId, status] : keyStatuses)
 		{
-			cbIt->second.onKeyUpdate(keyId.data(),
-			                         static_cast<uint8_t>(keyId.size()));
+			if (AampLogManager::isLogLevelAllowed(eLOGLEVEL_TRACE))
+			{
+				AAMPLOG_TRACE("RialtoMediaKeySystem::MediaKeysClient: "
+				             "key status=%d keyIdSize=%zu",
+				             static_cast<int>(status), keyId.size());
+				DumpBlob(keyId.data(), keyId.size());
+			}
+
+			if (sessIt != sessions.end())
+			{
+				sessIt->second->updateKeyStatus(keyId, status);
+			}
+		}
+	}
+
+	if (onKeyUpdate)
+	{
+		for (const auto& entry : keyStatuses)
+		{
+			onKeyUpdate(entry.first.data(),
+			            static_cast<uint8_t>(entry.first.size()));
 		}
 	}
 
 	// Signal that all key statuses for this update have been delivered.
-	if (cbIt != callbacks.end() && cbIt->second.onKeysUpdated)
+	if (onKeysUpdated)
 	{
-		cbIt->second.onKeysUpdated();
+		onKeysUpdated();
 	}
 }
 

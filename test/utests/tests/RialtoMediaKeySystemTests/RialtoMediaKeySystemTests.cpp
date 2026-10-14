@@ -20,6 +20,9 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 
+#include <chrono>
+#include <future>
+
 #include "RialtoMediaKeySystem.h"
 #include "MockRialtoMediaKeys.h"
 
@@ -48,6 +51,28 @@ protected:
 	void SetUp() override
 	{
 		m_mockFactory = std::make_shared<NiceMock<MockMediaKeysFactory>>();
+	}
+
+	/// Create a session and capture the client the system registered with Rialto.
+	std::unique_ptr<RialtoMediaKeySession> createSessionCapturingClient(
+		RialtoMediaKeySystem& system,
+		const RialtoSessionCallbacks& callbacks,
+		std::weak_ptr<firebolt::rialto::IMediaKeysClient>& capturedClient)
+	{
+		EXPECT_CALL(*m_mockMediaKeysRaw, createKeySession(_, _, _))
+			.WillOnce(DoAll(
+				Invoke([&capturedClient](firebolt::rialto::KeySessionType,
+				              std::weak_ptr<firebolt::rialto::IMediaKeysClient> client,
+				              int32_t&)
+				{
+					capturedClient = client;
+				}),
+				SetArgReferee<2>(TEST_SESSION_ID),
+				Return(firebolt::rialto::MediaKeyErrorStatus::OK)));
+		EXPECT_CALL(*m_mockMediaKeysRaw, generateRequest(_, _, _, _))
+			.WillOnce(Return(firebolt::rialto::MediaKeyErrorStatus::OK));
+		const uint8_t initData[] = {0x00};
+		return system.createSession("cenc", initData, sizeof(initData), callbacks);
 	}
 
 	std::unique_ptr<RialtoMediaKeySystem> createSystemWithMediaKeys()
@@ -216,4 +241,89 @@ TEST_F(RialtoMediaKeySystemTest, CreateSessionOnInvalidSystem)
 	RialtoSessionCallbacks callbacks;
 	auto session = system.createSession("cenc", initData, sizeof(initData), callbacks);
 	EXPECT_EQ(nullptr, session);
+}
+
+TEST_F(RialtoMediaKeySystemTest, OnKeyStatusesChanged_UpdatesSessionThenRunsCallbacks)
+{
+	auto system = createSystemWithMediaKeys();
+	const std::vector<uint8_t> keyA = {0xA1, 0xA2};
+	const std::vector<uint8_t> keyB = {0xB1};
+
+	RialtoMediaKeySession* sessionPtr = nullptr;
+	std::vector<bool> usableWhenNotified;
+	int keysUpdatedCalls = 0;
+	RialtoSessionCallbacks callbacks;
+	callbacks.onKeyUpdate = [&](const uint8_t* key, uint8_t size)
+	{
+		usableWhenNotified.push_back(sessionPtr->isKeyUsable(key, size));
+	};
+	callbacks.onKeysUpdated = [&] { ++keysUpdatedCalls; };
+
+	std::weak_ptr<firebolt::rialto::IMediaKeysClient> weakClient;
+	auto session = createSessionCapturingClient(*system, callbacks, weakClient);
+	ASSERT_NE(nullptr, session);
+	sessionPtr = session.get();
+	auto client = weakClient.lock();
+	ASSERT_NE(nullptr, client);
+
+	client->onKeyStatusesChanged(TEST_SESSION_ID,
+		{{keyA, firebolt::rialto::KeyStatus::USABLE},
+		 {keyB, firebolt::rialto::KeyStatus::USABLE}});
+
+	EXPECT_EQ(usableWhenNotified, (std::vector<bool>{true, true}));
+	EXPECT_EQ(keysUpdatedCalls, 1);
+}
+
+TEST_F(RialtoMediaKeySystemTest, OnKeyStatusesChanged_CallbackMayDestructItsSession_DoesNotDeadlock)
+{
+	/**
+	 * @brief Regression (M11): onKeyStatusesChanged ran the callbacks while
+	 *        holding the client mutex, so a callback that destructs its own
+	 *        session (which deregisters under that mutex) deadlocked.
+	 */
+	auto system = createSystemWithMediaKeys();
+	RialtoMediaKeySession* sessionPtr = nullptr;
+	RialtoSessionCallbacks callbacks;
+	callbacks.onKeysUpdated = [&] { sessionPtr->destruct(); };
+
+	std::weak_ptr<firebolt::rialto::IMediaKeysClient> weakClient;
+	auto session = createSessionCapturingClient(*system, callbacks, weakClient);
+	ASSERT_NE(nullptr, session);
+	sessionPtr = session.get();
+	auto client = weakClient.lock();
+	ASSERT_NE(nullptr, client);
+
+	auto result = std::async(std::launch::async, [&] {
+		client->onKeyStatusesChanged(TEST_SESSION_ID,
+			{{std::vector<uint8_t>{0x01}, firebolt::rialto::KeyStatus::USABLE}});
+	});
+	ASSERT_EQ(result.wait_for(std::chrono::seconds(5)), std::future_status::ready)
+		<< "onKeyStatusesChanged deadlocked in a callback that deregisters";
+}
+
+TEST_F(RialtoMediaKeySystemTest, OnKeyStatusesChanged_AfterSessionDroppedWithoutDestruct_IsIgnored)
+{
+	/**
+	 * @brief Regression (M11): the client kept a raw pointer to the session and
+	 *        the session destructor did not deregister, so a key-status event
+	 *        arriving after the session was dropped without destruct() wrote to
+	 *        freed memory.  Run under AddressSanitizer to see the old fault.
+	 */
+	auto system = createSystemWithMediaKeys();
+	int keyUpdates = 0;
+	RialtoSessionCallbacks callbacks;
+	callbacks.onKeyUpdate = [&](const uint8_t*, uint8_t) { ++keyUpdates; };
+
+	std::weak_ptr<firebolt::rialto::IMediaKeysClient> weakClient;
+	auto session = createSessionCapturingClient(*system, callbacks, weakClient);
+	ASSERT_NE(nullptr, session);
+	auto client = weakClient.lock();
+	ASSERT_NE(nullptr, client);
+
+	session.reset();
+
+	client->onKeyStatusesChanged(TEST_SESSION_ID,
+		{{std::vector<uint8_t>{0x01}, firebolt::rialto::KeyStatus::USABLE}});
+
+	EXPECT_EQ(keyUpdates, 0) << "a dropped session's callbacks must not run";
 }

@@ -60,7 +60,9 @@ public:
 	                      firebolt::rialto::IMediaKeys& mediaKeys,
 	                      std::function<void(int32_t)> deregister);
 
-	~RialtoMediaKeySession() = default;
+	/// Deregisters from the system if destruct() was not called, so the
+	/// system never keeps a pointer to a destroyed session.
+	~RialtoMediaKeySession();
 
 	RialtoMediaKeySession(const RialtoMediaKeySession&) = delete;
 	RialtoMediaKeySession& operator=(const RialtoMediaKeySession&) = delete;
