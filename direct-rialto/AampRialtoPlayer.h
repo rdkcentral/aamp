@@ -48,6 +48,7 @@
 #include "AampRialtoSegmentPosition.h"
 #include "IDirectRialtoCC.h"
 #include "AampRialtoGlibTimer.h"
+#include "AampRialtoProgressTimer.h"
 #include "AampRialtoMonitorAV.h"
 
 #include <array>
@@ -665,40 +666,8 @@ private:
 	/// Overwritten on each call; not re-applied anywhere (read-only query).
 	PlaybackQualityStruct m_playbackQuality{};
 
-	/// @brief Embedded progress timer with immediate-start and kick capability.
-	///
-	/// Fires immediately on start, then continues at specified interval.
-	/// Can be kicked to force immediate dispatch while maintaining interval.
-	/// All methods are thread-safe; see AampRialtoGlibTimer.
-	class ProgressTimer
-	{
-	public:
-		using Callback = std::function<void()>;
-
-		/// Start the timer: fires immediately, then at interval.
-		/// Does nothing if already running.
-		void start(guint interval_ms, Callback cb);
-
-		/// Force immediate callback dispatch and restart the interval.
-		void kick();
-
-		/// Stop the timer; no callback runs once this returns.
-		void stop();
-
-		/// Return true if the timer is currently running.
-		bool isRunning() const { return m_timer.IsRunning(); }
-
-	private:
-		AampRialtoGlibTimer m_timer;
-
-		/// Guards m_interval and m_callback, which kick() reads.
-		std::mutex m_mutex;
-		guint m_interval{0};
-		Callback m_callback;
-	};
-
 	/// Progress timer instance.
-	ProgressTimer m_progressTimer;
+	AampRialtoProgressTimer m_progressTimer;
 
 	/// AV health monitor.  Non-null only when eAAMPConfig_MonitorAV is true
 	/// and a pipeline has been successfully created.  Guarded by
