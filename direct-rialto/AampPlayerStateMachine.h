@@ -44,6 +44,9 @@
 #ifndef AAMP_PLAYER_STATE_MACHINE_H
 #define AAMP_PLAYER_STATE_MACHINE_H
 
+#include <chrono>
+#include <condition_variable>
+#include <functional>
 #include <memory>
 #include <mutex>
 
@@ -151,8 +154,8 @@ public:
  * state machine can be driven from concurrent threads (e.g. IPC callback
  * thread firing onPlaybackStarted, AAMP thread firing onFlush).  Each call is
  * atomic on its own; a sequence such as "read currentState(), then act" is
- * not.  Where a sequence must be atomic (entering FLUSHING after checking no
- * flush is running) the player goes through AampRialtoFlushCoordinator.
+ * not.  The one sequence that must be atomic (entering FLUSHING after waiting
+ * for a previous flush) is serialised by AampRialtoPlayer::m_flushCallMutex.
  * See docs/diagrams/direct-rialto-state-machine.puml.
  */
 class PlayerStateMachine
@@ -198,7 +201,8 @@ public:
 	/// @see IPlayerState::onFlush
 	void onFlush();
 
-	/// Fired when PlaybackState::SEEK_DONE is received from Rialto.
+	/// Fired when PlaybackState::SEEK_DONE is received from Rialto, or when a
+	/// flush ends early.
 	///
 	/// Transitions FLUSHING -> FLUSHED unconditionally.  Rialto always sends
 	/// SEEK_DONE before any subsequent PLAYING/PAUSED notification for the
@@ -207,12 +211,31 @@ public:
 	/// onPlaybackPaused().  A no-op (WARN logged) if not currently FLUSHING.
 	void onFlushComplete();
 
+	/**
+	 * @brief Block until the machine is not FLUSHING, or @p timeout elapses.
+	 *
+	 * On timeout the flush is abandoned: the machine leaves FLUSHING as if
+	 * onFlushComplete() had fired, @p onAbandoned runs (without the internal
+	 * lock held), then waiters are woken.  Without that a lost SEEK_DONE would
+	 * block Stop(), the recovery path, forever.
+	 *
+	 * Takes no claim: a caller that wants FLUSHING calls onFlush() afterwards
+	 * and must serialise the two itself.
+	 *
+	 * Every transition wakes the threads waiting here.
+	 *
+	 * @return true if the flush was abandoned.
+	 */
+	bool waitForFlushComplete(std::chrono::milliseconds timeout,
+		const std::function<void()> &onAbandoned = nullptr);
+
 	/// @see IPlayerState::onStop
 	/// Ignored without a WARN when already IDLE.
 	void onStop();
 
 	/// @see IPlayerState::onError
-	void onError();
+	/// @return the state the machine was in before the transition.
+	PlayerStateId onError();
 
 	/// @see IPlayerState::onReconfigure
 	void onReconfigure();
@@ -221,11 +244,19 @@ private:
 	/// Execute a handler, apply the returned transition, and log MIL.
 	/// Logs a WARN when the handler returns nullptr (no transition defined
 	/// for this event from the current state) so unexpected events are visible
-	/// in production logs.
-	void dispatch(std::unique_ptr<IPlayerState> (IPlayerState::*handler)(),
-	              const char *eventName);
+	/// in production logs.  Wakes waitForFlushComplete() callers.
+	/// @return the state before the event.
+	PlayerStateId dispatch(std::unique_ptr<IPlayerState> (IPlayerState::*handler)(),
+		const char *eventName);
+
+	/// As dispatch() for a caller that already holds m_mutex and wakes the
+	/// waiters itself.
+	PlayerStateId dispatchLocked(
+		std::unique_ptr<IPlayerState> (IPlayerState::*handler)(),
+		const char *eventName);
 
 	mutable std::mutex            m_mutex;
+	std::condition_variable       m_stateChanged;
 	std::unique_ptr<IPlayerState> m_state;
 };
 

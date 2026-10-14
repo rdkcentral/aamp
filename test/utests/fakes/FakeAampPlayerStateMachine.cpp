@@ -134,9 +134,11 @@ void PlayerStateMachine::onStop()
 	s_fakeState = PlayerStateId::IDLE;
 }
 
-void PlayerStateMachine::onError()
+PlayerStateId PlayerStateMachine::onError()
 {
+	const PlayerStateId previous = s_fakeState;
 	s_fakeState = PlayerStateId::ERROR;
+	return previous;
 }
 
 void PlayerStateMachine::onReconfigure()
@@ -144,11 +146,27 @@ void PlayerStateMachine::onReconfigure()
 	s_fakeState = PlayerStateId::IDLE;
 }
 
-void PlayerStateMachine::dispatch(
+PlayerStateId PlayerStateMachine::dispatch(
 	std::unique_ptr<IPlayerState> (IPlayerState::*handler)(),
 	const char *eventName)
 {
 	(void)handler;
 	(void)eventName;
+	return s_fakeState;
+}
+
+PlayerStateId PlayerStateMachine::dispatchLocked(
+	std::unique_ptr<IPlayerState> (IPlayerState::*handler)(),
+	const char *eventName)
+{
+	(void)handler;
+	(void)eventName;
+	return s_fakeState;
+}
+
+bool PlayerStateMachine::waitForFlushComplete(std::chrono::milliseconds,
+	const std::function<void()> &)
+{
+	return false;
 }
 

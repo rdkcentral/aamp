@@ -336,7 +336,8 @@ void AampRialtoPlayer::WaitForFlushToComplete()
 {
 	// An abandoned flush mirrors the setPosition() failure path in Flush():
 	// commit the staged rate, then release the Flushing hold.
-	const bool abandoned = m_flush.WaitForComplete([this]()
+	const bool abandoned = m_stateMachine.waitForFlushComplete(
+		m_flushCompleteTimeout, [this]()
 	{
 		m_rate.store(m_segmentPosition.StagedRate(), std::memory_order_relaxed);
 	});
@@ -1456,7 +1457,7 @@ void AampRialtoPlayer::MaybeFlushForPendingPosition(
 	// Held across Flush() and the Stream() below so a concurrent Stop() sees
 	// either neither or both.  Re-check the hold afterwards: Stop() or a
 	// control-thread Flush() that ran while we waited has already resolved it.
-	const auto serialise = m_flush.SerialiseCalls();
+	std::lock_guard<std::recursive_mutex> serialise(m_flushCallMutex);
 	if (!m_playbackController.IsHeld(PlayHold::PositionPending))
 	{
 		return;
@@ -1549,7 +1550,7 @@ void AampRialtoPlayer::StopInternal(bool keepLastFrame, bool preservePendingPosi
 	// Keep a deferred flush on an injector thread from interleaving with the
 	// teardown (its trailing Stream() would otherwise leave a stale play
 	// request behind the controller reset below).
-	const auto serialise = m_flush.SerialiseCalls();
+	std::lock_guard<std::recursive_mutex> serialise(m_flushCallMutex);
 
 	// Wait for any in-progress flush cycle to complete before stopping.
 	// This ensures the state machine has already exited FLUSHING so that
@@ -1623,7 +1624,7 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown, boo
 
 	// One Flush() at a time: the state check in step 2 and the claim in
 	// step 3 are only atomic with respect to other flushes under this lock.
-	const auto serialise = m_flush.SerialiseCalls();
+	std::lock_guard<std::recursive_mutex> serialise(m_flushCallMutex);
 
 	// Step 1: Wait for any previous flush cycle to complete (no claim yet).
 	// The teardown check below reads the current state AFTER any in-flight
@@ -1745,12 +1746,12 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown, boo
 		return;
 	}
 
-	// Step 3: Claim FLUSHING atomically (under the coordinator's mutex) so that
+	// Step 3: Claim FLUSHING atomically so that
 	// any concurrent WaitForFlushToComplete() caller (e.g. Configure()) sees
 	// FLUSHING and blocks until onFlushComplete() signals completion.
 	// Flush() and Stop()/Configure() are always on the AAMP control thread,
 	// so no TOCTOU risk exists between step 2 and step 3.
-	m_flush.ClaimFlushing();
+	m_stateMachine.onFlush();
 
 	// The Flushing hold applied on entry keeps this from issuing play().
 	ArmPreRoll(rate, "Flush");
@@ -1788,7 +1789,7 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown, boo
 				" - committing rate immediately and exiting FLUSHING", posNs);
 			m_rate.store(m_segmentPosition.StagedRate(),
 				std::memory_order_relaxed);
-			m_flush.Complete();
+			m_stateMachine.onFlushComplete();
 			m_playbackController.ReleaseHold(PlayHold::Flushing,
 				"Flush(setPosition failed)");
 		}
@@ -1801,7 +1802,7 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown, boo
 			std::memory_order_relaxed);
 		AAMPLOG_INFO("No pipeline during flush - committed playback rate=%d",
 			m_rate.load(std::memory_order_relaxed));
-		m_flush.Complete();
+		m_stateMachine.onFlushComplete();
 		m_playbackController.ReleaseHold(PlayHold::Flushing,
 			"Flush(no pipeline)");
 	}
@@ -2896,15 +2897,15 @@ void AampRialtoPlayer::HandleSeekDone()
 		// the same flush cycle, and that notification drives the state
 		// machine the rest of the way via onPlaybackStarted()/
 		// onPlaybackPaused().
-		m_flush.Complete();
+		m_stateMachine.onFlushComplete();
 	}
 }
 
 void AampRialtoPlayer::HandlePlaybackFailure()
 {
-	// A failure can arrive while FLUSHING; SignalError() wakes any thread
-	// blocked in WaitForFlushToComplete().
-	const PlayerStateId previousState = m_flush.SignalError();
+	// A failure can arrive while FLUSHING; onError() wakes any thread blocked
+	// in WaitForFlushToComplete().
+	const PlayerStateId previousState = m_stateMachine.onError();
 
 	// IDLE means no live session, so the failure is stale; ERROR means it was
 	// already reported.

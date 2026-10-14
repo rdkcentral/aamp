@@ -332,11 +332,24 @@ const char *PlayerStateMachine::currentStateName() const
 	return m_state->name();
 }
 
-void PlayerStateMachine::dispatch(
+PlayerStateId PlayerStateMachine::dispatch(
 	std::unique_ptr<IPlayerState> (IPlayerState::*handler)(),
 	const char *eventName)
 {
-	std::lock_guard<std::mutex> lock(m_mutex);
+	PlayerStateId previous;
+	{
+		std::lock_guard<std::mutex> lock(m_mutex);
+		previous = dispatchLocked(handler, eventName);
+	}
+	m_stateChanged.notify_all();
+	return previous;
+}
+
+PlayerStateId PlayerStateMachine::dispatchLocked(
+	std::unique_ptr<IPlayerState> (IPlayerState::*handler)(),
+	const char *eventName)
+{
+	const PlayerStateId previous = m_state->id();
 	auto next = (m_state.get()->*handler)();
 	if (next)
 	{
@@ -349,6 +362,7 @@ void PlayerStateMachine::dispatch(
 		AAMPLOG_WARN("PlayerState: event '%s' has no transition from state '%s' - ignored",
 			eventName, m_state->name());
 	}
+	return previous;
 }
 
 void PlayerStateMachine::onPipelineLoaded()
@@ -410,6 +424,38 @@ void PlayerStateMachine::onFlushComplete()
 	dispatch(&IPlayerState::onFlushComplete, "onFlushComplete");
 }
 
+bool PlayerStateMachine::waitForFlushComplete(
+	std::chrono::milliseconds timeout,
+	const std::function<void()> &onAbandoned)
+{
+	bool timedOut = false;
+	{
+		std::unique_lock<std::mutex> lock(m_mutex);
+		timedOut = !m_stateChanged.wait_for(lock, timeout, [this]()
+		{
+			return m_state->id() != PlayerStateId::FLUSHING;
+		});
+		if (timedOut)
+		{
+			// SEEK_DONE completes the flush under this same mutex, so the
+			// state is still FLUSHING here.
+			dispatchLocked(&IPlayerState::onFlushComplete, "onFlushComplete");
+		}
+	}
+
+	if (timedOut)
+	{
+		AAMPLOG_ERR("SEEK_DONE not received within %lld ms - abandoning flush",
+			static_cast<long long>(timeout.count()));
+		if (onAbandoned)
+		{
+			onAbandoned();
+		}
+		m_stateChanged.notify_all();
+	}
+	return timedOut;
+}
+
 void PlayerStateMachine::onStop()
 {
 	{
@@ -424,9 +470,9 @@ void PlayerStateMachine::onStop()
 	dispatch(&IPlayerState::onStop, "onStop");
 }
 
-void PlayerStateMachine::onError()
+PlayerStateId PlayerStateMachine::onError()
 {
-	dispatch(&IPlayerState::onError, "onError");
+	return dispatch(&IPlayerState::onError, "onError");
 }
 
 void PlayerStateMachine::onReconfigure()

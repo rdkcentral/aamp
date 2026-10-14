@@ -27,6 +27,9 @@
  */
 
 #include <gtest/gtest.h>
+#include <atomic>
+#include <chrono>
+#include <future>
 #include <thread>
 #include "AampPlayerStateMachine.h"
 
@@ -826,4 +829,133 @@ TEST_F(AampPlayerStateMachineTest, OnReconfigure_FromFlushed_TransitionsToIdle)
 
 	m_sm.onReconfigure();
 	EXPECT_EQ(m_sm.currentState(), PlayerStateId::IDLE);
+}
+
+// ===========================================================================
+// waitForFlushComplete / waiter wake-up
+// ===========================================================================
+
+using namespace std::chrono_literals;
+
+class AampPlayerStateMachineFlushWaitTest : public AampPlayerStateMachineTest
+{
+protected:
+	/// PLAYING is a state a flush may start from.
+	void MoveToPlaying()
+	{
+		m_sm.onPipelineLoaded();
+		m_sm.onSourceAttaching();
+		m_sm.onAllSourcesAttached();
+		m_sm.onPlaybackStarted();
+	}
+};
+
+/**
+ * @test Without a flush in progress the wait returns at once, not abandoned.
+ */
+TEST_F(AampPlayerStateMachineFlushWaitTest, WaitForFlushComplete_NotFlushing_ReturnsFalseAtOnce)
+{
+	MoveToPlaying();
+	bool handlerRan = false;
+
+	const auto start = std::chrono::steady_clock::now();
+	const bool abandoned =
+		m_sm.waitForFlushComplete(10s, [&]() { handlerRan = true; });
+
+	EXPECT_FALSE(abandoned);
+	EXPECT_FALSE(handlerRan);
+	EXPECT_LT(std::chrono::steady_clock::now() - start, 1s);
+	EXPECT_EQ(m_sm.currentState(), PlayerStateId::PLAYING);
+}
+
+/**
+ * @test onFlushComplete() releases a thread blocked in waitForFlushComplete()
+ *       without abandoning the flush.
+ */
+TEST_F(AampPlayerStateMachineFlushWaitTest, OnFlushComplete_WakesWaiter_NotAbandoned)
+{
+	MoveToPlaying();
+	m_sm.onFlush();
+
+	std::atomic<bool> handlerRan{false};
+	auto waiter = std::async(std::launch::async, [&]()
+	{
+		return m_sm.waitForFlushComplete(10s, [&]() { handlerRan = true; });
+	});
+
+	// The waiter must really be blocked: FLUSHING has not ended.
+	EXPECT_EQ(waiter.wait_for(100ms), std::future_status::timeout);
+
+	m_sm.onFlushComplete();
+
+	ASSERT_EQ(waiter.wait_for(5s), std::future_status::ready);
+	EXPECT_FALSE(waiter.get());
+	EXPECT_FALSE(handlerRan.load());
+	EXPECT_EQ(m_sm.currentState(), PlayerStateId::FLUSHED);
+}
+
+/**
+ * @test When SEEK_DONE never arrives the wait gives up: the machine leaves
+ *       FLUSHING, the handler runs once after that, and true is returned.
+ */
+TEST_F(AampPlayerStateMachineFlushWaitTest, WaitForFlushComplete_Timeout_AbandonsFlush)
+{
+	MoveToPlaying();
+	m_sm.onFlush();
+
+	int handlerCalls = 0;
+	PlayerStateId stateInHandler = PlayerStateId::FLUSHING;
+	const bool abandoned = m_sm.waitForFlushComplete(50ms, [&]()
+	{
+		++handlerCalls;
+		stateInHandler = m_sm.currentState();
+	});
+
+	EXPECT_TRUE(abandoned);
+	EXPECT_EQ(handlerCalls, 1);
+	EXPECT_EQ(stateInHandler, PlayerStateId::FLUSHED);
+	EXPECT_EQ(m_sm.currentState(), PlayerStateId::FLUSHED);
+}
+
+/**
+ * @test A timed-out wait with no handler is allowed.
+ */
+TEST_F(AampPlayerStateMachineFlushWaitTest, WaitForFlushComplete_TimeoutWithoutHandler_StillAbandons)
+{
+	MoveToPlaying();
+	m_sm.onFlush();
+
+	EXPECT_TRUE(m_sm.waitForFlushComplete(20ms));
+	EXPECT_EQ(m_sm.currentState(), PlayerStateId::FLUSHED);
+}
+
+/**
+ * @test A failure that arrives while FLUSHING wakes the waiter (no timeout)
+ *       and onError() reports the state it interrupted.
+ */
+TEST_F(AampPlayerStateMachineFlushWaitTest, OnError_WhileFlushing_ReturnsPreviousAndWakesWaiter)
+{
+	MoveToPlaying();
+	m_sm.onFlush();
+
+	auto waiter = std::async(std::launch::async,
+		[&]() { return m_sm.waitForFlushComplete(10s); });
+	EXPECT_EQ(waiter.wait_for(100ms), std::future_status::timeout);
+
+	EXPECT_EQ(m_sm.onError(), PlayerStateId::FLUSHING);
+
+	ASSERT_EQ(waiter.wait_for(5s), std::future_status::ready);
+	EXPECT_FALSE(waiter.get());
+	EXPECT_EQ(m_sm.currentState(), PlayerStateId::ERROR);
+}
+
+/**
+ * @test onError() outside a flush reports the current state.
+ */
+TEST_F(AampPlayerStateMachineFlushWaitTest, OnError_WhenPlaying_ReturnsPlaying)
+{
+	MoveToPlaying();
+
+	EXPECT_EQ(m_sm.onError(), PlayerStateId::PLAYING);
+	EXPECT_EQ(m_sm.currentState(), PlayerStateId::ERROR);
 }

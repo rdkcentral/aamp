@@ -42,7 +42,7 @@ FLUSHING --> ERROR : onError
 note right of FLUSHING
   onStop and onReconfigure are not handled here:
   Stop() and Configure() first wait for the
-  flush to end (FlushCoordinator::WaitForComplete),
+  flush to end (waitForFlushComplete),
   so they never see FLUSHING.
 end note
 
@@ -62,8 +62,8 @@ note as THREADING
   so a single call is atomic.  A sequence such as
   "read currentState(), then act" is not.  The one
   sequence that must be atomic, entering FLUSHING after
-  checking it is free, goes through
-  AampRialtoFlushCoordinator (ClaimFlushing /
-  WaitForComplete under its own mutex).
+  waiting for a previous flush, is serialised by the
+  player's m_flushCallMutex.  Every transition wakes
+  waitForFlushComplete().
 end note
 @enduml

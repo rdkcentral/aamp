@@ -20,7 +20,6 @@ title direct-rialto flush / seek (flushable path of AampRialtoPlayer::Flush)
 
 participant "AAMP control thread\n(or injector thread for a\ndeferred flush)" as CT
 participant AampRialtoPlayer as P
-participant AampRialtoFlushCoordinator as FC
 participant PlayerStateMachine as SM
 participant AampRialtoPlaybackController as PC
 participant "Media sources\n(video/audio/subtitle)" as SRC
@@ -28,9 +27,9 @@ participant "Rialto pipeline" as RP
 participant "Rialto event thread" as ET
 
 CT -> P : Flush(position, rate,\nshouldTearDown, authoritative)
-P -> FC : SerialiseCalls()\n(recursive call lock, held to the end of Flush)
-P -> FC : WaitForComplete()
-note right of FC
+P -> P : lock m_flushCallMutex\n(recursive, held to the end of Flush)
+P -> SM : waitForFlushComplete(timeout)
+note right of SM
   Returns at once unless a previous flush is still in
   FLUSHING.  If SEEK_DONE does not arrive within the
   timeout the previous flush is abandoned: state leaves
@@ -50,19 +49,18 @@ alt state not PLAYING / PAUSED / SOURCES_ATTACHED / FLUSHED
   P -> PC : ReleaseHold(Flushing)
   P --> CT : return
 else flushable
-  P -> FC : ClaimFlushing()
-  FC -> SM : onFlush()  [-> FLUSHING]
+  P -> SM : onFlush()  [-> FLUSHING]
   P -> P : ArmPreRoll(rate)
   P -> SRC : unblockInjection()\n(generation++, gate DROPPED)
   P -> SRC : gateInjection(true)\n(gate BLOCKED: hold new data)
   alt pipeline present
     P -> RP : setPosition(posNs)
     alt setPosition fails
-      P -> FC : Complete()  [-> FLUSHED]
+      P -> SM : onFlushComplete()  [-> FLUSHED]
       P -> PC : ReleaseHold(Flushing)
     end
   else no pipeline
-    P -> FC : Complete()  [-> FLUSHED]
+    P -> SM : onFlushComplete()  [-> FLUSHED]
     P -> PC : ReleaseHold(Flushing)
   end
   P --> CT : return (Flush done; seek still in flight)
@@ -79,9 +77,8 @@ alt play requested and no other hold left
   P -> SRC : gateInjection(false)  (UngateAllSources)
   P -> RP : play()
 end
-P -> FC : Complete()
-FC -> SM : onFlushComplete()  [FLUSHING -> FLUSHED]
-FC -> FC : notify_all  (wakes Configure()/Stop()/Flush() waiting)
+P -> SM : onFlushComplete()  [FLUSHING -> FLUSHED]
+SM -> SM : notify_all  (wakes Configure()/Stop()/Flush() waiting)
 
 RP -> ET : PlaybackState::PLAYING / PAUSED
 ET -> SM : onPlaybackStarted / onPlaybackPaused\n[FLUSHED -> PLAYING / PAUSED]
@@ -89,7 +86,6 @@ ET -> SM : onPlaybackStarted / onPlaybackPaused\n[FLUSHED -> PLAYING / PAUSED]
 == Failure while flushing ==
 RP -> ET : PlaybackState::FAILURE
 ET -> P : HandlePlaybackFailure()
-P -> FC : SignalError()
-FC -> SM : onError()  [-> ERROR]
-FC -> FC : notify_all  (waiters wake, no timeout needed)
+P -> SM : onError()  [-> ERROR]
+SM -> SM : notify_all  (waiters wake, no timeout needed)
 @enduml

@@ -47,7 +47,6 @@
 #include "AampRialtoGlibTimer.h"
 #include "AampRialtoProgressTimer.h"
 #include "AampRialtoPipelineSession.h"
-#include "AampRialtoFlushCoordinator.h"
 #include "AampRialtoMonitorAV.h"
 
 #include <array>
@@ -335,7 +334,7 @@ public:
 	///        before abandoning a flush.
 	void SetFlushCompleteTimeout(std::chrono::milliseconds timeout)
 	{
-		m_flush.SetCompleteTimeout(timeout);
+		m_flushCompleteTimeout = timeout;
 	}
 
 private:
@@ -496,11 +495,10 @@ private:
 	/// init-fragment delivery from multiple download threads cannot race.
 	///
 	/// Lock order (outermost first), as checked in the M9 review:
-	///   the flush call lock (m_flush.SerialiseCalls()) -> the flush
-	///     coordinator's own mutex -> the state machine's mutex
-	///   the flush call lock -> the playback controller's play lock
-	///   m_attachMutex       -> the playback controller's play lock
-	/// m_attachMutex and the flush call lock are never held together: AttachSource
+	///   m_flushCallMutex -> the state machine's mutex
+	///   m_flushCallMutex -> the playback controller's play lock
+	///   m_attachMutex    -> the playback controller's play lock
+	/// m_attachMutex and m_flushCallMutex are never held together: AttachSource
 	/// (run under m_attachMutex) never calls Flush/Stop/Configure.  The leaf
 	/// mutexes (the pipeline session's mutex, m_sourcesMutex, m_drmBridgeMutex,
 	/// m_pendingAttachMutex, m_pendingProtectionMutex, m_ptsCheckMutex,
@@ -512,10 +510,23 @@ private:
 	/// on the Rialto pipeline event thread.
 	std::mutex m_attachMutex;
 
+	/// Serialises Flush() and StopInternal(), which both run on the AAMP
+	/// control thread and, for the deferred flush, on injector threads
+	/// (MaybeFlushForPendingPosition()).  Without it two flushes can both pass
+	/// the pre-flush state check and claim FLUSHING, sharing the single
+	/// PlayHold::Flushing bit, and a flush's trailing Stream() can race Stop().
+	/// Recursive because Flush() recovers through StopInternal().  Neither the
+	/// SEEK_DONE handler nor any callback takes it.
+	std::recursive_mutex m_flushCallMutex;
+
+	/// Upper bound on the wait for SEEK_DONE; generous because abandoning a
+	/// flush that is merely slow would drop its position commit.
+	std::chrono::milliseconds m_flushCompleteTimeout{5000};
+
 	/**
 	 * @brief Block until any in-progress flush cycle completes.
 	 *
-	 * Waits through m_flush.  On timeout the flush is abandoned: the state
+	 * Waits in the state machine.  On timeout the flush is abandoned: the state
 	 * machine leaves FLUSHING, the staged rate is committed and
 	 * PlayHold::Flushing is released.
 	 *
@@ -639,11 +650,6 @@ private:
 
 	/// GoF State-pattern state machine tracking the player lifecycle.
 	PlayerStateMachine m_stateMachine;
-
-	/// Serialises and synchronises flush cycles; drives the state machine's
-	/// transitions into and out of FLUSHING.  Declared after m_stateMachine,
-	/// which it refers to.
-	AampRialtoFlushCoordinator m_flush{m_stateMachine};
 
 	/// @brief Dispatches need-data events from the pipeline client.
 	void OnNeedMediaData(int32_t sourceId, size_t frameCount, uint32_t requestId);
