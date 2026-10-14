@@ -1209,6 +1209,10 @@ void Mp4Demux::ParseEsdsCodecConfigHelper(const uint8_t *next)
 void Mp4Demux::ParseCodecConfigurationBox(uint32_t type, const uint8_t *next)
 {
 	codecInfo.mCodecFormat = GetGstStreamOutputFormatFromFourCC(type);
+	// avcC/hvcC imply ISO/IEC 14496-15 length-prefixed NAL units (never
+	// Annex-B). Consumers (e.g. Rialto) use this to pick the stream format.
+	codecInfo.mNaluLengthPrefixed =
+		(type == MultiChar_Constant("avcC") || type == MultiChar_Constant("hvcC"));
 	if (type == MultiChar_Constant("esds"))
 	{
 		// Skip FullBox header: version (1 byte) + flags (3 bytes) = 4 bytes
