@@ -264,6 +264,29 @@ Positives worth keeping: `AampRialtoSegmentPosition` and `AampRialtoPlaybackCont
 
 ---
 
+## 6. Test Reliability (flaky L1 tests)
+
+Found while stress-testing the fixes. None of these were introduced by the M-series changes: the same hangs occur on the code before M5 (see T1). They only show under CPU oversubscription, so they are unlikely to fail a normal CI run, but they will fail on a busy shared builder.
+
+| ID | Status | Title |
+|---|---|---|
+| T1 | Open (partly mitigated) | Flush-while-blocked tests hang when the sender thread starts late |
+| T2 | Open | `Flush_ConcurrentCallers_NeverOverlapInFlight` is slow or hangs under heavy load |
+| T3 | Open | Other `AampRialtoPlayerTests` hangs under heavy load, not root-caused |
+
+- **T1. Sender thread starts after the flush.** Affected: `SendTransfer_DeferredAudio_FlushWhileBlockedAbortsSendTransfer`, `SendSample_AfterFlush_DropsRemainingSamples`, `BackPressure_FlushWhileBlocked_UnblocksSendTransfer`.
+  - Each test starts a sender thread, waits a fixed 30 to 50 ms, then calls `Flush()` and expects the sender to wake. If the sender has not yet reached `waitForAttach()` (or the `needData` wait), the flush bumps `generation` first, the late sender records the new generation, and nothing ever wakes it; `sender.join()` then blocks forever. Confirmed from a gdb thread dump of a hung run (sender in `AampRialtoMediaSource::waitForAttach` on a condition variable with no timeout, main thread in `std::thread::join`).
+  - The product behaviour is correct: a thread that begins waiting after a flush must wait for new content.
+  - **Mitigation already in place (uncommitted with M6):** a `RepeatUntil` helper re-issues the `Flush()` until the sender returns, bounded at 5 s. Rate under 8 workers + 6 CPU spinners on 6 cores fell from about 22/240 to 5/320, all five in these same tests, so it is not fully fixed.
+  - **Remaining fix:** have the test wait until the sender is actually blocked (for example poll a source-level "waiting" indicator or a mock hook that the sender hits just before blocking) instead of a fixed sleep, and never `join()` without a bounded wait (stop the player to release the thread, as done in the M5 pending-position test).
+- **T2. New M5 test timing.** `Flush_ConcurrentCallers_NeverOverlapInFlight` runs 40 rounds of two threads spinning on `yield()` barriers. It takes about 1.6 s alone, but was the last test running in 20 of 59 killed runs under heavy load. Not yet determined whether it is slow (busy-wait contention) or deadlocked. Next step: run it alone under the same load with a longer timeout and capture a thread dump if it does not finish; replace the spin barriers with a condition variable.
+- **T3. Other heavy-load hangs.** In the same stress runs, a spread of other tests were last seen when runs hit the 30 s timeout (for example `SendSample_PositionPending_DuringActiveFlush_DoesNotIssueOverlappingFlush`, `Configure_FlushNeverCompletes_IssuesDeferredPlay`, `Stop_NeedDataAfterStop_DoesNotCrash`, `StopThenReconfigure_SecondPipelineCreatedAfterFirstDestroyed`, `SendTransfer_DeferredAudio_BlocksUntilVideoAttaches`). The pre-M5 code showed 119/240 failing runs and the M5+M6 code 86/240 with the same load, so this is not a regression. Many probably share the T1 pattern (fixed sleep or short `WaitFor` before an action), but this is unverified.
+  - **Method:** run the full suite with 8 parallel workers (30 s timeout each) plus 6 CPU-spinning processes on a 6-core VM; keep each failing run's output; classify as killed-by-timeout or assertion failure; capture stacks for a hung run by launching the test under `gdb -batch` (attaching is blocked by Yama `ptrace_scope=1`, but launching under gdb works) and interrupting it after 25 s. Moderate load (6 workers, no spinners) gave 0/240 failures and serial runs on an idle VM 0/600, so the effect needs real oversubscription.
+  - **Test helper:** the default `WaitFor` timeout was 500 ms, too short for a starved thread; raised to 5 s (returns as soon as the condition holds). Tests using it as a "nothing should happen" delay pass an explicit 30 ms and are unaffected.
+  - **Environment caveat (unresolved):** the build VM is VirtualBox with 6 vCPUs. The kernel log shows 63 `soft lockup ... stuck for 26s` lines during the heavy runs, so whole-VM stalls do occur and would freeze every worker at once. At moderate load (6 workers, no spinners) 7/240 and 10/240 full-suite runs still failed, and the failures clustered in time (5 workers at iteration 6, 3 at iteration 33, each in a different test), which looks like a shared stall rather than independent flaky tests. No soft-lockup message was logged at those two moments, so a VM stall is a hypothesis, not a confirmed cause. Next step: rerun the same moderate-load test on a physical machine or a less contended runner; if the clusters disappear, this is environmental and only T1/T2 need fixing.
+
+---
+
 ## Discoveries During Implementation
 
 Record anything found while fixing (new bugs, wrong assumptions in this review,

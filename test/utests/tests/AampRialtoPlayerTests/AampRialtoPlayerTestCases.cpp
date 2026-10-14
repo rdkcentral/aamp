@@ -531,13 +531,28 @@ protected:
 	/// Spin-poll until condition() returns true or the timeout elapses.
 	static void WaitFor(
 		const std::function<bool()> &condition,
-		std::chrono::milliseconds timeout = std::chrono::milliseconds(500))
+		std::chrono::milliseconds timeout = std::chrono::seconds(5))
 	{
 		const auto deadline =
 			std::chrono::steady_clock::now() + timeout;
 		while (!condition() && std::chrono::steady_clock::now() < deadline)
 		{
 			std::this_thread::sleep_for(std::chrono::milliseconds(5));
+		}
+	}
+
+	/// Run action() until done() is true.  A sender that only reaches its
+	/// blocking wait after the first action() missed that wake-up, so retry.
+	static void RepeatUntil(
+		const std::function<bool()> &done,
+		const std::function<void()> &action)
+	{
+		const auto deadline =
+			std::chrono::steady_clock::now() + std::chrono::seconds(5);
+		while (!done() && std::chrono::steady_clock::now() < deadline)
+		{
+			action();
+			WaitFor(done, std::chrono::milliseconds(20));
 		}
 	}
 
@@ -4129,9 +4144,8 @@ TEST_F(AampRialtoPlayerTest,
 	EXPECT_FALSE(sampleReturned.load())
 		<< "SendSample should be blocked waiting for needData";
 
-	m_player->Flush(5.0);
-
-	WaitFor([&sampleReturned]{ return sampleReturned.load(); });
+	RepeatUntil([&sampleReturned]{ return sampleReturned.load(); },
+		[this]{ m_player->Flush(5.0); });
 	EXPECT_TRUE(sampleReturned.load());
 
 	sender.join();
@@ -4291,8 +4305,8 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 		std::chrono::milliseconds(30));
 	EXPECT_FALSE(sendDone.load());
 
-	EXPECT_NO_THROW(m_player->Flush(0.0, 1, false));
-	WaitFor([&sendDone]{ return sendDone.load(); });
+	RepeatUntil([&sendDone]{ return sendDone.load(); },
+		[this]{ EXPECT_NO_THROW(m_player->Flush(0.0, 1, false)); });
 	EXPECT_TRUE(sendDone.load());
 	sender.join();
 }
@@ -4438,8 +4452,8 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 
 	// Flush increments the generation and sets paused=true, which must
 	// wake the blocked inject thread.
-	EXPECT_NO_THROW(m_player->Flush(0.0, 1, false));
-	WaitFor([&sendDone]{ return sendDone.load(); });
+	RepeatUntil([&sendDone]{ return sendDone.load(); },
+		[this]{ EXPECT_NO_THROW(m_player->Flush(0.0, 1, false)); });
 	EXPECT_TRUE(sendDone.load());
 
 	sender.join();
