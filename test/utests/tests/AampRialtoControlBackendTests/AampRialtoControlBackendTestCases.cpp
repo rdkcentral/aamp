@@ -31,6 +31,7 @@
 
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
+#include <atomic>
 #include <thread>
 #include <chrono>
 
@@ -155,21 +156,31 @@ TEST_F(AampRialtoControlBackendTest,
 
 	AampRialtoControlBackend backend;
 
-	// capturedClient was already populated synchronously inside the
-	// registerClient() call above, so this thread can notify immediately:
-	// waitForRunning() uses a predicate-checked wait_for() that re-reads
-	// m_rialtoClientState under the same mutex, so it observes the new
-	// state whether this notification lands before or after it starts
-	// waiting - no wall-clock delay is needed to order the two threads.
-	std::thread notifier([&capturedClient]() {
-		auto client = capturedClient.lock();
-		ASSERT_NE(client, nullptr);
-		client->notifyApplicationState(
-			firebolt::rialto::ApplicationState::RUNNING);
+	// Confirm waitForRunning() is still blocked before sending the state
+	// change, so this exercises the condition-variable wake path.
+	std::atomic<bool> waitReturned{false};
+	std::atomic<bool> waitResult{false};
+	std::thread waiter([&]() {
+		waitResult.store(backend.waitForRunning(2000));
+		waitReturned.store(true);
 	});
 
-	EXPECT_TRUE(backend.waitForRunning(2000));
-	notifier.join();
+	const auto deadline =
+		std::chrono::steady_clock::now() + std::chrono::milliseconds(200);
+	while (!waitReturned.load() && std::chrono::steady_clock::now() < deadline)
+	{
+		std::this_thread::sleep_for(std::chrono::milliseconds(5));
+	}
+	ASSERT_FALSE(waitReturned.load())
+		<< "waitForRunning() returned before the state change was sent - "
+		   "the blocked-wait path was not exercised";
+
+	auto client = capturedClient.lock();
+	ASSERT_NE(client, nullptr);
+	client->notifyApplicationState(firebolt::rialto::ApplicationState::RUNNING);
+
+	waiter.join();
+	EXPECT_TRUE(waitResult.load());
 }
 
 TEST_F(AampRialtoControlBackendTest,

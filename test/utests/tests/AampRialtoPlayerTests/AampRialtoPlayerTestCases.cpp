@@ -639,6 +639,20 @@ TEST_F(AampRialtoPlayerTest, Configure_NullSourceCreator_DoesNotCrash)
 	g_mockPipelineFactory = m_mockFactory;
 }
 
+// Configure() must not create any sources when pipeline creation fails.
+TEST_F(AampRialtoPlayerTest, Configure_PipelineCreationFails_DoesNotCrashAndSkipsSourceCreation)
+{
+	EXPECT_CALL(*m_mockFactory, createMediaPipeline(_, _))
+		.WillOnce(Return(testing::ByMove(nullptr)));
+
+	m_createSourceCallCount = 0;
+	EXPECT_NO_THROW(Configure(FORMAT_ISO_BMFF, FORMAT_INVALID));
+
+	EXPECT_EQ(m_createSourceCallCount, 0);
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_VIDEO], nullptr);
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_SUBTITLE], nullptr);
+}
+
 TEST_F(AampRialtoPlayerTest, Configure_CallsSourceCreatorForEachFormat)
 {
 	m_createSourceCallCount = 0;
@@ -687,6 +701,34 @@ TEST_F(AampRialtoPlayerTest, Configure_AudioOnly_CreatesAudioSourceOnly)
 	EXPECT_EQ(m_createSourceCallCount, 1);
 	EXPECT_EQ(m_mockSources[eMEDIATYPE_VIDEO], nullptr);
 	EXPECT_NE(m_mockSources[eMEDIATYPE_AUDIO], nullptr);
+}
+
+// Reconfiguring with the same audio-only formats must reuse the pipeline
+// without crashing on the (null) subtitle source.
+TEST_F(AampRialtoPlayerTest, Configure_AudioOnlyTwice_ReusesPipelineWithoutCrash)
+{
+	EXPECT_CALL(*m_mockFactory, createMediaPipeline(_, _)).Times(1);
+
+	Configure(FORMAT_INVALID, FORMAT_ISO_BMFF);
+	ASSERT_NE(m_mockSources[eMEDIATYPE_AUDIO], nullptr);
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_VIDEO], nullptr);
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_SUBTITLE], nullptr);
+
+	EXPECT_NO_THROW(Configure(FORMAT_INVALID, FORMAT_ISO_BMFF));
+}
+
+// Switching from A/V to audio-only must clear the stale video source from
+// the previous pipeline.
+TEST_F(AampRialtoPlayerTest, Configure_VideoToAudioOnly_ClearsStaleVideoSource)
+{
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+	m_player->SetStreamCaps(eMEDIATYPE_VIDEO, MakeVideoH264CodecInfo());
+	ASSERT_TRUE(m_player->PipelineConfiguredForMedia(eMEDIATYPE_VIDEO));
+
+	EXPECT_CALL(*m_mockFactory, createMediaPipeline(_, _)).Times(1);
+	EXPECT_NO_THROW(Configure(FORMAT_INVALID, FORMAT_ISO_BMFF));
+
+	EXPECT_FALSE(m_player->PipelineConfiguredForMedia(eMEDIATYPE_VIDEO));
 }
 
 TEST_F(AampRialtoPlayerTest, Configure_AllThreeFormats_CreatesAllThreeSources)
@@ -1982,6 +2024,25 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	EXPECT_CALL(m_mockNotifiable, NotifyFirstFrameReceived(Ne(0UL)))
 		.Times(1);
 	EXPECT_CALL(m_mockNotifiable, NotifyFirstVideoFrameDisplayed()).Times(1);
+
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+}
+
+// ResetFirstFrame() must allow first-frame notifications to fire again on
+// the next PLAYING.
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	ResetFirstFrame_AfterPlaying_RefiresFirstFrameNotificationsOnNextPlaying)
+{
+	Configure();
+
+	ON_CALL(m_mockNotifiable, GetState())
+		.WillByDefault(Return(eSTATE_IDLE));
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+
+	m_player->ResetFirstFrame();
+
+	EXPECT_CALL(m_mockNotifiable, LogFirstFrame()).Times(1);
+	EXPECT_CALL(m_mockNotifiable, LogTuneComplete()).Times(1);
 
 	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
 }

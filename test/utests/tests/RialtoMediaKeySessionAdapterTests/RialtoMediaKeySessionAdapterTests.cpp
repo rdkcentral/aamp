@@ -32,6 +32,7 @@ int main(int argc, char **argv)
 
 #include <thread>
 #include <chrono>
+#include <cstring>
 
 using ::testing::_;
 using ::testing::Return;
@@ -240,6 +241,40 @@ TEST_F(RialtoMediaKeySessionAdapterTest, ProcessDRMKeyUpdateFails)
 
 	EXPECT_NE(0, result);
 	EXPECT_EQ(KEY_ERROR, adapter->getState());
+}
+
+// A license response over 65,535 bytes must reach updateSession() in full,
+// unclipped.
+TEST_F(RialtoMediaKeySessionAdapterTest, ProcessDRMKeyLargeResponseNotTruncated)
+{
+	auto adapter = createAdapter();
+	const uint8_t initData[] = {0x00};
+	std::string customData;
+
+	adapter->generateDRMSession(initData, sizeof(initData), customData);
+
+	simulateLicenseRequest("https://lic.test", {'l', 'i', 'c'});
+
+	const std::string largeResponse(70000, 'x');
+	std::vector<uint8_t> receivedData;
+	EXPECT_CALL(*m_mockMediaKeysRaw, updateSession(TEST_SESSION_ID, _))
+		.WillOnce(DoAll(
+			SaveArg<1>(&receivedData),
+			Return(firebolt::rialto::MediaKeyErrorStatus::OK)));
+
+	DrmData key(largeResponse.c_str(), largeResponse.length());
+
+	const std::vector<uint8_t> keyId = {0xAA, 0xBB};
+	std::thread callbackThread([this, &keyId]() {
+		simulateKeyStatusUsable(keyId);
+	});
+
+	int result = adapter->processDRMKey(&key, 2000);
+	callbackThread.join();
+
+	EXPECT_EQ(0, result);
+	ASSERT_EQ(receivedData.size(), largeResponse.length());
+	EXPECT_EQ(0, std::memcmp(receivedData.data(), largeResponse.data(), largeResponse.length()));
 }
 
 TEST_F(RialtoMediaKeySessionAdapterTest, ClearDecryptContext)
