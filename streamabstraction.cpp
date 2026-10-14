@@ -209,14 +209,31 @@ void MediaTrack::MonitorBufferHealth()
 		keepRunning = true;
 	}
 	int monitorInterval = bufferHealthMonitorInterval  * 1000;
+	const bool traceAudioMutex = (type == eTRACK_AUDIO);
 	std::unique_lock<std::mutex> lock(mutex, std::defer_lock);
 	while(keepRunning && !abort)
 	{
 		aamp->interruptibleMsSleep(monitorInterval);
+		if (traceAudioMutex)
+		{
+			AAMPLOG_MIL("AudioMutex: MonitorBufferHealth waiting before status");
+		}
 		lock.lock();
+		if (traceAudioMutex)
+		{
+			AAMPLOG_MIL("AudioMutex: MonitorBufferHealth acquired before status");
+		}
 		if (aamp->DownloadsAreEnabled() && !abort)
 		{
+			if (traceAudioMutex)
+			{
+				AAMPLOG_MIL("AudioMutex: MonitorBufferHealth before GetBufferStatus");
+			}
 			bufferStatus = GetBufferStatus();
+			if (traceAudioMutex)
+			{
+				AAMPLOG_MIL("AudioMutex: MonitorBufferHealth after GetBufferStatus");
+			}
 			if (bufferStatus != prevBufferStatus)
 			{
 				AAMPLOG_WARN("aamp: track[%s] buffering %s->%s", name, GetBufferHealthStatusString(prevBufferStatus),
@@ -230,11 +247,23 @@ void MediaTrack::MonitorBufferHealth()
 							  GetBufferHealthStatusString(bufferStatus));
 			}
 			lock.unlock();
+			if (traceAudioMutex)
+			{
+				AAMPLOG_MIL("AudioMutex: MonitorBufferHealth released before stall check");
+			}
 
 			// We use another lock inside CheckForMediaTrackInjectionStall for synchronization
 			GetContext()?GetContext()->CheckForMediaTrackInjectionStall(type):void();
 
+			if (traceAudioMutex)
+			{
+				AAMPLOG_MIL("AudioMutex: MonitorBufferHealth waiting before stall state");
+			}
 			lock.lock();
+			if (traceAudioMutex)
+			{
+				AAMPLOG_MIL("AudioMutex: MonitorBufferHealth acquired before stall state");
+			}
 			if((!aamp->mSinkPaused.load()) && aamp->IsDiscontinuityProcessPending() && discontinuityTimeoutValue)
 			{
 				aamp->CheckForDiscontinuityStall((AampMediaType)type);
@@ -260,6 +289,10 @@ void MediaTrack::MonitorBufferHealth()
 			keepRunning = false;
 		}
 		lock.unlock();
+		if (traceAudioMutex)
+		{
+			AAMPLOG_MIL("AudioMutex: MonitorBufferHealth released iteration");
+		}
 	}
 	AAMPLOG_INFO("[%s] Exit MonitorBufferHealth, downloads %d abort %d",
 				 name, aamp->DownloadsAreEnabled(), abort);
@@ -479,14 +512,30 @@ void MediaTrack::UpdateTSAfterFetchStats(CachedFragment* cachedFragment, bool is
 
 	if (pContext)
 	{
+		if (traceAudioMutex)
+		{
+			AAMPLOG_MIL("AudioMutex: UpdateTSAfterFetchStats before bitrate update");
+		}
 		cachedFragment->profileIndex = pContext->profileIdxForBandwidthNotification;
 		pContext->UpdateStreamInfoBitrateData(cachedFragment->profileIndex, cachedFragment->cacheFragStreamInfo);
+		if (traceAudioMutex)
+		{
+			AAMPLOG_MIL("AudioMutex: UpdateTSAfterFetchStats after bitrate update");
+		}
 	}
 	{
 		// Lock-order: mutex (held above) -> mTrackParamsMutex (taken here).
 		// mTrackParamsMutex is leaf-level: nothing else takes it first then
 		// reaches for mutex.
+		if (traceAudioMutex)
+		{
+			AAMPLOG_MIL("AudioMutex: UpdateTSAfterFetchStats waiting for track params");
+		}
 		std::lock_guard<std::mutex> trackLock(mTrackParamsMutex);
+		if (traceAudioMutex)
+		{
+			AAMPLOG_MIL("AudioMutex: UpdateTSAfterFetchStats acquired track params");
+		}
 		totalFetchedDuration += cachedFragment->duration;
 	}
 	currentInitialCacheDurationSeconds += cachedFragment->duration;
@@ -518,6 +567,7 @@ void MediaTrack::UpdateTSAfterFetchStats(CachedFragment* cachedFragment, bool is
 	}
 	if (loadNewAudio && (eTRACK_AUDIO == type) && !isInitSegment)
 	{
+		AAMPLOG_MIL("AudioMutex: UpdateTSAfterFetchStats audio switch phase begin");
 		if (playContext)
 		{
 			AAMPLOG_INFO("Resetting PTS on audio track switch with MediaProcessor enabled. position: %f PTSOffsetSec: %f",
@@ -537,6 +587,7 @@ void MediaTrack::UpdateTSAfterFetchStats(CachedFragment* cachedFragment, bool is
 			aamp->EnableLatencyMonitor(true);
 			pContext->mSavedLatencyMonitorState  = false;
 		}
+		AAMPLOG_MIL("AudioMutex: UpdateTSAfterFetchStats audio switch phase end");
 	}
 	if (loadNewSubtitle && (eTRACK_SUBTITLE == type) && !isInitSegment)
 	{
@@ -560,7 +611,15 @@ void MediaTrack::UpdateTSAfterFetchStats(CachedFragment* cachedFragment, bool is
 	}
 	if (!isInitSegment)
 	{
+		if (traceAudioMutex)
+		{
+			AAMPLOG_MIL("AudioMutex: UpdateTSAfterFetchStats waiting for download params");
+		}
 		std::lock_guard<std::mutex> trackLock(mTrackParamsMutex);
+		if (traceAudioMutex)
+		{
+			AAMPLOG_MIL("AudioMutex: UpdateTSAfterFetchStats acquired download params");
+		}
 		totalFragmentsDownloaded++;
 	}
 	lock.unlock();
@@ -4631,7 +4690,16 @@ int MediaTrack::WaitTimeBasedOnBufferAvailable()
  */
 double MediaTrack::GetTotalInjectedDuration()
 {
+	const bool traceAudioMutex = (type == eTRACK_AUDIO);
+	if (traceAudioMutex)
+	{
+		AAMPLOG_MIL("AudioMutex: GetTotalInjectedDuration waiting for track params");
+	}
 	std::lock_guard<std::mutex> lock(mTrackParamsMutex);
+	if (traceAudioMutex)
+	{
+		AAMPLOG_MIL("AudioMutex: GetTotalInjectedDuration acquired track params");
+	}
 	return totalInjectedDuration;
 }
 
@@ -4642,7 +4710,16 @@ double MediaTrack::GetTotalInjectedDuration()
  */
 double MediaTrack::GetTotalFetchedDuration()
 {
+	const bool traceAudioMutex = (type == eTRACK_AUDIO);
+	if (traceAudioMutex)
+	{
+		AAMPLOG_MIL("AudioMutex: GetTotalFetchedDuration waiting for track params");
+	}
 	std::lock_guard<std::mutex> lock(mTrackParamsMutex);
+	if (traceAudioMutex)
+	{
+		AAMPLOG_MIL("AudioMutex: GetTotalFetchedDuration acquired track params");
+	}
 	return totalFetchedDuration;
 }
 
