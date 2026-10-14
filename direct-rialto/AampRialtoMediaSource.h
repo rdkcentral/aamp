@@ -463,6 +463,10 @@ public:
 	/// injected yet in the current session.
 	static constexpr int64_t kFirstPtsNotSet = std::numeric_limits<int64_t>::min();
 
+	/// handleNeedData() logs the first request after a reset or flush, then
+	/// every this-many requests, at INFO; the others log at TRACE.
+	static constexpr uint32_t kNeedDataLogInterval = 100;
+
 	/**
 	 * @brief PTS of the first sample injected since the last reset or
 	 *        unblockInjection().
@@ -610,6 +614,9 @@ protected:
 
 	/// See bufferFull().
 	std::atomic<bool> m_bufferFull{false};
+
+	/// needData requests since the last reset or unblockInjection().
+	std::atomic<uint32_t> m_needDataCount{0};
 
 private:
 	// -----------------------------------------------------------------

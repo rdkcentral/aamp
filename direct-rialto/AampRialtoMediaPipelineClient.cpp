@@ -66,13 +66,13 @@ void AampRialtoMediaPipelineClient::notifyPlaybackState(PlaybackState state)
 
 void AampRialtoMediaPipelineClient::notifyPosition(int64_t position)
 {
-	AAMPLOG_INFO("ENTRY position=%" PRId64, position);
+	AAMPLOG_TRACE("ENTRY position=%" PRId64, position);
 	const auto callback = Snapshot(m_positionCallback);
 	if (callback)
 	{
 		callback(position);
 	}
-	AAMPLOG_INFO("EXIT");
+	AAMPLOG_TRACE("EXIT");
 }
 
 void AampRialtoMediaPipelineClient::notifyNeedMediaData(
@@ -81,20 +81,20 @@ void AampRialtoMediaPipelineClient::notifyNeedMediaData(
 	uint32_t needDataRequestId,
 	const std::shared_ptr<MediaPlayerShmInfo> &mediaPlayerShmInfo)
 {
-	AAMPLOG_INFO("ENTRY sourceId=%d frameCount=%zu needDataRequestId=%u", sourceId, frameCount, needDataRequestId);
+	AAMPLOG_TRACE("ENTRY sourceId=%d frameCount=%zu needDataRequestId=%u", sourceId, frameCount, needDataRequestId);
 	const auto callback = Snapshot(m_needDataCallback);
 	if (callback)
 	{
 		callback(sourceId, frameCount, needDataRequestId);
 	}
-	AAMPLOG_INFO("EXIT");
+	AAMPLOG_TRACE("EXIT");
 }
 
 void AampRialtoMediaPipelineClient::notifyQos(
 	int32_t sourceId, const QosInfo &qosInfo)
 {
-	AAMPLOG_INFO("ENTRY sourceId=%d", sourceId);
-	AAMPLOG_INFO("EXIT");
+	AAMPLOG_TRACE("ENTRY sourceId=%d", sourceId);
+	AAMPLOG_TRACE("EXIT");
 }
 
 void AampRialtoMediaPipelineClient::notifyBufferUnderflow(int32_t sourceId)
@@ -110,13 +110,13 @@ void AampRialtoMediaPipelineClient::notifyBufferUnderflow(int32_t sourceId)
 
 void AampRialtoMediaPipelineClient::notifyDuration(int64_t duration)
 {
-	AAMPLOG_INFO("ENTRY duration=%" PRId64, duration);
+	AAMPLOG_INFO("duration=%" PRId64 " ns", duration);
 	const auto callback = Snapshot(m_durationCallback);
 	if (callback)
 	{
 		callback(duration);
 	}
-	AAMPLOG_INFO("EXIT");
+	AAMPLOG_TRACE("EXIT");
 }
 
 void AampRialtoMediaPipelineClient::notifyNativeSize(
@@ -141,13 +141,13 @@ void AampRialtoMediaPipelineClient::notifyAudioData(bool hasData)
 void AampRialtoMediaPipelineClient::notifyCancelNeedMediaData(
 	int32_t sourceId)
 {
-	AAMPLOG_INFO("ENTRY sourceId=%d", sourceId);
+	AAMPLOG_TRACE("ENTRY sourceId=%d", sourceId);
 	const auto callback = Snapshot(m_cancelNeedDataCallback);
 	if (callback)
 	{
 		callback(sourceId);
 	}
-	AAMPLOG_INFO("EXIT");
+	AAMPLOG_TRACE("EXIT");
 }
 
 void AampRialtoMediaPipelineClient::notifyPlaybackError(

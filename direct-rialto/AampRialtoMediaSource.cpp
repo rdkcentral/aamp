@@ -114,6 +114,7 @@ void AampRialtoMediaSource::reset()
 	m_acceptedFrames.store(0, std::memory_order_relaxed);
 	m_bufferFull.store(false, std::memory_order_relaxed);
 	m_droppedSampleCount.store(0, std::memory_order_relaxed);
+	m_needDataCount.store(0, std::memory_order_relaxed);
 }
 
 void AampRialtoMediaSource::unblockInjection(
@@ -161,6 +162,7 @@ void AampRialtoMediaSource::unblockInjection(
 	m_lastAcceptedEndMs.store(kFirstPtsNotSet, std::memory_order_relaxed);
 	m_acceptedFrames.store(0, std::memory_order_relaxed);
 	m_bufferFull.store(false, std::memory_order_relaxed);
+	m_needDataCount.store(0, std::memory_order_relaxed);
 }
 
 void AampRialtoMediaSource::gateInjection(
@@ -1051,8 +1053,26 @@ void AampRialtoMediaSource::handleNeedData(
 	uint32_t requestId,
 	firebolt::rialto::IMediaPipeline *pipeline)
 {
-	AAMPLOG_INFO("sourceId=%d frameCount=%zu requestId=%u",
-		sourceId(), frameCount, requestId);
+	// Need-data arrives many times a second, so only the first request after a
+	// reset or flush and a periodic summary are logged at INFO.
+	const uint32_t requestCount =
+		m_needDataCount.fetch_add(1, std::memory_order_relaxed) + 1;
+	const bool logSummary =
+		(requestCount == 1) || (requestCount % kNeedDataLogInterval == 0);
+	if (logSummary)
+	{
+		AAMPLOG_INFO("needData #%u sourceId=%d mediaType=%d frameCount=%zu "
+			"requestId=%u acceptedFrames=%u injectedSpanMs=%" PRId64
+			" bufferFull=%d",
+			requestCount, sourceId(), static_cast<int>(mediaType()),
+			frameCount, requestId, acceptedFrames(), injectedSpanMs(),
+			static_cast<int>(bufferFull()));
+	}
+	else
+	{
+		AAMPLOG_TRACE("sourceId=%d frameCount=%zu requestId=%u",
+			sourceId(), frameCount, requestId);
+	}
 
 	bool     fireEos           = false;
 	uint32_t eosReqId          = 0;

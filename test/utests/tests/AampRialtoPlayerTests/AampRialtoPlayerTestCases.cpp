@@ -3531,6 +3531,25 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	EXPECT_EQ(m_player->GetDurationMilliseconds(), kExpectedMs);
 }
 
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	PositionAndDurationGetters_DoNotLogAtInfo)
+{
+	/**
+	 * @brief AAMP polls the position and duration continuously, so the
+	 *        getters must not log at INFO.
+	 */
+	Configure();
+	ON_CALL(*m_mockPipelinePtr, getPosition(_))
+		.WillByDefault(DoAll(SetArgReferee<0>(500'000'000LL), Return(true)));
+
+	testing::internal::CaptureStdout();
+	m_player->GetPositionMilliseconds();
+	m_player->GetDurationMilliseconds();
+	const std::string log = testing::internal::GetCapturedStdout();
+
+	EXPECT_EQ(log.find("[INFO]"), std::string::npos) << log;
+}
+
 // ===========================================================================
 // GetVideoPTS
 // ===========================================================================
@@ -4120,6 +4139,37 @@ TEST_F(AampRialtoPlayerTest,
 		/*fpts=*/2.0, /*fdts=*/2.0, /*fDuration=*/0.1);
 
 	EXPECT_TRUE(result);
+}
+
+TEST_F(AampRialtoPlayerTest,
+	SendCopy_SteadyState_DoesNotLogAtInfo)
+{
+	/**
+	 * @brief HLS-TS calls SendCopy() once per elementary-stream frame, so a
+	 *        successful call on an attached source must not log at INFO.
+	 */
+	Configure(FORMAT_INVALID, FORMAT_ISO_BMFF);
+	m_player->SetStreamCaps(eMEDIATYPE_AUDIO, MakeAudioAacCodecInfo());
+	ASSERT_NE(m_mockSources[eMEDIATYPE_AUDIO], nullptr);
+
+	EXPECT_CALL(*m_mockSources[eMEDIATYPE_AUDIO],
+		processDataFragment(_, _, _, _, _, _))
+		.WillRepeatedly(Return(true));
+
+	// The first sample resolves the pending position with a flush, which is
+	// logged; only the calls after it are steady state.
+	std::vector<uint8_t> first = {0x01, 0x02, 0x03, 0x04};
+	ASSERT_TRUE(m_player->SendCopy(eMEDIATYPE_AUDIO, std::move(first),
+		/*fpts=*/1.9, /*fdts=*/1.9, /*fDuration=*/0.1));
+
+	std::vector<uint8_t> buffer = {0x0A, 0x0B, 0x0C, 0x0D};
+	testing::internal::CaptureStdout();
+	const bool result = m_player->SendCopy(eMEDIATYPE_AUDIO, std::move(buffer),
+		/*fpts=*/2.0, /*fdts=*/2.0, /*fDuration=*/0.1);
+	const std::string log = testing::internal::GetCapturedStdout();
+
+	EXPECT_TRUE(result);
+	EXPECT_EQ(log.find("[INFO]"), std::string::npos) << log;
 }
 
 TEST_F(AampRialtoPlayerTest,

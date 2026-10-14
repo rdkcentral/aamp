@@ -351,3 +351,38 @@ TEST_F(AampRialtoMediaPipelineClientTest,
 	EXPECT_EQ(first, 1);
 	EXPECT_EQ(second, 1);
 }
+
+// ---------------------------------------------------------------------------
+// Log levels: frequent events stay out of INFO, rare ones keep their value
+// ---------------------------------------------------------------------------
+
+TEST_F(AampRialtoMediaPipelineClientTest,
+	FrequentNotifications_DoNotLogAtInfo)
+{
+	/**
+	 * @brief Position, need-data, cancel-need-data and QoS arrive many times a
+	 *        second, so they must not appear at INFO.
+	 */
+	testing::internal::CaptureStdout();
+	m_client->notifyPosition(1'000'000'000LL);
+	m_client->notifyNeedMediaData(1, 24, 7, nullptr);
+	m_client->notifyCancelNeedMediaData(1);
+	m_client->notifyQos(1, firebolt::rialto::QosInfo{});
+	const std::string log = testing::internal::GetCapturedStdout();
+
+	EXPECT_EQ(log.find("[INFO]"), std::string::npos) << log;
+}
+
+TEST_F(AampRialtoMediaPipelineClientTest,
+	notifyDuration_LogsTheDurationAtInfo)
+{
+	/**
+	 * @brief The duration rarely changes, so the value stays visible at INFO.
+	 */
+	testing::internal::CaptureStdout();
+	m_client->notifyDuration(123'456'789LL);
+	const std::string log = testing::internal::GetCapturedStdout();
+
+	EXPECT_NE(log.find("[INFO]"), std::string::npos) << log;
+	EXPECT_NE(log.find("123456789"), std::string::npos) << log;
+}

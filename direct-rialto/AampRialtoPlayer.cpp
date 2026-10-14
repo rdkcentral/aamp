@@ -1093,7 +1093,7 @@ bool AampRialtoPlayer::SendCopy(
 	double fdts,
 	double fDuration)
 {
-	AAMPLOG_INFO("ENTRY mediaType=%d bufferSize=%zu fpts=%f fdts=%f fDuration=%f", static_cast<int>(mediaType), buffer.size(), fpts, fdts, fDuration);
+	AAMPLOG_TRACE("ENTRY mediaType=%d bufferSize=%zu fpts=%f fdts=%f fDuration=%f", static_cast<int>(mediaType), buffer.size(), fpts, fdts, fDuration);
 	bool success = false;
 	const auto pipeline = GetPipeline();
 
@@ -1147,7 +1147,7 @@ bool AampRialtoPlayer::SendCopy(
 		}
 	}
 
-	AAMPLOG_INFO("EXIT, success=%d", success);
+	AAMPLOG_TRACE("EXIT, success=%d", success);
 	return success;
 }
 
@@ -2148,15 +2148,15 @@ bool AampRialtoPlayer::Pause(bool pause, bool forceStopGstreamerPreBuffering)
 
 long AampRialtoPlayer::GetDurationMilliseconds()
 {
-	AAMPLOG_INFO("ENTRY");
+	AAMPLOG_TRACE("ENTRY");
 	long result = static_cast<long>(m_durationMs.load(std::memory_order_relaxed));
-	AAMPLOG_INFO("EXIT result=%ld", result);
+	AAMPLOG_TRACE("EXIT result=%ld", result);
 	return result;
 }
 
 long long AampRialtoPlayer::GetPositionMilliseconds()
 {
-	AAMPLOG_INFO("ENTRY");
+	AAMPLOG_TRACE("ENTRY");
 
 	long long result = 0LL;
 
@@ -2166,7 +2166,7 @@ long long AampRialtoPlayer::GetPositionMilliseconds()
 		// via SEEK_DONE yet, so report the requested target directly rather
 		// than a stale pre-seek value.
 		result = m_segmentPosition.StagedPositionNs() / kNsPerMs;
-		AAMPLOG_INFO("EXIT FLUSHING - pending flush position=%lld ms", result);
+		AAMPLOG_TRACE("EXIT FLUSHING - pending flush position=%lld ms", result);
 		return result;
 	}
 
@@ -2174,7 +2174,7 @@ long long AampRialtoPlayer::GetPositionMilliseconds()
 	{
 		// Gated awaiting the deferred Flush() from MaybeFlushForPendingPosition();
 		// no reliable position is known yet.
-		AAMPLOG_INFO("EXIT positionPending - reporting 0");
+		AAMPLOG_TRACE("EXIT positionPending - reporting 0");
 		return result;
 	}
 
@@ -2199,7 +2199,7 @@ long long AampRialtoPlayer::GetPositionMilliseconds()
 			result = (rate > 0)
 				? std::max(int64_t{0}, elapsed) * rate
 				: elapsed * rate;
-			AAMPLOG_INFO("queried=%" PRId64 " ms  segmentStart=%" PRId64
+			AAMPLOG_TRACE("queried=%" PRId64 " ms  segmentStart=%" PRId64
 				" ms  rate=%d  position=%lld ms", rawMs, startMs, rate, result);
 		}
 		else
@@ -2212,7 +2212,7 @@ long long AampRialtoPlayer::GetPositionMilliseconds()
 		AAMPLOG_WARN("pipeline is null");
 	}
 
-	AAMPLOG_INFO("EXIT result=%lld", result);
+	AAMPLOG_TRACE("EXIT result=%lld", result);
 	return result;
 }
 
