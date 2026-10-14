@@ -479,6 +479,21 @@ private:
 
 	/// Serialises AttachSource / CheckAllSourcesAttached so that concurrent
 	/// init-fragment delivery from multiple download threads cannot race.
+	///
+	/// Lock order (outermost first), as checked in the M9 review:
+	///   m_flushCallMutex -> m_flushMutex
+	///   m_flushCallMutex -> the playback controller's play lock
+	///   m_attachMutex    -> the playback controller's play lock
+	/// m_attachMutex and m_flushCallMutex are never held together: AttachSource
+	/// (run under m_attachMutex) never calls Flush/Stop/Configure.  The leaf
+	/// mutexes (m_pipelineMutex, m_drmBridgeMutex, m_pendingAttachMutex,
+	/// m_pendingProtectionMutex, m_ptsCheckMutex, m_videoRectangleMutex,
+	/// m_monitorMutex) are taken last.  The only call made while holding one
+	/// is m_monitorMutex -> AampRialtoMonitorAV::start(), which takes just the
+	/// monitor's own timer lock.
+	/// m_attachMutex can be held for the length of a DRM license fetch, so
+	/// the SEEK_DONE handler (ApplySubtitleSegmentPosition) may wait that long
+	/// on the Rialto pipeline event thread.
 	std::mutex m_attachMutex;
 
 	/// Serialises Flush() and StopInternal(), which both run on the AAMP

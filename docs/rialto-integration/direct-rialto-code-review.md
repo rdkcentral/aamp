@@ -108,7 +108,7 @@ and should be confirmed before or while fixing.
 | M6 | Done | Hold release and `play()` not atomic; other direct `play()` call sites bypass holds |
 | M7 | Done | Unsynchronised plain members (`m_videoRectangle`, `m_audioVolume`, etc.) |
 | M8 | Done | Rialto callback setters race with delivery |
-| M9 | Needs verification | Possible deadlock: `m_attachMutex` held across DRM/IPC |
+| M9 | Done | Possible deadlock: `m_attachMutex` held across DRM/IPC |
 | M10 | Needs verification | Blocking Rialto IPC from the Rialto callback thread |
 | M11 | Open | `MediaKeysClient::onKeyStatusesChanged` invokes callbacks under mutex |
 | M12 | Open | `RialtoMediaKeySessionAdapter` lost wakeups and stale state |
@@ -369,6 +369,10 @@ Rialto behaviours confirmed or disproved, test gaps, design decisions).
 | 2026-10-14 | M8 | Behaviour change to be aware of: handlers such as `OnPlaybackState` can now run between `load()` starting and `onPipelineLoaded()`, when the state machine is still IDLE. A FAILURE there is ignored as 'no active session' by `HandlePlaybackFailure` (as before it was dropped silently), other events are logged and ignored by the state machine. |
 | 2026-10-14 | M8 | `Callback_MayReplaceItselfWhileRunning_DoesNotDeadlock` is a guard against holding the lock across the invocation; it passes on both old and new code and was not red-checked. |
 | 2026-10-14 | M8 | One moderate-load run (6 workers x 40) after M8 had 0/240 failures and no kernel soft lockups, against 7 to 11 per 240 in earlier runs; the environment varies run to run, so this is not evidence about M8 either way (see section 6, T3). |
+| 2026-10-14 | M9 | Verified from Rialto's client source that pipeline events and key events are dispatched on separate per-object event threads, so the suspected deadlock (a key-status callback queued behind a pipeline handler waiting on `m_attachMutex`) cannot occur through a shared thread. See Verification Notes. |
+| 2026-10-14 | M9 | Lock order checked and written beside `m_attachMutex` in `AampRialtoPlayer.h`: `m_flushCallMutex` -> `m_flushMutex` and -> the controller play lock; `m_attachMutex` -> the controller play lock; the two outer mutexes are never held together (`AttachSource` never calls Flush/Stop/Configure; `ApplySubtitleSegmentPosition` is only called from `HandleSeekDone`). No cycle found. |
+| 2026-10-14 | M9 | Left as is, by decision: `m_attachMutex` is still held by an injector thread across a DRM license fetch inside `AttachSource`, and `SetVideoMute`, `SetSubtitleMute`, `setCCMute` and the SEEK_DONE subtitle-position update take the same mutex. A slow licence fetch therefore stalls those calls (and the pipeline event thread for SEEK_DONE) for its duration. Shortening it means releasing the lock around `createSession`, which changes the serialisation of attach against caps updates, and needs a device test; not done here. |
+| 2026-10-14 | M9 | The lock-order check was done by reading the code (a static call scan over-approximated and was discarded); it is not enforced by a test or a tool. |
 
 ## Verification Notes
 
@@ -376,8 +380,8 @@ Record the outcome of each **verify** item here (Rialto threading model, `NO_AVA
 
 | ID | Question | Result | Date |
 |---|---|---|---|
-| M9 | Do pipeline and key-session events share one Rialto IPC thread? | | |
-| M10 | Is blocking IPC from the notification thread safe? | | |
+| M9 | Do pipeline and key-session events share one Rialto IPC thread? | No. In Rialto's client source (`MediaPipelineIpc.cpp`, `MediaKeysIpc.cpp`, master branch) the IPC channel callbacks only enqueue to a per-object event thread: `rialto-media-player-events` for the pipeline and `rialto-media-keys-events` for keys. A key-status callback therefore cannot queue behind a pipeline handler. Source reading, not a runtime test; the Rialto version on the target was not checked. | 2026-10-14 |
+| M10 | Is blocking IPC from the notification thread safe? | Yes for deadlock. Blocking RPCs (`play`, `haveData`, `setSourcePosition`) issued from a handler wait on the IPC channel thread (`blockingClosure->wait()`), which no handler blocks, because handlers run on the separate event thread. Residual: the pipeline event thread is blocked for the length of each call, so events queue behind it. | 2026-10-14 |
 | L9 | Does Rialto re-issue `needData` after `NO_AVAILABLE_SAMPLES`? | | |
 | L12 | Is the default `GMainContext` iterated in the product? | | |
 
@@ -403,3 +407,4 @@ Record each completed task: what was done, files changed, tests added or run.
 | 2026-10-14 | M6 | `AampRialtoPlaybackController` gains `m_playMutex`, held across the play decision and action; `Dispatch` releases it around the pre-roll action. | AampRialtoPlaybackController.{h,cpp} | Controller: AddHold_WaitsForPlayAlreadyDecided (red on the old controller, green now), PreRollAction_MayWaitForAnotherThreadUsingTheController (guard; deadlocks if the unlock is removed); 14 suites pass |
 | 2026-10-14 | M7 | Guarded `m_videoRectangle` (mutex), `m_audioVolume` (atomic, single read per apply) and `m_pendingAttach` (leaf mutex). | AampRialtoPlayer.{h,cpp} | Player: VideoRectangle_ConcurrentSetAndGet_NeverReadsATornValue and SetAudioVolume_ConcurrentCallers_ForwardOnlyWrittenValues (pass normally on old and new code; TSAN reports races on the old code, none on the new); 14 suites pass |
 | 2026-10-14 | M8 | Client callbacks guarded by `m_callbackMutex` with copy-then-invoke delivery; player callbacks installed before `load()`. | AampRialtoMediaPipelineClient.{h,cpp}, AampRialtoPlayer.cpp | Client: Callbacks_ConcurrentInstallAndDelivery_OnlyRunsWholeCallbacks (TSAN red on old, clean on new), Callback_MayReplaceItselfWhileRunning_DoesNotDeadlock (guard). Player: Configure_EventDeliveredDuringLoad_IsNotDropped (red on old, green now). 14 suites pass. |
+| 2026-10-14 | M9 | Documented the lock order and the long-hold caveat on `m_attachMutex`; verified the thread model from Rialto's source; no behaviour change. | AampRialtoPlayer.h (comment only) | None added (comment-only change). Player suite builds and passes. |
