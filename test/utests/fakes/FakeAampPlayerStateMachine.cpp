@@ -64,7 +64,6 @@ const char *PlayerStateMachine::currentStateName() const
 		case PlayerStateId::PLAYING:           return "PLAYING";
 		case PlayerStateId::PAUSED:            return "PAUSED";
 		case PlayerStateId::FLUSHING:          return "FLUSHING";
-		case PlayerStateId::STOPPED:           return "STOPPED";
 		case PlayerStateId::ERROR:             return "ERROR";
 		default:                               return "UNKNOWN";
 	}
@@ -124,7 +123,7 @@ void PlayerStateMachine::onFlush()
 
 void PlayerStateMachine::onStop()
 {
-	s_fakeState = PlayerStateId::STOPPED;
+	s_fakeState = PlayerStateId::IDLE;
 }
 
 void PlayerStateMachine::onError()

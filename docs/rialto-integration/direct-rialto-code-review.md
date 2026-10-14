@@ -207,7 +207,7 @@ and should be confirmed before or while fixing.
 | ID | Status | Title |
 |---|---|---|
 | P1 | Done | Raw `new`/`delete` in `PrivateInstanceAAMPNotifiable.cpp` |
-| P2 | Open | Dead or ignored parameters and state |
+| P2 | Done | Dead or ignored parameters and state |
 | P3 | Open | Fragile logic in `MonitorAV` and subtitle TTML parsing |
 | P4 | Open | State machine log noise |
 | P5 | Open | Truncating PTS/duration conversions |
@@ -258,6 +258,7 @@ Positives worth keeping: `AampRialtoSegmentPosition` and `AampRialtoPlaybackCont
 | A3 | Open | Concurrency model is hard to follow; no diagram |
 | A4 | Open | Stale documentation |
 | A5 | Open | Leaky GStreamer dependencies in the "GStreamer-free" path |
+| A6 | Open | ID3 metadata is never emitted by the direct player (feature gap vs `AAMPGstPlayer`) |
 
 - **A1.** `AampRialtoPlayer.cpp` is ~3.1k lines with ~70 methods covering pipeline lifecycle, flush/position election, play gating, pre-roll, DRM wiring, CC, progress timer and monitor lifetime. `Flush` (~180 lines), `AttachSource`, `Discontinuity`, `injectOneSample` are long and deeply nested. Suggested extractions: a pipeline-session/lifecycle class, a flush coordinator, `ProgressTimer` into its own file.
 - **A2.** `ProgressTimer`, `MonitorAV`, `PreRollMonitor` each wrap `g_timeout_add` differently. One shared RAII timer helper with a mutex and epoch would remove most of M1 to M3.
@@ -268,6 +269,13 @@ Positives worth keeping: `AampRialtoSegmentPosition` and `AampRialtoPlaybackCont
   - `IStreamSinkNotifiable` says "push-notification only" but includes `GetState` and `GetProgressReportIntervalSeconds`.
   - The `THEORY (unproven - revert this block if disproved)` comment in `AttachSource` describes a behaviour-changing hypothesis in production code.
 - **A5.** Direct path still uses `GstStreamOutputFormat`/`GST_FORMAT_*`, and the DRM bridge relies on `eGST_MEDIATYPE_*`. Test-only members (`StartProgressTimer`, `StopProgressTimer`, `OnProgressTimerTick`) are public on the production surface.
+- **A6.** `m_ID3MetadataHandler` is stored (constructor, `ChangeAamp`) but never called, so timed ID3 metadata does not reach the application on the direct path.
+  - **GStreamer behaviour:** `AAMPGstPlayer::SendHelper` (`aampgstplayer.cpp`, used by the copy, transfer and sample paths) checks every audio, video and DSM_CC buffer with `aamp::id3_metadata::helpers::IsValidMediaType` and `IsValidHeader`. On a match it calls the handler with `(mediaType, data, size, {pts, dts, duration}, nullptr)`, which raises `AAMP_EVENT_ID3_METADATA` through `PrivateInstanceAAMP::ID3MetadataHandler`.
+  - **Direct path:** `SendCopy`, `SendTransfer` and `SendSample` do no ID3 check. HLS-TS demuxes the ID3 PID as `eMEDIATYPE_DSM_CC` samples, which have no Rialto source, so they are dropped with a "No source for mediaType" warning.
+  - **Partly covered:** with `eAAMPConfig_EarlyID3Processing` (`earlyProcessing`, default off) the metadata processors emit ID3 before the sink, and DASH `emsg`/MP4 ID3 never goes through the sink, so only the default HLS-TS case is affected.
+  - **Fix:** one small helper in the player (`IsValidMediaType` + `IsValidHeader`, then the callback with the sample's PTS/DTS/duration), called at the start of the three send paths before the "no source" early-out so DSM_CC is covered. Keep the member; it is the hook.
+  - **Tests:** an ID3-headed DSM_CC sample reaches the callback with the right PTS/DTS/duration and is still not injected; a sample without an ID3 header does not call it; audio and video samples with an ID3 header also call it (as in GStreamer).
+  - **Process:** behaviour change, so its own commit, done after P2 (P2 should record that `m_ID3MetadataHandler` is intentionally kept for this task).
 
 ---
 
@@ -428,6 +436,14 @@ Rialto behaviours confirmed or disproved, test gaps, design decisions).
 | 2026-10-14 | P1 | The seven hand-written task-argument structs in `PrivateInstanceAAMPNotifiable.cpp`, each allocated with `new` and freed with `delete` in two places, are replaced by one template, `ScheduleOwned(aamp, name, work)`. It carries the captured values in a heap task held by a `std::unique_ptr` until the scheduler accepts it; the task then owns itself, and if the scheduler refuses it (`AAMP_TASK_ID_INVALID`) the `unique_ptr` frees it. No raw `new`/`delete` remains in the file, and each method shrinks to its lambda. The notifications without extra arguments still pass the AAMP pointer directly, as before. |
 | 2026-10-14 | P1 | Not changed, and why: a task the scheduler accepts but later discards unrun still leaks its data. `AampScheduler::RemoveAllTasks()` and `StopScheduler()` call `mTaskQueue.clear()`, and `AsyncTaskObj` has no destroy hook, so nothing can free the argument; the loss is a few tens of bytes per discarded notification, only when the player is stopped with notifications still queued. Fixing it needs an owner or destroy hook in shared code (`AsyncTaskObj` and a `ScheduleAsyncTask` overload, plus their fakes and mocks); decided against for this change. |
 | 2026-10-14 | P1 | Verification: behaviour is unchanged, so the new test `NotifyPlaybackError_ForwardsEveryArgumentToTheScheduledTask` (description copy and both retry values reach `SendErrorEvent`) passes on both the old and new code. Only `NotifySpeedChanged`, `NotifyFirstFrameReceived` and `SendErrorEvent` can be observed through the mocks; the other converted lambdas (`MonitorProgress`, `NotifyFirstBufferProcessed`, `SendMonitorAvEvent`, `NotifyBufferUnderflow`) are covered by compilation and by running their tasks. The suite under AddressSanitizer with leak detection reports the same 87 leak records on the old and new code, all from the test fakes, none from the notifiable. |
+| 2026-10-14 | P2 | `StoppedState` and `PlayerStateId::STOPPED` are removed: `Stop()` has always returned the machine to IDLE, so nothing could enter the state. The header now says so, and the fake state machine, two player comments and two test comments no longer mention STOPPED. This also closes the STOPPED part of A4. |
+| 2026-10-14 | P2 | `AampRialtoMediaPipelineClient::init()` (a stub returning `false`, never called) is removed from the class, the real and the fake implementation, and the file header no longer calls the class a stub. |
+| 2026-10-14 | P2 | The unused `LICENSE_RENEWAL_MESSAGE_TYPE` define is removed. The `friend` on `ProgressTimer` was already gone when this was checked. |
+| 2026-10-14 | P2 | `exportFrames` is dropped from the injected-notifiable constructor of `AampRialtoPlayer` (nothing used it; the two test call sites lose the argument). The production constructor keeps an unnamed `exportFrames` parameter because `AampStreamSinkManager::CreateSinkInstance` builds `AampRialtoPlayer` and `AAMPGstPlayer` with the same arguments; its doc now says it is unused. |
+| 2026-10-14 | P2 | Not changed, by decision: `m_ID3MetadataHandler` is stored but never called, which is a feature gap and not dead state, so it is kept and tracked as A6 (port the GStreamer ID3 check). |
+| 2026-10-14 | P2 | Not changed, by decision: the hard-coded `hasDrm = true` in the video and audio sources is an intentional, commented workaround for a Rialto server crash (the `hasDrm` argument is ignored on purpose), and a test already guards the value. It is also left because changing it would alter what is sent to the Rialto server. |
+| 2026-10-14 | P2 | Not changed: `SendTransfer`'s `discontinuity` parameter belongs to the `StreamSink` interface and is only logged here; removing it would change the interface shared with `AAMPGstPlayer`. |
+| 2026-10-14 | P2 | No red test for P2: every change removes unreachable code, so behaviour is identical. The compiler and the existing suites are the check (the first build failed in `FakeAampRialtoMediaPipelineClient.cpp`, which still defined `init()`; fixed). |
 
 ## Verification Notes
 
@@ -481,3 +497,4 @@ Record each completed task: what was done, files changed, tests added or run.
 | 2026-10-14 | L9 | Verified: Rialto re-issues `needData` after `NO_AVAILABLE_SAMPLES` on a timer. No code change. | none (verification) | none (verification) |
 | 2026-10-14 | L12 | Verified (confirmed by the owner): the default GMainContext is iterated in the product. No code change. | none (verification) | none (verification) |
 | 2026-10-14 | P1 | Task arguments are owned by a `unique_ptr` through one `ScheduleOwned` helper; no raw `new`/`delete` remains. | `direct-rialto/PrivateInstanceAAMPNotifiable.cpp`, `test/utests/tests/PrivateInstanceAAMPNotifiableTests/PrivateInstanceAAMPNotifiableTestCases.cpp` | New characterization test NotifyPlaybackError_ForwardsEveryArgumentToTheScheduledTask (passes on old and new code). Notifiable suite 23 tests; ASAN leak report identical to the old code; 16 suites pass. |
+| 2026-10-14 | P2 | Removed the unreachable `STOPPED` state, the stub `init()`, the unused `LICENSE_RENEWAL_MESSAGE_TYPE` and the ignored `exportFrames` parameter of the injected constructor; documented the kept `exportFrames` parameter on the production constructor. The `m_ID3MetadataHandler` gap is tracked as A6. | `direct-rialto/AampPlayerStateMachine.{h,cpp}`, `AampRialtoMediaPipelineClient.{h,cpp}`, `AampRialtoPlayer.{h,cpp}`, `RialtoMediaKeySessionAdapter.cpp`; `test/utests/fakes/FakeAampPlayerStateMachine.cpp`, `FakeAampRialtoMediaPipelineClient.cpp`, `AampRialtoPlayerTestCases.cpp` | No new tests (dead-code removal, behaviour unchanged). `AampPlayerStateMachineTests` 47 pass; 16 Rialto suites pass (Player 304, PipelineClient 15, Controller 27, PreRoll 21, MonitorAV 20, Video 67, Audio 18, Subtitle 16, KeySystem 14, KeySession 14, Adapter 12, ControlBackend 10, SegmentPosition 13, StreamSinkManager 27, DrmBridge 5, Notifiable 23). |

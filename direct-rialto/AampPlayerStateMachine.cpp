@@ -42,8 +42,6 @@ class PlayingState;
 class PausedState;
 class FlushingState;
 class FlushedState;
-class StoppedState;  // forward decl retained; Stop() calls WaitForFlushToComplete
-					  // so onStop() should never be dispatched from FLUSHING
 class ErrorState;
 
 // ============================================================================
@@ -187,16 +185,6 @@ public:
 	std::unique_ptr<IPlayerState> onStop()            override;
 	std::unique_ptr<IPlayerState> onError()           override;
 	std::unique_ptr<IPlayerState> onReconfigure()     override;
-};
-
-// StoppedState is removed; onStop() now transitions directly to IDLE.
-// The forward decl above is kept so the compiler does not complain if any
-// stale reference exists during incremental builds.
-class StoppedState final : public IPlayerState
-{
-public:
-	PlayerStateId id()   const override { return PlayerStateId::STOPPED; }
-	const char   *name() const override { return "STOPPED"; }
 };
 
 class ErrorState final : public IPlayerState

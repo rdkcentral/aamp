@@ -314,13 +314,12 @@ SourceCreator makeDefaultSourceCreator();
 AampRialtoPlayer::AampRialtoPlayer(
 	PrivateInstanceAAMP *aamp,
 	id3_callback_t id3HandlerCallback,
-	std::function<void(const unsigned char *, int, int, int)> exportFrames)
+	std::function<void(const unsigned char *, int, int, int)> /*exportFrames*/)
 	: AampRialtoPlayer(
 		aamp,
 		/*notifiable=*/nullptr,
 		/*controlBackend=*/nullptr,  // lazily created in Configure()
 		id3HandlerCallback,
-		std::move(exportFrames),
 		makeDefaultSourceCreator())
 {
 }
@@ -330,7 +329,6 @@ AampRialtoPlayer::AampRialtoPlayer(
 	IStreamSinkNotifiable *notifiable,
 	std::unique_ptr<IRialtoControlBackend> controlBackend,
 	id3_callback_t id3HandlerCallback,
-	std::function<void(const unsigned char *, int, int, int)> exportFrames,
 	SourceCreator sourceCreator)
 	: m_aamp(aamp)
 	, m_controlBackend(std::move(controlBackend))
@@ -1819,8 +1817,7 @@ void AampRialtoPlayer::StopInternal(bool keepLastFrame, bool preservePendingPosi
 	// Wait for any in-progress flush cycle to complete before stopping.
 	// This ensures the state machine has already exited FLUSHING so that
 	// onStop() transitions from a well-defined state (PLAYING, PAUSED,
-	// SOURCES_ATTACHED, etc.) and the FLUSHING → STOPPED arc is never
-	// reached.
+	// SOURCES_ATTACHED, etc.) and onStop() is never dispatched from FLUSHING.
 	WaitForFlushToComplete();
 
 	StopProgressTimer();

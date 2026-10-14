@@ -85,8 +85,6 @@ public:
 	AampRialtoMediaPipelineClient();
 	~AampRialtoMediaPipelineClient() override;
 
-	bool init();
-
 	/// @brief Install callback for notifyNeedMediaData events.
 	void SetNeedDataCallback(NeedDataCallback cb)
 	{

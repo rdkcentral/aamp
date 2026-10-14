@@ -88,8 +88,9 @@ public:
 	 * @param[in] aamp               Pointer to the owning PrivateInstanceAAMP.
 	 * @param[in] id3HandlerCallback Callback invoked for each ID3 metadata
 	 *                               packet encountered in the stream.
-	 * @param[in] exportFrames       Optional callback used to export raw YUV
-	 *                               frames; defaults to nullptr.
+	 * @param[in] exportFrames       Unused: direct Rialto does not export
+	 *                               frames.  Kept so the sink factory can
+	 *                               construct either player the same way.
 	 */
 	explicit AampRialtoPlayer(
 		PrivateInstanceAAMP *aamp,
@@ -114,7 +115,6 @@ public:
 	 *                               creation.  Ownership is transferred.
 	 * @param[in] id3HandlerCallback Callback invoked for each ID3 metadata
 	 *                               packet encountered in the stream.
-	 * @param[in] exportFrames       Optional YUV-frame export callback.
 	 * @param[in] sourceCreator      Creates the per-track sources; an empty
 	 *                               callable selects the default creator.
 	 */
@@ -123,7 +123,6 @@ public:
 		IStreamSinkNotifiable *notifiable,
 		std::unique_ptr<IRialtoControlBackend> controlBackend,
 		id3_callback_t id3HandlerCallback,
-		std::function<void(const unsigned char *, int, int, int)> exportFrames = nullptr,
 		SourceCreator sourceCreator = nullptr);
 
 	/// @copydoc StreamSink::Configure

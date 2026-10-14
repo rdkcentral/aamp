@@ -34,8 +34,9 @@
  *                         PLAYING/PAUSED notification to drive the machine
  *                         onward (Rialto always sends SEEK_DONE before any
  *                         subsequent PLAYING/PAUSED for the same flush cycle)
- *   STOPPED            — Stop() was called
  *   ERROR              — server reported a fatal error
+ *
+ * Stop() returns the machine to IDLE; there is no separate stopped state.
  *
  * Every valid transition is logged at MILESTONE level via AAMPLOG_MIL.
  */
@@ -66,7 +67,6 @@ enum class PlayerStateId
 	PAUSED,             ///< Server confirmed PAUSED
 	FLUSHING,           ///< Flush in progress; new segment arrival expected
 	FLUSHED,            ///< SEEK_DONE received; awaiting Rialto PLAYING/PAUSED
-	STOPPED,            ///< Stop() was called
 	ERROR               ///< Server reported a fatal error
 };
 

@@ -408,7 +408,6 @@ protected:
 				&m_mockNotifiable,
 				std::move(controlBackend),
 				/*id3HandlerCallback=*/nullptr,
-				/*exportFrames=*/nullptr,
 				std::move(sourceCreator));
 	}
 
@@ -690,7 +689,6 @@ TEST_F(AampRialtoPlayerTest, Configure_NullSourceCreator_DoesNotCrash)
 		&m_mockNotifiable,
 		std::unique_ptr<IRialtoControlBackend>(nullptr),
 		/*id3HandlerCallback=*/nullptr,
-		/*exportFrames=*/nullptr,
 		std::move(nullCreator));
 	EXPECT_NO_THROW(
 		m_player->Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_INVALID, false, false));
@@ -5480,14 +5478,14 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	Flush_PipelineStopped_ShouldTearDownTrue_DoesNotCrash)
 {
 	/**
-	 * @brief When the player is already STOPPED (pipeline destroyed) and
+	 * @brief When the player is already stopped (pipeline destroyed) and
 	 *        shouldTearDown=true, Flush() re-enters Stop(true); with no
 	 *        pipeline left this must be a safe no-op, not a crash.
 	 */
 	Configure();
 	m_player->Stop(false);
 
-	// onStop() transitions to IDLE; PlayerStateId::STOPPED is unreachable.
+	// onStop() transitions to IDLE.
 	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::IDLE)
 		<< "Precondition: player must be in IDLE state after Stop()";
 
@@ -5503,14 +5501,14 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	Flush_PipelineStopped_ShouldTearDownFalse_DoesNotCrash)
 {
 	/**
-	 * @brief When the player is already STOPPED (pipeline destroyed) and
+	 * @brief When the player is already stopped (pipeline destroyed) and
 	 *        shouldTearDown=false, Flush() must return early without
 	 *        touching the already-gone pipeline.
 	 */
 	Configure();
 	m_player->Stop(false);
 
-	// onStop() transitions to IDLE; PlayerStateId::STOPPED is unreachable.
+	// onStop() transitions to IDLE.
 	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::IDLE);
 
 	// Stop() already destroyed the pipeline (m_mockPipelinePtr is now

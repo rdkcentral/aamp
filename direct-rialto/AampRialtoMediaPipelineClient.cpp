@@ -19,7 +19,8 @@
 
 /**
  * @file AampRialtoMediaPipelineClient.cpp
- * @brief Stub implementation of AampRialtoMediaPipelineClient.
+ * @brief IMediaPipelineClient implementation that forwards Rialto events to
+ *        the installed callbacks.
  */
 
 #include "AampRialtoMediaPipelineClient.h"
@@ -40,17 +41,6 @@ AampRialtoMediaPipelineClient::AampRialtoMediaPipelineClient()
 AampRialtoMediaPipelineClient::~AampRialtoMediaPipelineClient()
 {
 	AAMPLOG_INFO("AampRialtoMediaPipelineClient: destroyed");
-}
-
-// ---------------------------------------------------------------------------
-// Initialization
-// ---------------------------------------------------------------------------
-
-bool AampRialtoMediaPipelineClient::init()
-{
-	AAMPLOG_INFO("ENTRY");
-	AAMPLOG_INFO("EXIT");
-	return false;
 }
 
 // ---------------------------------------------------------------------------

@@ -30,8 +30,6 @@
 #include <chrono>
 #include <set>
 
-#define LICENSE_RENEWAL_MESSAGE_TYPE "1"
-
 RialtoMediaKeySessionAdapter::RialtoMediaKeySessionAdapter(
 	DrmHelperPtr drmHelper,
 	std::unique_ptr<RialtoMediaKeySystem> system,

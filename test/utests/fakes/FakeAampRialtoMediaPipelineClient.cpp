@@ -35,8 +35,6 @@
 AampRialtoMediaPipelineClient::AampRialtoMediaPipelineClient() {}
 AampRialtoMediaPipelineClient::~AampRialtoMediaPipelineClient() {}
 
-bool AampRialtoMediaPipelineClient::init() { return true; }
-
 void AampRialtoMediaPipelineClient::notifyNetworkState(
 	firebolt::rialto::NetworkState /*state*/) {}
 
