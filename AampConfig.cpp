@@ -378,6 +378,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false, "debugChunkTransfer", eAAMPConfig_DebugChunkTransfer, false}, // This does not work in http/3 mode.
 	{true, "utcSyncOnStartup", eAAMPConfig_UTCSyncOnStartup, true},
 	{false, "disableWebVTT", eAAMPConfig_DisableWebVTT, false},
+	{false, "disableTTML", eAAMPConfig_DisableTTML, false},
 	{false, "enableHTTP3", eAAMPConfig_EnableHTTP3, false},
 	{false, "enablePTSReStampLogging", eAAMPConfig_EnablePTSReStampLogging, false},
 	{false, "netTraceCsvDump", eAAMPConfig_NetTraceCsvDump, false},
@@ -2186,5 +2187,4 @@ void AampConfig::ShowConfiguration(ConfigPriority owner)
 	}
 
 }
-
 

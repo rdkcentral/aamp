@@ -577,10 +577,14 @@ The `InitAAMPConfig()` method now automatically detects whether you're passing J
 player->InitAAMPConfig("networkTimeout=10.0");
 player->InitAAMPConfig("abr=true");
 player->InitAAMPConfig("userAgent=CustomAgent/1.0");
+player->InitAAMPConfig("disableTTML=true"); // Disable DASH TTML tracks
 
 // JSON format (recommended for multiple values)
 player->InitAAMPConfig("{\"networkTimeout\": 10.0, \"abr\": true}");
 ```
+
+TTML tracks are enabled by default. Set `disableTTML=true` to disable them
+for DASH playback.
 
 #### Deprecated APIs and Their Replacements
 

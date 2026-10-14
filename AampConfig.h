@@ -230,6 +230,7 @@ typedef enum
 	eAAMPConfig_DebugChunkTransfer,					/**< app-managed chunked transfer protocol */
 	eAAMPConfig_UTCSyncOnStartup,					/**< Perform sync at startup */
 	eAAMPConfig_DisableWebVTT,					/**< Config to disable/exclude WebVTT tracks (default: WebVTT enabled) */
+	eAAMPConfig_DisableTTML,					/**< Config to disable/exclude TTML tracks in DASH (default: TTML enabled) */
 	eAAMPConfig_EnableHTTP3,					/**< Enable HTTP/3 (QUIC) for content-origin downloads (fragments, manifests, init segments) */
 	eAAMPConfig_EnablePTSReStampLogging,		/**< Config to enable logging for PTS restamping in Mp4Demuxer */
 	eAAMPConfig_NetTraceCsvDump,			/**< Write AAMP_NET_TRACE CSV files when true (default path: /tmp; may be overridden via AAMP_REQ_CSV/AAMP_BUR_CSV; output includes a PID suffix; default: false) */
@@ -802,6 +803,5 @@ private:
  * @brief Global configuration */
 extern AampConfig  *gpGlobalConfig;
 #endif
-
 
 
