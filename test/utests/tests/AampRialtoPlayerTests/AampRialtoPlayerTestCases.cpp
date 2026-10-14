@@ -5153,6 +5153,27 @@ TEST_F(AampRialtoPlayerTest,
 }
 
 TEST_F(AampRialtoPlayerTest,
+	Configure_CreatesPipelineWithFixedRequirementsAndLoadsMse)
+{
+	/**
+	 * @brief Pins the values behind the L13 constants: Rialto must be asked for
+	 *        a 4K-capable (primary) pipeline and load() must get the MSE
+	 *        placeholder URL with isLive=false.
+	 */
+	using ::testing::AllOf;
+	using ::testing::Field;
+	EXPECT_CALL(*m_mockFactory, createMediaPipeline(_,
+		AllOf(Field(&firebolt::rialto::VideoRequirements::maxWidth, 3840u),
+		      Field(&firebolt::rialto::VideoRequirements::maxHeight, 2160u))))
+		.Times(1);
+	EXPECT_CALL(*m_mockPipelinePtr,
+		load(firebolt::rialto::MediaType::MSE, "", "mse://1", false))
+		.WillOnce(Return(true));
+
+	Configure();
+}
+
+TEST_F(AampRialtoPlayerTest,
 	Configure_AudioOnlyNoSubtitleSource_SecondCallDoesNotRecreate)
 {
 	/**

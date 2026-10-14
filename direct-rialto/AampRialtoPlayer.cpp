@@ -187,6 +187,18 @@ namespace {
 	constexpr guint    kPreRollPollIntervalMs    = 10;
 	constexpr int64_t  kPreRollTimeoutMs         = 1000;
 
+	/// Rialto compares these only with its primary-video minimum, to choose
+	/// the primary decoder; a smaller value would select the secondary one.
+	constexpr std::uint32_t kMaxVideoWidth  = 3840;
+	constexpr std::uint32_t kMaxVideoHeight = 2160;
+
+	/// Rialto ignores the URL for MSE playback.
+	constexpr const char *kMseUrl = "mse://1";
+
+	/// Left false: true makes the server enable decoder rate correction, on top
+	/// of AAMP's own live latency control.
+	constexpr bool kPipelineIsLive = false;
+
 	const char *PlaybackStateName(firebolt::rialto::PlaybackState state)
 	{
 		const char *name = "UNKNOWN";
@@ -867,9 +879,7 @@ void AampRialtoPlayer::CreateAndLoadPipeline()
 				"Proceeding to createMediaPipeline despite Rialto state not RUNNING");
 		}
 
-		constexpr std::uint32_t kWidth{3840};
-		constexpr std::uint32_t kHeight{2160};
-		firebolt::rialto::VideoRequirements kRequirements{kWidth, kHeight};
+		firebolt::rialto::VideoRequirements kRequirements{kMaxVideoWidth, kMaxVideoHeight};
 		std::shared_ptr<firebolt::rialto::IMediaPipeline> pipeline =
 			m_pipelineFactory->createMediaPipeline(
 				std::weak_ptr<firebolt::rialto::IMediaPipelineClient>(m_client),
@@ -887,13 +897,11 @@ void AampRialtoPlayer::CreateAndLoadPipeline()
 			// would otherwise be dropped.
 			RegisterPipelineCallbacks();
 
-			// TODO: How do we determine value for isLive
-			std::string utf8url = "mse://1";
 			if (!pipeline->load(
 					firebolt::rialto::MediaType::MSE,
 					"",
-					/*url=*/utf8url,
-					/*isLive*/false))
+					kMseUrl,
+					kPipelineIsLive))
 			{
 				AAMPLOG_ERR("load() failed - Rialto will reject attachSource calls");
 			}
