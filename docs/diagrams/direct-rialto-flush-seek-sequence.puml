@@ -1,0 +1,95 @@
+' If not stated otherwise in this file or this component's license file the
+' following copyright and licenses apply:
+'
+' Copyright 2026 RDK Management
+'
+' Licensed under the Apache License, Version 2.0 (the "License");
+' you may not use this file except in compliance with the License.
+' You may obtain a copy of the License at
+'
+' http://www.apache.org/licenses/LICENSE-2.0
+'
+' Unless required by applicable law or agreed to in writing, software
+' distributed under the License is distributed on an "AS IS" BASIS,
+' WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+' See the License for the specific language governing permissions and
+' limitations under the License.
+
+@startuml direct-rialto-flush-seek-sequence
+title direct-rialto flush / seek (flushable path of AampRialtoPlayer::Flush)
+
+participant "AAMP control thread\n(or injector thread for a\ndeferred flush)" as CT
+participant AampRialtoPlayer as P
+participant AampRialtoFlushCoordinator as FC
+participant PlayerStateMachine as SM
+participant AampRialtoPlaybackController as PC
+participant "Media sources\n(video/audio/subtitle)" as SRC
+participant "Rialto pipeline" as RP
+participant "Rialto event thread" as ET
+
+CT -> P : Flush(position, rate,\nshouldTearDown, authoritative)
+P -> FC : SerialiseCalls()\n(recursive call lock, held to the end of Flush)
+P -> FC : WaitForComplete()
+note right of FC
+  Returns at once unless a previous flush is still in
+  FLUSHING.  If SEEK_DONE does not arrive within the
+  timeout the previous flush is abandoned: state leaves
+  FLUSHING, the staged rate is committed and the
+  Flushing hold is released.
+end note
+P -> PC : AddHold(Flushing)
+P -> P : stage position / rate / authority\n(AampRialtoSegmentPosition)
+P -> PC : ReleaseHold(PositionPending)
+
+alt state not PLAYING / PAUSED / SOURCES_ATTACHED / FLUSHED
+  alt shouldTearDown
+    P -> P : StopInternal(true)
+  else
+    P -> SRC : unblockInjection + gateInjection(false)\n(rate committed, no flush cycle)
+  end
+  P -> PC : ReleaseHold(Flushing)
+  P --> CT : return
+else flushable
+  P -> FC : ClaimFlushing()
+  FC -> SM : onFlush()  [-> FLUSHING]
+  P -> P : ArmPreRoll(rate)
+  P -> SRC : unblockInjection()\n(generation++, gate DROPPED)
+  P -> SRC : gateInjection(true)\n(gate BLOCKED: hold new data)
+  alt pipeline present
+    P -> RP : setPosition(posNs)
+    alt setPosition fails
+      P -> FC : Complete()  [-> FLUSHED]
+      P -> PC : ReleaseHold(Flushing)
+    end
+  else no pipeline
+    P -> FC : Complete()  [-> FLUSHED]
+    P -> PC : ReleaseHold(Flushing)
+  end
+  P --> CT : return (Flush done; seek still in flight)
+end
+
+... Rialto completes the seek asynchronously ...
+
+RP -> ET : PlaybackState::SEEK_DONE
+ET -> P : HandleSeekDone()
+P -> P : apply trickplay / subtitle segment position,\ncommit rate, commit segment baseline
+P -> PC : ReleaseHold(Flushing)\n(still FLUSHING, so a Flush() waiting\nin WaitForComplete cannot interleave)
+alt play requested and no other hold left
+  PC -> P : play action: IssuePlay()
+  P -> SRC : gateInjection(false)  (UngateAllSources)
+  P -> RP : play()
+end
+P -> FC : Complete()
+FC -> SM : onFlushComplete()  [FLUSHING -> FLUSHED]
+FC -> FC : notify_all  (wakes Configure()/Stop()/Flush() waiting)
+
+RP -> ET : PlaybackState::PLAYING / PAUSED
+ET -> SM : onPlaybackStarted / onPlaybackPaused\n[FLUSHED -> PLAYING / PAUSED]
+
+== Failure while flushing ==
+RP -> ET : PlaybackState::FAILURE
+ET -> P : HandlePlaybackFailure()
+P -> FC : SignalError()
+FC -> SM : onError()  [-> ERROR]
+FC -> FC : notify_all  (waiters wake, no timeout needed)
+@enduml

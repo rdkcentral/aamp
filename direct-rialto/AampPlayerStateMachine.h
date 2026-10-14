@@ -149,7 +149,11 @@ public:
  *
  * Thread-safe: all public methods are protected by an internal mutex so the
  * state machine can be driven from concurrent threads (e.g. IPC callback
- * thread firing onPlaybackStarted, AAMP thread firing onFlush).
+ * thread firing onPlaybackStarted, AAMP thread firing onFlush).  Each call is
+ * atomic on its own; a sequence such as "read currentState(), then act" is
+ * not.  Where a sequence must be atomic (entering FLUSHING after checking no
+ * flush is running) the player goes through AampRialtoFlushCoordinator.
+ * See docs/diagrams/direct-rialto-state-machine.puml.
  */
 class PlayerStateMachine
 {
