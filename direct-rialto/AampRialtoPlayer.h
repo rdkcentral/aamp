@@ -115,6 +115,8 @@ public:
 	 * @param[in] id3HandlerCallback Callback invoked for each ID3 metadata
 	 *                               packet encountered in the stream.
 	 * @param[in] exportFrames       Optional YUV-frame export callback.
+	 * @param[in] sourceCreator      Creates the per-track sources; an empty
+	 *                               callable selects the default creator.
 	 */
 	AampRialtoPlayer(
 		PrivateInstanceAAMP *aamp,

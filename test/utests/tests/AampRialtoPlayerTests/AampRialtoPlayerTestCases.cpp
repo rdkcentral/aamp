@@ -5132,6 +5132,27 @@ TEST_F(AampRialtoPlayerTest,
 }
 
 TEST_F(AampRialtoPlayerTest,
+	Constructor_EmptySourceCreator_ConfigureDoesNotThrow)
+{
+	/**
+	 * @brief Regression (L8): the injected-notifiable constructor defaulted its
+	 *        source creator to an empty callable, so Configure() threw
+	 *        std::bad_function_call.  An empty creator now selects the default.
+	 */
+	auto backend = std::make_unique<NiceMock<MockIRialtoControlBackend>>();
+	ON_CALL(*backend, waitForRunning(_)).WillByDefault(Return(true));
+	AampRialtoPlayer player(
+		reinterpret_cast<PrivateInstanceAAMP *>(g_mockPrivateInstanceAAMP.get()),
+		&m_mockNotifiable,
+		std::move(backend),
+		/*id3HandlerCallback=*/nullptr);
+
+	EXPECT_NO_THROW(player.Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_INVALID,
+		/*bESChangeStatus=*/false,
+		/*setReadyAfterPipelineCreation=*/false));
+}
+
+TEST_F(AampRialtoPlayerTest,
 	Configure_AudioOnlyNoSubtitleSource_SecondCallDoesNotRecreate)
 {
 	/**

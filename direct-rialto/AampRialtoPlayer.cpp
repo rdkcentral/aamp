@@ -323,7 +323,8 @@ AampRialtoPlayer::AampRialtoPlayer(
 	: m_aamp(aamp)
 	, m_controlBackend(std::move(controlBackend))
 	, m_ID3MetadataHandler{std::move(id3HandlerCallback)}
-	, m_sourceCreator(std::move(sourceCreator))
+	, m_sourceCreator(sourceCreator ? std::move(sourceCreator)
+	                                : makeDefaultSourceCreator())
 	, m_client(nullptr)
 	, m_pipeline(nullptr)
 	, m_playbackController(
