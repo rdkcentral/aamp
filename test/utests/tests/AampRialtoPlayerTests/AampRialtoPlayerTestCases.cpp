@@ -3683,6 +3683,88 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 }
 
 TEST_F(AampRialtoPlayerWithDemuxTest,
+	VideoRectangle_ConcurrentSetAndGet_NeverReadsATornValue)
+{
+	/**
+	 * @brief Regression (M7): m_videoRectangle is a std::string written by
+	 *        SetVideoRectangle() and read by GetVideoRectangle() and
+	 *        GetVideoSize() on other threads.  Every value read must be one
+	 *        that was written whole ("n,n,n,n").  Under a thread sanitizer the
+	 *        unguarded string is also reported as a data race.
+	 */
+	Configure();
+	ON_CALL(*m_mockPipelinePtr, setVideoWindow(_, _, _, _))
+		.WillByDefault(Return(true));
+
+	std::atomic<bool> done{false};
+	std::atomic<bool> torn{false};
+	auto reader = [&]
+	{
+		while (!done.load())
+		{
+			const std::string rect = m_player->GetVideoRectangle();
+			int x = 0, y = 0, w = 0, h = 0;
+			if (!rect.empty() &&
+				(sscanf(rect.c_str(), "%d,%d,%d,%d", &x, &y, &w, &h) != 4 ||
+				 x != y || y != w || w != h))
+			{
+				torn = true;
+			}
+			int sw = 0, sh = 0;
+			m_player->GetVideoSize(sw, sh);
+			if (sw != sh)
+			{
+				torn = true;
+			}
+		}
+	};
+	std::thread r1(reader);
+	std::thread r2(reader);
+	for (int i = 1; i <= 400; ++i)
+	{
+		m_player->SetVideoRectangle(i, i, i, i);
+	}
+	done = true;
+	r1.join();
+	r2.join();
+
+	EXPECT_FALSE(torn.load());
+	EXPECT_EQ(m_player->GetVideoRectangle(), "400,400,400,400");
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	SetAudioVolume_ConcurrentCallers_ForwardOnlyWrittenValues)
+{
+	/**
+	 * @brief Regression (M7): m_audioVolume was a plain int written by
+	 *        SetAudioVolume() and read by applyAudioVolume() (also run on the
+	 *        injector thread when audio attaches), and read twice per apply.
+	 *        Each setVolume() must carry one of the values written.
+	 */
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+	std::atomic<bool> unexpected{false};
+	ON_CALL(*m_mockPipelinePtr, setVolume(_, _, _))
+		.WillByDefault(Invoke([&](double v, auto, auto) {
+			if (v != 0.25 && v != 0.75)
+			{
+				unexpected = true;
+			}
+			return true;
+		}));
+
+	std::thread a([this]{
+		for (int i = 0; i < 300; ++i) { m_player->SetAudioVolume(25); }
+	});
+	std::thread b([this]{
+		for (int i = 0; i < 300; ++i) { m_player->SetAudioVolume(75); }
+	});
+	a.join();
+	b.join();
+
+	EXPECT_FALSE(unexpected.load());
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
 	OnPlaybackState_Playing_FirstTime_PassesVideoRectangleToNotifyFirstBuffer)
 {
 	Configure();

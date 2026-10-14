@@ -371,8 +371,10 @@ private:
 	long long m_ptsUpdatedTimeMs{0};
 
 	/// Current video rectangle stored as "x,y,w,h".  Updated by
-	/// SetVideoRectangle() and returned by GetVideoRectangle().
+	/// SetVideoRectangle() and returned by GetVideoRectangle(); guarded by
+	/// m_videoRectangleMutex because the string is read from other threads.
 	std::string m_videoRectangle;
+	mutable std::mutex m_videoRectangleMutex;
 
 	/// Owning AAMP instance.  Switched by ChangeAamp() on one thread while
 	/// others read it, so access it only through Aamp().
@@ -461,10 +463,12 @@ private:
 	/// Deferred attachment buffer.  Rialto's GStreamer pipeline requires
 	/// video to be attached before audio.  When a non-video init fragment
 	/// arrives before video is attached, its codec info is buffered here
-	/// (protected by m_attachMutex).  Once video attaches, any deferred
-	/// sources are processed.
+	/// (guarded by m_pendingAttachMutex, a leaf lock, because Configure()
+	/// clears it without taking m_attachMutex).  Once video attaches, any
+	/// deferred sources are processed.
 	std::array<std::optional<MediaCodecInfo>, kMaxSourceTypes>
 		m_pendingAttach;
+	std::mutex m_pendingAttachMutex;
 
 	/// Look up a source by media type; returns nullptr if not created.
 	AampRialtoMediaSource *getSource(AampMediaType type);
@@ -601,7 +605,7 @@ private:
 	/// Cached audio volume (0-100), matching PrivateInstanceAAMP::audio_volume.
 	/// Set by SetAudioVolume() and re-applied via applyAudioVolume() whenever
 	/// the pipeline is (re)created or the audio source newly attaches.
-	int m_audioVolume{100};
+	std::atomic<int> m_audioVolume{100};
 
 	/// Cached video mute state.  Set by SetVideoMute() and re-applied via
 	/// m_pipeline->setMute() whenever the video source first attaches.

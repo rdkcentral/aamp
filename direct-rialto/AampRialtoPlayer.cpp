@@ -653,6 +653,7 @@ void AampRialtoPlayer::BeginNewSession()
 	// end of a session and is what cancels the request.
 	m_playbackController.AddHold(PlayHold::SourcesNotAttached, "Configure");
 	ArmPreRoll(m_rate.load(std::memory_order_relaxed), "Configure");
+	std::lock_guard<std::mutex> lock(m_pendingAttachMutex);
 	for (auto &pa : m_pendingAttach)
 	{
 		pa.reset();
@@ -1242,7 +1243,10 @@ bool AampRialtoPlayer::AttachSource(
 			std::lock_guard<std::mutex> lock(st.mu);
 			st.attachPending = true;
 		}
-		m_pendingAttach[type] = std::move(codecInfo);
+		{
+			std::lock_guard<std::mutex> lock(m_pendingAttachMutex);
+			m_pendingAttach[type] = std::move(codecInfo);
+		}
 		return true;
 	}
 
@@ -1339,13 +1343,20 @@ bool AampRialtoPlayer::AttachSource(
 		{
 			for (size_t i = 0; i < kMaxSourceTypes; ++i)
 			{
-				if (i != eMEDIATYPE_VIDEO &&
-				    m_pendingAttach[i].has_value() &&
-				    m_sources[i])
+				if (i == eMEDIATYPE_VIDEO || !m_sources[i])
+				{
+					continue;
+				}
+				std::optional<MediaCodecInfo> pending;
+				{
+					std::lock_guard<std::mutex> lock(m_pendingAttachMutex);
+					pending = std::move(m_pendingAttach[i]);
+					m_pendingAttach[i].reset();
+				}
+				if (pending.has_value())
 				{
 					AAMPLOG_INFO("Processing deferred attachment for mediaType=%zu", i);
-					AttachSource(*m_sources[i], *m_pendingAttach[i]);
-					m_pendingAttach[i].reset();
+					AttachSource(*m_sources[i], *pending);
 				}
 			}
 		}
@@ -2172,8 +2183,11 @@ long long AampRialtoPlayer::GetVideoPTS()
 void AampRialtoPlayer::SetVideoRectangle(int x, int y, int w, int h)
 {
 	AAMPLOG_INFO("ENTRY x=%d y=%d w=%d h=%d", x, y, w, h);
-	m_videoRectangle = std::to_string(x) + "," + std::to_string(y)
-	                 + "," + std::to_string(w) + "," + std::to_string(h);
+	{
+		std::lock_guard<std::mutex> lock(m_videoRectangleMutex);
+		m_videoRectangle = std::to_string(x) + "," + std::to_string(y)
+		                 + "," + std::to_string(w) + "," + std::to_string(h);
+	}
 	if (const auto pipeline = GetPipeline())
 	{
 		pipeline->setVideoWindow(
@@ -2279,7 +2293,8 @@ void AampRialtoPlayer::applyAudioVolume()
 		// Mute without touching volume - mirrors InterfacePlayerRDK's
 		// SetVolumeOrMuteUnMute(), which skips the "volume" property write
 		// while muted.
-		const bool muted = (m_audioVolume == 0);
+		const int volume = m_audioVolume.load(std::memory_order_relaxed);
+		const bool muted = (volume == 0);
 
 		if (audioSourceId < 0)
 		{
@@ -2291,9 +2306,9 @@ void AampRialtoPlayer::applyAudioVolume()
 			AAMPLOG_WARN("setMute(%d) failed for sourceId=%d", muted, audioSourceId);
 		}
 
-		if (!muted && !pipeline->setVolume(static_cast<double>(m_audioVolume) / 100.0))
+		if (!muted && !pipeline->setVolume(static_cast<double>(volume) / 100.0))
 		{
-			AAMPLOG_WARN("setVolume(%d) failed", m_audioVolume);
+			AAMPLOG_WARN("setVolume(%d) failed", volume);
 		}
 	}
 }
@@ -2500,7 +2515,7 @@ void AampRialtoPlayer::GetVideoSize(int &w, int &h)
 	int y = 0;
 	int parsedW = 0;
 	int parsedH = 0;
-	if ((sscanf(m_videoRectangle.c_str(), "%d,%d,%d,%d",
+	if ((sscanf(GetVideoRectangle().c_str(), "%d,%d,%d,%d",
 			&x, &y, &parsedW, &parsedH) == 4) &&
 		(parsedW > 0) && (parsedH > 0))
 	{
@@ -2588,6 +2603,7 @@ std::string AampRialtoPlayer::GetVideoRectangle()
 {
 	AAMPLOG_INFO("ENTRY");
 	AAMPLOG_INFO("EXIT");
+	std::lock_guard<std::mutex> lock(m_videoRectangleMutex);
 	return m_videoRectangle;
 }
 
