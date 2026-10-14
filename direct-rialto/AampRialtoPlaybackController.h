@@ -59,9 +59,11 @@ enum class PlayHold : uint32_t
  * Whenever a request is outstanding and no hold remains, the controller
  * fires the injected play action exactly once.
  *
- * Thread-safe.  The play action is always invoked with the internal mutex
+ * Thread-safe.  The play action is invoked with the internal state mutex
  * released, so it may call back into this object and may safely perform
- * blocking Rialto IPC.
+ * blocking Rialto IPC.  It runs under a separate play-dispatch lock that
+ * AddHold() and Reset() also pass through, so a hold added after play() was
+ * decided cannot return until that play() has finished (see m_playMutex).
  */
 class AampRialtoPlaybackController
 {
@@ -141,11 +143,19 @@ private:
 	void EvaluateLocked(bool &issuePlay, bool &startPreRoll);
 
 	/// Invoke the actions chosen by EvaluateLocked().  Caller must NOT
-	/// hold m_mutex.
-	void Dispatch(bool issuePlay, bool startPreRoll, const char *reason);
+	/// hold m_mutex.  @p playLock is released before the pre-roll action,
+	/// which may wait on a thread that needs m_playMutex.
+	void Dispatch(bool issuePlay, bool startPreRoll, const char *reason,
+		std::unique_lock<std::recursive_mutex> &playLock);
 
 	PlayAction m_onPlay;
 	PreRollAction m_onPreRollReady;
+
+	/// Taken before m_mutex by every operation, and held until the play
+	/// action returns.  Without it, play() decided while no hold was applied
+	/// could still be running (and ungating sources) after a concurrent
+	/// AddHold(Flushing) had returned.  Recursive: the action may call back.
+	std::recursive_mutex m_playMutex;
 
 	/// Serialises hold/request updates so that exactly one caller can
 	/// consume a given play request.

@@ -31,6 +31,10 @@
 #include <gtest/gtest.h>
 
 #include <atomic>
+#include <chrono>
+#include <condition_variable>
+#include <future>
+#include <mutex>
 #include <string>
 #include <thread>
 #include <vector>
@@ -561,4 +565,86 @@ TEST_F(AampRialtoPlaybackControllerTest, PreRollHold_NoPreRollAction_IsHarmless)
 
 	m_controller->ReleaseHold(PlayHold::PreRollIncomplete, "PreRoll");
 	EXPECT_EQ(m_playCount, 1);
+}
+
+TEST(AampRialtoPlaybackControllerDispatchTest,
+	AddHold_WaitsForPlayAlreadyDecided)
+{
+	/**
+	 * @brief Regression (M6): once the last hold is released and play() is
+	 *        decided, a concurrent AddHold(Flushing) must not return while
+	 *        that play() is still running, otherwise the play action (which
+	 *        ungates sources) lands after the flush has gated them.
+	 */
+	std::mutex mu;
+	std::condition_variable cv;
+	bool inPlay = false;
+	bool letPlayFinish = false;
+
+	AampRialtoPlaybackController controller([&](const char *)
+	{
+		std::unique_lock<std::mutex> lock(mu);
+		inPlay = true;
+		cv.notify_all();
+		cv.wait(lock, [&]{ return letPlayFinish; });
+	});
+	controller.RequestPlay("Stream");
+	std::thread releaser([&]{
+		controller.ReleaseHold(PlayHold::SourcesNotAttached, "attach");
+	});
+	{
+		std::unique_lock<std::mutex> lock(mu);
+		ASSERT_TRUE(cv.wait_for(lock, std::chrono::seconds(5),
+			[&]{ return inPlay; }));
+	}
+
+	std::atomic<bool> addHoldReturned{false};
+	std::thread flusher([&]{
+		controller.AddHold(PlayHold::Flushing, "Flush");
+		addHoldReturned = true;
+	});
+
+	std::this_thread::sleep_for(std::chrono::milliseconds(100));
+	EXPECT_FALSE(addHoldReturned.load())
+		<< "AddHold returned while a decided play() was still running";
+
+	{
+		std::lock_guard<std::mutex> lock(mu);
+		letPlayFinish = true;
+	}
+	cv.notify_all();
+	releaser.join();
+	flusher.join();
+	EXPECT_TRUE(addHoldReturned.load());
+	EXPECT_TRUE(controller.IsHeld(PlayHold::Flushing));
+}
+
+TEST(AampRialtoPlaybackControllerDispatchTest,
+	PreRollAction_MayWaitForAnotherThreadUsingTheController)
+{
+	/**
+	 * @brief The pre-roll action starts a monitor whose Start() waits for a
+	 *        poll still in flight, and that poll releases a hold.  The
+	 *        controller must not hold its play lock across the action.
+	 */
+	std::unique_ptr<AampRialtoPlaybackController> controller;
+	std::atomic<int> plays{0};
+	controller = std::make_unique<AampRialtoPlaybackController>(
+		[&](const char *){ ++plays; },
+		[&](const char *)
+		{
+			std::thread poll([&]{
+				controller->ReleaseHold(PlayHold::PreRollIncomplete, "poll");
+			});
+			poll.join();
+		});
+	controller->AddHold(PlayHold::PreRollIncomplete, "arm");
+	controller->RequestPlay("Stream");
+
+	auto result = std::async(std::launch::async, [&]{
+		controller->ReleaseHold(PlayHold::SourcesNotAttached, "attach");
+	});
+	ASSERT_EQ(result.wait_for(std::chrono::seconds(5)),
+		std::future_status::ready);
+	EXPECT_EQ(plays.load(), 1);
 }

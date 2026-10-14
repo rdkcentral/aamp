@@ -76,12 +76,15 @@ void AampRialtoPlaybackController::EvaluateLocked(
 }
 
 void AampRialtoPlaybackController::Dispatch(
-	bool issuePlay, bool startPreRoll, const char *reason)
+	bool issuePlay, bool startPreRoll, const char *reason,
+	std::unique_lock<std::recursive_mutex> &playLock)
 {
 	if (startPreRoll && m_onPreRollReady)
 	{
 		AAMPLOG_INFO("only pre-roll remains - starting pre-roll (%s)", reason);
+		playLock.unlock();
 		m_onPreRollReady(reason);
+		playLock.lock();
 	}
 	if (issuePlay)
 	{
@@ -102,6 +105,7 @@ bool AampRialtoPlaybackController::ClaimPlayLocked()
 
 void AampRialtoPlaybackController::RequestPlay(const char *reason)
 {
+	std::unique_lock<std::recursive_mutex> playLock(m_playMutex);
 	bool issuePlay = false;
 	bool startPreRoll = false;
 	uint32_t holds = 0u;
@@ -121,11 +125,12 @@ void AampRialtoPlaybackController::RequestPlay(const char *reason)
 		AAMPLOG_INFO("play requested by %s - deferred, holds=0x%x",
 			reason, holds);
 	}
-	Dispatch(issuePlay, startPreRoll, reason);
+	Dispatch(issuePlay, startPreRoll, reason, playLock);
 }
 
 void AampRialtoPlaybackController::CancelPlayRequest(const char *reason)
 {
+	std::unique_lock<std::recursive_mutex> playLock(m_playMutex);
 	bool discarded = false;
 	bool issuePlay = false;
 	bool startPreRoll = false;
@@ -144,6 +149,7 @@ void AampRialtoPlaybackController::CancelPlayRequest(const char *reason)
 
 void AampRialtoPlaybackController::Reset(const char *reason)
 {
+	std::unique_lock<std::recursive_mutex> playLock(m_playMutex);
 	bool discardedRequest = false;
 	uint32_t droppedHolds = 0u;
 	{
@@ -162,6 +168,7 @@ void AampRialtoPlaybackController::Reset(const char *reason)
 
 void AampRialtoPlaybackController::AddHold(PlayHold hold, const char *reason)
 {
+	std::unique_lock<std::recursive_mutex> playLock(m_playMutex);
 	const uint32_t bit = static_cast<uint32_t>(hold);
 	bool changed = false;
 	bool issuePlay = false;
@@ -178,11 +185,12 @@ void AampRialtoPlaybackController::AddHold(PlayHold hold, const char *reason)
 	{
 		AAMPLOG_INFO("hold %s applied by %s", HoldName(hold), reason);
 	}
-	Dispatch(issuePlay, startPreRoll, reason);
+	Dispatch(issuePlay, startPreRoll, reason, playLock);
 }
 
 void AampRialtoPlaybackController::ReleaseHold(PlayHold hold, const char *reason)
 {
+	std::unique_lock<std::recursive_mutex> playLock(m_playMutex);
 	const uint32_t bit = static_cast<uint32_t>(hold);
 	bool changed = false;
 	bool issuePlay = false;
@@ -206,7 +214,7 @@ void AampRialtoPlaybackController::ReleaseHold(PlayHold hold, const char *reason
 	{
 		AAMPLOG_INFO("all holds clear - issuing play deferred until %s", reason);
 	}
-	Dispatch(issuePlay, startPreRoll, reason);
+	Dispatch(issuePlay, startPreRoll, reason, playLock);
 }
 
 bool AampRialtoPlaybackController::IsHeld(PlayHold hold) const
