@@ -20,6 +20,8 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 #include <chrono>
+#include <condition_variable>
+#include <mutex>
 #include "AampCurlDownloader.h"
 
 #include "AampConfig.h"
@@ -466,6 +468,89 @@ TEST_F(FunctionalTests, AampCurlDownloader_Retry_502)
 	EXPECT_EQ(408, respData->iHttpRetValue);
 	respData->show();
 	respData->clear();
+}
+
+TEST_F(FunctionalTests, AampCurlDownloader_Retry_SendError)
+{
+	DownloadResponsePtr respData = std::make_shared<DownloadResponse>();
+	DownloadConfigPtr inpData = std::make_shared<DownloadConfig>();
+	inpData->bNeedDownloadMetrics = true;
+	inpData->bIgnoreResponseHeader = true;
+	inpData->iDownloadRetryCount = 1;
+
+	EXPECT_CALL(*g_mockCurl, curl_easy_init()).WillOnce(Return(mCurlEasyHandle));
+	/* The curl easy handle will be cleaned when AampCurlDownloader is destroyed. */
+	EXPECT_CALL(*g_mockCurl, curl_easy_cleanup(mCurlEasyHandle));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_ptr(mCurlEasyHandle, CURLOPT_PROGRESSDATA, mAampCurlDownloader))
+		.WillOnce(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_func_xferinfo(mCurlEasyHandle, CURLOPT_XFERINFOFUNCTION, NotNull()))
+		.WillOnce(DoAll(SaveArgPointee<2>(&mCurlProgressCallback), Return(CURLE_OK)));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_ptr(mCurlEasyHandle, CURLOPT_WRITEDATA, mAampCurlDownloader))
+		.WillOnce(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_func_write(mCurlEasyHandle, CURLOPT_WRITEFUNCTION, NotNull()))
+		.WillOnce(DoAll(SaveArgPointee<2>(&mCurlWriteFunc), Return(CURLE_OK)));
+	mAampCurlDownloader->Initialize(inpData);
+
+	ASSERT_NE(mCurlProgressCallback, nullptr);
+	ASSERT_NE(mCurlWriteFunc, nullptr);
+
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_str(mCurlEasyHandle, CURLOPT_URL, mUrl.c_str()))
+		.WillOnce(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_perform(mCurlEasyHandle))
+		.WillOnce(Return(CURLE_SEND_ERROR))
+		.WillOnce(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_getinfo_int(mCurlEasyHandle, CURLINFO_RESPONSE_CODE, NotNull()))
+		.WillOnce(DoAll(SetArgPointee<2>(200), Return(CURLE_OK)));
+
+	mAampCurlDownloader->Download(mUrl, respData);
+
+	EXPECT_EQ(200, respData->iHttpRetValue);
+	EXPECT_FALSE(mAampCurlDownloader->IsDownloadActive());
+}
+
+/**
+ * @brief Verifies that AampCurlDownloader retries the download after a CURLE_RECV_ERROR on the first attempt.
+ *
+ * Configures the downloader with a retry count of 1 and simulates a
+ * CURLE_RECV_ERROR on the first curl_easy_perform call, followed by a
+ * successful CURLE_OK on the second attempt.
+ */
+TEST_F(FunctionalTests, AampCurlDownloader_Retry_RecvError)
+{
+	DownloadResponsePtr respData = std::make_shared<DownloadResponse>();
+	DownloadConfigPtr inpData = std::make_shared<DownloadConfig>();
+	inpData->bNeedDownloadMetrics = true;
+	inpData->bIgnoreResponseHeader = true;
+	inpData->iDownloadRetryCount = 1;
+
+	EXPECT_CALL(*g_mockCurl, curl_easy_init()).WillOnce(Return(mCurlEasyHandle));
+	/* The curl easy handle will be cleaned when AampCurlDownloader is destroyed. */
+	EXPECT_CALL(*g_mockCurl, curl_easy_cleanup(mCurlEasyHandle));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_ptr(mCurlEasyHandle, CURLOPT_PROGRESSDATA, mAampCurlDownloader))
+		.WillOnce(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_func_xferinfo(mCurlEasyHandle, CURLOPT_XFERINFOFUNCTION, NotNull()))
+		.WillOnce(DoAll(SaveArgPointee<2>(&mCurlProgressCallback), Return(CURLE_OK)));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_ptr(mCurlEasyHandle, CURLOPT_WRITEDATA, mAampCurlDownloader))
+		.WillOnce(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_func_write(mCurlEasyHandle, CURLOPT_WRITEFUNCTION, NotNull()))
+		.WillOnce(DoAll(SaveArgPointee<2>(&mCurlWriteFunc), Return(CURLE_OK)));
+	mAampCurlDownloader->Initialize(inpData);
+
+	ASSERT_NE(mCurlProgressCallback, nullptr);
+	ASSERT_NE(mCurlWriteFunc, nullptr);
+
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_str(mCurlEasyHandle, CURLOPT_URL, mUrl.c_str()))
+		.WillOnce(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_perform(mCurlEasyHandle))
+		.WillOnce(Return(CURLE_RECV_ERROR))
+		.WillOnce(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_getinfo_int(mCurlEasyHandle, CURLINFO_RESPONSE_CODE, NotNull()))
+		.WillOnce(DoAll(SetArgPointee<2>(200), Return(CURLE_OK)));
+
+	mAampCurlDownloader->Download(mUrl, respData);
+
+	EXPECT_EQ(200, respData->iHttpRetValue);
+	EXPECT_FALSE(mAampCurlDownloader->IsDownloadActive());
 }
 
 /**

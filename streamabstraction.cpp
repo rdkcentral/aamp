@@ -2813,23 +2813,13 @@ bool StreamAbstractionAAMP::CheckForRampDownProfile(int http_error)
 	{
 		http_error = getOriginalCurlError(http_error);
 
-		if (http_error == 404 || http_error == 403 || http_error == 500 || http_error == 503 || http_error == CURLE_PARTIAL_FILE)
+		if ( http_error == 404 || http_error == 403 ||
+			http_error == 500 || http_error == 503 ||
+			http_error == CURLE_PARTIAL_FILE || IsCurlTimeoutFailure (http_error) || CURLE_RECV_ERROR == http_error )
 		{
 			if (RampDownProfile(http_error))
 			{
 				AAMPLOG_INFO("StreamAbstractionAAMP: Condition Rampdown Success");
-				retValue = true;
-			}
-		}
-		// For timeout, rampdown in single steps might not be enough
-		else if (IsCurlTimeoutFailure (http_error))
-		{
-			if (UpdateProfileBasedOnFragmentCache())
-			{
-				retValue = true;
-			}
-			else if (RampDownProfile(http_error))
-			{
 				retValue = true;
 			}
 		}

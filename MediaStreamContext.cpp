@@ -330,7 +330,14 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 					}
 					else
 					{
-						AAMPLOG_WARN("%s StreamAbstractionAAMP_MPD::Already at the lowest profile, skipping segment at pos:%lf dur:%lf disc:%d",name,position,fragmentDurationS,discontinuity);
+						if (GetContext()->IsLowestProfile(GetContext()->currentProfileIndex))
+						{
+							AAMPLOG_WARN("%s StreamAbstractionAAMP_MPD::Already at the lowest profile, skipping segment at pos:%lf dur:%lf disc:%d", name, position, fragmentDurationS, discontinuity);
+						}
+						else
+						{
+							AAMPLOG_WARN("%s StreamAbstractionAAMP_MPD::Rampdown not applied for error:%d; skipping segment at pos:%lf dur:%lf disc:%d", name, httpErrorCode, position, fragmentDurationS, discontinuity);
+						}
 						if(!initSegment)
 							updateSkipPoint(position+fragmentDurationS,fragmentDurationS );
 						context->mRampDownCount = 0;
@@ -755,3 +762,4 @@ bool MediaStreamContext::CacheTsbFragment(std::shared_ptr<CachedFragment> fragme
 	}
 	return ret;
 }
+
