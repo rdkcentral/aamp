@@ -3036,7 +3036,8 @@ void PrivateInstanceAAMP::SendDrmErrorEvent(DrmMetaDataEventPtr event, bool isRe
 		}
 		else if (tuneFailure == AAMP_TUNE_CONCURRENCY_ERROR || tuneFailure == AAMP_TUNE_GEOBLOCKED_ERROR)
 		{
-			std::string description = tuneFailureMap[tuneFailure].description + " Business Status: " + std::to_string(event->getBusinessStatus());
+			std::string description{tuneFailureMap[tuneFailure].description};
+			description += " Business Status: " + std::to_string(event->getBusinessStatus());
 			SendErrorEvent(tuneFailure, description.c_str(), isRetryEnabled, event->getSecManagerClassCode(),event->getSecManagerReasonCode(), event->getBusinessStatus(), event->getResponseData());
 		}
 		else if(tuneFailure >= 0 && tuneFailure < AAMP_TUNE_FAILURE_UNKNOWN)

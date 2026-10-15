@@ -342,6 +342,7 @@ TEST_F(PrivAampEventTests, SendErrorEvent_ConcurrencyError_ReportsCode40Sub2)
 	EXPECT_CALL(*g_mockAampEventManager, SendEvent(AnEventOfType(AAMP_EVENT_TUNE_FAILED), AAMP_EVENT_ASYNC_MODE))
 		.WillOnce(::testing::SaveArg<0>(&capturedEvent));
 
+	p_aamp->rate = AAMP_NORMAL_PLAY_RATE;
 	p_aamp->SendErrorEvent(AAMP_TUNE_CONCURRENCY_ERROR);
 
 	MediaErrorEventPtr errorEvent = std::dynamic_pointer_cast<MediaErrorEvent>(capturedEvent);
@@ -360,6 +361,7 @@ TEST_F(PrivAampEventTests, SendErrorEvent_GeoBlockedError_ReportsCode40Sub3)
 	EXPECT_CALL(*g_mockAampEventManager, SendEvent(AnEventOfType(AAMP_EVENT_TUNE_FAILED), AAMP_EVENT_ASYNC_MODE))
 		.WillOnce(::testing::SaveArg<0>(&capturedEvent));
 
+	p_aamp->rate = AAMP_NORMAL_PLAY_RATE;
 	p_aamp->SendErrorEvent(AAMP_TUNE_GEOBLOCKED_ERROR);
 
 	MediaErrorEventPtr errorEvent = std::dynamic_pointer_cast<MediaErrorEvent>(capturedEvent);
