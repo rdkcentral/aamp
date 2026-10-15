@@ -562,7 +562,7 @@ static void HandleOnGstBufferUnderflowCb(int mediaType, AAMPGstPlayer * _this)
 	AampMediaType type = static_cast<AampMediaType>(mediaType);
 
 	_this->privateContext->mBufferControl[type].underflow(_this, type);
-	AAMPLOG_INFO("GStreamer underflow for media type %d; no retune (underflow handled by AampUnderflowMonitor)", type);
+	AAMPLOG_INFO("GStreamer underflow for media type %d; no retune", type);
 }
 
 /**
