@@ -4476,7 +4476,8 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 		// Rialto does not support dynamic streams, so we need to extract and save the
 		// subtitle init fragment from the main vod asset, so that it can be injected
 		// later if a pre-roll advert is played that does not contain subtitles.
-		if (ISCONFIGSET(eAAMPConfig_useRialtoSink))
+		if (ISCONFIGSET(eAAMPConfig_useRialtoSink) &&
+			!ISCONFIGSET(eAAMPConfig_DisableTTML))
 		{
 			/* XIONE-19145 / DELIA-71066: the foreground player owns the shared
 			 * Rialto pipeline's subtitle header slot - it always evicts any
