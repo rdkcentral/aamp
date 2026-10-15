@@ -6669,6 +6669,21 @@ void StreamAbstractionAAMP_MPD::SelectSubtitleTrack(bool newTune, std::vector<Te
 		return;
 	}
 
+	if (ISCONFIGSET(eAAMPConfig_DisableTTML))
+	{
+		TextTrackInfo preferredTrack = aamp->GetPreferredTextTrack();
+		preferredTrack.isCC = true;
+		aamp->SetPreferredTextTrack(preferredTrack);
+		AAMPLOG_INFO("SelectSubtitleTrack: TTML processing disabled, skipping OOB subtitle selection");
+	}
+	if (aamp->GetPreferredTextTrack().isCC)
+	{
+		tTracks = mTextTracks;
+		tTrackIdx = mTextTrackIndex;
+		AAMPLOG_INFO("SelectSubtitleTrack: CC track explicitly selected, skipping OOB subtitle selection");
+		return;
+	}
+
 	size_t numAdaptationSets = period->GetAdaptationSets().size();
 	if (AAMP_NORMAL_PLAY_RATE == mPlayRate)
 	{
