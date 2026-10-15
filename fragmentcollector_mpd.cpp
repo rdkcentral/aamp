@@ -6683,13 +6683,7 @@ void StreamAbstractionAAMP_MPD::SelectSubtitleTrack(bool newTune, std::vector<Te
 		AAMPLOG_INFO("SelectSubtitleTrack: TTML processing disabled, reporting in-band CC tracks only");
 		return;
 	}
-	if (aamp->GetPreferredTextTrack().isCC)
-	{
-		tTracks = mTextTracks;
-		tTrackIdx = mTextTrackIndex;
-		AAMPLOG_INFO("SelectSubtitleTrack: CC track explicitly selected, skipping OOB subtitle selection");
-		return;
-	}
+
 
 	size_t numAdaptationSets = period->GetAdaptationSets().size();
 	if (AAMP_NORMAL_PLAY_RATE == mPlayRate)
