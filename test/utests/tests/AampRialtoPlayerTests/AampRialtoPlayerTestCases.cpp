@@ -494,6 +494,21 @@ protected:
 			.WillByDefault(Return(true));
 	}
 
+	/// Build the StreamCodecInfo that StreamSink::Configure() receives from
+	/// AAMP. GstStreamOutputFormat mirrors StreamOutputFormat enumerator for
+	/// enumerator (see PrivateInstanceAAMP::GetMediaCodecInfo()).
+	static StreamCodecInfo MakeCodecInfo(
+		StreamOutputFormat video,
+		StreamOutputFormat audio,
+		StreamOutputFormat sub)
+	{
+		StreamCodecInfo codecInfo;
+		codecInfo.video.mCodecFormat = static_cast<GstStreamOutputFormat>(video);
+		codecInfo.audio.mCodecFormat = static_cast<GstStreamOutputFormat>(audio);
+		codecInfo.subtitle.mCodecFormat = static_cast<GstStreamOutputFormat>(sub);
+		return codecInfo;
+	}
+
 	void Configure(
 		StreamOutputFormat video = FORMAT_ISO_BMFF,
 		StreamOutputFormat audio = FORMAT_ISO_BMFF,
@@ -507,7 +522,7 @@ protected:
 		{
 			ResetMockPipeline();
 		}
-		m_player->Configure(video, audio, sub,
+		m_player->Configure(MakeCodecInfo(video, audio, sub),
 			/*bESChangeStatus=*/false,
 			/*setReadyAfterPipelineCreation=*/false);
 	}
@@ -635,7 +650,7 @@ TEST_F(AampRialtoPlayerTest, Configure_NullSourceCreator_DoesNotCrash)
 		/*exportFrames=*/nullptr,
 		std::move(nullCreator));
 	EXPECT_NO_THROW(
-		m_player->Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_INVALID, false, false));
+		m_player->Configure(MakeCodecInfo(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_INVALID), false, false));
 	g_mockPipelineFactory = m_mockFactory;
 }
 
@@ -1153,7 +1168,7 @@ TEST_F(AampRialtoPlayerTest, Stop_DestroysPipeline)
 				return std::move(trackedPipeline);
 			}));
 
-	m_player->Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_INVALID,
+	m_player->Configure(MakeCodecInfo(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_INVALID),
 		/*bESChangeStatus=*/false, /*setReadyAfterPipelineCreation=*/false);
 
 	EXPECT_FALSE(pipelineDestroyed)
@@ -4168,7 +4183,7 @@ TEST_F(AampRialtoPlayerTest,
 	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
 
 	// Second call with same formats — early return expected.
-	m_player->Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_INVALID,
+	m_player->Configure(MakeCodecInfo(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_INVALID),
 		/*bESChangeStatus=*/false,
 		/*setReadyAfterPipelineCreation=*/false);
 }
@@ -4183,7 +4198,7 @@ TEST_F(AampRialtoPlayerTest,
 	EXPECT_CALL(*m_mockFactory, createMediaPipeline(_, _)).Times(2);
 	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
 	ResetMockPipeline();
-	m_player->Configure(FORMAT_VIDEO_ES_H264, FORMAT_ISO_BMFF, FORMAT_INVALID,
+	m_player->Configure(MakeCodecInfo(FORMAT_VIDEO_ES_H264, FORMAT_ISO_BMFF, FORMAT_INVALID),
 		/*bESChangeStatus=*/false,
 		/*setReadyAfterPipelineCreation=*/false);
 }
@@ -4204,7 +4219,7 @@ TEST_F(AampRialtoPlayerTest,
 	ASSERT_NE(videoSource, nullptr);
 	EXPECT_EQ(videoSource->format(), FORMAT_UNKNOWN);
 
-	m_player->Configure(FORMAT_VIDEO_ES_H264, FORMAT_UNKNOWN, FORMAT_INVALID,
+	m_player->Configure(MakeCodecInfo(FORMAT_VIDEO_ES_H264, FORMAT_UNKNOWN, FORMAT_INVALID),
 		/*bESChangeStatus=*/false,
 		/*setReadyAfterPipelineCreation=*/false);
 
@@ -4226,7 +4241,7 @@ TEST_F(AampRialtoPlayerTest,
 	ASSERT_NE(videoSource, nullptr);
 	EXPECT_EQ(videoSource->format(), FORMAT_VIDEO_ES_H264);
 
-	m_player->Configure(FORMAT_UNKNOWN, FORMAT_ISO_BMFF, FORMAT_INVALID,
+	m_player->Configure(MakeCodecInfo(FORMAT_UNKNOWN, FORMAT_ISO_BMFF, FORMAT_INVALID),
 		/*bESChangeStatus=*/false,
 		/*setReadyAfterPipelineCreation=*/false);
 
@@ -4246,7 +4261,7 @@ TEST_F(AampRialtoPlayerTest,
 	ASSERT_NE(audioSource, nullptr);
 	EXPECT_EQ(audioSource->format(), FORMAT_UNKNOWN);
 
-	m_player->Configure(FORMAT_UNKNOWN, FORMAT_AUDIO_ES_AAC, FORMAT_INVALID,
+	m_player->Configure(MakeCodecInfo(FORMAT_UNKNOWN, FORMAT_AUDIO_ES_AAC, FORMAT_INVALID),
 		/*bESChangeStatus=*/false,
 		/*setReadyAfterPipelineCreation=*/false);
 
@@ -4268,7 +4283,7 @@ TEST_F(AampRialtoPlayerTest,
 	ASSERT_NE(audioSource, nullptr);
 	EXPECT_EQ(audioSource->format(), FORMAT_AUDIO_ES_AAC);
 
-	m_player->Configure(FORMAT_ISO_BMFF, FORMAT_UNKNOWN, FORMAT_INVALID,
+	m_player->Configure(MakeCodecInfo(FORMAT_ISO_BMFF, FORMAT_UNKNOWN, FORMAT_INVALID),
 		/*bESChangeStatus=*/false,
 		/*setReadyAfterPipelineCreation=*/false);
 
@@ -4291,7 +4306,7 @@ TEST_F(AampRialtoPlayerTest,
 	ASSERT_NE(audioSource, nullptr);
 
 	// Trickplay entry: audio goes FORMAT_INVALID.
-	m_player->Configure(FORMAT_ISO_BMFF, FORMAT_INVALID, FORMAT_INVALID,
+	m_player->Configure(MakeCodecInfo(FORMAT_ISO_BMFF, FORMAT_INVALID, FORMAT_INVALID),
 		/*bESChangeStatus=*/false,
 		/*setReadyAfterPipelineCreation=*/false);
 
@@ -4309,7 +4324,7 @@ TEST_F(AampRialtoPlayerTest,
 	EXPECT_CALL(*m_mockFactory, createMediaPipeline(_, _)).Times(2);
 	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
 	ResetMockPipeline();
-	m_player->Configure(FORMAT_INVALID, FORMAT_ISO_BMFF, FORMAT_INVALID,
+	m_player->Configure(MakeCodecInfo(FORMAT_INVALID, FORMAT_ISO_BMFF, FORMAT_INVALID),
 		/*bESChangeStatus=*/false,
 		/*setReadyAfterPipelineCreation=*/false);
 }
@@ -4325,13 +4340,13 @@ TEST_F(AampRialtoPlayerTest,
 	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
 
 	// Trickplay entry: audio → FORMAT_INVALID (EOS signalled, no recreation).
-	m_player->Configure(FORMAT_ISO_BMFF, FORMAT_INVALID, FORMAT_INVALID,
+	m_player->Configure(MakeCodecInfo(FORMAT_ISO_BMFF, FORMAT_INVALID, FORMAT_INVALID),
 		/*bESChangeStatus=*/false,
 		/*setReadyAfterPipelineCreation=*/false);
 
 	// Trickplay exit: audio returns to the same original format — still no
 	// recreation because the source set is unchanged.
-	m_player->Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_INVALID,
+	m_player->Configure(MakeCodecInfo(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_INVALID),
 		/*bESChangeStatus=*/false,
 		/*setReadyAfterPipelineCreation=*/false);
 
@@ -4348,7 +4363,7 @@ TEST_F(AampRialtoPlayerTest,
 	EXPECT_CALL(*m_mockFactory, createMediaPipeline(_, _)).Times(2);
 	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
 	ResetMockPipeline();
-	m_player->Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_INVALID,
+	m_player->Configure(MakeCodecInfo(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_INVALID),
 		/*bESChangeStatus=*/true,
 		/*setReadyAfterPipelineCreation=*/false);
 }
@@ -4363,7 +4378,7 @@ TEST_F(AampRialtoPlayerTest,
 	EXPECT_CALL(*m_mockFactory, createMediaPipeline(_, _)).Times(2);
 	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
 	ResetMockPipeline();
-	m_player->Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_INVALID,
+	m_player->Configure(MakeCodecInfo(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_INVALID),
 		/*bESChangeStatus=*/false,
 		/*setReadyAfterPipelineCreation=*/true);
 }
@@ -4379,7 +4394,7 @@ TEST_F(AampRialtoPlayerTest,
 	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
 	m_player->Stop(false);
 	ResetMockPipeline();
-	m_player->Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_INVALID,
+	m_player->Configure(MakeCodecInfo(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_INVALID),
 		/*bESChangeStatus=*/false,
 		/*setReadyAfterPipelineCreation=*/false);
 }
@@ -4403,7 +4418,7 @@ TEST_F(AampRialtoPlayerTest,
 	ASSERT_NE(audioSource, nullptr);
 
 	// Trickplay entry: audio goes FORMAT_INVALID.
-	m_player->Configure(FORMAT_ISO_BMFF, FORMAT_INVALID, FORMAT_INVALID,
+	m_player->Configure(MakeCodecInfo(FORMAT_ISO_BMFF, FORMAT_INVALID, FORMAT_INVALID),
 		/*bESChangeStatus=*/false,
 		/*setReadyAfterPipelineCreation=*/false);
 
@@ -4432,7 +4447,7 @@ TEST_F(AampRialtoPlayerTest,
 	ASSERT_NE(audioSource, nullptr);
 
 	// Trickplay entry: audio goes FORMAT_INVALID.
-	m_player->Configure(FORMAT_ISO_BMFF, FORMAT_INVALID, FORMAT_INVALID,
+	m_player->Configure(MakeCodecInfo(FORMAT_ISO_BMFF, FORMAT_INVALID, FORMAT_INVALID),
 		/*bESChangeStatus=*/false,
 		/*setReadyAfterPipelineCreation=*/false);
 	EXPECT_TRUE(audioSource->state().eos);
@@ -4505,7 +4520,7 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	// Trickplay Configure: audio → FORMAT_INVALID, no pipeline recreation.
 	// The pipeline reuse path does not touch the state machine, so state
 	// remains FLUSHED.
-	m_player->Configure(FORMAT_ISO_BMFF, FORMAT_INVALID, FORMAT_INVALID,
+	m_player->Configure(MakeCodecInfo(FORMAT_ISO_BMFF, FORMAT_INVALID, FORMAT_INVALID),
 		/*bESChangeStatus=*/false,
 		/*setReadyAfterPipelineCreation=*/false);
 
@@ -4534,14 +4549,14 @@ TEST_F(AampRialtoPlayerTest,
 	ASSERT_NE(audioSource, nullptr);
 
 	// Trickplay entry.
-	m_player->Configure(FORMAT_ISO_BMFF, FORMAT_INVALID, FORMAT_INVALID,
+	m_player->Configure(MakeCodecInfo(FORMAT_ISO_BMFF, FORMAT_INVALID, FORMAT_INVALID),
 		/*bESChangeStatus=*/false,
 		/*setReadyAfterPipelineCreation=*/false);
 	EXPECT_TRUE(audioSource->state().eos);
 
 	// Trickplay exit: same original audio format — no recreation, but
 	// EOS must be cleared.
-	m_player->Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_INVALID,
+	m_player->Configure(MakeCodecInfo(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_INVALID),
 		/*bESChangeStatus=*/false,
 		/*setReadyAfterPipelineCreation=*/false);
 
@@ -4719,7 +4734,7 @@ TEST_F(AampRialtoPlayerTest,
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP,
 		ResumeTrackDownloads(eMEDIATYPE_SUBTITLE)).Times(1);
 
-	m_player->Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_INVALID,
+	m_player->Configure(MakeCodecInfo(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_INVALID),
 		/*bESChangeStatus=*/false,
 		/*setReadyAfterPipelineCreation=*/false);
 }
@@ -5434,7 +5449,7 @@ TEST_F(AampRialtoPlayerTest,
 
 	ResetMockPipeline();
 	EXPECT_CALL(*m_mockPipelinePtr, setVolume(DoubleEq(0.4), _, _)).Times(1);
-	m_player->Configure(FORMAT_VIDEO_ES_H264, FORMAT_ISO_BMFF, FORMAT_INVALID,
+	m_player->Configure(MakeCodecInfo(FORMAT_VIDEO_ES_H264, FORMAT_ISO_BMFF, FORMAT_INVALID),
 		/*bESChangeStatus=*/false,
 		/*setReadyAfterPipelineCreation=*/false);
 }
@@ -5736,7 +5751,7 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 		// Force pipeline recreation via bESChangeStatus=true so we always
 		// hit ShouldRecreatePipeline() path.
 		ResetMockPipeline();
-		m_player->Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_INVALID,
+		m_player->Configure(MakeCodecInfo(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_INVALID),
 			/*bESChangeStatus=*/true,
 			/*setReadyAfterPipelineCreation=*/false);
 		configureFinished.store(true, std::memory_order_release);
@@ -5779,7 +5794,7 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	// No flush in progress — Configure must complete immediately.
 	ResetMockPipeline();
 	EXPECT_NO_THROW(
-		m_player->Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_INVALID,
+		m_player->Configure(MakeCodecInfo(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_INVALID),
 			/*bESChangeStatus=*/true, /*setReadyAfterPipelineCreation=*/false));
 }
 
@@ -6216,7 +6231,7 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	// again (m_mockPipeline was already consumed by the first Configure())
 	// and swap m_mockPipelinePtr to an unused mock, even though the pipeline
 	// is actually reused here.
-	m_player->Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_INVALID,
+	m_player->Configure(MakeCodecInfo(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_INVALID),
 		/*bESChangeStatus=*/false, /*setReadyAfterPipelineCreation=*/false);
 
 	EXPECT_EQ(m_mockSources[eMEDIATYPE_VIDEO]->state().gateMode,
@@ -6289,7 +6304,7 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
 	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHED);
 
-	m_player->Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_INVALID,
+	m_player->Configure(MakeCodecInfo(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_INVALID),
 		/*bESChangeStatus=*/false, /*setReadyAfterPipelineCreation=*/false);
 
 	// The position is already resolved by the Flush() above - Stream() must
@@ -6328,7 +6343,7 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHED);
 
 	// TuneHelper()'s reused-pipeline Configure() for the seek.
-	m_player->Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_INVALID,
+	m_player->Configure(MakeCodecInfo(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_INVALID),
 		/*bESChangeStatus=*/false, /*setReadyAfterPipelineCreation=*/false);
 
 	EXPECT_EQ(m_mockSources[eMEDIATYPE_VIDEO]->state().gateMode,

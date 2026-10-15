@@ -42,9 +42,7 @@ AampRialtoPlayer::AampRialtoPlayer(
 
 AampRialtoPlayer::~AampRialtoPlayer() {}
 
-void AampRialtoPlayer::Configure(
-	StreamOutputFormat, StreamOutputFormat, StreamOutputFormat,
-	bool, bool) {}
+void AampRialtoPlayer::Configure(StreamCodecInfo&&, bool, bool) {}
 
 bool AampRialtoPlayer::SendCopy(
 	AampMediaType, std::vector<uint8_t> &&, double, double, double)

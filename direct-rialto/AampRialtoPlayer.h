@@ -121,9 +121,7 @@ public:
 
 	/// @copydoc StreamSink::Configure
 	void Configure(
-		StreamOutputFormat format,
-		StreamOutputFormat audioFormat,
-		StreamOutputFormat subFormat,
+		StreamCodecInfo&& codecInfo,
 		bool bESChangeStatus,
 		bool setReadyAfterPipelineCreation = false) override;
 

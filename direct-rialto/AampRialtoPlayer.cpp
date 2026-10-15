@@ -424,12 +424,19 @@ void AampRialtoPlayer::WaitForFlushToComplete()
 }
 
 void AampRialtoPlayer::Configure(
-	StreamOutputFormat videoFormat,
-	StreamOutputFormat audioFormat,
-	StreamOutputFormat subFormat,
+	StreamCodecInfo&& codecInfo,
 	bool bESChangeStatus,
 	bool setReadyAfterPipelineCreation)
 {
+	// GstStreamOutputFormat and StreamOutputFormat share the same
+	// enumerator order (see PrivateInstanceAAMP::GetMediaCodecInfo()).
+	const StreamOutputFormat videoFormat =
+		static_cast<StreamOutputFormat>(codecInfo.video.mCodecFormat);
+	const StreamOutputFormat audioFormat =
+		static_cast<StreamOutputFormat>(codecInfo.audio.mCodecFormat);
+	const StreamOutputFormat subFormat =
+		static_cast<StreamOutputFormat>(codecInfo.subtitle.mCodecFormat);
+
 	AAMPLOG_INFO("ENTRY videoFormat=%d audioFormat=%d subFormat=%d bESChangeStatus=%d setReadyAfterPipelineCreation=%d", static_cast<int>(videoFormat), static_cast<int>(audioFormat),
 		static_cast<int>(subFormat), bESChangeStatus, setReadyAfterPipelineCreation);
 
