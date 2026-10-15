@@ -496,6 +496,7 @@ set(LIBAAMP_SOURCES
 	dash/utils/Path.cpp
 	AampMPDDownloader.cpp AampMPDDownloader.h
 	AampMPDParseHelper.cpp AampMPDParseHelper.h
+	AampMPDTailTrim.cpp AampMPDTailTrim.h
 	AampMPDUtils.cpp AampMPDUtils.h
 	AampVodStitcher.cpp AampVodStitcher.h
 	ElementaryProcessor.cpp ElementaryProcessor.h
@@ -673,6 +674,7 @@ install(FILES
 	AampDRMLicPreFetcherInterface.h
 	AampMPDDownloader.h
 	AampMPDParseHelper.h
+	AampMPDTailTrim.h
 	AampMPDPeriodInfo.h
 	AampLLDASHData.h
 	AampTSBSessionManager.h
