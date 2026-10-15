@@ -332,3 +332,39 @@ TEST_F(PrivAampEventTests, SendDownloadErrorEvent_UnknownTuneFailure_DispatchesF
 	EXPECT_EQ(errorEvent->getCode(), 100) << "Unknown tuneFailure should be remapped to AAMP_TUNE_FAILURE_UNKNOWN (code 100)";
 	EXPECT_FALSE(p_aamp->mIsFlushFdsInCurlStore) << "Unknown tuneFailure should not set the curl store flush flag";
 }
+
+/**
+ * @brief Verify SendErrorEvent reports code 40/2 for AAMP_TUNE_CONCURRENCY_ERROR.
+ */
+TEST_F(PrivAampEventTests, SendErrorEvent_ConcurrencyError_ReportsCode40Sub2)
+{
+	AAMPEventPtr capturedEvent;
+	EXPECT_CALL(*g_mockAampEventManager, SendEvent(AnEventOfType(AAMP_EVENT_TUNE_FAILED), AAMP_EVENT_ASYNC_MODE))
+		.WillOnce(::testing::SaveArg<0>(&capturedEvent));
+
+	p_aamp->SendErrorEvent(AAMP_TUNE_CONCURRENCY_ERROR);
+
+	MediaErrorEventPtr errorEvent = std::dynamic_pointer_cast<MediaErrorEvent>(capturedEvent);
+	ASSERT_NE(errorEvent, nullptr);
+	EXPECT_EQ(errorEvent->getFailure(), AAMP_TUNE_CONCURRENCY_ERROR);
+	EXPECT_EQ(errorEvent->getCode(), 40);
+	EXPECT_EQ(errorEvent->getSubCode(), 2);
+}
+
+/**
+ * @brief Verify SendErrorEvent reports code 40/3 for AAMP_TUNE_GEOBLOCKED_ERROR.
+ */
+TEST_F(PrivAampEventTests, SendErrorEvent_GeoBlockedError_ReportsCode40Sub3)
+{
+	AAMPEventPtr capturedEvent;
+	EXPECT_CALL(*g_mockAampEventManager, SendEvent(AnEventOfType(AAMP_EVENT_TUNE_FAILED), AAMP_EVENT_ASYNC_MODE))
+		.WillOnce(::testing::SaveArg<0>(&capturedEvent));
+
+	p_aamp->SendErrorEvent(AAMP_TUNE_GEOBLOCKED_ERROR);
+
+	MediaErrorEventPtr errorEvent = std::dynamic_pointer_cast<MediaErrorEvent>(capturedEvent);
+	ASSERT_NE(errorEvent, nullptr);
+	EXPECT_EQ(errorEvent->getFailure(), AAMP_TUNE_GEOBLOCKED_ERROR);
+	EXPECT_EQ(errorEvent->getCode(), 40);
+	EXPECT_EQ(errorEvent->getSubCode(), 3);
+}

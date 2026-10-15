@@ -575,3 +575,37 @@ TEST_F(AampDRMLicManagerTests, TriggerLAProfileErrorCb_SelfAbort_DoesNotSendErro
 
 	mTestableDRMLicenseManager->TriggerLAProfileErrorCb(callbackData);
 }
+
+struct BusinessStatusCase
+{
+	int32_t businessStatus;
+	AAMPTuneFailure expected;
+};
+
+/**
+ * @brief Validate ContentProtectionService business status to tune failure mapping
+ *
+ * Oracle: business error table for class 200 / reason 102.
+ */
+TEST(AampDRMLicManagerBusinessStatusTests, MapBusinessStatusToTuneFailure)
+{
+	const BusinessStatusCase cases[] = {
+		{12005, AAMP_TUNE_CONCURRENCY_ERROR},
+		{12007, AAMP_TUNE_GEOBLOCKED_ERROR},
+		{12021, AAMP_TUNE_GEOBLOCKED_ERROR},
+		{12027, AAMP_TUNE_GEOBLOCKED_ERROR},
+		{0, AAMP_TUNE_AUTHORIZATION_FAILURE},
+		{12000, AAMP_TUNE_AUTHORIZATION_FAILURE},
+		{12012, AAMP_TUNE_AUTHORIZATION_FAILURE},
+		{12013, AAMP_TUNE_AUTHORIZATION_FAILURE},
+		{12025, AAMP_TUNE_AUTHORIZATION_FAILURE},
+		{12999, AAMP_TUNE_LICENCE_REQUEST_FAILED},
+		{-1, AAMP_TUNE_LICENCE_REQUEST_FAILED},
+	};
+
+	for (const auto &c : cases)
+	{
+		EXPECT_EQ(AampDRMLicenseManager::MapBusinessStatusToTuneFailure(c.businessStatus), c.expected)
+			<< "businessStatus=" << c.businessStatus;
+	}
+}

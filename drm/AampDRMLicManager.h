@@ -352,4 +352,12 @@ public:
 		const unsigned char* contentMetadataPtr = nullptr, bool isPrimarySession = false);
 
 	AAMPTuneFailure MapDrmToAampTuneFailure(DrmTuneFailure drmError);
+
+	/**
+	 * @fn MapBusinessStatusToTuneFailure
+	 * @brief Map a ContentProtectionService business status (class 200, reason 102) to a tune failure
+	 * @param[in] businessStatus business status reported by the license server
+	 * @return AAMPTuneFailure for the business status
+	 */
+	static AAMPTuneFailure MapBusinessStatusToTuneFailure(int32_t businessStatus);
 };
