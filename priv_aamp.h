@@ -2399,7 +2399,7 @@ public:
 	 *   @param[in] trackType - Video/Audio
 	 *   @return void
 	 */
-	void ScheduleRetune(PlaybackErrorType errorType, AampMediaType trackType, bool bufferFull = false);
+	void ScheduleRetune(PlaybackErrorType errorType, AampMediaType trackType);
 
 	/**
 	 * @brief PrivateInstanceAAMP Constructor
@@ -4478,7 +4478,7 @@ protected:
 	int  mTuneAttempts;			//To distinguish between new tune & retries with redundant over urls.
 	long long mPlayerLoadTime;
 	std::atomic<AAMPPlayerState> mState;  //Changed to atomic as there are cross thread accesses.
-	long long lastUnderFlowTimeMs[AAMP_TRACK_COUNT];
+	long long lastPtsErrorTimeMs[AAMP_TRACK_COUNT];
 	bool mbTrackDownloadsBlocked[AAMP_TRACK_COUNT];
 	DrmHelperPtr mCurrentDrm;
 	int  mPersistedProfileIndex;
