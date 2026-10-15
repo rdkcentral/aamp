@@ -86,7 +86,7 @@ std::shared_ptr<_manifestDownloadResponse> _manifestDownloadResponse::clone()
 	clonedDoc->mMPDDownloadResponse->mDownloadData = mMPDDownloadResponse->mDownloadData;
 	clonedDoc->mMPDParseHelper = std::make_shared<AampMPDParseHelper>(*this->mMPDParseHelper);
 	clonedDoc->mRootNode = NULL;
-	
+
 	// No reporting: this is a backup clone used for manifest refresh fallback.
 	// The original manifest was already parsed and drops were reported.
 	// Re-parsing the same timeline should not re-report the same segments.
@@ -114,7 +114,7 @@ void _manifestDownloadResponse::trimPeriodTails()
 */
 void _manifestDownloadResponse::parseMPD()
 {
-	std::string manifestStr;	
+	std::string manifestStr;
 	xmlTextReaderPtr mXMLReader =   NULL; // Initialize to nullptr
 
 	if(this->mMPDDownloadResponse)
@@ -317,7 +317,7 @@ void AampMPDDownloader::Release()
 			mMPDDnldDataCondVar.notify_all();
 			mMPDNotifierCondVar.notify_all();
 		}
-		// Disable downloads before joining the threads,which will exit the download loops gracefully 
+		// Disable downloads before joining the threads,which will exit the download loops gracefully
 		mDownloader1.Release();
 		mDownloader2.Release();
 
@@ -528,7 +528,7 @@ void AampMPDDownloader::downloadMPDThread1()
 			AAMPLOG_ERR("curl request %s %s Error Code [%u]",mEffectiveUrl.c_str(), (mMPDData->mMPDDownloadResponse->iHttpRetValue < 100) ? "Curl" : "HTTP", mMPDData->mMPDDownloadResponse->iHttpRetValue);
 
 			mMPDData->mMPDStatus	=	AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR;
-			
+
 			if( mMPDData->mMPDDownloadResponse->iHttpRetValue == CURLE_OPERATION_TIMEDOUT )
 			{
 				mMPDData->mMPDDownloadResponse->iHttpRetValue = GetCurlTimeoutFailureReason(mDownloader1.GetCurlHandle());
@@ -559,7 +559,7 @@ void AampMPDDownloader::downloadMPDThread1()
 			// Push the output to Queue for Consumer to take
 			pushDownloadDataToQueue();
 		}
-		// harvest downloaded manifest 
+		// harvest downloaded manifest
 		harvestManifest();
 
 		if(mCachedMPDData != nullptr)
@@ -620,7 +620,7 @@ void AampMPDDownloader::downloadMPDThread1()
  * @brief Harvest the manifest.
  *
  * This function is responsible for harvesting the manifest file to the specified harvest path
- * 
+ *
  * return void
  */
 void AampMPDDownloader::harvestManifest()
@@ -639,7 +639,7 @@ void AampMPDDownloader::harvestManifest()
 					getDefaultHarvestPath(harvestPath);
 					AAMPLOG_WARN("Harvest path has not configured, taking default path %s", harvestPath.c_str());
 				}
-				std::string dataStr =  mMPDData->mMPDDownloadResponse->getString(); 
+				std::string dataStr =  mMPDData->mMPDDownloadResponse->getString();
 				if(!dataStr.empty() )
 				{
 					if(aamp_WriteFile(mMPDData->mMPDDownloadResponse->sEffectiveUrl, dataStr.c_str(),(int) dataStr.length(), mediaType, mManifestRefreshCount,harvestPath.c_str()))
@@ -814,7 +814,7 @@ ManifestDownloadResponsePtr AampMPDDownloader::GetManifest(bool bWait, int iWait
 				if (curlHandle)
 				{
 					/*  As the curl being properly initialized and the nameLookupTime and connectTime are populated properly
-						so we can safely assume that the timeout was due to a timeout error, we can able to get the reason through 
+						so we can safely assume that the timeout was due to a timeout error, we can able to get the reason through
 						curl_easy_getinfo() and can able to obtain the reason behind the timeout error,
 					*/
 					respPtr->mMPDDownloadResponse->iHttpRetValue = GetCurlTimeoutFailureReason(curlHandle);
@@ -909,22 +909,22 @@ bool AampMPDDownloader::readMPDData(ManifestDownloadResponsePtr dnldManifest)
 	AAMPLOG_TRACE("Publish Time of Updated manifest %" PRIu64 ", Previous manifest update time %" PRIu64, publishTimeMSec, mPublishTime);
 
 	/* If there is no update in the manifest and publish time is not zero, Set the refresh interval to a minimal value (500ms). This is done for a maximum of two times to avoid frequent manifest refresh.*/
-	if (publishTimeMSec == mPublishTime && publishTimeMSec != 0) 
+	if (publishTimeMSec == mPublishTime && publishTimeMSec != 0)
 	{
-		if (mMinimalRefreshRetryCount < 2) 
+		if (mMinimalRefreshRetryCount < 2)
 		{
 			mRefreshInterval = (uint32_t)(MIN_DELAY_BETWEEN_MPD_UPDATE_MS);
 			AAMPLOG_INFO("No update detected in manifest. Setting refresh interval to minimal refresh interval %u", mRefreshInterval);
 			mMinimalRefreshRetryCount++;
 			/* To avoid race condition when GetNetworkTime is executed ,meanwhile manifest refresh is done for next attempt */
 			retVal = false;
-		} 
+		}
 		else
 		{
 			mRefreshInterval = getMeNextManifestDownloadWaitTime(std::move(dnldManifest));
 		}
-	} 
-	else 
+	}
+	else
 	{
 		mPublishTime = publishTimeMSec;
 		mRefreshInterval = getMeNextManifestDownloadWaitTime(std::move(dnldManifest));
@@ -936,7 +936,7 @@ bool AampMPDDownloader::readMPDData(ManifestDownloadResponsePtr dnldManifest)
 /**
 * @fn IsMPDLowLatency
 * @brief Checks if the MPD has low latency mode enabled.
-* @param LLDashData Reference to AampLLDashServiceData object 
+* @param LLDashData Reference to AampLLDashServiceData object
 * @return True if low latency mode is enabled in the MPD, false otherwise.
 */
 bool AampMPDDownloader::IsMPDLowLatency(AampLLDashServiceData &LLDashData)
@@ -1022,12 +1022,12 @@ bool AampMPDDownloader::isMPDLowLatency(ManifestDownloadResponsePtr dnldManifest
 									break;
 								}
 							}
-				
+
 						}
 					}
 				}
 			}
-			
+
 			if (!isSuccess)
 			{
 				AAMPLOG_INFO("Latency availabilityTimeOffset attribute not available");
@@ -1165,9 +1165,9 @@ uint32_t AampMPDDownloader::getMeNextManifestDownloadWaitTime(ManifestDownloadRe
 			minDelayBetweenPlaylistUpdates = (uint32_t)minUpdateDuration;
 		}
 		// When the buffer hits zero, it is worth refreshing frequently in order to rebuild the buffer
-		if (bufferAvailable <= 0.5 && mIsLowLatency) 
+		if (bufferAvailable <= 0.5 && mIsLowLatency)
 		{
-			// Set the minimum delay between playlist updates 
+			// Set the minimum delay between playlist updates
 			minDelayBetweenPlaylistUpdates = (uint32_t)(MIN_DELAY_BETWEEN_MPD_UPDATE_MS);
 		}
 
@@ -1181,15 +1181,15 @@ uint32_t AampMPDDownloader::getMeNextManifestDownloadWaitTime(ManifestDownloadRe
 * @brief Registers a callback function for manifest update notifications.
 * @param fnPtr Pointer to the callback function.
 * @param cbArg Pointer to data passed to the callback function.
-* return void 
+* return void
 */
 void AampMPDDownloader::RegisterCallback(ManifestUpdateCallbackFunc fnPtr, void *cbArg)
 {
 	std::unique_lock<std::mutex> lck2(mMPDNotifierMtx);
 	AAMPLOG_INFO("Register for Callback ");
 	if(fnPtr !=NULL && mManifestUpdateCb == NULL)
-	{	
-		lck2.unlock(); 
+	{
+		lck2.unlock();
 		if(mDownloadNotifierThread.joinable())
 		{
 			AAMPLOG_INFO("Joining MPD Download thread [%zx]", GetPrintableThreadID(mDownloadNotifierThread));
