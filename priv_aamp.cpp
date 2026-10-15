@@ -2654,17 +2654,14 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 			{
 				// This is trickplay or slow motion
 				currentRate = rate;
-				AAMPLOG_INFO("Trickplay, currentRate=%f", currentRate);
 			}
 			else if(mLatencyMonitor->IsRateCorrectionEnabled())
 			{
 				currentRate = mLatencyMonitor->GetCurrentRate();
-				AAMPLOG_INFO("Rate correction enabled, currentRate=%f", currentRate);
 			}
 			else
 			{
 				currentRate  = rate;
-				AAMPLOG_INFO("Rate correction disabled, currentRate=%f", currentRate);
 			}
 			// For consistency - updated to acquire StreamLock here, to prevent access to mpStreamAbstractionAAMP
 			// as its getting deleted. StreamLock is acquired for a lot stuff, so getting it here would lead to unexpected delays
@@ -3566,7 +3563,6 @@ void PrivateInstanceAAMP::NotifyBitRateChangeEvent(BitsPerSecond bitrate, Bitrat
  */
 void PrivateInstanceAAMP::NotifySpeedChanged(float rate, bool changeState)
 {
-	AAMPLOG_INFO("NotifySpeedChanged rate:%f changeState:%d", rate, changeState);
 	if (changeState)
 	{
 		if (rate == 0)
