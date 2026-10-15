@@ -972,6 +972,12 @@ public:
 	bool ReconfigureForElementaryStreamUpdate();
 
 	/**
+	 * @brief Get if an explicit StreamSink Flush() is guaranteed to follow a discontinuity (from stream abstraction)
+	 * @return true if StreamSink::Flush() will be called explicitly for the pending discontinuity
+	 */
+	bool WillFlushOnDiscontinuity();
+
+	/**
 	* @brief Function pointer passed as argument to AampMPDDownloader class. This function is invoked to read the preprocessed manifest provided by application.
 	*  Also it generate error event if preprocessed manifest is not available.
 	*
@@ -2393,7 +2399,7 @@ public:
 	 *   @param[in] trackType - Video/Audio
 	 *   @return void
 	 */
-	void ScheduleRetune(PlaybackErrorType errorType, AampMediaType trackType, bool bufferFull = false);
+	void ScheduleRetune(PlaybackErrorType errorType, AampMediaType trackType);
 
 	/**
 	 * @brief PrivateInstanceAAMP Constructor
@@ -4472,7 +4478,7 @@ protected:
 	int  mTuneAttempts;			//To distinguish between new tune & retries with redundant over urls.
 	long long mPlayerLoadTime;
 	std::atomic<AAMPPlayerState> mState;  //Changed to atomic as there are cross thread accesses.
-	long long lastUnderFlowTimeMs[AAMP_TRACK_COUNT];
+	long long lastPtsErrorTimeMs[AAMP_TRACK_COUNT];
 	bool mbTrackDownloadsBlocked[AAMP_TRACK_COUNT];
 	DrmHelperPtr mCurrentDrm;
 	int  mPersistedProfileIndex;
@@ -4586,6 +4592,11 @@ private:
 	void PlayFromTsbStart();
 
 	void SetCMCDTrackData(AampMediaType mediaType);
+	/**
+	 * @brief Get the current video bitrate without waiting for the stream lock.
+	 * @return Current bitrate, or 0 if the lock or stream abstraction is unavailable.
+	 */
+	BitsPerSecond GetVideoBitrateNonBlocking();
 	std::vector<float> getSupportedPlaybackSpeeds(void);
 	bool IsFogUrl(const char *mainManifestUrl);
 
