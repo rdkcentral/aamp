@@ -112,7 +112,7 @@ void getConfigs(DrmSessionManager *mDrmSessionManager , PrivateInstanceAAMP *aam
  *  @brief AampDRMLicenseManager constructor.
  */
 AampDRMLicenseManager::AampDRMLicenseManager(int maxDrmSessions, PrivateInstanceAAMP *aamp,
-                                             DrmSessionCreator creator) : mMaxDRMSessions(maxDrmSessions),
+							 DrmSessionCreator creator) : mMaxDRMSessions(maxDrmSessions),
 		aampInstance(aamp), mDrmSessionManager(NULL), accessToken()
 {
     aampInstance = aamp; 

@@ -63,6 +63,7 @@ public:
 			representationIndex(0),
 			profileChanged(true),
 			adaptationSetId(0),
+			adaptationSetIdValid(false),
 			fragmentDescriptor(),
 			context(ctx),
 			initialization(""),
@@ -368,6 +369,7 @@ public:
 	StreamAbstractionAAMP_MPD* context;
 	std::string initialization;
 	uint32_t adaptationSetId;
+	bool adaptationSetIdValid;      /**< true once adaptationSetId reflects a resolved selection; guards reorder detection on first use */
 	bool mSkipSegmentOnError;
 	double scaledPTO;
 	bool failAdjacentSegment;

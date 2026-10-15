@@ -105,7 +105,7 @@ typedef enum
 	eAAMPConfig_MPDDiscontinuityHandling,					/**< Enable MPD discontinuity handling*/
 	eAAMPConfig_MPDDiscontinuityHandlingCdvr,				/**< Enable MPD discontinuity handling for CDVR*/
 	eAAMPConfig_ForceHttp,							/**< Force HTTP*/
-	eAAMPConfig_InternalReTune, 						/**< Internal re-tune on underflows/ pts errors*/
+	eAAMPConfig_InternalReTune, 						/**< Internal re-tune on pts errors and pipeline errors*/
 	eAAMPConfig_AudioOnlyPlayback,						/**< AAMP Audio Only Playback*/
 	eAAMPConfig_Base64LicenseWrapping,					/**< Encode and decode the license data in base64 format*/
 	eAAMPConfig_GStreamerBufferingBeforePlay,				/**< Enable pre buffering logic which ensures minimum buffering is done before pipeline play*/

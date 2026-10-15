@@ -54,6 +54,8 @@ public:
 	MOCK_METHOD(void, SetStreamCaps, (AampMediaType, MediaCodecInfo&&));
 	MOCK_METHOD(void, QueueProtectionEvent, (AampMediaType, const std::vector<MediaProtectionInfo>&));
 	MOCK_METHOD(void, FlushStreamSink, (double position, double rate));
+	MOCK_METHOD(void, SetTrackEncrypted, (AampMediaType, bool));
+	MOCK_METHOD(MediaCodecInfo, GetMediaCodecInfo, (AampMediaType));
 	MOCK_METHOD(bool, SendStreamCopy, (AampMediaType mediaType, const std::vector<uint8_t>& buffer, double fpts, double fdts, double fDuration));
 	MOCK_METHOD(bool, SendStreamCopy, (AampMediaType mediaType, const void *ptr, size_t len, double fpts, double fdts, double fDuration));
 	MOCK_METHOD(MediaFormat,GetMediaFormatTypeEnum,());
@@ -102,11 +104,9 @@ public:
 	MOCK_METHOD(bool, IsAtLivePoint, ());
 	MOCK_METHOD(bool, IsLiveStream, ());
 	MOCK_METHOD(bool, TrackDownloadsAreEnabled, (AampMediaType type));
-	MOCK_METHOD(bool, ReconfigureForElementaryStreamUpdate, ());
-
 	MOCK_METHOD(bool, WillFlushOnDiscontinuity, ());
-	MOCK_METHOD(void, CompleteDiscontinuityDataDeliverForPTSRestamp,
-		(AampMediaType type));
+	MOCK_METHOD(bool, ReconfigureForElementaryStreamUpdate, ());
+	MOCK_METHOD(void, CompleteDiscontinuityDataDeliverForPTSRestamp, (AampMediaType type));
 	MOCK_METHOD(long, GetCurrentLatencyMs, ());
 	MOCK_METHOD(double, GetBufferedDurationSecs, ());
 	MOCK_METHOD(double, GetVideoBufferedDurationSecs, ());
