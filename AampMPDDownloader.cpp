@@ -25,6 +25,7 @@
 
 #include "AampCurlDownloader.h"
 #include "AampMPDDownloader.h"
+#include "AampMPDTailTrim.h"
 #include "AampUtils.h"
 #include "AampLogManager.h"
 #include <inttypes.h>
@@ -85,9 +86,26 @@ std::shared_ptr<_manifestDownloadResponse> _manifestDownloadResponse::clone()
 	clonedDoc->mMPDDownloadResponse->mDownloadData = mMPDDownloadResponse->mDownloadData;
 	clonedDoc->mMPDParseHelper = std::make_shared<AampMPDParseHelper>(*this->mMPDParseHelper);
 	clonedDoc->mRootNode = NULL;
+	
+	// No reporting: this is a backup clone used for manifest refresh fallback.
+	// The original manifest was already parsed and drops were reported.
+	// Re-parsing the same timeline should not re-report the same segments.
+	clonedDoc->mTailDropTracker = nullptr;
 	clonedDoc->parseMPD();
 	AAMPLOG_TRACE("Exit");
 	return clonedDoc;
+}
+
+void _manifestDownloadResponse::trimPeriodTails()
+{
+	const std::vector<DroppedSegment> dropped = TrimPeriodTailSegments(mMPDInstance.get(), AAMP_DASH_PERIOD_TAIL_START_TOLERANCE_SEC, AAMP_DASH_PERIOD_TAIL_MIN_OVERHANG_SEC);
+	if (mTailDropTracker)
+	{
+		for (const DroppedSegment &segment : mTailDropTracker->Update(dropped))
+		{
+			LogDroppedSegment(segment);
+		}
+	}
 }
 
 /**
@@ -129,6 +147,11 @@ void _manifestDownloadResponse::parseMPD()
 						mpd->SetFetchTime(fetchTime);
 						std::shared_ptr<dash::mpd::IMPD> tmp_ptr(mpd);
 						mMPDInstance = std::move(tmp_ptr);
+						if (mTrimPeriodTailSegments)
+						{
+							// Must precede Initialize(), which caches Period start/duration/end
+							trimPeriodTails();
+						}
 						mMPDStatus = AAMPStatusType::eAAMPSTATUS_OK;
 						mMPDParseHelper->Initialize(mpd);
 					}
@@ -169,8 +192,7 @@ AampMPDDownloader::AampMPDDownloader() :  mMPDBufferQ(),mMPDBufferSize(1),mMPDBu
 	mMPDDnldDataMtx(),mMPDDnldDataCondVar(),
 	mLLDashData(),mCurrentposDeltaToManifestEnd(-1),mPublishTime(0),mMinimalRefreshRetryCount(0),
 	mMPDNotifyPending(false),mPreProcessErrorCode(CURLE_OPERATION_TIMEDOUT),
-	mManifestRefreshStatus(),
-	mManifestRefreshRetryFailureCount(0),mManifestRefreshRetryFailureThreshold(DEFAULT_MANIFEST_REFRESH_FAILURE_THRESHOLD)
+	mManifestRefreshErrorCode(0),mManifestRefreshErrorType(AAMPStatusType::eAAMPSTATUS_OK)
 {
 }
 
@@ -220,6 +242,7 @@ void AampMPDDownloader::Initialize(ManifestDownloadConfigPtr mpdDnldCfg, std::st
 
 	std::lock_guard<std::recursive_mutex> lock(mMPDDnldMutex);
 	mMPDDnldCfg = std::move(mpdDnldCfg);
+	mTailDropTracker = std::make_shared<TailDropTracker>();
 
 	if(mpdPreProcessFuncptr)
 	{
@@ -317,9 +340,8 @@ void AampMPDDownloader::Release()
 		/**< Reset LLD Data*/
 		mLLDashData.clear();
 		mMinimalRefreshRetryCount = 0; //Reset the refresh interval retry counter
-		std::lock_guard<std::mutex> lock(mManifestRefreshStatusMutex);
-		mManifestRefreshRetryFailureCount.store(0);
-		mManifestRefreshStatus.store(ManifestRefreshStatus());
+		mManifestRefreshErrorType.store(AAMPStatusType::eAAMPSTATUS_OK);
+		mManifestRefreshErrorCode.store(0);
 		AAMPLOG_INFO("Release Called in MPD Downloader - Exit %ld %ld", mMPDData.use_count(),mMPDDnldCfg.use_count());
 	}
 }
@@ -384,6 +406,8 @@ void AampMPDDownloader::downloadMPDThread1()
 			//mDownloader1.Clear();
 			AAMPLOG_INFO("aamp url:%d,%d,%d,%f,%s", eMEDIATYPE_TELEMETRY_MANIFEST, eMEDIATYPE_MANIFEST,eCURLINSTANCE_VIDEO,0.000000, tuneUrl.c_str());
 			mMPDData = MakeSharedManifestDownloadResponsePtr();
+			mMPDData->mTrimPeriodTailSegments = mMPDDnldCfg->mTrimPeriodTailSegments;
+			mMPDData->mTailDropTracker = mTailDropTracker;
 		}
 		//If Manifest data already provided use it ,not required to download the Manifest
 		if (!mMPDDnldCfg->mPreProcessedManifest.empty())
@@ -522,23 +546,8 @@ void AampMPDDownloader::downloadMPDThread1()
 			{
 				errorCode = mMPDData->mMPDDownloadResponse->iHttpRetValue;
 			}
-			ManifestRefreshStatus refreshStatus(mMPDData->mMPDStatus, errorCode);
-
-			std::lock_guard<std::mutex> lock(mManifestRefreshStatusMutex);
-			if (refreshStatus.type == AAMPStatusType::eAAMPSTATUS_OK)
-			{
-				mManifestRefreshRetryFailureCount.store(0);
-			}
-			else
-			{
-				ManifestRefreshStatus previousStatus = mManifestRefreshStatus.load();
-				bool sameAsPreviousFailure = (previousStatus == refreshStatus);
-				if (sameAsPreviousFailure)
-					mManifestRefreshRetryFailureCount.fetch_add(1);
-				else
-					mManifestRefreshRetryFailureCount.store(1);
-			}
-			mManifestRefreshStatus.store(refreshStatus);
+			mManifestRefreshErrorType.store(mMPDData->mMPDStatus);
+			mManifestRefreshErrorCode.store(errorCode);
 		}
 
 		if(doPush)
@@ -551,6 +560,8 @@ void AampMPDDownloader::downloadMPDThread1()
 
 		if(mCachedMPDData != nullptr)
 		{
+			// Create a backup before refresh; if refresh fails, this will be used for stitching.
+			// Clear the tracker to avoid re-reporting drops that were already logged.
 			cachedBackupData = mCachedMPDData->clone();
 			AAMPLOG_TRACE("Created copy of cached:%p backup:%p", mCachedMPDData.get(), cachedBackupData.get());
 			AAMPLOG_TRACE("Created copy of cachedMPD:%p backupMPD:%p", mCachedMPDData->mDashMpdDoc.get(), cachedBackupData->mDashMpdDoc.get());
@@ -1194,13 +1205,9 @@ void AampMPDDownloader::RegisterCallback(ManifestUpdateCallbackFunc fnPtr, void 
 
 ManifestRefreshStatus AampMPDDownloader::GetManifestRefreshStatus() const
 {
-	std::lock_guard<std::mutex> lock(mManifestRefreshStatusMutex);
-	if (mManifestRefreshRetryFailureCount.load() < mManifestRefreshRetryFailureThreshold)
-	{
-		AAMPLOG_INFO("Manifest refresh failure count (%d) has not reached threshold (%d); suppressing failure status", mManifestRefreshRetryFailureCount.load(), mManifestRefreshRetryFailureThreshold);
-		return ManifestRefreshStatus();
-	}
-	return mManifestRefreshStatus.load();
+	return ManifestRefreshStatus(
+		mManifestRefreshErrorType.load(),
+		mManifestRefreshErrorCode.load());
 }
 
 /**

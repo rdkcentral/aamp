@@ -76,6 +76,17 @@ TEST_F(MediaStreamContextTest, GetContextTest)
     mMediaStreamContext->GetContext();
 }
 
+TEST_F(MediaStreamContextTest, GetManifestTimeScaleTest)
+{
+    //Assert: FragmentDescriptor defaults TimeScale to 1 before any manifest is parsed
+    EXPECT_EQ(mMediaStreamContext->GetManifestTimeScale(), 1u);
+
+    //Act: set the manifest-declared timescale, as manifest parsing would
+    mMediaStreamContext->fragmentDescriptor.TimeScale = 90000;
+    //Assert: reflects the fragment descriptor's timescale
+    EXPECT_EQ(mMediaStreamContext->GetManifestTimeScale(), 90000u);
+}
+
 TEST_F(MediaStreamContextTest, CacheFragmentChunkTest)
 {
     //Act:call CacheFragmentChunk function

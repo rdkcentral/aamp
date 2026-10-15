@@ -179,7 +179,8 @@ TEST_F(IsoBmffHelperTests, restampPtsTest)
 	auto expectedPtr = buffer.data();
 	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(expectedPtr, buffer.size()));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(false, -1)).WillOnce(Return(true));
-	EXPECT_CALL(*g_mockIsoBmffBuffer, restampPts(ptsOffset));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, restampPts(ptsOffset))
+		.WillOnce(Return(true));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getSegmentDuration());
 	EXPECT_TRUE(helper->RestampPts(buffer, ptsOffset,url, trackName, timeScale));
 }

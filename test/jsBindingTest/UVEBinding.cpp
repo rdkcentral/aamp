@@ -24,13 +24,17 @@
 #include <JavaScriptCore/JavaScript.h>
 #endif
 
+#include <curl/curl.h>
+
 #include <iostream>
 #include <fstream>
 #include <sstream>
+#include <string>
 #include <thread>
 #include <vector>
 #include <map>
 #include <mutex>
+#include <atomic>
 
 // AAMP JS registration
 extern "C" void aamp_LoadJSController(JSGlobalContextRef context);
@@ -131,6 +135,215 @@ static JSValueRef js_clear_timeout(
     return JSValueMakeUndefined(ctx);
 }
 
+// ---------------------------------------------------------------------------
+// __httpRequest__(method, url, headerLines, body, callback) backing fetch().
+// libcurl runs on a worker thread; the callback runs on the GLib main loop.
+// ---------------------------------------------------------------------------
+
+static const long kHttpTimeoutMs = 30000;
+
+struct HttpRequest {
+    JSGlobalContextRef ctx = nullptr;
+    JSObjectRef        callback = nullptr;
+    std::string        method;
+    std::string        url;
+    std::string        headerLines;
+    std::string        body;
+    long               status = 0;
+    std::string        response;
+    std::string        effectiveUrl;
+    std::string        error;
+};
+
+// gHttpWorkers is only touched on the main thread; workers hand results back via gHttpDone.
+static std::map<HttpRequest*, std::thread> gHttpWorkers;
+static std::vector<HttpRequest*>           gHttpDone;
+static std::mutex                          gHttpDoneMutex;
+static std::atomic<bool>                   gHttpShutdown{false};
+
+static std::string JSValueToStdString(JSContextRef ctx, JSValueRef value, JSValueRef* exception)
+{
+    JSStringRef str = JSValueToStringCopy(ctx, value, exception);
+    if (!str) { return std::string(); }
+    size_t maxSize = JSStringGetMaximumUTF8CStringSize(str);
+    std::vector<char> buffer(maxSize);
+    JSStringGetUTF8CString(str, buffer.data(), maxSize);
+    JSStringRelease(str);
+    return std::string(buffer.data());
+}
+
+static size_t http_write(char* ptr, size_t size, size_t nmemb, void* userData)
+{
+    static_cast<std::string*>(userData)->append(ptr, size * nmemb);
+    return size * nmemb;
+}
+
+static int http_progress(void* /*clientp*/, curl_off_t /*dltotal*/, curl_off_t /*dlnow*/,
+                         curl_off_t /*ultotal*/, curl_off_t /*ulnow*/)
+{
+    return gHttpShutdown ? 1 : 0;
+}
+
+static void http_deliver(HttpRequest* req)
+{
+    JSGlobalContextRef ctx = req->ctx;
+
+    JSStringRef responseStr = JSStringCreateWithUTF8CString(req->response.c_str());
+    JSStringRef effectiveUrlStr = JSStringCreateWithUTF8CString(req->effectiveUrl.c_str());
+    JSValueRef args[4];
+    args[0] = JSValueMakeNumber(ctx, static_cast<double>(req->status));
+    args[1] = JSValueMakeString(ctx, responseStr);
+    if (req->error.empty()) {
+        args[2] = JSValueMakeUndefined(ctx);
+    } else {
+        JSStringRef errorStr = JSStringCreateWithUTF8CString(req->error.c_str());
+        args[2] = JSValueMakeString(ctx, errorStr);
+        JSStringRelease(errorStr);
+    }
+    args[3] = JSValueMakeString(ctx, effectiveUrlStr);
+    JSStringRelease(responseStr);
+    JSStringRelease(effectiveUrlStr);
+
+    JSValueRef exc = nullptr;
+    JSObjectCallAsFunction(ctx, req->callback, nullptr, 4, args, &exc);
+    JSValueUnprotect(ctx, req->callback);
+    delete req;
+}
+
+static gboolean http_drain(gpointer /*userData*/)
+{
+    std::vector<HttpRequest*> done;
+    {
+        std::lock_guard<std::mutex> lock(gHttpDoneMutex);
+        done.swap(gHttpDone);
+    }
+    for (HttpRequest* req : done) {
+        auto it = gHttpWorkers.find(req);
+        if (it != gHttpWorkers.end()) {
+            it->second.join();
+            gHttpWorkers.erase(it);
+        }
+        http_deliver(req);
+    }
+    return G_SOURCE_REMOVE;
+}
+
+static void http_finish(HttpRequest* req)
+{
+    {
+        std::lock_guard<std::mutex> lock(gHttpDoneMutex);
+        gHttpDone.push_back(req);
+    }
+    g_idle_add(http_drain, nullptr);
+}
+
+/**
+ * Cancel and join outstanding requests; must run on the main thread after the
+ * loop exits and before the JS context is released.
+ */
+static void http_shutdown()
+{
+    gHttpShutdown = true;
+    for (auto& worker : gHttpWorkers) {
+        worker.second.join();
+        JSValueUnprotect(worker.first->ctx, worker.first->callback);
+        delete worker.first;
+    }
+    gHttpWorkers.clear();
+    std::lock_guard<std::mutex> lock(gHttpDoneMutex);
+    gHttpDone.clear();
+}
+
+static void http_worker(HttpRequest* req)
+{
+    CURL* curl = curl_easy_init();
+    if (!curl) {
+        req->error = "curl_easy_init failed";
+        http_finish(req);
+        return;
+    }
+
+    struct curl_slist* headers = nullptr;
+    std::istringstream lines(req->headerLines);
+    std::string line;
+    while (std::getline(lines, line)) {
+        if (!line.empty()) {
+            headers = curl_slist_append(headers, line.c_str());
+        }
+    }
+
+    curl_easy_setopt(curl, CURLOPT_URL, req->url.c_str());
+#if LIBCURL_VERSION_NUM >= 0x075500
+    curl_easy_setopt(curl, CURLOPT_PROTOCOLS_STR, "http,https");
+    curl_easy_setopt(curl, CURLOPT_REDIR_PROTOCOLS_STR, "http,https");
+#else
+    curl_easy_setopt(curl, CURLOPT_PROTOCOLS, CURLPROTO_HTTP | CURLPROTO_HTTPS);
+    curl_easy_setopt(curl, CURLOPT_REDIR_PROTOCOLS, CURLPROTO_HTTP | CURLPROTO_HTTPS);
+#endif
+    if (req->method == "HEAD") {
+        curl_easy_setopt(curl, CURLOPT_NOBODY, 1L);
+    } else if (req->method != "GET") {
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, req->body.c_str());
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, static_cast<long>(req->body.size()));
+        if (req->method != "POST") {
+            curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, req->method.c_str());
+        }
+    }
+    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, http_write);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &req->response);
+    curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT_MS, kHttpTimeoutMs);
+    curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
+    curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 0L);
+    curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION, http_progress);
+
+    CURLcode rc = curl_easy_perform(curl);
+    if (rc == CURLE_OK) {
+        curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &req->status);
+        char* effectiveUrl = nullptr;
+        if (curl_easy_getinfo(curl, CURLINFO_EFFECTIVE_URL, &effectiveUrl) == CURLE_OK && effectiveUrl) {
+            req->effectiveUrl = effectiveUrl;
+        }
+    } else {
+        req->error = curl_easy_strerror(rc);
+    }
+
+    curl_slist_free_all(headers);
+    curl_easy_cleanup(curl);
+    http_finish(req);
+}
+
+static JSValueRef js_http_request(
+    JSContextRef ctx,
+    JSObjectRef  /*function*/,
+    JSObjectRef  /*thisObject*/,
+    size_t argumentCount,
+    const JSValueRef arguments[],
+    JSValueRef* exception)
+{
+    if (argumentCount < 5 || !JSValueIsObject(ctx, arguments[4])) {
+        return JSValueMakeUndefined(ctx);
+    }
+    JSObjectRef cb = JSValueToObject(ctx, arguments[4], exception);
+    if (!cb || !JSObjectIsFunction(ctx, cb)) {
+        return JSValueMakeUndefined(ctx);
+    }
+
+    JSGlobalContextRef globalCtx = JSContextGetGlobalContext(ctx);
+    HttpRequest* req = new HttpRequest();
+    req->ctx         = globalCtx;
+    req->callback    = cb;
+    req->method      = JSValueToStdString(ctx, arguments[0], exception);
+    req->url         = JSValueToStdString(ctx, arguments[1], exception);
+    req->headerLines = JSValueToStdString(ctx, arguments[2], exception);
+    req->body        = JSValueToStdString(ctx, arguments[3], exception);
+    JSValueProtect(globalCtx, cb);
+
+    gHttpWorkers.emplace(req, std::thread(http_worker, req));
+    return JSValueMakeUndefined(ctx);
+}
+
 /**
  * Browser API polyfill injected before the user script.
  * Provides stubs for DOM/window APIs not available in the JavaScriptCore
@@ -210,13 +423,34 @@ var document = {
     }
 };
 
-// Stub fetch — TST_UVE_vidcap.js calls fetch() only when isActive() is true,
-// which requires the 'vcap' query param in the URL.  Since window.location.href
-// has no query params in the CLI environment, isActive() always returns false
-// and fetch() is never reached.  This stub keeps the script from throwing a
-// ReferenceError if it is somehow reached.
-function fetch(url) {
-    return Promise.reject(new Error("fetch() is not available in the CLI environment"));
+// Minimal fetch() over native __httpRequest__: method, plain-object headers and
+// string body in; ok, status, url, text() and json() out.  Text bodies only.
+function fetch(input, init) {
+    init = init || {};
+    var url = String(input);
+    var method = String(init.method || "GET").toUpperCase();
+    var headerLines = [];
+    if (init.headers) {
+        for (var name in init.headers) {
+            headerLines.push(name + ": " + init.headers[name]);
+        }
+    }
+    var body = (init.body === undefined || init.body === null) ? "" : String(init.body);
+    return new Promise(function(resolve, reject) {
+        __httpRequest__(method, url, headerLines.join("\n"), body, function(status, text, error, effectiveUrl) {
+            if (error !== undefined) {
+                reject(new TypeError("fetch failed: " + error));
+                return;
+            }
+            resolve({
+                ok: status >= 200 && status < 300,
+                status: status,
+                url: effectiveUrl || url,
+                text: function() { return Promise.resolve(text); },
+                json: function() { return Promise.resolve().then(function() { return JSON.parse(text); }); }
+            });
+        });
+    });
 }
 
 // Wrap setTimeout so the returned handle has a .clear() method.
@@ -347,6 +581,12 @@ static void installConsole(JSGlobalContextRef ctx)
                         kJSPropertyAttributeNone, nullptr);
     JSStringRelease(clearTimeoutName);
 
+    JSStringRef httpName = JSStringCreateWithUTF8CString("__httpRequest__");
+    JSObjectRef httpFunc = JSObjectMakeFunctionWithCallback(ctx, httpName, js_http_request);
+    JSObjectSetProperty(ctx, global, httpName, httpFunc,
+                        kJSPropertyAttributeNone, nullptr);
+    JSStringRelease(httpName);
+
     // __quitMainLoop__ — called when the top-level async IIFE settles
     JSStringRef quitName = JSStringCreateWithUTF8CString("__quitMainLoop__");
     JSObjectRef quitFunc = JSObjectMakeFunctionWithCallback(ctx, quitName, js_quit_main_loop);
@@ -359,6 +599,7 @@ static int main_func(int argc, char** argv)
 {
 
     gst_init(&argc, &argv);
+    curl_global_init(CURL_GLOBAL_DEFAULT);
 
     if (argc < 2) {
         std::cerr << "Usage: ./jsbind <script.js>\n";
@@ -407,6 +648,7 @@ static int main_func(int argc, char** argv)
 
     // Cleanup (only reached if loop exits)
     g_main_loop_unref(gMainLoop);
+    http_shutdown();
     JSGlobalContextRelease(ctx);
 
     return 0;

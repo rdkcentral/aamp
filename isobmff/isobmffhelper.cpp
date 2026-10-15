@@ -199,7 +199,10 @@ bool IsoBmffHelper::RestampPts(std::vector<uint8_t> &buffer, int64_t ptsOffset, 
 		return false;
 	}
 
-	isoBmffBuffer.restampPts(ptsOffset);
+	if (!isoBmffBuffer.restampPts(ptsOffset))
+	{
+		return false;
+	}
 	// NOTE: This log line is used by the pts_restamp_check.py test tool,
 	// and may be used by other tests for validation purposes (e.g. L2 tests).
 	// Please check restamping tests and tools before modifying this log line.
