@@ -309,9 +309,12 @@ void AampMPDDownloader::Release()
 		{
 			std::lock_guard<std::recursive_mutex> lock(mMPDDnldMutex);
 			mReleaseCalled = true;
+			{
+				// Synchronise with the waiters' predicate checks before notifying
+				std::lock_guard<std::mutex> refreshLock(mRefreshMtx);
+			}
 			mRefreshCondVar.notify_all();
 			{
-				// Synchronise with the GetManifest() predicate check before notifying
 				std::lock_guard<std::mutex> bufLock(mMPDBufferMutex);
 			}
 			mMPDDnldDataCondVar.notify_all();
@@ -874,7 +877,7 @@ bool AampMPDDownloader::waitForRefreshInterval(uint32_t waitMs)
 	}
 
 	std::unique_lock<std::mutex> lck(mRefreshMtx);
-	if (mRefreshCondVar.wait_for(lck, std::chrono::milliseconds(waitMs)) == std::cv_status::timeout)
+	if (!mRefreshCondVar.wait_for(lck, std::chrono::milliseconds(waitMs), [this] { return mReleaseCalled.load(); }))
 	{
 		refreshNeeded = true;
 	}
@@ -1245,10 +1248,7 @@ void AampMPDDownloader::downloadNotifierThread()
 	// infinite wait for download notification
 	while (!mReleaseCalled && mManifestUpdateCb)
 	{
-		if(!mMPDNotifyPending.load())
-		{
-			mMPDNotifierCondVar.wait(lck2);
-		}
+		mMPDNotifierCondVar.wait(lck2, [this] { return mMPDNotifyPending.load() || mReleaseCalled || !mManifestUpdateCb; });
 
 		if(!mReleaseCalled && mManifestUpdateCb)
 		{
