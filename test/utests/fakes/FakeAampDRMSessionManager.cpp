@@ -24,6 +24,11 @@ std::shared_ptr<MockDRMSessionManager> g_mockDRMSessionManager{};
 
 DrmSessionManager::DrmSessionManager(int maxDrmSessions, void *player, std::function<void(uint32_t, uint32_t, const std::string&)> watermarkSessionUpdateCallback, DrmSessionCreator creator) 
 {
+	if (g_mockDRMSessionManager)
+	{
+		// Test seam: report whether a non-null creator reached this constructor.
+		g_mockDRMSessionManager->CaptureSessionCreator(static_cast<bool>(creator));
+	}
 }
 
 DrmSessionManager::~DrmSessionManager()
