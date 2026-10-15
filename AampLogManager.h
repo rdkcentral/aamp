@@ -24,6 +24,7 @@
  * @brief Log managed for Aamp
  */
 
+#include <atomic>
 #include <vector>
 #include <string>
 #include <memory.h>
@@ -49,7 +50,7 @@ extern const char* GetMediaTypeName( AampMediaType mediaType ); // from AampUtil
  */
 #define AAMPLOG( LEVEL, FORMAT, ... ) \
 do { \
-if( (LEVEL) >= AampLogManager::aampLoglevel ) \
+if( (LEVEL) >= eLOGLEVEL_TRACE ) \
 { \
 logprintf( LEVEL, __FILE__, __FUNCTION__, __LINE__, FORMAT, ##__VA_ARGS__); \
 } \
@@ -128,6 +129,20 @@ struct AAMPAbrInfo
  */
 extern void logprintf(AAMP_LogLevel level, const char* file, const char* func, int line, const char *format, ...)  __attribute__ ((format (printf, 5, 6)));
 
+/**
+ * @brief Low-level log emission (no FDR interaction).
+ * Used by FDR Dump to emit pre-formatted log lines through the configured backend
+ * without risking recursion back into FDR.
+ *
+ * @param logLevel  The AAMP log level (for ethanlog level mapping).
+ * @param line      Pre-formatted, NUL-terminated log string.
+ * @param disableRedirection  If true, use printf (CLI mode).
+ * @param enableEthanRedirection  If true, use ethanlog; otherwise sd_journal.
+ */
+void emitLogLine(int logLevel, const char* line,
+                 bool disableRedirection, bool enableEthanRedirection);
+void flushFlightDataRecorder(int triggerLevel, const char* triggerSource);
+
 extern thread_local int gPlayerId;
 
 class UsingPlayerId
@@ -152,11 +167,11 @@ public:
 class AampLogManager
 {
 public:
-	static bool disableLogRedirection;		/**<  disables log re-direction to journal or ethan log apis and uses vprintf - used by simulators */
-	static AAMP_LogLevel aampLoglevel;
-	static bool locked;
-	static bool enableEthanLogRedirection;  /**<  Enables Ethan log redirection which uses Ethan lib for logging */
-	static bool logFilename;				/**<  Include source filename in log output */
+	static std::atomic<bool> disableLogRedirection;		/**<  disables log re-direction to journal or ethan log apis and uses vprintf - used by simulators */
+	static std::atomic<AAMP_LogLevel> aampLoglevel;
+	static std::atomic<bool> locked;
+	static std::atomic<bool> enableEthanLogRedirection;  /**<  Enables Ethan log redirection which uses Ethan lib for logging */
+	static std::atomic<bool> logFilename;				/**<  Include source filename in log output */
 	
 	/**
 	 * @fn aampLogger
@@ -374,7 +389,7 @@ public:
 	 */
 	static bool isLogLevelAllowed(AAMP_LogLevel chkLevel)
 	{
-		return (chkLevel>=aampLoglevel);
+		return (chkLevel >= aampLoglevel.load(std::memory_order_relaxed));
 	}
 	
 	/**
@@ -385,10 +400,10 @@ public:
 	 */
 	static void setLogLevel(AAMP_LogLevel newLevel)
 	{
-		if( !locked )
+		if (!locked.load(std::memory_order_relaxed))
 		{
-			aampLoglevel = newLevel;
-			AAMPLOG_MIL("Log level set to %d", aampLoglevel);
+			aampLoglevel.store(newLevel, std::memory_order_relaxed);
+			AAMPLOG_MIL("Log level set to %d", newLevel);
 		}
 	}
 	
@@ -399,7 +414,7 @@ public:
 	 */
 	static void lockLogLevel( bool lock )
 	{
-		locked = lock;
+		locked.store(lock, std::memory_order_relaxed);
 	}
 	
 	/**
