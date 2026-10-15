@@ -494,3 +494,70 @@ TEST_F(FunctionalTests,
 
 	mAampMPDDownloader->Release();
 }
+
+// p0 declares a 10s duration but its audio timeline ends with a 3.2s segment starting 0.2s before that end.
+static const char *kTailOverhangManifest =
+	"<?xml version=\"1.0\" encoding=\"utf-8\"?>"
+	"<MPD xmlns=\"urn:mpeg:dash:schema:mpd:2011\" type=\"static\" mediaPresentationDuration=\"PT20S\">"
+	"<Period id=\"p0\" start=\"PT0S\" duration=\"PT10S\"><AdaptationSet contentType=\"audio\" mimeType=\"audio/mp4\">"
+	"<SegmentTemplate timescale=\"1000\" initialization=\"init.mp4\" media=\"$Time$.m4s\"><SegmentTimeline>"
+	"<S t=\"0\" d=\"2000\" r=\"3\" /><S t=\"8000\" d=\"1800\" /><S t=\"9800\" d=\"3200\" />"
+	"</SegmentTimeline></SegmentTemplate><Representation id=\"1\" bandwidth=\"1000\" codecs=\"x\"/></AdaptationSet></Period></MPD>";
+
+static size_t AudioTimelineEntries(const _manifestDownloadResponse &response)
+{
+	return response.mMPDInstance->GetPeriods().at(0)->GetAdaptationSets().at(0)->GetSegmentTemplate()->GetSegmentTimeline()->GetTimelines().size();
+}
+
+static void LoadTailOverhangManifest(_manifestDownloadResponse &response, bool trimPeriodTailSegments)
+{
+	const std::string manifest = kTailOverhangManifest;
+	response.mMPDDownloadResponse->mDownloadData.assign(manifest.begin(), manifest.end());
+	response.mMPDDownloadResponse->sEffectiveUrl = "http://host/asset/manifest.mpd";
+	response.mTrimPeriodTailSegments = trimPeriodTailSegments;
+}
+
+TEST_F(FunctionalTests, ParseMPD_TrimsPeriodTailWhenEnabled)
+{
+	_manifestDownloadResponse response;
+	LoadTailOverhangManifest(response, true);
+
+	response.parseMPD();
+
+	ASSERT_EQ(response.mMPDStatus, AAMPStatusType::eAAMPSTATUS_OK);
+	EXPECT_EQ(AudioTimelineEntries(response), 2u);
+}
+
+TEST_F(FunctionalTests, ParseMPD_LeavesPeriodTailWhenDisabled)
+{
+	_manifestDownloadResponse response;
+	LoadTailOverhangManifest(response, false);
+
+	response.parseMPD();
+
+	ASSERT_EQ(response.mMPDStatus, AAMPStatusType::eAAMPSTATUS_OK);
+	EXPECT_EQ(AudioTimelineEntries(response), 3u);
+}
+
+TEST_F(FunctionalTests, ParseMPD_CloneKeepsTrimSetting)
+{
+	_manifestDownloadResponse original;
+	LoadTailOverhangManifest(original, true);
+
+	std::shared_ptr<_manifestDownloadResponse> cloned = original.clone();
+
+	EXPECT_TRUE(cloned->mTrimPeriodTailSegments);
+	ASSERT_EQ(cloned->mMPDStatus, AAMPStatusType::eAAMPSTATUS_OK);
+	EXPECT_EQ(AudioTimelineEntries(*cloned), 2u);
+}
+
+TEST_F(FunctionalTests, ManifestDownloadConfig_CopyKeepsTrimSetting)
+{
+	ManifestDownloadConfig config(-1);
+	EXPECT_FALSE(config.mTrimPeriodTailSegments);
+	config.mTrimPeriodTailSegments = true;
+
+	ManifestDownloadConfig copy(config);
+
+	EXPECT_TRUE(copy.mTrimPeriodTailSegments);
+}
