@@ -189,7 +189,7 @@ AampMPDDownloader::AampMPDDownloader() :  mMPDBufferQ(),mMPDBufferSize(1),mMPDBu
 	mMPDDnldCfg(NULL),mDownloaderThread_t1(),mDownloaderThread_t2(),mDownloader1(),mDownloader2(),mMPDData(nullptr),mAppName(""),
 	mManifestUpdateCb(NULL),mManifestUpdateCbArg(NULL),mDownloadNotifierThread(),mCachedMPDData(nullptr),
 	mCheckedLLDData(false),mMPDNotifierMtx(),mMPDNotifierCondVar(),mManifestRefreshCount(0),mIsLowLatency(false),
-	mMPDDnldDataMtx(),mMPDDnldDataCondVar(),
+	mMPDDnldDataCondVar(),
 	mLLDashData(),mCurrentposDeltaToManifestEnd(-1),mPublishTime(0),mMinimalRefreshRetryCount(0),
 	mMPDNotifyPending(false),mPreProcessErrorCode(CURLE_OPERATION_TIMEDOUT),
 	mManifestRefreshErrorCode(0),mManifestRefreshErrorType(AAMPStatusType::eAAMPSTATUS_OK)
@@ -310,6 +310,10 @@ void AampMPDDownloader::Release()
 			std::lock_guard<std::recursive_mutex> lock(mMPDDnldMutex);
 			mReleaseCalled = true;
 			mRefreshCondVar.notify_all();
+			{
+				// Synchronise with the GetManifest() predicate check before notifying
+				std::lock_guard<std::mutex> bufLock(mMPDBufferMutex);
+			}
 			mMPDDnldDataCondVar.notify_all();
 			mMPDNotifierCondVar.notify_all();
 		}
@@ -796,8 +800,10 @@ ManifestDownloadResponsePtr AampMPDDownloader::GetManifest(bool bWait, int iWait
 		// if Q is not available with any data ( for very first tune )
 		if(bWait)
 		{
-			std::unique_lock<std::mutex> lck2(mMPDDnldDataMtx);
-			if (mMPDDnldDataCondVar.wait_for(lck2, std::chrono::milliseconds(iWaitDurationMs)) == std::cv_status::timeout)
+			std::unique_lock<std::mutex> lck2(mMPDBufferMutex);
+			bool ready = mMPDDnldDataCondVar.wait_for(lck2, std::chrono::milliseconds(iWaitDurationMs),
+				[this] { return mReleaseCalled || !mMPDBufferQ.empty(); });
+			if (!ready)
 			{
 				// Timed out
 				respPtr->mMPDDownloadResponse->iHttpRetValue = CURLE_OPERATION_TIMEDOUT;
@@ -834,11 +840,7 @@ ManifestDownloadResponsePtr AampMPDDownloader::GetManifest(bool bWait, int iWait
 				{
 					// data received
 					AAMPLOG_INFO("GetManifest timer exited after new data received ...");
-					std::unique_lock<std::mutex> lck3(mMPDBufferMutex);
-					if(mMPDBufferQ.size())
-					{
-						return mMPDBufferQ.front();
-					}
+					return mMPDBufferQ.front();
 				}
 			}
 		}
