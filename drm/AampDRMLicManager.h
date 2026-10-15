@@ -43,7 +43,8 @@ public:
 	/**
 	 *  @fn AampDRMLicenseManager
 	 */
-	AampDRMLicenseManager(int maxDrmSessions, PrivateInstanceAAMP *aamp);
+	AampDRMLicenseManager(int maxDrmSessions, PrivateInstanceAAMP *aamp,
+	                      DrmSessionCreator creator = nullptr);
 
 	/**
 	 *  @fn ~AampDRMLicenseManager
