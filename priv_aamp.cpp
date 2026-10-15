@@ -3751,9 +3751,7 @@ bool PrivateInstanceAAMP::ProcessPendingDiscontinuity()
 			if (sink)
 			{
 				sink->Configure(
-					mVideoFormat,
-					mAudioFormat,
-					mSubtitleFormat,
+					GetStreamCodecInfo(),
 					mpStreamAbstractionAAMP->GetESChangeStatus(),
 					mIsTrackIdMismatch /*setReadyAfterPipelineCreation*/);
 
@@ -4479,6 +4477,16 @@ void PrivateInstanceAAMP::SetCMCDTrackData(AampMediaType mediaType)
 		int kBitsPerSecond = (int)(currentBitrate/1000);
 		mCMCDCollector->SetTrackData( mediaType, bufferRedStatus, bufferedDurationMs, kBitsPerSecond, IsMuxedStream() );
 	}
+}
+
+BitsPerSecond PrivateInstanceAAMP::GetVideoBitrateNonBlocking()
+{
+	std::unique_lock<std::recursive_mutex> lock(mStreamLock, std::try_to_lock);
+	if (lock.owns_lock() && mpStreamAbstractionAAMP)
+	{
+		return mpStreamAbstractionAAMP->GetVideoBitrate();
+	}
+	return 0;
 }
 
 /**
@@ -5208,7 +5216,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 										if (buffer.size())
 										{
 											long downloadbps = ((long)(buffer.size() / downloadTimeMS) * 8000);
-											long currentProfilebps = mpStreamAbstractionAAMP->GetVideoBitrate();
+											long currentProfilebps = GetVideoBitrateNonBlocking();
 											if (currentProfilebps - downloadbps > BITRATE_ALLOWED_VARIATION_BAND)
 											{
 												loopAgain = false;
@@ -5332,10 +5340,18 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 						// example 18(0) if connection failure with PARTIAL_FILE code
 						timeoutClass = "(" + std::to_string(reqSize > 0) + ")";
 					}
+					BitsPerSecond currentVideoBitrate = context.bitrate;
+					if (currentVideoBitrate <= 0 &&
+						(mediaType == eMEDIATYPE_VIDEO ||
+						 mediaType == eMEDIATYPE_INIT_VIDEO ||
+						 mediaType == eMEDIATYPE_PLAYLIST_VIDEO))
+					{
+						currentVideoBitrate = GetVideoBitrateNonBlocking();
+					}
 
 					AAMPLOG(reqEndLogLevel, "HttpRequestEnd: %s%d,%d,%d%s,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%g,%ld,%ld,%" BITSPERSECOND_FORMAT ",%.500s%s%s",
 							appName.c_str(), mediaTypeTelemetry, mediaType, http_code, timeoutClass.c_str(), totalPerformRequest, total, connect, startTransfer, resolve, appConnect, preTransfer, redirect, dlSize, reqSize, downloadbps,
-					((mediaType == eMEDIATYPE_VIDEO || mediaType == eMEDIATYPE_INIT_VIDEO || mediaType == eMEDIATYPE_PLAYLIST_VIDEO) ? (context.bitrate > 0 ? context.bitrate : mpStreamAbstractionAAMP->GetVideoBitrate()): 0),((res == CURLE_OK) ? effectiveUrl.c_str() : remoteUrl.c_str()), // Effective URL could be different than remoteURL and it is updated only for CURLE_OK case
+					((mediaType == eMEDIATYPE_VIDEO || mediaType == eMEDIATYPE_INIT_VIDEO || mediaType == eMEDIATYPE_PLAYLIST_VIDEO) ? currentVideoBitrate : 0),((res == CURLE_OK) ? effectiveUrl.c_str() : remoteUrl.c_str()), // Effective URL could be different than remoteURL and it is updated only for CURLE_OK case
 									range?";":"", range?range:"");
 					// Log external processing delay if it exceeds 100 ms
 					if (context.processDelay > 100)
@@ -5393,7 +5409,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				if((buffer.size() > AbrThresholdSize) && (!GetLLDashServiceData()->lowLatencyMode ||
 							( GetLLDashServiceData()->lowLatencyMode  && ISCONFIGSET_PRIV(eAAMPConfig_DisableLowLatencyABR))))
 				{
-					long currentProfilebps  = mpStreamAbstractionAAMP->GetVideoBitrate();
+					long currentProfilebps = GetVideoBitrateNonBlocking();
 					long downloadbps = (long)mhAbrManager.CheckAbrThresholdSize((int)buffer.size(),downloadTimeMS,currentProfilebps,fragmentDurationMs,abortReason);
 					{
 						std::lock_guard<std::recursive_mutex> guard(mLock);
@@ -6161,6 +6177,13 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 
 	newTune = IsNewTune();
 	AAMPLOG_INFO("tuneType %d newTune %d mediaFormat %d", tuneType, newTune, mMediaFormat);
+	if (newTune || (eTUNETYPE_RETUNE == tuneType))
+	{
+		for (auto& trackEncrypted : mTrackEncrypted)
+		{
+			trackEncrypted.store(false);
+		}
+	}
 
 	// Get position before pipeline is teared down
 	if (eTUNETYPE_RETUNE == tuneType)
@@ -6613,7 +6636,8 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 				sink->SetAudioVolume(volume);
 				if (mbPlayEnabled)
 				{
-					sink->Configure(mVideoFormat, mAudioFormat, mSubtitleFormat, mpStreamAbstractionAAMP->GetESChangeStatus());
+					sink->Configure(GetStreamCodecInfo(),
+						mpStreamAbstractionAAMP->GetESChangeStatus());
 				}
 			}
 			else
@@ -12571,7 +12595,8 @@ void PrivateInstanceAAMP::SetStreamFormat(StreamOutputFormat videoFormat, Stream
 		StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 		if (sink)
 		{
-			sink->Configure(mVideoFormat, mAudioFormat, mSubtitleFormat, false);
+			sink->Configure(GetStreamCodecInfo(),
+				false);
 		}
 	}
 }
@@ -14856,6 +14881,8 @@ std::shared_ptr<ManifestDownloadConfig> PrivateInstanceAAMP::prepareManifestDown
 	inpData->mDnldConfig->sCustomHeaders = std::move(sCustomHeaders);
 	inpData->mCMCDCollector = mCMCDCollector;
 	inpData->mIsLLDConfigEnabled	=	ISCONFIGSET_PRIV(eAAMPConfig_EnableLowLatencyDash);
+	// The overhang only matters when PTS restamping derives the next Period's PTS from the timeline
+	inpData->mTrimPeriodTailSegments	=	ISCONFIGSET_PRIV(eAAMPConfig_EnablePTSReStamp);
 	if(!mProvidedManifestFile.empty())
 	{
 		inpData->mPreProcessedManifest = std::move(mProvidedManifestFile);
@@ -15337,22 +15364,93 @@ void PrivateInstanceAAMP::GetStreamFormat(StreamOutputFormat &primaryOutputForma
 void PrivateInstanceAAMP::SetStreamCaps(AampMediaType type, MediaCodecInfo&& codecInfo)
 {
 	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
-	switch (type)
+	SetTrackEncrypted(type, codecInfo.mIsEncrypted);
+	StreamOutputFormat videoFormat = FORMAT_INVALID;
+	StreamOutputFormat audioFormat = FORMAT_INVALID;
 	{
-		case eMEDIATYPE_VIDEO:
-			mVideoFormat = static_cast<StreamOutputFormat>(codecInfo.mCodecFormat);
-			break;
-		case eMEDIATYPE_AUDIO:
-			mAudioFormat = static_cast<StreamOutputFormat>(codecInfo.mCodecFormat);
-			break;
-		default:
-			break;
+		std::lock_guard<std::recursive_mutex> lock(mLock);
+		switch (type)
+		{
+			case eMEDIATYPE_VIDEO:
+				mVideoFormat = static_cast<StreamOutputFormat>(codecInfo.mCodecFormat);
+				break;
+			case eMEDIATYPE_AUDIO:
+				mAudioFormat = static_cast<StreamOutputFormat>(codecInfo.mCodecFormat);
+				break;
+			default:
+				break;
+		}
+		videoFormat = mVideoFormat;
+		audioFormat = mAudioFormat;
 	}
-	AAMPLOG_INFO("Updated format mVideoFormat=%d mAudioFormat=%d", mVideoFormat, mAudioFormat);
+	AAMPLOG_INFO("Updated format mVideoFormat=%d mAudioFormat=%d", videoFormat, audioFormat);
 	if (sink)
 	{
 		sink->SetStreamCaps(type, std::move(codecInfo));
 	}
+}
+
+/**
+ * @brief Set per-track encryption state used during pipeline codec configuration
+ * @param[in] type - Media track type
+ * @param[in] isEncrypted - true if the track is encrypted
+ */
+void PrivateInstanceAAMP::SetTrackEncrypted(AampMediaType type, bool isEncrypted)
+{
+	if (type >= eMEDIATYPE_VIDEO && type <= eMEDIATYPE_SUBTITLE)
+	{
+		mTrackEncrypted[static_cast<size_t>(type)].store(isEncrypted);
+		AAMPLOG_MIL("mediaType %d encrypted %d", type, isEncrypted);
+	}
+	else
+	{
+		AAMPLOG_WARN("Invalid mediaType %d, encryption state not updated", type);
+	}
+}
+
+/**
+ * @brief Build codec information for a media track
+ * @param[in] type - Media track type
+ * @return Codec information including format and encryption state
+ */
+MediaCodecInfo PrivateInstanceAAMP::GetMediaCodecInfo(AampMediaType type)
+{
+	MediaCodecInfo codecInfo;
+	{
+		std::lock_guard<std::recursive_mutex> lock(mLock);
+		switch (type)
+		{
+			case eMEDIATYPE_VIDEO:
+				codecInfo.mCodecFormat = static_cast<GstStreamOutputFormat>(mVideoFormat);
+				break;
+			case eMEDIATYPE_AUDIO:
+				codecInfo.mCodecFormat = static_cast<GstStreamOutputFormat>(mAudioFormat);
+				break;
+			case eMEDIATYPE_SUBTITLE:
+				codecInfo.mCodecFormat = static_cast<GstStreamOutputFormat>(mSubtitleFormat);
+				break;
+			default:
+				AAMPLOG_WARN("Invalid mediaType %d, returning default codec info", type);
+				return codecInfo;
+		}
+	}
+	codecInfo.mIsEncrypted = mTrackEncrypted[static_cast<size_t>(type)].load();
+	AAMPLOG_DEBUG("mediaType %d codecFormat %d encrypted %d", type,
+		codecInfo.mCodecFormat, codecInfo.mIsEncrypted);
+	return codecInfo;
+}
+
+/**
+ * @brief Build codec information for stream sink Configure calls
+ * @return Stream codec info for video/audio/subtitle tracks
+ */
+StreamCodecInfo PrivateInstanceAAMP::GetStreamCodecInfo()
+{
+	return StreamCodecInfo{
+		GetMediaCodecInfo(eMEDIATYPE_VIDEO),
+		GetMediaCodecInfo(eMEDIATYPE_AUDIO),
+		GetMediaCodecInfo(eMEDIATYPE_SUBTITLE)
+	};
 }
 
 /**

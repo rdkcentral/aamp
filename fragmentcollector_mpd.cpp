@@ -2049,6 +2049,7 @@ bool StreamAbstractionAAMP_MPD::HandleSeekEOSAndPeriodTransition(double remainin
 		bool                  enabled;
 		int                   adaptationSetIdx;
 		uint32_t              adaptationSetId;
+		bool                  adaptationSetIdValid;
 		int                   representationIndex;
 		bool                  profileChanged;
 		const IAdaptationSet  *adaptationSet;
@@ -2071,6 +2072,7 @@ bool StreamAbstractionAAMP_MPD::HandleSeekEOSAndPeriodTransition(double remainin
 				ctx->enabled,
 				ctx->adaptationSetIdx,
 				ctx->adaptationSetId,
+				ctx->adaptationSetIdValid,
 				ctx->representationIndex,
 				ctx->profileChanged,
 				ctx->adaptationSet,
@@ -2139,6 +2141,7 @@ bool StreamAbstractionAAMP_MPD::HandleSeekEOSAndPeriodTransition(double remainin
 				ctx->enabled             = snap.enabled;
 				ctx->adaptationSetIdx    = snap.adaptationSetIdx;
 				ctx->adaptationSetId     = snap.adaptationSetId;
+				ctx->adaptationSetIdValid = snap.adaptationSetIdValid;
 				ctx->representationIndex = snap.representationIndex;
 				ctx->profileChanged      = snap.profileChanged;
 				ctx->adaptationSet       = snap.adaptationSet;
@@ -3770,6 +3773,8 @@ void StreamAbstractionAAMP_MPD::QueueContentProtection(IPeriod* period, uint32_t
 						/** Queue content protection in DRM license fetcher **/
 						licenseMgr->QueueContentProtection(std::move(drmHelper), period->GetId(), adaptationSetIdx, mediaType, isVssPeriod);
 					}
+					AAMPLOG_DEBUG("Marking mediaType %d encrypted from MPD content protection", mediaType);
+					aamp->SetTrackEncrypted(mediaType, true);
 					hasDrm = true;
 					aamp->licenceFromManifest = true;
 				}
@@ -4694,7 +4699,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 		// later if a pre-roll advert is played that does not contain subtitles.
 		if (aamp->UsingRialto() &&
 		   !mIsLiveStream &&
-		   (!(AampStreamSinkManager::GetInstance().GetMediaHeader(eMEDIATYPE_SUBTITLE))))
+		   (!(AampStreamSinkManager::GetInstance().GetMediaHeader(aamp, eMEDIATYPE_SUBTITLE))))
 		{
 			AAMPLOG_MIL("StreamAbstractionAAMP_MPD: extract and add subtitleMedia header");
 			ExtractAndAddSubtitleMediaHeader();
@@ -7181,9 +7186,9 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateMediaTrackInfo(AampMediaType typ
 	}
 	else
 	{
-		AAMPLOG_WARN("Not able to find representation from manifest, sending error event");
-		aamp->SendErrorEvent(AAMP_TUNE_INIT_FAILED_MANIFEST_CONTENT_ERROR);
-		return eAAMPSTATUS_MANIFEST_CONTENT_ERROR;
+
+		AAMPLOG_WARN("[WARN] representationIndex[%d] is out of range (size[%zu]), sending error event", pMediaStreamContext->representationIndex, pMediaStreamContext->adaptationSet->GetRepresentation().size());
+		return ReportManifestContentError();
 	}
 
 	pMediaStreamContext->fragmentDescriptor.ClearMatchingBaseUrl();
@@ -7623,6 +7628,11 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 		if( mMediaStreamContext[i] )
 		{
 			mMediaStreamContext[i]->enabled = false;
+			// Intentional: this call re-picks adaptationSetIdx/representationIndex (new period, or reorder
+			// detected in IndexSelectedPeriod), so the new index is authoritative. Keeping the old ID would
+			// make ResolveAdaptationSetForTrack override it with a stale ID, mismatching representationIndex.
+			// Same-period live refresh (no StreamSelection) keeps the ID, so relocation by ID still applies there.
+			mMediaStreamContext[i]->adaptationSetIdValid = false;
 		}
 	}
 
@@ -8031,6 +8041,93 @@ static bool IsVideoCodecAVC(const std::string &codec)
 }
 
 /**
+ * @brief Send the manifest content error event and return its status.
+ */
+AAMPStatusType StreamAbstractionAAMP_MPD::ReportManifestContentError()
+{
+	aamp->SendErrorEvent(AAMP_TUNE_INIT_FAILED_MANIFEST_CONTENT_ERROR);
+	return eAAMPSTATUS_MANIFEST_CONTENT_ERROR;
+}
+
+/**
+ * @brief Resolve the track's AdaptationSet in the given period, tolerant of AdaptationSet reordering
+ */
+AAMPStatusType StreamAbstractionAAMP_MPD::ResolveAdaptationSetForTrack(MediaStreamContext *pMediaStreamContext, IPeriod *period)
+{
+	// AdaptationSet order/count can change across manifest refresh. Once an explicit ID has been
+	// resolved (adaptationSetIdValid), detect reordering by id: if the retained index no
+	// longer points to the previously selected AdaptationSet, locate the matching id and
+	// use that index; if the id cannot be found, the selection is no longer valid.
+	// On the first resolve the id is not yet established, so trust the index chosen by
+	// StreamSelection and skip the reorder/error check. StreamSelection() clears
+	// adaptationSetIdValid because it picks a fresh index/representation; do not "preserve" the
+	// old id across it (a reused id in a new period would point at the wrong track).
+	const auto &curAdaptationSets = period->GetAdaptationSets();
+	const size_t numAdaptationSets = curAdaptationSets.size();
+
+	// Does the retained index still point to a valid AdaptationSet?
+	const bool indexInRange = pMediaStreamContext->adaptationSetIdx >= 0 &&
+		static_cast<size_t>(pMediaStreamContext->adaptationSetIdx) < numAdaptationSets;
+	// Has a real AdaptationSet id been established by a previous selection?
+	const bool storedIdValid = pMediaStreamContext->adaptationSetIdValid &&
+		pMediaStreamContext->adaptationSetId != UINT32_MAX;
+	// Only read the id at the retained index when that index is in range; when it is
+	// out of range the value is unused because !indexInRange already forces re-resolve.
+	uint32_t currentId = pMediaStreamContext->adaptationSetId;
+	if (indexInRange)
+	{
+		currentId = curAdaptationSets.at(pMediaStreamContext->adaptationSetIdx)->GetId();
+	}
+	// Re-resolve when the index is stale, or when it no longer points at the
+	// previously selected id (AdaptationSets reordered across a manifest refresh).
+	const bool needResolve = !indexInRange ||
+		(storedIdValid && currentId != UINT32_MAX && currentId != pMediaStreamContext->adaptationSetId);
+	if (needResolve)
+	{
+		bool relocated = false;
+		// Find the AdaptationSet carrying the previously selected id and move to it.
+		if (storedIdValid)
+		{
+			for (uint32_t adaptIdx = 0; adaptIdx < numAdaptationSets; adaptIdx++)
+			{
+				if (curAdaptationSets.at(adaptIdx)->GetId() == pMediaStreamContext->adaptationSetId)
+				{
+					AAMPLOG_WARN("AdaptationSet order changed; relocating adaptationSetIdx %d -> %u for id %u",
+						pMediaStreamContext->adaptationSetIdx, adaptIdx, pMediaStreamContext->adaptationSetId);
+					pMediaStreamContext->adaptationSetIdx = adaptIdx;
+					relocated = true;
+					break;
+				}
+			}
+		}
+		if (!relocated)
+		{
+			AAMPLOG_WARN("Unable to resolve AdaptationSet idx %d for id %u in period %s",
+				pMediaStreamContext->adaptationSetIdx, pMediaStreamContext->adaptationSetId,
+				period->GetId().c_str());
+			return ReportManifestContentError();
+		}
+	}
+
+	// On the first resolve the id is not yet established and the index is trusted as-is,
+	// so guard it before access. Once the id is valid, the relocation logic above has
+	// already produced a valid index (or returned an error).
+	if (!pMediaStreamContext->adaptationSetIdValid &&
+		(pMediaStreamContext->adaptationSetIdx < 0 ||
+		 static_cast<size_t>(pMediaStreamContext->adaptationSetIdx) >= numAdaptationSets))
+	{
+		AAMPLOG_WARN("AdaptationSet index %d out of range after resolution", pMediaStreamContext->adaptationSetIdx);
+		return ReportManifestContentError();
+	}
+
+	pMediaStreamContext->adaptationSet = curAdaptationSets.at(pMediaStreamContext->adaptationSetIdx);
+	pMediaStreamContext->adaptationSetId = pMediaStreamContext->adaptationSet->GetId();
+	pMediaStreamContext->adaptationSetIdValid = true;
+
+	return eAAMPSTATUS_OK;
+}
+
+/**
  * @brief Updates track information based on current state
  */
 AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, bool resetTimeLineIndex, bool isInit)
@@ -8079,12 +8176,12 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 				pMediaStreamContext->representation = NULL;
 				continue;
 			}
-			if (pMediaStreamContext->adaptationSetIdx >= numAdaptationSets )
+			// AdaptationSet order/count can change across periods. Resolve the track's
+			// AdaptationSet by its selected id, tolerant of reordering.
+			if (eAAMPSTATUS_OK != ResolveAdaptationSetForTrack(pMediaStreamContext, period))
 			{
-				pMediaStreamContext->adaptationSetIdx = 0;
+				return eAAMPSTATUS_MANIFEST_CONTENT_ERROR;
 			}
-			pMediaStreamContext->adaptationSet = period->GetAdaptationSets().at(pMediaStreamContext->adaptationSetIdx);
-			pMediaStreamContext->adaptationSetId = pMediaStreamContext->adaptationSet->GetId();
 			std::string adapFrameRate = pMediaStreamContext->adaptationSet->GetFrameRate();
 			/*Populate StreamInfo for ABR Processing*/
 			if (i == eMEDIATYPE_VIDEO)
@@ -8599,9 +8696,8 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 			}
 			else
 			{
-				AAMPLOG_WARN("Not able to find representation from manifest, sending error event");
-				aamp->SendErrorEvent(AAMP_TUNE_INIT_FAILED_MANIFEST_CONTENT_ERROR);
-				return eAAMPSTATUS_MANIFEST_CONTENT_ERROR;
+				AAMPLOG_WARN("[WARN] representationIndex[%d] is out of range (size[%zu]), sending error event", pMediaStreamContext->representationIndex, pMediaStreamContext->adaptationSet->GetRepresentation().size());
+				return ReportManifestContentError();
 			}
 
 			// Only process content protection when there is a period change.
@@ -9427,22 +9523,33 @@ bool StreamAbstractionAAMP_MPD::CheckForInitalClearPeriod()
 void StreamAbstractionAAMP_MPD::PushEncryptedHeaders(std::map<int, std::string>& mappedHeaders)
 {
 	std::vector<std::shared_future<void>> futures;
-	for (std::map<int, std::string>::iterator it = mappedHeaders.begin(); it != mappedHeaders.end(); ++it)
+	for (const auto& [track, header] : mappedHeaders)
 	{
+		if (track < 0 || track >= AAMP_TRACK_COUNT)
+		{
+			AAMPLOG_ERR("Invalid encrypted header track %d", track);
+			continue;
+		}
+		AAMPLOG_DEBUG("Marking track %d encrypted before encrypted header injection", track);
+		aamp->SetTrackEncrypted(static_cast<AampMediaType>(track), true);
+		// L1 invokes this before track initialization; avoid dereferencing an unavailable media context.
+		if (track >= mNumberOfTracks || mMediaStreamContext[track] == nullptr)
+		{
+			AAMPLOG_ERR("No media stream context for encrypted header track %d", track);
+			continue;
+		}
 		if (ISCONFIGSET(eAAMPConfig_DashParallelFragDownload))
 		{
 			// Download the video, audio & subtitle fragments in a separate parallel thread.
-			AAMPLOG_DEBUG("Submitting job for init encrypted header track %d", it->first);
-			auto track = it->first;
-			auto header = it->second;
+			AAMPLOG_DEBUG("Submitting job for init encrypted header track %d", track);
 			auto dashWorkerJob = std::make_shared<AampDashWorkerJob>([this, track, header]() { CacheEncryptedHeader(track, header); });
-			auto future = aamp->GetAampTrackWorkerManager()->SubmitJob(static_cast<AampMediaType>(it->first), dashWorkerJob);
+			auto future = aamp->GetAampTrackWorkerManager()->SubmitJob(static_cast<AampMediaType>(track), dashWorkerJob);
 			futures.push_back(std::move(future));
 		}
 		else
 		{
-			AAMPLOG_INFO("Track %d worker not available, caching init encrypted header sequentially", it->first);
-			CacheEncryptedHeader(it->first, it->second);
+			AAMPLOG_INFO("Track %d worker not available, caching init encrypted header sequentially", track);
+			CacheEncryptedHeader(track, header);
 		}
 	}
 	// Wait for all submitted jobs to complete
@@ -9702,7 +9809,7 @@ bool StreamAbstractionAAMP_MPD::ExtractAndAddSubtitleMediaHeader()
 								AAMPLOG_MIL("[SUBTITLE]: mimeType:%s, init url %s", subtitleMimeType.c_str(), fragmentUrl.c_str());
 								subtitleHeader->url = std::move(fragmentUrl);
 								subtitleHeader->mimeType =  std::move(subtitleMimeType);
-								AampStreamSinkManager::GetInstance().AddMediaHeader(eMEDIATYPE_SUBTITLE, std::move(subtitleHeader));
+								AampStreamSinkManager::GetInstance().AddMediaHeader(aamp, eMEDIATYPE_SUBTITLE, std::move(subtitleHeader));
 								AAMPLOG_MIL("Saved subtitleHeader");
 								ret = true;
 								SAFE_DELETE(fragmentDescriptor);
@@ -10235,6 +10342,7 @@ bool StreamAbstractionAAMP_MPD::SelectSourceOrAdPeriod(bool &periodChanged, bool
 				{
 					if (mMediaStreamContext[i]->adaptationSetId != adaptationSets.at(mMediaStreamContext[i]->adaptationSetIdx)->GetId())
 					{
+						// StreamSelection() re-picks index and ID together; the stale ID is deliberately not kept.
 						AAMPLOG_WARN("AdaptationSet index changed; updating stream selection, track = %d", i);
 						requireStreamSelection = true;
 					}
@@ -11828,6 +11936,8 @@ void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutpu
 	StreamOutputFormat audioFormat = FORMAT_ISO_BMFF;
 	if (ISCONFIGSET(eAAMPConfig_UseMp4Demux))
 	{
+		const std::string videoCodec = GetCurrentCodec(eMEDIATYPE_VIDEO);
+		const std::string audioCodec = GetCurrentCodec(eMEDIATYPE_AUDIO);
 		// AampMp4Demuxer consumes the container and feeds elementary streams, so the sink needs
 		// the codec format rather than FORMAT_ISO_BMFF. Predict it from the manifest so the appsrc
 		// is created with the correct caps and gstreamer autoplugs its decoder chain once, during
@@ -11839,16 +11949,27 @@ void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutpu
 		// data push is already in flight, and when the autoplug loses that race the push lands on
 		// an unlinked pad and the pipeline dies with "not-linked (-1)".
 		//
-		// FORMAT_UNKNOWN is still the fallback whenever the codec cannot be predicted, which
-		// keeps the previous behaviour for anything this cannot cover:
-		//  - codecs AampMp4Demuxer does not recognise (see the maps in AampUtils.cpp)
-		//  - DRM protected assets, whose final caps are application/x-cenc, a different media
-		//    type that cannot be derived from the codec string alone
-		videoFormat = audioFormat = FORMAT_UNKNOWN;
-		if (!hasDrm)
+		// FORMAT_UNKNOWN is still the fallback for codecs AampMp4Demuxer does not recognise
+		// (see the maps in AampUtils.cpp). DRM protection does not gate this lookup; clear and
+		// protected assets use the same codec mapping.
+		videoFormat = GetMp4DemuxVideoFormatForCodec(videoCodec.c_str());
+		audioFormat = GetMp4DemuxAudioFormatForCodec(audioCodec.c_str());
+
+		// Audio-only manifests can expose the selected stream on the primary slot.
+		// If audio codec is absent on AUDIO slot, derive it from primary codec.
+		if (audioCodec.empty() && !videoCodec.empty() && audioFormat == FORMAT_UNKNOWN)
 		{
-			videoFormat = GetMp4DemuxVideoFormatForCodec(GetCurrentCodec(eMEDIATYPE_VIDEO).c_str());
-			audioFormat = GetMp4DemuxAudioFormatForCodec(GetCurrentCodec(eMEDIATYPE_AUDIO).c_str());
+			const StreamOutputFormat primaryAsAudioFormat = GetMp4DemuxAudioFormatForCodec(videoCodec.c_str());
+			if (primaryAsAudioFormat != FORMAT_UNKNOWN)
+			{
+				audioFormat = primaryAsAudioFormat;
+				AAMPLOG_INFO("Audio-only fallback: derived audioFormat %d from primary codec '%s'", audioFormat, videoCodec.c_str());
+				if (videoFormat == FORMAT_UNKNOWN)
+				{
+					videoFormat = primaryAsAudioFormat;
+					AAMPLOG_INFO("Audio-only MPD: remapped primary output format to audio format %d", videoFormat);
+				}
+			}
 		}
 	}
 	if(mMediaStreamContext[eMEDIATYPE_VIDEO] && mMediaStreamContext[eMEDIATYPE_VIDEO]->enabled )
@@ -11903,7 +12024,7 @@ void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutpu
 		// a complete pipeline cannot be created; and Rialto will not start playing video
 		if (!mMediaStreamContext[eMEDIATYPE_SUBTITLE]->enabled && aamp->UsingRialto())
 		{
-			auto subtitleHeader = AampStreamSinkManager::GetInstance().GetMediaHeader(eMEDIATYPE_SUBTITLE);
+			auto subtitleHeader = AampStreamSinkManager::GetInstance().GetMediaHeader(aamp, eMEDIATYPE_SUBTITLE);
 			if(subtitleHeader && !subtitleHeader->mimeType.empty())
 			{
 				subtitleOutputFormat = GetSubtitleFormat(subtitleHeader->mimeType);
@@ -12617,7 +12738,7 @@ void StreamAbstractionAAMP_MPD::SendMediaHeaders()
 		MediaStreamContext *track = mMediaStreamContext[iTrack];
 		if(track && !track->Enabled())
 		{
-			auto header = AampStreamSinkManager::GetInstance().GetMediaHeader(iTrack);
+			auto header = AampStreamSinkManager::GetInstance().GetMediaHeader(aamp, iTrack);
 			if(header)
 			{
 				AAMPLOG_INFO("Track is disabled; url for init segment found: %s", header->url.c_str());
@@ -12632,11 +12753,11 @@ void StreamAbstractionAAMP_MPD::SendMediaHeaders()
 				{
 					AAMPLOG_ERR("Failed to download init segment: %s", header->url.c_str());
 				}
-				AampStreamSinkManager::GetInstance().RemoveMediaHeader(iTrack);
+				AampStreamSinkManager::GetInstance().RemoveMediaHeader(aamp, iTrack);
 
 				// Update the header with injected set
 				header->injected = true;
-				AampStreamSinkManager::GetInstance().AddMediaHeader(iTrack, std::move(header));
+				AampStreamSinkManager::GetInstance().AddMediaHeader(aamp, iTrack, std::move(header));
 			}
 		}
 	}
