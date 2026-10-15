@@ -6585,7 +6585,14 @@ void StreamAbstractionAAMP_MPD::SwitchSubtitleTrack(bool newTune)
 		PushNextFragment(pMediaStreamContext, getCurlInstanceByMediaType(static_cast<AampMediaType>(eMEDIATYPE_SUBTITLE)),true);
 	}
 	/* Switching to selected Subtitle Track */
-	SelectSubtitleTrack(newTune,mTextTracks,tTrackIdx);
+	if (!ISCONFIGSET(eAAMPConfig_DisableTTML))
+	{
+		SelectSubtitleTrack(newTune,mTextTracks,tTrackIdx);
+	}
+	else
+	{
+		AAMPLOG_INFO("TTML is disabled");
+	}
 	SetTextTrackInfo(mTextTracks, tTrackIdx);
 	printSelectedTrack(tTrackIdx, eMEDIATYPE_SUBTITLE);
 	/* Caching the oldPlaylistPosition and oldMediaSequenceNumber */
@@ -6668,23 +6675,6 @@ void StreamAbstractionAAMP_MPD::SelectSubtitleTrack(bool newTune, std::vector<Te
 		AAMPLOG_WARN("period is null");  //CID:84742 - Null Returns
 		return;
 	}
-
-	if (ISCONFIGSET(eAAMPConfig_DisableTTML))
-	{
-		tTracks.clear();
-		for (unsigned iAdaptationSet = 0; iAdaptationSet < period->GetAdaptationSets().size(); iAdaptationSet++)
-		{
-			IAdaptationSet *adaptationSet = period->GetAdaptationSets().at(iAdaptationSet);
-			if (mMPDParseHelper->IsContentType(adaptationSet, eMEDIATYPE_VIDEO) && !IsIframeTrack(adaptationSet))
-			{
-				ParseTrackInformation(adaptationSet, iAdaptationSet, eMEDIATYPE_VIDEO, aTracks, tTracks);
-			}
-		}
-		AAMPLOG_INFO("SelectSubtitleTrack: TTML processing disabled, reporting in-band CC tracks only");
-		return;
-	}
-
-
 	size_t numAdaptationSets = period->GetAdaptationSets().size();
 	if (AAMP_NORMAL_PLAY_RATE == mPlayRate)
 	{
@@ -7416,7 +7406,14 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 
 		if (eMEDIATYPE_SUBTITLE == i)
 		{
-			SelectSubtitleTrack(newTune,tTracks,tTrackIdx);
+			if (!ISCONFIGSET(eAAMPConfig_DisableTTML))
+			{
+				SelectSubtitleTrack(newTune,tTracks,tTrackIdx);
+			}
+			else
+			{
+				AAMPLOG_WARN("TTML is disabled, so not selecting any subtitle track");
+			}
 			if(mMediaStreamContext[eMEDIATYPE_SUBTITLE]->enabled)
 			{
 				mNumberOfTracks++;
