@@ -20,12 +20,17 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 #include <chrono>
+#include <condition_variable>
+#include <future>
+#include <mutex>
+#include <thread>
 
 #include "priv_aamp.h"
 
 #include "AampConfig.h"
 #include "MockAampConfig.h"
 #include "MockAampGstPlayer.h"
+#include "MockAampScheduler.h"
 #include "MockStreamAbstractionAAMP.h"
 #include "MockAampStreamSinkManager.h"
 
@@ -142,6 +147,102 @@ TEST_P(SubtitleMuteTests, SetSubtitleMuteTests)
 	bool subtitleMuted {param.first};
 	bool videoMuted {param.second};
 	TestSetSubtitleMute(videoMuted, subtitleMuted);
+}
+
+TEST_F(SubtitleMuteTests, SetCCStatus_StreamLockHeld_DefersLatestVisibility)
+{
+	mPrivateInstanceAAMP->SetState(eSTATE_INITIALIZING, false);
+	mPrivateInstanceAAMP->mpStreamAbstractionAAMP = nullptr;
+
+	std::mutex completionMutex;
+	std::condition_variable completionCondition;
+	bool requestStarted = false;
+	bool requestCompleted = false;
+
+	std::unique_lock<std::recursive_mutex> streamLock(
+		mPrivateInstanceAAMP->GetStreamLock());
+	std::thread requester([&]() {
+		{
+			std::lock_guard<std::mutex> lock(completionMutex);
+			requestStarted = true;
+		}
+		completionCondition.notify_one();
+
+		mPrivateInstanceAAMP->SetCCStatus(true);
+		mPrivateInstanceAAMP->SetCCStatus(false);
+
+		{
+			std::lock_guard<std::mutex> lock(completionMutex);
+			requestCompleted = true;
+		}
+		completionCondition.notify_one();
+	});
+
+	std::unique_lock<std::mutex> completionLock(completionMutex);
+	const bool started = completionCondition.wait_for(
+		completionLock, std::chrono::seconds(1), [&]() { return requestStarted; });
+	const bool completedBeforeUnlock = started && completionCondition.wait_for(
+		completionLock, std::chrono::seconds(1), [&]() { return requestCompleted; });
+	completionLock.unlock();
+	streamLock.unlock();
+	requester.join();
+
+	ASSERT_TRUE(started);
+	EXPECT_TRUE(completedBeforeUnlock);
+	EXPECT_FALSE(mPrivateInstanceAAMP->GetCCStatus());
+	EXPECT_TRUE(mPrivateInstanceAAMP->mApplyCachedCCStatus.load());
+}
+
+/**
+ * @test SetCCStatus_DuringTune_DeferredStatusAppliedByTune
+ * @brief SetCCStatus() called while Tune() holds mStreamLock at INITIALIZING is
+ *        cached, then applied to the new stream by the tune once it resumes.
+ */
+TEST_F(SubtitleMuteTests, SetCCStatus_DuringTune_DeferredStatusAppliedByTune)
+{
+	// Tune() creates its own stream abstraction and deletes any existing one.
+	mPrivateInstanceAAMP->mpStreamAbstractionAAMP = nullptr;
+
+	std::promise<void> tuneInitializing;
+	std::promise<void> resumeTune;
+	auto resumeTuneFuture = resumeTune.get_future().share();
+
+	// TuneHelper() reports INITIALIZING to the scheduler with mStreamLock held.
+	g_mockAampScheduler = std::make_shared<NiceMock<MockAampScheduler>>();
+	ON_CALL(*g_mockAampScheduler, SetState(eSTATE_INITIALIZING))
+		.WillByDefault([&](AAMPPlayerState)
+		{
+			tuneInitializing.set_value();
+			resumeTuneFuture.wait_for(std::chrono::seconds(5));
+		});
+
+	// Subtitles start muted, so only the deferred request can unmute them.
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, MuteSubtitles(false)).Times(1);
+	EXPECT_CALL(*g_mockAampGstPlayer, SetSubtitleMute(false)).Times(1);
+
+	std::thread tuneThread([this]()
+	{
+		mPrivateInstanceAAMP->Tune("http://localhost:80/manifest.mpd", false, "VOD");
+	});
+
+	const bool tuneReachedInitializing =
+		tuneInitializing.get_future().wait_for(std::chrono::seconds(5)) == std::future_status::ready;
+	bool cachedWhileTuning = false;
+	if (tuneReachedInitializing)
+	{
+		mPrivateInstanceAAMP->SetCCStatus(true);
+		cachedWhileTuning = mPrivateInstanceAAMP->mApplyCachedCCStatus.load();
+	}
+	resumeTune.set_value();
+	tuneThread.join();
+
+	SAFE_DELETE(mPrivateInstanceAAMP->mpStreamAbstractionAAMP);
+	g_mockAampScheduler.reset();
+
+	EXPECT_TRUE(tuneReachedInitializing);
+	EXPECT_TRUE(cachedWhileTuning);
+	EXPECT_FALSE(mPrivateInstanceAAMP->mApplyCachedCCStatus.load());
+	EXPECT_TRUE(mPrivateInstanceAAMP->GetCCStatus());
 }
 
 INSTANTIATE_TEST_SUITE_P(TestSubtitleMute,
