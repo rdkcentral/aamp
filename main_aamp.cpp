@@ -2692,6 +2692,9 @@ void PlayerInstanceAAMP::SetAudioTrack(std::string language, std::string renditi
 	if(aamp)
 	{
 		UsingPlayerId playerId(aamp->mPlayerId);
+		AAMPLOG_MIL("SetAudioTrack: request language=%s rendition=%s type=%s codec=%s channel=%u label=%s async=%d",
+			language.c_str(), rendition.c_str(), type.c_str(), codec.c_str(),
+			channel, label.c_str(), mAsyncTuneEnabled);
 
 		if (mAsyncTuneEnabled)
 		{
@@ -2699,12 +2702,16 @@ void PlayerInstanceAAMP::SetAudioTrack(std::string language, std::string renditi
 						[language, rendition, type, codec, channel, label](void *data)
 						{
 							PlayerInstanceAAMP *instance = static_cast<PlayerInstanceAAMP *>(data);
+							AAMPLOG_MIL("SetAudioTrack: async task started");
 							instance->SetAudioTrackInternal(language,rendition,type,codec,channel, label);
+							AAMPLOG_MIL("SetAudioTrack: async task completed");
 						}, (void *) this,__FUNCTION__));
 		}
 		else
 		{
+			AAMPLOG_MIL("SetAudioTrack: synchronous task started");
 			SetAudioTrackInternal(std::move(language), std::move(rendition), std::move(type), std::move(codec), channel, std::move(label));
+			AAMPLOG_MIL("SetAudioTrack: synchronous task completed");
 		}
 	}
 }
@@ -2723,6 +2730,9 @@ void PlayerInstanceAAMP::SetAudioOnlyPlayback(bool audioOnlyPlayback)
  */
 void PlayerInstanceAAMP::SetAudioTrackInternal(std::string language,  std::string rendition, std::string type, std::string codec, unsigned int channel, std::string label)
 {
+	AAMPLOG_MIL("SetAudioTrackInternal: begin language=%s rendition=%s type=%s codec=%s channel=%u label=%s",
+		language.c_str(), rendition.c_str(), type.c_str(), codec.c_str(),
+		channel, label.c_str());
 	aamp->mAudioTuple.clear();
 	aamp->mAudioTuple.setAudioTrackTuple(language, rendition, codec, channel);
 	/* Now we have an option to set language and rendition only*/
@@ -3009,6 +3019,8 @@ void PlayerInstanceAAMP::SetAudioTrack(int trackId)
 	if( aamp )
 	{
 		UsingPlayerId playerId(aamp->mPlayerId);
+		AAMPLOG_MIL("SetAudioTrack(index): request trackId=%d async=%d", trackId,
+			mAsyncTuneEnabled);
 		if( aamp->mpStreamAbstractionAAMP)
 		{
 			std::vector<AudioTrackInfo> tracks = aamp->mpStreamAbstractionAAMP->GetAvailableAudioTracks();
@@ -3020,12 +3032,16 @@ void PlayerInstanceAAMP::SetAudioTrack(int trackId)
 														 [tracks , trackId](void *data)
 														 {
 															 PlayerInstanceAAMP *instance = static_cast<PlayerInstanceAAMP *>(data);
+														 	AAMPLOG_MIL("SetAudioTrack(index): async task started trackId=%d", trackId);
 															 instance->SetPreferredLanguages(tracks[trackId].language.c_str(), tracks[trackId].rendition.c_str(), tracks[trackId].accessibilityType.c_str(), tracks[trackId].codec.c_str(), tracks[trackId].label.c_str(), &tracks[trackId].accessibilityItem, tracks[trackId].name.c_str());
+														 	AAMPLOG_MIL("SetAudioTrack(index): async task completed trackId=%d", trackId);
 														 }, (void *) this,__FUNCTION__));
 				}
 				else
 				{
+					AAMPLOG_MIL("SetAudioTrack(index): synchronous task started trackId=%d", trackId);
 					SetPreferredLanguages(tracks[trackId].language.c_str(), tracks[trackId].rendition.c_str(), tracks[trackId].accessibilityType.c_str(), tracks[trackId].codec.c_str(), tracks[trackId].label.c_str(), &tracks[trackId].accessibilityItem, tracks[trackId].name.c_str());
+					AAMPLOG_MIL("SetAudioTrack(index): synchronous task completed trackId=%d", trackId);
 				}
 			}
 		}
