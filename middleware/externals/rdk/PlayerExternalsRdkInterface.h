@@ -43,6 +43,7 @@ typedef enum {
 } dsHdcpProtocolVersion_t;
 #endif
 #include <memory>
+#include <mutex>
 
 #include "PlayerExternalsInterfaceBase.h"
 
@@ -87,6 +88,8 @@ class PlayerExternalsRdkInterface : public PlayerExternalsInterfaceBase
 
         InitState m_initialized = NOT_INITIALIZED;
         //remove-end
+
+        std::mutex m_hdmiStatusMutex;
 
         PlayerExternalsRdkInterface();
 
@@ -153,6 +156,11 @@ class PlayerExternalsRdkInterface : public PlayerExternalsInterfaceBase
 
         void setHdcpProtocol(dsHdcpProtocolVersion_t t_protocol);
 
+        /**
+         * @fn SetHDCPEnabled
+         * @brief Sets HDCP-enabled state, used by the Firebolt device interface
+         * @param[in] enabled true if HDCP is enabled on the display
+         */
         void SetHDCPEnabled(bool enabled) { m_isHDCPEnabled = enabled; }
 
         void SetUseFireBoltSDK(bool t_use_firebolt_sdk) override;

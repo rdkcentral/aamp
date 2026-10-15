@@ -61,7 +61,12 @@ class DeviceFireboltInterface : public DeviceInterfaceBase {
 
         static void Initialize();
 
-        /** Queries Device.hdcp and Device.videoResolution via Firebolt and updates player state */
+        /**
+         * @fn SetHDMIStatus
+         * @brief Queries Device.hdcp and Device.videoResolution via Firebolt and updates
+         *        player HDCP/resolution state. Firebolt-based replacement for the
+         *        IARM/DeviceSettings path, which is unavailable inside app containers.
+         */
         void SetHDMIStatus();
 
     private:

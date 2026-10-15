@@ -136,7 +136,7 @@ decodeErrorMsgTimeMS(0), decodeErrorCBCount(0),
 progressiveBufferingEnabled(false), progressiveBufferingStatus(false), forwardAudioBuffers(false),
 enableSEITimeCode(true), firstVideoFrameReceived(false), firstAudioFrameReceived(false), NumberOfTracks(0), playbackQuality{},
 filterAudioDemuxBuffers(false),
-aSyncControl(), syncControl(), callbackControl(), seekPosition(0)
+aSyncControl(), syncControl(), callbackControl(), bufferingTimeoutControl(), seekPosition(0)
 {
 	memset(videoRectangle, '\0', VIDEO_COORDINATES_SIZE);
 	/* default video scaling should take into account actual graphics
@@ -273,6 +273,10 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 		}
 	}
 
+	{
+		std::lock_guard<std::mutex> bufferingLock(interfacePlayerPriv->gstPrivateContext->bufferingTimeoutMutex);
+		interfacePlayerPriv->gstPrivateContext->bufferingTimeoutControl.enable();
+	}
 	mFirstFrameRequired = FirstFrameFlag;
 	GstStreamOutputFormat gstFormat 	= static_cast<GstStreamOutputFormat>(format);
 	GstStreamOutputFormat gstAudioFormat 	= static_cast<GstStreamOutputFormat>(audioFormat);
@@ -359,7 +363,11 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 	if (interfacePlayerPriv->gstPrivateContext->pipeline == NULL || interfacePlayerPriv->gstPrivateContext->bus == NULL)
 	{
 		MW_LOG_MIL("Create pipeline %s (pipeline %p bus %p)", pipelineName, interfacePlayerPriv->gstPrivateContext->pipeline, interfacePlayerPriv->gstPrivateContext->bus);
-		CreatePipeline(pipelineName, PipelinePriority); 		/*Create a new pipeline if pipeline or the message bus does not exist*/
+		if (!CreatePipeline(pipelineName, PipelinePriority)) 		/*Create a new pipeline if pipeline or the message bus does not exist*/
+		{
+			MW_LOG_ERR("Failed to create pipeline %s", pipelineName);
+			return;
+		}
 	}
 
 	if(setReadyAfterPipelineCreation)
@@ -1442,7 +1450,7 @@ void InterfacePlayerRDK::TearDownStream(int type)
 				}
 				if (!gst_bin_remove(GST_BIN(interfacePlayerPriv->gstPrivateContext->pipeline), GST_ELEMENT(stream->sinkbin)))
 				{
-					MW_LOG_ERR("InterfacePlayerRDK::TearDownStream: Unable to remove CC sinkbin from pipeline");
+					MW_LOG_INFO("InterfacePlayerRDK::TearDownStream: Unable to remove CC sinkbin from pipeline");
 				}
 			}
 			g_clear_object(&stream->sinkbin);
@@ -1470,6 +1478,10 @@ void InterfacePlayerRDK::Stop(bool keepLastFrame)
 	/*  make the execution of this function more deterministic and
 	 *  reduce scope for potential pipeline lockups*/
 
+	{
+		std::lock_guard<std::mutex> bufferingLock(interfacePlayerPriv->gstPrivateContext->bufferingTimeoutMutex);
+		interfacePlayerPriv->gstPrivateContext->bufferingTimeoutControl.disable();
+	}
 	interfacePlayerPriv->gstPrivateContext->syncControl.disable();
 	interfacePlayerPriv->gstPrivateContext->aSyncControl.disable();
 	std::unique_lock<std::mutex> sourceSetupLock(mSourceSetupMutex);
@@ -1524,6 +1536,7 @@ void InterfacePlayerRDK::Stop(bool keepLastFrame)
 	 * should not have a significant performance impact.*/
 	interfacePlayerPriv->gstPrivateContext->syncControl.waitForDone(50, "bus_sync_handler");
 	interfacePlayerPriv->gstPrivateContext->aSyncControl.waitForDone(50, "bus_message");
+	interfacePlayerPriv->gstPrivateContext->bufferingTimeoutControl.waitForDone(50, "buffering_timeout");
 	interfacePlayerPriv->gstPrivateContext->callbackControl.disable();
 	DisconnectSignals();
 	interfacePlayerPriv->gstPrivateContext->aSyncControl.waitForDone(100, "callback handler");
@@ -2121,7 +2134,14 @@ static void gst_found_source(GObject * object, GObject * orig, GParamSpec * pspe
 		gst_media_stream *stream;
 		stream = &privatePlayer->gstPrivateContext->stream[mediaType];
 		g_object_get(orig, pspec->name, &stream->source, NULL);
+		if (!stream->source || !GST_IS_APP_SRC(stream->source))
+		{
+			MW_LOG_ERR("Invalid source element[%p] for track[%d]", stream->source, mediaType);
+			g_clear_object(&stream->source);
+			return;
+		}
 		gstInitializeSource(pInterfacePlayerRDK, G_OBJECT(stream->source), mediaType);
+		pInterfacePlayerRDK->mSourceSetupCV.notify_all();
 	}
 }
 static void callback_element_added (GstElement * element, GstElement * source, gpointer data)
@@ -2249,7 +2269,7 @@ void InterfacePlayerRDK::SetupClosedCaptionControlStream()
 		 * element attached to the pipeline without requesting GST_STATE_NULL first - clearing
 		 * the reference alone would leak the underlying RialtoServer session and leave a
 		 * dangling child element in the pipeline bin. Tear it down properly before clearing. */
-		MW_LOG_ERR("Sinkbin already assigned, tearing down before clearing");
+		MW_LOG_WARN("Sinkbin already assigned, tearing down before clearing");
 		if (privatePlayer->gstPrivateContext->pipeline)
 		{
 			GstStateChangeReturn nullRc = SetStateWithWarnings(GST_ELEMENT(stream->sinkbin), GST_STATE_NULL);
@@ -2271,7 +2291,7 @@ void InterfacePlayerRDK::SetupClosedCaptionControlStream()
 			}
 			if (!gst_bin_remove(GST_BIN(privatePlayer->gstPrivateContext->pipeline), GST_ELEMENT(stream->sinkbin)))
 			{
-				MW_LOG_ERR("Unable to remove stale sinkbin from pipeline");
+				MW_LOG_INFO("Unable to remove stale sinkbin from pipeline");
 			}
 		}
 		g_clear_object(&stream->sinkbin);
@@ -2350,14 +2370,6 @@ int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::st
 	InterfacePlayerRDK* pInterfacePlayerRDK = (InterfacePlayerRDK*)playerInstance;
 	InterfacePlayerPriv* privatePlayer = pInterfacePlayerRDK->GetPrivatePlayer();
 	gst_media_stream* stream = &pInterfacePlayerRDK->interfacePlayerPriv->gstPrivateContext->stream[streamId];
-	if (stream->sinkbin)
-	{
-		/* Diagnostic only (RDKEMW-24866): confirms whether this path can be reached with a
-		 * stale sinkbin still assigned, same leak shape fixed in TearDownStream()/
-		 * SetupClosedCaptionControlStream(). No behavior change here yet - gather evidence
-		 * before deciding if this spot also needs the teardown-before-clear fix. */
-		MW_LOG_ERR("InterfacePlayerRDK::SetupStream: [RDKEMW-24866][DIAG] stream->sinkbin already assigned for mediaType=%d on entry, not yet cleared by TearDownStream", streamId);
-	}
 	if (eGST_MEDIATYPE_SUBTITLE == streamId)
 	{
 		if(m_gstConfigParam->gstreamerSubsEnabled)
@@ -2467,7 +2479,13 @@ int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::st
 	else
 	{
 		MW_LOG_INFO("using playbin");						/* Media is not subtitle, use the generic playbin */
-		stream->sinkbin = GST_ELEMENT(gst_object_ref_sink(gst_element_factory_make("playbin", NULL)));	/* Creates a new element of "playbin" type and returns a new GstElement */
+		GstElement *playbin = gst_element_factory_make("playbin", NULL);
+		if (!playbin)
+		{
+			MW_LOG_ERR("Failed to create playbin for track[%d]", streamId);
+			return -1;
+		}
+		stream->sinkbin = GST_ELEMENT(gst_object_ref_sink(playbin));	/* Retain a counted reference to the playbin. */
 
 		if (m_gstConfigParam->tcpServerSink)
 		{
@@ -2519,7 +2537,9 @@ int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::st
 			}
 			else
 			{
-				MW_LOG_WARN("Failed to create rialtomsevideosink");
+				MW_LOG_ERR("Failed to create rialtomsevideosink");
+				g_clear_object(&stream->sinkbin);
+				return -1;
 			}
 		}
 		else if (interfacePlayerPriv->gstPrivateContext->usingRialtoSink && eGST_MEDIATYPE_AUDIO == streamId)
@@ -2534,7 +2554,9 @@ int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::st
 			}
 			else
 			{
-				MW_LOG_WARN("Failed to create rialtomseaudiosink");
+				MW_LOG_ERR("Failed to create rialtomseaudiosink");
+				g_clear_object(&stream->sinkbin);
+				return -1;
 			}
 		}
 		else if (interfacePlayerPriv->gstPrivateContext->using_westerossink && eGST_MEDIATYPE_VIDEO == streamId)
@@ -2580,7 +2602,12 @@ int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::st
 			MW_LOG_MIL("using audsrvsink");
 		}
 	}
-	gst_bin_add(GST_BIN(interfacePlayerPriv->gstPrivateContext->pipeline), stream->sinkbin);					/* Add the stream sink to the pipeline */
+	if (!gst_bin_add(GST_BIN(interfacePlayerPriv->gstPrivateContext->pipeline), stream->sinkbin))
+	{
+		MW_LOG_ERR("Failed to add playbin for track[%d] to pipeline", streamId);
+		g_clear_object(&stream->sinkbin);
+		return -1;
+	}
 
 	gint flags;
 	g_object_get(stream->sinkbin, "flags", &flags, NULL);									/* Read the state of the current flags */
@@ -2633,7 +2660,13 @@ int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::st
 	{
 		privatePlayer->socInterface->ConfigurePluginPriority();
 	}
-	gst_element_sync_state_with_parent(stream->sinkbin);
+	if (!gst_element_sync_state_with_parent(stream->sinkbin))
+	{
+		MW_LOG_ERR("Failed to activate playbin for track[%d]", streamId);
+		gst_bin_remove(GST_BIN(interfacePlayerPriv->gstPrivateContext->pipeline), stream->sinkbin);
+		g_clear_object(&stream->sinkbin);
+		return -1;
+	}
 	return 0;
 }
 
@@ -4249,6 +4282,13 @@ static gboolean VideoDecoderPtsCheckerForEOS(gpointer user_data)
 	InterfacePlayerPriv* privatePlayer = pInterfacePlayerRDK->GetPrivatePlayer();
 	gint64 currentPTS = pInterfacePlayerRDK->GetVideoPTS();                       /* Gets the currentPTS from the 'video-pts' property of the element */
 
+	if (currentPTS <= 0)
+	{
+		MW_LOG_WARN("VideoDecoderPtsCheckerForEOS: invalid decoder PTS %" G_GINT64_FORMAT ", skipping EOS inference", currentPTS);
+		privatePlayer->gstPrivateContext->ptsCheckForEosOnUnderflowIdleTaskId = GST_TASK_ID_INVALID;
+		return G_SOURCE_REMOVE;
+	}
+
 	if (currentPTS == privatePlayer->gstPrivateContext->lastKnownPTS)
 	{
 		MW_LOG_MIL("PTS not changed");
@@ -4323,7 +4363,7 @@ static void GstPlayer_OnGstBufferUnderflowCb(GstElement* object, guint arg0, gpo
 		MW_LOG_WARN("## Got Underflow message from %s type %d ##", GST_ELEMENT_NAME(object), type);
 		privatePlayer->gstPrivateContext->stream[type].bufferUnderrun = true;
 
-		if ((privatePlayer->gstPrivateContext->stream[type].eosReached) && (privatePlayer->gstPrivateContext->rate > 0))
+		if ((privatePlayer->gstPrivateContext->stream[type].eosReached) && (privatePlayer->gstPrivateContext->rate == GST_NORMAL_PLAY_RATE))
 		{
 			if (!privatePlayer->gstPrivateContext->ptsCheckForEosOnUnderflowIdleTaskId)
 			{
@@ -4840,6 +4880,11 @@ static gboolean buffering_timeout (gpointer data)
 	{
 	     privatePlayer = pInterfacePlayerRDK->GetPrivatePlayer();
 	}
+	if (!privatePlayer || !privatePlayer->gstPrivateContext)
+	{
+		return G_SOURCE_REMOVE;
+	}
+	HANDLER_CONTROL_HELPER(privatePlayer->gstPrivateContext->bufferingTimeoutControl, G_SOURCE_REMOVE);
 	bool isBufferingTimeoutConditionMet = false;
 	bool isRateCorrectionDefaultOnPlaying = false;
 	bool isPlayerReady = false;
@@ -4871,9 +4916,17 @@ static gboolean buffering_timeout (gpointer data)
 			else if (frames == -1 || frames >= pInterfacePlayerRDK->m_gstConfigParam->framesToQueue || privatePlayer->gstPrivateContext->buffering_timeout_cnt-- == 0)
 			{
 				uint32_t original_buffering_timeout_cnt = privatePlayer->gstPrivateContext->buffering_timeout_cnt;
-				MW_LOG_MIL("Set pipeline state to %s - buffering_timeout_cnt %u  frames %i",
-				gst_element_state_get_name(privatePlayer->gstPrivateContext->buffering_target_state), original_buffering_timeout_cnt, frames);
-				SetStateWithWarnings (privatePlayer->gstPrivateContext->pipeline, privatePlayer->gstPrivateContext->buffering_target_state);
+				{
+					std::lock_guard<std::mutex> bufferingLock(privatePlayer->gstPrivateContext->bufferingTimeoutMutex);
+					if (!privatePlayer->gstPrivateContext->bufferingTimeoutControl.isEnabled() ||
+						!privatePlayer->gstPrivateContext->buffering_in_progress)
+					{
+						return G_SOURCE_REMOVE;
+					}
+					MW_LOG_MIL("Set pipeline state to %s - buffering_timeout_cnt %u  frames %i",
+						gst_element_state_get_name(privatePlayer->gstPrivateContext->buffering_target_state), original_buffering_timeout_cnt, frames);
+					SetStateWithWarnings (privatePlayer->gstPrivateContext->pipeline, privatePlayer->gstPrivateContext->buffering_target_state);
+				}
 				isRateCorrectionDefaultOnPlaying =  privatePlayer->socInterface->SetRateCorrection();
 				
 				privatePlayer->gstPrivateContext->buffering_in_progress = false;
