@@ -63,11 +63,22 @@ private:
 	// Separate registration for each event
 	ListenerData* mEventListeners[AAMP_MAX_NUM_EVENTS];	  /**< Event listener registration */
 	int mEventStats[AAMP_MAX_NUM_EVENTS];			  /**< Event stats */
-	typedef std::queue<AAMPEventPtr> EventWorkerDataQ;	  /**< Event Queue for Async processing  */
+	/**
+	 * @struct AsyncEventEntry
+	 * @brief  Queue element pairing an event with its enqueue timestamp for dwell-time profiling.
+	 *         enqueueTimeMs is 0 when profiling is disabled, avoiding unnecessary clock reads.
+	 */
+	struct AsyncEventEntry {
+		AAMPEventPtr event;           /**< The event to dispatch */
+		long long    enqueueTimeMs;   /**< Steady-clock ms at enqueue; 0 when profiling disabled */
+	};
+	typedef std::queue<AsyncEventEntry> EventWorkerDataQ;	  /**< Event Queue for Async processing  */
 	EventWorkerDataQ mEventWorkerDataQue;
 	typedef std::map<guint, bool> AsyncEventList;		  /**< Collection of Async tasks pending */
 	typedef std::map<guint, bool>::iterator AsyncEventListIter;
 	AsyncEventList	mPendingAsyncEvents;
+	bool  mEventProfilingEnabled;		  /**< Runtime flag: enable event round-trip time profiling */
+	int   mEventProfilingThresholdMs;	  /**< Log only when measured round-trip time exceeds this value (ms) */
 
 protected:
 	int mPlayerId;
@@ -113,10 +124,13 @@ protected:
 	void SendEventAsync(const AAMPEventPtr &eventData);
 	/**
 	 * @fn SendEventSync
-	 * @param eventData - Event data
+	 * @param eventData     - Event data
+	 * @param enqueueTimeMs - Steady-clock ms when event was enqueued (async path); 0 for direct sync sends.
+	 *                        When non-zero and profiling is enabled, dwell time (enqueue→dispatch start)
+	 *                        is combined with delivery time to form the full async round-trip measurement.
 	 * @return void
 	 */
-	void SendEventSync(const AAMPEventPtr &eventData);
+	void SendEventSync(const AAMPEventPtr &eventData, long long enqueueTimeMs = 0);
 
 public:
 
@@ -147,6 +161,17 @@ public:
 	 * @return void
 	 */
 	void SetPlayerState(AAMPPlayerState state);
+	/**
+	 * @fn SetEventProfilingConfig
+	 * @brief Configure runtime event round-trip time profiling.
+	 *        For async events the measured time is queue dwell time + sync delivery time.
+	 *        For direct sync events only delivery time is measured.
+	 *        A log at WARN level is emitted only when the measured time meets or exceeds thresholdMs.
+	 * @param enabled     - true to enable profiling
+	 * @param thresholdMs - latency threshold in milliseconds
+	 * @return void
+	 */
+	void SetEventProfilingConfig(bool enabled, int thresholdMs);
 	/**
 	 * @fn SendEvent
 	 * @param eventData - Event data

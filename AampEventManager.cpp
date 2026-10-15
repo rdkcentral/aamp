@@ -24,10 +24,6 @@
 
 #include "AampEventManager.h"
 
-
-//#define EVENT_DEBUGGING 1
-
-
 /**
  * @brief GetSourceID - Get the idle task's source ID
  * @return Source Id
@@ -48,7 +44,8 @@ guint AampEventManager::GetSourceID()
  */
 AampEventManager::AampEventManager(int playerId): mIsFakeTune(false),
 					mAsyncTuneEnabled(false),mEventPriority(G_PRIORITY_DEFAULT_IDLE),mMutexVar(),
-					mPlayerState(eSTATE_IDLE),mEventWorkerDataQue(),mPendingAsyncEvents(),mPlayerId(playerId)
+					mPlayerState(eSTATE_IDLE),mEventWorkerDataQue(),mPendingAsyncEvents(),mPlayerId(playerId),
+					mEventProfilingEnabled(false),mEventProfilingThresholdMs(0)
 {
 	for (int i = 0; i < AAMP_MAX_NUM_EVENTS; i++)
 	{
@@ -104,14 +101,16 @@ void AampEventManager::FlushPendingEvents()
 		mPendingAsyncEvents.clear();
 	}
 
+	if (mEventProfilingEnabled)
+	{
+		for (int i = 0; i < AAMP_MAX_NUM_EVENTS; i++)
+		{
+			if (mEventStats[i] > 0)
+				AAMPLOG_WARN("[EventProfiling] EventType[%d] total dispatches: %d", i, mEventStats[i]);
+		}
+	}
 	for (int i = 0; i < AAMP_MAX_NUM_EVENTS; i++)
 		mEventStats[i] = 0;
-#ifdef EVENT_DEBUGGING
-	for (int i = 0; i < AAMP_MAX_NUM_EVENTS; i++)
-	{
-		AAMPLOG_WARN("EventType[%d]->[%d]",i,mEventStats[i]);
-	}
-#endif
 }
 
 /**
@@ -262,6 +261,16 @@ void AampEventManager::SetPlayerState(AAMPPlayerState state)
 }
 
 /**
+ * @brief SetEventProfilingConfig - Configure event round-trip time profiling at runtime
+ */
+void AampEventManager::SetEventProfilingConfig(bool enabled, int thresholdMs)
+{
+	std::lock_guard<std::mutex> guard(mMutexVar);
+	mEventProfilingEnabled     = enabled;
+	mEventProfilingThresholdMs = thresholdMs;
+}
+
+/**
  * @brief SendEvent - Generic function to send events
  */ 
 void AampEventManager::SendEvent(const AAMPEventPtr &eventData, AAMPEventMode eventMode)
@@ -314,20 +323,25 @@ void AampEventManager::SendEvent(const AAMPEventPtr &eventData, AAMPEventMode ev
  */ 
 void AampEventManager::AsyncEvent()
 {
-	AAMPEventPtr eventData=NULL;
+	AAMPEventPtr eventData    = nullptr;
+	long long    enqueueTimeMs = 0;
 	{
 		std::lock_guard<std::mutex> guard(mMutexVar);
 		// pop out the event to sent in async mode
-		if(mEventWorkerDataQue.size())
+		if(!mEventWorkerDataQue.empty())
 		{
-			eventData = (AAMPEventPtr)mEventWorkerDataQue.front();
+			AsyncEventEntry& entry = mEventWorkerDataQue.front();
+			eventData      = std::move(entry.event);
+			enqueueTimeMs  = entry.enqueueTimeMs;
 			mEventWorkerDataQue.pop();
 		}
 	}
-	// Push the new event in sync mode from the idle task
+	// Push the new event in sync mode from the idle task.
+	// enqueueTimeMs is forwarded so SendEventSync can compute the full async round-trip
+	// (queue dwell time + sync delivery time) for profiling.
 	if(eventData && (IsEventListenerAvailable(eventData->getType())) && (mPlayerState != eSTATE_RELEASED))
 	{
-		SendEventSync(eventData);
+		SendEventSync(eventData, enqueueTimeMs);
 	}
 }
 
@@ -342,7 +356,10 @@ void AampEventManager::SendEventAsync(const AAMPEventPtr &eventData)
 	if(mPlayerState != eSTATE_RELEASED)
 	{
 		AAMPLOG_INFO("Sending event %d to AsyncQ", eventType);
-		mEventWorkerDataQue.push(eventData);
+		AsyncEventEntry entry;
+		entry.event         = eventData;
+		entry.enqueueTimeMs = mEventProfilingEnabled ? NOW_STEADY_TS_MS : 0;
+		mEventWorkerDataQue.push(std::move(entry));
 		lock.unlock();
 		// Every event need a idle task to execute it
 		guint callbackID = g_idle_add_full(mEventPriority, EventManagerThreadFunction, this, NULL);
@@ -357,13 +374,20 @@ void AampEventManager::SendEventAsync(const AAMPEventPtr &eventData)
 /**
  * @brief SendEventSync - Function to send events sync
  */ 
-void AampEventManager::SendEventSync(const AAMPEventPtr &eventData)
+void AampEventManager::SendEventSync(const AAMPEventPtr &eventData, long long enqueueTimeMs)
 {
 	AAMPEventType eventType = eventData->getType();
 	std::unique_lock<std::mutex> lock(mMutexVar);
-#ifdef EVENT_DEBUGGING
-	long long startTime = NOW_STEADY_TS_MS;
-#endif
+	// Snapshot profiling config under the lock. mEventProfilingEnabled and
+	// mEventProfilingThresholdMs are written by SetEventProfilingConfig (also under
+	// mMutexVar). Reading them after lock.unlock() without a snapshot would be a data
+	// race under the C++ memory model (concurrent unsynchronised read + write).
+	const bool profilingEnabled   = mEventProfilingEnabled;
+	const int  profilingThreshold = mEventProfilingThresholdMs;
+	// Capture dispatch start time while still holding the lock so that the dwell-time
+	// boundary (enqueueTimeMs → dispatchStartMs) and the delivery-time boundary
+	// (dispatchStartMs → end) are both taken on a consistent clock epoch.
+	long long dispatchStartMs = profilingEnabled ? NOW_STEADY_TS_MS : 0;
 	// Check if already player in release state , then no need to send any events
 	// Its checked again here ,as async events can come to sync mode after playback is stopped 
 	if(mPlayerState == eSTATE_RELEASED)
@@ -418,10 +442,23 @@ void AampEventManager::SendEventSync(const AAMPEventPtr &eventData)
 		pList = pCurrent->pNext;
 		SAFE_DELETE(pCurrent);
 	}
-#ifdef EVENT_DEBUGGING
-	AAMPLOG_WARN("TimeTaken for Event %d SyncEvent [%d]",eventType, (NOW_STEADY_TS_MS - startTime));
-#endif
 
+	if (profilingEnabled && dispatchStartMs > 0)
+	{
+		long long deliveryMs = NOW_STEADY_TS_MS - dispatchStartMs;
+		long long dwellMs = 0;
+		if (enqueueTimeMs > 0)
+		{
+			// Async path: Calculate queue dwell time
+			dwellMs = dispatchStartMs - enqueueTimeMs;
+		}
+		long long totalMs = dwellMs + deliveryMs;
+		if (totalMs >= profilingThreshold)
+		{
+			AAMPLOG_WARN("[EventProfiling] Event %d total: %lld ms (queue dwell: %lld ms + delivery: %lld ms), threshold: %d ms",
+						eventType, totalMs, dwellMs, deliveryMs, profilingThreshold);
+		}
+	}
 }
 
 /**

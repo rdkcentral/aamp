@@ -86,3 +86,7 @@ bool AampEventManager::IsSpecificEventListenerAvailable(AAMPEventType eventType)
 {	
     return false;
 }
+
+void AampEventManager::SetEventProfilingConfig(bool enabled, int thresholdMs)
+{
+}
