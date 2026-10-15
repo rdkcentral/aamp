@@ -48,8 +48,7 @@ guint AampEventManager::GetSourceID()
  */
 AampEventManager::AampEventManager(int playerId): mIsFakeTune(false),
 					mAsyncTuneEnabled(false),mEventPriority(G_PRIORITY_DEFAULT_IDLE),mMutexVar(),
-					mPlayerState(eSTATE_IDLE),mEventWorkerDataQue(),mPendingAsyncEvents(),mPlayerId(playerId),
-					mEventProfilingEnabled(false),mEventProfilingThresholdMs(0),mIsFirstProgressSent(false)
+					mPlayerState(eSTATE_IDLE),mEventWorkerDataQue(),mPendingAsyncEvents(),mPlayerId(playerId),mIsFirstProgressSent(false)
 {
 	for (int i = 0; i < AAMP_MAX_NUM_EVENTS; i++)
 	{
