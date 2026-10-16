@@ -80,6 +80,18 @@ TEST_F(AampConfigTests, configStringToBool)
 	EXPECT_FALSE(ConfigLookup::ConfigStringValueToBool(nullptr));
 }
 
+TEST_F(AampConfigTests, NetworkPersonaLoggingDefaultsOffAndCanBeEnabled)
+{
+	EXPECT_FALSE(mAampConfig->GetConfigValue(eAAMPConfig_EnableNetworkPersonaLogging));
+
+	ConfigLookup lookup;
+	std::string enabled("true");
+	lookup.Process(mAampConfig.get(), AAMP_DEFAULT_SETTING,
+		"enableNetworkPersonaLogging", enabled);
+
+	EXPECT_TRUE(mAampConfig->GetConfigValue(eAAMPConfig_EnableNetworkPersonaLogging));
+}
+
 TEST_F(AampConfigTests, Process)
 {
 	AampConfig aampConfig;
