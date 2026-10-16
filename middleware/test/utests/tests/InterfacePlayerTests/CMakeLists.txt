@@ -46,8 +46,7 @@ set(PLAYER_SOURCES ${PLAYER_ROOT}/InterfacePlayerRDK.cpp
 		${PLAYER_ROOT}/externals/PlayerExternalsInterface.cpp
 		${PLAYER_ROOT}/externals/PlayerExternalUtils.cpp)
 
-set(FAKE_SOURCES ${PLAYER_ROOT}/test/utests/fakes/FakeGStreamer.cpp
-                 ${PLAYER_ROOT}/test/utests/fakes/FakePlayerScheduler.cpp)
+set(FAKE_SOURCES ${PLAYER_ROOT}/test/utests/fakes/FakeGStreamer.cpp)
 
 
 add_executable(${EXEC_NAME}
