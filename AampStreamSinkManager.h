@@ -108,6 +108,14 @@ public:
 	 */
 	virtual bool IsEncryptedHeadersCached();
 	/**
+	 *  @fn IsEncryptedHeadersCached
+	 *  @brief Returns true if encrypted headers for the specific media type have been cached.
+	 *         This allows per-track checks to avoid forcing encryption on clear tracks (e.g., clear audio/subtitles)
+	 *         when only other tracks (e.g., video) were encrypted.
+	 *  @param[in] mediaType - The media type to check (e.g., eMEDIATYPE_VIDEO, eMEDIATYPE_AUDIO)
+	 */
+	virtual bool IsEncryptedHeadersCached(int mediaType);
+	/**
 	 *  @fn ReinjectEncryptedHeaders
 	 *  @brief Clears the mEncryptedHeadersInjected flag so that GetEncryptedHeaders returns the headers on next call
 	 */

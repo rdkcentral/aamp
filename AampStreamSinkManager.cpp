@@ -373,6 +373,12 @@ bool AampStreamSinkManager::IsEncryptedHeadersCached()
 	return !mEncryptedHeaders.empty();
 }
 
+bool AampStreamSinkManager::IsEncryptedHeadersCached(int mediaType)
+{
+	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
+	return mEncryptedHeaders.find(mediaType) != mEncryptedHeaders.end();
+}
+
 void AampStreamSinkManager::DeactivatePlayer(PrivateInstanceAAMP *aamp, bool stop)
 {
 	std::lock_guard<std::mutex> lock(mStreamSinkMutex);

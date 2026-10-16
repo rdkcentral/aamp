@@ -15331,7 +15331,7 @@ void PrivateInstanceAAMP::SetStreamCaps(AampMediaType type, MediaCodecInfo&& cod
 	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 	if (ISCONFIGSET_PRIV(eAAMPConfig_UseMp4Demux) &&
 		!codecInfo.mIsEncrypted &&
-		AampStreamSinkManager::GetInstance().IsEncryptedHeadersCached())
+		AampStreamSinkManager::GetInstance().IsEncryptedHeadersCached(type))
 	{
 		AAMPLOG_WARN("Forcing encrypted stream caps for mediaType %d due to cached encrypted headers", type);
 		codecInfo.mIsEncrypted = true;
