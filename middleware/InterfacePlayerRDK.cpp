@@ -3807,11 +3807,48 @@ bool InterfacePlayerRDK::CheckDiscontinuity(int mediaType, int streamFormat , bo
 			{
 				MW_LOG_WARN("PTS-RESTAMP ENABLED, but we have codec change, so Signal EOS (%s).",gstGetMediaTypeName(type));
 			}
-			GstPlayer_SignalEOS(stream);
-			// We are in buffering, but we received discontinuity, un-pause pipeline
-			shouldHaltBuffering = true;
-			ret = true;
+			// For a muxed audio/video discontinuity, only trigger EOS once BOTH tracks have
+			// resumed data flow (firstBufferProcessed) after the reset. Signalling EOS for
+			// only one side leaves its sibling's appsrc out of sync - causing audio loss /
+			// video freeze. Codec-change always proceeds immediately since the decoder swap
+			// can't wait on the sibling track's buffer flow.
+			bool proceedWithEos = true;
+			GstMediaType siblingType = (type == eGST_MEDIATYPE_AUDIO) ? eGST_MEDIATYPE_VIDEO :
+						   (type == eGST_MEDIATYPE_VIDEO) ? eGST_MEDIATYPE_AUDIO : eGST_MEDIATYPE_DEFAULT;
+			if (!codecChange && siblingType != eGST_MEDIATYPE_DEFAULT)
+			{
+				gst_media_stream *siblingStream = &interfacePlayerPriv->gstPrivateContext->stream[siblingType];
+				if (siblingStream->format != GST_FORMAT_INVALID && !siblingStream->firstBufferProcessed)
+				{
+					proceedWithEos = false;
+				}
+			}
 
+			if (proceedWithEos)
+			{
+				GstPlayer_SignalEOS(stream);
+				// We are in buffering, but we received discontinuity, un-pause pipeline
+				shouldHaltBuffering = true;
+				ret = true;
+
+				//If we have an audio discontinuity, signal subtec as well
+				if (type == eGST_MEDIATYPE_AUDIO)
+				{
+					if (interfacePlayerPriv->gstPrivateContext->stream[eGST_MEDIATYPE_SUBTITLE].source)
+					{
+						GstPlayer_SignalEOS(interfacePlayerPriv->gstPrivateContext->stream[eGST_MEDIATYPE_SUBTITLE]);
+					}
+					else
+					{
+						MW_LOG_INFO("Skipped EOS %s", gstGetMediaTypeName(type));
+					}
+				}
+			}
+			else
+			{
+				MW_LOG_INFO("Skipping appsrc EOS for %s discontinuity - sibling track not yet ready (firstBufferProcessed=0)", gstGetMediaTypeName(type));
+			}
+			
 			//If we have an audio discontinuity, signal subtec as well
 			if ((type == eGST_MEDIATYPE_AUDIO) && (interfacePlayerPriv->gstPrivateContext->stream[eGST_MEDIATYPE_SUBTITLE].source))
 			{
