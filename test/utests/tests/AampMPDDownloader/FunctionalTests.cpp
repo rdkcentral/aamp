@@ -299,7 +299,7 @@ TEST_F(FunctionalTests, AampMPDDownloader_NotifyLockup)
     std::shared_ptr<ManifestDownloadConfig> inpData = std::make_shared<ManifestDownloadConfig>(-1);
     EXPECT_NO_THROW(mAampMPDDownloader->Initialize(inpData));
 //    EXPECT_NO_THROW(mAampMPDDownloader->Start());
-	
+
 	EXPECT_NO_THROW(mAampMPDDownloader->RegisterCallback( [](void *arg){ ASSERT_TRUE(0); }, NULL));
 	usleep(100000); // allow thread to start
 
@@ -649,6 +649,40 @@ TEST_F(FunctionalTests, GetManifest_WaitReceivesManifestPushedByDownloader)
 	EXPECT_EQ(manifest->mMPDStatus, AAMPStatusType::eAAMPSTATUS_OK);
 	EXPECT_TRUE(IS_HTTP_SUCCESS(manifest->mMPDDownloadResponse->iHttpRetValue));
 	EXPECT_TRUE(manifest->mIsLiveManifest);
+}
+
+// Verify timeout of GetManifest(wait) returns curl 28.
+TEST_F(FunctionalTests, GetManifest_ManifestTimeout)
+{
+	auto calls = std::make_shared<std::atomic<int>>(0);
+	std::shared_ptr<ManifestDownloadConfig> inpData = std::make_shared<ManifestDownloadConfig>(-1);
+	inpData->mTuneUrl = url1;
+	mAampMPDDownloader->Initialize(inpData, appName, MakeLiveManifestPreProcess(calls));
+	DownloaderReleaseGuard guard{mAampMPDDownloader};
+
+	std::atomic<bool> waiterStarted(false);
+	std::promise<ManifestDownloadResponsePtr> result;
+	std::future<ManifestDownloadResponsePtr> resultFuture = result.get_future();
+	std::thread waiter([&]()
+	{
+		waiterStarted = true;
+		result.set_value(mAampMPDDownloader->GetManifest(true, 1000));
+	});
+	while (!waiterStarted)
+	{
+		std::this_thread::yield();
+	}
+
+	const bool delivered = resultFuture.wait_for(std::chrono::seconds(10)) == std::future_status::ready;
+
+	waiter.join();
+
+	ASSERT_TRUE(delivered);
+	ManifestDownloadResponsePtr manifest = resultFuture.get();
+	ASSERT_TRUE(manifest != nullptr);
+	EXPECT_EQ(manifest->mMPDStatus, AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR);
+	EXPECT_EQ(manifest->mMPDDownloadResponse->iHttpRetValue,CURLE_OPERATION_TIMEDOUT);
+
 }
 
 // Release() must wake a GetManifest(wait) caller instead of leaving it to run out its full timeout.
