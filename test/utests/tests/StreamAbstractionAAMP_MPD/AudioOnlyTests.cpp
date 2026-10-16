@@ -78,6 +78,7 @@ protected:
 		{eAAMPConfig_DisableAC4, false},
 		{eAAMPConfig_LimitResolution, false},
 		{eAAMPConfig_Disable4K, false},
+		{eAAMPConfig_DisableTTML, false},
 		{eAAMPConfig_PersistHighNetworkBandwidth, false},
 		{eAAMPConfig_PersistLowNetworkBandwidth, false},
 		{eAAMPConfig_MidFragmentSeek, false},
