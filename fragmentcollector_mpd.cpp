@@ -7413,6 +7413,7 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 			}
 			else
 			{
+				aamp->mIsInbandCC = true;
 				AAMPLOG_WARN("TTML is disabled, so not selecting any subtitle track");
 			}
 			if(mMediaStreamContext[eMEDIATYPE_SUBTITLE]->enabled)
