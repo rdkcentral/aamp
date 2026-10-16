@@ -73,6 +73,15 @@ bool AampStreamSinkManager::IsEncryptedHeadersCached()
     return false;
 }
 
+bool AampStreamSinkManager::IsEncryptedHeadersCached(int mediaType)
+{
+    if (g_mockAampStreamSinkManager)
+    {
+        return g_mockAampStreamSinkManager->IsEncryptedHeadersCached(mediaType);
+    }
+    return false;
+}
+
 void AampStreamSinkManager::ReinjectEncryptedHeaders()
 {
     if (g_mockAampStreamSinkManager)

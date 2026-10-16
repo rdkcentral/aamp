@@ -4683,7 +4683,10 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 					{
 						if (mMediaStreamContext[track] != nullptr && mMediaStreamContext[track]->enabled)
 						{
-							aamp->SetTrackEncrypted(static_cast<AampMediaType>(track), true);
+							if (AampStreamSinkManager::GetInstance().IsEncryptedHeadersCached(track))
+							{
+								aamp->SetTrackEncrypted(static_cast<AampMediaType>(track), true);
+							}
 						}
 					}
 					aamp->mPipelineIsClear = false;

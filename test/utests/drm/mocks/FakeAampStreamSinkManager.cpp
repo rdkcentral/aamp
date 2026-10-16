@@ -62,6 +62,11 @@ bool AampStreamSinkManager::IsEncryptedHeadersCached()
 	return false;
 }
 
+bool AampStreamSinkManager::IsEncryptedHeadersCached(int mediaType)
+{
+	return false;
+}
+
 void AampStreamSinkManager::ReinjectEncryptedHeaders()
 {
 }
