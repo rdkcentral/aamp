@@ -29,6 +29,7 @@
 #include <vector>
 #include <stddef.h>
 #include "aampgstplayer.h"
+#include "AampRialtoPlayer.h"
 #include "AampStreamSinkInactive.h"
 
 class PrivateInstanceAAMP;
