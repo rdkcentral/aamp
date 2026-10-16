@@ -3862,7 +3862,7 @@ bool InterfacePlayerRDK::IdleTaskAdd(GstTaskControlData& taskDetails, Background
 	if (0 == taskDetails.taskID)
 	{
 		taskDetails.taskIsPending = false;
-		taskDetails.taskID = g_idle_add_full(G_PRIORITY_HIGH, (GSourceFunc)funcPtr, (gpointer)this, NULL);
+		taskDetails.taskID = g_idle_add_full(G_PRIORITY_DEFAULT_IDLE, (GSourceFunc)funcPtr, (gpointer)this, NULL);
 		// Wait for g_idle_add response , if failed to create task for wrong state , not to make pending flag as true
 		if(0 != taskDetails.taskID)
 		{
@@ -3925,7 +3925,7 @@ void InterfacePlayerRDK::NotifyFirstFrame(int mediaType)
 		{
 			interfacePlayerPriv->gstPrivateContext->decoderHandleNotified = true;
 			interfacePlayerPriv->gstPrivateContext->firstFrameCallbackIdleTaskPending = false;
-			interfacePlayerPriv->gstPrivateContext->firstFrameCallbackIdleTaskId = g_idle_add_full(G_PRIORITY_HIGH, (GSourceFunc)IdleCallbackOnFirstFrame, (gpointer)this, NULL);
+			interfacePlayerPriv->gstPrivateContext->firstFrameCallbackIdleTaskId = g_idle_add_full(G_PRIORITY_DEFAULT_IDLE, (GSourceFunc)IdleCallbackOnFirstFrame, (gpointer)this, NULL);
 			if(interfacePlayerPriv->gstPrivateContext->firstFrameCallbackIdleTaskId != PLAYER_TASK_ID_INVALID)
 			{
 				interfacePlayerPriv->gstPrivateContext->firstFrameCallbackIdleTaskPending = true;
@@ -3952,7 +3952,7 @@ void InterfacePlayerRDK::NotifyFirstFrame(int mediaType)
 			{
 				interfacePlayerPriv->gstPrivateContext->decoderHandleNotified = true;
 				interfacePlayerPriv->gstPrivateContext->firstFrameCallbackIdleTaskPending = false;
-				interfacePlayerPriv->gstPrivateContext->firstFrameCallbackIdleTaskId = g_idle_add_full(G_PRIORITY_HIGH, (GSourceFunc)IdleCallbackOnFirstFrame, (gpointer)this, NULL);				// Wait for g_idle_add response , if failed to create task for wrong state , not to make pending flag as true
+				interfacePlayerPriv->gstPrivateContext->firstFrameCallbackIdleTaskId = g_idle_add_full(G_PRIORITY_DEFAULT_IDLE, (GSourceFunc)IdleCallbackOnFirstFrame, (gpointer)this, NULL);				// Wait for g_idle_add response , if failed to create task for wrong state , not to make pending flag as true
 				if(interfacePlayerPriv->gstPrivateContext->firstFrameCallbackIdleTaskId != PLAYER_TASK_ID_INVALID)
 				{
 					interfacePlayerPriv->gstPrivateContext->firstFrameCallbackIdleTaskPending = true;
@@ -5158,7 +5158,7 @@ void InterfacePlayerRDK::NotifyEOS()
 			interfacePlayerPriv->gstPrivateContext->eosCallbackIdleTaskPending = true;
 			// eosSignalled is reset once the async task is completed either in Configure/Flush/ResetEOSSignalled, so set the flag before scheduling the task
 			interfacePlayerPriv->gstPrivateContext->eosSignalled = true;
-			interfacePlayerPriv->gstPrivateContext->eosCallbackIdleTaskId = g_idle_add_full(BUFFERING_TIMEOUT_PRIORITY, (GSourceFunc)IdleCallbackOnEOS, (gpointer)this, NULL); //set eos to priority -70
+			interfacePlayerPriv->gstPrivateContext->eosCallbackIdleTaskId = g_idle_add_full(G_PRIORITY_DEFAULT_IDLE, (GSourceFunc)IdleCallbackOnEOS, (gpointer)this, NULL);
 			if (interfacePlayerPriv->gstPrivateContext->eosCallbackIdleTaskId == PLAYER_TASK_ID_INVALID && true == interfacePlayerPriv->gstPrivateContext->eosCallbackIdleTaskPending)
 			{
 				interfacePlayerPriv->gstPrivateContext->eosCallbackIdleTaskPending = false;
