@@ -129,7 +129,7 @@ void InterfacePlayerRDK::TearDownCallback(std::function<void(bool, int)> callbac
 	tearDownCb = std::move(callback);
 }
 
-void InterfacePlayerRDK::TimerAdd(GSourceFunc, int, guint&, gpointer, const char*) {}
+void InterfacePlayerRDK::TimerAdd(GSourceFunc, int, guint&, gpointer, const char*,GDestroyNotify) {}
 void InterfacePlayerRDK::TimerRemove(guint& taskId, const char*) { taskId = 0; }
 bool InterfacePlayerRDK::TimerIsRunning(guint&) { return false; }
 
