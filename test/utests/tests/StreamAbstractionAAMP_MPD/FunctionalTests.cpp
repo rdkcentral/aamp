@@ -45,6 +45,7 @@
 
 using ::testing::_;
 using ::testing::An;
+using ::testing::AtLeast;
 using ::testing::SetArgReferee;
 using ::testing::Return;
 using ::testing::StrictMock;
@@ -1085,6 +1086,123 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 		.WillOnce(Return(true));
 
 	PushNextFragment(eTRACK_VIDEO);
+}
+
+/**
+ * @brief Verify pre-SetStreamCaps fallback with per-track checks.
+ *
+ * For a clear initial period with no encrypted headers available, if mp4demux is enabled and
+ * encrypted headers were already injected earlier in the lifecycle for specific tracks, Init() should force
+ * track-encrypted state only for those tracks before init fetch so downstream SetStreamCaps keeps encrypted caps.
+ */
+TEST_F(FunctionalTests, Init_ClearInitialPeriod_ForcesTrackEncryptedWhenInjectedHeadersAlreadyUsed)
+{
+	AAMPStatusType status;
+	static const char *manifest =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" minBufferTime="PT2S" type="static" mediaPresentationDuration="PT0H0M30.00S" profiles="urn:mpeg:dash:profile:isoff-live:2011">
+	<Period duration="PT0H0M30.00S">
+		<AdaptationSet mimeType="video/mp4" codecs="avc1.640028" segmentAlignment="true" startWithSAP="1">
+			<Representation id="video_1" bandwidth="1000000" width="1280" height="720" frameRate="25">
+				<SegmentTemplate timescale="1000" media="video_$Time$.m4s" initialization="video_init.mp4">
+					<SegmentTimeline><S t="0" d="2000" r="14"/></SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+		<AdaptationSet mimeType="audio/mp4" codecs="mp4a.40.2" segmentAlignment="true" startWithSAP="1">
+			<Representation id="audio_1" bandwidth="128000" audioSamplingRate="48000">
+				<SegmentTemplate timescale="1000" media="audio_$Time$.m4s" initialization="audio_init.mp4">
+					<SegmentTimeline><S t="0" d="2000" r="14"/></SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+	</Period>
+</MPD>)";
+
+	mBoolConfigSettings[eAAMPConfig_UseMp4Demux] = true;
+
+	// Allow init fragment caching to succeed for both tracks; otherwise Init() keeps
+	// retrying profile-changed init fetches and can spin/fault in test environment.
+	EXPECT_CALL(*g_mockMediaStreamContext,
+		CacheFragment(_, _, _, _, _, true, _, _, _))
+		.Times(AnyNumber())
+		.WillRepeatedly(Return(true));
+
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetEncryptedHeaders(_))
+		.WillRepeatedly(Invoke([](std::map<int, std::string>& headers) { headers.clear(); }));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, IsEncryptedHeadersCached())
+		.WillRepeatedly(Return(true));
+
+	// Per-track checks: only video has encrypted headers, audio does not
+	EXPECT_CALL(*g_mockAampStreamSinkManager, IsEncryptedHeadersCached(eMEDIATYPE_VIDEO))
+		.WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, IsEncryptedHeadersCached(eMEDIATYPE_AUDIO))
+		.WillRepeatedly(Return(false));
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetTrackEncrypted(eMEDIATYPE_VIDEO, true))
+		.Times(AtLeast(1));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetTrackEncrypted(eMEDIATYPE_AUDIO, true))
+		.Times(0);
+
+	status = InitializeMPD(manifest);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+}
+
+/**
+ * @brief Verify pre-SetStreamCaps fallback with both tracks encrypted.
+ *
+ * When both video and audio have encrypted headers cached, Init() should force
+ * track-encrypted state for both tracks before init fetch.
+ */
+TEST_F(FunctionalTests, Init_ClearInitialPeriod_ForcesBothTracksEncryptedWhenBothHeadersInjected)
+{
+	AAMPStatusType status;
+	static const char *manifest =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" minBufferTime="PT2S" type="static" mediaPresentationDuration="PT0H0M30.00S" profiles="urn:mpeg:dash:profile:isoff-live:2011">
+	<Period duration="PT0H0M30.00S">
+		<AdaptationSet mimeType="video/mp4" codecs="avc1.640028" segmentAlignment="true" startWithSAP="1">
+			<Representation id="video_1" bandwidth="1000000" width="1280" height="720" frameRate="25">
+				<SegmentTemplate timescale="1000" media="video_$Time$.m4s" initialization="video_init.mp4">
+					<SegmentTimeline><S t="0" d="2000" r="14"/></SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+		<AdaptationSet mimeType="audio/mp4" codecs="mp4a.40.2" segmentAlignment="true" startWithSAP="1">
+			<Representation id="audio_1" bandwidth="128000" audioSamplingRate="48000">
+				<SegmentTemplate timescale="1000" media="audio_$Time$.m4s" initialization="audio_init.mp4">
+					<SegmentTimeline><S t="0" d="2000" r="14"/></SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+	</Period>
+</MPD>)";
+
+	mBoolConfigSettings[eAAMPConfig_UseMp4Demux] = true;
+
+	EXPECT_CALL(*g_mockMediaStreamContext,
+		CacheFragment(_, _, _, _, _, true, _, _, _))
+		.Times(AnyNumber())
+		.WillRepeatedly(Return(true));
+
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetEncryptedHeaders(_))
+		.WillRepeatedly(Invoke([](std::map<int, std::string>& headers) { headers.clear(); }));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, IsEncryptedHeadersCached())
+		.WillRepeatedly(Return(true));
+
+	// Both tracks have encrypted headers
+	EXPECT_CALL(*g_mockAampStreamSinkManager, IsEncryptedHeadersCached(eMEDIATYPE_VIDEO))
+		.WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, IsEncryptedHeadersCached(eMEDIATYPE_AUDIO))
+		.WillRepeatedly(Return(true));
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetTrackEncrypted(eMEDIATYPE_VIDEO, true))
+		.Times(AtLeast(1));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetTrackEncrypted(eMEDIATYPE_AUDIO, true))
+		.Times(AtLeast(1));
+
+	status = InitializeMPD(manifest);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
 }
 
 /**
