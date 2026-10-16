@@ -7171,7 +7171,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 				AAMPLOG_ERR("mpStreamAbstractionAAMP is NULL, cannot apply cached video mute");
 			}
 		}
-		else if (mApplyCachedCCStatus.load())
+		if (mApplyCachedCCStatus.load())
 		{
 			while (mApplyCachedCCStatus.exchange(false))
 			{
