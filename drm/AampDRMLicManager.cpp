@@ -131,8 +131,9 @@ AampDRMLicenseManager::AampDRMLicenseManager(int maxDrmSessions, PrivateInstance
 AampDRMLicenseManager::~AampDRMLicenseManager()
 {
 	SAFE_DELETE(mLicensePrefetcher);
+	releaseLicenseRenewalThreads(); // must join before deleting mDrmSessionManager below
 	SAFE_DELETE(mDrmSessionManager);
-	releaseLicenseRenewalThreads();
+	AAMPLOG_INFO("Release license renewal thread after safe delete DrmSessioManager ");
 	for(int i = 0 ; i < mMaxDRMSessions;i++)  
 	{
 		mLicenseDownloader[i].Release();
