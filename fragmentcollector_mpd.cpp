@@ -137,7 +137,7 @@ StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(class PrivateInstanceAAMP *
 	mpd(NULL), mNumberOfTracks(0), mCurrentPeriodIdx(0), mEndPosition(0), mIsLiveStream(true), mIsLiveManifest(true),mManifestDnldRespPtr(nullptr),mManifestUpdateHandleFlag(false), mUpdateManifestState(false),
 	mStreamInfo(), mPrevStartTimeSeconds(0), mPrevLastSegurlMedia(""), mPrevLastSegurlOffset(0),
 	mPeriodEndTime(0), mPeriodStartTime(0), mPeriodDuration(0), mMinUpdateDurationMs(DEFAULT_INTERVAL_BETWEEN_MPD_UPDATES_MS),
-	mLastPlaylistDownloadTimeMs(0), mFirstPTS(0), mStartTimeOfFirstPTS(0), mAudioType(eAUDIO_UNKNOWN),
+	mLastPlaylistDownloadTimeMs(0), mFirstPTS(0), mStartTimeOfFirstPTS(0), mAudioType(eAUDIO_UNKNOWN), mPreviousAudioType(eAUDIO_UNKNOWN),
 	mPrevAdaptationSetCount(0), mBitrateIndexVector(), mProfileMaps(), mIsFogTSB(false),
 	mCurrentPeriod(NULL), mBasePeriodId(""), mBasePeriodOffset(0), mCdaiObject(NULL), mLiveEndPosition(0), mCulledSeconds(0)
 	,mAdPlayingFromCDN(false)
@@ -639,6 +639,7 @@ bool StreamAbstractionAAMP_MPD::FetchFragment(MediaStreamContext *pMediaStreamCo
 	}
 
 	double scaledPts = static_cast<double>(pMediaStreamContext->fragmentDescriptor.Time) / static_cast<double>(pMediaStreamContext->fragmentDescriptor.TimeScale);
+	bool codecChanged = pMediaStreamContext->mediaType == eMEDIATYPE_AUDIO && GetCodecChangedStatus();
 	DownloadInfoPtr downloadInfo = std::make_shared<DownloadInfo>(
 		static_cast<AampMediaType>(pMediaStreamContext->type),
 		static_cast<AampCurlInstance>(curlInstance),
@@ -656,7 +657,12 @@ bool StreamAbstractionAAMP_MPD::FetchFragment(MediaStreamContext *pMediaStreamCo
 		pMediaStreamContext->fragmentDescriptor.TimeScale,
 		pMediaStreamContext->fragmentDescriptor.Bandwidth,
 		mPTSOffset,
-		uriList);
+		uriList,
+		codecChanged);
+	if (codecChanged)
+	{
+		ResetCodecChangedStatus();
+	}
 
 	// Wrap the lambda in a JobWrapper
 	auto downloadJob = std::make_shared<aamp::MediaSegmentDownloadJob>(downloadInfo, [this, pMediaStreamContext, downloadInfo]() {
@@ -7126,11 +7132,11 @@ void StreamAbstractionAAMP_MPD::SelectAudioTrack(std::vector<AudioTrackInfo> &aT
 	* if the stream has AAC and EC3 for the current decoding language then as per the EC3(default priority)
 	* the player will choose EC3 but the audio pipeline actually not configured in this case to affect this change.
 	*/
-	if (aamp->previousAudioType != selectedCodecType)
+	if (mPreviousAudioType != selectedCodecType)
 	{
-		AAMPLOG_MIL("StreamAbstractionAAMP_MPD: AudioType Changed %d -> %d", aamp->previousAudioType, selectedCodecType);
-		aamp->previousAudioType = selectedCodecType;
-		SetESChangeStatus();
+		AAMPLOG_MIL("StreamAbstractionAAMP_MPD: AudioType Changed %d -> %d", mPreviousAudioType, selectedCodecType);
+		mPreviousAudioType = selectedCodecType;
+		SetCodecChangedStatus();
 	}
 }
 
@@ -10534,7 +10540,7 @@ void StreamAbstractionAAMP_MPD::DetectDiscontinuityAndFetchInit(bool periodChang
 				* 1. If the next segment time is not matching with the next period segment start time.
 				* 2. To reconfigure the pipeline, if there is a change in the Audio Codec even if there is no change in segment start time in multi period content.
 				*/
-				if ((segmentTemplates.GetSegmentTimeline() != NULL && nextSegmentTime != segmentStartTime) || GetESChangeStatus() || ISCONFIGSET(eAAMPConfig_ForceMultiPeriodDiscontinuity))
+				if ((segmentTemplates.GetSegmentTimeline() != NULL && nextSegmentTime != segmentStartTime) || GetCodecChangedStatus() || ISCONFIGSET(eAAMPConfig_ForceMultiPeriodDiscontinuity))
 				{
 					AAMPLOG_WARN("StreamAbstractionAAMP_MPD: discontinuity detected nextSegmentTime %" PRIu64 " FirstSegmentStartTime %" PRIu64 " ", nextSegmentTime, segmentStartTime);
 					discontinuity = true;
