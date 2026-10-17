@@ -980,6 +980,13 @@ void AAMPGstPlayer::ResetFirstFrame(void)
 {
 	playerInstance->ResetFirstFrame();
 }
+/**
+ * @brief Arm buffering before play
+ */
+void AAMPGstPlayer::ArmBufferingBeforePlay(int rate)
+{
+	playerInstance->ArmBufferingBeforePlay(rate);
+}
 
 /**
  * @brief Set video mute
