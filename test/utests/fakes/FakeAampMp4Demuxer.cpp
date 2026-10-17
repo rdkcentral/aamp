@@ -83,3 +83,11 @@ void AampMp4Demuxer::abort()
 void AampMp4Demuxer::reset()
 {
 }
+
+void AampMp4Demuxer::resetPTSOnAudioSwitch(std::vector<uint8_t>& fragment, double position, double ptsOffset)
+{
+}
+
+void AampMp4Demuxer::resetPTSOnSubtitleSwitch(std::vector<uint8_t>& fragment, double position)
+{
+}

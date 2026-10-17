@@ -455,6 +455,14 @@ public:
 	 * @return Media timescale
 	 */
 	uint32_t GetTimeScale() const;
+	/** @brief Get the effective timescale: box-derived if available, otherwise the
+	 * manifest-declared fallback.  Always prefer this over GetTimeScale() when the
+	 * caller needs a non-zero value for PTS-to-seconds conversion — data-only
+	 * fragments (no init segment in this call) return 0 from GetTimeScale() even
+	 * when a fallback has been configured via SetFallbackTimeScale().
+	 * @return Effective timescale (>0 when either source is set, 0 only if neither is)
+	 */
+	uint32_t GetEffectiveTimeScale() const;
 	/** @brief Set the manifest-declared timescale to fall back on when no mvhd/mdhd
 	 * box establishes timeScale (e.g. streams with no init segment for this track).
 	 * @param ts Timescale value from the manifest (e.g. DASH SegmentTemplate\@timescale)
