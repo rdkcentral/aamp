@@ -152,6 +152,14 @@ private:
      */
     void RearmDeadline(double bufferSec, float playRate);
 
+    /**
+     * @fn CheckForStallDetection
+     * @brief Wait for recovery from an active underflow and report a stall if
+     *        the configured timeout expires.
+     * @param lock Lock held by the monitor thread.
+     */
+    void CheckForStallDetection(std::unique_lock<std::mutex>& lock);
+
     using Clock     = std::chrono::steady_clock;
     using TimePoint = Clock::time_point;
 
@@ -166,6 +174,7 @@ private:
     bool                    mDeadlineArmed{false}; ///< False while pipeline is paused for buffering.
     double                  mCurrentPlayRate{1.0}; ///< Cached for resume re-arm.
     double                  mCurrentEndPosition{0.0}; ///< Cached for resume re-arm.
+    TimePoint               mUnderflowStartTime{}; ///< Steady-clock instant when the current underflow episode began.
 };
 
 #endif // AAMP_UNDERFLOW_MONITOR_H
