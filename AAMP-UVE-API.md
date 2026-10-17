@@ -2908,6 +2908,8 @@ App                          AAMP Player                Ad Server
 | AAMP_TUNE_CURL_CONNECTION_TIMEOUT | 30 | 7 | AAMP: Manifest download failed due to connection timeout |
 | AAMP_TUNE_DATA_TRANSFER_TIMEOUT | 30 | 8 | AAMP: Manifest download failed due to data transfer timeout |
 | AAMP_TUNE_AUTHORIZATION_FAILURE | 40 | 1 | AAMP: Authorization failure |
+| AAMP_TUNE_CONCURRENCY_ERROR | 40 | 2 | AAMP: Concurrency limit reached |
+| AAMP_TUNE_GEOBLOCKED_ERROR | 40 | 3 | AAMP: Content geo-blocked |
 | AAMP_TUNE_UNTRACKED_DRM_ERROR | 50 | 1 | AAMP: DRM error untracked error |
 | AAMP_TUNE_DRM_INIT_FAILED | 50 | 2 | AAMP: DRM Initialization Failed |
 | AAMP_TUNE_DRM_DATA_BIND_FAILED | 50 | 3 | AAMP: InitData-DRM Binding Failed |

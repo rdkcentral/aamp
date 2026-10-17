@@ -141,6 +141,8 @@ typedef enum
 
 	//Authorization failure
 	AAMP_TUNE_AUTHORIZATION_FAILURE, 	 /**< Not authorized to view the content*/
+	AAMP_TUNE_CONCURRENCY_ERROR, 	 /**< Streaming concurrency limit reached */
+	AAMP_TUNE_GEOBLOCKED_ERROR, 	 /**< Content is geo-blocked */
 
 	//DRM Failure
 	AAMP_TUNE_UNTRACKED_DRM_ERROR, 	/**< DRM error*/
