@@ -50,14 +50,35 @@ void AampStreamSinkManager::DeleteStreamSink(PrivateInstanceAAMP *aamp)
 
 void AampStreamSinkManager::SetEncryptedHeaders(PrivateInstanceAAMP *aamp, std::map<int, std::string>& mappedHeaders)
 {
+    if (g_mockAampStreamSinkManager)
+    {
+        g_mockAampStreamSinkManager->SetEncryptedHeaders(aamp, mappedHeaders);
+    }
 }
 
 void AampStreamSinkManager::GetEncryptedHeaders(std::map<int, std::string>& mappedHeaders)
 {
+    if (g_mockAampStreamSinkManager)
+    {
+        g_mockAampStreamSinkManager->GetEncryptedHeaders(mappedHeaders);
+    }
+}
+
+bool AampStreamSinkManager::IsEncryptedHeadersCached()
+{
+    if (g_mockAampStreamSinkManager)
+    {
+        return g_mockAampStreamSinkManager->IsEncryptedHeadersCached();
+    }
+    return false;
 }
 
 void AampStreamSinkManager::ReinjectEncryptedHeaders()
 {
+    if (g_mockAampStreamSinkManager)
+    {
+        g_mockAampStreamSinkManager->ReinjectEncryptedHeaders();
+    }
 }
 
 void AampStreamSinkManager::DeactivatePlayer(PrivateInstanceAAMP *aamp, bool stop)
