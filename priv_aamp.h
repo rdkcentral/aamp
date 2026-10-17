@@ -246,6 +246,17 @@ enum AudioType
 	eAUDIO_OPUS
 };
 
+enum VideoCodecType
+{
+	eVIDEO_UNKNOWN,
+	eVIDEO_H264,
+	eVIDEO_HEVC,
+	eVIDEO_MPEG2,
+	eVIDEO_VP8,
+	eVIDEO_VP9,
+	eVIDEO_AV1
+};
+
 
 /**
  * @struct AsyncEventDescriptor
@@ -1034,6 +1045,7 @@ public:
 	ProfileEventAAMP profiler;
 	bool licenceFromManifest;
 	AudioType previousAudioType; 			/**< Used to maintain previous audio type */
+	VideoCodecType previousVideoType; 	/**< Used to maintain previous video codec type */
 
 	CURL *curl[eCURLINSTANCE_MAX];
 	eCurlHostMapStruct *curlhost[eCURLINSTANCE_MAX];

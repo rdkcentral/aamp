@@ -1062,7 +1062,7 @@ public:
 	 *
 	 *   @return void
 	 */
-	void SetESChangeStatus(void){mAudiostateChangeCount++; mESChangeStatus = true;}
+	void SetESChangeStatus(void){mESChangeCount++; mESChangeStatus = true;}
 
 	/**
 	 *   @brief Reset elementary stream type change status once the pipeline reconfigured.
@@ -1070,7 +1070,7 @@ public:
 	 *   @return void
 	 */
 	void ResetESChangeStatus(void){
-		if( (mAudiostateChangeCount > 0) && !(--mAudiostateChangeCount) )
+		if( (mESChangeCount > 0) && !(--mESChangeCount) )
 		{
 			mESChangeStatus = false;
 		}
@@ -1083,6 +1083,19 @@ public:
 	 */
 	bool GetESChangeStatus(void){ return mESChangeStatus;}
 
+	template<typename CodecType>
+	void CheckAndUpdateCodecChangeStatus(const char *trackName, CodecType &previousCodec, CodecType currentCodec)
+	{
+		if (previousCodec != currentCodec)
+		{
+			AAMPLOG_MIL("StreamAbstractionAAMP: %s codec changed %d -> %d, pipeline reconfiguration required", trackName, static_cast<int>(previousCodec), static_cast<int>(currentCodec));
+			previousCodec = currentCodec;
+			if (!GetESChangeStatus())
+			{
+				SetESChangeStatus();
+			}
+		}
+	}
 
 	/**
 	 *   @brief Set pipeline flush status.
@@ -2101,7 +2114,7 @@ protected:
 	int mABRNwConsistency;		    /**< ABR Network consistency*/
 	bool mESChangeStatus;               /**< flag value which is used to call pipeline configuration if the audio type changed in mid stream */
 	bool mPipelineFlushStatus;			/**< flag value which is used to call pipeline flush on PTS jumps or PTO */
-	unsigned int mAudiostateChangeCount;/**< variable to know how many times player need to reconfigure the pipeline for audio type change*/
+	unsigned int mESChangeCount;/**< variable to know how many times player needs to reconfigure the pipeline for an elementary stream type change*/
 	double mLastVideoFragParsedTimeMS;  /**< timestamp when last video fragment was parsed */
 
 	bool mIsPaused;                     /**< paused state or not */

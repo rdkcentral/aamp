@@ -450,3 +450,20 @@ TEST_F(StreamAbstractionAAMP_Test, GetBufferValue_ClampsToZero_WhenLiveEdgeDelta
 	EXPECT_DOUBLE_EQ(0.0, mStreamAbstractionAAMP->testGetBufferValue(
 		mStreamAbstractionAAMP->mMockVideoTrack));
 }
+
+TEST_F(StreamAbstractionAAMP_Test, CheckAndUpdateCodecChangeStatus_CoalescesPendingTrackChanges)
+{
+	AudioType previousAudioCodec = eAUDIO_AAC;
+	VideoCodecType previousVideoCodec = eVIDEO_H264;
+
+	mStreamAbstractionAAMP->CheckAndUpdateCodecChangeStatus("audio", previousAudioCodec, eAUDIO_DDPLUS);
+	mStreamAbstractionAAMP->CheckAndUpdateCodecChangeStatus("video", previousVideoCodec, eVIDEO_HEVC);
+
+	EXPECT_EQ(eAUDIO_DDPLUS, previousAudioCodec);
+	EXPECT_EQ(eVIDEO_HEVC, previousVideoCodec);
+	EXPECT_TRUE(mStreamAbstractionAAMP->GetESChangeStatus());
+
+	mStreamAbstractionAAMP->ResetESChangeStatus();
+
+	EXPECT_FALSE(mStreamAbstractionAAMP->GetESChangeStatus());
+}
