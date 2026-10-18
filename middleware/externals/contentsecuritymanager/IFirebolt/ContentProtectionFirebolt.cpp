@@ -601,6 +601,30 @@ bool ContentProtectionFirebolt::UpdateDrmSession(int64_t sessionId, int32_t &err
 	{
 		MW_LOG_INFO("DRM session updated successfully for sessionId: %" PRId64 " with Response %s", sessionId, drmSession.value().c_str());
 		response = drmSession.value();
+		/*
+		 * Newer ContentProtection versions wrap the update payload as a JSON
+		 * string under "updateSessionResponse"; older builds return the fields
+		 * at top level. Unwrap so downstream parsing works with either format
+		 * (RDKEMW-23220).
+		 */
+		try
+		{
+			PlayerJsonObject wrapper(response);
+			std::string innerResponse;
+			PlayerJsonObject innerObj;
+			if (wrapper.get("updateSessionResponse", innerResponse) && !innerResponse.empty())
+			{
+				response = innerResponse;
+			}
+			else if (wrapper.get("updateSessionResponse", innerObj))
+			{
+				response = innerObj.print_UnFormatted();
+			}
+		}
+		catch (const std::exception& e)
+		{
+			MW_LOG_ERR("updateDrmSession: response unwrap failed: %s, using raw response", e.what());
+		}
 		ret = true;
 	}
 	else
