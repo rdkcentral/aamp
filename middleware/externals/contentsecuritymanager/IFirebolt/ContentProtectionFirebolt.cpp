@@ -263,6 +263,8 @@ bool ContentProtectionFirebolt::AcquireLicenseOpenOrUpdate( std::string clientId
 			do
 			{
 				std::string drmSession;
+				// reset per attempt so a stale transport error is not re-interpreted
+				errorCode = CONTENT_SECURITY_MANAGER_DRM_GEN_ERR_NONE;
 				if (!IsActive())
 				{
 					MW_LOG_ERR("Firebolt is not active (or) channel couldn't be opened");
@@ -345,6 +347,13 @@ bool ContentProtectionFirebolt::AcquireLicenseOpenOrUpdate( std::string clientId
 					if (newSession.isSessionValid() && !session.isSessionValid())
 					{
 						session = newSession;
+						/*
+						 * A session is now established. Any subsequent retry must reuse it
+						 * via updateDrmSession; re-invoking openDrmSession would create a
+						 * second server-side session and orphan this client-side handle.
+						 */
+						update = true;
+						apiName = "UpdateDrmSession";
 					}
 
 				}
@@ -384,7 +393,29 @@ bool ContentProtectionFirebolt::AcquireLicenseOpenOrUpdate( std::string clientId
 				}
 				else if( errorCode != CONTENT_SECURITY_MANAGER_DRM_GEN_ERR_NONE)
 				{
-					getContentProtectionAsVerboseErrorCode(errorCode,*statusCode,*reasonCode);
+					/*
+					 * errorCode carries a Firebolt transport error here, not a CPS plugin error.
+					 * A transport-level failure (e.g. Timedout when the response is lost after
+					 * SecManager already completed the license transaction, or NotConnected when
+					 * the channel is down) is transient, so map it onto the retryable SecManager
+					 * reasons instead of the non-retryable default 200:1.
+					 */
+					if (errorCode == static_cast<int32_t>(Firebolt::Error::Timedout))
+					{
+						*statusCode = CONTENT_SECURITY_MANAGER_DRM_FAILURE;
+						*reasonCode = CONTENT_SECURITY_MANAGER_SERVICE_TIMEOUT;
+						MW_LOG_ERR("ContentProtection %s Firebolt transport timeout, treating as retryable license timeout", apiName);
+					}
+					else if (errorCode == static_cast<int32_t>(Firebolt::Error::NotConnected))
+					{
+						*statusCode = CONTENT_SECURITY_MANAGER_DRM_FAILURE;
+						*reasonCode = CONTENT_SECURITY_MANAGER_SERVICE_CON_FAILURE;
+						MW_LOG_ERR("ContentProtection %s Firebolt transport not connected, treating as retryable connection failure", apiName);
+					}
+					else
+					{
+						getContentProtectionAsVerboseErrorCode(errorCode,*statusCode,*reasonCode);
+					}
 				}
 				if(!ret)
 				{
@@ -573,9 +604,24 @@ bool ContentProtectionFirebolt::OpenDrmSession(std::string& clientId, std::strin
 	if (drmSession)
 	{
 		MW_LOG_WARN("DRM session opened successfully with sessionId: '%s' with Response %s", drmSession->sessionId.c_str(), drmSession->openSessionResponse.c_str());
-		response = drmSession->openSessionResponse;
-		sessionId = std::stoll(drmSession->sessionId);
-		ret = true;
+		try
+		{
+			sessionId = std::stoll(drmSession->sessionId);
+			response = drmSession->openSessionResponse;
+			ret = true;
+		}
+		catch (const std::exception& e)
+		{
+			/*
+			 * Malformed sessionId in a transport-level successful response. Without a
+			 * usable ID the session lifetime cannot be managed client-side, and building
+			 * a session object from an uninitialized ID would poison the retry loop with
+			 * a bogus updateDrmSession target. Drop the payload so the caller treats this
+			 * as a failed call and fails cleanly instead of crashing on the exception.
+			 */
+			errorCode = static_cast<int>(Firebolt::Error::General);
+			MW_LOG_ERR("openDrmSession: malformed sessionId '%s': %s", drmSession->sessionId.c_str(), e.what());
+		}
 	}
 	else
 	{
