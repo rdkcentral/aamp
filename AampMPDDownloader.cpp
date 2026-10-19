@@ -297,6 +297,21 @@ void AampMPDDownloader::SetBufferAvailability(int iDurationMilliSec)
 }
 
 /**
+ * @brief Notify all waiters of a condition variable without losing a wakeup.
+ *
+ * The empty critical section guarantees that any waiter is either before its
+ * predicate check (and will see the updated state) or already blocked (and
+ * will be woken by the notification).
+ */
+static void NotifyAllSynchronised(std::mutex &mtx, std::condition_variable &cv)
+{
+	{
+		std::lock_guard<std::mutex> lock(mtx);
+	}
+	cv.notify_all();
+}
+
+/**
 *   @fn Release
 *   @brief Release function to clear the allocation and join threads
 */
@@ -309,15 +324,8 @@ void AampMPDDownloader::Release()
 		{
 			std::lock_guard<std::recursive_mutex> lock(mMPDDnldMutex);
 			mReleaseCalled = true;
-			{
-				// Synchronise with the waiters' predicate checks before notifying
-				std::lock_guard<std::mutex> refreshLock(mRefreshMtx);
-			}
-			mRefreshCondVar.notify_all();
-			{
-				std::lock_guard<std::mutex> bufLock(mMPDBufferMutex);
-			}
-			mMPDDnldDataCondVar.notify_all();
+			NotifyAllSynchronised(mRefreshMtx, mRefreshCondVar);
+			NotifyAllSynchronised(mMPDBufferMutex, mMPDDnldDataCondVar);
 			mMPDNotifierCondVar.notify_all();
 		}
 		// Disable downloads before joining the threads,which will exit the download loops gracefully
