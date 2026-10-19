@@ -339,9 +339,14 @@ void AampMPDDownloader::Release()
 		}
 		if(mDownloadNotifierThread.joinable())
 			mDownloadNotifierThread.join();
-		while (!mMPDBufferQ.empty())
 		{
-			mMPDBufferQ.pop();
+			// Swap under the lock so GetManifest never reads front() during the drain;
+			// the drained entries are destroyed after the lock is released.
+			std::queue<ManifestDownloadResponsePtr> drained;
+			{
+				std::lock_guard<std::mutex> lock(mMPDBufferMutex);
+				drained.swap(mMPDBufferQ);
+			}
 		}
 
 		/**< Reset LLD Data*/
@@ -791,69 +796,61 @@ ManifestDownloadResponsePtr AampMPDDownloader::GetManifest(bool bWait, int iWait
 			return respPtr;
 		}
 
+		std::unique_lock<std::mutex> lck(mMPDBufferMutex);
+		if(!mMPDBufferQ.empty())
 		{
-			std::unique_lock<std::mutex> lck1(mMPDBufferMutex);
-			if(mMPDBufferQ.size())
-			{
-				return mMPDBufferQ.front();
-			}
+			return mMPDBufferQ.front();
 		}
 
-
-		// if Q is not available with any data ( for very first tune )
-		if(bWait)
+		// Q is empty (very first tune)
+		if(!bWait)
 		{
-			std::unique_lock<std::mutex> lck2(mMPDBufferMutex);
-			bool ready = mMPDDnldDataCondVar.wait_for(lck2, std::chrono::milliseconds(iWaitDurationMs),
-				[this] { return mReleaseCalled || !mMPDBufferQ.empty(); });
-			if (!ready)
-			{
-				// Timed out
-				respPtr->mMPDDownloadResponse->iHttpRetValue = CURLE_OPERATION_TIMEDOUT;
-
-				CURL *curlHandle = mDownloader1.GetCurlHandle();
-
-				// Optionally, log or use the handle
-				if (curlHandle)
-				{
-					/*  As the curl being properly initialized and the nameLookupTime and connectTime are populated properly
-						so we can safely assume that the timeout was due to a timeout error, we can able to get the reason through
-						curl_easy_getinfo() and can able to obtain the reason behind the timeout error,
-					*/
-					respPtr->mMPDDownloadResponse->iHttpRetValue = GetCurlTimeoutFailureReason(curlHandle);
-				}
-				else
-				{
-					AAMPLOG_WARN("GetManifest: CURL handle is null");
-				}
-				AAMPLOG_INFO("GetManifest timer exited after timeout ...%d",iWaitDurationMs);
-				return respPtr;
-			}
-			else
-			{
-				// check if it exited the timer due to Release call
-				if(mReleaseCalled)
-				{
-					// Release called , so send error
-					respPtr->mMPDDownloadResponse->iHttpRetValue = CURLE_ABORTED_BY_CALLBACK;
-					AAMPLOG_INFO("GetManifest timer exited after Release call ...");
-					return respPtr;
-				}
-				else
-				{
-					// data received
-					AAMPLOG_INFO("GetManifest timer exited after new data received ...");
-					return mMPDBufferQ.front();
-				}
-			}
-		}
-		else
-		{
-			// No wait
 			respPtr->mMPDDownloadResponse->iHttpRetValue = CURLE_OPERATION_TIMEDOUT;
 			AAMPLOG_INFO("GetManifest exited with no Wait call ...");
 			return respPtr;
 		}
+
+		const bool ready = mMPDDnldDataCondVar.wait_for(lck, std::chrono::milliseconds(iWaitDurationMs),
+			[this] { return mReleaseCalled || !mMPDBufferQ.empty(); });
+
+		// The queue can be empty even when ready if Release() drained it and
+		// Initialize() cleared mReleaseCalled before this point, so check both.
+		if(ready && !mReleaseCalled && !mMPDBufferQ.empty())
+		{
+			AAMPLOG_INFO("GetManifest timer exited after new data received ...");
+			return mMPDBufferQ.front();
+		}
+		lck.unlock(); // queue is not accessed below
+
+		if(!ready)
+		{
+			// Timed out
+			respPtr->mMPDDownloadResponse->iHttpRetValue = CURLE_OPERATION_TIMEDOUT;
+
+			CURL *curlHandle = mDownloader1.GetCurlHandle();
+
+			// Optionally, log or use the handle
+			if (curlHandle)
+			{
+				/*  As the curl being properly initialized and the nameLookupTime and connectTime are populated properly
+					so we can safely assume that the timeout was due to a timeout error, we can able to get the reason through
+					curl_easy_getinfo() and can able to obtain the reason behind the timeout error,
+				*/
+				respPtr->mMPDDownloadResponse->iHttpRetValue = GetCurlTimeoutFailureReason(curlHandle);
+			}
+			else
+			{
+				AAMPLOG_WARN("GetManifest: CURL handle is null");
+			}
+			AAMPLOG_INFO("GetManifest timer exited after timeout ...%d",iWaitDurationMs);
+		}
+		else
+		{
+			// Release called , so send error
+			respPtr->mMPDDownloadResponse->iHttpRetValue = CURLE_ABORTED_BY_CALLBACK;
+			AAMPLOG_INFO("GetManifest timer exited after Release call ...");
+		}
+		return respPtr;
 	}
 
 	return respPtr;
