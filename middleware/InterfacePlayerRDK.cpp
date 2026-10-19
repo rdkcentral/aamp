@@ -1538,7 +1538,7 @@ void InterfacePlayerRDK::CancelPendingCallbacks()
 	IdleTaskRemove(interfacePlayerPriv->gstPrivateContext->firstVideoFrameDisplayedCallbackTask);
 	// Wait for any idle callback already running on the main loop thread to finish
 	// before the caller frees player state (g_source_remove alone won't wait for it).
-	idleCallbackControl.waitForDone(100, "idle callback handler");
+	//idleCallbackControl.waitForDone(100, "idle callback handler");
 }
 
 void InterfacePlayerRDK::ResetGstEvents()
