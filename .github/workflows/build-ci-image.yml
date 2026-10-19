@@ -20,7 +20,7 @@ name: Build AAMP CI Docker Image
 on:
   push:
     branches:
-      - feature/VPAAMP-1449
+      - dev_sprint_25_2
     paths:
       - .github/Dockerfile.ci
       - .github/workflows/build-ci-image.yml
