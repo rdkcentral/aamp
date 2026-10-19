@@ -23,8 +23,8 @@
  */
 
 #ifndef PLAYER_IARM_RDK_INTERFACE_H
-#define PLAYER_IARM_RDK_INTERFACE_
-#ifndef USE_FIREBOLTH
+#define PLAYER_IARM_RDK_INTERFACE_H
+#ifndef USE_FIREBOLT
 #include "manager.hpp"
 #include "host.hpp"
 #include "videoResolution.hpp"
