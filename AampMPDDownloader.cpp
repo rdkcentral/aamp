@@ -351,10 +351,9 @@ void AampMPDDownloader::Release()
 			// Swap under the lock so GetManifest never reads front() during the drain;
 			// the drained entries are destroyed after the lock is released.
 			std::queue<ManifestDownloadResponsePtr> drained;
-			{
-				std::lock_guard<std::mutex> lock(mMPDBufferMutex);
-				drained.swap(mMPDBufferQ);
-			}
+			std::lock_guard<std::mutex> lock(mMPDBufferMutex);
+			drained.swap(mMPDBufferQ);
+
 		}
 
 		/**< Reset LLD Data*/
