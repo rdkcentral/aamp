@@ -32,7 +32,7 @@ add_library(net_persona_fitter STATIC net_persona_fitter.cpp)
 target_compile_options(net_persona_fitter PRIVATE -fPIC)
 
 set_target_properties(net_persona_fitter PROPERTIES
-    PUBLIC_HEADER "net_persona_fitter.h"
+    PUBLIC_HEADER "net_persona_fitter.h;${AAMP_ROOT}/AampTimingHistogram.h"
 )
 
 install(TARGETS net_persona_fitter

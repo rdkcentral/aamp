@@ -42,6 +42,7 @@
 #include <curl/curl.h>
 #include <string.h>
 #include <vector>
+#include <array>
 #include <unordered_map>
 #include <map>
 #include <set>
@@ -971,6 +972,12 @@ public:
 	bool ReconfigureForElementaryStreamUpdate();
 
 	/**
+	 * @brief Get if an explicit StreamSink Flush() is guaranteed to follow a discontinuity (from stream abstraction)
+	 * @return true if StreamSink::Flush() will be called explicitly for the pending discontinuity
+	 */
+	bool WillFlushOnDiscontinuity();
+
+	/**
 	* @brief Function pointer passed as argument to AampMPDDownloader class. This function is invoked to read the preprocessed manifest provided by application.
 	*  Also it generate error event if preprocessed manifest is not available.
 	*
@@ -1022,6 +1029,7 @@ public:
 	std::condition_variable_any mDownloadsDisabled;
 	bool mDownloadsEnabled;
 	std::map<AampMediaType, bool> mMediaDownloadsEnabled; /* Used to enable/Disable individual mediaType downloads */
+	std::array<std::atomic<bool>, AAMP_TRACK_COUNT> mTrackEncrypted{false, false, false};
 	ABRManager mhAbrManager;                 /**< Pointer to Hybrid abr manager*/
 	ProfileEventAAMP profiler;
 	bool licenceFromManifest;
@@ -1058,6 +1066,10 @@ public:
 	int mPlaylistTimeoutMs;
 	bool mAsyncTuneEnabled;
 	std::atomic<bool> mAsyncTaskAbortEnabled;
+	/// Set true once this player's downloads are flushed into the network-persona
+	/// fitter during Stop(), so a concurrently stopping sibling does not finalize
+	/// the shared aggregate before this player's records arrive.
+	std::atomic<bool> mNetPersonaFlushComplete{false};
 	std::string mTsbType;
 	int mTsbDepthMs;
 	int mDownloadDelay;
@@ -2391,7 +2403,7 @@ public:
 	 *   @param[in] trackType - Video/Audio
 	 *   @return void
 	 */
-	void ScheduleRetune(PlaybackErrorType errorType, AampMediaType trackType, bool bufferFull = false);
+	void ScheduleRetune(PlaybackErrorType errorType, AampMediaType trackType);
 
 	/**
 	 * @brief PrivateInstanceAAMP Constructor
@@ -4213,6 +4225,29 @@ public:
 	 * @param[in] codecInfo - Codec information
 	 */
 	void SetStreamCaps(AampMediaType type, MediaCodecInfo&& codecInfo);
+	/**
+	 * @brief Set encryption state for the specified media track
+	 * @param[in] type - Media track type
+	 * @param[in] isEncrypted - true if the track is encrypted
+	 */
+	void SetTrackEncrypted(AampMediaType type, bool isEncrypted);
+
+	/**
+	 * @fn GetMediaCodecInfo
+	 * @brief Build codec information for pipeline configuration
+	 *
+	 * @param[in] type - Media track type
+	 * @return Codec information including format and encryption state
+	 */
+	MediaCodecInfo GetMediaCodecInfo(AampMediaType type);
+
+	/**
+	 * @fn GetStreamCodecInfo
+	 * @brief Build codec information for video/audio/subtitle tracks
+	 *
+	 * @return Stream codec information used for sink Configure calls
+	 */
+	StreamCodecInfo GetStreamCodecInfo();
 
 	/**
 	 * @fn QueueProtectionEvent
@@ -4297,7 +4332,6 @@ protected:
 	 *   @return void
 	 */
 	void LazilyLoadConfigIfNeeded(void);
-
 	/**
 	 *   @fn ExtractServiceZone
 	 *   @param  url - stream url with vss service zone info as query string
@@ -4448,7 +4482,7 @@ protected:
 	int  mTuneAttempts;			//To distinguish between new tune & retries with redundant over urls.
 	long long mPlayerLoadTime;
 	std::atomic<AAMPPlayerState> mState;  //Changed to atomic as there are cross thread accesses.
-	long long lastUnderFlowTimeMs[AAMP_TRACK_COUNT];
+	long long lastPtsErrorTimeMs[AAMP_TRACK_COUNT];
 	bool mbTrackDownloadsBlocked[AAMP_TRACK_COUNT];
 	DrmHelperPtr mCurrentDrm;
 	int  mPersistedProfileIndex;
@@ -4562,6 +4596,11 @@ private:
 	void PlayFromTsbStart();
 
 	void SetCMCDTrackData(AampMediaType mediaType);
+	/**
+	 * @brief Get the current video bitrate without waiting for the stream lock.
+	 * @return Current bitrate, or 0 if the lock or stream abstraction is unavailable.
+	 */
+	BitsPerSecond GetVideoBitrateNonBlocking();
 	std::vector<float> getSupportedPlaybackSpeeds(void);
 	bool IsFogUrl(const char *mainManifestUrl);
 

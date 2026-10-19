@@ -45,7 +45,7 @@ guint AampEventManager::GetSourceID()
 AampEventManager::AampEventManager(int playerId): mIsFakeTune(false),
 					mAsyncTuneEnabled(false),mEventPriority(G_PRIORITY_DEFAULT_IDLE),mMutexVar(),
 					mPlayerState(eSTATE_IDLE),mEventWorkerDataQue(),mPendingAsyncEvents(),mPlayerId(playerId),
-					mEventProfilingEnabled(false),mEventProfilingThresholdMs(0)
+					mEventProfilingEnabled(false),mEventProfilingThresholdMs(0),mIsFirstProgressSent(false)
 {
 	for (int i = 0; i < AAMP_MAX_NUM_EVENTS; i++)
 	{
@@ -59,7 +59,6 @@ AampEventManager::AampEventManager(int playerId): mIsFakeTune(false),
  */
 AampEventManager::~AampEventManager()
 {
-
 	// Clear all event listeners and pending events
 	FlushPendingEvents();
 	std::lock_guard<std::mutex> guard(mMutexVar);
@@ -111,6 +110,8 @@ void AampEventManager::FlushPendingEvents()
 	}
 	for (int i = 0; i < AAMP_MAX_NUM_EVENTS; i++)
 		mEventStats[i] = 0;
+
+	mIsFirstProgressSent = false;
 }
 
 /**
@@ -407,6 +408,13 @@ void AampEventManager::SendEventSync(const AAMPEventPtr &eventData, long long en
 			AAMPLOG_MIL("(type=%d)(state=%d)(session_id=%s)", eventType, std::dynamic_pointer_cast<StateChangedEvent>(eventData)->getState(),
 				eventData->GetSessionId().c_str());
 		}
+	}
+	else if (!mIsFirstProgressSent)
+	{
+		ProgressEventPtr progressEvt = std::dynamic_pointer_cast<ProgressEvent>(eventData);
+		AAMPLOG_MIL("First progress event sent(session_id=%s) position:%0.3lfms, live-latency:%0.3lfms",
+			eventData->GetSessionId().c_str(), progressEvt->getPosition(), progressEvt->getLiveLatency());
+		mIsFirstProgressSent = true;
 	}
 	// Build list of registered event listeners.
 	ListenerData* pList = NULL;

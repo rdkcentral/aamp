@@ -1268,7 +1268,7 @@ void PrivateInstanceAAMP::ResetTrackDiscontinuityIgnoredStatusForTrack(AampMedia
 {
 }
 
-void PrivateInstanceAAMP::ScheduleRetune(PlaybackErrorType errorType, AampMediaType trackType, bool bufferFull)
+void PrivateInstanceAAMP::ScheduleRetune(PlaybackErrorType errorType, AampMediaType trackType)
 {
 }
 
@@ -1826,6 +1826,15 @@ bool PrivateInstanceAAMP::ReconfigureForElementaryStreamUpdate()
 	return false;
 }
 
+bool PrivateInstanceAAMP::WillFlushOnDiscontinuity()
+{
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		return g_mockPrivateInstanceAAMP->WillFlushOnDiscontinuity();
+	}
+	return false;
+}
+
 std::pair<std::string,int> PrivateInstanceAAMP::SendManifestPreProcessEvent()
 {
 	std::string  bRetManifestData;
@@ -1956,6 +1965,32 @@ void PrivateInstanceAAMP::SetStreamCaps(AampMediaType type, MediaCodecInfo&& cod
 	{
 		g_mockPrivateInstanceAAMP->SetStreamCaps(type, std::move(codecInfo));
 	}
+}
+
+void PrivateInstanceAAMP::SetTrackEncrypted(AampMediaType type, bool isEncrypted)
+{
+	if (g_mockPrivateInstanceAAMP)
+	{
+		g_mockPrivateInstanceAAMP->SetTrackEncrypted(type, isEncrypted);
+	}
+}
+
+MediaCodecInfo PrivateInstanceAAMP::GetMediaCodecInfo(AampMediaType type)
+{
+	if (g_mockPrivateInstanceAAMP)
+	{
+		return g_mockPrivateInstanceAAMP->GetMediaCodecInfo(type);
+	}
+	return MediaCodecInfo();
+}
+
+StreamCodecInfo PrivateInstanceAAMP::GetStreamCodecInfo()
+{
+	return StreamCodecInfo{
+		GetMediaCodecInfo(eMEDIATYPE_VIDEO),
+		GetMediaCodecInfo(eMEDIATYPE_AUDIO),
+		GetMediaCodecInfo(eMEDIATYPE_SUBTITLE)
+	};
 }
 
 void PrivateInstanceAAMP::QueueProtectionEvent(AampMediaType type, const std::vector<MediaProtectionInfo>& protectionEvents)
