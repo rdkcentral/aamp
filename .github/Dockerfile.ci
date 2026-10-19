@@ -54,9 +54,13 @@ RUN bash -c '\
   source scripts/install_dependencies.sh && \
   source scripts/install_gtest.sh && \
   source scripts/install_libdash.sh && \
+  source scripts/install_options.sh && \
+  source scripts/install_rialto.sh && \
   install_pkgs_fn  && \
   install_build_googletest_fn true && \
-  install_build_libdash_fn true \
+  install_build_libdash_fn true || exit 1; \
+  rialto_install_build_fn false; \
+  rm -rf "$LOCAL_DEPS_BUILD_DIR/rialto" \
 '
 
 RUN rm -rf /opt/aamp
