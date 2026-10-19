@@ -4068,6 +4068,13 @@ static gboolean VideoDecoderPtsCheckerForEOS(gpointer user_data)
 	InterfacePlayerPriv* privatePlayer = pInterfacePlayerRDK->GetPrivatePlayer();
 	gint64 currentPTS = pInterfacePlayerRDK->GetVideoPTS();                       /* Gets the currentPTS from the 'video-pts' property of the element */
 
+	if (currentPTS <= 0)
+	{
+		MW_LOG_WARN("VideoDecoderPtsCheckerForEOS: invalid decoder PTS %" G_GINT64_FORMAT ", skipping EOS inference", currentPTS);
+		privatePlayer->gstPrivateContext->ptsCheckForEosOnUnderflowIdleTaskId = GST_TASK_ID_INVALID;
+		return G_SOURCE_REMOVE;
+	}
+
 	if (currentPTS == privatePlayer->gstPrivateContext->lastKnownPTS)
 	{
 		MW_LOG_MIL("PTS not changed");
@@ -4142,7 +4149,7 @@ static void GstPlayer_OnGstBufferUnderflowCb(GstElement* object, guint arg0, gpo
 		MW_LOG_WARN("## Got Underflow message from %s type %d ##", GST_ELEMENT_NAME(object), type);
 		privatePlayer->gstPrivateContext->stream[type].bufferUnderrun = true;
 
-		if ((privatePlayer->gstPrivateContext->stream[type].eosReached) && (privatePlayer->gstPrivateContext->rate > 0))
+		if ((privatePlayer->gstPrivateContext->stream[type].eosReached) && (privatePlayer->gstPrivateContext->rate == GST_NORMAL_PLAY_RATE))
 		{
 			if (!privatePlayer->gstPrivateContext->ptsCheckForEosOnUnderflowIdleTaskId)
 			{
