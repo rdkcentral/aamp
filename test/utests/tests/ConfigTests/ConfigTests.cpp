@@ -80,6 +80,18 @@ TEST_F(AampConfigTests, configStringToBool)
 	EXPECT_FALSE(ConfigLookup::ConfigStringValueToBool(nullptr));
 }
 
+TEST_F(AampConfigTests, NetworkPersonaLoggingDefaultsOffAndCanBeEnabled)
+{
+	EXPECT_FALSE(mAampConfig->GetConfigValue(eAAMPConfig_EnableNetworkPersonaLogging));
+
+	ConfigLookup lookup;
+	std::string enabled("true");
+	lookup.Process(mAampConfig.get(), AAMP_DEFAULT_SETTING,
+		"enableNetworkPersonaLogging", enabled);
+
+	EXPECT_TRUE(mAampConfig->GetConfigValue(eAAMPConfig_EnableNetworkPersonaLogging));
+}
+
 TEST_F(AampConfigTests, Process)
 {
 	AampConfig aampConfig;
@@ -1092,9 +1104,10 @@ TEST_F(AampConfigTests, DoCustomSetting)
 }
 
 /*
-   useDirectRialto is only consumed once, in the PrivateInstanceAAMP constructor, so
-   it must not be settable dynamically (stream/app/tune priority) after the player
-   instance already exists. DoCustomSetting should revert such an override.
+	useDirectRialto is consumed before the app can call InitAAMPConfig or
+	before tune-time overrides apply, so overriding it after the player
+	instance exists (stream/app/tune settings) has no effect; DoCustomSetting
+	should revert such an attempt.
 */
 TEST_F(AampConfigTests, DoCustomSettingRevertsDynamicUseDirectRialto)
 {
@@ -1113,8 +1126,8 @@ TEST_F(AampConfigTests, DoCustomSettingRevertsDynamicUseDirectRialto)
 }
 
 /*
-   A useDirectRialto value set at device-config time (before the player instance is
-   constructed) must be left untouched by DoCustomSetting.
+	A useDirectRialto value set at device-config time (before the player instance is
+	constructed) must be left untouched by DoCustomSetting.
 */
 TEST_F(AampConfigTests, DoCustomSettingKeepsUseDirectRialtoSetAtDeviceConfigTime)
 {
@@ -1128,8 +1141,8 @@ TEST_F(AampConfigTests, DoCustomSettingKeepsUseDirectRialtoSetAtDeviceConfigTime
 }
 
 /*
-   useDirectRialto requires useMp4Demux (the only combination tested); DoCustomSetting
-   should force useMp4Demux on if it wasn't already set.
+	useDirectRialto requires useMp4Demux (the only combination tested); DoCustomSetting
+	should force useMp4Demux on if it wasn't already set.
 */
 TEST_F(AampConfigTests, DoCustomSettingUseDirectRialtoForcesMp4Demux)
 {
@@ -1145,8 +1158,8 @@ TEST_F(AampConfigTests, DoCustomSettingUseDirectRialtoForcesMp4Demux)
 }
 
 /*
-   IsUsingRialto() must report true if either the sink-based or direct Rialto
-   config flag is set, and false only when both are unset.
+	IsUsingRialto() must report true if either the sink-based or direct Rialto
+	config flag is set, and false only when both are unset.
 */
 TEST_F(AampConfigTests, IsUsingRialto)
 {
