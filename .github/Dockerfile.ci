@@ -58,8 +58,8 @@ RUN bash -c '\
   source scripts/install_rialto.sh && \
   install_pkgs_fn  && \
   install_build_googletest_fn true && \
-  install_build_libdash_fn true && \
-  rialto_install_build_fn false && \
+  install_build_libdash_fn true || exit 1; \
+  rialto_install_build_fn false; \
   rm -rf "$LOCAL_DEPS_BUILD_DIR/rialto" \
 '
 
