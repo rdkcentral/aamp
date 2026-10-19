@@ -45,8 +45,10 @@ if( RIALTO_FORCE_SIMULATOR OR APPLE )
     # test/rialto/ and headers are sourced from .libs/include/rialto/.
     # Force-clear both cache variables so a stale value from a previous
     # non-simulator configure cannot sneak back.
-    set( RIALTO_LIBRARY    "" CACHE FILEPATH "Rialto client library" FORCE )
-    set( RIALTO_INCLUDE_DIR "" CACHE PATH    "Rialto include directory" FORCE )
+    unset( RIALTO_LIBRARY CACHE )
+    unset( RIALTO_LIBRARY )
+    unset( RIALTO_INCLUDE_DIR CACHE )
+    unset( RIALTO_INCLUDE_DIR )
 else()
     find_library( RIALTO_LIBRARY NAMES libRialtoClient.so RialtoClient )
 endif()
