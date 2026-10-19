@@ -58,13 +58,15 @@ static MediaCodecInfo MakeH264CodecInfo(
 }
 
 static MediaCodecInfo MakeHevcCodecInfo(
-	uint16_t width = 1920, uint16_t height = 1080)
+	uint16_t width = 1920, uint16_t height = 1080,
+	bool naluLengthPrefixed = false)
 {
 	MediaCodecInfo ci{};
 	ci.mCodecFormat           = GST_FORMAT_VIDEO_ES_HEVC;
 	ci.mInfo.video.mWidth     = width;
 	ci.mInfo.video.mHeight    = height;
 	ci.mCodecData             = {0x01, 0x02};
+	ci.mNaluLengthPrefixed    = naluLengthPrefixed;
 	return ci;
 }
 
@@ -1754,6 +1756,90 @@ TEST_F(AampRialtoVideoSourceTest,
 	EXPECT_EQ(capturedStreamFormat, firebolt::rialto::StreamFormat::AVC);
 }
 
+/**
+ * @test AampRialtoVideoSource_AttachHevcNoDemuxer_SucceedsWithByteStreamFormat
+ * @brief Verify attachOrUpdate succeeds with HEVC codec info that declares
+ *        Annex-B (non-length-prefixed) NAL units, e.g. HLS-TS ES delivered
+ *        via TSProcessor. SendCopy() supplies this codec info with
+ *        mNaluLengthPrefixed == false; mapCodecToMime() must honor that
+ *        flag the same way it does for H.264, rather than unconditionally
+ *        advertising HVC1 (length-prefixed), which would mislabel the
+ *        byte-stream samples and prevent correct decoding.
+ */
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_AttachHevcNoDemuxer_SucceedsWithByteStreamFormat)
+{
+	auto codecInfo = MakeHevcCodecInfo(1280, 720, /*naluLengthPrefixed=*/false);
+
+	firebolt::rialto::StreamFormat capturedStreamFormat =
+		firebolt::rialto::StreamFormat::UNDEFINED;
+
+	EXPECT_CALL(*m_pipelinePtr, attachSource(_))
+		.WillOnce(Invoke([&](const std::unique_ptr<
+			firebolt::rialto::IMediaPipeline::MediaSource> &src)
+		{
+			auto videoSource = dynamic_cast<
+				firebolt::rialto::IMediaPipeline::MediaSourceVideo*>(src.get());
+			if (videoSource)
+			{
+				capturedStreamFormat = videoSource->getStreamFormat();
+			}
+			const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
+				*src).setId(m_nextSourceId++);
+			return true;
+		}));
+
+	auto result = m_source.attachOrUpdate(
+		*m_pipelinePtr, codecInfo, nullptr, -1);
+
+	EXPECT_EQ(result, AampRialtoMediaSource::AttachResult::NEWLY_ATTACHED);
+	EXPECT_TRUE(m_source.isAttached());
+	EXPECT_EQ(m_source.width(), 1280);
+	EXPECT_EQ(m_source.height(), 720);
+
+	// HEVC, non-length-prefixed → BYTE_STREAM (Annex B raw ES)
+	EXPECT_EQ(capturedStreamFormat, firebolt::rialto::StreamFormat::BYTE_STREAM);
+}
+
+/**
+ * @test AampRialtoVideoSource_AttachHevcWithDemuxer_SucceedsWithHvc1Format
+ * @brief Verify attachOrUpdate with HEVC codec info that declares
+ *        length-prefixed NAL units (as Mp4Demux reports for hvcC sample
+ *        entries) still produces HVC1 stream format, preserving the
+ *        existing fMP4/DASH behavior.
+ */
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_AttachHevcWithDemuxer_SucceedsWithHvc1Format)
+{
+	auto codecInfo = MakeHevcCodecInfo(1280, 720, /*naluLengthPrefixed=*/true);
+
+	firebolt::rialto::StreamFormat capturedStreamFormat =
+		firebolt::rialto::StreamFormat::UNDEFINED;
+
+	EXPECT_CALL(*m_pipelinePtr, attachSource(_))
+		.WillOnce(Invoke([&](const std::unique_ptr<
+			firebolt::rialto::IMediaPipeline::MediaSource> &src)
+		{
+			auto videoSource = dynamic_cast<
+				firebolt::rialto::IMediaPipeline::MediaSourceVideo*>(src.get());
+			if (videoSource)
+			{
+				capturedStreamFormat = videoSource->getStreamFormat();
+			}
+			const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
+				*src).setId(m_nextSourceId++);
+			return true;
+		}));
+
+	auto result = m_source.attachOrUpdate(
+		*m_pipelinePtr, codecInfo, nullptr, -1);
+
+	EXPECT_EQ(result, AampRialtoMediaSource::AttachResult::NEWLY_ATTACHED);
+	EXPECT_TRUE(m_source.isAttached());
+
+	// HEVC, length-prefixed → HVC1 (fMP4/DASH path)
+	EXPECT_EQ(capturedStreamFormat, firebolt::rialto::StreamFormat::HVC1);
+}
 
 TEST_F(AampRialtoVideoSourceTest,
 	AampRialtoVideoSource_reset_PreservesFormat)

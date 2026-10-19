@@ -50,8 +50,13 @@ bool AampRialtoVideoSource::mapCodecToMime(
 			result = true;
 			break;
 		case GST_FORMAT_VIDEO_ES_HEVC:
-			mimeType     = "video/h265";
-			streamFormat = firebolt::rialto::StreamFormat::HVC1;
+			mimeType = "video/h265";
+			// Same length-prefixed (HVC1) vs Annex-B (byte-stream) distinction
+			// as H.264 above: HLS-TS ES delivers Annex-B start codes, while
+			// fMP4/DASH hvcC sample entries are length-prefixed.
+			streamFormat = naluLengthPrefixed
+				? firebolt::rialto::StreamFormat::HVC1
+				: firebolt::rialto::StreamFormat::BYTE_STREAM;
 			result = true;
 			break;
 		default:

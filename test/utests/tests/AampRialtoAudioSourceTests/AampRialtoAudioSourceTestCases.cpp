@@ -71,6 +71,17 @@ static MediaCodecInfo MakeEc3CodecInfo(
 	return ci;
 }
 
+static MediaCodecInfo MakeAc3CodecInfo(
+	uint16_t channels = 6, uint16_t sampleRate = 48000)
+{
+	MediaCodecInfo ci{};
+	ci.mCodecFormat              = GST_FORMAT_AUDIO_ES_AC3;
+	ci.mInfo.audio.mChannelCount = channels;
+	ci.mInfo.audio.mSampleRate   = sampleRate;
+	ci.mCodecData                = {0xAC, 0x30};
+	return ci;
+}
+
 static MediaCodecInfo MakeAc4CodecInfo(
 	uint16_t channels = 2, uint16_t sampleRate = 44100)
 {
@@ -243,6 +254,74 @@ TEST_F(AampRialtoAudioSourceTest, AampRialtoAudioSource_AttachEc3_Success)
 	EXPECT_TRUE(m_source.isAttached());
 	EXPECT_EQ(m_source.sampleRate(), 48000);
 	EXPECT_EQ(m_source.channels(), 6);
+}
+
+// ---------------------------------------------------------------------------
+// attachOrUpdate — AC3
+// ---------------------------------------------------------------------------
+
+/**
+ * @test AampRialtoAudioSource_AttachAc3_Success
+ * @brief Verify first attach with AC3 codec succeeds.
+ *
+ * GST_FORMAT_AUDIO_ES_AC3 is forwarded by AampRialtoPlayer for the HLS-TS
+ * AC-3 path. The pinned rialto-gstreamer v0.20.1
+ * PullModeAudioPlaybackDelegate maps both AC-3 and EAC-3 to Rialto's
+ * "audio/x-eac3" MIME type, so mapCodecToMime() must accept
+ * GST_FORMAT_AUDIO_ES_AC3 rather than rejecting it.
+ */
+TEST_F(AampRialtoAudioSourceTest, AampRialtoAudioSource_AttachAc3_Success)
+{
+	auto codecInfo = MakeAc3CodecInfo(6, 48000);
+
+	auto result = m_source.attachOrUpdate(
+		*m_pipelinePtr, codecInfo, nullptr, -1);
+
+	EXPECT_EQ(result, AampRialtoMediaSource::AttachResult::NEWLY_ATTACHED);
+	EXPECT_TRUE(m_source.isAttached());
+	EXPECT_EQ(m_source.sampleRate(), 48000);
+	EXPECT_EQ(m_source.channels(), 6);
+}
+
+/**
+ * @test AampRialtoAudioSource_AttachAc3_UsesEac3MimeType
+ * @brief Verify GST_FORMAT_AUDIO_ES_AC3 maps to MIME "audio/x-eac3", the
+ *        same MIME used for EAC3, with StreamFormat::UNDEFINED.
+ */
+TEST_F(AampRialtoAudioSourceTest,
+	AampRialtoAudioSource_AttachAc3_UsesEac3MimeType)
+{
+	std::string capturedMime;
+	firebolt::rialto::StreamFormat capturedFormat =
+		firebolt::rialto::StreamFormat::UNDEFINED;
+
+	EXPECT_CALL(*m_pipelinePtr, attachSource(_))
+		.WillOnce(Invoke(
+			[this, &capturedMime, &capturedFormat](
+				const std::unique_ptr<
+					firebolt::rialto::IMediaPipeline::MediaSource> &src)
+			{
+				capturedMime = src->getMimeType();
+				const auto *av = dynamic_cast<
+					const firebolt::rialto::IMediaPipeline::MediaSourceAV *>(
+					src.get());
+				if (av)
+				{
+					capturedFormat = av->getStreamFormat();
+				}
+				const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
+					*src).setId(m_nextSourceId++);
+				return true;
+			}));
+
+	auto codecInfo = MakeAc3CodecInfo(6, 48000);
+	auto result    = m_source.attachOrUpdate(
+		*m_pipelinePtr, codecInfo, nullptr, -1);
+
+	EXPECT_EQ(result, AampRialtoMediaSource::AttachResult::NEWLY_ATTACHED);
+	EXPECT_TRUE(m_source.isAttached());
+	EXPECT_EQ(capturedMime,   "audio/x-eac3");
+	EXPECT_EQ(capturedFormat, firebolt::rialto::StreamFormat::UNDEFINED);
 }
 
 // ---------------------------------------------------------------------------

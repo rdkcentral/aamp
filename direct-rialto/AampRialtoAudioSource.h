@@ -31,7 +31,7 @@
  * @class AampRialtoAudioSource
  * @brief Concrete media source for audio tracks.
  *
- * Handles AAC/EAC3/AC4 codec mapping, MediaSegmentAudio construction,
+ * Handles AAC/AC3/EAC3/AC4 codec mapping, MediaSegmentAudio construction,
  * and MediaSourceAudio creation for the Rialto pipeline.
  */
 class AampRialtoAudioSource : public AampRialtoMediaSource

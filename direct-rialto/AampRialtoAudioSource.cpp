@@ -45,6 +45,10 @@ bool AampRialtoAudioSource::mapCodecToMime(
 			result = true;
 			break;
 		case GST_FORMAT_AUDIO_ES_EC3:
+		case GST_FORMAT_AUDIO_ES_AC3:
+			// The pinned rialto-gstreamer v0.20.1 PullModeAudioPlaybackDelegate
+			// maps both AC-3 and EAC-3 to Rialto's "audio/x-eac3" MIME type, so
+			// the HLS-TS AC-3 path must be handled the same way as EAC-3.
 			mimeType     = "audio/x-eac3";
 			streamFormat = firebolt::rialto::StreamFormat::UNDEFINED;
 			result = true;
