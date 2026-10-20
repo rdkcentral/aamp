@@ -30,6 +30,7 @@
 #include "DrmSession.h"
 #include "AampCurlDownloader.h"
 #include "DrmSessionManager.h"
+#include <mutex>
 
 enum ProfilerAction
 {
@@ -143,7 +144,17 @@ public:
 	* @return	void.
 	*/
 	void clearFailedKeyIds();
-			
+
+	/**
+	 * @fn		markActiveSessionsFailed
+	 * @brief	Problem 2/3 fix: flag the cached sessions of the tracks created so far (decrypt failure).
+	 *		The sessions are not deleted here because a running pipeline may still reference
+	 *		them. They are evicted by the clearDrmSession() call made at the next tune start.
+	 *
+	 * @return	number of cached sessions that were flagged
+	 */
+	int markActiveSessionsFailed();
+
 	/**
 	* @fn    	setSessionMgrState
 	* @param	state session manager sate to be set
@@ -353,4 +364,30 @@ public:
 		const unsigned char* contentMetadataPtr = nullptr, bool isPrimarySession = false);
 
 	AAMPTuneFailure MapDrmToAampTuneFailure(DrmTuneFailure drmError);
+
+private:
+	// Problem 1/2/3 support state and helpers (see markActiveSessionsFailed / invalidateFailedDrmSession)
+	/** Set once active sessions are flagged after a decrypt failure; deferred eviction until the next tune start */
+	std::atomic<bool> mDecryptFailureFlagged{false};
+
+	/** Serializes session failure marking + deferral flag publication with the failed-creation check + eviction */
+	std::mutex mSessionFailureMutex;
+
+	/**
+	 * @fn		clearFailedSessions
+	 * @brief	Evict only the sessions flagged as failed by the DRM session manager and reset
+	 *		their key entries. Valid sessions and their primary key markers are untouched.
+	 *		Only safe for sessions that no pipeline references, e.g. a session that failed to be created.
+	 */
+	void clearFailedSessions();
+
+	/**
+	 * @fn		invalidateFailedDrmSession
+	 * @brief	Evicts the session slot flagged as failed by DrmSessionManager and resets the
+	 *		failed key entries, so the next attempt negotiates a fresh session.
+	 *		Valid sessions are left untouched (forceClearSession is never set).
+	 * @param[in]	session session returned by DrmSessionManager::createDrmSession
+	 * @param[in]	err middleware error code, -1 if none reported
+	 */
+	void invalidateFailedDrmSession(const DrmSession* session, int err);
 };
