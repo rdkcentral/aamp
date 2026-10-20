@@ -22,6 +22,19 @@ function rialto_install_fn() {
     # even when not building the libraries.
     if [ -d "rialto" ]; then
         echo "rialto exists"
+        # An existing clone can be left on an older reference after the
+        # pinned OPTION_RIALTO_REFERENCE is bumped, which produces confusing
+        # compile errors against stale public headers.  Re-sync it.
+        pushd rialto
+        if [ -n "$(git status --porcelain)" ]; then
+            echo "WARNING: rialto has local modifications;"
+            echo "         leaving it on $(git describe --tags --always) instead of checking out '${OPTION_RIALTO_REFERENCE}'"
+        elif [ "$(git rev-parse HEAD)" != "$(git rev-parse ${OPTION_RIALTO_REFERENCE}^{commit} 2>/dev/null)" ]; then
+            echo "Re-checkout rialto '${OPTION_RIALTO_REFERENCE}'"
+            git fetch --tags
+            git checkout ${OPTION_RIALTO_REFERENCE}
+        fi
+        popd
         INSTALL_STATUS_ARR+=("rialto was already installed.")
     else
         do_clone_fn https://github.com/rdkcentral/rialto.git rialto
@@ -101,6 +114,24 @@ function rialto_build_fn()
 function rialto_install_build_fn()
 {
     cd $LOCAL_DEPS_BUILD_DIR
+
+    # The real Rialto libraries (protobuf, rialto, rialto-gstreamer) require a
+    # Linux build environment.  Reject the 'rialto' option early on macOS so
+    # the user gets a clear message rather than a confusing build failure.
+    if [ "${OPTION_RIALTO_BUILD}" = true ] && [[ "$OSTYPE" == "darwin"* ]]; then
+        echo "WARNING: The 'rialto' option is not supported on macOS (protobuf/Rialto require Linux)."
+        echo "         The simulator will be used automatically on this platform."
+        OPTION_RIALTO_BUILD=false
+    fi
+
+    # --rialto-force-simulator overrides the 'rialto' option: clear
+    # OPTION_RIALTO_BUILD here so both the dependency build below and
+    # aampcli_install_build_linux_fn's aamp-cli build skip the real-Rialto
+    # path instead of silently building it anyway.
+    if [ "${OPTION_RIALTO_BUILD}" = true ] && [ "${OPTION_RIALTO_FORCE_SIMULATOR}" = true ]; then
+        echo "WARNING: --rialto-force-simulator was specified; building the simulator instead of real Rialto."
+        OPTION_RIALTO_BUILD=false
+    fi
 
     # OPTION_CLEAN == true
     if [ ${1} == true ] ; then

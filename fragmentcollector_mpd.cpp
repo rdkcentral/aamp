@@ -7027,7 +7027,14 @@ void StreamAbstractionAAMP_MPD::SelectSubtitleTrack(bool newTune, std::vector<Te
 		if (-1 != selAdaptationSetIndex)
 			tTrackIdx = std::to_string(selAdaptationSetIndex) + "-" + std::to_string(selRepresentationIndex);
 
-		aamp->StopTrackDownloads(eMEDIATYPE_SUBTITLE);
+		// direct-rialto's subtitle playContext (AampMp4Demuxer) is never torn down/recreated here,
+		// unlike mSubtitleParser above, so pausing injection isn't needed.
+		// It also needs the new period's init segment to keep flowing through
+		// the (unblocked) injector to reach AttachSource/SetStreamCaps.
+		if (!ISCONFIGSET(eAAMPConfig_useDirectRialto))
+		{
+			aamp->StopTrackDownloads(eMEDIATYPE_SUBTITLE);
+		}
 	}
 	if ((AAMP_NORMAL_PLAY_RATE == mPlayRate) && (pMediaStreamContext->enabled == false) && (selAdaptationSetIndex >= 0))
 	{
@@ -9542,7 +9549,7 @@ void StreamAbstractionAAMP_MPD::PushEncryptedHeaders(std::map<int, std::string>&
 		{
 			// Download the video, audio & subtitle fragments in a separate parallel thread.
 			AAMPLOG_DEBUG("Submitting job for init encrypted header track %d", track);
-			auto dashWorkerJob = std::make_shared<AampDashWorkerJob>([this, track, header]() { CacheEncryptedHeader(track, header); });
+			auto dashWorkerJob = std::make_shared<AampDashWorkerJob>([this, trackCopy = track, headerCopy = header]() { CacheEncryptedHeader(trackCopy, headerCopy); });
 			auto future = aamp->GetAampTrackWorkerManager()->SubmitJob(static_cast<AampMediaType>(track), dashWorkerJob);
 			futures.push_back(std::move(future));
 		}
