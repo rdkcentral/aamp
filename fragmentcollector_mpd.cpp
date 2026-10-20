@@ -4675,6 +4675,23 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 					aamp->mPipelineIsClear = false;
 					aamp->mEncryptedPeriodFound = false;
 				}
+				else if (ISCONFIGSET(eAAMPConfig_UseMp4Demux) &&
+					AampStreamSinkManager::GetInstance().IsEncryptedHeadersCached())
+				{
+					AAMPLOG_WARN("Encrypted headers were previously cached, forcing encrypted track state before init fetch");
+					for (int track = 0; track < mNumberOfTracks; track++)
+					{
+						if (mMediaStreamContext[track] != nullptr && mMediaStreamContext[track]->enabled)
+						{
+							if (AampStreamSinkManager::GetInstance().IsEncryptedHeadersCached(track))
+							{
+								aamp->SetTrackEncrypted(static_cast<AampMediaType>(track), true);
+							}
+						}
+					}
+					aamp->mPipelineIsClear = false;
+					aamp->mEncryptedPeriodFound = false;
+				}
 				else if (mIsLiveStream)
 				{
 					AAMPLOG_INFO("Pipeline set as clear since no enc period found");

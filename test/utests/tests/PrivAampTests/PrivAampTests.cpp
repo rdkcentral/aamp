@@ -6352,6 +6352,116 @@ TEST_F(PrivAampTests,GetFormatPositionOffsetTest)
 	EXPECT_EQ(offset, 1.2 * 1000); // Expect offset to be 0 since IsLiveStream() is false
 }
 
+/**
+ * @test PrivAampTests::SetStreamCapsForcesEncryptedWithInjectedHeaders
+ * @brief when MP4 demux is enabled and encrypted headers
+ *        were already cached for the specific media type, clear codec caps are forced to encrypted to avoid
+ *        encrypted->clear pipeline reconfiguration.
+ */
+TEST_F(PrivAampTests, SetStreamCapsForcesEncryptedWithInjectedHeaders)
+{
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseMp4Demux))
+		.WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, IsEncryptedHeadersCached(eMEDIATYPE_VIDEO))
+		.WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_))
+		.WillRepeatedly(Return(g_mockAampGstPlayer.get()));
+
+	MediaCodecInfo codecInfo(GST_FORMAT_VIDEO_ES_H264);
+	codecInfo.mIsEncrypted = false;
+
+	p_aamp->SetStreamCaps(eMEDIATYPE_VIDEO, std::move(codecInfo));
+
+	MediaCodecInfo updated = p_aamp->GetMediaCodecInfo(eMEDIATYPE_VIDEO);
+	EXPECT_TRUE(updated.mIsEncrypted);
+}
+
+/**
+ * @test PrivAampTests::SetStreamCapsKeepsClearWhenHeadersNotInjected
+ * @brief Verify that clear codec caps remain clear when the cached-header guard is false for the specific media type.
+ */
+TEST_F(PrivAampTests, SetStreamCapsKeepsClearWhenHeadersNotInjected)
+{
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseMp4Demux))
+		.WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, IsEncryptedHeadersCached(eMEDIATYPE_VIDEO))
+		.WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_))
+		.WillRepeatedly(Return(g_mockAampGstPlayer.get()));
+
+	MediaCodecInfo codecInfo(GST_FORMAT_VIDEO_ES_H264);
+	codecInfo.mIsEncrypted = false;
+
+	p_aamp->SetStreamCaps(eMEDIATYPE_VIDEO, std::move(codecInfo));
+
+	MediaCodecInfo updated = p_aamp->GetMediaCodecInfo(eMEDIATYPE_VIDEO);
+	EXPECT_FALSE(updated.mIsEncrypted);
+}
+
+/**
+ * @test PrivAampTests::SetStreamCapsPerTrackEncryptedVideoClearAudio
+ * @brief Verify that when only video has encrypted headers cached, video is forced encrypted but audio remains clear.
+ */
+TEST_F(PrivAampTests, SetStreamCapsPerTrackEncryptedVideoClearAudio)
+{
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseMp4Demux))
+		.WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_))
+		.WillRepeatedly(Return(g_mockAampGstPlayer.get()));
+
+	// Video has encrypted headers, audio does not
+	EXPECT_CALL(*g_mockAampStreamSinkManager, IsEncryptedHeadersCached(eMEDIATYPE_VIDEO))
+		.WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, IsEncryptedHeadersCached(eMEDIATYPE_AUDIO))
+		.WillRepeatedly(Return(false));
+
+	// Test video - should be forced encrypted
+	MediaCodecInfo videoCodecInfo(GST_FORMAT_VIDEO_ES_H264);
+	videoCodecInfo.mIsEncrypted = false;
+	p_aamp->SetStreamCaps(eMEDIATYPE_VIDEO, std::move(videoCodecInfo));
+	MediaCodecInfo updatedVideo = p_aamp->GetMediaCodecInfo(eMEDIATYPE_VIDEO);
+	EXPECT_TRUE(updatedVideo.mIsEncrypted);
+
+	// Test audio - should remain clear
+	MediaCodecInfo audioCodecInfo(GST_FORMAT_AUDIO_ES_AAC);
+	audioCodecInfo.mIsEncrypted = false;
+	p_aamp->SetStreamCaps(eMEDIATYPE_AUDIO, std::move(audioCodecInfo));
+	MediaCodecInfo updatedAudio = p_aamp->GetMediaCodecInfo(eMEDIATYPE_AUDIO);
+	EXPECT_FALSE(updatedAudio.mIsEncrypted);
+}
+
+/**
+ * @test PrivAampTests::SetStreamCapsPerTrackEncryptedAudioClearVideo
+ * @brief Verify that when only audio has encrypted headers cached, audio is forced encrypted but video remains clear.
+ */
+TEST_F(PrivAampTests, SetStreamCapsPerTrackEncryptedAudioClearVideo)
+{
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseMp4Demux))
+		.WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_))
+		.WillRepeatedly(Return(g_mockAampGstPlayer.get()));
+
+	// Audio has encrypted headers, video does not
+	EXPECT_CALL(*g_mockAampStreamSinkManager, IsEncryptedHeadersCached(eMEDIATYPE_VIDEO))
+		.WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, IsEncryptedHeadersCached(eMEDIATYPE_AUDIO))
+		.WillRepeatedly(Return(true));
+
+	// Test video - should remain clear
+	MediaCodecInfo videoCodecInfo(GST_FORMAT_VIDEO_ES_H264);
+	videoCodecInfo.mIsEncrypted = false;
+	p_aamp->SetStreamCaps(eMEDIATYPE_VIDEO, std::move(videoCodecInfo));
+	MediaCodecInfo updatedVideo = p_aamp->GetMediaCodecInfo(eMEDIATYPE_VIDEO);
+	EXPECT_FALSE(updatedVideo.mIsEncrypted);
+
+	// Test audio - should be forced encrypted
+	MediaCodecInfo audioCodecInfo(GST_FORMAT_AUDIO_ES_AAC);
+	audioCodecInfo.mIsEncrypted = false;
+	p_aamp->SetStreamCaps(eMEDIATYPE_AUDIO, std::move(audioCodecInfo));
+	MediaCodecInfo updatedAudio = p_aamp->GetMediaCodecInfo(eMEDIATYPE_AUDIO);
+	EXPECT_TRUE(updatedAudio.mIsEncrypted);
+}
+
 TEST_F(PrivAampTests,VerifyPausedBehavior)
 {
         StreamAbstractionAAMP_MPD *streamAbstractionMpd = new StreamAbstractionAAMP_MPD(p_aamp, 0, 1, nullptr);     
