@@ -265,6 +265,8 @@ class PrivAampPrivTests : public ::testing::Test
 	class TestablePrivAamp : public PrivateInstanceAAMP
 	{
 public:
+	using PrivateInstanceAAMP::mFirstProgress;
+
 	TestablePrivAamp(AampConfig *config):PrivateInstanceAAMP(config)
 	{
 	}
