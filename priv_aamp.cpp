@@ -5965,10 +5965,16 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 #ifdef ENABLE_PTS_RESTAMP
 	if (ContentType_LINEAR == mContentType)
 	{
-		SETCONFIGVALUE_PRIV(AAMP_TUNE_SETTING, eAAMPConfig_EnablePTSReStamp, true);
+			
 	}
 
 	AAMPLOG_MIL("ContentType(%d) EnablePTSReStamp(%d)", mContentType, GETCONFIGVALUE_PRIV(eAAMPConfig_EnablePTSReStamp));
+#endif
+
+#ifdef DISABLE_MID_FRAG_SEEK
+		AAMPLOG_MIL("before disabling mid fragment seek MidFragmentSeek(%d)", GETCONFIGVALUE_PRIV(eAAMPConfig_MidFragmentSeek));
+		SETCONFIGVALUE_PRIV(AAMP_OPERATOR_SETTING, eAAMPConfig_MidFragmentSeek, false);
+		AAMPLOG_MIL("after disabling mid fragment seek MidFragmentSeek(%d)", GETCONFIGVALUE_PRIV(eAAMPConfig_MidFragmentSeek));
 #endif
 
 	CreateTsbSessionManager();
