@@ -31,6 +31,13 @@
 #include "AampCurlDownloader.h"
 #include "DrmSessionManager.h"
 
+#include <thread>
+#include <mutex>
+#include <condition_variable>
+#include <deque>
+#include <functional>
+#include <atomic>
+
 enum ProfilerAction
 {
     PROFILE_ACTION_BEGIN,
@@ -344,4 +351,31 @@ public:
 		const unsigned char* contentMetadataPtr = nullptr, bool isPrimarySession = false);
 
 	AAMPTuneFailure MapDrmToAampTuneFailure(DrmTuneFailure drmError);
+
+private:
+	/**
+	 * @brief Worker thread loop that serially executes queued watermarking tasks.
+	 *        Keeping these (potentially slow) ContentSecurityManager/Firebolt calls
+	 *        off the caller thread removes watermarking setup from the critical path
+	 *        (e.g. SetVideoMute/speed-change) so the caller/JS returns without waiting
+	 *        for the synchronous Firebolt/Ripple/Thunder round trip.
+	 * @return void
+	 */
+	void WatermarkWorkerThread();
+
+	/**
+	 * @brief Enqueue a watermarking task to be executed asynchronously on the
+	 *        dedicated worker thread. Tasks are executed in FIFO order so the
+	 *        relative ordering of mute/speed/window updates is preserved.
+	 * @param[in] task work to be executed on the watermark worker thread
+	 * @return void
+	 */
+	void EnqueueWatermarkTask(std::function<void()> task);
+
+	std::thread mWatermarkThread;				/**< Dedicated worker thread for watermarking tasks */
+	std::mutex mWatermarkTaskMutex;				/**< Protects mWatermarkTaskQueue */
+	std::condition_variable mWatermarkTaskCondVar;		/**< Signals availability of work/exit */
+	std::deque<std::function<void()>> mWatermarkTaskQueue;	/**< FIFO queue of pending watermark tasks */
+	std::atomic<bool> mWatermarkThreadExit{false};		/**< Set to request worker thread exit */
+	bool mWatermarkThreadStarted{false};			/**< True once the worker thread has been created */
 };

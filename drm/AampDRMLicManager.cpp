@@ -123,6 +123,11 @@ AampDRMLicenseManager::AampDRMLicenseManager(int maxDrmSessions, PrivateInstance
     mLicensePrefetcher = new AampLicensePreFetcher(aampInstance);
     ContentSecurityManager::UseFireboltSDK(aampInstance->mConfig->IsConfigSet(eAAMPConfig_UseFireboltSDK));
     mLicensePrefetcher->Init();
+    // Start the dedicated watermarking worker thread so watermarking setup
+    // (ContentSecurityManager/Firebolt round trips) runs off the critical path.
+    mWatermarkThreadExit.store(false);
+    mWatermarkThread = std::thread(&AampDRMLicenseManager::WatermarkWorkerThread, this);
+    mWatermarkThreadStarted = true;
 }
 
 /**
@@ -130,6 +135,21 @@ AampDRMLicenseManager::AampDRMLicenseManager(int maxDrmSessions, PrivateInstance
  */
 AampDRMLicenseManager::~AampDRMLicenseManager()
 {
+	// Stop the watermarking worker thread before tearing down the session manager.
+	if (mWatermarkThreadStarted)
+	{
+		{
+			std::lock_guard<std::mutex> lock(mWatermarkTaskMutex);
+			mWatermarkThreadExit.store(true);
+			mWatermarkTaskQueue.clear();
+		}
+		mWatermarkTaskCondVar.notify_all();
+		if (mWatermarkThread.joinable())
+		{
+			mWatermarkThread.join();
+		}
+		mWatermarkThreadStarted = false;
+	}
 	SAFE_DELETE(mLicensePrefetcher);
 	SAFE_DELETE(mDrmSessionManager);
 	releaseLicenseRenewalThreads();
@@ -1420,7 +1440,14 @@ void AampDRMLicenseManager::QueueProtectionEvent(std::shared_ptr<DrmHelper> drmH
  */
 void AampDRMLicenseManager::setPlaybackSpeedState(bool live, double currentLatency, bool livepoint , double liveOffsetMs,int speed, double positionMs, bool firstFrameSeen)
 {
-	mDrmSessionManager->setPlaybackSpeedState(live, currentLatency, livepoint, liveOffsetMs, speed, positionMs, firstFrameSeen);
+	// Watermarking setup is not on the critical path - run it asynchronously so
+	// the caller (e.g. SetVideoMute/speed change -> JS) does not block on the
+	// synchronous Firebolt/Ripple/Thunder round trip.
+	DrmSessionManager *sessionManager = mDrmSessionManager;
+	EnqueueWatermarkTask([sessionManager, live, currentLatency, livepoint, liveOffsetMs, speed, positionMs, firstFrameSeen]()
+	{
+		sessionManager->setPlaybackSpeedState(live, currentLatency, livepoint, liveOffsetMs, speed, positionMs, firstFrameSeen);
+	});
 }
 
 /**
@@ -1428,7 +1455,11 @@ void AampDRMLicenseManager::setPlaybackSpeedState(bool live, double currentLaten
  */
 void AampDRMLicenseManager::hideWatermarkOnDetach(void)
 {
-	mDrmSessionManager->hideWatermarkOnDetach( );
+	DrmSessionManager *sessionManager = mDrmSessionManager;
+	EnqueueWatermarkTask([sessionManager]()
+	{
+		sessionManager->hideWatermarkOnDetach();
+	});
 }
 
 /**
@@ -1436,13 +1467,74 @@ void AampDRMLicenseManager::hideWatermarkOnDetach(void)
  */
 void AampDRMLicenseManager::setVideoMute(bool live, double currentLatency, bool livepoint , double liveOffsetMs,bool isVideoOnMute, double positionMs)
 {
-	mDrmSessionManager->setVideoMute(live, currentLatency, livepoint, liveOffsetMs,isVideoOnMute, positionMs);
+	DrmSessionManager *sessionManager = mDrmSessionManager;
+	EnqueueWatermarkTask([sessionManager, live, currentLatency, livepoint, liveOffsetMs, isVideoOnMute, positionMs]()
+	{
+		sessionManager->setVideoMute(live, currentLatency, livepoint, liveOffsetMs, isVideoOnMute, positionMs);
+	});
 }
 
 void AampDRMLicenseManager::setVideoWindowSize(int width, int height)
 {
-	mDrmSessionManager->setVideoWindowSize(width, height);
+	DrmSessionManager *sessionManager = mDrmSessionManager;
+	EnqueueWatermarkTask([sessionManager, width, height]()
+	{
+		sessionManager->setVideoWindowSize(width, height);
+	});
 }
+
+/**
+ * @brief Enqueue a watermarking task for asynchronous execution on the worker thread.
+ */
+void AampDRMLicenseManager::EnqueueWatermarkTask(std::function<void()> task)
+{
+	if (!mWatermarkThreadStarted || mWatermarkThreadExit.load())
+	{
+		// Worker not available (e.g. during shutdown) - execute synchronously as a fallback.
+		if (task)
+		{
+			task();
+		}
+		return;
+	}
+	{
+		std::lock_guard<std::mutex> lock(mWatermarkTaskMutex);
+		mWatermarkTaskQueue.push_back(std::move(task));
+	}
+	mWatermarkTaskCondVar.notify_one();
+}
+
+/**
+ * @brief Worker thread loop that serially executes queued watermarking tasks.
+ */
+void AampDRMLicenseManager::WatermarkWorkerThread()
+{
+	UsingPlayerId playerId(aampInstance ? aampInstance->mPlayerId : 0);
+	AAMPLOG_INFO("Watermark worker thread started");
+	while (true)
+	{
+		std::function<void()> task;
+		{
+			std::unique_lock<std::mutex> lock(mWatermarkTaskMutex);
+			mWatermarkTaskCondVar.wait(lock, [this]()
+			{
+				return mWatermarkThreadExit.load() || !mWatermarkTaskQueue.empty();
+			});
+			if (mWatermarkThreadExit.load() && mWatermarkTaskQueue.empty())
+			{
+				break;
+			}
+			task = std::move(mWatermarkTaskQueue.front());
+			mWatermarkTaskQueue.pop_front();
+		}
+		if (task)
+		{
+			task();
+		}
+	}
+	AAMPLOG_INFO("Watermark worker thread exiting");
+}
+
 
 /**
  * @brief To update the max DRM sessions supported
