@@ -34,6 +34,8 @@
 #include "MockAampConfig.h"
 #include "MockAampGstPlayer.h"
 #include "MockAampScheduler.h"
+#include "MockPrivateInstanceAAMP.h"
+#include "MockAampLicManager.h"
 
 using ::testing::_;
 using ::testing::An;
@@ -2991,4 +2993,175 @@ TEST_F(StreamAbstractionAAMP_HLSTest, PopulateAudioAndTextTracks_WebVTTEnabled_I
 	}
 	EXPECT_TRUE(foundCC) << "CC track should be present";
 	EXPECT_TRUE(foundSubtitle) << "Non-CC subtitle track should be present";
+}
+
+namespace
+{
+// Test-only access to TrackState private members (no production change needed)
+template <typename Tag, typename Tag::type Member>
+struct PrivateAccess
+{
+	friend typename Tag::type GetPrivate(Tag) { return Member; }
+};
+
+struct FetchFragmentHelperTag
+{
+	using type = bool (TrackState::*)(int &, bool &, bool &, int *, double &);
+	friend type GetPrivate(FetchFragmentHelperTag);
+};
+template struct PrivateAccess<FetchFragmentHelperTag, &TrackState::FetchFragmentHelper>;
+
+struct DrmMemberTag
+{
+	using type = std::shared_ptr<HlsDrmBase> TrackState::*;
+	friend type GetPrivate(DrmMemberTag);
+};
+template struct PrivateAccess<DrmMemberTag, &TrackState::mDrm>;
+
+// Decrypt always fails with the configured result
+class FailingHlsDrm : public HlsDrmBase
+{
+public:
+	explicit FailingHlsDrm(DrmReturn result) : mResult(result) {}
+	DrmReturn SetMetaData(void *, int) override { return eDRM_SUCCESS; }
+	DrmReturn SetDecryptInfo(const struct DrmInfo *, int) override { return eDRM_SUCCESS; }
+	DrmReturn Decrypt(int, void *, size_t, int) override { return mResult; }
+	void Release() override {}
+	void CancelKeyWait() override {}
+	void RestoreKeyState() override {}
+	void AcquireKey(void *, int) override {}
+	DRMState GetState() override { return DRMState(); }
+private:
+	DrmReturn mResult;
+};
+} // namespace
+
+/**
+ * @brief L1 tests for the DRM session flagging done by TrackState::FetchFragmentHelper() when the
+ *        HLS fragment decryption fails.
+ */
+class TrackStateDecryptFailureTests : public TrackStateTests
+{
+protected:
+	AampDRMLicenseManager *mLicenseManager{nullptr};
+	const std::string mPlaylist{"#EXTM3U\n#EXTINF:2.0,\nfragment.ts\n"};
+
+	void SetUp() override
+	{
+		TrackStateTests::SetUp();
+		g_mockPrivateInstanceAAMP = std::make_shared<testing::NiceMock<MockPrivateInstanceAAMP>>();
+		g_mockAampLicenseManager = std::make_shared<testing::NiceMock<MockAampLicenseManager>>();
+		mLicenseManager = new AampDRMLicenseManager(3, mPrivateInstanceAAMP);
+		mPrivateInstanceAAMP->mDRMLicenseManager = mLicenseManager;
+
+		// Encrypted AES-128 fragment already positioned at the first segment
+		mStreamAbstractionAAMP_HLS->SetTrickplayMode(AAMP_NORMAL_PLAY_RATE);
+		TrackStateobj->SetCachedFragmentSize(2);
+		TrackStateobj->playlist.assign(mPlaylist.begin(), mPlaylist.end());
+		const char *uri = reinterpret_cast<const char *>(TrackStateobj->playlist.data()) + mPlaylist.find("fragment.ts");
+		TrackStateobj->fragmentURI = lstring(uri, strlen("fragment.ts"));
+		TrackStateobj->playlistPosition = 0;
+		TrackStateobj->playTarget = 0;
+		TrackStateobj->mEffectiveUrl = "http://example.com/hls/playlist.m3u8";
+		TrackStateobj->fragmentEncrypted = true;
+		TrackStateobj->mDrmMethod = eDRM_KEY_METHOD_AES_128;
+		TrackStateobj->mKeyTagChanged = false;
+		TrackStateobj->mIVKeyChanged = false;
+		mPrivateInstanceAAMP->mDrmDecryptFailCount = 1;
+
+		ON_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled()).WillByDefault(Return(true));
+		ON_CALL(*g_mockPrivateInstanceAAMP, GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _))
+			.WillByDefault(DoAll(SetArgReferee<2>(std::vector<uint8_t>(16, 0xAB)), Return(true)));
+	}
+
+	void TearDown() override
+	{
+		mPrivateInstanceAAMP->mDRMLicenseManager = nullptr;
+		TrackStateTests::TearDown();
+		delete mLicenseManager;
+		mLicenseManager = nullptr;
+		g_mockAampLicenseManager.reset();
+		g_mockPrivateInstanceAAMP.reset();
+	}
+
+	bool FetchFragment(DrmReturn decryptResult, bool &decryptionError)
+	{
+		TrackStateobj->*GetPrivate(DrmMemberTag{}) = std::make_shared<FailingHlsDrm>(decryptResult);
+		int httpError = 0;
+		bool keyChanged = false;
+		int fogError = -1;
+		double downloadTime = 0;
+		return (TrackStateobj->*GetPrivate(FetchFragmentHelperTag{}))(httpError, decryptionError, keyChanged, &fogError, downloadTime);
+	}
+};
+
+/**
+ * @brief Reaching the decrypt failure threshold flags the sessions before reporting the failure.
+ */
+TEST_F(TrackStateDecryptFailureTests, DecryptFailureThresholdFlagsSessionsBeforeReportingError)
+{
+	testing::Sequence seq;
+	EXPECT_CALL(*g_mockAampLicenseManager, markActiveSessionsFailed()).InSequence(seq);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+		SendErrorEvent(AAMP_TUNE_DRM_DECRYPT_FAILED, _, _, _, _, _, _)).InSequence(seq);
+
+	bool decryptionError = false;
+	EXPECT_FALSE(FetchFragment(eDRM_ERROR, decryptionError));
+	EXPECT_TRUE(decryptionError);
+}
+
+/**
+ * @brief Below the threshold the failure is retried: nothing is flagged or reported yet.
+ */
+TEST_F(TrackStateDecryptFailureTests, DecryptFailureBelowThresholdDoesNotFlagSessions)
+{
+	mPrivateInstanceAAMP->mDrmDecryptFailCount = 3;
+
+	EXPECT_CALL(*g_mockAampLicenseManager, markActiveSessionsFailed()).Times(0);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendErrorEvent(_, _, _, _, _, _, _)).Times(0);
+
+	bool decryptionError = false;
+	EXPECT_FALSE(FetchFragment(eDRM_ERROR, decryptionError));
+	EXPECT_FALSE(decryptionError);
+}
+
+/**
+ * @brief Regression: a license acquisition timeout keeps its own error and does not flag the sessions.
+ */
+TEST_F(TrackStateDecryptFailureTests, KeyAcquisitionTimeoutDoesNotFlagSessions)
+{
+	EXPECT_CALL(*g_mockAampLicenseManager, markActiveSessionsFailed()).Times(0);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendErrorEvent(AAMP_TUNE_LICENCE_TIMEOUT, _, true, _, _, _, _));
+
+	bool decryptionError = false;
+	EXPECT_FALSE(FetchFragment(eDRM_KEY_ACQUISITION_TIMEOUT, decryptionError));
+	EXPECT_TRUE(decryptionError);
+}
+
+/**
+ * @brief Regression: a successful decrypt neither flags the sessions nor reports an error.
+ */
+TEST_F(TrackStateDecryptFailureTests, SuccessfulDecryptDoesNotFlagSessions)
+{
+	EXPECT_CALL(*g_mockAampLicenseManager, markActiveSessionsFailed()).Times(0);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendErrorEvent(_, _, _, _, _, _, _)).Times(0);
+
+	bool decryptionError = false;
+	FetchFragment(eDRM_SUCCESS, decryptionError);
+	EXPECT_FALSE(decryptionError);
+}
+
+/**
+ * @brief Without a license manager the decrypt failure is still reported.
+ */
+TEST_F(TrackStateDecryptFailureTests, DecryptFailureWithoutLicenseManagerStillReports)
+{
+	mPrivateInstanceAAMP->mDRMLicenseManager = nullptr;
+
+	EXPECT_CALL(*g_mockAampLicenseManager, markActiveSessionsFailed()).Times(0);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendErrorEvent(AAMP_TUNE_DRM_DECRYPT_FAILED, _, _, _, _, _, _));
+
+	bool decryptionError = false;
+	EXPECT_FALSE(FetchFragment(eDRM_ERROR, decryptionError));
+	EXPECT_TRUE(decryptionError);
 }
