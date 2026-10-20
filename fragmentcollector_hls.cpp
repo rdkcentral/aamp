@@ -1484,6 +1484,12 @@ bool TrackState::FetchFragmentHelper(int &http_error, bool &decryption_error, bo
 								{
 									decryption_error = true;
 									AAMPLOG_ERR("FetchFragmentHelper : drm_Decrypt failed for fragments, reached failure threshold (%d) sending failure event", aamp->mDrmDecryptFailCount);
+									if (aamp->mDRMLicenseManager)
+									{
+										// Problem 2 / Fix 2: flag the sessions of the failed decrypt; evicted at the
+										// next tune start, so the retry does not reuse the failed session
+										aamp->mDRMLicenseManager->markActiveSessionsFailed();
+									}
 									aamp->SendErrorEvent(AAMP_TUNE_DRM_DECRYPT_FAILED);
 								}
 							}

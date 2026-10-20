@@ -111,6 +111,13 @@ void DrmInterface::TerminateCurlInstance(int mCurlInstance)
  */
 void DrmInterface::NotifyDrmError(int drmFailure)
 {
+	// Problem 2: a DRM failure reported here left the cached session reusable by the retry/retune.
+	// Fix 2: flag the sessions in use so that the tune-start clear evicts them and the retry
+	// negotiates a fresh session, irrespective of whether downloads are still enabled.
+	if (mpAamp->mDRMLicenseManager)
+	{
+		mpAamp->mDRMLicenseManager->markActiveSessionsFailed();
+	}
 	//If downloads are disabled, don't send error event upstream
 	if (mpAamp->DownloadsAreEnabled())
 	{
