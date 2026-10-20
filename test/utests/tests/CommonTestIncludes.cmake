@@ -63,6 +63,7 @@ elseif(EXISTS "${MIDDLEWARE_REPO_ABS_PATH}")
 	                    ${MIDDLEWARE_REPO_ABS_PATH}/closedcaptions
 	                    ${MIDDLEWARE_REPO_ABS_PATH}/closedcaptions/direct-rialto
 	                    ${MIDDLEWARE_REPO_ABS_PATH}/drm
+	                    ${MIDDLEWARE_REPO_ABS_PATH}/drm/aes
 	                    ${MIDDLEWARE_REPO_ABS_PATH}/drm/helper
 	                    ${MIDDLEWARE_REPO_ABS_PATH}/externals
 	                    ${MIDDLEWARE_REPO_ABS_PATH}/externals/contentsecuritymanager

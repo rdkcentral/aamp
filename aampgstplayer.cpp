@@ -619,6 +619,23 @@ static void HandleBusMessage(const BusEventData busEvent, AAMPGstPlayer * _this)
 				AAMPLOG_ERR("%s", errorDesc.c_str());
 				_this->aamp->SendErrorEvent(AAMP_TUNE_GST_PIPELINE_ERROR,errorDesc.c_str(), false);
 			}
+			else if (busEvent.msg.find("failed to decrypt") != std::string::npos)
+			{ // Problem 3: Rialto's decrypt-drop error fell into the generic pipeline error with no session invalidation.
+			  // Fix 3: recognise it, flag the sessions (the message does not identify the track) and report a DRM decrypt failure.
+				AAMPLOG_ERR("%s", errorDesc.c_str());
+				if (_this->mEncryptedAamp &&
+					_this->mEncryptedAamp->mDRMLicenseManager)
+				{
+					// Flag the sessions in use; they are evicted at the next tune start, once the pipeline is down
+					if ((_this->aamp != _this->mEncryptedAamp) && _this->aamp->mDRMLicenseManager)
+					{
+						_this->aamp->mDRMLicenseManager->markActiveSessionsFailed();
+					}
+					// Invalidate the sessions configured for pipeline decryption.
+					_this->mEncryptedAamp->mDRMLicenseManager->markActiveSessionsFailed();
+				}
+				_this->aamp->SendErrorEvent(AAMP_TUNE_DRM_DECRYPT_FAILED, errorDesc.c_str(), true);
+			}
 			else
 			{
 				_this->aamp->SendErrorEvent(AAMP_TUNE_GST_PIPELINE_ERROR, errorDesc.c_str());
