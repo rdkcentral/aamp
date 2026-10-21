@@ -530,19 +530,20 @@ bool ContentProtectionFirebolt::SetPlaybackPosition(int64_t sessionId, float spe
 	}
 	std::lock_guard<std::mutex> lock(mContentProtectionMutex);
 	// Call the setPlaybackPosition method from the interface
-	auto result = Firebolt::IFireboltAampAccessor::Instance().ContentProtectionInterface().setPlaybackPosition(std::to_string(sessionId), speed, position);
+	//auto result = Firebolt::IFireboltAampAccessor::Instance().ContentProtectionInterface().setPlaybackPosition(std::to_string(sessionId), speed, position);
 	// Check for errors
-	if (result.error() == Firebolt::Error::None)
-	{
-		// No error, playback position was set successfully
-		MW_LOG_INFO("SetPlaybackPosition set successfully for sessionId: %" PRId64 " at position %d with speed %.2f", sessionId, position, speed);
-		ret = true;
-	}
-	else
-	{
-		// An error occurred, log the error
-		MW_LOG_ERR("SetPlaybackPosition failed to set for ID: %" PRId64 " Firebolt Error: \"%d\"", sessionId, static_cast<int>(result.error()));
-	}
+	// if (result.error() == Firebolt::Error::None)
+	// {
+	// 	// No error, playback position was set successfully
+	// 	MW_LOG_INFO("SetPlaybackPosition set successfully for sessionId: %" PRId64 " at position %d with speed %.2f", sessionId, position, speed);
+	// 	ret = true;
+	// }
+	// else
+	// {
+	// 	// An error occurred, log the error
+	 	// MW_LOG_ERR("SetPlaybackPosition failed to set for ID: %" PRId64 " Firebolt Error: \"%d\"", sessionId, static_cast<int>(result.error()));
+	MW_LOG_ERR("SetPlaybackPosition skipped to set for ID: %" PRId64, sessionId);
+	// }
 	return ret;
 }
 /**
