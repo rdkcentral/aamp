@@ -1487,6 +1487,191 @@ TEST_F(AampRialtoVideoSourceTest,
 		*m_pipelinePtr, gen, MakeEncryptedSample(2, 6), nullptr));
 }
 
+// ---------------------------------------------------------------------------
+// injectOneSample — encryption metadata on the segment
+// ---------------------------------------------------------------------------
+
+namespace
+{
+/// The encryption fields of the segment passed to addSegment(), copied while
+/// the segment is still alive.
+struct SegmentEncryption
+{
+	bool encrypted{false};
+	int32_t mksId{-1};
+	std::vector<uint8_t> keyId;
+	std::vector<uint8_t> iv;
+	firebolt::rialto::CipherMode cipher{firebolt::rialto::CipherMode::UNKNOWN};
+	bool patternSet{false};
+	uint32_t crypt{0};
+	uint32_t skip{0};
+	std::vector<std::pair<size_t, size_t>> subSamples;
+};
+} // namespace
+
+/**
+ * @class AampRialtoVideoSourceEncryptionTest
+ * @brief Attaches the source with DRM session 42 and records the encryption
+ *        fields of the next segment handed to Rialto.
+ */
+class AampRialtoVideoSourceEncryptionTest : public AampRialtoVideoSourceTest
+{
+protected:
+	static constexpr int32_t kMksId = 42;
+
+	void SetUp() override
+	{
+		AampRialtoVideoSourceTest::SetUp();
+		EXPECT_CALL(m_drm, createSession(_, _, _, eMEDIATYPE_VIDEO))
+			.WillOnce(Return(kMksId));
+		AampRialtoMediaSource::ProtectionParams prot;
+		prot.systemId = "edef8ba9-79d6-4ace-a3c8-27dcd51d21ed";
+		prot.initData = {0xCA, 0xFE};
+		prot.type     = eMEDIATYPE_VIDEO;
+		auto codecInfo = MakeH264CodecInfo();
+		m_source.attachOrUpdate(*m_pipelinePtr, codecInfo, &m_drm, -1, prot);
+		ASSERT_EQ(m_source.mksId(), kMksId);
+	}
+
+	/// Inject @p sample against a fresh request and return what Rialto got.
+	SegmentEncryption Inject(AampMediaSample &&sample)
+	{
+		{
+			auto &st = m_source.state();
+			std::lock_guard<std::mutex> lock(st.mu);
+			st.hasPending        = true;
+			st.pendingRequestId  = 920;
+			st.pendingFrameCount = 1;
+		}
+		SegmentEncryption seen;
+		EXPECT_CALL(*m_pipelinePtr, addSegment(920, _))
+			.WillOnce(Invoke([&seen](uint32_t, const auto &segment) {
+				seen.encrypted = segment->isEncrypted();
+				seen.mksId = segment->getMediaKeySessionId();
+				seen.keyId = segment->getKeyId();
+				seen.iv = segment->getInitVector();
+				seen.cipher = segment->getCipherMode();
+				seen.patternSet = segment->getEncryptionPattern(seen.crypt, seen.skip);
+				for (const auto &pair : segment->getSubSamples())
+				{
+					seen.subSamples.emplace_back(
+						pair.numClearBytes, pair.numEncryptedBytes);
+				}
+				return firebolt::rialto::AddSegmentStatus::OK;
+			}));
+		EXPECT_TRUE(m_source.injectOneSample(*m_pipelinePtr,
+			m_source.captureGeneration(), std::move(sample), nullptr));
+		return seen;
+	}
+
+	NiceMock<MockDrmBridge> m_drm;
+};
+
+/**
+ * @test AampRialtoVideoSourceEncryptionTest_CencSubSamples_AreDecodedBigEndian
+ * @brief Each 6-byte senc entry is 16-bit big-endian clear bytes then 32-bit
+ *        big-endian encrypted bytes (ISO/IEC 23001-7); key id, IV, session and
+ *        cipher reach the segment unchanged, and CENC sets no pattern.
+ */
+TEST_F(AampRialtoVideoSourceEncryptionTest,
+	AampRialtoVideoSourceEncryptionTest_CencSubSamples_AreDecodedBigEndian)
+{
+	auto sample = MakeEncryptedSample(2, 0);
+	sample.mDrmMetadata.mKeyId = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+		0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10};
+	sample.mDrmMetadata.mIV = {0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18};
+	sample.mDrmMetadata.mSubSamples = {
+		0x00, 0x10, 0x00, 0x00, 0x01, 0x00,   // clear 16, encrypted 256
+		0x01, 0x02, 0x01, 0x02, 0x03, 0x04};  // clear 258, encrypted 0x01020304
+
+	const auto seen = Inject(std::move(sample));
+
+	EXPECT_TRUE(seen.encrypted);
+	EXPECT_EQ(seen.mksId, kMksId);
+	EXPECT_EQ(seen.keyId, (std::vector<uint8_t>{0x01, 0x02, 0x03, 0x04, 0x05,
+		0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10}));
+	EXPECT_EQ(seen.iv, (std::vector<uint8_t>{0x11, 0x12, 0x13, 0x14, 0x15,
+		0x16, 0x17, 0x18}));
+	EXPECT_EQ(seen.cipher, firebolt::rialto::CipherMode::CENC);
+	EXPECT_FALSE(seen.patternSet);
+	EXPECT_EQ(seen.subSamples, (std::vector<std::pair<size_t, size_t>>{
+		{16, 256}, {258, 0x01020304}}));
+}
+
+/**
+ * @test AampRialtoVideoSourceEncryptionTest_NoSubSamples_WholeSampleIsEncrypted
+ * @brief Without a sub-sample table the whole sample is encrypted: one entry
+ *        with no clear bytes and the full sample size.
+ */
+TEST_F(AampRialtoVideoSourceEncryptionTest,
+	AampRialtoVideoSourceEncryptionTest_NoSubSamples_WholeSampleIsEncrypted)
+{
+	const auto seen = Inject(MakeEncryptedSample(0, 0));
+
+	EXPECT_TRUE(seen.encrypted);
+	EXPECT_EQ(seen.subSamples,
+		(std::vector<std::pair<size_t, size_t>>{{0, 3}}));
+}
+
+/**
+ * @test AampRialtoVideoSourceEncryptionTest_Cbcs_SetsCipherAndPattern
+ * @brief CBCS carries the crypt/skip pattern (e.g. 1:9 for video); the other
+ *        cipher schemes map to their Rialto modes.
+ */
+TEST_F(AampRialtoVideoSourceEncryptionTest,
+	AampRialtoVideoSourceEncryptionTest_Cbcs_SetsCipherAndPattern)
+{
+	auto sample = MakeEncryptedSample(0, 0);
+	sample.mDrmMetadata.mCipher = CIPHER_TYPE_CBCS;
+	sample.mDrmMetadata.mCryptByteBlock = 1;
+	sample.mDrmMetadata.mSkipByteBlock = 9;
+
+	const auto seen = Inject(std::move(sample));
+
+	EXPECT_EQ(seen.cipher, firebolt::rialto::CipherMode::CBCS);
+	ASSERT_TRUE(seen.patternSet);
+	EXPECT_EQ(seen.crypt, 1u);
+	EXPECT_EQ(seen.skip, 9u);
+}
+
+/**
+ * @test AampRialtoVideoSourceEncryptionTest_OtherCiphers_MapToRialtoModes
+ * @brief CBC1 and CENS map to their Rialto modes and set no pattern.
+ */
+TEST_F(AampRialtoVideoSourceEncryptionTest,
+	AampRialtoVideoSourceEncryptionTest_OtherCiphers_MapToRialtoModes)
+{
+	auto cbc1 = MakeEncryptedSample(0, 0);
+	cbc1.mDrmMetadata.mCipher = CIPHER_TYPE_CBC1;
+	const auto seenCbc1 = Inject(std::move(cbc1));
+	EXPECT_EQ(seenCbc1.cipher, firebolt::rialto::CipherMode::CBC1);
+	EXPECT_FALSE(seenCbc1.patternSet);
+
+	auto cens = MakeEncryptedSample(0, 0);
+	cens.mDrmMetadata.mCipher = CIPHER_TYPE_CENS;
+	const auto seenCens = Inject(std::move(cens));
+	EXPECT_EQ(seenCens.cipher, firebolt::rialto::CipherMode::CENS);
+	EXPECT_FALSE(seenCens.patternSet);
+}
+
+/**
+ * @test AampRialtoVideoSourceEncryptionTest_ClearSample_HasNoEncryptionMetadata
+ * @brief A clear sample on a source with a DRM session (clear lead-in) is sent
+ *        without encryption metadata.
+ */
+TEST_F(AampRialtoVideoSourceEncryptionTest,
+	AampRialtoVideoSourceEncryptionTest_ClearSample_HasNoEncryptionMetadata)
+{
+	auto sample = MakeEncryptedSample(0, 0);
+	sample.mDrmMetadata.mIsEncrypted = false;
+
+	const auto seen = Inject(std::move(sample));
+
+	EXPECT_FALSE(seen.encrypted);
+	EXPECT_TRUE(seen.keyId.empty());
+	EXPECT_TRUE(seen.subSamples.empty());
+}
+
 /**
  * @test AampRialtoVideoSource_InjectOneSample_SampleOver32BitSize_IsDroppedAndAnswered
  * @brief Regression (L6): a sample size was cast to 32 bits for the segment,
