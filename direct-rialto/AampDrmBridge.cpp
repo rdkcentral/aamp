@@ -79,10 +79,17 @@ int32_t AampDrmBridge::createSession(
 				AAMP_TUNE_FAILURE_UNKNOWN, "", 0, 0, false, m_aamp->GetSessionId());
 
 			// The DRM helpers choose their behaviour by manifest type, so pass
-			// the type of the current tune and not a fixed one.
+			// the type of the current tune and not a fixed one. Sessions here are
+			// always created from ISO BMFF PSSH, but with the MP4 demuxer HLS is
+			// never promoted to HLS_MP4, and no helper accepts plain HLS.
+			MediaFormat mediaFormat = m_aamp->mMediaFormat;
+			if (mediaFormat == eMEDIAFORMAT_HLS)
+			{
+				mediaFormat = eMEDIAFORMAT_HLS_MP4;
+			}
 			DrmSession *session = licMgr->createDrmSession(
 				systemId,
-				m_aamp->mMediaFormat,
+				mediaFormat,
 				static_cast<const unsigned char *>(initData),
 				static_cast<uint16_t>(len),
 				streamType,
