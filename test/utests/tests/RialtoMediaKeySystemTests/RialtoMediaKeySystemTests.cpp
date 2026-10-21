@@ -361,6 +361,47 @@ TEST_F(RialtoMediaKeySystemTest, OnKeyStatusesChanged_CallbackMayDestructItsSess
 		<< "onKeyStatusesChanged deadlocked in a callback that deregisters";
 }
 
+TEST_F(RialtoMediaKeySystemTest, Destruct_WaitsForCallbackInProgressOnAnotherThread)
+{
+	/**
+	 * @brief Regression (R1): callbacks are copied under the client mutex and
+	 *        run without it, so destruct() could return while another thread
+	 *        was still inside one, and the callback's owner (the adapter) be
+	 *        freed under it.
+	 */
+	auto system = createSystemWithMediaKeys();
+	std::promise<void> entered;
+	std::promise<void> release;
+	std::shared_future<void> released = release.get_future().share();
+	RialtoSessionCallbacks callbacks;
+	callbacks.onKeyUpdate = [&entered, released](const uint8_t*, size_t)
+	{
+		entered.set_value();
+		released.wait();
+	};
+
+	std::weak_ptr<firebolt::rialto::IMediaKeysClient> weakClient;
+	auto session = createSessionCapturingClient(*system, callbacks, weakClient);
+	ASSERT_NE(nullptr, session);
+	auto client = weakClient.lock();
+	ASSERT_NE(nullptr, client);
+
+	auto event = std::async(std::launch::async, [&] {
+		client->onKeyStatusesChanged(TEST_SESSION_ID,
+			{{std::vector<uint8_t>{0x01}, firebolt::rialto::KeyStatus::USABLE}});
+	});
+	entered.get_future().wait();
+
+	auto teardown = std::async(std::launch::async, [&] { session->destruct(); });
+	EXPECT_EQ(teardown.wait_for(std::chrono::milliseconds(200)),
+		std::future_status::timeout)
+		<< "destruct() returned while a callback was still running";
+
+	release.set_value();
+	EXPECT_EQ(teardown.wait_for(std::chrono::seconds(5)), std::future_status::ready);
+	EXPECT_EQ(event.wait_for(std::chrono::seconds(5)), std::future_status::ready);
+}
+
 TEST_F(RialtoMediaKeySystemTest, OnKeyStatusesChanged_AfterSessionDroppedWithoutDestruct_IsIgnored)
 {
 	/**

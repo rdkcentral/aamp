@@ -34,11 +34,13 @@
 #include "IMediaKeys.h"
 #include "IMediaKeysClient.h"
 
+#include <condition_variable>
 #include <functional>
 #include <map>
 #include <memory>
 #include <mutex>
 #include <string>
+#include <thread>
 #include <vector>
 
 /**
@@ -127,8 +129,30 @@ private:
 		std::map<int32_t, RialtoSessionCallbacks> callbacks;
 		/// Maps Rialto keySessionId → the owning RialtoMediaKeySession.
 		std::map<int32_t, RialtoMediaKeySession*> sessions;
+		/// Threads running a copied callback for each session, outside mutex.
+		std::map<int32_t, std::vector<std::thread::id>> running;
+		/// Signalled when a thread leaves running.
+		std::condition_variable callbackDone;
 		std::mutex mutex;
 
+		/// Registers the calling thread in running while it calls a session's
+		/// callbacks.  Construct with mutex held; the destructor takes it.
+		class CallbackScope
+		{
+		public:
+			CallbackScope(MediaKeysClient& client, int32_t keySessionId);
+			~CallbackScope();
+			CallbackScope(const CallbackScope&) = delete;
+			CallbackScope& operator=(const CallbackScope&) = delete;
+
+		private:
+			MediaKeysClient& m_client;
+			const int32_t m_keySessionId;
+		};
+
+		/// Stops routing events to the session and waits until no other thread
+		/// is still running one of its callbacks, so their owner may be freed
+		/// as soon as this returns.  A callback may deregister its own session.
 		void deregisterSession(int32_t keySessionId);
 
 		void onLicenseRequest(int32_t keySessionId,
