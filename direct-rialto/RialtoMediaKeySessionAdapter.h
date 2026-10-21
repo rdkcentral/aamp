@@ -51,6 +51,12 @@
  *   generateDRMSession → generateKeyRequest → processDRMKey
  *
  * Internally delegates to RialtoMediaKeySystem/RialtoMediaKeySession
+ *
+ * Threads: AAMP's license thread drives the lifecycle calls; the Rialto key
+ * event thread runs the callbacks installed in generateDRMSession() and
+ * signals the waits in generateKeyRequest()/processDRMKey(), which time out.
+ * Teardown (clearDecryptContext(), the destructor) waits for a callback in
+ * progress on another thread before the adapter can be freed.
  */
 class RialtoMediaKeySessionAdapter : public DrmSession
 {

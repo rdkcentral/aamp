@@ -43,6 +43,10 @@
  *
  * Decryption is performed server-side by the Rialto pipeline — this class
  * only handles key management (update, close, status queries).
+ *
+ * Threads: the key status cache is written by the Rialto key event thread
+ * (updateKeyStatus()) and read by AAMP's license thread, under
+ * m_keyStatusMutex.
  */
 class RialtoMediaKeySession
 {

@@ -45,7 +45,11 @@
  * deferred flush, for the content types where the position is only known
  * once the first sample of a new period has been demuxed.
  *
- * All state is atomic; no call blocks.
+ * All state is atomic; no call blocks.  Written on the control thread
+ * (Flush(), Stop()), by the SEEK_DONE handler and by injector threads (the
+ * deferred-flush claim, the first video attach); read from any thread.  The
+ * staged position and rate are read as a pair only while FLUSHING, when no
+ * other Flush() can stage new ones.
  */
 class AampRialtoSegmentPosition
 {

@@ -48,6 +48,11 @@
  * client is registered as early as possible — before any IMediaPipeline is
  * created — minimising the window in which the RUNNING broadcast can be
  * missed.
+ *
+ * Threads: Rialto delivers state changes on its own thread; waitForRunning()
+ * runs on the control thread.  The state, mutex and condition variable are
+ * shared with the registered client so a late notification is safe after
+ * this object is destroyed.
  */
 class AampRialtoControlBackend final : public IRialtoControlBackend
 {

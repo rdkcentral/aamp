@@ -44,6 +44,10 @@ class PrivateInstanceAAMP;
  *
  * Owns a non-owning pointer to PrivateInstanceAAMP.  The caller is
  * responsible for ensuring the AAMP instance outlives this adapter.
+ *
+ * Threads: called from the control, injector and Rialto event threads.
+ * The AAMP pointer is atomic and each call uses one snapshot of it; a
+ * notification with no instance is dropped with a warning.
  */
 class PrivateInstanceAAMPNotifiable final : public IStreamSinkNotifiable
 {

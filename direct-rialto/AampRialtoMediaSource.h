@@ -57,6 +57,16 @@
  * Concrete subclasses (AampRialtoVideoSource, AampRialtoAudioSource,
  * AampRialtoSubtitleSource) implement the codec-specific virtual methods
  * while the base class owns the common pacing, DRM, and injection logic.
+ *
+ * Threads: this track's injector thread injects samples and blocks in
+ * injectOneSample() until Rialto asks for data; the Rialto pipeline event
+ * thread delivers needData (handleNeedData()); the AAMP control thread
+ * gates, unblocks and resets; attachOrUpdate() runs under the player's
+ * m_attachMutex on the control thread or an injector thread.  Pacing state
+ * (SourceState) is guarded by its own mutex, sourceId/mksId/streamFormat are
+ * atomic and the pending codec data has its own mutex.  Injector waits have
+ * no timeout by design: only a needData, a gate change or a generation bump
+ * (Flush/Stop) releases them.
  */
 class AampRialtoMediaSource
 {

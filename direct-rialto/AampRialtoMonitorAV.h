@@ -50,13 +50,17 @@
  * @class AampRialtoMonitorAV
  * @brief Periodic AV health classifier and event reporter for direct-Rialto.
  *
- * The caller constructs this object once per stream session (in
- * AampRialtoPlayer::Configure()) and calls start() / stop() around the
- * PLAYING interval.
+ * The player creates one per pipeline (AampRialtoPlayer::CreateMonitorAV(),
+ * after load()) and calls start() / stop() around the PLAYING interval.
  *
  * Ownership of the Rialto pipeline is shared via std::shared_ptr.  All AAMP
  * notifications go through the injected IStreamSinkNotifiable so that the
  * class can be exercised in unit tests without a live AAMP instance.
+ *
+ * Threads: start() runs on the Rialto event thread (PLAYING), stop() and
+ * destruction on the control thread; both ticks run on the GLib main loop.
+ * stop() waits for a tick in progress.  The classification state is only
+ * touched by the ticks.
  */
 class AampRialtoMonitorAV
 {

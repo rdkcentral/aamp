@@ -73,6 +73,25 @@ using SourceCreator =
 /**
  * @class AampRialtoPlayer
  * @brief StreamSink implementation that interfaces with Rialto client.
+ *
+ * Threads that call in:
+ * - AAMP control thread: Configure(), Stream(), Stop(), Flush(), Pause(),
+ *   the volume / mute / rectangle / CC setters, ChangeAamp(),
+ *   SetEncryptedAamp().
+ * - Fragment injector threads, one per track: SendCopy(), SendTransfer(),
+ *   SendSample(), SetStreamCaps(), Discontinuity(), EndOfStreamReached(),
+ *   and the deferred Flush() in MaybeFlushForPendingPosition().
+ * - Rialto pipeline event thread: the On...() handlers (needData, playback
+ *   state including SEEK_DONE and FAILURE, position, duration, underflow,
+ *   errors).
+ * - GLib main loop: progress timer, AV monitor and pre-roll ticks.
+ * - Any thread: the position, duration and PTS getters.
+ *
+ * Locks (outermost first; details beside m_attachMutex):
+ *   m_flushCallMutex -> state machine mutex, or -> controller play lock;
+ *   m_attachMutex -> controller play lock; every other mutex here is a leaf.
+ * Each shared member names its lock (or says it is atomic) at its
+ * declaration.  The model is drawn in docs/diagrams/direct-rialto-*.puml.
  */
 class AampRialtoPlayer : public StreamSink, public IDirectRialtoCC
 {
@@ -473,9 +492,10 @@ private:
 		m_pendingProtection;
 	std::mutex m_pendingProtectionMutex;
 
-	/// Deferred attachment buffer.  Rialto's GStreamer pipeline requires
-	/// video to be attached before audio.  When a non-video init fragment
-	/// arrives before video is attached, its codec info is buffered here
+	/// Deferred attachment buffer.  Video is attached before audio (an
+	/// observed, not root-caused, Rialto requirement; see AttachSource()).
+	/// When a non-video init fragment arrives before video is attached, its
+	/// codec info is buffered here
 	/// (guarded by m_pendingAttachMutex, a leaf lock, because Configure()
 	/// clears it without taking m_attachMutex).  Once video attaches, any
 	/// deferred sources are processed.
@@ -621,6 +641,7 @@ private:
 
 	/// Cached subtitle mute state.  Set by SetSubtitleMute() and re-applied
 	/// via the pipeline's setMute() whenever the subtitle source first attaches.
+	/// Guarded by m_attachMutex.
 	bool m_subtitleMuted{true};
 
 	/// Cached audio volume (0-100), matching PrivateInstanceAAMP::audio_volume.
@@ -629,11 +650,13 @@ private:
 	std::atomic<int> m_audioVolume{100};
 
 	/// Cached video mute state.  Set by SetVideoMute() and re-applied via
-	/// m_pipeline->setMute() whenever the video source first attaches.
+	/// the pipeline's setMute() whenever the video source first attaches.
+	/// Guarded by m_attachMutex.
 	bool m_videoMuted{false};
 
 	/// Backing storage for the pointer returned by GetVideoPlaybackQuality().
 	/// Overwritten on each call; not re-applied anywhere (read-only query).
+	/// Unguarded: only the AAMP monitor thread calls it (see tracker M7).
 	PlaybackQualityStruct m_playbackQuality{};
 
 	/// Progress timer instance.

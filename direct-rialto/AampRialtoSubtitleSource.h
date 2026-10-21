@@ -47,6 +47,11 @@
  *  - **TTML-in-MP4** (FORMAT_SUBTITLE_MP4 / stpp or wvtt stsd box):
  *    Mp4Demux parses the init and data segments via the base-class
  *    processInitFragment() / processDataFragment() path.
+ *
+ * Threads: the TTML offset state (m_applyTextTransform,
+ * m_transformContentType, m_linearBeginOffsetMs) is unguarded.  It is only
+ * touched by this track's injector thread, and by Configure() on the control
+ * thread while AAMP has stopped injection.
  */
 class AampRialtoSubtitleSource : public AampRialtoMediaSource
 {

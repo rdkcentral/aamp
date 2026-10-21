@@ -44,7 +44,9 @@ class PrivateInstanceAAMP;
  * @class AampDrmBridge
  * @brief Concrete IDrmBridge that delegates to AAMP's DrmSessionManager.
  *
- * One instance is owned by AampRialtoPlayer for its lifetime.
+ * The player holds it in a shared_ptr and may replace it (ChangeAamp(),
+ * SetEncryptedAamp()) while an attach still uses the old one, so it must not
+ * depend on being the only bridge alive.
  */
 class AampDrmBridge : public IDrmBridge
 {
