@@ -26,9 +26,9 @@
 #define AAMP_RIALTO_SUBTITLE_SOURCE_H
 
 #include "AampRialtoMediaSource.h"
+#include "AampRialtoTtmlOffset.h"
 #include "StreamOutputFormat.h"
 
-#include <cmath>
 #include <string>
 
 /**
@@ -48,8 +48,8 @@
  *    Mp4Demux parses the init and data segments via the base-class
  *    processInitFragment() / processDataFragment() path.
  *
- * Threads: the TTML offset state (m_applyTextTransform,
- * m_transformContentType, m_linearBeginOffsetMs) is unguarded.  It is only
+ * Threads: the TTML offset state (m_applyTextTransform, m_ttmlOffset) is
+ * unguarded.  It is only
  * touched by this track's injector thread, and by Configure() on the control
  * thread while AAMP has stopped injection.
  */
@@ -123,13 +123,11 @@ protected:
 
 private:
 	/**
-	 * @brief Compute the display offset (ms) for one TTML sample.
+	 * @brief Compute the display offset (ms) for one subtitle sample.
 	 *
-	 * Detects LINEAR_OFFSET vs PASSTHROUGH on the first call by comparing
-	 * the TTML begin= timestamp against the container PTS.  Refines the
-	 * stored offset on subsequent calls, mirroring gstvipertransform.
-	 * Returns 0 for PASSTHROUGH content or when m_applyTextTransform is
-	 * false (WebVTT).  The AAMP offset is read from sample.mDisplayOffsetMs.
+	 * Returns sample.mDisplayOffsetMs unchanged for WebVTT
+	 * (m_applyTextTransform false) or an empty sample; otherwise asks
+	 * m_ttmlOffset.
 	 *
 	 * @param sample  The subtitle sample whose payload and timing is inspected.
 	 * @return Refined display offset in milliseconds.
@@ -137,30 +135,11 @@ private:
 	int64_t refineDisplayOffset(
 		const AampMediaSample &sample) const;
 
-	/**
-	 * @brief Convert a TTML clock-value string (H:MM:SS[.fff]) to ms.
-	 */
-	static int64_t parseTimeToMs(const std::string &timeStr);
-
-	/**
-	 * @brief Locate the first begin="…" attribute value (ms) in @p ttml.
-	 * @return true if found; false for empty/header-only documents.
-	 */
-	static bool findFirstBeginMs(const std::string &ttml, int64_t &outMs);
-
 	StreamOutputFormat m_subtitleFormat{FORMAT_INVALID};
 
-	/// Detection state for TTML cue-timestamp mode.
-	enum class ContentType
-	{
-		UNKNOWN,       ///< Not yet determined.
-		PASSTHROUGH,   ///< TTML timestamps align with container PTS.
-		LINEAR_OFFSET  ///< Absolute TTML timestamps require correction.
-	};
-	/// mutable so that refineDisplayOffset() can update state from
-	/// the const createSegment() override.
-	mutable ContentType m_transformContentType{ContentType::UNKNOWN};
-	mutable int64_t     m_linearBeginOffsetMs{0};
+	/// mutable so that refineDisplayOffset() can update it from the const
+	/// createSegment() override.
+	mutable AampRialtoTtmlOffset m_ttmlOffset;
 
 	/// true when the resolved codec is TTML (raw or stpp-in-MP4);
 	/// false for WebVTT (raw or wvtt-in-MP4) which needs no correction.

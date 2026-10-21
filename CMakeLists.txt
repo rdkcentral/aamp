@@ -497,6 +497,7 @@ set(LIBAAMP_SOURCES
 	direct-rialto/PrivateInstanceAAMPNotifiable.cpp
 	direct-rialto/AampRialtoSourceCreators.cpp
 	direct-rialto/AampRialtoSubtitleSource.cpp
+	direct-rialto/AampRialtoTtmlOffset.cpp
 	direct-rialto/AampRialtoVideoSource.cpp
 	direct-rialto/AampRialtoMonitorAV.cpp
 	AampBufferControl.cpp AampBufferControl.h

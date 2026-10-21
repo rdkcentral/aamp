@@ -34,6 +34,7 @@ set(AAMP_SOURCES
 	${AAMP_ROOT}/direct-rialto/AampRialtoSegmentPosition.cpp
 	${AAMP_ROOT}/direct-rialto/AampRialtoPreRollMonitor.cpp
 	${AAMP_ROOT}/direct-rialto/AampRialtoSubtitleSource.cpp
+	${AAMP_ROOT}/direct-rialto/AampRialtoTtmlOffset.cpp
 	${AAMP_ROOT}/direct-rialto/AampPlayerStateMachine.cpp
 	${AAMP_ROOT}/direct-rialto/PrivateInstanceAAMPNotifiable.cpp
 	${AAMP_ROOT}/direct-rialto/AampRialtoMonitorAV.cpp
