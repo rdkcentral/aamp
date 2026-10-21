@@ -636,7 +636,7 @@ Rialto behaviours confirmed or disproved, test gaps, design decisions).
 | 2026-10-21 | N1 | Raw TTML/WebVTT normally attach through CreateSubtitleSource() with synthesised codec info, so playback was unaffected; only an init fragment on a raw source took the wrong (MP4 demuxer) path. |
 | 2026-10-21 | R3 | An unparsable begin= used to read as 0 ms, which made the offset -PTS and could wrongly select LINEAR_OFFSET; it is now ignored like a document without begin= (stored offset reused, mode still undecided). |
 | 2026-10-21 | Triage | M9, M10, L9 and L12 were already Done; the open-looking entries were their rows in the Verification Notes table, whose second column is the question. |
-| 2026-10-21 | Test review | Recompiling AampRialtoPlayerTestCases.cpp takes 44 s, of which about 8 s is the includes and fixture (lines 1-667 compiled alone); AampRialto*Player.cpp itself takes 4 s. |
+| 2026-10-21 | Test review | Recompiling AampRialtoPlayerTestCases.cpp takes 44 s, of which about 8 s is the includes and fixture (lines 1-667 compiled alone); AampRialtoPlayer.cpp itself takes 4 s. |
 | 2026-10-21 | Test review | No test in any suite reads back the encryption metadata annotateEncryption() puts on a segment (TS5). |
 
 ## Verification Notes
