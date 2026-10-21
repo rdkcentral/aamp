@@ -2097,11 +2097,7 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 		(state != eSTATE_COMPLETE) &&
 		(state != eSTATE_SEEKING))
 	{
-		// mTuneMetricDataPending is checked inside SendTuneMetricsEvent()
-		if (state == eSTATE_PLAYING)
-		{
-			SendTuneMetricsEvent();
-		}
+		bool progressEventSent = false;
 		// set position to 0 if the rewind operation has reached Beginning Of Stream
 		double position = 0.0;
 		double duration = durationSeconds * 1000.0;
@@ -2343,6 +2339,7 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 				mEventManager->SendEvent(evt);
 			}
 
+			progressEventSent = true;
 			mReportProgressPosn = position;
 		}
 
@@ -2353,6 +2350,12 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 			{
 				PlayFromTsbStart();
 			}
+		}
+
+		// Only send tune metrics after a progress event was actually dispatched.
+		if (state == eSTATE_PLAYING && progressEventSent)
+		{
+			SendTuneMetricsEvent();
 		}
 	}
 }
