@@ -2470,6 +2470,7 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 		(state != eSTATE_COMPLETE) &&
 		(state != eSTATE_SEEKING))
 	{
+		bool progressEventSent = false;
 		double position = 0.0;
 		double duration = durationSeconds * 1000.0;
 		float speed = mSinkPaused.load() ? 0 : rate;
@@ -2733,6 +2734,7 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 				mEventManager->SendEvent(evt);
 			}
 
+			progressEventSent = true;
 			mReportProgressPosn = position;
 		}
 
@@ -2745,9 +2747,8 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 			}
 		}
 
-		// mTuneMetricDataPending is checked inside SendTuneMetricsEvent()
-		// Send tune metrics event after the progress event has been handled
-		if (state == eSTATE_PLAYING)
+		// Only send tune metrics after a progress event was actually dispatched.
+		if (state == eSTATE_PLAYING && progressEventSent)
 		{
 			SendTuneMetricsEvent();
 		}

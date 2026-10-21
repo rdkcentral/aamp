@@ -893,6 +893,39 @@ TEST_F(PrivAampPrivTests, MonitorProgressTuneMetricsAfterPlayingStateChange)
 }
 
 /**
+ * Verify tune metrics stay pending when MonitorProgress cannot emit progress.
+ */
+TEST_F(PrivAampPrivTests, MonitorProgressDefersTuneMetricsUntilProgressEvent)
+{
+	testp_aamp->SetTuneTimeMetricData("{\"metric\":\"test\"}");
+	testp_aamp->SetState(eSTATE_PLAYING, true);
+	testp_aamp->mDownloadsEnabled = true;
+	testp_aamp->SetFirstProgress(true);
+	// Negative trickStartUTCMS suppresses AAMP_EVENT_PROGRESS for this tick.
+	testp_aamp->trickStartUTCMS = -1;
+
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampEventManager,
+		SendEvent(AnEventOfType(AAMP_EVENT_TUNE_TIME_METRICS), AAMP_EVENT_ASYNC_MODE)).Times(0);
+
+	testp_aamp->MonitorProgress(true, false);
+	EXPECT_TRUE(testp_aamp->GetTuneMetricDataPending());
+
+	testing::Mock::VerifyAndClearExpectations(g_mockAampEventManager.get());
+	testp_aamp->trickStartUTCMS = 1;
+	{
+		testing::InSequence seq;
+		EXPECT_CALL(*g_mockAampEventManager,
+			SendEvent(AnEventOfType(AAMP_EVENT_PROGRESS), _)).Times(1);
+		EXPECT_CALL(*g_mockAampEventManager,
+			SendEvent(AnEventOfType(AAMP_EVENT_TUNE_TIME_METRICS), AAMP_EVENT_ASYNC_MODE)).Times(1);
+	}
+	testp_aamp->MonitorProgress(true, false);
+
+	EXPECT_FALSE(testp_aamp->GetTuneMetricDataPending());
+}
+
+/**
  * Verify that TuneFail explicitly calls SendTuneMetricsEvent — dispatching
  * AAMP_EVENT_TUNE_TIME_METRICS — when a listener is registered and the
  * manifest URL is not the fake-tune sentinel.
