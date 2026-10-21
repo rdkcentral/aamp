@@ -4585,7 +4585,7 @@ static PreCacheUrlList MakePreCacheList()
 }
 
 /**
- * @brief VPAAMP-1459: play start signalled before the pre-cache thread reaches its wait.
+ * @brief Play start signalled before the pre-cache thread reaches its wait.
  *
  * The first-frame notification runs on a different thread from the pre-cache thread and
  * can happen first. The pre-cache thread must still observe it and continue; previously
@@ -4656,6 +4656,34 @@ TEST_F(PrivAampTests, SetPreCacheDownloadList_PreviousTunePlayStart_DoesNotRelea
 	EXPECT_EQ(beforeSignal, std::future_status::timeout)
 		<< "Play start from the previous tune released the new pre-cache task";
 	EXPECT_EQ(afterSignal, std::future_status::ready);
+}
+
+/**
+ * @brief Stop() must release a pre-cache thread still waiting for play start.
+ *
+ * Stop() signals mPlayStartSignalled and then joins mPreCachePlaylistThreadId. Without the
+ * signal the worker stays blocked on the predicate and the join never returns.
+ * Stop() runs on a helper thread so a regression fails on the deadline rather than hanging.
+ */
+TEST_F(PrivAampTests, Stop_PreCacheThreadWaitingForPlayStart_JoinsWithinDeadline)
+{
+	PreCacheUrlList list = MakePreCacheList();
+	p_aamp->SetPreCacheDownloadList(list);
+	p_aamp->mPreCachePlaylistThreadId =
+		std::thread(&PrivateInstanceAAMP::PreCachePlaylistDownloadTask, p_aamp);
+
+	auto stopTask = std::async(std::launch::async, [this]() { p_aamp->Stop(false); });
+	std::future_status status = stopTask.wait_for(std::chrono::seconds(2));
+	if (status != std::future_status::ready)
+	{
+		// Timeout cleanup only, so a regression fails instead of hanging CI
+		ReleasePreCacheTask(p_aamp);
+	}
+	stopTask.wait();
+
+	EXPECT_EQ(status, std::future_status::ready)
+		<< "Stop() did not release and join the pre-cache thread";
+	EXPECT_FALSE(p_aamp->mPreCachePlaylistThreadId.joinable());
 }
 
 TEST_F(PrivAampTests,GetPreferredTextPropertiesTest)
