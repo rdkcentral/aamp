@@ -27,6 +27,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <string>
 
 /**
@@ -59,11 +60,13 @@ public:
 	int64_t Refine(const char *data, size_t size, int64_t ptsMs,
 		int64_t durationMs, int64_t aampOffsetMs);
 
-	/// TTML clock value H:MM:SS[.fff] in ms; 0 if it does not parse.
-	static int64_t ParseTimeToMs(const std::string &timeStr);
+	/// TTML clock time hours:MM:SS[.fraction|:frames] in ms; nullopt if it
+	/// is not one (the value comes from the stream and is untrusted).
+	static std::optional<int64_t> ParseTimeToMs(const std::string &timeStr);
 
 	/// First begin="..." value in @p ttml, in ms.
-	/// @return false for empty or header-only documents.
+	/// @return false for empty or header-only documents, or an unparsable
+	///         value.
 	static bool FindFirstBeginMs(const std::string &ttml, int64_t &outMs);
 
 private:

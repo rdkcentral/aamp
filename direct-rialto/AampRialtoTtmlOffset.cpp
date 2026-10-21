@@ -23,12 +23,12 @@
  */
 
 #include "AampRialtoTtmlOffset.h"
-#include "AampRialtoTime.h"
 #include "AampLogManager.h"
 
+#include <cctype>
 #include <cinttypes>
-#include <cstdio>
 #include <cstdlib>
+#include <limits>
 
 void AampRialtoTtmlOffset::Reset()
 {
@@ -36,21 +36,98 @@ void AampRialtoTtmlOffset::Reset()
 	m_linearOffsetMs = 0;
 }
 
-int64_t AampRialtoTtmlOffset::ParseTimeToMs(const std::string &timeStr)
+namespace
 {
-	int   hours = 0;
-	int   mins  = 0;
-	double secs = 0.0;
-
-	if (std::sscanf(timeStr.c_str(), "%d:%d:%lf", &hours, &mins, &secs) != 3)
+/// Read decimal digits at @p pos into @p value; false on none or overflow.
+bool ReadDigits(const std::string &str, size_t &pos, int64_t maxValue,
+	int64_t &value, size_t &count)
+{
+	value = 0;
+	count = 0;
+	while (pos < str.size() && std::isdigit(static_cast<unsigned char>(str[pos])))
 	{
-		return 0;
+		const int digit = str[pos] - '0';
+		if (value > (maxValue - digit) / 10)
+		{
+			return false;
+		}
+		value = value * 10 + digit;
+		++pos;
+		++count;
+	}
+	return count > 0;
+}
+}
+
+std::optional<int64_t> AampRialtoTtmlOffset::ParseTimeToMs(
+	const std::string &timeStr)
+{
+	// hours:MM:SS[.fraction | :frames[.subframes]] (TTML clock-time).  Hours
+	// are unbounded in TTML; the cap only keeps the result in int64_t.
+	constexpr int64_t kMaxHours = std::numeric_limits<int64_t>::max() / 3'600'000 - 1;
+	size_t pos = 0;
+	size_t count = 0;
+	int64_t hours = 0;
+	int64_t mins = 0;
+	int64_t secs = 0;
+	if (!ReadDigits(timeStr, pos, kMaxHours, hours, count) ||
+	    pos >= timeStr.size() || timeStr[pos++] != ':' ||
+	    !ReadDigits(timeStr, pos, 99, mins, count) || count != 2 || mins > 59 ||
+	    pos >= timeStr.size() || timeStr[pos++] != ':' ||
+	    !ReadDigits(timeStr, pos, 99, secs, count) || count != 2 || secs > 60)
+	{
+		return std::nullopt;
 	}
 
-	return (static_cast<int64_t>(hours) * 3600LL +
-	        static_cast<int64_t>(mins)  * 60LL)
-	       * 1000LL
-	       + SecondsToMs(secs);
+	int64_t ms = 0;
+	if (pos < timeStr.size() && timeStr[pos] == '.')
+	{
+		// Milliseconds from the first three digits, rounded by the fourth.
+		const size_t start = ++pos;
+		while (pos < timeStr.size() &&
+		       std::isdigit(static_cast<unsigned char>(timeStr[pos])))
+		{
+			const size_t index = pos - start;
+			const int digit = timeStr[pos] - '0';
+			if (index < 3)
+			{
+				ms = ms * 10 + digit;
+			}
+			else if (index == 3 && digit >= 5)
+			{
+				++ms;
+			}
+			++pos;
+		}
+		if (pos == start)
+		{
+			return std::nullopt;
+		}
+		for (size_t index = pos - start; index < 3; ++index)
+		{
+			ms *= 10;
+		}
+	}
+	else if (pos < timeStr.size() && timeStr[pos] == ':')
+	{
+		// Frames (and sub-frames) need the frame rate; ignored, as before.
+		int64_t frames = 0;
+		++pos;
+		if (!ReadDigits(timeStr, pos, 999'999, frames, count))
+		{
+			return std::nullopt;
+		}
+		if (pos < timeStr.size() && timeStr[pos] == '.' &&
+		    !ReadDigits(timeStr, ++pos, 999'999, frames, count))
+		{
+			return std::nullopt;
+		}
+	}
+	if (pos != timeStr.size())
+	{
+		return std::nullopt;
+	}
+	return (hours * 3600 + mins * 60 + secs) * 1000 + ms;
 }
 
 bool AampRialtoTtmlOffset::FindFirstBeginMs(
@@ -70,9 +147,17 @@ bool AampRialtoTtmlOffset::FindFirstBeginMs(
 		return false;
 	}
 
-	outMs = ParseTimeToMs(ttml.substr(valStart, valEnd - valStart));
+	const std::string value = ttml.substr(valStart, valEnd - valStart);
+	const auto ms = ParseTimeToMs(value);
+	if (!ms)
+	{
+		AAMPLOG_WARN("findFirstBeginMs: ignoring unparsable begin=\"%.32s\"",
+			value.c_str());
+		return false;
+	}
+	outMs = *ms;
 	AAMPLOG_DEBUG("findFirstBeginMs: found begin=\"%s\" → %" PRId64 " ms",
-		ttml.substr(valStart, valEnd - valStart).c_str(), outMs);
+		value.c_str(), outMs);
 	return true;
 }
 

@@ -310,7 +310,7 @@ A second full review after H1 to A6. Findings (R) and architecture proposals (AR
 |---|---|---|
 | R1 | Done | DRM key-event callbacks can run after their adapter is destroyed |
 | R2 | Done | Stale comment in `Flush()` about why the FLUSHING claim is safe |
-| R3 | Open | TTML clock parser does not range-check untrusted values |
+| R3 | Done | TTML clock parser does not range-check untrusted values |
 | R4 | Done | Subtitle offset state relies on an undocumented single-thread contract |
 | R5 | Done | Injector waits are untimed by design; undocumented |
 | R6 | Open | One `IMediaKeys` created per DRM session (verify on device) |
@@ -534,6 +534,7 @@ Rialto behaviours confirmed or disproved, test gaps, design decisions).
 | 2026-10-21 | AR7 | AR8 (split AampRialtoPlayer.cpp across several files) recorded as Won't do: AAMP keeps one class per .cpp. |
 | 2026-10-21 | N2-N4 | Verified in the Rialto client source: ~MediaPipelineIpc detaches the channel and joins the event thread, so the last pipeline release drains event delivery. |
 | 2026-10-21 | N1 | Raw TTML/WebVTT normally attach through CreateSubtitleSource() with synthesised codec info, so playback was unaffected; only an init fragment on a raw source took the wrong (MP4 demuxer) path. |
+| 2026-10-21 | R3 | An unparsable begin= used to read as 0 ms, which made the offset -PTS and could wrongly select LINEAR_OFFSET; it is now ignored like a document without begin= (stored offset reused, mode still undecided). |
 
 ## Verification Notes
 
@@ -615,3 +616,4 @@ Record each completed task: what was done, files changed, tests added or run.
 | 2026-10-21 | AR7 | Flush() split into the decision (87 lines, mostly the original comments), FlushByTeardown(), FlushWithoutCycle(), ResetSourcesForFlush() (the source loop that was duplicated in both paths) and IssueFlushSeek(). AttachSource() split into DeferAttachUntilVideo(), ProtectionFor(), the attach itself and OnSourceNewlyAttached(). Order of every call and the pipeline snapshot point unchanged; comments moved with their code. | direct-rialto/AampRialtoPlayer.{h,cpp} | all 19 suites pass (Player 316/316); TSAN clean on the player suite; 120/120 player stress runs at 6 workers |
 | 2026-10-21 | N2-N4 | Removed the unused NeedDataRequestEvent; reworded the GoF / tryClaimEosLocked comments; one-line destructor comment on why releasing the pipeline stops events. | direct-rialto/AampRialtoMediaPipelineClient.h, AampRialtoPlayer.{h,cpp}; AampPlayerStateMachineTestCases.cpp, AampRialtoVideoSourceTestCases.cpp | all 19 suites pass |
 | 2026-10-21 | N1 | AampRialtoSubtitleSource::processInitFragment() now reads the format recorded by Configure() (format()) instead of m_subtitleFormat, which was never assigned since 1a504a50; the field is removed and the header describes the real raw-subtitle path. | direct-rialto/AampRialtoSubtitleSource.{h,cpp}; AampRialtoSubtitleSourceTestCases.cpp | New AampRialtoSubtitleSource_ProcessInitFragment_RawFormats_SynthesiseCodecInfo: red on the old code (codec 0, demuxer created), green now; subtitle suite 21/21; all 19 suites pass |
+| 2026-10-21 | R3 | AampRialtoTtmlOffset::ParseTimeToMs replaces sscanf with a bounded TTML clock-time parser returning std::optional: digits only (no sign, nan or inf), MM <= 59, SS <= 60, hours capped so the result fits int64_t, fraction rounded from integer digits, frames part accepted and ignored as before, trailing junk rejected. FindFirstBeginMs returns false (WARN, value truncated to 32 chars) for an unparsable value. | direct-rialto/AampRialtoTtmlOffset.{h,cpp}; AampRialtoTtmlOffsetTestCases.cpp | 3 new/changed TTML tests red on the old parser, green now (TTML suite 14/14); subtitle suite 21/21; all 19 suites pass |

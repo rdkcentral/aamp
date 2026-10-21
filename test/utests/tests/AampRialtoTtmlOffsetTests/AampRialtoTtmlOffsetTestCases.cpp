@@ -61,12 +61,30 @@ TEST(AampRialtoTtmlOffsetTest, ParseTimeToMs_ClockValue)
 {
 	EXPECT_EQ(AampRialtoTtmlOffset::ParseTimeToMs("01:02:03.500"), 3'723'500);
 	EXPECT_EQ(AampRialtoTtmlOffset::ParseTimeToMs("00:00:00"), 0);
+	EXPECT_EQ(AampRialtoTtmlOffset::ParseTimeToMs("00:00:00.251"), 251);
+	EXPECT_EQ(AampRialtoTtmlOffset::ParseTimeToMs("00:00:00.2505"), 251);
 }
 
-TEST(AampRialtoTtmlOffsetTest, ParseTimeToMs_NotAClockValue_ReturnsZero)
+TEST(AampRialtoTtmlOffsetTest, ParseTimeToMs_AbsoluteHoursAndFrames_AreAccepted)
 {
-	EXPECT_EQ(AampRialtoTtmlOffset::ParseTimeToMs("12.5s"), 0);
-	EXPECT_EQ(AampRialtoTtmlOffset::ParseTimeToMs(""), 0);
+	// Wall-clock TTML can count hours since 1970.
+	EXPECT_EQ(AampRialtoTtmlOffset::ParseTimeToMs("495000:00:01"),
+		495'000LL * 3'600'000 + 1'000);
+	// The frames part of HH:MM:SS:FF is ignored, as before.
+	EXPECT_EQ(AampRialtoTtmlOffset::ParseTimeToMs("00:00:02:12"), 2'000);
+	// TTML allows second 60 for a leap second.
+	EXPECT_EQ(AampRialtoTtmlOffset::ParseTimeToMs("00:00:60"), 60'000);
+}
+
+TEST(AampRialtoTtmlOffsetTest, ParseTimeToMs_NotAClockValue_IsRejected)
+{
+	for (const char *bad : {"12.5s", "", "00:00", "a0:00:00",
+		"-01:00:00", "00:-1:00", "00:00:nan", "00:00:inf",
+		"00:60:00", "00:00:61", "00:00:01.x", "00:00:01junk",
+		"99999999999999999999:00:00"})
+	{
+		EXPECT_FALSE(AampRialtoTtmlOffset::ParseTimeToMs(bad)) << bad;
+	}
 }
 
 TEST(AampRialtoTtmlOffsetTest, FindFirstBeginMs_ReturnsTheFirstOnly)
@@ -84,6 +102,24 @@ TEST(AampRialtoTtmlOffsetTest, FindFirstBeginMs_MissingOrUnterminated_ReturnsFal
 	EXPECT_FALSE(AampRialtoTtmlOffset::FindFirstBeginMs(
 		"<p begin=\"00:00:05.000", ms));
 	EXPECT_EQ(ms, -1);
+}
+
+TEST(AampRialtoTtmlOffsetTest, FindFirstBeginMs_Unparsable_ReturnsFalse)
+{
+	int64_t ms = -1;
+	EXPECT_FALSE(AampRialtoTtmlOffset::FindFirstBeginMs(
+		"<p begin=\"-00:00:05.000\"/>", ms));
+	EXPECT_EQ(ms, -1);
+}
+
+TEST(AampRialtoTtmlOffsetTest, UnparsableBegin_DoesNotInventAnOffset)
+{
+	AampRialtoTtmlOffset offset;
+	// Read as 0 ms, "12.5s" made the offset -PTS and wrongly picked
+	// LINEAR_OFFSET; an unreadable begin= must leave the mode undecided.
+	EXPECT_EQ(Refine(offset, Doc("12.5s")), 0);
+	EXPECT_EQ(Refine(offset, Doc("00:00:10.000")), 0);
+	EXPECT_EQ(Refine(offset, Doc("01:00:10.000")), 0);
 }
 
 // ---------------------------------------------------------------------------
