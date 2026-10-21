@@ -1749,8 +1749,10 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown, boo
 	// Step 3: Claim FLUSHING atomically so that
 	// any concurrent WaitForFlushToComplete() caller (e.g. Configure()) sees
 	// FLUSHING and blocks until onFlushComplete() signals completion.
-	// Flush() and Stop()/Configure() are always on the AAMP control thread,
-	// so no TOCTOU risk exists between step 2 and step 3.
+	// Step 2's check and this claim cannot interleave with another Flush()
+	// or Stop(): both hold m_flushCallMutex, including the deferred flush on
+	// an injector thread.  Configure() does not take it; AAMP stops injection
+	// (and so the deferred flush) before calling Configure().
 	m_stateMachine.onFlush();
 
 	// The Flushing hold applied on entry keeps this from issuing play().
