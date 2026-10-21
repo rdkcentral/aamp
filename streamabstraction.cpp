@@ -1828,25 +1828,29 @@ void MediaTrack::FlushFetchedFragments()
  * Flushes all media fragments and resets all relevant counters
  * Only intended for use on subtitle streams
  */
-void MediaTrack::FlushFragments()
+void MediaTrack::FlushFragments(bool isMutexLocked)
 {
 	AAMPLOG_WARN("[%s]", name);
 	const bool traceAudioMutex = (type == eTRACK_AUDIO);
+	std::unique_lock<std::mutex> lock(mutex, std::defer_lock);
+	if (!isMutexLocked)
+	{
+		if (traceAudioMutex)
+		{
+			AAMPLOG_MIL("AudioMutex: FlushFragments waiting");
+		}
+		lock.lock();
+		if (traceAudioMutex)
+		{
+			AAMPLOG_MIL("AudioMutex: FlushFragments acquired");
+		}
+	}
 	for (size_t i = 0; i < mCachedFragmentSize; i++)
 	{
 		mCachedFragment[i].Clear();
 	}
 	fragmentIdxToInject = 0;
 	fragmentIdxToFetch = 0;
-	if (traceAudioMutex)
-	{
-		AAMPLOG_MIL("AudioMutex: FlushFragments waiting");
-	}
-	std::lock_guard<std::mutex> guard(mutex);
-	if (traceAudioMutex)
-	{
-		AAMPLOG_MIL("AudioMutex: FlushFragments acquired");
-	}
 	numberOfFragmentsCached = 0;
 
 	// All fragment-injected/fetched duration counters live under mTrackParamsMutex.
@@ -4822,5 +4826,5 @@ void StreamAbstractionAAMP::ReinitializeInjection(double rate)
 			track->playContext->setRate(rate, PlayMode_normal);
 		}
 	}
-}
 
+}
