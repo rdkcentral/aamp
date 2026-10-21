@@ -38,9 +38,10 @@
  * Supports two injection paths:
  *
  *  - **Raw TTML / WebVTT** (FORMAT_SUBTITLE_TTML / FORMAT_SUBTITLE_WEBVTT):
- *    No MP4 container, so no demuxer is used.  processInitFragment()
- *    synthesises a MediaCodecInfo from the cached m_subtitleFormat so that
- *    attachOrUpdate() can call mapCodecToMime() and attachSource().
+ *    No MP4 container, so no demuxer is used.  Configure() attaches the
+ *    source with synthesised codec info (AampRialtoPlayer::
+ *    CreateSubtitleSource()); an init fragment, if one arrives, is answered
+ *    the same way from format().
  *    Data fragments are injected via processDataFragment() which wraps the
  *    buffer into an AampMediaSample and calls injectSingleSample().
  *
@@ -134,8 +135,6 @@ private:
 	 */
 	int64_t refineDisplayOffset(
 		const AampMediaSample &sample) const;
-
-	StreamOutputFormat m_subtitleFormat{FORMAT_INVALID};
 
 	/// mutable so that refineDisplayOffset() can update it from the const
 	/// createSegment() override.

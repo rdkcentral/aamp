@@ -321,7 +321,7 @@ A second full review after H1 to A6. Findings (R) and architecture proposals (AR
 | AR6 | Done | Move the needData handshake and TTML offset detection out of the media and subtitle sources |
 | AR7 | Done | Split `Flush()` and `AttachSource()` into steps of at most about 80 lines |
 | AR8 | Won't do | Split `AampRialtoPlayer.cpp` across several files: AAMP keeps one class per `.cpp`, so this would break the repository convention |
-| N1 | Open | Subtitle `m_subtitleFormat` is never set, so the raw-init branch is dead and the doc describes the wrong path |
+| N1 | Done | Subtitle `m_subtitleFormat` is never set, so the raw-init branch is dead and the doc describes the wrong path |
 | N2 | Done | Unused `NeedDataRequestEvent` struct |
 | N3 | Done | Comments naming removed code (GoF, `tryClaimEosLocked`) |
 | N4 | Done | Destructor does not say why pipeline release stops event delivery |
@@ -533,6 +533,7 @@ Rialto behaviours confirmed or disproved, test gaps, design decisions).
 | 2026-10-21 | AR6 | bufferFull is now reset inside the handshake lock by Reset()/Unblock() rather than just after it, which closes a window where a NO_SPACE from the old generation could leave it set after a flush. |
 | 2026-10-21 | AR7 | AR8 (split AampRialtoPlayer.cpp across several files) recorded as Won't do: AAMP keeps one class per .cpp. |
 | 2026-10-21 | N2-N4 | Verified in the Rialto client source: ~MediaPipelineIpc detaches the channel and joins the event thread, so the last pipeline release drains event delivery. |
+| 2026-10-21 | N1 | Raw TTML/WebVTT normally attach through CreateSubtitleSource() with synthesised codec info, so playback was unaffected; only an init fragment on a raw source took the wrong (MP4 demuxer) path. |
 
 ## Verification Notes
 
@@ -613,3 +614,4 @@ Record each completed task: what was done, files changed, tests added or run.
 | 2026-10-21 | AR6 | AR6 part 2: the needData handshake state (pending request, batch, gate, generation, EOS, active injector, attach-pending) and every decision taken under its lock moved from AampRialtoMediaSource into AampRialtoNeedDataHandshake. Each operation returns the request the caller must answer; the source sends haveData(), logs and keeps the statistics. Public API unchanged (GateMode/SourceState/BatchSummary are aliases, state() still returns the state). AampRialtoMediaSource.cpp 1288 -> 959 lines. | direct-rialto/AampRialtoNeedDataHandshake.{h,cpp} (new), AampRialtoMediaSource.{h,cpp}, CMakeLists.txt; test/utests/tests/AampRialtoNeedDataHandshakeTests (new), Player/Video/Audio/Subtitle test CMake | AampRialtoNeedDataHandshakeTests 25/25 (new); Player 316, Video 68, Audio 18, Subtitle 20; all 19 suites pass; TSAN clean on handshake, video-source and player suites; 120/120 player stress runs at 6 workers |
 | 2026-10-21 | AR7 | Flush() split into the decision (87 lines, mostly the original comments), FlushByTeardown(), FlushWithoutCycle(), ResetSourcesForFlush() (the source loop that was duplicated in both paths) and IssueFlushSeek(). AttachSource() split into DeferAttachUntilVideo(), ProtectionFor(), the attach itself and OnSourceNewlyAttached(). Order of every call and the pipeline snapshot point unchanged; comments moved with their code. | direct-rialto/AampRialtoPlayer.{h,cpp} | all 19 suites pass (Player 316/316); TSAN clean on the player suite; 120/120 player stress runs at 6 workers |
 | 2026-10-21 | N2-N4 | Removed the unused NeedDataRequestEvent; reworded the GoF / tryClaimEosLocked comments; one-line destructor comment on why releasing the pipeline stops events. | direct-rialto/AampRialtoMediaPipelineClient.h, AampRialtoPlayer.{h,cpp}; AampPlayerStateMachineTestCases.cpp, AampRialtoVideoSourceTestCases.cpp | all 19 suites pass |
+| 2026-10-21 | N1 | AampRialtoSubtitleSource::processInitFragment() now reads the format recorded by Configure() (format()) instead of m_subtitleFormat, which was never assigned since 1a504a50; the field is removed and the header describes the real raw-subtitle path. | direct-rialto/AampRialtoSubtitleSource.{h,cpp}; AampRialtoSubtitleSourceTestCases.cpp | New AampRialtoSubtitleSource_ProcessInitFragment_RawFormats_SynthesiseCodecInfo: red on the old code (codec 0, demuxer created), green now; subtitle suite 21/21; all 19 suites pass |

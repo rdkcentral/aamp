@@ -366,6 +366,38 @@ TEST_F(AampRialtoSubtitleSourceTest,
 // ---------------------------------------------------------------------------
 
 /**
+ * @test AampRialtoSubtitleSource_ProcessInitFragment_RawFormats_SynthesiseCodecInfo
+ * @brief Raw TTML/WebVTT has no MP4 container: the format Configure() tagged
+ *        the source with decides the codec, and no demuxer is created (the
+ *        data path then injects the buffer as one sample).
+ */
+TEST_F(AampRialtoSubtitleSourceTest,
+	AampRialtoSubtitleSource_ProcessInitFragment_RawFormats_SynthesiseCodecInfo)
+{
+	const std::string ttml = "<?xml version=\"1.0\"?><tt/>";
+	const std::pair<StreamOutputFormat, GstStreamOutputFormat> cases[] = {
+		{FORMAT_SUBTITLE_TTML, GST_FORMAT_SUBTITLE_TTML},
+		{FORMAT_SUBTITLE_WEBVTT, GST_FORMAT_SUBTITLE_WEBVTT},
+	};
+	for (const auto &[format, expected] : cases)
+	{
+		TestableAampRialtoSubtitleSource source;
+		source.setFormat(format);
+
+		const auto ci = source.processInitFragment(
+			std::make_shared<std::vector<uint8_t>>(ttml.begin(), ttml.end()));
+
+		ASSERT_TRUE(ci.has_value()) << "format=" << format;
+		EXPECT_EQ(ci->mCodecFormat, expected) << "format=" << format;
+		EXPECT_FALSE(source.hasDemuxer()) << "format=" << format;
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Inband CC
+// ---------------------------------------------------------------------------
+
+/**
  * @test AampRialtoSubtitleSource_MapCodecToMime_InbandCC_ReturnsCCMime
  * @brief When GST_FORMAT_UNKNOWN is passed to mapCodecToMime(), the source
  *        enters inband-CC mode and must return "text/cc" with RAW format.

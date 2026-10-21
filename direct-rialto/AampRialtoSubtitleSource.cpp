@@ -152,19 +152,20 @@ std::optional<MediaCodecInfo> AampRialtoSubtitleSource::processInitFragment(
 
 	std::optional<MediaCodecInfo> result;
 
-	if (m_subtitleFormat == FORMAT_SUBTITLE_TTML ||
-	    m_subtitleFormat == FORMAT_SUBTITLE_WEBVTT)
+	const StreamOutputFormat subtitleFormat = format();
+	if (subtitleFormat == FORMAT_SUBTITLE_TTML ||
+	    subtitleFormat == FORMAT_SUBTITLE_WEBVTT)
 	{
 		// Raw subtitle: synthesise codec info so attachOrUpdate() can
 		// call mapCodecToMime() and attach the subtitle source.
 		MediaCodecInfo ci{};
-		ci.mCodecFormat = (m_subtitleFormat == FORMAT_SUBTITLE_TTML)
+		ci.mCodecFormat = (subtitleFormat == FORMAT_SUBTITLE_TTML)
 		                  ? GST_FORMAT_SUBTITLE_TTML
 		                  : GST_FORMAT_SUBTITLE_WEBVTT;
 		AAMPLOG_INFO("Raw subtitle processInitFragment: synthesised "
 			"codecFormat=%d for subtitleFormat=%d",
 			static_cast<int>(ci.mCodecFormat),
-			static_cast<int>(m_subtitleFormat));
+			static_cast<int>(subtitleFormat));
 		result = std::optional<MediaCodecInfo>(std::move(ci));
 	}
 	else
