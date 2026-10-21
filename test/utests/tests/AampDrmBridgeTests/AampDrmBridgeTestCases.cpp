@@ -98,16 +98,21 @@ TEST_F(AampDrmBridgeTest, CreateSession_PassesMediaFormatOfCurrentTune)
 	/**
 	 * @brief Regression (L5): the format was fixed to DASH, which the DRM helpers
 	 *        use to choose behaviour, so HLS content got the DASH treatment.
+	 *        Plain HLS is passed as HLS_MP4: bridge sessions always come from
+	 *        ISO BMFF PSSH and the Widevine/PlayReady helpers reject plain HLS.
 	 */
 	const std::vector<uint8_t> initData(16, 0x11);
-	const MediaFormat kFormats[] = {eMEDIAFORMAT_HLS, eMEDIAFORMAT_DASH, eMEDIAFORMAT_HLS_MP4};
+	const std::pair<MediaFormat, MediaFormat> kFormats[] = {
+		{eMEDIAFORMAT_HLS, eMEDIAFORMAT_HLS_MP4},
+		{eMEDIAFORMAT_DASH, eMEDIAFORMAT_DASH},
+		{eMEDIAFORMAT_HLS_MP4, eMEDIAFORMAT_HLS_MP4}};
 
-	for (const MediaFormat format : kFormats)
+	for (const auto &[format, expected] : kFormats)
 	{
 		m_aamp.mMediaFormat = format;
 		TestDrmSession session(5);
 		EXPECT_CALL(*g_mockAampLicenseManager,
-			createDrmSessionBySystemId(StrEq(kSystemId), format, _,
+			createDrmSessionBySystemId(StrEq(kSystemId), expected, _,
 				static_cast<unsigned short>(initData.size()),
 				static_cast<int>(eMEDIATYPE_VIDEO)))
 			.WillOnce(Return(&session));
