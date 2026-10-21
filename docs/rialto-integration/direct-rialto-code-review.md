@@ -114,7 +114,7 @@ and should be confirmed before or while fixing.
 | M12 | Done | `RialtoMediaKeySessionAdapter` lost wakeups and stale state |
 | M13 | Done | `AampRialtoControlBackend` member order |
 | M14 | Done | `PrivateInstanceAAMPNotifiable::m_aamp` racy and not null-checked |
-| M15 | Done on VM; CI acceptance pending | Run the L1 stress suite and fix the flaky tests it exposes (T1 to T3) |
+| M15 | Done on VM; CI acceptance pending (O4) | Run the L1 stress suite and fix the flaky tests it exposes (T1 to T3) |
 
 - **M1. `ProgressTimer`** (`AampRialtoPlayer.cpp`, nested class): `started`, `source_id`, `callback` unlocked.
   - `start`/`stop`/`kick` run on the control thread and the Rialto callback thread; the callback runs on the GLib thread.
@@ -174,7 +174,7 @@ and should be confirmed before or while fixing.
 | L7 | Done | `Flush()` before `Configure()` runs a pointless recovery `Stop()` |
 | L8 | Done | Test-only constructor with null `sourceCreator` throws on `Configure` |
 | L9 | Done | `NO_AVAILABLE_SAMPLES` on gated `needData` relies on Rialto re-requesting |
-| L10 | Open | Per-frame `haveData` round trip on single-sample paths |
+| L10 | Optional (O1) | Per-frame `haveData` round trip on single-sample paths |
 | L11 | Done | Timer intervals unchecked (zero/negative) |
 | L12 | Done | All GLib timers use the default `GMainContext` |
 | L13 | Done | Hard-coded pipeline requirements, `isLive=false`, `"mse://1"` (TODO) |
@@ -313,14 +313,16 @@ A second full review after H1 to A6. Findings (R) and architecture proposals (AR
 | R3 | Done | TTML clock parser does not range-check untrusted values |
 | R4 | Done | Subtitle offset state relies on an undocumented single-thread contract |
 | R5 | Done | Injector waits are untimed by design; undocumented |
-| R6 | Open | One `IMediaKeys` created per DRM session (verify on device) |
-| R7 | Open | Init-data type fixed to `cenc`; webm/keyids mapping unreachable |
+| R6 | Won't do | One `IMediaKeys` created per DRM session: same as the GStreamer OCDM path, which creates one OCDM system per session adapter |
+| R7 | Optional (O2) | Init-data type fixed to `cenc`; webm/keyids mapping unreachable |
 | AR1 | Done | Threading-contract block in each class header |
 | AR3 | Done | State machine as enum plus transition table instead of GoF classes |
+| AR4 | Won't do | Make the state machine the only owner of FLUSHING and attachment progress: the holds and the states are not the same facts |
 | AR5 | Done | One pipeline-event interface instead of eight `std::function` callbacks |
 | AR6 | Done | Move the needData handshake and TTML offset detection out of the media and subtitle sources |
 | AR7 | Done | Split `Flush()` and `AttachSource()` into steps of at most about 80 lines |
 | AR8 | Won't do | Split `AampRialtoPlayer.cpp` across several files: AAMP keeps one class per `.cpp`, so this would break the repository convention |
+| AR9 | Won't do | Share one `RialtoMediaKeySystem` per key system and fold `RialtoMediaKeySession` into it: only pays off if R6 is done |
 | N1 | Done | Subtitle `m_subtitleFormat` is never set, so the raw-init branch is dead and the doc describes the wrong path |
 | N2 | Done | Unused `NeedDataRequestEvent` struct |
 | N3 | Done | Comments naming removed code (GoF, `tryClaimEosLocked`) |
@@ -331,6 +333,27 @@ A second full review after H1 to A6. Findings (R) and architecture proposals (AR
 - **AR1.** The concurrency rules are spread over long member comments; each header should say which thread calls what and which lock guards which members.
 - **AR3.** 9 state classes for about 20 transitions; a table mirrors `docs/diagrams/direct-rialto-state-machine.puml` directly.
 - **AR5.** Events pass through 8 `std::function` members and setters in the client, a `Callbacks` struct in the session and 7 lambdas in the player.
+- **R6 (Won't do).** Each `IMediaKeys` makes the Rialto server create its own OCDM system (`MediaKeysServerInternal` → `createOcdmSystem`), with no limit in `CdmService`. The GStreamer path does the same: `opencdmsessionadapter.cpp` calls `opencdm_create_system()` per adapter. Sharing would save one IPC round trip and one server object per extra session (key rotation, encrypted pre-roll), but needs a registry keyed by key system with lifetime across players. Reopen only if a device shows `createMediaKeys` time adding visibly to key rotation.
+- **AR4 (Won't do).** The `Flushing` hold is added on entry to `Flush()`, before FLUSHING is claimed, and also covers the teardown and no-cycle paths that never enter FLUSHING; deriving it from the state would release it too early. `PositionPending` belongs to the segment position, not to a state. Only `SourcesNotAttached` matches a state 1:1 (one add, one release). Deriving the holds would make the state machine notify the controller (new lock order state machine → controller) and puts the M5 ordering at risk, for about two call sites saved.
+- **AR9 (Won't do).** Folding the session into a shared key system only pays off once one key system is shared (R6).
+
+### Optional work, to be considered
+
+None of these is a defect in the current direct-rialto code. Each is recorded with the evidence, benefit and risk found on 2026-10-21 so it can be picked up later.
+
+| ID | Item | Worth it | Risk | Suggested trigger |
+|---|---|---|---|---|
+| O1 | L10: batch `haveData` on the HLS-TS path | Only if measured | Medium | Device measurement |
+| O2 | R7: remove the unreachable webm/keyids branches | Small tidy-up | Very low | Any DRM change |
+| O3 | R1 residual: renewal join on the Rialto key-event thread | Yes | Medium (shared code) | Ticket for the DRM owners |
+| O4 | M15 acceptance: 500-run stress job in CI | Yes, once | None for the product | Before closing M15 |
+| O5 | ThreadSanitizer job for the direct-rialto suites | Yes | Low (CI time) | When CI time allows |
+
+- **O1 (L10).** Only two paths reply per frame: HLS-TS, where the TS processor calls `SendCopy()` once per ES frame and `processDataFragment` injects it with `morePending=false`, and raw TTML/WebVTT (a few fragments a second, negligible). Both fMP4 paths already pass a real `morePending` (the source's demuxer per sample, and `AampMp4Demuxer` through `SendSample`). For HLS-TS that is about 30–60 video plus about 47 audio blocking `haveData` IPCs a second instead of about one per batch. Batching in direct-rialto means holding the reply for a time window: added first-frame latency after a seek, a timer on the hot path and new interleavings with flush and EOS. First measure `haveData` calls per second and Rialto client/server CPU during HLS-TS playback on a device; if significant, prefer having the TS processor pass "more frames in this PES batch" through `SendCopy` over a timer.
+- **O2 (R7).** Nothing in AAMP produces webm or keyids init data, and the GStreamer OCDM path also passes `"cenc"` (`opencdmsessionadapter.cpp`). Removing the two branches in `RialtoMediaKeySystem::createSession` (and the doc line naming them) removes about 10 dead lines; keep the parameter so the key-system tests are untouched. No behaviour change.
+- **O3 (R1 residual).** `AampDRMLicenseManager::renewLicense()` runs on Rialto's key-event thread and joins the previous renewal thread for the slot (`drm/AampDRMLicManager.cpp`). If that renewal is blocked on the slot's `sessionMutex` while `clearDrmSession()` holds it and destroys the adapter (which, since R1, waits for the renewal callback), the three threads deadlock. Needs two renewals for one session in quick succession overlapping a teardown; before R1 the same timing was a use-after-free. The fix belongs in the shared DRM code (do not join on the caller's thread; hand renewals to a per-slot worker) and affects the GStreamer players too, so it needs the DRM owners. A workaround inside direct-rialto (re-posting the callback to another thread) would bring back the lifetime problem R1 fixed.
+- **O4 (M15 acceptance).** `.github/workflows/L1-tests.yml` runs each suite once on `ubuntu-latest`; nothing runs the 500-repeat bar. A full `AampRialtoPlayerTests` run takes about 2.5 s, so 500 runs at 4 workers is about 6–8 minutes. Add a manually triggered (`workflow_dispatch`) job looping the player suite with a per-run timeout and keeping failing output (the logic of the M15 stress script), run it once and close M15. Not needed on every PR.
+- **O5 (TSAN in CI).** ThreadSanitizer found the M4, M7 and M8 races deterministically where stress runs did not, and the tree is currently clean on the player, source, handshake, key-system and client suites. CI only uses AddressSanitizer, and only on macOS (`test/utests/CMakeLists.txt`). A separate job building the direct-rialto suites with `-fsanitize=thread` costs one extra build of about 10 suites and a few minutes of runtime; on 6.x kernels it needs `setarch -R` (or a lower `vm.mmap_rnd_bits`). Run it on PRs touching `direct-rialto/` or nightly.
 
 ---
 
@@ -535,6 +558,7 @@ Rialto behaviours confirmed or disproved, test gaps, design decisions).
 | 2026-10-21 | N2-N4 | Verified in the Rialto client source: ~MediaPipelineIpc detaches the channel and joins the event thread, so the last pipeline release drains event delivery. |
 | 2026-10-21 | N1 | Raw TTML/WebVTT normally attach through CreateSubtitleSource() with synthesised codec info, so playback was unaffected; only an init fragment on a raw source took the wrong (MP4 demuxer) path. |
 | 2026-10-21 | R3 | An unparsable begin= used to read as 0 ms, which made the offset -PTS and could wrongly select LINEAR_OFFSET; it is now ignored like a document without begin= (stored offset reused, mode still undecided). |
+| 2026-10-21 | Triage | M9, M10, L9 and L12 were already Done; the open-looking entries were their rows in the Verification Notes table, whose second column is the question. |
 
 ## Verification Notes
 
@@ -617,3 +641,4 @@ Record each completed task: what was done, files changed, tests added or run.
 | 2026-10-21 | N2-N4 | Removed the unused NeedDataRequestEvent; reworded the GoF / tryClaimEosLocked comments; one-line destructor comment on why releasing the pipeline stops events. | direct-rialto/AampRialtoMediaPipelineClient.h, AampRialtoPlayer.{h,cpp}; AampPlayerStateMachineTestCases.cpp, AampRialtoVideoSourceTestCases.cpp | all 19 suites pass |
 | 2026-10-21 | N1 | AampRialtoSubtitleSource::processInitFragment() now reads the format recorded by Configure() (format()) instead of m_subtitleFormat, which was never assigned since 1a504a50; the field is removed and the header describes the real raw-subtitle path. | direct-rialto/AampRialtoSubtitleSource.{h,cpp}; AampRialtoSubtitleSourceTestCases.cpp | New AampRialtoSubtitleSource_ProcessInitFragment_RawFormats_SynthesiseCodecInfo: red on the old code (codec 0, demuxer created), green now; subtitle suite 21/21; all 19 suites pass |
 | 2026-10-21 | R3 | AampRialtoTtmlOffset::ParseTimeToMs replaces sscanf with a bounded TTML clock-time parser returning std::optional: digits only (no sign, nan or inf), MM <= 59, SS <= 60, hours capped so the result fits int64_t, fraction rounded from integer digits, frames part accepted and ignored as before, trailing junk rejected. FindFirstBeginMs returns false (WARN, value truncated to 32 chars) for an unparsable value. | direct-rialto/AampRialtoTtmlOffset.{h,cpp}; AampRialtoTtmlOffsetTestCases.cpp | 3 new/changed TTML tests red on the old parser, green now (TTML suite 14/14); subtitle suite 21/21; all 19 suites pass |
+| 2026-10-21 | Triage | Triage of the remaining open items: R6, AR4 and AR9 closed as Won't do with the evidence; L10 and R7 moved to a new 'Optional work, to be considered' list (O1, O2) together with the R1 residual (O3), the M15 CI acceptance run (O4) and a ThreadSanitizer CI job (O5), each with benefit, risk and trigger. | docs/rialto-integration/direct-rialto-code-review.md | n/a (tracker only) |
