@@ -19,355 +19,182 @@
 
 /**
  * @file AampPlayerStateMachine.cpp
- * @brief GoF State-pattern implementation for AampRialtoPlayer.
- *
- * All concrete IPlayerState subclasses are defined here and are private to
- * this translation unit.  Callers only interact with PlayerStateMachine and
- * the PlayerStateId enum.
+ * @brief Transition table and event handling for PlayerStateMachine.
  */
 
 #include "AampPlayerStateMachine.h"
 #include "AampLogManager.h"
-#include <cassert>
-#include <utility>
 
 // ============================================================================
-// Concrete state declarations (internal to this TU)
+// Transition table
 // ============================================================================
 
-class IdleState;
-class PipelineCreatedState;
-class SourcesAttachingState;
-class SourcesAttachedState;
-class PlayingState;
-class PausedState;
-class FlushingState;
-class FlushedState;
-class ErrorState;
-
-// ============================================================================
-// Concrete state implementations
-// ============================================================================
-
-class IdleState final : public IPlayerState
+bool PlayerStateMachine::NextState(PlayerStateId from, Event event,
+	PlayerStateId &to)
 {
-public:
-	PlayerStateId id()   const override { return PlayerStateId::IDLE; }
-	const char   *name() const override { return "IDLE"; }
+	using S = PlayerStateId;
+	struct Transition
+	{
+		S from;
+		Event event;
+		S to;
+	};
+	// One row per allowed transition; any other (state, event) pair is
+	// ignored.  Keep in step with docs/diagrams/direct-rialto-state-machine.puml.
+	static constexpr Transition kTransitions[] = {
+		{S::IDLE,              Event::PipelineLoaded,     S::PIPELINE_CREATED},
+		{S::PIPELINE_CREATED,  Event::SourceAttaching,    S::SOURCES_ATTACHING},
+		{S::SOURCES_ATTACHING, Event::AllSourcesAttached, S::SOURCES_ATTACHED},
 
-	std::unique_ptr<IPlayerState> onPipelineLoaded() override;
-	std::unique_ptr<IPlayerState> onReconfigure()    override; // first-tune reset
-};
+		{S::SOURCES_ATTACHED,  Event::PlaybackStarted,    S::PLAYING},
+		{S::PAUSED,            Event::PlaybackStarted,    S::PLAYING},
+		{S::FLUSHED,           Event::PlaybackStarted,    S::PLAYING},
 
-class PipelineCreatedState final : public IPlayerState
-{
-public:
-	PlayerStateId id()   const override { return PlayerStateId::PIPELINE_CREATED; }
-	const char   *name() const override { return "PIPELINE_CREATED"; }
+		// SOURCES_ATTACHED -> PAUSED is the pre-roll pause().
+		{S::SOURCES_ATTACHED,  Event::PlaybackPaused,     S::PAUSED},
+		{S::PLAYING,           Event::PlaybackPaused,     S::PAUSED},
+		{S::FLUSHED,           Event::PlaybackPaused,     S::PAUSED},
 
-	std::unique_ptr<IPlayerState> onSourceAttaching() override;
-	std::unique_ptr<IPlayerState> onStop()            override;
-	std::unique_ptr<IPlayerState> onError()           override;
-	std::unique_ptr<IPlayerState> onReconfigure()     override;
-};
+		{S::SOURCES_ATTACHED,  Event::Flush,              S::FLUSHING},
+		{S::PLAYING,           Event::Flush,              S::FLUSHING},
+		{S::PAUSED,            Event::Flush,              S::FLUSHING},
+		{S::FLUSHED,           Event::Flush,              S::FLUSHING},
 
-class SourcesAttachingState final : public IPlayerState
-{
-public:
-	PlayerStateId id()   const override { return PlayerStateId::SOURCES_ATTACHING; }
-	const char   *name() const override { return "SOURCES_ATTACHING"; }
+		// The only exit from FLUSHING apart from Error.  FLUSHED keeps no
+		// memory of the state before the flush: Rialto always sends SEEK_DONE
+		// before the PLAYING/PAUSED of the same cycle, and that notification
+		// moves the machine on.  PLAYING/PAUSED while FLUSHING would break
+		// that guarantee, so they are left unhandled (WARN) rather than
+		// guessed.
+		{S::FLUSHING,          Event::FlushComplete,      S::FLUSHED},
 
-	std::unique_ptr<IPlayerState> onAllSourcesAttached() override;
-	std::unique_ptr<IPlayerState> onStop()               override;
-	std::unique_ptr<IPlayerState> onError()              override;
-	std::unique_ptr<IPlayerState> onReconfigure()        override;
-};
+		// Stop and Reconfigure are not handled in FLUSHING: Stop() and
+		// Configure() wait for the flush to end before sending them.
+		{S::PIPELINE_CREATED,  Event::Stop,               S::IDLE},
+		{S::SOURCES_ATTACHING, Event::Stop,               S::IDLE},
+		{S::SOURCES_ATTACHED,  Event::Stop,               S::IDLE},
+		{S::PLAYING,           Event::Stop,               S::IDLE},
+		{S::PAUSED,            Event::Stop,               S::IDLE},
+		{S::FLUSHED,           Event::Stop,               S::IDLE},
+		{S::ERROR,             Event::Stop,               S::IDLE},
 
-class SourcesAttachedState final : public IPlayerState
-{
-public:
-	PlayerStateId id()   const override { return PlayerStateId::SOURCES_ATTACHED; }
-	const char   *name() const override { return "SOURCES_ATTACHED"; }
+		// Not from IDLE (no session) or ERROR (already reported).
+		{S::PIPELINE_CREATED,  Event::Error,              S::ERROR},
+		{S::SOURCES_ATTACHING, Event::Error,              S::ERROR},
+		{S::SOURCES_ATTACHED,  Event::Error,              S::ERROR},
+		{S::PLAYING,           Event::Error,              S::ERROR},
+		{S::PAUSED,            Event::Error,              S::ERROR},
+		{S::FLUSHING,          Event::Error,              S::ERROR},
+		{S::FLUSHED,           Event::Error,              S::ERROR},
 
-	std::unique_ptr<IPlayerState> onPlaybackStarted() override;
-	std::unique_ptr<IPlayerState> onPlaybackPaused()  override; // pre-roll pause()
-	std::unique_ptr<IPlayerState> onFlush()           override;
-	std::unique_ptr<IPlayerState> onStop()            override;
-	std::unique_ptr<IPlayerState> onError()           override;
-	std::unique_ptr<IPlayerState> onReconfigure()     override;
-};
+		{S::IDLE,              Event::Reconfigure,        S::IDLE},
+		{S::PIPELINE_CREATED,  Event::Reconfigure,        S::IDLE},
+		{S::SOURCES_ATTACHING, Event::Reconfigure,        S::IDLE},
+		{S::SOURCES_ATTACHED,  Event::Reconfigure,        S::IDLE},
+		{S::PLAYING,           Event::Reconfigure,        S::IDLE},
+		{S::PAUSED,            Event::Reconfigure,        S::IDLE},
+		{S::FLUSHED,           Event::Reconfigure,        S::IDLE},
+		{S::ERROR,             Event::Reconfigure,        S::IDLE},
+	};
 
-class PlayingState final : public IPlayerState
-{
-public:
-	PlayerStateId id()   const override { return PlayerStateId::PLAYING; }
-	const char   *name() const override { return "PLAYING"; }
-
-	std::unique_ptr<IPlayerState> onPlaybackPaused()  override;
-	std::unique_ptr<IPlayerState> onFlush()           override;
-	std::unique_ptr<IPlayerState> onStop()            override;
-	std::unique_ptr<IPlayerState> onError()           override;
-	std::unique_ptr<IPlayerState> onReconfigure()     override;
-	// Duplicate onPlaybackStarted while already PLAYING is handled at the
-	// PlayerStateMachine level (see onPlaybackStarted() below) so dispatch()
-	// never sees an unexpected null for this event.
-};
-
-class PausedState final : public IPlayerState
-{
-public:
-	PlayerStateId id()   const override { return PlayerStateId::PAUSED; }
-	const char   *name() const override { return "PAUSED"; }
-
-	std::unique_ptr<IPlayerState> onPlaybackStarted() override;
-	std::unique_ptr<IPlayerState> onFlush()           override;
-	std::unique_ptr<IPlayerState> onStop()            override;
-	std::unique_ptr<IPlayerState> onError()           override;
-	std::unique_ptr<IPlayerState> onReconfigure()     override;
-};
-
-class FlushingState final : public IPlayerState
-{
-public:
-	PlayerStateId id()   const override { return PlayerStateId::FLUSHING; }
-	const char   *name() const override { return "FLUSHING"; }
-
-	std::unique_ptr<IPlayerState> onFlushComplete() override;
-	std::unique_ptr<IPlayerState> onError()         override;
-
-	// onPlaybackStarted() and onPlaybackPaused() are intentionally NOT
-	// overridden here.  Rialto guarantees that SEEK_DONE is always sent
-	// before any subsequent PLAYING/PAUSED notification for the same flush
-	// cycle, so a PLAYING/PAUSED notification cannot legitimately arrive
-	// while still FLUSHING.  Should that assumption ever be violated,
-	// dispatch() logs a WARN (no transition defined) rather than silently
-	// mishandling the event - a safer failure mode than guessing.
-	//
-	// onFlushComplete() is the sole normal exit from FLUSHING: it fires when
-	// SEEK_DONE arrives and unconditionally transitions to FLUSHED (see
-	// FlushedState below), which then waits for Rialto's next PLAYING/PAUSED
-	// notification to drive the machine onward.
-	//
-	// onStop() is not overridden: Stop() calls WaitForFlushToComplete()
-	// before dispatching onStop(), so FLUSHING is never the current state
-	// when onStop is dispatched.
-	//
-	// onReconfigure() is not overridden: Configure() calls
-	// WaitForFlushToComplete() before onReconfigure() is fired, so FLUSHING
-	// is never the current state at that point either.
-};
-
-/**
- * @class FlushedState
- * @brief Flush cycle complete (SEEK_DONE received); awaiting Rialto's next
- *        PLAYING/PAUSED notification to drive the machine onward.
- *
- * There is deliberately no memory of what state was active before the
- * flush started.  Rialto's own subsequent notification is the single
- * source of truth for whether playback resumed as PLAYING or PAUSED - this
- * relies on the guarantee that SEEK_DONE always precedes that notification
- * for the same flush cycle (see FlushingState above).
- *
- * If Flush() was called before playback ever started (e.g. an initial
- * position seek from SOURCES_ATTACHED), the machine simply remains in
- * FLUSHED until Stream()/play() is eventually issued and Rialto confirms
- * PLAYING - functionally equivalent to the old SOURCES_ATTACHED restore
- * path, without needing to name it separately.
- */
-class FlushedState final : public IPlayerState
-{
-public:
-	PlayerStateId id()   const override { return PlayerStateId::FLUSHED; }
-	const char   *name() const override { return "FLUSHED"; }
-
-	std::unique_ptr<IPlayerState> onPlaybackStarted() override;
-	std::unique_ptr<IPlayerState> onPlaybackPaused()  override;
-	std::unique_ptr<IPlayerState> onFlush()           override;
-	std::unique_ptr<IPlayerState> onStop()            override;
-	std::unique_ptr<IPlayerState> onError()           override;
-	std::unique_ptr<IPlayerState> onReconfigure()     override;
-};
-
-class ErrorState final : public IPlayerState
-{
-public:
-	PlayerStateId id()   const override { return PlayerStateId::ERROR; }
-	const char   *name() const override { return "ERROR"; }
-
-	std::unique_ptr<IPlayerState> onStop()        override;
-	std::unique_ptr<IPlayerState> onReconfigure() override;
-	// onError() is not overridden: already in ERROR; a second fatal
-	// notification would produce a no-op (dispatch warns) rather than
-	// a spurious self-transition.
-};
-
-// ============================================================================
-// Concrete state transition bodies
-// ============================================================================
-
-std::unique_ptr<IPlayerState> IdleState::onPipelineLoaded()
-{
-	return std::make_unique<PipelineCreatedState>();
+	for (const Transition &t : kTransitions)
+	{
+		if (t.from == from && t.event == event)
+		{
+			to = t.to;
+			return true;
+		}
+	}
+	return false;
 }
 
-std::unique_ptr<IPlayerState> PipelineCreatedState::onSourceAttaching()
+const char *PlayerStateMachine::StateName(PlayerStateId state)
 {
-	return std::make_unique<SourcesAttachingState>();
+	switch (state)
+	{
+		case PlayerStateId::IDLE:              return "IDLE";
+		case PlayerStateId::PIPELINE_CREATED:  return "PIPELINE_CREATED";
+		case PlayerStateId::SOURCES_ATTACHING: return "SOURCES_ATTACHING";
+		case PlayerStateId::SOURCES_ATTACHED:  return "SOURCES_ATTACHED";
+		case PlayerStateId::PLAYING:           return "PLAYING";
+		case PlayerStateId::PAUSED:            return "PAUSED";
+		case PlayerStateId::FLUSHING:          return "FLUSHING";
+		case PlayerStateId::FLUSHED:           return "FLUSHED";
+		case PlayerStateId::ERROR:             return "ERROR";
+	}
+	return "UNKNOWN";
 }
 
-std::unique_ptr<IPlayerState> SourcesAttachingState::onAllSourcesAttached()
+const char *PlayerStateMachine::EventName(Event event)
 {
-	return std::make_unique<SourcesAttachedState>();
+	switch (event)
+	{
+		case Event::PipelineLoaded:     return "onPipelineLoaded";
+		case Event::SourceAttaching:    return "onSourceAttaching";
+		case Event::AllSourcesAttached: return "onAllSourcesAttached";
+		case Event::PlaybackStarted:    return "onPlaybackStarted";
+		case Event::PlaybackPaused:     return "onPlaybackPaused";
+		case Event::Flush:              return "onFlush";
+		case Event::FlushComplete:      return "onFlushComplete";
+		case Event::Stop:               return "onStop";
+		case Event::Error:              return "onError";
+		case Event::Reconfigure:        return "onReconfigure";
+	}
+	return "unknown";
 }
-
-std::unique_ptr<IPlayerState> SourcesAttachedState::onPlaybackStarted()
-{
-	return std::make_unique<PlayingState>();
-}
-
-std::unique_ptr<IPlayerState> SourcesAttachedState::onPlaybackPaused()
-{
-	return std::make_unique<PausedState>();
-}
-
-std::unique_ptr<IPlayerState> SourcesAttachedState::onFlush()
-{
-	return std::make_unique<FlushingState>();
-}
-
-std::unique_ptr<IPlayerState> PlayingState::onPlaybackPaused()
-{
-	return std::make_unique<PausedState>();
-}
-
-std::unique_ptr<IPlayerState> PlayingState::onFlush()
-{
-	return std::make_unique<FlushingState>();
-}
-
-std::unique_ptr<IPlayerState> PausedState::onPlaybackStarted()
-{
-	return std::make_unique<PlayingState>();
-}
-
-std::unique_ptr<IPlayerState> PausedState::onFlush()
-{
-	return std::make_unique<FlushingState>();
-}
-
-std::unique_ptr<IPlayerState> FlushingState::onFlushComplete()
-{
-	return std::make_unique<FlushedState>();
-}
-
-std::unique_ptr<IPlayerState> FlushedState::onPlaybackStarted()
-{
-	return std::make_unique<PlayingState>();
-}
-
-std::unique_ptr<IPlayerState> FlushedState::onPlaybackPaused()
-{
-	return std::make_unique<PausedState>();
-}
-
-std::unique_ptr<IPlayerState> FlushedState::onFlush()
-{
-	return std::make_unique<FlushingState>();
-}
-
-// onStop — valid from any active state (except FLUSHING; Stop waits for
-// flush before dispatching, and IDLE has nothing to stop).
-std::unique_ptr<IPlayerState> PipelineCreatedState::onStop()      { return std::make_unique<IdleState>(); }
-std::unique_ptr<IPlayerState> SourcesAttachingState::onStop()     { return std::make_unique<IdleState>(); }
-std::unique_ptr<IPlayerState> SourcesAttachedState::onStop()      { return std::make_unique<IdleState>(); }
-std::unique_ptr<IPlayerState> PlayingState::onStop()              { return std::make_unique<IdleState>(); }
-std::unique_ptr<IPlayerState> PausedState::onStop()               { return std::make_unique<IdleState>(); }
-std::unique_ptr<IPlayerState> FlushedState::onStop()              { return std::make_unique<IdleState>(); }
-std::unique_ptr<IPlayerState> ErrorState::onStop()                { return std::make_unique<IdleState>(); }
-
-// onError — valid from any state in which a Rialto FAILURE notification
-// can arrive (FLUSHING and FLUSHED included; IDLE and ERROR itself are
-// excluded).
-std::unique_ptr<IPlayerState> PipelineCreatedState::onError()     { return std::make_unique<ErrorState>(); }
-std::unique_ptr<IPlayerState> SourcesAttachingState::onError()    { return std::make_unique<ErrorState>(); }
-std::unique_ptr<IPlayerState> SourcesAttachedState::onError()     { return std::make_unique<ErrorState>(); }
-std::unique_ptr<IPlayerState> PlayingState::onError()             { return std::make_unique<ErrorState>(); }
-std::unique_ptr<IPlayerState> PausedState::onError()              { return std::make_unique<ErrorState>(); }
-std::unique_ptr<IPlayerState> FlushingState::onError()            { return std::make_unique<ErrorState>(); }
-std::unique_ptr<IPlayerState> FlushedState::onError()             { return std::make_unique<ErrorState>(); }
-
-// onReconfigure — Configure() fires this on every tune, including first tune
-// from IDLE, retune from any active state, and recovery after ERROR.
-// Not valid from FLUSHING: Configure() calls WaitForFlushToComplete() before
-// dispatching onReconfigure(), so FLUSHING is never the current state here.
-std::unique_ptr<IPlayerState> IdleState::onReconfigure()          { return std::make_unique<IdleState>(); }
-std::unique_ptr<IPlayerState> PipelineCreatedState::onReconfigure()   { return std::make_unique<IdleState>(); }
-std::unique_ptr<IPlayerState> SourcesAttachingState::onReconfigure()  { return std::make_unique<IdleState>(); }
-std::unique_ptr<IPlayerState> SourcesAttachedState::onReconfigure()   { return std::make_unique<IdleState>(); }
-std::unique_ptr<IPlayerState> PlayingState::onReconfigure()       { return std::make_unique<IdleState>(); }
-std::unique_ptr<IPlayerState> PausedState::onReconfigure()        { return std::make_unique<IdleState>(); }
-std::unique_ptr<IPlayerState> ErrorState::onReconfigure()         { return std::make_unique<IdleState>(); }
-std::unique_ptr<IPlayerState> FlushedState::onReconfigure()       { return std::make_unique<IdleState>(); }
 
 // ============================================================================
 // PlayerStateMachine
 // ============================================================================
 
-PlayerStateMachine::PlayerStateMachine()
-	: m_state(std::make_unique<IdleState>())
-{
-}
+PlayerStateMachine::PlayerStateMachine() = default;
 
 PlayerStateMachine::~PlayerStateMachine() = default;
 
 PlayerStateId PlayerStateMachine::currentState() const
 {
 	std::lock_guard<std::mutex> lock(m_mutex);
-	return m_state->id();
+	return m_state;
 }
 
 const char *PlayerStateMachine::currentStateName() const
 {
 	std::lock_guard<std::mutex> lock(m_mutex);
-	return m_state->name();
+	return StateName(m_state);
 }
 
-PlayerStateId PlayerStateMachine::dispatch(
-	std::unique_ptr<IPlayerState> (IPlayerState::*handler)(),
-	const char *eventName)
+PlayerStateId PlayerStateMachine::dispatch(Event event)
 {
 	PlayerStateId previous;
 	{
 		std::lock_guard<std::mutex> lock(m_mutex);
-		previous = dispatchLocked(handler, eventName);
+		previous = dispatchLocked(event);
 	}
 	m_stateChanged.notify_all();
 	return previous;
 }
 
-PlayerStateId PlayerStateMachine::dispatchLocked(
-	std::unique_ptr<IPlayerState> (IPlayerState::*handler)(),
-	const char *eventName)
+PlayerStateId PlayerStateMachine::dispatchLocked(Event event)
 {
-	const PlayerStateId previous = m_state->id();
-	auto next = (m_state.get()->*handler)();
-	if (next)
+	const PlayerStateId previous = m_state;
+	PlayerStateId next = previous;
+	if (NextState(previous, event, next))
 	{
 		AAMPLOG_MIL("PlayerState: %s -> %s",
-			m_state->name(), next->name());
-		m_state = std::move(next);
+			StateName(previous), StateName(next));
+		m_state = next;
 	}
 	else
 	{
 		AAMPLOG_WARN("PlayerState: event '%s' has no transition from state '%s' - ignored",
-			eventName, m_state->name());
+			EventName(event), StateName(previous));
 	}
 	return previous;
 }
 
 void PlayerStateMachine::onPipelineLoaded()
 {
-	dispatch(&IPlayerState::onPipelineLoaded, "onPipelineLoaded");
+	dispatch(Event::PipelineLoaded);
 }
 
 void PlayerStateMachine::onSourceAttaching()
@@ -376,22 +203,21 @@ void PlayerStateMachine::onSourceAttaching()
 		// Only the first source moves the machine on; later sources, and
 		// sources added once all are attached, are not errors.
 		std::lock_guard<std::mutex> lock(m_mutex);
-		const PlayerStateId id = m_state->id();
-		if (id != PlayerStateId::IDLE
-			&& id != PlayerStateId::PIPELINE_CREATED
-			&& id != PlayerStateId::ERROR)
+		if (m_state != PlayerStateId::IDLE
+			&& m_state != PlayerStateId::PIPELINE_CREATED
+			&& m_state != PlayerStateId::ERROR)
 		{
 			AAMPLOG_TRACE("PlayerState: onSourceAttaching in %s - already past "
-				"PIPELINE_CREATED, ignored", m_state->name());
+				"PIPELINE_CREATED, ignored", StateName(m_state));
 			return;
 		}
 	}
-	dispatch(&IPlayerState::onSourceAttaching, "onSourceAttaching");
+	dispatch(Event::SourceAttaching);
 }
 
 void PlayerStateMachine::onAllSourcesAttached()
 {
-	dispatch(&IPlayerState::onAllSourcesAttached, "onAllSourcesAttached");
+	dispatch(Event::AllSourcesAttached);
 }
 
 void PlayerStateMachine::onPlaybackStarted()
@@ -400,28 +226,28 @@ void PlayerStateMachine::onPlaybackStarted()
 		// Duplicate PLAYING notification while already PLAYING is tolerated
 		// silently rather than logging a spurious "no transition" WARN.
 		std::lock_guard<std::mutex> lock(m_mutex);
-		if (m_state->id() == PlayerStateId::PLAYING)
+		if (m_state == PlayerStateId::PLAYING)
 		{
 			AAMPLOG_INFO("PlayerState: duplicate onPlaybackStarted in PLAYING - ignored");
 			return;
 		}
 	}
-	dispatch(&IPlayerState::onPlaybackStarted, "onPlaybackStarted");
+	dispatch(Event::PlaybackStarted);
 }
 
 void PlayerStateMachine::onPlaybackPaused()
 {
-	dispatch(&IPlayerState::onPlaybackPaused, "onPlaybackPaused");
+	dispatch(Event::PlaybackPaused);
 }
 
 void PlayerStateMachine::onFlush()
 {
-	dispatch(&IPlayerState::onFlush, "onFlush");
+	dispatch(Event::Flush);
 }
 
 void PlayerStateMachine::onFlushComplete()
 {
-	dispatch(&IPlayerState::onFlushComplete, "onFlushComplete");
+	dispatch(Event::FlushComplete);
 }
 
 bool PlayerStateMachine::waitForFlushComplete(
@@ -433,13 +259,13 @@ bool PlayerStateMachine::waitForFlushComplete(
 		std::unique_lock<std::mutex> lock(m_mutex);
 		timedOut = !m_stateChanged.wait_for(lock, timeout, [this]()
 		{
-			return m_state->id() != PlayerStateId::FLUSHING;
+			return m_state != PlayerStateId::FLUSHING;
 		});
 		if (timedOut)
 		{
 			// SEEK_DONE completes the flush under this same mutex, so the
 			// state is still FLUSHING here.
-			dispatchLocked(&IPlayerState::onFlushComplete, "onFlushComplete");
+			dispatchLocked(Event::FlushComplete);
 		}
 	}
 
@@ -461,21 +287,21 @@ void PlayerStateMachine::onStop()
 	{
 		// Stop() on an idle player, or one that is already stopped, is normal.
 		std::lock_guard<std::mutex> lock(m_mutex);
-		if (m_state->id() == PlayerStateId::IDLE)
+		if (m_state == PlayerStateId::IDLE)
 		{
 			AAMPLOG_TRACE("PlayerState: onStop in IDLE - nothing to stop");
 			return;
 		}
 	}
-	dispatch(&IPlayerState::onStop, "onStop");
+	dispatch(Event::Stop);
 }
 
 PlayerStateId PlayerStateMachine::onError()
 {
-	return dispatch(&IPlayerState::onError, "onError");
+	return dispatch(Event::Error);
 }
 
 void PlayerStateMachine::onReconfigure()
 {
-	dispatch(&IPlayerState::onReconfigure, "onReconfigure");
+	dispatch(Event::Reconfigure);
 }

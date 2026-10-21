@@ -22,7 +22,7 @@
  * @brief Lightweight fake PlayerStateMachine for L1 tests.
  *
  * Implements the same state-transition table as the real machine but
- * without the concrete IPlayerState class hierarchy.  This allows
+ * with its own simplified bookkeeping.  This allows
  * tests that call GetCurrentPlayerState() to observe real transitions
  * without pulling in the full production state machine.
  */
@@ -146,21 +146,13 @@ void PlayerStateMachine::onReconfigure()
 	s_fakeState = PlayerStateId::IDLE;
 }
 
-PlayerStateId PlayerStateMachine::dispatch(
-	std::unique_ptr<IPlayerState> (IPlayerState::*handler)(),
-	const char *eventName)
+PlayerStateId PlayerStateMachine::dispatch(Event)
 {
-	(void)handler;
-	(void)eventName;
 	return s_fakeState;
 }
 
-PlayerStateId PlayerStateMachine::dispatchLocked(
-	std::unique_ptr<IPlayerState> (IPlayerState::*handler)(),
-	const char *eventName)
+PlayerStateId PlayerStateMachine::dispatchLocked(Event)
 {
-	(void)handler;
-	(void)eventName;
 	return s_fakeState;
 }
 

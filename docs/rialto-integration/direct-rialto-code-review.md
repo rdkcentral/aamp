@@ -316,7 +316,7 @@ A second full review after H1 to A6. Findings (R) and architecture proposals (AR
 | R6 | Open | One `IMediaKeys` created per DRM session (verify on device) |
 | R7 | Open | Init-data type fixed to `cenc`; webm/keyids mapping unreachable |
 | AR1 | Done | Threading-contract block in each class header |
-| AR3 | Open | State machine as enum plus transition table instead of GoF classes |
+| AR3 | Done | State machine as enum plus transition table instead of GoF classes |
 | AR5 | Open | One pipeline-event interface instead of eight `std::function` callbacks |
 
 - **R1.** `MediaKeysClient` copies a session's callbacks under its mutex and calls them after releasing it (M11). The callbacks capture the adapter's `this`; `deregisterSession()` (from the adapter destructor via `destruct()`) only took the mutex, so it could return while another thread was still inside a callback, and the adapter be freed under it.
@@ -591,3 +591,4 @@ Record each completed task: what was done, files changed, tests added or run.
 | 2026-10-21 | R1 | R1: `deregisterSession()` waits for a callback of that session running on another thread. | `direct-rialto/RialtoMediaKeySystem.{h,cpp}`, `test/utests/tests/RialtoMediaKeySystemTests/RialtoMediaKeySystemTests.cpp` | New `Destruct_WaitsForCallbackInProgressOnAnotherThread` (red on the old code: destruct() returned while the callback was blocked; green now). Key-system suite 15, all 16 suites pass; TSAN clean on the key-system (15) and adapter (12) suites. |
 | 2026-10-21 | AR1 | AR1: threading contracts in the class documentation; three stale comments corrected. | `direct-rialto/AampRialtoPlayer.h`, `AampRialtoMediaSource.h`, `AampRialtoSubtitleSource.h`, `AampRialtoMonitorAV.h`, `AampRialtoSegmentPosition.h`, `RialtoMediaKeySessionAdapter.h`, `RialtoMediaKeySession.h`, `AampDrmBridge.h`, `PrivateInstanceAAMPNotifiable.h`, `AampRialtoControlBackend.h` | Comments only. All 16 suites build and pass. |
 | 2026-10-21 | R2 | R2: corrected the `Flush()` comment on why the state check and FLUSHING claim cannot interleave; R4 and R5 closed by AR1's documentation. | `direct-rialto/AampRialtoPlayer.cpp` | Comment only. Player suite 316 passes. |
+| 2026-10-21 | AR3 | Replaced the nine GoF IPlayerState classes with one constexpr transition table (36 rows) plus Event enum; public API, log text and pre-checks unchanged. | direct-rialto/AampPlayerStateMachine.{h,cpp}, test/utests/fakes/FakeAampPlayerStateMachine.cpp | AampPlayerStateMachineTests 58/58, AampRialtoPlayerTests 316/316, all.sh 16/16 suites |

@@ -19,7 +19,7 @@
 
 /**
  * @file AampPlayerStateMachine.h
- * @brief GoF State-pattern state machine for AampRialtoPlayer.
+ * @brief Lifecycle state machine for AampRialtoPlayer.
  *
  * States
  * ------
@@ -38,7 +38,9 @@
  *
  * Stop() returns the machine to IDLE; there is no separate stopped state.
  *
- * Every valid transition is logged at MILESTONE level via AAMPLOG_MIL.
+ * Every valid transition is logged at MILESTONE level via AAMPLOG_MIL.  The
+ * transitions are one table in AampPlayerStateMachine.cpp, drawn in
+ * docs/diagrams/direct-rialto-state-machine.puml.
  */
 
 #ifndef AAMP_PLAYER_STATE_MACHINE_H
@@ -47,7 +49,6 @@
 #include <chrono>
 #include <condition_variable>
 #include <functional>
-#include <memory>
 #include <mutex>
 
 // ---------------------------------------------------------------------------
@@ -57,8 +58,7 @@
 /**
  * @brief Identifies each discrete player lifecycle state.
  *
- * Used with PlayerStateMachine::currentState() so callers can inspect state
- * without depending on the internal IPlayerState hierarchy.
+ * Returned by PlayerStateMachine::currentState().
  */
 enum class PlayerStateId
 {
@@ -73,82 +73,19 @@ enum class PlayerStateId
 	ERROR               ///< Server reported a fatal error
 };
 
-// ---------------------------------------------------------------------------
-// IPlayerState — GoF State interface (incomplete type visible to callers)
-// ---------------------------------------------------------------------------
-
-/**
- * @class IPlayerState
- * @brief Abstract base for all concrete player states (GoF State pattern).
- *
- * Each concrete state overrides only the event handlers that trigger a
- * valid transition from that state.  The default implementation of every
- * handler returns @c nullptr, meaning "stay in the current state".
- *
- * The concrete implementations live in PlayerStateMachine.cpp and are
- * internal to this translation unit — no external code should depend on
- * them directly.
- */
-class IPlayerState
-{
-public:
-	virtual ~IPlayerState() = default;
-
-	/// Returns the enum identifier of this state.
-	virtual PlayerStateId id() const = 0;
-
-	/// Returns a human-readable name for logging.
-	virtual const char *name() const = 0;
-
-	// -----------------------------------------------------------------------
-	// Event handlers (return a new state on transition, nullptr to stay put)
-	// -----------------------------------------------------------------------
-
-	/// Fired when IMediaPipeline::load() succeeds inside Configure().
-	virtual std::unique_ptr<IPlayerState> onPipelineLoaded()     { return nullptr; }
-
-	/// Fired when AttachVideoSource/AttachAudioSource calls attachSource()
-	/// for the first time (source not yet attached).
-	virtual std::unique_ptr<IPlayerState> onSourceAttaching()    { return nullptr; }
-
-	/// Fired when CheckAllSourcesAttached() calls allSourcesAttached().
-	virtual std::unique_ptr<IPlayerState> onAllSourcesAttached() { return nullptr; }
-
-	/// Fired when notifyPlaybackState(PLAYING) is received from Rialto.
-	virtual std::unique_ptr<IPlayerState> onPlaybackStarted()    { return nullptr; }
-
-	/// Fired when notifyPlaybackState(PAUSED) is received from Rialto.
-	virtual std::unique_ptr<IPlayerState> onPlaybackPaused()     { return nullptr; }
-
-	/// Fired when Flush() is called.
-	virtual std::unique_ptr<IPlayerState> onFlush()              { return nullptr; }
-
-	/// Fired when PlaybackState::SEEK_DONE is received, completing the
-	/// flush cycle.  Only meaningful from FLUSHING, where it transitions to
-	/// FLUSHED.  Ignored (dispatch() logs a WARN) from all other states.
-	virtual std::unique_ptr<IPlayerState> onFlushComplete()      { return nullptr; }
-
-	/// Override in concrete states where Stop is a valid transition.
-	virtual std::unique_ptr<IPlayerState> onStop()        { return nullptr; }
-
-	/// Override in concrete states where a fatal Error is a valid transition.
-	virtual std::unique_ptr<IPlayerState> onError()       { return nullptr; }
-
-	/// Override in concrete states where a re-tune (Reconfigure) is valid.
-	virtual std::unique_ptr<IPlayerState> onReconfigure() { return nullptr; }
-};
 
 // ---------------------------------------------------------------------------
-// PlayerStateMachine — GoF Context
+// PlayerStateMachine
 // ---------------------------------------------------------------------------
 
 /**
  * @class PlayerStateMachine
- * @brief Owns the current IPlayerState and dispatches lifecycle events.
+ * @brief Holds the current PlayerStateId and applies lifecycle events to it.
  *
- * Whenever a transition occurs, the old and new state names are logged at
- * MILESTONE level (AAMPLOG_MIL) so transitions can be tracked in production
- * logs.
+ * Each event moves the machine only from the states listed for it in the
+ * transition table; from any other state it is ignored with a WARN (or a
+ * TRACE for the expected repeats noted on onSourceAttaching(),
+ * onPlaybackStarted() and onStop()).
  *
  * Thread-safe: all public methods are protected by an internal mutex so the
  * state machine can be driven from concurrent threads (e.g. IPC callback
@@ -156,13 +93,12 @@ public:
  * atomic on its own; a sequence such as "read currentState(), then act" is
  * not.  The one sequence that must be atomic (entering FLUSHING after waiting
  * for a previous flush) is serialised by AampRialtoPlayer::m_flushCallMutex.
- * See docs/diagrams/direct-rialto-state-machine.puml.
  */
 class PlayerStateMachine
 {
 public:
 	PlayerStateMachine();
-	~PlayerStateMachine(); ///< Defined in .cpp (IPlayerState must be complete)
+	~PlayerStateMachine();
 
 	PlayerStateMachine(const PlayerStateMachine &) = delete;
 	PlayerStateMachine &operator=(const PlayerStateMachine &) = delete;
@@ -178,27 +114,26 @@ public:
 	const char *currentStateName() const;
 
 	// -----------------------------------------------------------------------
-	// Event dispatchers (each acquires the internal mutex)
+	// Events (each acquires the internal mutex)
 	// -----------------------------------------------------------------------
 
-	/// @see IPlayerState::onPipelineLoaded
+	/// IMediaPipeline::load() succeeded.
 	void onPipelineLoaded();
 
-	/// @see IPlayerState::onSourceAttaching
-	/// Ignored without a WARN once past PIPELINE_CREATED (only the first
-	/// source moves the machine on).
+	/// A source is being attached.  Only the first source moves the machine
+	/// on; ignored without a WARN once past PIPELINE_CREATED.
 	void onSourceAttaching();
 
-	/// @see IPlayerState::onAllSourcesAttached
+	/// allSourcesAttached() was sent to Rialto.
 	void onAllSourcesAttached();
 
-	/// @see IPlayerState::onPlaybackStarted
+	/// Rialto reported PLAYING.  A repeat while PLAYING is ignored quietly.
 	void onPlaybackStarted();
 
-	/// @see IPlayerState::onPlaybackPaused
+	/// Rialto reported PAUSED.
 	void onPlaybackPaused();
 
-	/// @see IPlayerState::onFlush
+	/// Flush() is starting a flush cycle.
 	void onFlush();
 
 	/// Fired when PlaybackState::SEEK_DONE is received from Rialto, or when a
@@ -229,35 +164,51 @@ public:
 	bool waitForFlushComplete(std::chrono::milliseconds timeout,
 		const std::function<void()> &onAbandoned = nullptr);
 
-	/// @see IPlayerState::onStop
-	/// Ignored without a WARN when already IDLE.
+	/// Stop(): back to IDLE.  Ignored without a WARN when already IDLE.
 	void onStop();
 
-	/// @see IPlayerState::onError
+	/// Rialto reported a fatal error.
 	/// @return the state the machine was in before the transition.
 	PlayerStateId onError();
 
-	/// @see IPlayerState::onReconfigure
+	/// Configure() is starting a new session: back to IDLE.
 	void onReconfigure();
 
 private:
-	/// Execute a handler, apply the returned transition, and log MIL.
-	/// Logs a WARN when the handler returns nullptr (no transition defined
-	/// for this event from the current state) so unexpected events are visible
-	/// in production logs.  Wakes waitForFlushComplete() callers.
+	/// The events of the transition table.
+	enum class Event
+	{
+		PipelineLoaded,
+		SourceAttaching,
+		AllSourcesAttached,
+		PlaybackStarted,
+		PlaybackPaused,
+		Flush,
+		FlushComplete,
+		Stop,
+		Error,
+		Reconfigure
+	};
+
+	/// Look @p event up in the transition table.
+	/// @return true and @p to if @p event moves the machine on from @p from.
+	static bool NextState(PlayerStateId from, Event event, PlayerStateId &to);
+
+	static const char *StateName(PlayerStateId state);
+	static const char *EventName(Event event);
+
+	/// Apply @p event, log the transition (MIL) or its absence (WARN), and
+	/// wake waitForFlushComplete() callers.
 	/// @return the state before the event.
-	PlayerStateId dispatch(std::unique_ptr<IPlayerState> (IPlayerState::*handler)(),
-		const char *eventName);
+	PlayerStateId dispatch(Event event);
 
 	/// As dispatch() for a caller that already holds m_mutex and wakes the
 	/// waiters itself.
-	PlayerStateId dispatchLocked(
-		std::unique_ptr<IPlayerState> (IPlayerState::*handler)(),
-		const char *eventName);
+	PlayerStateId dispatchLocked(Event event);
 
-	mutable std::mutex            m_mutex;
-	std::condition_variable       m_stateChanged;
-	std::unique_ptr<IPlayerState> m_state;
+	mutable std::mutex      m_mutex;
+	std::condition_variable m_stateChanged;
+	PlayerStateId           m_state{PlayerStateId::IDLE};
 };
 
 #endif // AAMP_PLAYER_STATE_MACHINE_H
