@@ -1649,7 +1649,7 @@ void MediaTrack::FlushFetchedFragments()
  * Flushes all media fragments and resets all relevant counters
  * Only intended for use on subtitle streams
  */
-void MediaTrack::FlushFragments()
+void MediaTrack::FlushFragments(bool isMutexLocked)
 {
 	AAMPLOG_WARN("[%s]", name);
 	for (size_t i = 0; i < mCachedFragmentSize; i++)
@@ -4608,5 +4608,5 @@ void StreamAbstractionAAMP::ReinitializeInjection(double rate)
 			track->playContext->setRate(rate, PlayMode_normal);
 		}
 	}
-}
 
+}
