@@ -19,7 +19,7 @@
 
 /**
  * @file AampPlayerStateMachineTestCases.cpp
- * @brief L1 unit tests for PlayerStateMachine (GoF State pattern).
+ * @brief L1 unit tests for PlayerStateMachine (transition table).
  *
  * Each test constructs a fresh PlayerStateMachine and drives it through
  * defined event sequences, asserting current state after each event.

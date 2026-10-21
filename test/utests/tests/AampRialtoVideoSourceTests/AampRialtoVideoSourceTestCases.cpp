@@ -2290,7 +2290,7 @@ TEST_F(AampRialtoVideoSourceTest,
  *        set) while gateMode==BLOCKED, so the request is not left
  *        hanging forever.
  *
- *        Only BLOCKED defers an EOS resolution (tryClaimEosLocked() claims
+ *        Only BLOCKED defers an EOS resolution (the handshake claims it
  *        immediately when gateMode==DROPPED or NONE) - see the gateMode
  *        field comment. handleNeedData() itself does NOT stage a request
  *        while gated - it answers such requests immediately with

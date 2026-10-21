@@ -157,7 +157,7 @@ public:
 	/**
 	 * @brief Return the current player state identifier.
 	 *
-	 * Returns the live state from the GoF state machine.  Useful for
+	 * Returns the live state from the lifecycle state machine.  Useful for
 	 * diagnostics, logging, and unit test assertions.
 	 */
 	PlayerStateId GetCurrentPlayerState() const

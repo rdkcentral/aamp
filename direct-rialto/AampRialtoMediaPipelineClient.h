@@ -26,16 +26,6 @@
 #include <vector>
 
 /**
- * @brief Payload delivered by a notifyNeedMediaData callback.
- */
-struct NeedDataRequestEvent
-{
-	int32_t sourceId;
-	uint32_t requestId;
-	size_t frameCount;
-};
-
-/**
  * @brief Pipeline events the player handles.  Delivered on Rialto's event
  *        thread, without the client's lock held.
  */

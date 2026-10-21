@@ -216,6 +216,8 @@ AampRialtoPlayer::~AampRialtoPlayer()
 	// Members declared after m_session are destroyed before it, so release
 	// the pipeline (and every other holder of it) while they are still valid.
 	SetMonitorAV(nullptr);
+	// The last pipeline release joins Rialto's event thread, so no event can
+	// still be running on this player once the sink is cleared.
 	m_session.SetPipeline(nullptr);
 	m_session.ClearClientEventSink();
 	// The CC manager singleton may still hold this object's IDirectRialtoCC*
