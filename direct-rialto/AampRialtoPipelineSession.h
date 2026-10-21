@@ -34,7 +34,6 @@
 #include "IRialtoControlBackend.h"
 
 #include <cstdint>
-#include <functional>
 #include <memory>
 #include <mutex>
 
@@ -54,18 +53,6 @@
 class AampRialtoPipelineSession
 {
 public:
-	/// Handlers the player installs on the Rialto client before load().
-	struct Callbacks
-	{
-		AampRialtoMediaPipelineClient::NeedDataCallback needData;
-		AampRialtoMediaPipelineClient::CancelNeedDataCallback cancelNeedData;
-		AampRialtoMediaPipelineClient::PlaybackStateCallback playbackState;
-		AampRialtoMediaPipelineClient::PositionCallback position;
-		AampRialtoMediaPipelineClient::DurationCallback duration;
-		AampRialtoMediaPipelineClient::BufferUnderflowCallback bufferUnderflow;
-		AampRialtoMediaPipelineClient::PlaybackErrorCallback playbackError;
-	};
-
 	/// Outcome of CreateAndLoad().
 	enum class CreateResult
 	{
@@ -80,7 +67,7 @@ public:
 	explicit AampRialtoPipelineSession(
 		std::unique_ptr<IRialtoControlBackend> controlBackend = nullptr);
 
-	/// Releases the pipeline and clears the client's callbacks, in that order.
+	/// Releases the pipeline and clears the client's event sink, in that order.
 	~AampRialtoPipelineSession();
 
 	AampRialtoPipelineSession(const AampRialtoPipelineSession &) = delete;
@@ -97,13 +84,13 @@ public:
 
 	/// Create the log bridge, factories, capabilities and control backend
 	/// that are not there yet, wait for Rialto to report RUNNING, create the
-	/// pipeline, install @p callbacks on the client and load().  The pipeline
+	/// pipeline, install @p events on the client and load().  The pipeline
 	/// is kept (and GetPipeline() returns it) even when load() fails.
-	CreateResult CreateAndLoad(const Callbacks &callbacks);
+	CreateResult CreateAndLoad(IAampRialtoPipelineEvents &events);
 
-	/// Remove every handler from the client.  Only safe once the pipeline is
+	/// Remove the event sink from the client.  Only safe once the pipeline is
 	/// released.
-	void ClearClientCallbacks();
+	void ClearClientEventSink();
 
 	/// Deregister from Rialto's IControl; the next CreateAndLoad() makes a new
 	/// backend.

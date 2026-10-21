@@ -217,7 +217,7 @@ AampRialtoPlayer::~AampRialtoPlayer()
 	// the pipeline (and every other holder of it) while they are still valid.
 	SetMonitorAV(nullptr);
 	m_session.SetPipeline(nullptr);
-	m_session.ClearClientCallbacks();
+	m_session.ClearClientEventSink();
 	// The CC manager singleton may still hold this object's IDirectRialtoCC*
 	// (e.g. multi-pipeline mode, where its GetId()/Release() refcount is
 	// shared with other, still-live AampRialtoPlayer instances). Clear it
@@ -588,37 +588,7 @@ void AampRialtoPlayer::SetMonitorAV(std::unique_ptr<AampRialtoMonitorAV> monitor
 
 void AampRialtoPlayer::CreateAndLoadPipeline()
 {
-	AampRialtoPipelineSession::Callbacks callbacks;
-	callbacks.needData =
-		[this](int32_t sid, size_t fc, uint32_t rid) {
-			OnNeedMediaData(sid, fc, rid);
-		};
-	callbacks.cancelNeedData =
-		[this](int32_t sid) {
-			OnCancelNeedMediaData(sid);
-		};
-	callbacks.playbackState =
-		[this](firebolt::rialto::PlaybackState state) {
-			OnPlaybackState(state);
-		};
-	callbacks.position =
-		[this](int64_t posNs) {
-			OnPosition(posNs);
-		};
-	callbacks.duration =
-		[this](int64_t durNs) {
-			OnDuration(durNs);
-		};
-	callbacks.bufferUnderflow =
-		[this](int32_t sid) {
-			OnBufferUnderflow(sid);
-		};
-	callbacks.playbackError =
-		[this](int32_t sid, firebolt::rialto::PlaybackError error) {
-			OnPlaybackError(sid, error);
-		};
-
-	if (m_session.CreateAndLoad(callbacks) ==
+	if (m_session.CreateAndLoad(*this) ==
 	    AampRialtoPipelineSession::CreateResult::Loaded)
 	{
 		// Advance state machine: pipeline is now created and loaded.
@@ -2681,7 +2651,7 @@ void AampRialtoPlayer::ResetFirstFrame()
 }
 
 // ---------------------------------------------------------------------------
-// Callbacks invoked from AampRialtoMediaPipelineClient
+// IAampRialtoPipelineEvents, delivered by AampRialtoMediaPipelineClient
 // ---------------------------------------------------------------------------
 
 void AampRialtoPlayer::OnNeedMediaData(

@@ -119,3 +119,13 @@ void AampRialtoPlayer::StartProgressTimer() {}
 void AampRialtoPlayer::StopProgressTimer() {}
 void AampRialtoPlayer::OnProgressTimerTick() {}
 
+// IAampRialtoPipelineEvents
+void AampRialtoPlayer::OnNeedMediaData(int32_t, size_t, uint32_t) {}
+void AampRialtoPlayer::OnCancelNeedMediaData(int32_t) {}
+void AampRialtoPlayer::OnPlaybackState(firebolt::rialto::PlaybackState) {}
+void AampRialtoPlayer::OnPosition(int64_t) {}
+void AampRialtoPlayer::OnDuration(int64_t) {}
+void AampRialtoPlayer::OnBufferUnderflow(int32_t) {}
+void AampRialtoPlayer::OnPlaybackError(int32_t,
+	firebolt::rialto::PlaybackError) {}
+

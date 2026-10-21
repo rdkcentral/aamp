@@ -20,7 +20,7 @@
 /**
  * @file AampRialtoMediaPipelineClient.cpp
  * @brief IMediaPipelineClient implementation that forwards Rialto events to
- *        the installed callbacks.
+ *        the installed IAampRialtoPipelineEvents sink.
  */
 
 #include "AampRialtoMediaPipelineClient.h"
@@ -56,10 +56,9 @@ void AampRialtoMediaPipelineClient::notifyNetworkState(NetworkState state)
 void AampRialtoMediaPipelineClient::notifyPlaybackState(PlaybackState state)
 {
 	AAMPLOG_INFO("ENTRY state=%d", static_cast<int>(state));
-	const auto callback = Snapshot(m_playbackStateCallback);
-	if (callback)
+	if (IAampRialtoPipelineEvents *sink = Sink())
 	{
-		callback(state);
+		sink->OnPlaybackState(state);
 	}
 	AAMPLOG_INFO("EXIT");
 }
@@ -67,10 +66,9 @@ void AampRialtoMediaPipelineClient::notifyPlaybackState(PlaybackState state)
 void AampRialtoMediaPipelineClient::notifyPosition(int64_t position)
 {
 	AAMPLOG_TRACE("ENTRY position=%" PRId64, position);
-	const auto callback = Snapshot(m_positionCallback);
-	if (callback)
+	if (IAampRialtoPipelineEvents *sink = Sink())
 	{
-		callback(position);
+		sink->OnPosition(position);
 	}
 	AAMPLOG_TRACE("EXIT");
 }
@@ -83,10 +81,9 @@ void AampRialtoMediaPipelineClient::notifyNeedMediaData(
 {
 	AAMPLOG_TRACE("ENTRY sourceId=%d frameCount=%zu needDataRequestId=%u",
 		sourceId, frameCount, needDataRequestId);
-	const auto callback = Snapshot(m_needDataCallback);
-	if (callback)
+	if (IAampRialtoPipelineEvents *sink = Sink())
 	{
-		callback(sourceId, frameCount, needDataRequestId);
+		sink->OnNeedMediaData(sourceId, frameCount, needDataRequestId);
 	}
 	AAMPLOG_TRACE("EXIT");
 }
@@ -101,10 +98,9 @@ void AampRialtoMediaPipelineClient::notifyQos(
 void AampRialtoMediaPipelineClient::notifyBufferUnderflow(int32_t sourceId)
 {
 	AAMPLOG_INFO("ENTRY sourceId=%d", sourceId);
-	const auto callback = Snapshot(m_bufferUnderflowCallback);
-	if (callback)
+	if (IAampRialtoPipelineEvents *sink = Sink())
 	{
-		callback(sourceId);
+		sink->OnBufferUnderflow(sourceId);
 	}
 	AAMPLOG_INFO("EXIT");
 }
@@ -112,10 +108,9 @@ void AampRialtoMediaPipelineClient::notifyBufferUnderflow(int32_t sourceId)
 void AampRialtoMediaPipelineClient::notifyDuration(int64_t duration)
 {
 	AAMPLOG_INFO("duration=%" PRId64 " ns", duration);
-	const auto callback = Snapshot(m_durationCallback);
-	if (callback)
+	if (IAampRialtoPipelineEvents *sink = Sink())
 	{
-		callback(duration);
+		sink->OnDuration(duration);
 	}
 	AAMPLOG_TRACE("EXIT");
 }
@@ -143,10 +138,9 @@ void AampRialtoMediaPipelineClient::notifyCancelNeedMediaData(
 	int32_t sourceId)
 {
 	AAMPLOG_TRACE("ENTRY sourceId=%d", sourceId);
-	const auto callback = Snapshot(m_cancelNeedDataCallback);
-	if (callback)
+	if (IAampRialtoPipelineEvents *sink = Sink())
 	{
-		callback(sourceId);
+		sink->OnCancelNeedMediaData(sourceId);
 	}
 	AAMPLOG_TRACE("EXIT");
 }
@@ -155,10 +149,9 @@ void AampRialtoMediaPipelineClient::notifyPlaybackError(
 	int32_t sourceId, PlaybackError error)
 {
 	AAMPLOG_WARN("sourceId=%d error=%d", sourceId, static_cast<int>(error));
-	const auto callback = Snapshot(m_playbackErrorCallback);
-	if (callback)
+	if (IAampRialtoPipelineEvents *sink = Sink())
 	{
-		callback(sourceId, error);
+		sink->OnPlaybackError(sourceId, error);
 	}
 }
 

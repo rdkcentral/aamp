@@ -45,11 +45,11 @@ void AampRialtoPipelineSession::SetPipeline(
 void AampRialtoPipelineSession::EnsureClient() {}
 
 AampRialtoPipelineSession::CreateResult
-AampRialtoPipelineSession::CreateAndLoad(const Callbacks &)
+AampRialtoPipelineSession::CreateAndLoad(IAampRialtoPipelineEvents &)
 {
 	return CreateResult::FactoryUnavailable;
 }
 
-void AampRialtoPipelineSession::ClearClientCallbacks() {}
+void AampRialtoPipelineSession::ClearClientEventSink() {}
 
 void AampRialtoPipelineSession::ReleaseControlBackend() {}

@@ -93,7 +93,8 @@ using SourceCreator =
  * Each shared member names its lock (or says it is atomic) at its
  * declaration.  The model is drawn in docs/diagrams/direct-rialto-*.puml.
  */
-class AampRialtoPlayer : public StreamSink, public IDirectRialtoCC
+class AampRialtoPlayer : public StreamSink, public IDirectRialtoCC,
+	private IAampRialtoPipelineEvents
 {
 public:
 	~AampRialtoPlayer() override;
@@ -671,32 +672,32 @@ private:
 	/// Install @p monitor (nullptr to remove) and destroy the previous one.
 	void SetMonitorAV(std::unique_ptr<AampRialtoMonitorAV> monitor);
 
-	/// GoF State-pattern state machine tracking the player lifecycle.
+	/// State machine tracking the player lifecycle.
 	PlayerStateMachine m_stateMachine;
 
 	/// @brief Dispatches need-data events from the pipeline client.
-	void OnNeedMediaData(int32_t sourceId, size_t frameCount, uint32_t requestId);
+	void OnNeedMediaData(int32_t sourceId, size_t frameCount, uint32_t requestId) override;
 
 	/// @brief Dispatches cancel-need-data events from the pipeline client.
-	void OnCancelNeedMediaData(int32_t sourceId);
+	void OnCancelNeedMediaData(int32_t sourceId) override;
 
-	/// @brief Called (via callback) when the Rialto server changes state.
-	void OnPlaybackState(firebolt::rialto::PlaybackState state);
+	/// @brief Called when the Rialto server changes state.
+	void OnPlaybackState(firebolt::rialto::PlaybackState state) override;
 
 	/// @brief Build the CC decoder handle used by NotifyFirstFrameReceived.
 	unsigned long GetCCHandle() const;
 
 	/// @brief Called when the Rialto server reports a new playback position.
-	void OnPosition(int64_t positionNs);
+	void OnPosition(int64_t positionNs) override;
 
 	/// @brief Called when the Rialto server reports the stream duration.
-	void OnDuration(int64_t durationNs);
+	void OnDuration(int64_t durationNs) override;
 
 	/// @brief Called when Rialto reports that a media source has run dry.
-	void OnBufferUnderflow(int32_t sourceId);
+	void OnBufferUnderflow(int32_t sourceId) override;
 
 	/// @brief Called when Rialto reports a non-fatal playback error.
-	void OnPlaybackError(int32_t sourceId, firebolt::rialto::PlaybackError error);
+	void OnPlaybackError(int32_t sourceId, firebolt::rialto::PlaybackError error) override;
 
 	// -------------------------------------------------------------------
 	// Configure() steps

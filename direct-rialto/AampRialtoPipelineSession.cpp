@@ -103,7 +103,7 @@ AampRialtoPipelineSession::AampRialtoPipelineSession(
 AampRialtoPipelineSession::~AampRialtoPipelineSession()
 {
 	SetPipeline(nullptr);
-	ClearClientCallbacks();
+	ClearClientEventSink();
 }
 
 // ---------------------------------------------------------------------------
@@ -140,11 +140,11 @@ void AampRialtoPipelineSession::EnsureClient()
 	}
 }
 
-void AampRialtoPipelineSession::ClearClientCallbacks()
+void AampRialtoPipelineSession::ClearClientEventSink()
 {
 	if (m_client)
 	{
-		m_client->ClearCallbacks();
+		m_client->SetEventSink(nullptr);
 	}
 }
 
@@ -208,7 +208,7 @@ void AampRialtoPipelineSession::EnsureFactories()
 // ---------------------------------------------------------------------------
 
 AampRialtoPipelineSession::CreateResult
-AampRialtoPipelineSession::CreateAndLoad(const Callbacks &callbacks)
+AampRialtoPipelineSession::CreateAndLoad(IAampRialtoPipelineEvents &events)
 {
 	RegisterLogHandler();
 	EnsureFactories();
@@ -246,13 +246,7 @@ AampRialtoPipelineSession::CreateAndLoad(const Callbacks &callbacks)
 
 	// Install before load(): events Rialto delivers while loading would
 	// otherwise be dropped.
-	m_client->SetNeedDataCallback(callbacks.needData);
-	m_client->SetCancelNeedDataCallback(callbacks.cancelNeedData);
-	m_client->SetPlaybackStateCallback(callbacks.playbackState);
-	m_client->SetPositionCallback(callbacks.position);
-	m_client->SetDurationCallback(callbacks.duration);
-	m_client->SetBufferUnderflowCallback(callbacks.bufferUnderflow);
-	m_client->SetPlaybackErrorCallback(callbacks.playbackError);
+	m_client->SetEventSink(&events);
 
 	if (!pipeline->load(
 			firebolt::rialto::MediaType::MSE,
