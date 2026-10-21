@@ -1149,6 +1149,8 @@ TEST_F(AampConfigTests, DoCustomSettingUseDirectRialtoForcesMp4Demux)
 	AampConfig aampConfig;
 	aampConfig.Initialize();
 
+	// Clear useMp4Demux explicitly so the test doesn't depend on its default
+	EXPECT_TRUE(aampConfig.SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_UseMp4Demux, false));
 	EXPECT_TRUE(aampConfig.SetConfigValue(AAMP_DEV_CFG_SETTING, eAAMPConfig_useDirectRialto, true));
 	EXPECT_EQ(aampConfig.IsConfigSet(eAAMPConfig_UseMp4Demux), false);
 
