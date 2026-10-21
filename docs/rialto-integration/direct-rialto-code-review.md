@@ -357,6 +357,83 @@ None of these is a defect in the current direct-rialto code. Each is recorded wi
 
 ---
 
+## 8. Test Suite Review (2026-10-21)
+
+Review of the 18 direct-rialto L1 suites (697 tests) against `.github/instructions/l1-validity-review.instructions.md`, plus which `direct-rialto` modules have no suite. Verdict overall: **Mostly valid, but needs revision**; the items below are the revisions. No code was changed by this review.
+
+| ID | Status | Kind | Title |
+|---|---|---|---|
+| TS1 | Open | Mistake | Always-true assertion in `ChangeAamp_ConcurrentWithSendCopy_IsRaceFree` |
+| TS2 | Open | Mistake | `OnNeedMediaData_DoesNotBlockCallerThread` asserts only `SUCCEED()` with no time bound |
+| TS3 | Open | Mistake | Five tests act after a fixed sleep and can pass without the intended interleaving |
+| TS4 | Open | Structure | `@test` tags missing in 15 suites; three DRM suites have no runner/cases split |
+| TS5 | Open | Gap | No test checks the encryption metadata put on a segment |
+| TS6 | Open | Gap | `AampRialtoPipelineSession` has no suite; its failure results are untested |
+| TS7 | Open | Gap | `AampRialtoGlibTimer.h` and `AampRialtoProgressTimer.h` have no suite |
+| TS8 | Open | Gap | `AampRialtoTime.h` conversions have no test |
+| TS9 | Open | Gap | State machine: IDLE+Error and ERROR+Error not asserted as ignored |
+| TS10 | Open | Gap | Log-only branches of `attachOrUpdate()` and the ES-path attach abort |
+| TS11 | Open | Build | Split `AampRialtoPlayerTestCases.cpp` (8307 lines, 44 s per edit) into functional areas |
+| TS12 | Won't do | Gap | Suites for `AampRialtoSourceCreators.cpp` and `RialtoSessionCreator.cpp` |
+| TS13 | Optional | Build | Split `AampRialtoVideoSourceTestCases.cpp` (2380 lines, 11 s per edit) |
+
+### Mistakes
+
+- **TS1.** [AampRialtoPlayerTestCases.cpp](../../test/utests/tests/AampRialtoPlayerTests/AampRialtoPlayerTestCases.cpp#L4357): `EXPECT_GE(calls.load(), 0)` on a counter that only ever increments from 0 is always true. The test's real value is under ThreadSanitizer, but as written it cannot fail any other way. Smallest fix: `EXPECT_GT(calls.load(), 0)` (the ID3 handler must have run), or drop the assertion and say in the brief that the oracle is ThreadSanitizer.
+- **TS2.** [AampRialtoPlayerTestCases.cpp](../../test/utests/tests/AampRialtoPlayerTests/AampRialtoPlayerTestCases.cpp#L4582): 60 `PostNeedData()` calls then `SUCCEED()`. If dispatch blocked, the test would hang until the CTest timeout instead of failing. Fix: run the loop under `std::async` and `ASSERT_EQ(wait_for(5 s), ready)`, as the pipeline-client tests do.
+- **TS3.** These sleep, then act, assuming another thread is already waiting. Under load the other thread may not have reached its wait yet; the outcome is the same, so they do not fail falsely, but they then pass without testing the "while waiting" path they are named for (vacuous pass, not flakiness):
+  - `AampRialtoVideoSourceTestCases.cpp:1256` (20 ms before setting EOS and needData together),
+  - `AampRialtoControlBackendTestCases.cpp:160` (20 ms before `notifyApplicationState`),
+  - `AampRialtoControlBackendTestCases.cpp:279` (5 ms inside the mock to widen a race window for ThreadSanitizer),
+  - `RialtoMediaKeySessionAdapterTests.cpp:328` and `:408` (scenario injection in the M12 regression tests).
+  Fix where it matters (the first two): wait until the waiter is observed blocked (for the source, poll `state().injectorActive` under the lock; for the backend, a hook in the mock) instead of a fixed sleep.
+  The other sleeps (12 in the player suite, including the 100 ms one at line 783, and one each in MonitorAV:329, PlaybackController:607, PreRollMonitor:287) are negative checks ("still blocked after N ms"); they can only pass vacuously, never fail falsely, and are allowed by the repository rules.
+- **TS4.** `@test` Doxygen tags (required by `l1-structure.instructions.md`) per suite, tags/tests: ControlBackend 0/10, MediaPipelineClient 0/15, MonitorAV 0/22, NeedDataHandshake 0/25, PlaybackController 0/27, PreRollMonitor 0/21, SegmentPosition 0/13, TtmlOffset 0/14, DrmBridge 0/5, PrivateInstanceAAMPNotifiable 0/23, RialtoMediaKeySessionAdapter 0/12, RialtoMediaKeySession 0/14, RialtoMediaKeySystem 0/15, Player 49/316, VideoSource 63/68. The NeedDataHandshake and TtmlOffset suites were added this session without tags. `RialtoMediaKeySessionAdapterTests`, `RialtoMediaKeySessionTests` and `RialtoMediaKeySystemTests` keep tests and `main()` in one file instead of the required runner plus `*TestCases.cpp`. Mechanical; no behaviour change.
+
+### Gaps
+
+- **TS5 (highest value).** No test in any suite reads back the encryption fields `annotateEncryption()` sets on a segment: key id, IV, `setMediaKeySessionId`, cipher mode, the CBCS pattern, the conversion of each 6-byte sub-sample entry into (clear 16-bit big-endian, encrypted 32-bit big-endian), and the zero-sub-sample case that sends one all-encrypted sub-sample. Only the drop paths (no DRM session, short table, sample over 32 bits) are tested. A byte-order or offset mistake here only shows as a decrypt failure on a device. About 6 tests in the video source suite, reading the Rialto `MediaSegment` getters (the subtitle suite already reads `getDisplayOffset()` the same way).
+- **TS6.** `AampRialtoPipelineSession` has no suite. The player suite compiles the real session and covers `CreateAndLoad()` success and `waitForRunning` returning false (line 3916), but not: no factory (`FactoryUnavailable`), `createMediaPipeline` returning null (`CreateFailed`), `load()` failing (`LoadFailed`, pipeline kept and returned by `GetPipeline()`), the event sink being installed before `load()` (the M8 guarantee), the sink cleared after the pipeline is released (destructor order, see N4), and `ReleaseControlBackend()` followed by a new backend on the next `CreateAndLoad()`. Practical: `MockIMediaPipelineFactory`, `MockIMediaPipeline`, the capabilities and control mocks and `FakeRialtoFactories.cpp` exist. About 8–10 tests.
+- **TS7.** The GLib timers have no suite. Practical with the existing `MockGLib` (`FakeGLib.cpp` routes `g_timeout_add_full` to the `g_timeout_add` mock and mocks `g_source_remove`): capture the callback and data, then call it to simulate ticks. Tests: start/stop/restart, a stale dispatch after a restart ignored by the generation check, stop from inside a tick, `IsRunning()`, and for the progress timer the immediate first fire and `kick()`. One small fake change is needed to test the handle's release: `FakeGLib`'s `g_timeout_add_full` never calls the destroy notify (it says so), so the per-start `Handle` allocation cannot be checked for leaks. About 8 tests.
+- **TS8.** `AampRialtoTime.h` (`SecondsToNs`, `SecondsToMs`) is header-only and untested directly; rounding of values like 0.2505 s and negative inputs. Trivial, about 4 tests in a small `AampRialtoTimeTests` suite. Low priority.
+- **TS9.** The transition table deliberately has no `Error` row from IDLE or ERROR; no test asserts those two are ignored (all other excluded risky pairs, such as FLUSHING+Stop and FLUSHING+Reconfigure, are tested). 2 tests.
+- **TS10.** Untested, low value: in `attachOrUpdate()`, protection params with a null DRM bridge (first attach and changed params, both log-only) and `setSourcePosition()` failing (log-only); in `processDataFragment()`, the HLS-TS ES path when `waitForAttach()` aborts. Add only when touching that code.
+- **TS12 (Won't do).** `AampRialtoSourceCreators.cpp` is a three-case switch (the player suite uses `FakeAampRialtoSourceCreators.cpp`); a suite would compile every source class to check three `mediaType()` values. `RialtoSessionCreator.cpp` builds the key system and adapter, both already tested; the one branch (invalid key system returns null) would need a `DrmHelper` fake. Not worth a suite each; revisit if either gains logic.
+
+Checked and rejected: the claim that video-mute, subtitle-mute and audio-volume re-apply on attach are untested (they are: `SetVideoMute_VideoNotYetAttached_MuteAppliedWhenAttached`, `SetSubtitleMute_SubtitleNotYetAttached_MuteAppliedWhenAttached`, `SetAudioVolume_MutedBeforeAudioAttached_MuteAppliedOnAttach`); the claim that the HLS protection fallback is untested (`AttachAudioSource_EncryptedWithOnlyVideoProtectionQueued_UsesVideoProtection`); the claim that the GLib timers need new mock infrastructure (see TS7); and the suggestion to delete the video source's handshake tests now that `AampRialtoNeedDataHandshakeTests` exists. The two layers check different things: the handshake suite checks decisions (which request is claimed), the source suites check that the right `haveData()` reaches the pipeline. Keep both; add new handshake rules at the handshake level first.
+
+### Splitting the large test files
+
+- **TS11.** Measured on the build VM: recompiling `AampRialtoPlayerTestCases.cpp` takes 44 s, against 4 s for `AampRialtoPlayer.cpp`; compiling only its first 667 lines (includes plus fixture) takes about 8 s. So each extra translation unit costs about 8 s, and the 316 tests cost about 36 s between them. Proposed layout (sections are the existing `// ===` headings; counts from the file):
+
+  | File | Sections | Tests |
+  |---|---|---|
+  | `AampRialtoPlayerTestFixture.h` | codec makers (made `inline`), `TrackedMockSource`, `TrackedMockPipeline`, `AampRialtoPlayerTest`, `AampRialtoPlayerWithDemuxTest` | – |
+  | `AampRialtoPlayerConfigureTestCases.cpp` | Phases 2–3, Configure idempotency and pipeline recreation, WaitForFlushToComplete, IRialtoControlBackend | ~44 |
+  | `AampRialtoPlayerAttachTestCases.cpp` | Phases 4, 4b, 4c, SetStreamCaps, deferred audio attachment, PipelineConfiguredForMedia | ~23 |
+  | `AampRialtoPlayerInjectionTestCases.cpp` | Phases 5–5d, SendCopy, SendSample, OnNeedMediaData, back-pressure, StopBuffering | ~54 |
+  | `AampRialtoPlayerFlushTestCases.cpp` | Phases 6–7, SeekStreamSink, Flush `shouldTearDown`, appliedRate, Discontinuity, deferred discontinuity flush | ~56 |
+  | `AampRialtoPlayerPlaybackTestCases.cpp` | OnPlaybackState, gateMode ungate timing, Phase 8 pause/rate, underflow, playback error, pre-roll (`AampRialtoPlayerPreRollTest`) | ~55 |
+  | `AampRialtoPlayerPositionTestCases.cpp` | position and duration callbacks, GetVideoPTS, CheckForPTSChangeWithTimeout | ~31 |
+  | `AampRialtoPlayerDrmTestCases.cpp` | Phase DRM (`AampRialtoPlayerDrmTest`), ChangeAamp / ID3 (`AampRialtoPlayerId3Test` and its anonymous-namespace `Id3Call`) | ~25 |
+  | `AampRialtoPlayerAvSettingsTestCases.cpp` | video rectangle and size, subtitle injection and clock, subtitle/video mute, volume, playback quality, closed captions, destruction (`DestructionTrackingPipeline`) | ~41 |
+
+  Nothing blocks it: the mock globals (`g_mockMp4Demux` and others) are defined in `test/utests/fakes`, not in the test file; the area-specific fixtures and the two `static SetupCapabilities()` helpers (lines 5844 and 5960) are each used by one area and move with it; the `using ::testing::...` lines go in the fixture header. Expected effect: editing one area recompiles about 8 s of fixture plus that area's share, roughly 12–14 s instead of 44 s; a full rebuild costs more CPU (about 8 × 8 s of repeated fixture) but builds in parallel. Risk: low, a mechanical move; check that `--gtest_list_tests` lists the same 316 names before and after. Follows `l1-structure.instructions.md`, which allows extra `*TestCases.cpp` files for large suites.
+- **TS13 (Optional).** `AampRialtoVideoSourceTestCases.cpp` recompiles in 11 s; splitting saves little. Revisit if it grows past about 3000 lines.
+
+### Modules without their own suite
+
+| Module | Covered elsewhere | Suite practical? | Item |
+|---|---|---|---|
+| `AampRialtoMediaSource.cpp` (abstract base) | Video, audio, subtitle and player suites | Covered through the concrete sources; no separate suite needed | TS5, TS10 |
+| `AampRialtoPipelineSession.cpp` | Player suite (success paths only) | Yes | TS6 |
+| `AampRialtoGlibTimer.h`, `AampRialtoProgressTimer.h` | Indirectly, through the components that own timers | Yes, with one fake change | TS7 |
+| `AampRialtoTime.h` | Indirectly | Yes, trivial | TS8 |
+| `AampRialtoSourceCreators.cpp`, `RialtoSessionCreator.cpp` | Factories only | Not worth it | TS12 |
+| `IDrmBridge.h`, `IRialtoControlBackend.h`, `IStreamSinkNotifiable.h` | Interfaces, no logic | No | – |
+
+---
+
 ## Discoveries During Implementation
 
 Record anything found while fixing (new bugs, wrong assumptions in this review,
@@ -559,6 +636,8 @@ Rialto behaviours confirmed or disproved, test gaps, design decisions).
 | 2026-10-21 | N1 | Raw TTML/WebVTT normally attach through CreateSubtitleSource() with synthesised codec info, so playback was unaffected; only an init fragment on a raw source took the wrong (MP4 demuxer) path. |
 | 2026-10-21 | R3 | An unparsable begin= used to read as 0 ms, which made the offset -PTS and could wrongly select LINEAR_OFFSET; it is now ignored like a document without begin= (stored offset reused, mode still undecided). |
 | 2026-10-21 | Triage | M9, M10, L9 and L12 were already Done; the open-looking entries were their rows in the Verification Notes table, whose second column is the question. |
+| 2026-10-21 | Test review | Recompiling AampRialtoPlayerTestCases.cpp takes 44 s, of which about 8 s is the includes and fixture (lines 1-667 compiled alone); AampRialto*Player.cpp itself takes 4 s. |
+| 2026-10-21 | Test review | No test in any suite reads back the encryption metadata annotateEncryption() puts on a segment (TS5). |
 
 ## Verification Notes
 
@@ -642,3 +721,4 @@ Record each completed task: what was done, files changed, tests added or run.
 | 2026-10-21 | N1 | AampRialtoSubtitleSource::processInitFragment() now reads the format recorded by Configure() (format()) instead of m_subtitleFormat, which was never assigned since 1a504a50; the field is removed and the header describes the real raw-subtitle path. | direct-rialto/AampRialtoSubtitleSource.{h,cpp}; AampRialtoSubtitleSourceTestCases.cpp | New AampRialtoSubtitleSource_ProcessInitFragment_RawFormats_SynthesiseCodecInfo: red on the old code (codec 0, demuxer created), green now; subtitle suite 21/21; all 19 suites pass |
 | 2026-10-21 | R3 | AampRialtoTtmlOffset::ParseTimeToMs replaces sscanf with a bounded TTML clock-time parser returning std::optional: digits only (no sign, nan or inf), MM <= 59, SS <= 60, hours capped so the result fits int64_t, fraction rounded from integer digits, frames part accepted and ignored as before, trailing junk rejected. FindFirstBeginMs returns false (WARN, value truncated to 32 chars) for an unparsable value. | direct-rialto/AampRialtoTtmlOffset.{h,cpp}; AampRialtoTtmlOffsetTestCases.cpp | 3 new/changed TTML tests red on the old parser, green now (TTML suite 14/14); subtitle suite 21/21; all 19 suites pass |
 | 2026-10-21 | Triage | Triage of the remaining open items: R6, AR4 and AR9 closed as Won't do with the evidence; L10 and R7 moved to a new 'Optional work, to be considered' list (O1, O2) together with the R1 residual (O3), the M15 CI acceptance run (O4) and a ThreadSanitizer CI job (O5), each with benefit, risk and trigger. | docs/rialto-integration/direct-rialto-code-review.md | n/a (tracker only) |
+| 2026-10-21 | Test review | Test-suite review recorded as section 8: 3 mistakes (TS1-TS3), structure (TS4), 6 gaps (TS5-TS10), split proposal for the player suite (TS11), modules without a suite assessed (TS6-TS8 practical, TS12 not worth it), VideoSource split optional (TS13). Verdict: Mostly valid, but needs revision. | docs/rialto-integration/direct-rialto-code-review.md | n/a (review only; no code changed) |
