@@ -571,6 +571,9 @@ protected:
 	 * @return true if the text track was added, false otherwise.
 	 */
 	bool AddIfUnique(std::vector<TextTrackInfo> &tTracks, TextTrackInfo value);
+	 * @brief Send a manifest content error event and return its status.
+	 */
+	AAMPStatusType ReportManifestContentError();
 
 	/**
 	 * @fn StartFromAampLocalTsb
@@ -762,7 +765,7 @@ protected:
 	 * @param init true if this is the first playlist download for a tune/seek/trickplay
 	 * @param reportBulkMeta true if bulkTimedMetadata feature is enabled
 	 */
-	void FindTimedMetadata(MPD* mpd, Node* root, bool init = false, bool reportBulkMet = false);
+	void FindTimedMetadata(MPD* mpd, Node* root, AampMPDParseHelperPtr mpdParseHelper, bool init = false, bool reportBulkMet = false);
 	/**
 	 * @fn ProcessPeriodSupplementalProperty
 	 * @param node SupplementalProperty node
@@ -905,6 +908,14 @@ protected:
 	 * @fn UpdateTrackInfo
 	 */
 	virtual AAMPStatusType UpdateTrackInfo(bool modifyDefaultBW, bool resetTimeLineIndex = false, bool isInit = false);
+	/**
+	 * @fn ResolveAdaptationSetForTrack
+	 * @param pMediaStreamContext Track object pointer
+	 * @param period Current period
+	 * @brief Resolve the track's AdaptationSet by its selected id, tolerant of AdaptationSet reordering across periods
+	 * @retval eAAMPSTATUS_OK on success, eAAMPSTATUS_MANIFEST_CONTENT_ERROR if the selected AdaptationSet id is not found
+	 */
+	AAMPStatusType ResolveAdaptationSetForTrack(class MediaStreamContext *pMediaStreamContext, IPeriod *period);
 	/**
 	 * @fn SkipToEnd
 	 * @param pMediaStreamContext Track object pointer
@@ -1263,7 +1274,7 @@ protected:
 	/**
 	 * @fn FindPeriodGapsAndReport
 	 */
-	void FindPeriodGapsAndReport();
+	void FindPeriodGapsAndReport(AampMPDParseHelperPtr mpdParseHelper);
 	/**
 	 * @fn IndexNewMPDDocument
 	 */

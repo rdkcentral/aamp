@@ -148,6 +148,11 @@ appSrcForProgressivePlayback 	Enables appsrc for playing progressive AV type. De
 seekMidFragment			Enable/Disable Mid-Fragment seek. Default: false
 wifiCurlHeader			Enable/Disable wifi custom curl header inclusion. Default: true
 reportBufferEvent		Enables Buffer event reporting. Default: true.
+enableEventProfiling		Enable event round-trip time profiling. When enabled, logs async and sync
+				event latency when the measured time meets or exceeds eventProfilingThresholdMs.
+				For async events the measured time is queue dwell time + sync delivery time combined.
+				For direct sync events only delivery time is measured. Default: false
+enableNetworkPersonaLogging	Collect network metrics and log a JSON network persona on Stop. Default: false
 info            		Enable/Disable logging of requested urls. Default: false
 gst             		Enable/Disable gstreamer logging including pipeline dump. Default: false
 gstlevel                String to set (final) override of gstreamer debug level, e.g. gstlevel=*:3,westeros*:5
@@ -202,6 +207,10 @@ abrCacheOutlier 		Outlier difference which will be ignored from network bandwidt
 abrNwConsistency		Number of checks before profile increment/decrement by 1.This is to avoid frequent profile switching with network change: Default 2
 abrSkipDuration			Minimum duration of fragment to be downloaded before triggering abr. Default: 6s
 progressReportingInterval	Interval (seconds) for progress reporting(in seconds. Default: 1
+eventProfilingThresholdMs	Threshold in milliseconds for event round-trip profiling (requires enableEventProfiling=true).
+				For async events the measured time is queue dwell time + sync delivery time combined.
+				For direct sync events only delivery time is compared. Logs are emitted only when the
+				measured time meets or exceeds this threshold. Default: 500
 licenseRetryWaitTime		License retry wait (ms) interval. Default: 500
 licenseKeyAcquireWaitTime	License key acquire wait time (ms). Default: 5000
 liveOffset    			live offset time in seconds, Live playback this much time before true live edge. Default: 1
@@ -297,7 +306,8 @@ bufferLevelToEnableLatencySec 		Buffer level to enable latency correction in sec
 rebufferLatencyStepSec			Step value for latency increase when rebuffering occurs. Default: 1.0s
 rebufferLatencyMaxIncrementSec			Max latency increment allowed due to rebuffering. Default: 6.0s
 latencyDangerBufferSec      Buffer level (seconds) below which latency thresholds are dynamically increased to accommodate the low-buffer condition. Default: 1.0
-latencyStableDurationSec        Duration (seconds) of consecutive healthy buffer (above `latencyDangerBufferSec`) required before one restoration step is applied to the latency thresholds. Default: 300.0
+latencyRestorationBufferSec	Buffer level (seconds) required during the full stable window before one latency-threshold restoration step is applied. Default: 2.0
+latencyStableDurationSec        Duration (seconds) of consecutive buffer at or above `latencyRestorationBufferSec` required before one restoration step is applied to the latency thresholds. Default: 300.0
 lowLatencyTargetBuffer      Target buffer size for low latency mode (seconds). Balances latency and stability by keeping a healthy buffer. Default: 4
 maxLatencyCorrectionPlaybackRate        Upper playback-rate limit used by latency correction when latency rises above the max threshold. Increasing this value makes catch-up more aggressive and can introduce noticeable A/V artifacts (for example accelerated video cadence and audio quality changes such as robotic/timestretch artifacts) on some platforms. default: 1.03
 minLatencyCorrectionPlaybackRate        Lower playback-rate limit used by latency correction when latency drops below the min threshold. Decreasing this value makes slowdown more aggressive and can introduce noticeable A/V artifacts (for example perceived slow-motion effect and audio quality changes such as robotic/timestretch artifacts) on some platforms. Default: 0.97

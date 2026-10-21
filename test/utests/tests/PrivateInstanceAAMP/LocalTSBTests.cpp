@@ -29,6 +29,7 @@
 #include "MockStreamAbstractionAAMP_MPD.h"
 #include "MockTSBSessionManager.h"
 #include "MockAampScheduler.h"
+#include "MockAampUtils.h"
 
 using ::testing::_;
 using ::testing::WithParamInterface;
@@ -382,9 +383,50 @@ TEST_F(LocalTSBTests, ScheduleRetuneTest)
 	g_mockAampScheduler.reset();
 }
 
+TEST_F(LocalTSBTests, ScheduleRetune_UnderflowNeverRetunes)
+{
+    g_mockAampScheduler = std::make_shared<NiceMock<MockAampScheduler>>();
+    AampScheduler mScheduler{};
+    mPrivateInstanceAAMP->SetScheduler(&mScheduler);
 
+    const char *testUrl = "http://localhost:80/manifest.mpd";
+    AampLLDashServiceData llData;
+    EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, Init(_))
+        .WillOnce([this, &llData] {
+                    this->mPrivateInstanceAAMP->SetLLDashServiceData(llData);
+                    return eAAMPSTATUS_OK;
+                });
+    mPrivateInstanceAAMP->Tune(testUrl, true, "VOD");
+    mPrivateInstanceAAMP->SetState(eSTATE_PLAYING, true);
+    mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
+    ON_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_InternalReTune)).WillByDefault(Return(true));
+    ON_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_PTSErrorThreshold)).WillByDefault(Return(1));
+    g_mockAampUtils = std::make_shared<NiceMock<MockAampUtils>>();
+    long long fakeNowMs = 1000;
+    ON_CALL(*g_mockAampUtils, aamp_GetCurrentTimeMS()).WillByDefault(Invoke([&fakeNowMs]() { return fakeNowMs += 100; }));
 
+    EXPECT_CALL(*g_mockAampScheduler, ScheduleTask(_)).Times(0);
+    for (int i = 0; i < 5; i++)
+    {
+        mPrivateInstanceAAMP->ScheduleRetune(eGST_ERROR_UNDERFLOW, eMEDIATYPE_VIDEO);
+    }
+    // First PTS error only arms the window; underflows above must not have armed it
+    mPrivateInstanceAAMP->ScheduleRetune(eGST_ERROR_PTS, eMEDIATYPE_VIDEO);
+    mPrivateInstanceAAMP->ScheduleRetune(eGST_ERROR_UNDERFLOW, eMEDIATYPE_VIDEO);
+    ::testing::Mock::VerifyAndClearExpectations(g_mockAampScheduler.get());
 
+    std::string taskName;
+    EXPECT_CALL(*g_mockAampScheduler, ScheduleTask(_))
+        .WillOnce(Invoke([&taskName](AsyncTaskObj obj) -> int {
+                    taskName = obj.mTaskName;
+                    return 1;
+                }));
+    mPrivateInstanceAAMP->ScheduleRetune(eGST_ERROR_PTS, eMEDIATYPE_VIDEO);
+    EXPECT_EQ(taskName, "PrivateInstanceAAMP_Retune");
+
+    g_mockAampUtils.reset();
+    g_mockAampScheduler.reset();
+}
 
 
 

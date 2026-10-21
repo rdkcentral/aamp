@@ -25,9 +25,11 @@
 #ifndef AAMPSTREAMSINKMANAGER_H
 #define AAMPSTREAMSINKMANAGER_H
 
+#include <map>
 #include <vector>
 #include <stddef.h>
 #include "aampgstplayer.h"
+#include "AampRialtoPlayer.h"
 #include "AampStreamSinkInactive.h"
 
 class PrivateInstanceAAMP;
@@ -99,6 +101,20 @@ public:
 	 *  @param[in] mappedHeaders - the encrypted headers, Mediatype mapped to url
 	 */
 	virtual void GetEncryptedHeaders(std::map<int, std::string>& mappedHeaders);
+	/**
+	 *  @fn IsEncryptedHeadersCached
+	 *  @brief Returns true if encrypted headers have already been cached in the current lifecycle.
+	 *         This can be used to keep downstream pipeline caps encrypted across clear/enc transitions.
+	 */
+	virtual bool IsEncryptedHeadersCached();
+	/**
+	 *  @fn IsEncryptedHeadersCached
+	 *  @brief Returns true if encrypted headers for the specific media type have been cached.
+	 *         This allows per-track checks to avoid forcing encryption on clear tracks (e.g., clear audio/subtitles)
+	 *         when only other tracks (e.g., video) were encrypted.
+	 *  @param[in] mediaType - The media type to check (e.g., eMEDIATYPE_VIDEO, eMEDIATYPE_AUDIO)
+	 */
+	virtual bool IsEncryptedHeadersCached(int mediaType);
 	/**
 	 *  @fn ReinjectEncryptedHeaders
 	 *  @brief Clears the mEncryptedHeadersInjected flag so that GetEncryptedHeaders returns the headers on next call
@@ -173,22 +189,25 @@ public:
 	/**
 	 *  @fn AddMediaHeader
 	 *  @brief Store the media init headers collected from the main VOD asset
+	 *  @param[in] aamp - the PrivateInstanceAAMP that owns the header
 	 *  @param[in] track - the media(subtitle,video or audio) for which the headers to be saved
 	 *  @param[in] header - contains the init url and mimeType of the media
 	 */
-	virtual void AddMediaHeader(unsigned track, std::shared_ptr<MediaHeader> header);
+	virtual void AddMediaHeader(PrivateInstanceAAMP *aamp, unsigned track, std::shared_ptr<MediaHeader> header);
 	/**
 	 *  @fn RemoveMediaHeader
 	 *  @brief Removes the media init headers collected from the main VOD asset
+	 *  @param[in] aamp - the PrivateInstanceAAMP that owns the header
 	 *  @param[in] track - the media(subtitle,video or audio) for which the headers to be removed
 	 */
-	virtual void RemoveMediaHeader(unsigned track);
+	virtual void RemoveMediaHeader(PrivateInstanceAAMP *aamp, unsigned track);
 	/**
 	 *  @fn GetMediaHeader
 	 *  @brief Returns the media init headers collected from the main VOD asset
+	 *  @param[in] aamp - the PrivateInstanceAAMP that owns the header
 	 *  @param[in] track - the media(subtitle,video or audio) for which the headers to be retrieved
 	 */
-	virtual std::shared_ptr<MediaHeader> GetMediaHeader(unsigned track);
+	virtual std::shared_ptr<MediaHeader> GetMediaHeader(PrivateInstanceAAMP *aamp, unsigned track);
 
 protected:
 
@@ -235,7 +254,7 @@ private:
 	std::map<PrivateInstanceAAMP*, AampStreamSinkInactive*> mInactivePlayersMap;			/**< To maintain information on currently inactive PrivateInstanceAAMP*/
 	std::map<int, std::string> mEncryptedHeaders;
 
-	std::vector<std::shared_ptr<MediaHeader> > mMediaHeaders;
+	std::map<PrivateInstanceAAMP*, std::vector<std::shared_ptr<MediaHeader>>> mMediaHeaders;
 
 	PipelineMode mPipelineMode;
 

@@ -449,6 +449,10 @@ public:
 	{
 		return mTuneMetricDataPending.load();
 	}
+	void SetFirstProgress(bool value)
+	{
+		mFirstProgress = value;
+	}
 	};
 	TestablePrivAamp *testp_aamp{nullptr};
 };
@@ -527,7 +531,7 @@ TEST_F(PrivAampPrivTests, SetPreferredLanguagesPlayingLiveAampTsbTest)
 	 * called twice, once directly from SetPreferredLanguages() and once from TuneHelper()
 	 */
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_)).Times(2);
-	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_)).Times(1);
+	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_,_)).Times(1);
 	/* TSB Session Manager should be recreated and the TSB store flushed. */
 	EXPECT_CALL(*g_mockTSBSessionManager, Init()).Times(1);
 	EXPECT_CALL(*g_mockTSBStore, Flush()).Times(1);
@@ -846,8 +850,9 @@ TEST_F(PrivAampPrivTests,SendTuneMetricsEventTest2)
 }
 
 /**
- * Verify that AAMP_EVENT_TUNE_TIME_METRICS is dispatched by MonitorProgress
- * strictly after the state-changed-to-PLAYING event.
+ * Verify that MonitorProgress dispatches AAMP_EVENT_PROGRESS strictly after the
+ * state-changed-to-PLAYING event and AAMP_EVENT_TUNE_TIME_METRICS strictly after
+ * AAMP_EVENT_PROGRESS.
  */
 TEST_F(PrivAampPrivTests, MonitorProgressTuneMetricsAfterPlayingStateChange)
 {
@@ -855,6 +860,10 @@ TEST_F(PrivAampPrivTests, MonitorProgressTuneMetricsAfterPlayingStateChange)
 	testp_aamp->SetTuneTimeMetricData("{\"metric\":\"test\"}");
 	testp_aamp->mDownloadsEnabled = true;
 	testp_aamp->mSinkPaused = false;
+	// Must be non-negative, otherwise MonitorProgress() suppresses AAMP_EVENT_PROGRESS.
+	testp_aamp->trickStartUTCMS = 1;
+	// Position is unchanged from mReportProgressPosn (0) on the first tick; as on a real tune, mFirstProgress bypasses that de-dupe.
+	testp_aamp->SetFirstProgress(true);
 
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
 
@@ -862,22 +871,57 @@ TEST_F(PrivAampPrivTests, MonitorProgressTuneMetricsAfterPlayingStateChange)
 	EXPECT_CALL(*g_mockAampEventManager, IsEventListenerAvailable(AAMP_EVENT_STATE_CHANGED))
 		.WillOnce(Return(true));
 
-	// Ordering assertion: STATE_CHANGED(PLAYING) must be observed before TUNE_TIME_METRICS.
-	// Any other SendEvent calls (e.g. AAMP_EVENT_PROGRESS) are absorbed by NiceMock.
+	// Ordering assertion: STATE_CHANGED(PLAYING) -> PROGRESS -> TUNE_TIME_METRICS.
+	// Any other SendEvent calls are absorbed by NiceMock.
 	{
 		testing::InSequence seq;
 		EXPECT_CALL(*g_mockAampEventManager,
 			SendEvent(AnEventOfType(AAMP_EVENT_STATE_CHANGED), AAMP_EVENT_SYNC_MODE)).Times(1);
+		EXPECT_CALL(*g_mockAampEventManager,
+			SendEvent(AnEventOfType(AAMP_EVENT_PROGRESS), _)).Times(1);
 		EXPECT_CALL(*g_mockAampEventManager,
 			SendEvent(AnEventOfType(AAMP_EVENT_TUNE_TIME_METRICS), AAMP_EVENT_ASYNC_MODE)).Times(1);
 	}
 
 	// Step 1: transition to PLAYING — fires AAMP_EVENT_STATE_CHANGED synchronously.
 	testp_aamp->SetState(eSTATE_PLAYING, true);
-	// Step 2: first progress tick — fires AAMP_EVENT_TUNE_TIME_METRICS via SendTuneMetricsEvent.
+	// Step 2: first progress tick — fires AAMP_EVENT_PROGRESS, then AAMP_EVENT_TUNE_TIME_METRICS.
 	testp_aamp->MonitorProgress(true, false);
 
 	// Data is consumed exactly once; subsequent MonitorProgress ticks are no-ops.
+	EXPECT_FALSE(testp_aamp->GetTuneMetricDataPending());
+}
+
+/**
+ * Verify tune metrics stay pending when MonitorProgress cannot emit progress.
+ */
+TEST_F(PrivAampPrivTests, MonitorProgressDefersTuneMetricsUntilProgressEvent)
+{
+	testp_aamp->SetTuneTimeMetricData("{\"metric\":\"test\"}");
+	testp_aamp->SetState(eSTATE_PLAYING, true);
+	testp_aamp->mDownloadsEnabled = true;
+	testp_aamp->SetFirstProgress(true);
+	// Negative trickStartUTCMS suppresses AAMP_EVENT_PROGRESS for this tick.
+	testp_aamp->trickStartUTCMS = -1;
+
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampEventManager,
+		SendEvent(AnEventOfType(AAMP_EVENT_TUNE_TIME_METRICS), AAMP_EVENT_ASYNC_MODE)).Times(0);
+
+	testp_aamp->MonitorProgress(true, false);
+	EXPECT_TRUE(testp_aamp->GetTuneMetricDataPending());
+
+	testing::Mock::VerifyAndClearExpectations(g_mockAampEventManager.get());
+	testp_aamp->trickStartUTCMS = 1;
+	{
+		testing::InSequence seq;
+		EXPECT_CALL(*g_mockAampEventManager,
+			SendEvent(AnEventOfType(AAMP_EVENT_PROGRESS), _)).Times(1);
+		EXPECT_CALL(*g_mockAampEventManager,
+			SendEvent(AnEventOfType(AAMP_EVENT_TUNE_TIME_METRICS), AAMP_EVENT_ASYNC_MODE)).Times(1);
+	}
+	testp_aamp->MonitorProgress(true, false);
+
 	EXPECT_FALSE(testp_aamp->GetTuneMetricDataPending());
 }
 
@@ -4465,6 +4509,35 @@ TEST_F(PrivAampTests,StopTrackInjectionTest)
 	p_aamp->StopTrackInjection(eMEDIATYPE_AUDIO);
 }
 
+TEST_F(PrivAampTests,StopTrackInjectionTest_DiscardFalse_DoesNotUnblockInjector)
+{
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer.get()));
+	EXPECT_CALL(*g_mockAampGstPlayer, UnblockTrackInjection(_)).Times(0);
+	p_aamp->StopTrackInjection(eMEDIATYPE_VIDEO);
+}
+
+TEST_F(PrivAampTests,StopTrackInjectionTest_DiscardTrue_UnblocksInjectorEachCall)
+{
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer.get()));
+	// UnblockTrackInjection() is idempotent, so a repeated discard call must still unblock,
+	// regardless of whether the track was already marked blocked.
+	EXPECT_CALL(*g_mockAampGstPlayer, UnblockTrackInjection(eMEDIATYPE_VIDEO)).Times(2);
+	p_aamp->StopTrackInjection(eMEDIATYPE_VIDEO, true);
+	p_aamp->StopTrackInjection(eMEDIATYPE_VIDEO, true);
+}
+
+// Regression test: e.g. StreamAbstractionAAMP_MPD::RefreshTrack() blocks a track with
+// discard=false (no unblock) during a seamless track switch; if Stop()/StopInjection()
+// later calls StopTrackInjection(type, true) for that still-blocked track, the sink
+// must still be unblocked so StopInjectLoop()'s thread join cannot hang.
+TEST_F(PrivAampTests,StopTrackInjectionTest_DiscardTrueAfterNonDiscard_StillUnblocksInjector)
+{
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer.get()));
+	EXPECT_CALL(*g_mockAampGstPlayer, UnblockTrackInjection(eMEDIATYPE_VIDEO)).Times(1);
+	p_aamp->StopTrackInjection(eMEDIATYPE_VIDEO, false);
+	p_aamp->StopTrackInjection(eMEDIATYPE_VIDEO, true);
+}
+
 TEST_F(PrivAampTests,ResumeTrackInjectionTest)
 {
 	p_aamp->ResumeTrackInjection(eMEDIATYPE_VIDEO);
@@ -5849,6 +5922,39 @@ TEST_F(PrivAampTests, Stop_StateTransition_WithoutStateChangeEvent)
 	EXPECT_EQ(finalState, eSTATE_IDLE);
 }
 
+/**
+ * @test Stop_MPDDownloaderReleasedBeforeStreamAbstractionStop
+ * @brief Regression test (crash fix): AampMPDDownloader::Release()
+ *        must be called before StreamAbstractionAAMP::Stop() (triggered by
+ *        TeardownStream) during PrivateInstanceAAMP::Stop().
+ *
+ *        The original bug called Release() after TeardownStream(), allowing the
+ *        downloader thread to access the already-deleted StreamAbstraction object,
+ *        causing a use-after-free crash. This test will fail if that ordering is
+ *        ever regressed.
+ */
+TEST_F(PrivAampTests, Stop_MPDDownloaderReleasedBeforeStreamAbstractionStop)
+{
+	// Create a heap-allocated stream abstraction mock; TeardownStream owns and deletes it
+	// via SAFE_DELETE(mpStreamAbstractionAAMP). Using a raw pointer here is intentional —
+	// wrapping it in a shared_ptr would cause a double-free.
+	auto* streamMock = new NiceMock<MockStreamAbstractionAAMP>(p_aamp);
+	p_aamp->mpStreamAbstractionAAMP = streamMock;
+
+	// Enforce call ordering: Release() must fire before StreamAbstractionAAMP::Stop().
+	// InSequence causes an immediate test failure if Stop() is called first.
+	{
+		testing::InSequence releaseBeforeStop;
+		EXPECT_CALL(*g_mockAampMPDDownloader, Release()).Times(1);
+		EXPECT_CALL(*streamMock, Stop(_)).Times(1);
+	}
+
+	p_aamp->Stop(false);
+
+	// TeardownStream nulled mpStreamAbstractionAAMP via SAFE_DELETE; confirm it is null.
+	EXPECT_EQ(p_aamp->mpStreamAbstractionAAMP, nullptr);
+}
+
 TEST_F(PrivAampTests,GetLastDownloadedManifestTest1)
 {
 	std::string manifest;
@@ -5877,7 +5983,9 @@ TEST_F(PrivAampPrivTests,ReconfigureForElementaryStreamUpdateTest1)
 
 TEST_F(PrivAampTests,isDecryptClearSamplesRequired)
 {
+	// IsUsingRialto() short-circuits: useDirectRialto is only checked when useRialtoSink is false.
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_useRialtoSink)).WillOnce(Return(false));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_useDirectRialto)).WillOnce(Return(false));
 	EXPECT_TRUE(p_aamp->isDecryptClearSamplesRequired());
 
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_useRialtoSink)).WillOnce(Return(true));
@@ -6141,21 +6249,21 @@ TEST_F(PrivAampPrivTests, TuneHelperWithAampTsbConfigureFlushSequence)
 	//Verify the sequence for SeekToLive
 	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer.get()));
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, DoEarlyStreamSinkFlush(false, AAMP_NORMAL_PLAY_RATE)).WillRepeatedly(Return(true));
-	EXPECT_CALL(*g_mockAampGstPlayer, Configure(_,_,_,_,_)).InSequence(s);
-	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_)).InSequence(s);
+	EXPECT_CALL(*g_mockAampGstPlayer, Configure(_,_,_)).InSequence(s);
+	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_,_)).InSequence(s);
 	testp_aamp->TuneHelper(eTUNETYPE_SEEKTOLIVE);
 
 	//Verify the sequence for newTune
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, DoEarlyStreamSinkFlush(true, AAMP_NORMAL_PLAY_RATE)).WillRepeatedly(Return(true));
-	EXPECT_CALL(*g_mockAampGstPlayer, Configure(_,_,_,_,_)).InSequence(s);
-	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_)).InSequence(s);
+	EXPECT_CALL(*g_mockAampGstPlayer, Configure(_,_,_)).InSequence(s);
+	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_,_)).InSequence(s);
 	testp_aamp->TuneHelper(eTUNETYPE_NEW_NORMAL);
 
 	//Verify the sequence for eTUNETYPE_SEEK
 	testp_aamp->SetLocalAAMPTsb(true);
-	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_)).InSequence(s);
-	EXPECT_CALL(*g_mockAampGstPlayer, Configure(_,_,_,_,_)).InSequence(s);
-	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_)).InSequence(s);
+	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_,_)).InSequence(s);
+	EXPECT_CALL(*g_mockAampGstPlayer, Configure(_,_,_)).InSequence(s);
+	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_,_)).InSequence(s);
 	testp_aamp->TuneHelper(eTUNETYPE_SEEK);
 }
 
@@ -6275,6 +6383,116 @@ TEST_F(PrivAampTests,GetFormatPositionOffsetTest)
 		.WillRepeatedly(Return(eABSOLUTE_PROGRESS_WITHOUT_AVAILABILITY_START));
 	offset = p_aamp->GetFormatPositionOffsetInMSecs();
 	EXPECT_EQ(offset, 1.2 * 1000); // Expect offset to be 0 since IsLiveStream() is false
+}
+
+/**
+ * @test PrivAampTests::SetStreamCapsForcesEncryptedWithInjectedHeaders
+ * @brief when MP4 demux is enabled and encrypted headers
+ *        were already cached for the specific media type, clear codec caps are forced to encrypted to avoid
+ *        encrypted->clear pipeline reconfiguration.
+ */
+TEST_F(PrivAampTests, SetStreamCapsForcesEncryptedWithInjectedHeaders)
+{
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseMp4Demux))
+		.WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, IsEncryptedHeadersCached(eMEDIATYPE_VIDEO))
+		.WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_))
+		.WillRepeatedly(Return(g_mockAampGstPlayer.get()));
+
+	MediaCodecInfo codecInfo(GST_FORMAT_VIDEO_ES_H264);
+	codecInfo.mIsEncrypted = false;
+
+	p_aamp->SetStreamCaps(eMEDIATYPE_VIDEO, std::move(codecInfo));
+
+	MediaCodecInfo updated = p_aamp->GetMediaCodecInfo(eMEDIATYPE_VIDEO);
+	EXPECT_TRUE(updated.mIsEncrypted);
+}
+
+/**
+ * @test PrivAampTests::SetStreamCapsKeepsClearWhenHeadersNotInjected
+ * @brief Verify that clear codec caps remain clear when the cached-header guard is false for the specific media type.
+ */
+TEST_F(PrivAampTests, SetStreamCapsKeepsClearWhenHeadersNotInjected)
+{
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseMp4Demux))
+		.WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, IsEncryptedHeadersCached(eMEDIATYPE_VIDEO))
+		.WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_))
+		.WillRepeatedly(Return(g_mockAampGstPlayer.get()));
+
+	MediaCodecInfo codecInfo(GST_FORMAT_VIDEO_ES_H264);
+	codecInfo.mIsEncrypted = false;
+
+	p_aamp->SetStreamCaps(eMEDIATYPE_VIDEO, std::move(codecInfo));
+
+	MediaCodecInfo updated = p_aamp->GetMediaCodecInfo(eMEDIATYPE_VIDEO);
+	EXPECT_FALSE(updated.mIsEncrypted);
+}
+
+/**
+ * @test PrivAampTests::SetStreamCapsPerTrackEncryptedVideoClearAudio
+ * @brief Verify that when only video has encrypted headers cached, video is forced encrypted but audio remains clear.
+ */
+TEST_F(PrivAampTests, SetStreamCapsPerTrackEncryptedVideoClearAudio)
+{
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseMp4Demux))
+		.WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_))
+		.WillRepeatedly(Return(g_mockAampGstPlayer.get()));
+
+	// Video has encrypted headers, audio does not
+	EXPECT_CALL(*g_mockAampStreamSinkManager, IsEncryptedHeadersCached(eMEDIATYPE_VIDEO))
+		.WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, IsEncryptedHeadersCached(eMEDIATYPE_AUDIO))
+		.WillRepeatedly(Return(false));
+
+	// Test video - should be forced encrypted
+	MediaCodecInfo videoCodecInfo(GST_FORMAT_VIDEO_ES_H264);
+	videoCodecInfo.mIsEncrypted = false;
+	p_aamp->SetStreamCaps(eMEDIATYPE_VIDEO, std::move(videoCodecInfo));
+	MediaCodecInfo updatedVideo = p_aamp->GetMediaCodecInfo(eMEDIATYPE_VIDEO);
+	EXPECT_TRUE(updatedVideo.mIsEncrypted);
+
+	// Test audio - should remain clear
+	MediaCodecInfo audioCodecInfo(GST_FORMAT_AUDIO_ES_AAC);
+	audioCodecInfo.mIsEncrypted = false;
+	p_aamp->SetStreamCaps(eMEDIATYPE_AUDIO, std::move(audioCodecInfo));
+	MediaCodecInfo updatedAudio = p_aamp->GetMediaCodecInfo(eMEDIATYPE_AUDIO);
+	EXPECT_FALSE(updatedAudio.mIsEncrypted);
+}
+
+/**
+ * @test PrivAampTests::SetStreamCapsPerTrackEncryptedAudioClearVideo
+ * @brief Verify that when only audio has encrypted headers cached, audio is forced encrypted but video remains clear.
+ */
+TEST_F(PrivAampTests, SetStreamCapsPerTrackEncryptedAudioClearVideo)
+{
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseMp4Demux))
+		.WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_))
+		.WillRepeatedly(Return(g_mockAampGstPlayer.get()));
+
+	// Audio has encrypted headers, video does not
+	EXPECT_CALL(*g_mockAampStreamSinkManager, IsEncryptedHeadersCached(eMEDIATYPE_VIDEO))
+		.WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, IsEncryptedHeadersCached(eMEDIATYPE_AUDIO))
+		.WillRepeatedly(Return(true));
+
+	// Test video - should remain clear
+	MediaCodecInfo videoCodecInfo(GST_FORMAT_VIDEO_ES_H264);
+	videoCodecInfo.mIsEncrypted = false;
+	p_aamp->SetStreamCaps(eMEDIATYPE_VIDEO, std::move(videoCodecInfo));
+	MediaCodecInfo updatedVideo = p_aamp->GetMediaCodecInfo(eMEDIATYPE_VIDEO);
+	EXPECT_FALSE(updatedVideo.mIsEncrypted);
+
+	// Test audio - should be forced encrypted
+	MediaCodecInfo audioCodecInfo(GST_FORMAT_AUDIO_ES_AAC);
+	audioCodecInfo.mIsEncrypted = false;
+	p_aamp->SetStreamCaps(eMEDIATYPE_AUDIO, std::move(audioCodecInfo));
+	MediaCodecInfo updatedAudio = p_aamp->GetMediaCodecInfo(eMEDIATYPE_AUDIO);
+	EXPECT_TRUE(updatedAudio.mIsEncrypted);
 }
 
 TEST_F(PrivAampTests,VerifyPausedBehavior)
@@ -6811,6 +7029,11 @@ TEST_P(GetStreamFormatTests, GetStreamFormatParameterizedTest)
 		));
 
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_useRialtoSink)).WillOnce(Return(params.useRialtoSink));
+	if (!params.useRialtoSink)
+	{
+		// IsUsingRialto() short-circuits: useDirectRialto is only checked when useRialtoSink is false.
+		EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_useDirectRialto)).WillOnce(Return(false));
+	}
 
 	testp_aamp->CallGetStreamFormat(primaryOutputFormat, audioOutputFormat, subtitleOutputFormat);
 
@@ -6985,4 +7208,3 @@ TEST_F(PrivAampPrivTests, StartLatencyMonitor_LiveLatencyCorrectionDisabled_Does
 	testp_aamp->CallStartLatencyMonitor();
 	testp_aamp->mpStreamAbstractionAAMP = nullptr;
 }
-

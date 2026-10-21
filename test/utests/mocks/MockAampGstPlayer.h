@@ -40,7 +40,9 @@ public:
 
     MOCK_METHOD(void, ChangeAamp, (PrivateInstanceAAMP *, id3_callback_t), (override));
 
-    MOCK_METHOD(void, Flush, (double position, int rate, bool shouldTearDown), (override));
+    MOCK_METHOD(void, Flush, (double position, int rate, bool shouldTearDown, bool positionIsAuthoritative), (override));
+
+    MOCK_METHOD(void, UnblockTrackInjection, (AampMediaType type), (override));
 
     MOCK_METHOD(void, SetEncryptedAamp, (PrivateInstanceAAMP *), (override));
 
@@ -54,7 +56,7 @@ public:
 
     MOCK_METHOD(void, SeekStreamSink, (double , double ), (override));
 
-    MOCK_METHOD(void, Configure, (StreamOutputFormat format, StreamOutputFormat audioFormat, StreamOutputFormat subFormat, bool bESChangeStatus, bool setReadyAfterPipelineCreation), (override));
+    MOCK_METHOD(void, Configure, (StreamCodecInfo&& codecInfo, bool bESChangeStatus, bool setReadyAfterPipelineCreation), (override));
 };
 
 extern std::shared_ptr<MockAAMPGstPlayer> g_mockAampGstPlayer;

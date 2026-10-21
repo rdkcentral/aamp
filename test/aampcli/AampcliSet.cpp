@@ -1064,13 +1064,10 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 
 				case 46:
 					{
-						LangCodePreference preference;
 						int preferenceInt = 0;
 						int bDescriptiveAudioTrack = 0;
 						if (sscanf(cmd, "set %s %d %d", command, &preferenceInt, &bDescriptiveAudioTrack  ) >= 2)
 						{
-							preference = (LangCodePreference) preferenceInt;
-							//Deprecated: playerInstanceAamp->SetLanguageFormat(preference, bDescriptiveAudioTrack!=0 );
 							ApplyConfig(playerInstanceAamp, "langCodePreference", preferenceInt);
 						}
 						else

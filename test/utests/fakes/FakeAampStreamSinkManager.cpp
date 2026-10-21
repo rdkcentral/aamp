@@ -50,14 +50,44 @@ void AampStreamSinkManager::DeleteStreamSink(PrivateInstanceAAMP *aamp)
 
 void AampStreamSinkManager::SetEncryptedHeaders(PrivateInstanceAAMP *aamp, std::map<int, std::string>& mappedHeaders)
 {
+    if (g_mockAampStreamSinkManager)
+    {
+        g_mockAampStreamSinkManager->SetEncryptedHeaders(aamp, mappedHeaders);
+    }
 }
 
 void AampStreamSinkManager::GetEncryptedHeaders(std::map<int, std::string>& mappedHeaders)
 {
+    if (g_mockAampStreamSinkManager)
+    {
+        g_mockAampStreamSinkManager->GetEncryptedHeaders(mappedHeaders);
+    }
+}
+
+bool AampStreamSinkManager::IsEncryptedHeadersCached()
+{
+    if (g_mockAampStreamSinkManager)
+    {
+        return g_mockAampStreamSinkManager->IsEncryptedHeadersCached();
+    }
+    return false;
+}
+
+bool AampStreamSinkManager::IsEncryptedHeadersCached(int mediaType)
+{
+    if (g_mockAampStreamSinkManager)
+    {
+        return g_mockAampStreamSinkManager->IsEncryptedHeadersCached(mediaType);
+    }
+    return false;
 }
 
 void AampStreamSinkManager::ReinjectEncryptedHeaders()
 {
+    if (g_mockAampStreamSinkManager)
+    {
+        g_mockAampStreamSinkManager->ReinjectEncryptedHeaders();
+    }
 }
 
 void AampStreamSinkManager::DeactivatePlayer(PrivateInstanceAAMP *aamp, bool stop)
@@ -103,27 +133,27 @@ void AampStreamSinkManager::UpdateTuningPlayer(PrivateInstanceAAMP *aamp)
 {
 }
 
-void AampStreamSinkManager::AddMediaHeader(unsigned track, std::shared_ptr<AampStreamSinkManager::MediaHeader> header)
+void AampStreamSinkManager::AddMediaHeader(PrivateInstanceAAMP *aamp, unsigned track, std::shared_ptr<AampStreamSinkManager::MediaHeader> header)
 {
     if (g_mockAampStreamSinkManager)
     {
-	g_mockAampStreamSinkManager->AddMediaHeader(track, header);
+	g_mockAampStreamSinkManager->AddMediaHeader(aamp, track, header);
     }
 }
 
-void AampStreamSinkManager::RemoveMediaHeader(unsigned track)
+void AampStreamSinkManager::RemoveMediaHeader(PrivateInstanceAAMP *aamp, unsigned track)
 {
     if (g_mockAampStreamSinkManager)
     {
-	g_mockAampStreamSinkManager->RemoveMediaHeader(track);
+	g_mockAampStreamSinkManager->RemoveMediaHeader(aamp, track);
     }
 }
 
-std::shared_ptr<AampStreamSinkManager::MediaHeader> AampStreamSinkManager::GetMediaHeader(unsigned track)
+std::shared_ptr<AampStreamSinkManager::MediaHeader> AampStreamSinkManager::GetMediaHeader(PrivateInstanceAAMP *aamp, unsigned track)
 {
     if (g_mockAampStreamSinkManager)
     {
-	return g_mockAampStreamSinkManager->GetMediaHeader(track);
+	return g_mockAampStreamSinkManager->GetMediaHeader(aamp, track);
     }
 	return {};
 }

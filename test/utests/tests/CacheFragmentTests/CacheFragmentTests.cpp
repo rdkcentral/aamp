@@ -157,6 +157,7 @@ class MediaStreamContextTest : public ::testing::TestWithParam<TestParams>
 			{eAAMPConfig_EnableIFrameTrackExtract, false},
 			{eAAMPConfig_SynthesizeIframeForVOD, false},
 			{eAAMPConfig_useRialtoSink, false},
+			{eAAMPConfig_useDirectRialto, false},
 			{eAAMPConfig_UseMp4Demux, false},
 			{eAAMPConfig_EnableABR, true},
 		};

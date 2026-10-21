@@ -106,13 +106,11 @@ public:
 	InterfacePlayerRDK* playerInterface;
 	/**
 		 * @fn Configure
-		 * @param[in] format video format
-		 * @param[in] audioFormat audio format
-		 * @param[in] subFormat subtitle format
+		 * @param[in] codecInfo Stream codec information
 		 * @param[in] bESChangeStatus flag to indicate if the audio type changed in mid stream
 		 * @param[in] setReadyAfterPipelineCreation True/False for pipeline is created
 		 */
-	void Configure(StreamOutputFormat format, StreamOutputFormat audioFormat, StreamOutputFormat subFormat, bool bESChangeStatus, bool setReadyAfterPipelineCreation=false) override;
+	void Configure(StreamCodecInfo&& codecInfo, bool bESChangeStatus, bool setReadyAfterPipelineCreation=false) override;
 	/**
 		 * @fn SendCopy
 		 * @param[in] mediaType stream type
@@ -140,7 +138,8 @@ public:
 	 * @param[in] mediaType stream type
 	 * @param[in] sample media sample
 	 */
-	bool SendSample(AampMediaType mediaType, AampMediaSample&& sample, bool morePending = false) override;
+	bool SendSample(AampMediaType mediaType, AampMediaSample&& sample, bool morePending = false) override;
+
 
 	/**
 		 * @fn PipelineConfiguredForMedia
@@ -167,8 +166,9 @@ public:
 		 * @param[in] position playback seek position
 		 * @param[in] rate playback rate
 		 * @param[in] shouldTearDown flag indicates if pipeline should be destroyed if in invalid state
+		 * @param[in] positionIsAuthoritative true when position is the definitive resume position
 		 */
-	void Flush(double position, int rate, bool shouldTearDown) override;
+	void Flush(double position, int rate, bool shouldTearDown, bool positionIsAuthoritative = false) override;
 	/**
 		 * @fn Pause
 		 * @param[in] pause flag to pause/play the pipeline

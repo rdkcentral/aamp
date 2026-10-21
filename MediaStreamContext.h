@@ -63,6 +63,7 @@ public:
 			representationIndex(0),
 			profileChanged(true),
 			adaptationSetId(0),
+			adaptationSetIdValid(false),
 			fragmentDescriptor(),
 			context(ctx),
 			initialization(""),
@@ -231,6 +232,13 @@ public:
 	double GetLastDownloadedPosition() override { return lastDownloadedPosition.load(); }
 
 	/**
+	 * @brief Manifest-declared timescale for this representation (DASH
+	 *        SegmentTemplate\@timescale), populated during manifest parsing.
+	 * @return manifest timescale; defaults to 1 when no timescale is declared
+	 */
+	uint32_t GetManifestTimeScale() const override { return fragmentDescriptor.TimeScale; }
+
+	/**
 	 * @fn SignalTrickModeDiscontinuity
 	 * @return void
 	 */
@@ -361,6 +369,7 @@ public:
 	StreamAbstractionAAMP_MPD* context;
 	std::string initialization;
 	uint32_t adaptationSetId;
+	bool adaptationSetIdValid;      /**< true once adaptationSetId reflects a resolved selection; guards reorder detection on first use */
 	bool mSkipSegmentOnError;
 	double scaledPTO;
 	bool failAdjacentSegment;

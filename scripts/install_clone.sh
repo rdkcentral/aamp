@@ -23,7 +23,7 @@
 function do_clone_fn()
 {
     local -a ARGLIST=()
-    while [ "$1" ]; do
+    while [ "${1:-}" ]; do
         ARGLIST+=("$1")
         shift
     done

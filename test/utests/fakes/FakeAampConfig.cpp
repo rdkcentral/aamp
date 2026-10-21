@@ -84,6 +84,11 @@ bool AampConfig::IsConfigSet(AAMPConfigSettingBool cfg) const
     }
 }
 
+bool AampConfig::IsUsingRialto() const
+{
+    return IsConfigSet(eAAMPConfig_useRialtoSink) || IsConfigSet(eAAMPConfig_useDirectRialto);
+}
+
 bool AampConfig::GetConfigValue(AAMPConfigSettingBool cfg) const
 {
     if (g_mockAampConfig != nullptr)

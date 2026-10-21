@@ -105,7 +105,7 @@ typedef enum
 	eAAMPConfig_MPDDiscontinuityHandling,					/**< Enable MPD discontinuity handling*/
 	eAAMPConfig_MPDDiscontinuityHandlingCdvr,				/**< Enable MPD discontinuity handling for CDVR*/
 	eAAMPConfig_ForceHttp,							/**< Force HTTP*/
-	eAAMPConfig_InternalReTune, 						/**< Internal re-tune on underflows/ pts errors*/
+	eAAMPConfig_InternalReTune, 						/**< Internal re-tune on pts errors and pipeline errors*/
 	eAAMPConfig_AudioOnlyPlayback,						/**< AAMP Audio Only Playback*/
 	eAAMPConfig_Base64LicenseWrapping,					/**< Encode and decode the license data in base64 format*/
 	eAAMPConfig_GStreamerBufferingBeforePlay,				/**< Enable pre buffering logic which ensures minimum buffering is done before pipeline play*/
@@ -215,7 +215,7 @@ typedef enum
 	eAAMPConfig_EarlyID3Processing,					/**< To enable/disable early ID3 processing */
 	eAAMPConfig_SeamlessAudioSwitch,					/**< To enable audio Restart - Currently supported for HLS_MP4 on same codec streams*/
 	eAAMPConfig_useRialtoSink,                      /**< Enable/Disable player to use Rialto sink based video and audio pipeline */
-	eAAMPConfig_useDirectRialto,                    /**< Enable/Disable direct AampRialtoPlayer usage instead of AAMPGstPlayer */
+	eAAMPConfig_useDirectRialto,                    /**< Enable/Disable direct AampRialtoPlayer usage instead of AAMPGstPlayer. Only takes effect via device config/env/operator settings read before player creation; cannot be changed dynamically via InitAAMPConfig. Forces eAAMPConfig_UseMp4Demux on */
 	eAAMPConfig_LocalTSBEnabled,                                            /**< To enable/disable Local TSB in LLD */
 	eAAMPConfig_EnableIFrameTrackExtract,			/**< Config to enable and disable iFrame extraction from video track*/
 	eAAMPConfig_ForceMultiPeriodDiscontinuity,		/**< Config to forcefully process multiperiod discontinuity even if they are continuous in PTS */
@@ -223,7 +223,7 @@ typedef enum
 	eAAMPConfig_MonitorAV,						/**< enable background monitoring of audio/video positions to infer video freeze, audio drop, or av sync issues */
 	eAAMPConfig_HlsTsEnablePTSReStamp,
 	eAAMPConfig_OverrideMediaHeaderDuration, /**< enable overriding media header duration for live streams to 0 */
-	eAAMPConfig_UseMp4Demux,
+	eAAMPConfig_UseMp4Demux,                        /**< Demux fMP4 fragments internally; required (and auto-enabled) when eAAMPConfig_useDirectRialto is set */
 	eAAMPConfig_CurlThroughput,
 	eAAMPConfig_UseFireboltSDK,						/**< Config to use Firebolt SDK for license Acquisition */
 	eAAMPConfig_EnableChunkInjection,					/**< Config to enable chunk injection for low latency DASH */
@@ -232,7 +232,6 @@ typedef enum
 	eAAMPConfig_DisableWebVTT,					/**< Config to disable/exclude WebVTT tracks (default: WebVTT enabled) */
 	eAAMPConfig_EnableHTTP3,					/**< Enable HTTP/3 (QUIC) for content-origin downloads (fragments, manifests, init segments) */
 	eAAMPConfig_EnablePTSReStampLogging,		/**< Config to enable logging for PTS restamping in Mp4Demuxer */
-	eAAMPConfig_NetTraceCsvDump,			/**< Write AAMP_NET_TRACE CSV files when true (default path: /tmp; may be overridden via AAMP_REQ_CSV/AAMP_BUR_CSV; output includes a PID suffix; default: false) */
 	eAAMPConfig_LogFilename,				/**< Config to include source filename in log output */
 	eAAMPConfig_ProcessLicenseFromEAP,			/**< Config to enable non-VSS early available period DRM prefetch */
 	eAAMPConfig_EnableProducerReferenceDelay,		/**< Add PRT-derived encoder delay (from CalculateProducerReferenceTimeOffset) to DASH live latency calculation; default false */
@@ -242,6 +241,8 @@ typedef enum
 	                                                         been received (using GetIframeByteCap() to derive the byte cap), then
 	                                                         IsoBmffHelper::ConvertToKeyFrame() fixes the MOOF metadata. Has no effect
 	                                                         outside VOD (live and local-TSB streams are not eligible). Default: false. */
+	eAAMPConfig_EnableEventProfiling,			/**< Enable event round-trip time profiling (async queue dwell + sync delivery). Default: false */
+	eAAMPConfig_EnableNetworkPersonaLogging,	/**< Collect network metrics and log the JSON persona on Stop. Default: false */
 	eAAMPConfig_BoolMaxValue				/**< Max value of bool config always last element */	
 
 } AAMPConfigSettingBool;
@@ -341,6 +342,7 @@ typedef enum
 	eAAMPConfig_UnderflowLowBufferPollMs,			/**< Underflow monitor polling interval for low buffer condition in milliseconds */
 	eAAMPConfig_UnderflowMediumBufferPollMs,		/**< Underflow monitor polling interval for medium buffer condition in milliseconds */
 	eAAMPConfig_UnderflowHighBufferPollMs,			/**< Underflow monitor polling interval for high buffer condition in milliseconds */
+	eAAMPConfig_EventProfilingThresholdMs,			/**< Round-trip threshold (ms): log only when async (dwell+delivery) or sync delivery time exceeds this value */
 	eAAMPConfig_IntMaxValue							/**< Max value of int config always last element*/
 } AAMPConfigSettingInt;
 #define AAMPCONFIG_INT_COUNT (eAAMPConfig_IntMaxValue)
@@ -371,7 +373,8 @@ typedef enum
 	eAAMPConfig_RebufferLatencyStepSec,				/**< Step value for latency increase when rebuffering occurs */
 	eAAMPConfig_RebufferLatencyMaxIncrementSec,		/**< Max latency increment allowed due to rebuffering */
 	eAAMPConfig_LatencyStableDurationSec,				/**< Duration (s) of consecutive healthy buffer required before one latency-threshold restoration step (default: DEFAULT_LATENCY_STABLE_DURATION_SEC) */
-	eAAMPConfig_LatencyDangerBufferSec,				/**< Buffer level (s) below which latency thresholds are increased; buffer must stay above this for latencyStableDurationSec before thresholds are restored (default: DEFAULT_LATENCY_DANGER_BUFFER_SEC) */
+	eAAMPConfig_LatencyDangerBufferSec,				/**< Buffer level (s) below which latency thresholds are increased (default: DEFAULT_LATENCY_DANGER_BUFFER_SEC) */
+	eAAMPConfig_LatencyRestorationBufferSec,		/**< Buffer level (s) required during the full stable window before one latency-threshold restoration step is applied (default: DEFAULT_LATENCY_RESTORATION_BUFFER_SEC) */
 	eAAMPConfig_LLMinLatency,						/**< Low Latency Min Latency Offset */
 	eAAMPConfig_LLTargetLatency,					/**< Low Latency Target Latency */
 	eAAMPConfig_LLMaxLatency,						/**< Low Latency Max Latency */
@@ -740,6 +743,15 @@ public:
 	bool CustomSearch( std::string url, int playerId , std::string appname);
 
 	std::string GetUserAgentString() const;
+
+	/**
+	 * @fn IsUsingRialto
+	 * @brief True if playback is going through Rialto, via either the Rialto
+	 *        GStreamer sink (eAAMPConfig_useRialtoSink) or direct Rialto
+	 *        (eAAMPConfig_useDirectRialto). Does not imply which of the two.
+	 * @return true if either Rialto config is enabled
+	 */
+	bool IsUsingRialto() const;
 private:
 
 	/**

@@ -209,7 +209,7 @@ TEST_P(SetPreferredTextLanguagesIso639Tests, LanguageListTestIso639)
 	// No retune
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.Times(0);
-	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_))
+	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_,_))
 		.Times(0);
 
 	mPrivateInstanceAAMP->SetPreferredTextLanguages(testLanguageList);
@@ -362,7 +362,7 @@ TEST_F(SetPreferredTextLanguagesTests, LanguageListTest5)
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, StopUnderflowMonitor());
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredTextLanguagesTests::Stop));
-	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_))
+	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_,_))
 		.Times(AtLeast(1));
 
 	mPrivateInstanceAAMP->SetPreferredTextLanguages("{\"languages\":[\"lang0\",\"lang1\"]}");
@@ -472,7 +472,7 @@ TEST_F(SetPreferredTextLanguagesTests, RenditionTest1)
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, StopUnderflowMonitor());
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredTextLanguagesTests::Stop));
-	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_))
+	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_,_))
 		.Times(1);
 	mPrivateInstanceAAMP->SetPreferredTextLanguages("{\"rendition\":\"rend0\"}");
 
@@ -974,7 +974,7 @@ TEST_F(SetPreferredTextLanguagesTests, CrashWhenTeardownRacesWithSetPreferredTex
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredTextLanguagesTests::Stop));
 
-	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_, _, _))
+	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_, _, _, _))
 		.Times(::testing::AnyNumber());
 
 	/* Thread B: waits for Thread A to be inside GetAvailableTextTracks, then
@@ -1035,7 +1035,7 @@ TEST_F(SetPreferredTextLanguagesTests, CrashWhenPopulateTracksRacesWithSetPrefer
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, StopUnderflowMonitor());
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredTextLanguagesTests::Stop));
-	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_, _, _))
+	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_, _, _, _))
 		.Times(::testing::AnyNumber());
 
 

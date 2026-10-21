@@ -80,6 +80,18 @@ TEST_F(AampConfigTests, configStringToBool)
 	EXPECT_FALSE(ConfigLookup::ConfigStringValueToBool(nullptr));
 }
 
+TEST_F(AampConfigTests, NetworkPersonaLoggingDefaultsOffAndCanBeEnabled)
+{
+	EXPECT_FALSE(mAampConfig->GetConfigValue(eAAMPConfig_EnableNetworkPersonaLogging));
+
+	ConfigLookup lookup;
+	std::string enabled("true");
+	lookup.Process(mAampConfig.get(), AAMP_DEFAULT_SETTING,
+		"enableNetworkPersonaLogging", enabled);
+
+	EXPECT_TRUE(mAampConfig->GetConfigValue(eAAMPConfig_EnableNetworkPersonaLogging));
+}
+
 TEST_F(AampConfigTests, Process)
 {
 	AampConfig aampConfig;
@@ -1089,6 +1101,84 @@ TEST_F(AampConfigTests, DoCustomSetting)
 	EXPECT_EQ(aampConfig.IsConfigSet(eAAMPConfig_DisableEC3), true) << "DoCustomSetting failed to make a change";
 	EXPECT_TRUE(aampConfig.SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_AuthToken, "test"));
 	aampConfig.DoCustomSetting(AAMP_DEFAULT_SETTING);
+}
+
+/*
+	useDirectRialto is consumed before the app can call InitAAMPConfig or
+	before tune-time overrides apply, so overriding it after the player
+	instance exists (stream/app/tune settings) has no effect; DoCustomSetting
+	should revert such an attempt.
+*/
+TEST_F(AampConfigTests, DoCustomSettingRevertsDynamicUseDirectRialto)
+{
+	AampConfig aampConfig;
+	aampConfig.Initialize();
+
+	EXPECT_EQ(aampConfig.GetConfigValue(eAAMPConfig_useDirectRialto), false);
+
+	//Simulate an app attempting to enable it dynamically via InitAAMPConfig
+	EXPECT_TRUE(aampConfig.SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_useDirectRialto, true));
+	EXPECT_EQ(aampConfig.GetConfigValue(eAAMPConfig_useDirectRialto), true);
+
+	aampConfig.DoCustomSetting(AAMP_APPLICATION_SETTING);
+
+	EXPECT_EQ(aampConfig.GetConfigValue(eAAMPConfig_useDirectRialto), false) << "DoCustomSetting failed to revert a dynamic override of useDirectRialto";
+}
+
+/*
+	A useDirectRialto value set at device-config time (before the player instance is
+	constructed) must be left untouched by DoCustomSetting.
+*/
+TEST_F(AampConfigTests, DoCustomSettingKeepsUseDirectRialtoSetAtDeviceConfigTime)
+{
+	AampConfig aampConfig;
+	aampConfig.Initialize();
+
+	EXPECT_TRUE(aampConfig.SetConfigValue(AAMP_DEV_CFG_SETTING, eAAMPConfig_useDirectRialto, true));
+	aampConfig.DoCustomSetting(AAMP_DEV_CFG_SETTING);
+
+	EXPECT_EQ(aampConfig.GetConfigValue(eAAMPConfig_useDirectRialto), true) << "DoCustomSetting incorrectly reverted a device-config-time setting";
+}
+
+/*
+	useDirectRialto requires useMp4Demux (the only combination tested); DoCustomSetting
+	should force useMp4Demux on if it wasn't already set.
+*/
+TEST_F(AampConfigTests, DoCustomSettingUseDirectRialtoForcesMp4Demux)
+{
+	AampConfig aampConfig;
+	aampConfig.Initialize();
+
+	EXPECT_TRUE(aampConfig.SetConfigValue(AAMP_DEV_CFG_SETTING, eAAMPConfig_useDirectRialto, true));
+	EXPECT_EQ(aampConfig.IsConfigSet(eAAMPConfig_UseMp4Demux), false);
+
+	aampConfig.DoCustomSetting(AAMP_DEV_CFG_SETTING);
+
+	EXPECT_EQ(aampConfig.IsConfigSet(eAAMPConfig_UseMp4Demux), true) << "useDirectRialto did not force useMp4Demux on";
+}
+
+/*
+	IsUsingRialto() must report true if either the sink-based or direct Rialto
+	config flag is set, and false only when both are unset.
+*/
+TEST_F(AampConfigTests, IsUsingRialto)
+{
+	AampConfig aampConfig;
+	aampConfig.Initialize();
+
+	EXPECT_EQ(aampConfig.IsConfigSet(eAAMPConfig_useRialtoSink), false);
+	EXPECT_EQ(aampConfig.IsConfigSet(eAAMPConfig_useDirectRialto), false);
+	EXPECT_EQ(aampConfig.IsUsingRialto(), false) << "IsUsingRialto should be false when both flags are unset";
+
+	EXPECT_TRUE(aampConfig.SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_useRialtoSink, true));
+	EXPECT_EQ(aampConfig.IsUsingRialto(), true) << "IsUsingRialto should be true when only useRialtoSink is set";
+	EXPECT_TRUE(aampConfig.SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_useRialtoSink, false));
+
+	EXPECT_TRUE(aampConfig.SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_useDirectRialto, true));
+	EXPECT_EQ(aampConfig.IsUsingRialto(), true) << "IsUsingRialto should be true when only useDirectRialto is set";
+
+	EXPECT_TRUE(aampConfig.SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_useRialtoSink, true));
+	EXPECT_EQ(aampConfig.IsUsingRialto(), true) << "IsUsingRialto should be true when both flags are set";
 }
 
 /*
