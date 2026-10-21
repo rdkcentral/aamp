@@ -573,6 +573,30 @@ private:
 	 */
 	void StopInternal(bool keepLastFrame, bool preservePendingPosition);
 
+	// -------------------------------------------------------------------
+	// Flush() steps (all run under m_flushCallMutex with the Flushing hold)
+	// -------------------------------------------------------------------
+
+	/// Not flushable and the caller asked for a teardown: Stop() to recover,
+	/// keeping the position just staged.
+	void FlushByTeardown(PlayerStateId preFlushState);
+
+	/// Not flushable, no teardown: commit the rate and release injectors
+	/// without starting a flush cycle.
+	void FlushWithoutCycle(firebolt::rialto::IMediaPipeline *pipeline,
+		PlayerStateId preFlushState, int rate);
+
+	/// Abort in-flight injection on every source and set its gate.  During
+	/// trickplay audio and subtitle keep EOS so the pipeline clock does not
+	/// wait for data that will never come.
+	void ResetSourcesForFlush(firebolt::rialto::IMediaPipeline *pipeline,
+		int rate, bool gate, const char *reason);
+
+	/// Issue the pipeline seek to @p posNs; without a pipeline, or if the
+	/// seek is refused, commit the rate and leave FLUSHING at once.
+	void IssueFlushSeek(firebolt::rialto::IMediaPipeline *pipeline,
+		int64_t posNs);
+
 	/// Staged flush position/rate and the current segment-start baseline.
 	/// See AampRialtoSegmentPosition.
 	AampRialtoSegmentPosition m_segmentPosition;
@@ -781,6 +805,21 @@ private:
 	 *         source is attached or its attach was deferred behind video.
 	 */
 	bool AttachSource(AampRialtoMediaSource &source, MediaCodecInfo &codecInfo);
+
+	/// Non-video sources wait for video to attach.  @return true if the
+	/// attach of @p source was deferred (codec info parked for later).
+	bool DeferAttachUntilVideo(AampRialtoMediaSource &source,
+		MediaCodecInfo &codecInfo);
+
+	/// The protection params to attach @p type with, copied under the lock.
+	/// Encrypted HLS non-video tracks fall back to the video slot.
+	std::optional<AampRialtoMediaSource::ProtectionParams> ProtectionFor(
+		AampMediaType type, bool encrypted);
+
+	/// After a first attach: commit the video baseline, attach deferred
+	/// sources, re-apply cached mute/volume and check all are attached.
+	void OnSourceNewlyAttached(AampRialtoMediaSource &source,
+		firebolt::rialto::IMediaPipeline &pipeline, int64_t attachPositionNs);
 
 	/// Release injectors blocked on a deferred attach and, unless the codec is
 	/// simply not identified yet, raise a playback error to AAMP.

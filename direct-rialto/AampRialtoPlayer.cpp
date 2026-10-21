@@ -976,7 +976,7 @@ void AampRialtoPlayer::ReportAttachFailure(
 	}
 }
 
-bool AampRialtoPlayer::AttachSource(
+bool AampRialtoPlayer::DeferAttachUntilVideo(
 	AampRialtoMediaSource &source, MediaCodecInfo &codecInfo)
 {
 	const auto type = source.mediaType();
@@ -990,28 +990,62 @@ bool AampRialtoPlayer::AttachSource(
 	// vs mksId=1) or a first-pipeline-after-boot race would explain it too.
 	// If an audio-first run shows no failure, this deferral can be removed.
 	const auto videoSource = getSource(eMEDIATYPE_VIDEO);
-	if (type != eMEDIATYPE_VIDEO &&
-	    videoSource &&
-	    !videoSource->isAttached())
+	if (type == eMEDIATYPE_VIDEO || !videoSource || videoSource->isAttached())
 	{
-		AAMPLOG_INFO("Deferring attachment of mediaType=%d until video is attached",
+		return false;
+	}
+
+	AAMPLOG_INFO("Deferring attachment of mediaType=%d until video is attached",
+		static_cast<int>(type));
+	// Signal inject threads to block rather than discard frames.
+	// Without this, media fragments are silently dropped while the
+	// source is unattached, leaving an audio gap that causes
+	// GStreamer's A/V sync to skip video forward at startup.
+	{
+		auto &st = source.state();
+		std::lock_guard<std::mutex> lock(st.mu);
+		st.attachPending = true;
+	}
+	{
+		std::lock_guard<std::mutex> lock(m_pendingAttachMutex);
+		m_pendingAttach[type] = std::move(codecInfo);
+	}
+	return true;
+}
+
+std::optional<AampRialtoMediaSource::ProtectionParams>
+AampRialtoPlayer::ProtectionFor(AampMediaType type, bool encrypted)
+{
+	// HLS always queues content protection under eMEDIATYPE_VIDEO (see
+	// StreamAbstractionAAMP_HLS::InitiateDrmProcess), even when the
+	// EXT-X-KEY/EXT-X-SESSION-KEY applies to an audio-only track. Fall back
+	// to the video slot so encrypted non-video sources still get a DRM
+	// session in that case.
+	// Take a value copy under lock so attachOrUpdate() (which may block on
+	// DRM session creation) never runs concurrently with a QueueProtectionEvent
+	// write to the same slot.
+	std::lock_guard<std::mutex> lock(m_pendingProtectionMutex);
+	auto protection = m_pendingProtection[static_cast<size_t>(type)];
+	if (encrypted && !protection.has_value() &&
+	    type != eMEDIATYPE_VIDEO && m_pendingProtection[eMEDIATYPE_VIDEO].has_value())
+	{
+		AAMPLOG_WARN("mediaType=%d is encrypted but has no queued protection - "
+			"falling back to eMEDIATYPE_VIDEO protection params (HLS convention)",
 			static_cast<int>(type));
-		// Signal inject threads to block rather than discard frames.
-		// Without this, media fragments are silently dropped while the
-		// source is unattached, leaving an audio gap that causes
-		// GStreamer's A/V sync to skip video forward at startup.
-		{
-			auto &st = source.state();
-			std::lock_guard<std::mutex> lock(st.mu);
-			st.attachPending = true;
-		}
-		{
-			std::lock_guard<std::mutex> lock(m_pendingAttachMutex);
-			m_pendingAttach[type] = std::move(codecInfo);
-		}
+		protection = m_pendingProtection[eMEDIATYPE_VIDEO];
+	}
+	return protection;
+}
+
+bool AampRialtoPlayer::AttachSource(
+	AampRialtoMediaSource &source, MediaCodecInfo &codecInfo)
+{
+	if (DeferAttachUntilVideo(source, codecInfo))
+	{
 		return true;
 	}
 
+	const auto type = source.mediaType();
 	const auto pipeline = GetPipeline();
 	if (!pipeline)
 	{
@@ -1028,38 +1062,15 @@ bool AampRialtoPlayer::AttachSource(
 	// Lazily created for the current AAMP instance unless SetEncryptedAamp()
 	// installed one for the encrypted player (pre-roll ads).
 	const auto drmBridge = GetDrmBridge();
-
-	// HLS always queues content protection under eMEDIATYPE_VIDEO (see
-	// StreamAbstractionAAMP_HLS::InitiateDrmProcess), even when the
-	// EXT-X-KEY/EXT-X-SESSION-KEY applies to an audio-only track. Fall back
-	// to the video slot so encrypted non-video sources still get a DRM
-	// session in that case.
-	// Take a value copy under lock so attachOrUpdate() (which may block on
-	// DRM session creation) never runs concurrently with a QueueProtectionEvent
-	// write to the same slot.
-	std::optional<AampRialtoMediaSource::ProtectionParams> protectionCopy;
-	{
-		std::lock_guard<std::mutex> lock(m_pendingProtectionMutex);
-		protectionCopy = m_pendingProtection[static_cast<size_t>(type)];
-		if (codecInfo.mIsEncrypted && !protectionCopy.has_value() &&
-		    type != eMEDIATYPE_VIDEO && m_pendingProtection[eMEDIATYPE_VIDEO].has_value())
-		{
-			AAMPLOG_WARN("mediaType=%d is encrypted but has no queued protection - "
-				"falling back to eMEDIATYPE_VIDEO protection params (HLS convention)",
-				static_cast<int>(type));
-			protectionCopy = m_pendingProtection[eMEDIATYPE_VIDEO];
-		}
-	}
-
+	const auto protection = ProtectionFor(type, codecInfo.mIsEncrypted);
 	const double appliedRate = computeAppliedRate(
 		m_segmentPosition.StagedRate(), type);
-
 	const int64_t attachPositionNs = m_segmentPosition.StagedPositionNs();
 
 	auto result = source.attachOrUpdate(
 		*pipeline, codecInfo, drmBridge.get(),
 		attachPositionNs,
-		protectionCopy,
+		protection,
 		appliedRate);
 
 	if (result == AampRialtoMediaSource::AttachResult::NEWLY_ATTACHED ||
@@ -1075,85 +1086,15 @@ bool AampRialtoPlayer::AttachSource(
 		// an early needData slip through with stale-position data. The gate
 		// is cleared only via UngateAllSources(), called at the points that
 		// actually issue play().
-		{
-			auto &st = source.state();
-			std::lock_guard<std::mutex> lock(st.mu);
-			st.attachPending = false;
-			st.cv.notify_all();
-		}
+		auto &st = source.state();
+		std::lock_guard<std::mutex> lock(st.mu);
+		st.attachPending = false;
+		st.cv.notify_all();
 	}
 
 	if (result == AampRialtoMediaSource::AttachResult::NEWLY_ATTACHED)
 	{
-		// This attach establishes the segment's actual start position -
-		// -1 (no Flush() ever staged one) means the segment starts at 0.
-		if (type == eMEDIATYPE_VIDEO)
-		{
-			m_segmentPosition.CommitBaseline(
-				std::max<int64_t>(0, attachPositionNs));
-
-			// A definitive baseline has just been established - clear the
-			// gate Configure() armed unconditionally so an ordinary tune's
-			// first sample does not trigger a redundant deferred flush.
-			m_playbackController.ReleaseHold(PlayHold::PositionPending,
-				"AttachSource(video attached)");
-		}
-
-		// After video attaches, drain any non-video sources that were deferred
-		// by the video-before-audio ordering above.
-		if (type == eMEDIATYPE_VIDEO)
-		{
-			for (size_t i = 0; i < kMaxSourceTypes; ++i)
-			{
-				const auto deferred = getSource(static_cast<AampMediaType>(i));
-				if (i == eMEDIATYPE_VIDEO || !deferred)
-				{
-					continue;
-				}
-				std::optional<MediaCodecInfo> pending;
-				{
-					std::lock_guard<std::mutex> lock(m_pendingAttachMutex);
-					pending = std::move(m_pendingAttach[i]);
-					m_pendingAttach[i].reset();
-				}
-				if (pending.has_value())
-				{
-					AAMPLOG_INFO("Processing deferred attachment for mediaType=%zu", i);
-					AttachSource(*deferred, *pending);
-				}
-			}
-		}
-
-		// Re-apply cached subtitle mute state when the subtitle source first
-		// attaches.  SetSubtitleMute() may have been called before the source
-		// was ready (e.g. user muted before playback started, or between period
-		// transitions when the source is detached and re-attached).
-		if (type == eMEDIATYPE_SUBTITLE && m_subtitleMuted)
-		{
-			AAMPLOG_INFO("Applying cached subtitle mute on attach sourceId=%d",
-				source.sourceId());
-			pipeline->setMute(source.sourceId(), true);
-		}
-
-		// Re-apply cached video mute state when the video source first attaches -
-		// mirrors the subtitle mute re-apply above (SetVideoMute() may have been
-		// called before the video source was ready).
-		if (type == eMEDIATYPE_VIDEO && m_videoMuted)
-		{
-			AAMPLOG_INFO("Applying cached video mute on attach sourceId=%d",
-				source.sourceId());
-			pipeline->setMute(source.sourceId(), true);
-		}
-
-		// Re-apply cached audio volume/mute now that the audio source has
-		// a valid Rialto sourceId - SetAudioVolume() may have been called
-		// (e.g. muting to 0) before this source was attached.
-		if (type == eMEDIATYPE_AUDIO)
-		{
-			applyAudioVolume();
-		}
-
-		CheckAllSourcesAttached();
+		OnSourceNewlyAttached(source, *pipeline, attachPositionNs);
 	}
 	else if (result == AampRialtoMediaSource::AttachResult::FAILED)
 	{
@@ -1161,6 +1102,78 @@ bool AampRialtoPlayer::AttachSource(
 	}
 
 	return result != AampRialtoMediaSource::AttachResult::FAILED;
+}
+
+void AampRialtoPlayer::OnSourceNewlyAttached(AampRialtoMediaSource &source,
+	firebolt::rialto::IMediaPipeline &pipeline, int64_t attachPositionNs)
+{
+	const auto type = source.mediaType();
+	if (type == eMEDIATYPE_VIDEO)
+	{
+		// This attach establishes the segment's actual start position -
+		// -1 (no Flush() ever staged one) means the segment starts at 0.
+		m_segmentPosition.CommitBaseline(
+			std::max<int64_t>(0, attachPositionNs));
+
+		// A definitive baseline has just been established - clear the
+		// gate Configure() armed unconditionally so an ordinary tune's
+		// first sample does not trigger a redundant deferred flush.
+		m_playbackController.ReleaseHold(PlayHold::PositionPending,
+			"AttachSource(video attached)");
+
+		// Drain any non-video sources that were deferred by the
+		// video-before-audio ordering in DeferAttachUntilVideo().
+		for (size_t i = 0; i < kMaxSourceTypes; ++i)
+		{
+			const auto deferred = getSource(static_cast<AampMediaType>(i));
+			if (i == eMEDIATYPE_VIDEO || !deferred)
+			{
+				continue;
+			}
+			std::optional<MediaCodecInfo> pending;
+			{
+				std::lock_guard<std::mutex> lock(m_pendingAttachMutex);
+				pending = std::move(m_pendingAttach[i]);
+				m_pendingAttach[i].reset();
+			}
+			if (pending.has_value())
+			{
+				AAMPLOG_INFO("Processing deferred attachment for mediaType=%zu", i);
+				AttachSource(*deferred, *pending);
+			}
+		}
+	}
+
+	// Re-apply cached subtitle mute state when the subtitle source first
+	// attaches.  SetSubtitleMute() may have been called before the source
+	// was ready (e.g. user muted before playback started, or between period
+	// transitions when the source is detached and re-attached).
+	if (type == eMEDIATYPE_SUBTITLE && m_subtitleMuted)
+	{
+		AAMPLOG_INFO("Applying cached subtitle mute on attach sourceId=%d",
+			source.sourceId());
+		pipeline.setMute(source.sourceId(), true);
+	}
+
+	// Re-apply cached video mute state when the video source first attaches -
+	// mirrors the subtitle mute re-apply above (SetVideoMute() may have been
+	// called before the video source was ready).
+	if (type == eMEDIATYPE_VIDEO && m_videoMuted)
+	{
+		AAMPLOG_INFO("Applying cached video mute on attach sourceId=%d",
+			source.sourceId());
+		pipeline.setMute(source.sourceId(), true);
+	}
+
+	// Re-apply cached audio volume/mute now that the audio source has
+	// a valid Rialto sourceId - SetAudioVolume() may have been called
+	// (e.g. muting to 0) before this source was attached.
+	if (type == eMEDIATYPE_AUDIO)
+	{
+		applyAudioVolume();
+	}
+
+	CheckAllSourcesAttached();
 }
 
 void AampRialtoPlayer::UngateAllSources(const char *reason)
@@ -1643,76 +1656,13 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown, boo
 
 	if (!isFlushableState && shouldTearDown)
 	{
-		if (preFlushState == PlayerStateId::IDLE && !GetPipeline())
-		{
-			// Typically a pre-Configure() seek pre-stage.  Stop() would only
-			// deregister the control backend again for nothing.
-			AAMPLOG_INFO("Flush() with shouldTearDown=true but nothing to tear "
-				"down (IDLE, no pipeline) - not stopping");
-		}
-		else
-		{
-			// Player is not in a flushable state; recover by stopping.
-			// Stop() will call WaitForFlushToComplete() which returns
-			// immediately since we have not claimed FLUSHING.
-			// preservePendingPosition=true: the position/rate staged above are
-			// for the caller's benefit (typically a pre-Configure() seek
-			// pre-stage) and must survive this recovery Stop(), unlike a
-			// normal caller-initiated Stop() which ends the session outright.
-			AAMPLOG_WARN("Player was not in PLAYING/PAUSED/SOURCES_ATTACHED/FLUSHED "
-				"(pre-flush state=%d) and shouldTearDown=true - calling Stop(true)",
-				static_cast<int>(preFlushState));
-			StopInternal(true, /*preservePendingPosition=*/true);
-		}
-		m_playbackController.ReleaseHold(PlayHold::Flushing,
-			"Flush(teardown)");
-		AAMPLOG_INFO("EXIT - teardown requested");
+		FlushByTeardown(preFlushState);
 		return;
 	}
-
 	const auto pipeline = GetPipeline();
-
 	if (!isFlushableState)
 	{
-		// Not in a flushable state and no teardown requested.
-		// Stage the parameters (covers the pre-Configure() seek-position
-		// pre-staging path) and commit the rate, but do not attempt a full
-		// flush cycle — onFlush() would be a no-op on the state machine.
-		//
-		// Still wake any blocked inject threads (sources may exist but not
-		// yet be Rialto-attached in the deferred-attachment path) and, on
-		// trickplay exit (rate == 1), clear any audio EOS set during trickplay
-		// entry so injection can resume once the pipeline is ready.
-		m_rate.store(rate, std::memory_order_relaxed);
-
-		const auto sources = SnapshotSources();
-		for (const auto &source : sources)
-		{
-			if (source)
-			{
-				// Mirror the flushable-path semantics below: video/subtitle
-				// are always cleared, audio keeps EOS during trickplay so
-				// the pipeline clock is not stalled waiting for audio data
-				// that will never arrive.
-				const bool newEos = rate != AAMP_NORMAL_PLAY_RATE &&
-				          ((source == sources[eMEDIATYPE_AUDIO]) ||
-						   (source == sources[eMEDIATYPE_SUBTITLE]));
-				source->unblockInjection(pipeline.get(),
-					"Flush(non-flushable)", newEos);
-				// Unlike the flushable path below, no Stream() will follow
-				// to ungate — clear the gate immediately so any genuinely
-				// new data is not held indefinitely.
-				source->gateInjection(pipeline.get(), false,
-					"Flush(non-flushable)");
-			}
-		}
-
-		AAMPLOG_INFO("Flush() in non-flushable state %d (shouldTearDown=false): "
-			"parameters staged, rate=%d committed, no flush cycle started",
-			static_cast<int>(preFlushState), rate);
-		m_playbackController.ReleaseHold(PlayHold::Flushing,
-			"Flush(non-flushable)");
-		AAMPLOG_INFO("EXIT");
+		FlushWithoutCycle(pipeline.get(), preFlushState, rate);
 		return;
 	}
 
@@ -1728,7 +1678,76 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown, boo
 	// The Flushing hold applied on entry keeps this from issuing play().
 	ArmPreRoll(rate, "Flush");
 
-	// Wake any in-flight data so it abandons the current batch.
+	// Wake any in-flight data so it abandons the current batch.  Post-seek
+	// data is genuinely wanted once it arrives - hold it (rather than drop
+	// it) until Stream() ungates via UngateAllSources().
+	ResetSourcesForFlush(pipeline.get(), rate, /*gate=*/true, "Flush");
+	IssueFlushSeek(pipeline.get(), posNs);
+
+	AAMPLOG_INFO("EXIT");
+}
+
+void AampRialtoPlayer::FlushByTeardown(PlayerStateId preFlushState)
+{
+	if (preFlushState == PlayerStateId::IDLE && !GetPipeline())
+	{
+		// Typically a pre-Configure() seek pre-stage.  Stop() would only
+		// deregister the control backend again for nothing.
+		AAMPLOG_INFO("Flush() with shouldTearDown=true but nothing to tear "
+			"down (IDLE, no pipeline) - not stopping");
+	}
+	else
+	{
+		// Player is not in a flushable state; recover by stopping.
+		// Stop() will call WaitForFlushToComplete() which returns
+		// immediately since we have not claimed FLUSHING.
+		// preservePendingPosition=true: the position/rate staged by Flush()
+		// are for the caller's benefit (typically a pre-Configure() seek
+		// pre-stage) and must survive this recovery Stop(), unlike a
+		// normal caller-initiated Stop() which ends the session outright.
+		AAMPLOG_WARN("Player was not in PLAYING/PAUSED/SOURCES_ATTACHED/FLUSHED "
+			"(pre-flush state=%d) and shouldTearDown=true - calling Stop(true)",
+			static_cast<int>(preFlushState));
+		StopInternal(true, /*preservePendingPosition=*/true);
+	}
+	m_playbackController.ReleaseHold(PlayHold::Flushing,
+		"Flush(teardown)");
+	AAMPLOG_INFO("EXIT - teardown requested");
+}
+
+void AampRialtoPlayer::FlushWithoutCycle(
+	firebolt::rialto::IMediaPipeline *pipeline, PlayerStateId preFlushState,
+	int rate)
+{
+	// Not in a flushable state and no teardown requested.
+	// Stage the parameters (covers the pre-Configure() seek-position
+	// pre-staging path) and commit the rate, but do not attempt a full
+	// flush cycle — onFlush() would be a no-op on the state machine.
+	//
+	// Still wake any blocked inject threads (sources may exist but not
+	// yet be Rialto-attached in the deferred-attachment path) and, on
+	// trickplay exit (rate == 1), clear any audio EOS set during trickplay
+	// entry so injection can resume once the pipeline is ready.
+	m_rate.store(rate, std::memory_order_relaxed);
+
+	// Unlike the flushable path, no Stream() will follow to ungate — clear
+	// the gate immediately so any genuinely new data is not held
+	// indefinitely.
+	ResetSourcesForFlush(pipeline, rate, /*gate=*/false,
+		"Flush(non-flushable)");
+
+	AAMPLOG_INFO("Flush() in non-flushable state %d (shouldTearDown=false): "
+		"parameters staged, rate=%d committed, no flush cycle started",
+		static_cast<int>(preFlushState), rate);
+	m_playbackController.ReleaseHold(PlayHold::Flushing,
+		"Flush(non-flushable)");
+	AAMPLOG_INFO("EXIT");
+}
+
+void AampRialtoPlayer::ResetSourcesForFlush(
+	firebolt::rialto::IMediaPipeline *pipeline, int rate, bool gate,
+	const char *reason)
+{
 	const auto sources = SnapshotSources();
 	for (const auto &source : sources)
 	{
@@ -1738,16 +1757,17 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown, boo
 			// Rialto/GStreamer pipeline clock is not stalled waiting
 			// for audio data that will never arrive.
 			const bool newEos = rate != AAMP_NORMAL_PLAY_RATE &&
-					          ((source == sources[eMEDIATYPE_AUDIO]) ||
-							   (source == sources[eMEDIATYPE_SUBTITLE]));
-			source->unblockInjection(pipeline.get(), "Flush", newEos);
-			// Post-seek data is genuinely wanted once it arrives — hold it
-			// (rather than drop it) until Stream() ungates via
-			// UngateAllSources().
-			source->gateInjection(pipeline.get(), true, "Flush");
+				((source == sources[eMEDIATYPE_AUDIO]) ||
+				 (source == sources[eMEDIATYPE_SUBTITLE]));
+			source->unblockInjection(pipeline, reason, newEos);
+			source->gateInjection(pipeline, gate, reason);
 		}
 	}
+}
 
+void AampRialtoPlayer::IssueFlushSeek(
+	firebolt::rialto::IMediaPipeline *pipeline, int64_t posNs)
+{
 	if (pipeline)
 	{
 		// Perform a pipeline-level flushing seek.  Rialto will emit
@@ -1778,8 +1798,6 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown, boo
 		m_playbackController.ReleaseHold(PlayHold::Flushing,
 			"Flush(no pipeline)");
 	}
-
-	AAMPLOG_INFO("EXIT");
 }
 
 void AampRialtoPlayer::FlushTrack(AampMediaType mediaType, double position)
