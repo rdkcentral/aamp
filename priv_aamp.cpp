@@ -8850,6 +8850,7 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 	mDiscontinuityFound = false;
 	{
 		std::lock_guard<std::mutex> guard(mMutexPlaystart);
+		mPlayStartSignalled = true;
 		waitforplaystart.notify_all();
 	}
 	if(mPreCachePlaylistThreadId.joinable())
@@ -9196,6 +9197,7 @@ void PrivateInstanceAAMP::NotifyFirstFrameReceived(unsigned long ccDecoderHandle
 	}
 	{
 		std::lock_guard<std::mutex> guard(mMutexPlaystart);
+		mPlayStartSignalled = true;
 		waitforplaystart.notify_all();
 	}
 	if (eTUNED_EVENT_ON_GST_PLAYING == GetTuneEventConfig(IsLive()))
@@ -11123,7 +11125,7 @@ void PrivateInstanceAAMP::PreCachePlaylistDownloadTask()
 		// First wait for Tune to complete to start this functionality
 		{
 			std::unique_lock<std::mutex> lock(mMutexPlaystart);
-			waitforplaystart.wait(lock);
+			waitforplaystart.wait(lock, [this] { return mPlayStartSignalled; });
 		}
 		// May be Stop is called to release all resources .
 		// Before download , check the state
@@ -11194,6 +11196,12 @@ void PrivateInstanceAAMP::PreCachePlaylistDownloadTask()
  */
 void PrivateInstanceAAMP::SetPreCacheDownloadList(PreCacheUrlList &dnldListInput)
 {
+	{
+		// Must run before the pre-cache thread is created: the thread waits on
+		// mPlayStartSignalled, so a play start from a previous tune must not release it
+		std::lock_guard<std::mutex> guard(mMutexPlaystart);
+		mPlayStartSignalled = false;
+	}
 	mPreCacheDnldList = dnldListInput;
 	if(mPreCacheDnldList.size())
 	{

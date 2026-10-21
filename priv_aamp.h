@@ -1227,6 +1227,7 @@ public:
 	bool IsTuneTypeNew; 					/**< Flag for the eTUNETYPE_NEW_NORMAL */
 	std::condition_variable waitforplaystart;    			/**< Signaled after playback starts */
 	std::mutex mMutexPlaystart;			/**< Mutex associated with playstart */
+	bool mPlayStartSignalled{false};		/**< Predicate for waitforplaystart; set on first frame or Stop, reset by SetPreCacheDownloadList. Access only while holding mMutexPlaystart */
 	long long trickStartUTCMS;
 	double durationSeconds;
 	double culledSeconds;

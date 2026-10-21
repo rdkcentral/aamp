@@ -17,7 +17,9 @@
 * limitations under the License.
 */
 
+#include <chrono>
 #include <cstdlib>
+#include <future>
 #include <iostream>
 #include <string>
 #include <string.h>
@@ -4559,6 +4561,101 @@ TEST_F(PrivAampTests,FlushStreamSinkTest)
 TEST_F(PrivAampTests,PreCachePlaylistDownloadTaskTest)
 {
 	p_aamp->PreCachePlaylistDownloadTask();
+}
+
+/**
+ * @brief Release a PreCachePlaylistDownloadTask() blocked on waitforplaystart so that a
+ *        failing test does not hang when its std::future is destroyed.
+ */
+static void ReleasePreCacheTask(PrivateInstanceAAMP *aamp)
+{
+	{
+		std::lock_guard<std::mutex> guard(aamp->mMutexPlaystart);
+		aamp->mPlayStartSignalled = true;
+	}
+	aamp->waitforplaystart.notify_all();
+}
+
+static PreCacheUrlList MakePreCacheList()
+{
+	PreCacheUrlStruct entry;
+	entry.url = "http://host/precache/video.m3u8";
+	entry.type = eMEDIATYPE_PLAYLIST_VIDEO;
+	return PreCacheUrlList{entry};
+}
+
+/**
+ * @brief VPAAMP-1459: play start signalled before the pre-cache thread reaches its wait.
+ *
+ * The first-frame notification runs on a different thread from the pre-cache thread and
+ * can happen first. The pre-cache thread must still observe it and continue; previously
+ * the notification was lost and the thread blocked forever (hanging Stop()'s join).
+ * State is set to IDLE after play start so the task returns without downloading.
+ */
+TEST_F(PrivAampTests, PreCachePlaylistDownloadTask_PlayStartBeforeWait_DoesNotBlock)
+{
+	PreCacheUrlList list = MakePreCacheList();
+	p_aamp->SetPreCacheDownloadList(list);
+
+	// Play start happens before the pre-cache thread runs
+	p_aamp->NotifyFirstFrameReceived(0);
+	p_aamp->SetState(eSTATE_IDLE, false);
+
+	auto task = std::async(std::launch::async, [this]() { p_aamp->PreCachePlaylistDownloadTask(); });
+	std::future_status status = task.wait_for(std::chrono::seconds(2));
+	if (status != std::future_status::ready)
+	{
+		ReleasePreCacheTask(p_aamp);
+	}
+	task.wait();
+
+	EXPECT_EQ(status, std::future_status::ready)
+		<< "PreCachePlaylistDownloadTask() missed a play start signalled before it waited";
+}
+
+/**
+ * @brief Pre-cache must not start until play start has been signalled for this tune.
+ */
+TEST_F(PrivAampTests, PreCachePlaylistDownloadTask_NoPlayStart_WaitsUntilSignalled)
+{
+	PreCacheUrlList list = MakePreCacheList();
+	p_aamp->SetPreCacheDownloadList(list);
+	p_aamp->SetState(eSTATE_IDLE, false);
+
+	auto task = std::async(std::launch::async, [this]() { p_aamp->PreCachePlaylistDownloadTask(); });
+	std::future_status beforeSignal = task.wait_for(std::chrono::milliseconds(100));
+
+	ReleasePreCacheTask(p_aamp);
+	std::future_status afterSignal = task.wait_for(std::chrono::seconds(2));
+	task.wait();
+
+	EXPECT_EQ(beforeSignal, std::future_status::timeout);
+	EXPECT_EQ(afterSignal, std::future_status::ready);
+}
+
+/**
+ * @brief SetPreCacheDownloadList() starts a new tune's pre-cache: a play start from a
+ *        previous tune must not release the new pre-cache thread.
+ */
+TEST_F(PrivAampTests, SetPreCacheDownloadList_PreviousTunePlayStart_DoesNotReleaseTask)
+{
+	// Play start of the previous tune
+	p_aamp->NotifyFirstFrameReceived(0);
+
+	PreCacheUrlList list = MakePreCacheList();
+	p_aamp->SetPreCacheDownloadList(list);
+	p_aamp->SetState(eSTATE_IDLE, false);
+
+	auto task = std::async(std::launch::async, [this]() { p_aamp->PreCachePlaylistDownloadTask(); });
+	std::future_status beforeSignal = task.wait_for(std::chrono::milliseconds(100));
+
+	ReleasePreCacheTask(p_aamp);
+	std::future_status afterSignal = task.wait_for(std::chrono::seconds(2));
+	task.wait();
+
+	EXPECT_EQ(beforeSignal, std::future_status::timeout)
+		<< "Play start from the previous tune released the new pre-cache task";
+	EXPECT_EQ(afterSignal, std::future_status::ready);
 }
 
 TEST_F(PrivAampTests,GetPreferredTextPropertiesTest)
