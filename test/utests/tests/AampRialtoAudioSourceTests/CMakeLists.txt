@@ -28,6 +28,7 @@ set(TEST_SOURCES
 
 set(AAMP_SOURCES
 	${AAMP_ROOT}/direct-rialto/AampRialtoMediaSource.cpp
+	${AAMP_ROOT}/direct-rialto/AampRialtoNeedDataHandshake.cpp
 	${AAMP_ROOT}/direct-rialto/AampRialtoAudioSource.cpp
 )
 

@@ -489,6 +489,7 @@ set(LIBAAMP_SOURCES
 	direct-rialto/AampRialtoPlayer.cpp
 	direct-rialto/AampRialtoPipelineSession.cpp
 	direct-rialto/AampRialtoMediaSource.cpp
+	direct-rialto/AampRialtoNeedDataHandshake.cpp
 	direct-rialto/AampRialtoPlaybackController.cpp
 	direct-rialto/AampRialtoSegmentPosition.cpp
 	direct-rialto/AampRialtoPreRollMonitor.cpp
