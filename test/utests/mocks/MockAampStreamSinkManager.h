@@ -40,6 +40,9 @@ public:
 
 	MOCK_METHOD(void, SetEncryptedHeaders, (PrivateInstanceAAMP *, (std::map<int, std::string>)& ));
 	MOCK_METHOD(void, GetEncryptedHeaders, ((std::map<int, std::string>)&));
+	MOCK_METHOD(bool, IsEncryptedHeadersCached, (), ());
+	MOCK_METHOD(bool, IsEncryptedHeadersCached, (int), ());
+	MOCK_METHOD(void, ReinjectEncryptedHeaders, (), ());
 	MOCK_METHOD(void, SetActive, (PrivateInstanceAAMP *));
 	MOCK_METHOD(void, UpdateTuningPlayer, (PrivateInstanceAAMP *));
 	MOCK_METHOD(void, SetTuned, (PrivateInstanceAAMP *));
