@@ -1487,10 +1487,6 @@ void InterfacePlayerRDK::Stop(bool keepLastFrame)
 	 *  reduce scope for potential pipeline lockups*/
 
 	const auto handlerDisableStart = std::chrono::steady_clock::now();
-	{
-		std::lock_guard<std::mutex> bufferingLock(interfacePlayerPriv->gstPrivateContext->bufferingTimeoutMutex);
-		interfacePlayerPriv->gstPrivateContext->bufferingTimeoutControl.disable();
-	}
 	interfacePlayerPriv->gstPrivateContext->syncControl.disable();
 	interfacePlayerPriv->gstPrivateContext->aSyncControl.disable();
 	logStopPhase("disable_handlers", handlerDisableStart);
@@ -1551,7 +1547,6 @@ void InterfacePlayerRDK::Stop(bool keepLastFrame)
 	const auto handlerWaitStart = std::chrono::steady_clock::now();
 	interfacePlayerPriv->gstPrivateContext->syncControl.waitForDone(50, "bus_sync_handler");
 	interfacePlayerPriv->gstPrivateContext->aSyncControl.waitForDone(50, "bus_message");
-	interfacePlayerPriv->gstPrivateContext->bufferingTimeoutControl.waitForDone(50, "buffering_timeout");
 	logStopPhase("wait_for_bus_handlers", handlerWaitStart);
 	interfacePlayerPriv->gstPrivateContext->callbackControl.disable();
 	const auto disconnectSignalsStart = std::chrono::steady_clock::now();
