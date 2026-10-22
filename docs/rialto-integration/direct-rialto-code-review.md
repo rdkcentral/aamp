@@ -375,7 +375,7 @@ Review of the 18 direct-rialto L1 suites (697 tests) against `.github/instructio
 | TS10 | Done | Gap | Log-only branches of `attachOrUpdate()` and the ES-path attach abort |
 | TS11 | Done | Build | Split `AampRialtoPlayerTestCases.cpp` (8307 lines, 44 s per edit) into functional areas |
 | TS12 | Won't do | Gap | Suites for `AampRialtoSourceCreators.cpp` and `RialtoSessionCreator.cpp` |
-| TS13 | Optional | Build | Split `AampRialtoVideoSourceTestCases.cpp` (2380 lines, 11 s per edit) |
+| TS13 | Done | Build | Split `AampRialtoVideoSourceTestCases.cpp` (2380 lines, 11 s per edit) |
 
 ### Mistakes
 
@@ -643,6 +643,7 @@ Rialto behaviours confirmed or disproved, test gaps, design decisions).
 | 2026-10-21 | TS1-TS3 | TS3 correction: RialtoMediaKeySessionAdapterTests.cpp:328 is a 1 ms poll inside a 2 s deadline loop, not a fixed sleep; it was listed wrongly. |
 | 2026-10-21 | TS9 | OnError_FromError_IsIgnored cannot tell an ignored event from an ERROR->ERROR row (same state, only the log level differs); it pins the 'stays in ERROR' contract only. |
 | 2026-10-21 | TS10 | The video and audio sources always attach with hasDrm=true (documented: it avoids a Rialto server crash), so a source with protection but no DRM bridge is still attached as a DRM source; the first draft of the test assumed otherwise and was corrected. |
+| 2026-10-21 | TS13 | After the 14 tests added this session the video file took 26 s to rebuild (was 11 s), which made the optional split worthwhile. Splitting alone gave 20-26 s per area: each file still instantiated NiceMock<MockIMediaPipeline> through the in-class SetUp(); moving the fixtures' SetUp/TearDown out of line fixed it, as in the player suite. |
 
 ## Verification Notes
 
@@ -736,3 +737,4 @@ Record each completed task: what was done, files changed, tests added or run.
 | 2026-10-21 | TS8 | New header-only AampRialtoTimeTests suite: unit constants, SecondsToNs and SecondsToMs rounding to nearest (1.001 s, 0.251 s, negative values, an exactly representable half) and a wall-clock-sized position converting exactly to ms. | test/utests/tests/AampRialtoTimeTests/ (new), test/utests/tests/CMakeLists.txt | 4 new tests; mutation (SecondsToMs truncating) fails, restored |
 | 2026-10-21 | TS9 | Two state-machine tests: onError() from IDLE is ignored (stays IDLE, returns IDLE) and a second onError() in ERROR stays ERROR (returns ERROR). | test/utests/tests/AampPlayerStateMachineTests/AampPlayerStateMachineTestCases.cpp | 2 new tests; mutation (IDLE+Error row added) makes the IDLE test fail, restored; state machine suite 60/60 |
 | 2026-10-21 | TS10 | Four video-source tests for degraded paths: protection with no DRM bridge attaches with no session and the params are not recorded, so a later attach with a bridge creates the session; changed params on an attached source with no bridge keep the existing session; a refused setSourcePosition does not undo the attach; on the HLS-TS path a frame waiting for a deferred attach is dropped (nothing reaches Rialto) when a flush aborts the wait. | test/utests/tests/AampRialtoVideoSourceTests/AampRialtoVideoSourceTestCases.cpp | 4 new tests; mutation (params recorded without a bridge) makes the retry test fail, restored; VideoSource suite 77/77 |
+| 2026-10-21 | TS13 | AampRialtoVideoSourceTestCases.cpp (2676 lines) split into AampRialtoVideoSourceTestFixture.{h,cpp} and three area files: Attach (29 tests), Injection (34), Fragment (14). Rebuild after editing one area: 10-12 s, against 26 s before. | test/utests/tests/AampRialtoVideoSourceTests/ | --gtest_list_tests identical before/after (77 names); VideoSource 77/77; all 23 suites pass |
