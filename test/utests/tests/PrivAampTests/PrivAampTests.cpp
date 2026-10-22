@@ -4622,7 +4622,7 @@ TEST_F(PrivAampTests, PreCachePlaylistDownloadTask_NoPlayStart_WaitsUntilSignall
 	p_aamp->SetState(eSTATE_IDLE, false);
 
 	auto task = std::async(std::launch::async, [this]() { p_aamp->PreCachePlaylistDownloadTask(); });
-	std::future_status beforeSignal = task.wait_for(std::chrono::milliseconds(100));
+	std::future_status beforeSignal = task.wait_for(std::chrono::milliseconds(20));
 
 	ReleasePreCacheTask(p_aamp);
 	std::future_status afterSignal = task.wait_for(std::chrono::seconds(2));
@@ -4646,7 +4646,7 @@ TEST_F(PrivAampTests, SetPreCacheDownloadList_PreviousTunePlayStart_DoesNotRelea
 	p_aamp->SetState(eSTATE_IDLE, false);
 
 	auto task = std::async(std::launch::async, [this]() { p_aamp->PreCachePlaylistDownloadTask(); });
-	std::future_status beforeSignal = task.wait_for(std::chrono::milliseconds(100));
+	std::future_status beforeSignal = task.wait_for(std::chrono::milliseconds(20));
 
 	ReleasePreCacheTask(p_aamp);
 	std::future_status afterSignal = task.wait_for(std::chrono::seconds(2));
