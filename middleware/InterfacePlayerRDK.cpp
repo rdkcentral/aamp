@@ -82,9 +82,6 @@ mSourceSetupCV(), callbackMap(), setupStreamCallbackMap(), mDrmSystem(NULL), mEn
 /* InterfacePlayerRDK destructor*/
 InterfacePlayerRDK::~InterfacePlayerRDK()
 {
-	// Cancel any queued idle/timer callbacks before freeing player state, otherwise a
-	// callback scheduled just before destruction can fire against freed memory.
-	CancelPendingCallbacks();
 	DestroyPipeline();
 	if (mDrmSystem)
 	{
