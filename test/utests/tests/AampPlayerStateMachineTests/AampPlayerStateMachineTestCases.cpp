@@ -816,6 +816,33 @@ TEST_F(AampPlayerStateMachineTest, OnError_FromFlushed_TransitionsToError)
 }
 
 /**
+ * @test OnError_FromIdle_IsIgnored
+ * @brief With no session there is nothing to fail: the table has no Error row
+ *        from IDLE, so the machine stays IDLE and reports IDLE as the previous
+ *        state.
+ */
+TEST_F(AampPlayerStateMachineTest, OnError_FromIdle_IsIgnored)
+{
+	EXPECT_EQ(m_sm.onError(), PlayerStateId::IDLE);
+	EXPECT_EQ(m_sm.currentState(), PlayerStateId::IDLE);
+}
+
+/**
+ * @test OnError_FromError_IsIgnored
+ * @brief A second error is not a new transition; the machine stays in ERROR
+ *        until Stop or Reconfigure.
+ */
+TEST_F(AampPlayerStateMachineTest, OnError_FromError_IsIgnored)
+{
+	m_sm.onPipelineLoaded();
+	m_sm.onError();
+	ASSERT_EQ(m_sm.currentState(), PlayerStateId::ERROR);
+
+	EXPECT_EQ(m_sm.onError(), PlayerStateId::ERROR);
+	EXPECT_EQ(m_sm.currentState(), PlayerStateId::ERROR);
+}
+
+/**
  * @test FLUSHED + onReconfigure → IDLE.
  */
 TEST_F(AampPlayerStateMachineTest, OnReconfigure_FromFlushed_TransitionsToIdle)
