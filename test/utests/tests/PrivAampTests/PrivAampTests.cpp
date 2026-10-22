@@ -17,7 +17,9 @@
 * limitations under the License.
 */
 
+#include <chrono>
 #include <cstdlib>
+#include <future>
 #include <iostream>
 #include <string>
 #include <string.h>
@@ -449,6 +451,10 @@ public:
 	{
 		return mTuneMetricDataPending.load();
 	}
+	void SetFirstProgress(bool value)
+	{
+		mFirstProgress = value;
+	}
 	};
 	TestablePrivAamp *testp_aamp{nullptr};
 };
@@ -846,8 +852,9 @@ TEST_F(PrivAampPrivTests,SendTuneMetricsEventTest2)
 }
 
 /**
- * Verify that AAMP_EVENT_TUNE_TIME_METRICS is dispatched by MonitorProgress
- * strictly after the state-changed-to-PLAYING event.
+ * Verify that MonitorProgress dispatches AAMP_EVENT_PROGRESS strictly after the
+ * state-changed-to-PLAYING event and AAMP_EVENT_TUNE_TIME_METRICS strictly after
+ * AAMP_EVENT_PROGRESS.
  */
 TEST_F(PrivAampPrivTests, MonitorProgressTuneMetricsAfterPlayingStateChange)
 {
@@ -855,6 +862,10 @@ TEST_F(PrivAampPrivTests, MonitorProgressTuneMetricsAfterPlayingStateChange)
 	testp_aamp->SetTuneTimeMetricData("{\"metric\":\"test\"}");
 	testp_aamp->mDownloadsEnabled = true;
 	testp_aamp->mSinkPaused = false;
+	// Must be non-negative, otherwise MonitorProgress() suppresses AAMP_EVENT_PROGRESS.
+	testp_aamp->trickStartUTCMS = 1;
+	// Position is unchanged from mReportProgressPosn (0) on the first tick; as on a real tune, mFirstProgress bypasses that de-dupe.
+	testp_aamp->SetFirstProgress(true);
 
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
 
@@ -862,22 +873,57 @@ TEST_F(PrivAampPrivTests, MonitorProgressTuneMetricsAfterPlayingStateChange)
 	EXPECT_CALL(*g_mockAampEventManager, IsEventListenerAvailable(AAMP_EVENT_STATE_CHANGED))
 		.WillOnce(Return(true));
 
-	// Ordering assertion: STATE_CHANGED(PLAYING) must be observed before TUNE_TIME_METRICS.
-	// Any other SendEvent calls (e.g. AAMP_EVENT_PROGRESS) are absorbed by NiceMock.
+	// Ordering assertion: STATE_CHANGED(PLAYING) -> PROGRESS -> TUNE_TIME_METRICS.
+	// Any other SendEvent calls are absorbed by NiceMock.
 	{
 		testing::InSequence seq;
 		EXPECT_CALL(*g_mockAampEventManager,
 			SendEvent(AnEventOfType(AAMP_EVENT_STATE_CHANGED), AAMP_EVENT_SYNC_MODE)).Times(1);
+		EXPECT_CALL(*g_mockAampEventManager,
+			SendEvent(AnEventOfType(AAMP_EVENT_PROGRESS), _)).Times(1);
 		EXPECT_CALL(*g_mockAampEventManager,
 			SendEvent(AnEventOfType(AAMP_EVENT_TUNE_TIME_METRICS), AAMP_EVENT_ASYNC_MODE)).Times(1);
 	}
 
 	// Step 1: transition to PLAYING — fires AAMP_EVENT_STATE_CHANGED synchronously.
 	testp_aamp->SetState(eSTATE_PLAYING, true);
-	// Step 2: first progress tick — fires AAMP_EVENT_TUNE_TIME_METRICS via SendTuneMetricsEvent.
+	// Step 2: first progress tick — fires AAMP_EVENT_PROGRESS, then AAMP_EVENT_TUNE_TIME_METRICS.
 	testp_aamp->MonitorProgress(true, false);
 
 	// Data is consumed exactly once; subsequent MonitorProgress ticks are no-ops.
+	EXPECT_FALSE(testp_aamp->GetTuneMetricDataPending());
+}
+
+/**
+ * Verify tune metrics stay pending when MonitorProgress cannot emit progress.
+ */
+TEST_F(PrivAampPrivTests, MonitorProgressDefersTuneMetricsUntilProgressEvent)
+{
+	testp_aamp->SetTuneTimeMetricData("{\"metric\":\"test\"}");
+	testp_aamp->SetState(eSTATE_PLAYING, true);
+	testp_aamp->mDownloadsEnabled = true;
+	testp_aamp->SetFirstProgress(true);
+	// Negative trickStartUTCMS suppresses AAMP_EVENT_PROGRESS for this tick.
+	testp_aamp->trickStartUTCMS = -1;
+
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampEventManager,
+		SendEvent(AnEventOfType(AAMP_EVENT_TUNE_TIME_METRICS), AAMP_EVENT_ASYNC_MODE)).Times(0);
+
+	testp_aamp->MonitorProgress(true, false);
+	EXPECT_TRUE(testp_aamp->GetTuneMetricDataPending());
+
+	testing::Mock::VerifyAndClearExpectations(g_mockAampEventManager.get());
+	testp_aamp->trickStartUTCMS = 1;
+	{
+		testing::InSequence seq;
+		EXPECT_CALL(*g_mockAampEventManager,
+			SendEvent(AnEventOfType(AAMP_EVENT_PROGRESS), _)).Times(1);
+		EXPECT_CALL(*g_mockAampEventManager,
+			SendEvent(AnEventOfType(AAMP_EVENT_TUNE_TIME_METRICS), AAMP_EVENT_ASYNC_MODE)).Times(1);
+	}
+	testp_aamp->MonitorProgress(true, false);
+
 	EXPECT_FALSE(testp_aamp->GetTuneMetricDataPending());
 }
 
@@ -4561,6 +4607,128 @@ TEST_F(PrivAampTests,PreCachePlaylistDownloadTaskTest)
 	p_aamp->PreCachePlaylistDownloadTask();
 }
 
+/**
+ * @brief Release a PreCachePlaylistDownloadTask() blocked on waitforplaystart so that a
+ *        failing test does not hang when its std::future is destroyed.
+ */
+static void ReleasePreCacheTask(PrivateInstanceAAMP *aamp)
+{
+	{
+		std::lock_guard<std::mutex> guard(aamp->mMutexPlaystart);
+		aamp->mPlayStartSignalled = true;
+	}
+	aamp->waitforplaystart.notify_all();
+}
+
+static PreCacheUrlList MakePreCacheList()
+{
+	PreCacheUrlStruct entry;
+	entry.url = "http://host/precache/video.m3u8";
+	entry.type = eMEDIATYPE_PLAYLIST_VIDEO;
+	return PreCacheUrlList{entry};
+}
+
+/**
+ * @brief Play start signalled before the pre-cache thread reaches its wait.
+ *
+ * The first-frame notification runs on a different thread from the pre-cache thread and
+ * can happen first. The pre-cache thread must still observe it and continue.
+ * State is set to IDLE after play start so the task returns without downloading.
+ */
+TEST_F(PrivAampTests, PreCachePlaylistDownloadTask_PlayStartBeforeWait_DoesNotBlock)
+{
+	PreCacheUrlList list = MakePreCacheList();
+	p_aamp->SetPreCacheDownloadList(list);
+
+	// Play start happens before the pre-cache thread runs
+	p_aamp->NotifyFirstFrameReceived(0);
+	p_aamp->SetState(eSTATE_IDLE, false);
+
+	auto task = std::async(std::launch::async, [this]() { p_aamp->PreCachePlaylistDownloadTask(); });
+	std::future_status status = task.wait_for(std::chrono::seconds(2));
+	if (status != std::future_status::ready)
+	{
+		ReleasePreCacheTask(p_aamp);
+	}
+	task.wait();
+
+	EXPECT_EQ(status, std::future_status::ready)
+		<< "PreCachePlaylistDownloadTask() missed a play start signalled before it waited";
+}
+
+/**
+ * @brief Pre-cache must not start until play start has been signalled for this tune.
+ */
+TEST_F(PrivAampTests, PreCachePlaylistDownloadTask_NoPlayStart_WaitsUntilSignalled)
+{
+	PreCacheUrlList list = MakePreCacheList();
+	p_aamp->SetPreCacheDownloadList(list);
+	p_aamp->SetState(eSTATE_IDLE, false);
+
+	auto task = std::async(std::launch::async, [this]() { p_aamp->PreCachePlaylistDownloadTask(); });
+	std::future_status beforeSignal = task.wait_for(std::chrono::milliseconds(20));
+
+	ReleasePreCacheTask(p_aamp);
+	std::future_status afterSignal = task.wait_for(std::chrono::seconds(2));
+	task.wait();
+
+	EXPECT_EQ(beforeSignal, std::future_status::timeout);
+	EXPECT_EQ(afterSignal, std::future_status::ready);
+}
+
+/**
+ * @brief SetPreCacheDownloadList() starts a new tune's pre-cache: a play start from a
+ *        previous tune must not release the new pre-cache thread.
+ */
+TEST_F(PrivAampTests, SetPreCacheDownloadList_PreviousTunePlayStart_DoesNotReleaseTask)
+{
+	// Play start of the previous tune
+	p_aamp->NotifyFirstFrameReceived(0);
+
+	PreCacheUrlList list = MakePreCacheList();
+	p_aamp->SetPreCacheDownloadList(list);
+	p_aamp->SetState(eSTATE_IDLE, false);
+
+	auto task = std::async(std::launch::async, [this]() { p_aamp->PreCachePlaylistDownloadTask(); });
+	std::future_status beforeSignal = task.wait_for(std::chrono::milliseconds(20));
+
+	ReleasePreCacheTask(p_aamp);
+	std::future_status afterSignal = task.wait_for(std::chrono::seconds(2));
+	task.wait();
+
+	EXPECT_EQ(beforeSignal, std::future_status::timeout)
+		<< "Play start from the previous tune released the new pre-cache task";
+	EXPECT_EQ(afterSignal, std::future_status::ready);
+}
+
+/**
+ * @brief Stop() must release a pre-cache thread still waiting for play start.
+ *
+ * Stop() signals mPlayStartSignalled and then joins mPreCachePlaylistThreadId. Without the
+ * signal the worker stays blocked on the predicate and the join never returns.
+ * Stop() runs on a helper thread so a regression fails on the deadline rather than hanging.
+ */
+TEST_F(PrivAampTests, Stop_PreCacheThreadWaitingForPlayStart_JoinsWithinDeadline)
+{
+	PreCacheUrlList list = MakePreCacheList();
+	p_aamp->SetPreCacheDownloadList(list);
+	p_aamp->mPreCachePlaylistThreadId =
+		std::thread(&PrivateInstanceAAMP::PreCachePlaylistDownloadTask, p_aamp);
+
+	auto stopTask = std::async(std::launch::async, [this]() { p_aamp->Stop(false); });
+	std::future_status status = stopTask.wait_for(std::chrono::seconds(2));
+	if (status != std::future_status::ready)
+	{
+		// Timeout cleanup only, so a regression fails instead of hanging CI
+		ReleasePreCacheTask(p_aamp);
+	}
+	stopTask.wait();
+
+	EXPECT_EQ(status, std::future_status::ready)
+		<< "Stop() did not release and join the pre-cache thread";
+	EXPECT_FALSE(p_aamp->mPreCachePlaylistThreadId.joinable());
+}
+
 TEST_F(PrivAampTests,GetPreferredTextPropertiesTest)
 {
 	std::vector<BitsPerSecond> bitrateList;
@@ -6339,6 +6507,116 @@ TEST_F(PrivAampTests,GetFormatPositionOffsetTest)
 		.WillRepeatedly(Return(eABSOLUTE_PROGRESS_WITHOUT_AVAILABILITY_START));
 	offset = p_aamp->GetFormatPositionOffsetInMSecs();
 	EXPECT_EQ(offset, 1.2 * 1000); // Expect offset to be 0 since IsLiveStream() is false
+}
+
+/**
+ * @test PrivAampTests::SetStreamCapsForcesEncryptedWithInjectedHeaders
+ * @brief when MP4 demux is enabled and encrypted headers
+ *        were already cached for the specific media type, clear codec caps are forced to encrypted to avoid
+ *        encrypted->clear pipeline reconfiguration.
+ */
+TEST_F(PrivAampTests, SetStreamCapsForcesEncryptedWithInjectedHeaders)
+{
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseMp4Demux))
+		.WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, IsEncryptedHeadersCached(eMEDIATYPE_VIDEO))
+		.WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_))
+		.WillRepeatedly(Return(g_mockAampGstPlayer.get()));
+
+	MediaCodecInfo codecInfo(GST_FORMAT_VIDEO_ES_H264);
+	codecInfo.mIsEncrypted = false;
+
+	p_aamp->SetStreamCaps(eMEDIATYPE_VIDEO, std::move(codecInfo));
+
+	MediaCodecInfo updated = p_aamp->GetMediaCodecInfo(eMEDIATYPE_VIDEO);
+	EXPECT_TRUE(updated.mIsEncrypted);
+}
+
+/**
+ * @test PrivAampTests::SetStreamCapsKeepsClearWhenHeadersNotInjected
+ * @brief Verify that clear codec caps remain clear when the cached-header guard is false for the specific media type.
+ */
+TEST_F(PrivAampTests, SetStreamCapsKeepsClearWhenHeadersNotInjected)
+{
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseMp4Demux))
+		.WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, IsEncryptedHeadersCached(eMEDIATYPE_VIDEO))
+		.WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_))
+		.WillRepeatedly(Return(g_mockAampGstPlayer.get()));
+
+	MediaCodecInfo codecInfo(GST_FORMAT_VIDEO_ES_H264);
+	codecInfo.mIsEncrypted = false;
+
+	p_aamp->SetStreamCaps(eMEDIATYPE_VIDEO, std::move(codecInfo));
+
+	MediaCodecInfo updated = p_aamp->GetMediaCodecInfo(eMEDIATYPE_VIDEO);
+	EXPECT_FALSE(updated.mIsEncrypted);
+}
+
+/**
+ * @test PrivAampTests::SetStreamCapsPerTrackEncryptedVideoClearAudio
+ * @brief Verify that when only video has encrypted headers cached, video is forced encrypted but audio remains clear.
+ */
+TEST_F(PrivAampTests, SetStreamCapsPerTrackEncryptedVideoClearAudio)
+{
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseMp4Demux))
+		.WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_))
+		.WillRepeatedly(Return(g_mockAampGstPlayer.get()));
+
+	// Video has encrypted headers, audio does not
+	EXPECT_CALL(*g_mockAampStreamSinkManager, IsEncryptedHeadersCached(eMEDIATYPE_VIDEO))
+		.WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, IsEncryptedHeadersCached(eMEDIATYPE_AUDIO))
+		.WillRepeatedly(Return(false));
+
+	// Test video - should be forced encrypted
+	MediaCodecInfo videoCodecInfo(GST_FORMAT_VIDEO_ES_H264);
+	videoCodecInfo.mIsEncrypted = false;
+	p_aamp->SetStreamCaps(eMEDIATYPE_VIDEO, std::move(videoCodecInfo));
+	MediaCodecInfo updatedVideo = p_aamp->GetMediaCodecInfo(eMEDIATYPE_VIDEO);
+	EXPECT_TRUE(updatedVideo.mIsEncrypted);
+
+	// Test audio - should remain clear
+	MediaCodecInfo audioCodecInfo(GST_FORMAT_AUDIO_ES_AAC);
+	audioCodecInfo.mIsEncrypted = false;
+	p_aamp->SetStreamCaps(eMEDIATYPE_AUDIO, std::move(audioCodecInfo));
+	MediaCodecInfo updatedAudio = p_aamp->GetMediaCodecInfo(eMEDIATYPE_AUDIO);
+	EXPECT_FALSE(updatedAudio.mIsEncrypted);
+}
+
+/**
+ * @test PrivAampTests::SetStreamCapsPerTrackEncryptedAudioClearVideo
+ * @brief Verify that when only audio has encrypted headers cached, audio is forced encrypted but video remains clear.
+ */
+TEST_F(PrivAampTests, SetStreamCapsPerTrackEncryptedAudioClearVideo)
+{
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseMp4Demux))
+		.WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_))
+		.WillRepeatedly(Return(g_mockAampGstPlayer.get()));
+
+	// Audio has encrypted headers, video does not
+	EXPECT_CALL(*g_mockAampStreamSinkManager, IsEncryptedHeadersCached(eMEDIATYPE_VIDEO))
+		.WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, IsEncryptedHeadersCached(eMEDIATYPE_AUDIO))
+		.WillRepeatedly(Return(true));
+
+	// Test video - should remain clear
+	MediaCodecInfo videoCodecInfo(GST_FORMAT_VIDEO_ES_H264);
+	videoCodecInfo.mIsEncrypted = false;
+	p_aamp->SetStreamCaps(eMEDIATYPE_VIDEO, std::move(videoCodecInfo));
+	MediaCodecInfo updatedVideo = p_aamp->GetMediaCodecInfo(eMEDIATYPE_VIDEO);
+	EXPECT_FALSE(updatedVideo.mIsEncrypted);
+
+	// Test audio - should be forced encrypted
+	MediaCodecInfo audioCodecInfo(GST_FORMAT_AUDIO_ES_AAC);
+	audioCodecInfo.mIsEncrypted = false;
+	p_aamp->SetStreamCaps(eMEDIATYPE_AUDIO, std::move(audioCodecInfo));
+	MediaCodecInfo updatedAudio = p_aamp->GetMediaCodecInfo(eMEDIATYPE_AUDIO);
+	EXPECT_TRUE(updatedAudio.mIsEncrypted);
 }
 
 TEST_F(PrivAampTests,VerifyPausedBehavior)

@@ -2470,11 +2470,7 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 		(state != eSTATE_COMPLETE) &&
 		(state != eSTATE_SEEKING))
 	{
-		// mTuneMetricDataPending is checked inside SendTuneMetricsEvent()
-		if (state == eSTATE_PLAYING)
-		{
-			SendTuneMetricsEvent();
-		}
+		bool progressEventSent = false;
 		double position = 0.0;
 		double duration = durationSeconds * 1000.0;
 		float speed = mSinkPaused.load() ? 0 : rate;
@@ -2738,6 +2734,7 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 				mEventManager->SendEvent(evt);
 			}
 
+			progressEventSent = true;
 			mReportProgressPosn = position;
 		}
 
@@ -2748,6 +2745,12 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 			{
 				PlayFromTsbStart();
 			}
+		}
+
+		// Only send tune metrics after a progress event was actually dispatched.
+		if (state == eSTATE_PLAYING && progressEventSent)
+		{
+			SendTuneMetricsEvent();
 		}
 	}
 }
@@ -8850,6 +8853,7 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 	mDiscontinuityFound = false;
 	{
 		std::lock_guard<std::mutex> guard(mMutexPlaystart);
+		mPlayStartSignalled = true;
 		waitforplaystart.notify_all();
 	}
 	if(mPreCachePlaylistThreadId.joinable())
@@ -9196,6 +9200,7 @@ void PrivateInstanceAAMP::NotifyFirstFrameReceived(unsigned long ccDecoderHandle
 	}
 	{
 		std::lock_guard<std::mutex> guard(mMutexPlaystart);
+		mPlayStartSignalled = true;
 		waitforplaystart.notify_all();
 	}
 	if (eTUNED_EVENT_ON_GST_PLAYING == GetTuneEventConfig(IsLive()))
@@ -11123,7 +11128,7 @@ void PrivateInstanceAAMP::PreCachePlaylistDownloadTask()
 		// First wait for Tune to complete to start this functionality
 		{
 			std::unique_lock<std::mutex> lock(mMutexPlaystart);
-			waitforplaystart.wait(lock);
+			waitforplaystart.wait(lock, [this] { return mPlayStartSignalled; });
 		}
 		// May be Stop is called to release all resources .
 		// Before download , check the state
@@ -11194,6 +11199,12 @@ void PrivateInstanceAAMP::PreCachePlaylistDownloadTask()
  */
 void PrivateInstanceAAMP::SetPreCacheDownloadList(PreCacheUrlList &dnldListInput)
 {
+	{
+		// Must run before the pre-cache thread is created: the thread waits on
+		// mPlayStartSignalled, so a play start from a previous tune must not release it
+		std::lock_guard<std::mutex> guard(mMutexPlaystart);
+		mPlayStartSignalled = false;
+	}
 	mPreCacheDnldList = dnldListInput;
 	if(mPreCacheDnldList.size())
 	{
@@ -15329,6 +15340,13 @@ void PrivateInstanceAAMP::GetStreamFormat(StreamOutputFormat &primaryOutputForma
 void PrivateInstanceAAMP::SetStreamCaps(AampMediaType type, MediaCodecInfo&& codecInfo)
 {
 	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+	if (ISCONFIGSET_PRIV(eAAMPConfig_UseMp4Demux) &&
+		!codecInfo.mIsEncrypted &&
+		AampStreamSinkManager::GetInstance().IsEncryptedHeadersCached(type))
+	{
+		AAMPLOG_WARN("Forcing encrypted stream caps for mediaType %d due to cached encrypted headers", type);
+		codecInfo.mIsEncrypted = true;
+	}
 	SetTrackEncrypted(type, codecInfo.mIsEncrypted);
 	StreamOutputFormat videoFormat = FORMAT_INVALID;
 	StreamOutputFormat audioFormat = FORMAT_INVALID;
