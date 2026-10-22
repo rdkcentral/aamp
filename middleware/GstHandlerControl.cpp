@@ -73,8 +73,12 @@ bool GstHandlerControl::waitForDone(int MaximumDelayMilliseconds, std::string na
 	{
 		mDoneCond.wait_until(lock, end);
 	}
-	const auto elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
+	const auto waitEnd = std::chrono::steady_clock::now();
+	const auto elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(waitEnd - start).count();
+	const auto elapsedUs = std::chrono::duration_cast<std::chrono::microseconds>(waitEnd - start).count();
 	MW_LOG_ERR("GstPlayer: waitForDone exit for %s after %lld ms with %d instance(s)", name.c_str(), static_cast<long long>(elapsedMs), mInstanceCount);
+	MW_LOG_INFO("STOP_TRACE wait_for_done name=%s elapsed_us=%lld max_delay_ms=%d active_instances=%d",
+		name.c_str(), static_cast<long long>(elapsedUs), MaximumDelayMilliseconds, mInstanceCount);
 
 	if(mInstanceCount)
 	{
