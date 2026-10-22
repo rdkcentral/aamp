@@ -405,6 +405,7 @@ TEST_F(RialtoMediaKeySessionAdapterTest, ProcessDRMKey_SecondResponse_WaitsForIt
 				}
 				else
 				{
+					// Lets the caller start waiting first; the reply is late, not lost.
 					std::this_thread::sleep_for(std::chrono::milliseconds(50));
 					auto client = m_capturedClient.lock();
 					ASSERT_NE(nullptr, client);

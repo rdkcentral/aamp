@@ -31,6 +31,7 @@
 
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
+#include <future>
 #include <thread>
 #include <chrono>
 
@@ -155,17 +156,20 @@ TEST_F(AampRialtoControlBackendTest,
 
 	AampRialtoControlBackend backend;
 
-	// Notify state change from a different thread after a short delay.
-	std::thread notifier([&capturedClient]() {
-		std::this_thread::sleep_for(std::chrono::milliseconds(20));
-		auto client = capturedClient.lock();
-		ASSERT_NE(client, nullptr);
-		client->notifyApplicationState(
-			firebolt::rialto::ApplicationState::RUNNING);
-	});
+	auto waiter = std::async(std::launch::async,
+		[&backend] { return backend.waitForRunning(5000); });
+	// Negative check: still waiting while the state is UNKNOWN.
+	ASSERT_EQ(waiter.wait_for(std::chrono::milliseconds(50)),
+		std::future_status::timeout);
 
-	EXPECT_TRUE(backend.waitForRunning(2000));
-	notifier.join();
+	auto client = capturedClient.lock();
+	ASSERT_NE(client, nullptr);
+	client->notifyApplicationState(
+		firebolt::rialto::ApplicationState::RUNNING);
+
+	ASSERT_EQ(waiter.wait_for(std::chrono::seconds(5)),
+		std::future_status::ready);
+	EXPECT_TRUE(waiter.get());
 }
 
 TEST_F(AampRialtoControlBackendTest,
@@ -276,6 +280,7 @@ TEST_F(AampRialtoControlBackendTest,
 					}
 				});
 				appState = firebolt::rialto::ApplicationState::UNKNOWN;
+				// Widens the window in which the notification races this write.
 				std::this_thread::sleep_for(std::chrono::milliseconds(5));
 				return true;
 			}));

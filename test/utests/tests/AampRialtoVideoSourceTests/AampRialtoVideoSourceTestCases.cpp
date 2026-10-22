@@ -1252,8 +1252,24 @@ TEST_F(AampRialtoVideoSourceTest, AampRialtoVideoSource_InjectOneSample_EosSetTh
 			*m_pipelinePtr, gen, std::move(sample), nullptr);
 	});
 
-	// Give the injector thread time to enter the wait.
-	std::this_thread::sleep_for(std::chrono::milliseconds(20));
+	// Wait until the injector has entered the handshake; from then on it
+	// only checks the state under the lock, so the update below lands while
+	// it waits.
+	const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+	bool active = false;
+	while (!active && std::chrono::steady_clock::now() < deadline)
+	{
+		{
+			auto &st = m_source.state();
+			std::lock_guard<std::mutex> lock(st.mu);
+			active = st.injectorActive;
+		}
+		if (!active)
+		{
+			std::this_thread::yield();
+		}
+	}
+	ASSERT_TRUE(active);
 
 	// Simultaneously set eos and provide a needData slot (simulating
 	// both events arriving while the thread is waiting).

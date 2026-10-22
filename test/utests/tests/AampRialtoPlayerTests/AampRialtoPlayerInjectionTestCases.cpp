@@ -1035,7 +1035,12 @@ TEST_F(AampRialtoPlayerId3Test, ChangeAamp_ConcurrentWithSendCopy_IsRaceFree)
 				const char *) { ++calls; });
 	}
 	injector.join();
-	EXPECT_GE(calls.load(), 0);
+
+	// After the race the last handler installed must receive the next packet.
+	const int before = calls.load();
+	std::vector<uint8_t> packet = kId3Packet;
+	m_player->SendCopy(eMEDIATYPE_DSM_CC, std::move(packet), 2.0, 2.0, 0.1);
+	EXPECT_EQ(calls.load(), before + 1);
 }
 
 TEST_F(AampRialtoPlayerTest,
@@ -1236,12 +1241,16 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	SendVideoInitFragment();
 	SendAudioInitFragment();
 
-	for (int i = 0; i < 30; ++i)
-	{
-		PostNeedData(0, 1, static_cast<uint32_t>(100 + i));
-		PostNeedData(1, 1, static_cast<uint32_t>(200 + i));
-	}
-	SUCCEED();
+	auto dispatch = std::async(std::launch::async, [this] {
+		for (int i = 0; i < 30; ++i)
+		{
+			PostNeedData(0, 1, static_cast<uint32_t>(100 + i));
+			PostNeedData(1, 1, static_cast<uint32_t>(200 + i));
+		}
+	});
+	ASSERT_EQ(dispatch.wait_for(std::chrono::seconds(5)),
+		std::future_status::ready)
+		<< "needData dispatch blocked the Rialto event thread";
 }
 
 // ===========================================================================
