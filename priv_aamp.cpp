@@ -4931,7 +4931,7 @@ bool PrivateInstanceAAMP::IsAsyncTuneAbortRequired(const char* manifestUrl, cons
 void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 {
 	const auto teardownTraceStart = std::chrono::steady_clock::now();
-	auto logTeardownPhase = [this, &teardownTraceStart](const char* phase,
+	auto logTeardownPhase = [this, &teardownTraceStart, newTune, disableDownloads](const char* phase,
 		const std::chrono::steady_clock::time_point& phaseStart)
 	{
 		const auto phaseEnd = std::chrono::steady_clock::now();
