@@ -30,6 +30,7 @@
 #include <inttypes.h>
 #include "TextStyleAttributes.h"
 #include <memory>
+#include <chrono>
 #include <gst/gst.h>
 #ifdef USE_EXTERNAL_STATS
 #include "player-xternal-stats.h"
@@ -69,7 +70,7 @@ static const char* GstPluginNameVMX = "verimatrixdecryptor";
 /*InterfacePlayerRDK constructor*/
 InterfacePlayerRDK::InterfacePlayerRDK(bool isRialto) :
 mProtectionLock(), mPauseInjector(false), mSourceSetupMutex(), stopCallback(NULL), tearDownCb(NULL), notifyFirstFrameCallback(NULL),
-mSourceSetupCV(), mScheduler(), callbackMap(), setupStreamCallbackMap(), mDrmSystem(NULL), mEncrypt(NULL), mDRMSessionManager(NULL)
+mSourceSetupCV(), callbackMap(), setupStreamCallbackMap(), mDrmSystem(NULL), mEncrypt(NULL), mDRMSessionManager(NULL), idleCallbackControl()
 {
 	interfacePlayerPriv = new InterfacePlayerPriv(isRialto);
 	m_gstConfigParam = new Configs();
@@ -77,13 +78,14 @@ mSourceSetupCV(), mScheduler(), callbackMap(), setupStreamCallbackMap(), mDrmSys
 	pthread_mutex_init(&mProtectionLock, NULL);
 	for (int i = 0; i < GST_TRACK_COUNT; i++)
 	pthread_mutex_init(&interfacePlayerPriv->gstPrivateContext->stream[i].sourceLock, NULL);
-	// start Scheduler Worker for task handling
-	mScheduler.StartScheduler();
 }
 
 /* InterfacePlayerRDK destructor*/
 InterfacePlayerRDK::~InterfacePlayerRDK()
 {
+	// Cancel any queued idle/timer callbacks before freeing player state, otherwise a
+	// callback scheduled just before destruction can fire against freed memory.
+	//CancelPendingCallbacks();
 	DestroyPipeline();
 	if (mDrmSystem)
 	{
@@ -91,7 +93,6 @@ InterfacePlayerRDK::~InterfacePlayerRDK()
 	}
 	/* safe delete configuration parameter */
 	MW_SAFE_DELETE(m_gstConfigParam);
-	mScheduler.StopScheduler();
 	for (int i = 0; i < GST_TRACK_COUNT; i++)
 	{
 		pthread_mutex_destroy(&interfacePlayerPriv->gstPrivateContext->stream[i].sourceLock);
@@ -546,16 +547,19 @@ void InterfacePlayerRDK::SetPauseOnStartPlayback(bool enable)
  */
 gboolean InterfacePlayerRDK::IdleCallbackOnFirstFrame(gpointer user_data)
 {
+	MW_LOG_ERR("InterfacePlayerRDK::IdleCallbackOnFirstFrame entered");
 	InterfacePlayerRDK *pInterfacePlayerRDK = (InterfacePlayerRDK *)user_data;
 	InterfacePlayerPriv* privatePlayer = nullptr;
       
 	if (pInterfacePlayerRDK)
 	{
-                privatePlayer = pInterfacePlayerRDK->GetPrivatePlayer();
+        privatePlayer = pInterfacePlayerRDK->GetPrivatePlayer();
+		HANDLER_CONTROL_HELPER(pInterfacePlayerRDK->idleCallbackControl, G_SOURCE_REMOVE);
 		pInterfacePlayerRDK->TriggerEvent(InterfaceCB::firstVideoFrameReceived);
 		privatePlayer->gstPrivateContext->firstFrameCallbackIdleTaskId = PLAYER_TASK_ID_INVALID;
 		privatePlayer->gstPrivateContext->firstFrameCallbackIdleTaskPending = false;
 	}
+	MW_LOG_ERR("InterfacePlayerRDK::IdleCallbackOnFirstFrame exited");
 	return G_SOURCE_REMOVE;
 }
 
@@ -609,6 +613,7 @@ static void GstPlayer_OnAudioFirstFrameAudDecoder(GstElement* object, guint arg0
  */
 gboolean InterfacePlayerRDK::IdleCallbackOnEOS(gpointer user_data)
 {
+	MW_LOG_ERR("InterfacePlayerRDK::IdleCallbackOnEOS entered");
 	InterfacePlayerRDK *pInterfacePlayerRDK = (InterfacePlayerRDK *)user_data;
 
 	InterfacePlayerPriv* privatePlayer = nullptr;
@@ -616,11 +621,13 @@ gboolean InterfacePlayerRDK::IdleCallbackOnEOS(gpointer user_data)
 	if (pInterfacePlayerRDK)
 	{
 	        privatePlayer = pInterfacePlayerRDK->GetPrivatePlayer();
+		HANDLER_CONTROL_HELPER(pInterfacePlayerRDK->idleCallbackControl, G_SOURCE_REMOVE);
 		MW_LOG_MIL("eosCallbackIdleTaskId %d", privatePlayer->gstPrivateContext->eosCallbackIdleTaskId);
 		pInterfacePlayerRDK->TriggerEvent(InterfaceCB::notifyEOS);
 		privatePlayer->gstPrivateContext->eosCallbackIdleTaskId = PLAYER_TASK_ID_INVALID;
 		privatePlayer->gstPrivateContext->eosCallbackIdleTaskPending = false;
 	}
+	MW_LOG_ERR("InterfacePlayerRDK::IdleCallbackOnEOS exited");
 	return G_SOURCE_REMOVE;
 }
 
@@ -781,11 +788,13 @@ gboolean InterfacePlayerRDK::ProgressCallbackOnTimeout(gpointer user_data)
  */
 gboolean InterfacePlayerRDK::IdleCallback(gpointer user_data)
 {
+	MW_LOG_ERR("InterfacePlayerRDK::IdleCallback entered");
 	InterfacePlayerRDK *pInterfacePlayerRDK = (InterfacePlayerRDK *)user_data;
 	InterfacePlayerPriv* privatePlayer = nullptr;
 	if (pInterfacePlayerRDK)
 	{
 	        privatePlayer = pInterfacePlayerRDK->GetPrivatePlayer();
+		HANDLER_CONTROL_HELPER(pInterfacePlayerRDK->idleCallbackControl, G_SOURCE_REMOVE);
 		pInterfacePlayerRDK->TriggerEvent(InterfaceCB::idleCb);
 		pInterfacePlayerRDK->IdleTaskClearFlags(privatePlayer->gstPrivateContext->firstProgressCallbackIdleTask);
 
@@ -802,6 +811,7 @@ gboolean InterfacePlayerRDK::IdleCallback(gpointer user_data)
 			MW_LOG_INFO("Progress callback already available: periodicProgressCallbackIdleTaskId %d", privatePlayer->gstPrivateContext->periodicProgressCallbackIdleTaskId);
 		}
 	}
+	MW_LOG_ERR("InterfacePlayerRDK::IdleCallback exited");
 	return G_SOURCE_REMOVE;
 }
 
@@ -812,13 +822,16 @@ gboolean InterfacePlayerRDK::IdleCallback(gpointer user_data)
  */
 gboolean InterfacePlayerRDK::IdleCallbackFirstVideoFrameDisplayed(gpointer user_data)
 {
+	MW_LOG_ERR("InterfacePlayerRDK::IdleCallbackFirstVideoFrameDisplayed entered");
 	InterfacePlayerRDK *pInterfacePlayerRDK = (InterfacePlayerRDK *)user_data;
 	InterfacePlayerPriv* privatePlayer = nullptr;
 	if (pInterfacePlayerRDK)
 	{
-	        privatePlayer = pInterfacePlayerRDK->GetPrivatePlayer();
+	    privatePlayer = pInterfacePlayerRDK->GetPrivatePlayer();
+		HANDLER_CONTROL_HELPER(pInterfacePlayerRDK->idleCallbackControl, G_SOURCE_REMOVE);
 		pInterfacePlayerRDK->TriggerEvent(InterfaceCB::firstVideoFrameDisplayed);
 		pInterfacePlayerRDK->IdleTaskRemove(privatePlayer->gstPrivateContext->firstVideoFrameDisplayedCallbackTask);
+		MW_LOG_ERR("InterfacePlayerRDK::IdleCallbackFirstVideoFrameDisplayed exited");
 	}
 	return G_SOURCE_REMOVE;
 }
@@ -1273,7 +1286,16 @@ static GstStateChangeReturn SetStateWithWarnings(GstElement *element, GstState t
 		GstState current;																	/* To hold the current state of the element */
 		GstState pending;																	/* Pending state, used in printing the pending state of the element */
 
+		const auto getStateStart = std::chrono::steady_clock::now();
 		auto stateChangeReturn = gst_element_get_state(element, &current, &pending, 0);		/* Get the current playing state of the element with no blocking timeout,  this function is MT-safe */
+		const auto getStateElapsedUs = std::chrono::duration_cast<std::chrono::microseconds>(
+			std::chrono::steady_clock::now() - getStateStart).count();
+		if (targetState == GST_STATE_NULL)
+		{
+			MW_LOG_INFO("STOP_TRACE gst_get_state element=%s duration_us=%lld result=%d current=%s pending=%s",
+				SafeName(element).c_str(), static_cast<long long>(getStateElapsedUs), stateChangeReturn,
+				gst_element_state_get_name(current), gst_element_state_get_name(pending));
+		}
 		switch(stateChangeReturn)
 		{
 			case GST_STATE_CHANGE_FAILURE:
@@ -1303,7 +1325,15 @@ static GstStateChangeReturn SetStateWithWarnings(GstElement *element, GstState t
 		{
 			MW_LOG_DEBUG("InterfacePlayerRDK: Attempting to set %s state to %s", SafeName(element).c_str(), gst_element_state_get_name(targetState));
 		}
+		const auto setStateStart = std::chrono::steady_clock::now();
 		rc = gst_element_set_state(element, targetState);					/* Set the state of the element to the targetState, this function is MT-safe*/
+		const auto setStateElapsedUs = std::chrono::duration_cast<std::chrono::microseconds>(
+			std::chrono::steady_clock::now() - setStateStart).count();
+		if (targetState == GST_STATE_NULL)
+		{
+			MW_LOG_INFO("STOP_TRACE gst_set_state element=%s duration_us=%lld result=%d",
+				SafeName(element).c_str(), static_cast<long long>(setStateElapsedUs), rc);
+		}
 		if(syncOnlyTransition)
 		{
 			MW_LOG_MIL("InterfacePlayerRDK: %s state set to %s",  SafeName(element).c_str(), gst_element_state_get_name(targetState));
@@ -1323,7 +1353,13 @@ static GstStateChangeReturn SetStateWithWarnings(GstElement *element, GstState t
 
 void InterfacePlayerRDK::TearDownStream(int type)
 {
+	const auto teardownStart = std::chrono::steady_clock::now();
+	const auto callbackStart = std::chrono::steady_clock::now();
 	tearDownCb(true, type);
+	auto elapsedUs = std::chrono::duration_cast<std::chrono::microseconds>(
+		std::chrono::steady_clock::now() - callbackStart).count();
+	MW_LOG_INFO("STOP_TRACE stream_teardown_callback stage=begin media_type=%d duration_us=%lld",
+		type, static_cast<long long>(elapsedUs));
 	gst_media_stream* stream = &interfacePlayerPriv->gstPrivateContext->stream[type];
 	RemoveProbe(type);
 	stream->bufferUnderrun = false;
@@ -1331,7 +1367,12 @@ void InterfacePlayerRDK::TearDownStream(int type)
 
 	GstMediaType mediaType = static_cast<GstMediaType>(type);
 
+	const auto sourceLockStart = std::chrono::steady_clock::now();
 	pthread_mutex_lock(&stream->sourceLock);
+	elapsedUs = std::chrono::duration_cast<std::chrono::microseconds>(
+		std::chrono::steady_clock::now() - sourceLockStart).count();
+	MW_LOG_INFO("STOP_TRACE stream_source_lock media_type=%d duration_us=%lld",
+		mediaType, static_cast<long long>(elapsedUs));
 	if ((stream->format != GST_FORMAT_INVALID) ||
 		(mediaType == eGST_MEDIATYPE_SUBTITLE && interfacePlayerPriv->gstPrivateContext->usingClosedCaptionsControl))
 	{
@@ -1354,18 +1395,34 @@ void InterfacePlayerRDK::TearDownStream(int type)
 					 * decoder/HW resource is confirmed released before we start fresh. */
 					GstState current, pending;
 					gint retryCnt = GST_ELEMENT_GET_STATE_RETRY_CNT_MAX;
+					gint retryCount = 0;
+					GstStateChangeReturn waitRc = GST_STATE_CHANGE_ASYNC;
+					const auto sinkbinWaitStart = std::chrono::steady_clock::now();
 					do
 					{
-						(void)gst_element_get_state(GST_ELEMENT(stream->sinkbin), &current, &pending, 100 * GST_MSECOND);
+						++retryCount;
+						waitRc = gst_element_get_state(GST_ELEMENT(stream->sinkbin), &current, &pending, 100 * GST_MSECOND);
 					}
 					while ((current != GST_STATE_NULL) && (--retryCnt > 0));
+					elapsedUs = std::chrono::duration_cast<std::chrono::microseconds>(
+						std::chrono::steady_clock::now() - sinkbinWaitStart).count();
+					MW_LOG_INFO("STOP_TRACE sinkbin_null_wait media_type=%d element=%s duration_us=%lld attempts=%d max_attempts=%d result=%d current=%s pending=%s",
+						mediaType, SafeName(GST_ELEMENT(stream->sinkbin)).c_str(), static_cast<long long>(elapsedUs),
+						retryCount, GST_ELEMENT_GET_STATE_RETRY_CNT_MAX, waitRc,
+						gst_element_state_get_name(current), gst_element_state_get_name(pending));
 					if (current != GST_STATE_NULL)
 					{
 						MW_LOG_ERR("InterfacePlayerRDK::TearDownStream: sinkbin stopped abruptly, did not reach NULL (current=%s) - forcing synchronous reset before next decoder configuration", gst_element_state_get_name(current));
 						gst_element_set_state(GST_ELEMENT(stream->sinkbin), GST_STATE_NULL);
 					}
 				}
-				if (!gst_bin_remove(GST_BIN(interfacePlayerPriv->gstPrivateContext->pipeline), GST_ELEMENT(stream->sinkbin)))			/* Removes the sinkbin element from the pipeline */
+				const auto removeSinkbinStart = std::chrono::steady_clock::now();
+				const bool sinkbinRemoved = gst_bin_remove(GST_BIN(interfacePlayerPriv->gstPrivateContext->pipeline), GST_ELEMENT(stream->sinkbin));			/* Removes the sinkbin element from the pipeline */
+				elapsedUs = std::chrono::duration_cast<std::chrono::microseconds>(
+					std::chrono::steady_clock::now() - removeSinkbinStart).count();
+				MW_LOG_INFO("STOP_TRACE sinkbin_remove media_type=%d duration_us=%lld result=%d",
+					mediaType, static_cast<long long>(elapsedUs), sinkbinRemoved);
+				if (!sinkbinRemoved)
 				{
 					MW_LOG_ERR("InterfacePlayerRDK::TearDownStream:  Unable to remove sinkbin from pipeline");
 				}
@@ -1401,7 +1458,12 @@ void InterfacePlayerRDK::TearDownStream(int type)
 	else if (mediaType == eGST_MEDIATYPE_SUBTITLE)
 	{
 		g_clear_object(&interfacePlayerPriv->gstPrivateContext->subtitle_sink);
+		const auto subtitleSourceLockStart = std::chrono::steady_clock::now();
 		pthread_mutex_lock(&stream->sourceLock);
+		elapsedUs = std::chrono::duration_cast<std::chrono::microseconds>(
+			std::chrono::steady_clock::now() - subtitleSourceLockStart).count();
+		MW_LOG_INFO("STOP_TRACE stream_source_lock media_type=%d stage=subtitle_cleanup duration_us=%lld",
+			mediaType, static_cast<long long>(elapsedUs));
 		if (stream->sinkbin)
 		{
 			MW_LOG_WARN("InterfacePlayerRDK::TearDownStream: CC sinkbin still assigned, clearing");
@@ -1414,28 +1476,57 @@ void InterfacePlayerRDK::TearDownStream(int type)
 		}
 		pthread_mutex_unlock(&stream->sourceLock);
 	}
+	const auto callbackEndStart = std::chrono::steady_clock::now();
 	tearDownCb(false, mediaType);
-	MW_LOG_MIL("InterfacePlayerRDK::TearDownStream: exit mediaType = %d", mediaType);
+	elapsedUs = std::chrono::duration_cast<std::chrono::microseconds>(
+		std::chrono::steady_clock::now() - callbackEndStart).count();
+	MW_LOG_INFO("STOP_TRACE stream_teardown_callback stage=end media_type=%d duration_us=%lld",
+		mediaType, static_cast<long long>(elapsedUs));
+	MW_LOG_ERR("InterfacePlayerRDK::TearDownStream: exit mediaType = %d", mediaType);
+	elapsedUs = std::chrono::duration_cast<std::chrono::microseconds>(
+		std::chrono::steady_clock::now() - teardownStart).count();
+	MW_LOG_INFO("STOP_TRACE stream_teardown media_type=%d total_us=%lld",
+		mediaType, static_cast<long long>(elapsedUs));
 }
 
 void InterfacePlayerRDK::Stop(bool keepLastFrame)
 {
-	std::lock_guard<std::mutex> lock(mMutex);
+	const auto stopStart = std::chrono::steady_clock::now();
+	auto logStopPhase = [this, &stopStart](const char* phase,
+		const std::chrono::steady_clock::time_point& phaseStart)
+	{
+		const auto phaseEnd = std::chrono::steady_clock::now();
+		const auto phaseElapsedUs = std::chrono::duration_cast<std::chrono::microseconds>(phaseEnd - phaseStart).count();
+		const auto totalElapsedUs = std::chrono::duration_cast<std::chrono::microseconds>(phaseEnd - stopStart).count();
+		MW_LOG_INFO("STOP_TRACE InterfacePlayerRDK player=%p phase=%s phase_us=%lld total_us=%lld",
+			static_cast<void*>(this), phase, static_cast<long long>(phaseElapsedUs),
+			static_cast<long long>(totalElapsedUs));
+	};
+	MW_LOG_ERR("InterfacePlayerRDK::Stop entered keepLastFrame=%d", keepLastFrame);
+	const auto mutexWaitStart = std::chrono::steady_clock::now();
+	std::unique_lock<std::mutex> lock(mMutex);
+	logStopPhase("mutex_acquire", mutexWaitStart);
 	/*  make the execution of this function more deterministic and
 	 *  reduce scope for potential pipeline lockups*/
 
+	const auto handlerDisableStart = std::chrono::steady_clock::now();
 	{
 		std::lock_guard<std::mutex> bufferingLock(interfacePlayerPriv->gstPrivateContext->bufferingTimeoutMutex);
 		interfacePlayerPriv->gstPrivateContext->bufferingTimeoutControl.disable();
 	}
 	interfacePlayerPriv->gstPrivateContext->syncControl.disable();
 	interfacePlayerPriv->gstPrivateContext->aSyncControl.disable();
+	logStopPhase("disable_handlers", handlerDisableStart);
+	const auto sourceSetupLockStart = std::chrono::steady_clock::now();
 	std::unique_lock<std::mutex> sourceSetupLock(mSourceSetupMutex);
+	logStopPhase("source_setup_lock", sourceSetupLockStart);
 	mSourceSetupCV.notify_all();
+	const auto removeBusWatchStart = std::chrono::steady_clock::now();
 	if(interfacePlayerPriv->gstPrivateContext->bus)
 	{
 		gst_bus_remove_watch(interfacePlayerPriv->gstPrivateContext->bus);           /* Remove the watch from bus so that gstreamer no longer sends messages to it */
 	}
+	logStopPhase("remove_bus_watch", removeBusWatchStart);
 
 	if(!keepLastFrame)
 	{
@@ -1443,6 +1534,96 @@ void InterfacePlayerRDK::Stop(bool keepLastFrame)
 		interfacePlayerPriv->gstPrivateContext->firstVideoFrameReceived = false;
 		interfacePlayerPriv->gstPrivateContext->firstAudioFrameReceived = false ;
 	}
+	const auto cancelCallbacksStart = std::chrono::steady_clock::now();
+	CancelPendingCallbacks();
+	logStopPhase("cancel_pending_callbacks", cancelCallbacksStart);
+	
+	/* Prevent potential side effects of injecting EOS and
+	 * make the stop process more deterministic by:
+	 1) Confirming that bus handlers (disabled above) have completed
+	 2) disabling and disconnecting signals
+	 3) confirming that all signal handlers have completed.
+	 * This should complete very quickly and
+	 * should not have a significant performance impact.*/
+	const auto handlerWaitStart = std::chrono::steady_clock::now();
+	interfacePlayerPriv->gstPrivateContext->syncControl.waitForDone(50, "bus_sync_handler");
+	interfacePlayerPriv->gstPrivateContext->aSyncControl.waitForDone(50, "bus_message");
+	interfacePlayerPriv->gstPrivateContext->bufferingTimeoutControl.waitForDone(50, "buffering_timeout");
+	logStopPhase("wait_for_bus_handlers", handlerWaitStart);
+	interfacePlayerPriv->gstPrivateContext->callbackControl.disable();
+	const auto disconnectSignalsStart = std::chrono::steady_clock::now();
+	DisconnectSignals();
+	logStopPhase("disconnect_signals", disconnectSignalsStart);
+	const auto callbackWaitStart = std::chrono::steady_clock::now();
+	interfacePlayerPriv->gstPrivateContext->aSyncControl.waitForDone(100, "callback handler");
+	logStopPhase("wait_for_callback_handler", callbackWaitStart);
+
+	// Remove probes before setting the pipeline to NULL
+	const auto removeProbesStart = std::chrono::steady_clock::now();
+	RemoveProbes();
+	logStopPhase("remove_probes", removeProbesStart);
+
+	if (interfacePlayerPriv->gstPrivateContext->pipeline)
+	{
+		const auto EOSMode = m_gstConfigParam->eosInjectionMode;
+		const auto eosInjectionStart = std::chrono::steady_clock::now();
+		if(GstEOS_INJECTION_MODE_STOP_ONLY == EOSMode)
+		{
+			//Ensure prompt transition to GST_STATE_NULL
+			GstPlayer_SignalEOS(interfacePlayerPriv->gstPrivateContext);
+		}
+		logStopPhase("eos_injection", eosInjectionStart);
+
+		interfacePlayerPriv->gstPrivateContext->buffering_in_progress = false;   /* stopping pipeline, don't want to change state if GST_MESSAGE_ASYNC_DONE message comes in */
+		const auto setNullStart = std::chrono::steady_clock::now();
+		SetStateWithWarnings(interfacePlayerPriv->gstPrivateContext->pipeline, GST_STATE_NULL);
+		logStopPhase("pipeline_set_null", setNullStart);
+		MW_LOG_MIL(" InterfacePlayerRDK: Pipeline state set to null");
+	}
+	if(PlayerExternalsInterface::IsPlayerExternalsInterfaceInstanceActive())
+	{
+		const auto externalDetachStart = std::chrono::steady_clock::now();
+		std::shared_ptr<PlayerExternalsInterface> pInstance = PlayerExternalsInterface::GetPlayerExternalsInterfaceInstance();
+		pInstance->setGstElement((GstElement *)(NULL));
+		logStopPhase("external_player_detach", externalDetachStart);
+	}
+	for(int i = 0; i<GST_TRACK_COUNT;i++)
+	{
+		const auto streamTeardownStart = std::chrono::steady_clock::now();
+		TearDownStream((int(i)));
+		const auto streamTeardownEnd = std::chrono::steady_clock::now();
+		const auto streamTeardownElapsedUs = std::chrono::duration_cast<std::chrono::microseconds>(streamTeardownEnd - streamTeardownStart).count();
+		const auto stopElapsedUs = std::chrono::duration_cast<std::chrono::microseconds>(streamTeardownEnd - stopStart).count();
+		MW_LOG_INFO("STOP_TRACE InterfacePlayerRDK player=%p phase=stream_teardown stream_index=%d phase_us=%lld total_us=%lld",
+			static_cast<void*>(this), i, static_cast<long long>(streamTeardownElapsedUs),
+			static_cast<long long>(stopElapsedUs));
+	}
+	const auto destroyPipelineStart = std::chrono::steady_clock::now();
+	DestroyPipeline();
+	logStopPhase("destroy_pipeline", destroyPipelineStart);
+	interfacePlayerPriv->gstPrivateContext->rate = GST_NORMAL_PLAY_RATE;
+	interfacePlayerPriv->gstPrivateContext->lastKnownPTS = 0;
+	interfacePlayerPriv->gstPrivateContext->segmentStart = 0;
+	interfacePlayerPriv->gstPrivateContext->paused = false;
+	interfacePlayerPriv->gstPrivateContext->pipelineState = GST_STATE_NULL;
+	// Reset mute and volume params
+	interfacePlayerPriv->gstPrivateContext->audioMuted = false;
+	interfacePlayerPriv->gstPrivateContext->videoMuted = false;
+	interfacePlayerPriv->gstPrivateContext->subtitleMuted = false;
+	interfacePlayerPriv->gstPrivateContext->audioVolume = 1.0;
+	const auto stopEnd = std::chrono::steady_clock::now();
+	const auto stopElapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(stopEnd - stopStart).count();
+	MW_LOG_ERR("InterfacePlayerRDK::Stop exited after %lld ms", static_cast<long long>(stopElapsedMs));
+	const auto stopElapsedUs = std::chrono::duration_cast<std::chrono::microseconds>(stopEnd - stopStart).count();
+	MW_LOG_INFO("STOP_TRACE InterfacePlayerRDK player=%p phase=complete total_us=%lld",
+		static_cast<void*>(this), static_cast<long long>(stopElapsedUs));
+}
+
+/**
+ *  @brief CancelPendingCallbacks - cancel idle/timer callbacks scheduled against this instance
+ */
+void InterfacePlayerRDK::CancelPendingCallbacks()
+{
 	IdleTaskRemove(interfacePlayerPriv->gstPrivateContext->firstProgressCallbackIdleTask);
 
 	this->TimerRemove(interfacePlayerPriv->gstPrivateContext->periodicProgressCallbackIdleTaskId, "periodicProgressCallbackIdleTaskId");
@@ -1461,68 +1642,21 @@ void InterfacePlayerRDK::Stop(bool keepLastFrame)
 	if (interfacePlayerPriv->gstPrivateContext->eosCallbackIdleTaskPending)
 	{
 		MW_LOG_MIL("InterfacePlayerRDK: Remove eosCallbackIdleTaskId %d",interfacePlayerPriv->gstPrivateContext->eosCallbackIdleTaskId);
-		mScheduler.RemoveTask(interfacePlayerPriv->gstPrivateContext->eosCallbackIdleTaskId);
+		g_source_remove(interfacePlayerPriv->gstPrivateContext->eosCallbackIdleTaskId);
 		interfacePlayerPriv->gstPrivateContext->eosCallbackIdleTaskPending = false;
 		interfacePlayerPriv->gstPrivateContext->eosCallbackIdleTaskId = PLAYER_TASK_ID_INVALID;
 	}
 	if (interfacePlayerPriv->gstPrivateContext->firstFrameCallbackIdleTaskPending)
 	{
 		MW_LOG_MIL("InterfacePlayerRDK: Remove firstFrameCallbackIdleTaskId %d",interfacePlayerPriv->gstPrivateContext->firstFrameCallbackIdleTaskId);
-		mScheduler.RemoveTask(interfacePlayerPriv->gstPrivateContext->firstFrameCallbackIdleTaskId);
+		g_source_remove(interfacePlayerPriv->gstPrivateContext->firstFrameCallbackIdleTaskId);
 		interfacePlayerPriv->gstPrivateContext->firstFrameCallbackIdleTaskPending = false;
 		interfacePlayerPriv->gstPrivateContext->firstFrameCallbackIdleTaskId = PLAYER_TASK_ID_INVALID;
 	}
 	IdleTaskRemove(interfacePlayerPriv->gstPrivateContext->firstVideoFrameDisplayedCallbackTask);
-	/* Prevent potential side effects of injecting EOS and
-	 * make the stop process more deterministic by:
-	 1) Confirming that bus handlers (disabled above) have completed
-	 2) disabling and disconnecting signals
-	 3) confirming that all signal handlers have completed.
-	 * This should complete very quickly and
-	 * should not have a significant performance impact.*/
-	interfacePlayerPriv->gstPrivateContext->syncControl.waitForDone(50, "bus_sync_handler");
-	interfacePlayerPriv->gstPrivateContext->aSyncControl.waitForDone(50, "bus_message");
-	interfacePlayerPriv->gstPrivateContext->bufferingTimeoutControl.waitForDone(50, "buffering_timeout");
-	interfacePlayerPriv->gstPrivateContext->callbackControl.disable();
-	DisconnectSignals();
-	interfacePlayerPriv->gstPrivateContext->aSyncControl.waitForDone(100, "callback handler");
-
-	// Remove probes before setting the pipeline to NULL
-	RemoveProbes();
-
-	if (interfacePlayerPriv->gstPrivateContext->pipeline)
-	{
-		const auto EOSMode = m_gstConfigParam->eosInjectionMode;
-		if(GstEOS_INJECTION_MODE_STOP_ONLY == EOSMode)
-		{
-			//Ensure prompt transition to GST_STATE_NULL
-			GstPlayer_SignalEOS(interfacePlayerPriv->gstPrivateContext);
-		}
-
-		interfacePlayerPriv->gstPrivateContext->buffering_in_progress = false;   /* stopping pipeline, don't want to change state if GST_MESSAGE_ASYNC_DONE message comes in */
-		SetStateWithWarnings(interfacePlayerPriv->gstPrivateContext->pipeline, GST_STATE_NULL);
-		MW_LOG_MIL(" InterfacePlayerRDK: Pipeline state set to null");
-	}
-	if(PlayerExternalsInterface::IsPlayerExternalsInterfaceInstanceActive())
-	{
-		std::shared_ptr<PlayerExternalsInterface> pInstance = PlayerExternalsInterface::GetPlayerExternalsInterfaceInstance();
-		pInstance->setGstElement((GstElement *)(NULL));
-	}
-	for(int i = 0; i<GST_TRACK_COUNT;i++)
-	{
-		TearDownStream((int(i)));
-	}
-	DestroyPipeline();
-	interfacePlayerPriv->gstPrivateContext->rate = GST_NORMAL_PLAY_RATE;
-	interfacePlayerPriv->gstPrivateContext->lastKnownPTS = 0;
-	interfacePlayerPriv->gstPrivateContext->segmentStart = 0;
-	interfacePlayerPriv->gstPrivateContext->paused = false;
-	interfacePlayerPriv->gstPrivateContext->pipelineState = GST_STATE_NULL;
-	// Reset mute and volume params
-	interfacePlayerPriv->gstPrivateContext->audioMuted = false;
-	interfacePlayerPriv->gstPrivateContext->videoMuted = false;
-	interfacePlayerPriv->gstPrivateContext->subtitleMuted = false;
-	interfacePlayerPriv->gstPrivateContext->audioVolume = 1.0;
+	// Wait for any idle callback already running on the main loop thread to finish
+	// before the caller frees player state (g_source_remove alone won't wait for it).
+	idleCallbackControl.waitForDone(100, "idle callback handler");
 }
 
 void InterfacePlayerRDK::ResetGstEvents()
@@ -1567,7 +1701,7 @@ bool InterfacePlayerRDK::IdleTaskRemove(GstTaskControlData& taskDetails)
 	if (0 != taskDetails.taskID)
 	{
 		MW_LOG_INFO("InterfacePlayerRDK: Remove task <%.50s> with ID %d", taskDetails.taskName.c_str(), taskDetails.taskID);
-		mScheduler.RemoveTask(taskDetails.taskID);
+		g_source_remove(taskDetails.taskID);
 		taskDetails.taskID = 0;
 		ret = true;
 	}
@@ -1605,7 +1739,7 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 	if (interfacePlayerPriv->gstPrivateContext->eosCallbackIdleTaskPending)
 	{
 		MW_LOG_MIL("InterfacePlayerRDK: Remove eosCallbackIdleTaskId %d", interfacePlayerPriv->gstPrivateContext->eosCallbackIdleTaskId);
-		mScheduler.RemoveTask(interfacePlayerPriv->gstPrivateContext->eosCallbackIdleTaskId);
+		g_source_remove(interfacePlayerPriv->gstPrivateContext->eosCallbackIdleTaskId);
 		interfacePlayerPriv->gstPrivateContext->eosCallbackIdleTaskId = PLAYER_TASK_ID_INVALID;
 		interfacePlayerPriv->gstPrivateContext->eosCallbackIdleTaskPending = false;
 
@@ -3924,8 +4058,8 @@ bool InterfacePlayerRDK::IdleTaskAdd(GstTaskControlData& taskDetails, Background
 	if (0 == taskDetails.taskID)
 	{
 		taskDetails.taskIsPending = false;
-		taskDetails.taskID = mScheduler.ScheduleTask(PlayerAsyncTaskObj(funcPtr, (void *)this));
-		// Wait for scheduler response , if failed to create task for wrong state , not to make pending flag as true
+		taskDetails.taskID = g_idle_add_full(G_PRIORITY_DEFAULT_IDLE, (GSourceFunc)funcPtr, (gpointer)this, NULL);
+		// Wait for g_idle_add response , if failed to create task for wrong state , not to make pending flag as true
 		if(0 != taskDetails.taskID)
 		{
 			taskDetails.taskIsPending = true;
@@ -3964,6 +4098,7 @@ void InterfacePlayerRDK::TearDownCallback(std::function<void(bool, int)> callbac
  */
 void InterfacePlayerRDK::NotifyFirstFrame(int mediaType)
 {
+	MW_LOG_ERR("InterfacePlayerRDK::NotifyFirstFrame entered mediaType=%d", mediaType);
 	bool notifyFirstBuffer = false;
 	bool audioOnly = false;
 	bool requireFirstVideoFrameDisplay = false;
@@ -3987,8 +4122,7 @@ void InterfacePlayerRDK::NotifyFirstFrame(int mediaType)
 		{
 			interfacePlayerPriv->gstPrivateContext->decoderHandleNotified = true;
 			interfacePlayerPriv->gstPrivateContext->firstFrameCallbackIdleTaskPending = false;
-			interfacePlayerPriv->gstPrivateContext->firstFrameCallbackIdleTaskId = mScheduler.ScheduleTask(PlayerAsyncTaskObj(IdleCallbackOnFirstFrame, (void *)this, "FirstFrameCallback"));
-			// Wait for scheduler response , if failed to create task for wrong state , not to make pending flag as true
+			interfacePlayerPriv->gstPrivateContext->firstFrameCallbackIdleTaskId = g_idle_add_full(G_PRIORITY_DEFAULT_IDLE, (GSourceFunc)IdleCallbackOnFirstFrame, (gpointer)this, NULL);
 			if(interfacePlayerPriv->gstPrivateContext->firstFrameCallbackIdleTaskId != PLAYER_TASK_ID_INVALID)
 			{
 				interfacePlayerPriv->gstPrivateContext->firstFrameCallbackIdleTaskPending = true;
@@ -4015,8 +4149,7 @@ void InterfacePlayerRDK::NotifyFirstFrame(int mediaType)
 			{
 				interfacePlayerPriv->gstPrivateContext->decoderHandleNotified = true;
 				interfacePlayerPriv->gstPrivateContext->firstFrameCallbackIdleTaskPending = false;
-				interfacePlayerPriv->gstPrivateContext->firstFrameCallbackIdleTaskId = mScheduler.ScheduleTask(PlayerAsyncTaskObj(IdleCallbackOnFirstFrame, (void *)this, "FirstFrameCallback"));
-				// Wait for scheduler response , if failed to create task for wrong state , not to make pending flag as true
+				interfacePlayerPriv->gstPrivateContext->firstFrameCallbackIdleTaskId = g_idle_add_full(G_PRIORITY_DEFAULT_IDLE, (GSourceFunc)IdleCallbackOnFirstFrame, (gpointer)this, NULL);				// Wait for g_idle_add response , if failed to create task for wrong state , not to make pending flag as true
 				if(interfacePlayerPriv->gstPrivateContext->firstFrameCallbackIdleTaskId != PLAYER_TASK_ID_INVALID)
 				{
 					interfacePlayerPriv->gstPrivateContext->firstFrameCallbackIdleTaskPending = true;
@@ -4026,6 +4159,7 @@ void InterfacePlayerRDK::NotifyFirstFrame(int mediaType)
 		}
 	}
 
+	MW_LOG_ERR("InterfacePlayerRDK::NotifyFirstFrame exited mediaType=%d", mediaType);
 }
 
 void InterfacePlayerRDK::TriggerEvent(InterfaceCB event)
@@ -4188,6 +4322,9 @@ bool InterfacePlayerRDK::CreatePipeline(const char *pipelineName, int PipelinePr
 			(void)busWatchId;
 			interfacePlayerPriv->gstPrivateContext->syncControl.enable();
 			gst_bus_set_sync_handler(interfacePlayerPriv->gstPrivateContext->bus, (GstBusSyncHandler) bus_sync_handler, this, NULL);
+			
+			// Re-arm idle callback guard for this pipeline's lifecycle (disabled by CancelPendingCallbacks() on Stop/destruction)
+			idleCallbackControl.enable();
 			interfacePlayerPriv->gstPrivateContext->buffering_enabled = m_gstConfigParam->gstreamerBufferingBeforePlay;
 			interfacePlayerPriv->gstPrivateContext->buffering_in_progress = false;
 			interfacePlayerPriv->gstPrivateContext->buffering_timeout_cnt = DEFAULT_BUFFERING_MAX_CNT;
@@ -5239,7 +5376,7 @@ void InterfacePlayerRDK::NotifyEOS()
 			interfacePlayerPriv->gstPrivateContext->eosCallbackIdleTaskPending = true;
 			// eosSignalled is reset once the async task is completed either in Configure/Flush/ResetEOSSignalled, so set the flag before scheduling the task
 			interfacePlayerPriv->gstPrivateContext->eosSignalled = true;
-			interfacePlayerPriv->gstPrivateContext->eosCallbackIdleTaskId = mScheduler.ScheduleTask(PlayerAsyncTaskObj(IdleCallbackOnEOS, (void *)this, "IdleCallbackOnEOS"));
+			interfacePlayerPriv->gstPrivateContext->eosCallbackIdleTaskId = g_idle_add_full(G_PRIORITY_DEFAULT_IDLE, (GSourceFunc)IdleCallbackOnEOS, (gpointer)this, NULL);
 			if (interfacePlayerPriv->gstPrivateContext->eosCallbackIdleTaskId == PLAYER_TASK_ID_INVALID && true == interfacePlayerPriv->gstPrivateContext->eosCallbackIdleTaskPending)
 			{
 				interfacePlayerPriv->gstPrivateContext->eosCallbackIdleTaskPending = false;

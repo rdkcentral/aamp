@@ -19,6 +19,7 @@
 
 #include "GstHandlerControl.h"
 #include "PlayerLogManager.h"
+#include <chrono>
 #include <cstdio>
 #include <string>
 
@@ -60,16 +61,24 @@ GstHandlerControl::ScopeHelper GstHandlerControl::getScopeHelper()
 
 bool GstHandlerControl::waitForDone(int MaximumDelayMilliseconds, std::string name)
 {
+	const auto start = std::chrono::steady_clock::now();
 	const std::chrono::steady_clock::time_point end =
 	std::chrono::milliseconds{MaximumDelayMilliseconds} + std::chrono::steady_clock::now();
 
 	disable();
 
 	std::unique_lock<std::mutex> lock(mSync);
+	MW_LOG_ERR("GstPlayer: waitForDone entered for %s with %d instance(s)", name.c_str(), mInstanceCount);
 	while(mInstanceCount && (std::chrono::steady_clock::now()<end))
 	{
 		mDoneCond.wait_until(lock, end);
 	}
+	const auto waitEnd = std::chrono::steady_clock::now();
+	const auto elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(waitEnd - start).count();
+	const auto elapsedUs = std::chrono::duration_cast<std::chrono::microseconds>(waitEnd - start).count();
+	MW_LOG_ERR("GstPlayer: waitForDone exit for %s after %lld ms with %d instance(s)", name.c_str(), static_cast<long long>(elapsedMs), mInstanceCount);
+	MW_LOG_INFO("STOP_TRACE wait_for_done name=%s elapsed_us=%lld max_delay_ms=%d active_instances=%d",
+		name.c_str(), static_cast<long long>(elapsedUs), MaximumDelayMilliseconds, mInstanceCount);
 
 	if(mInstanceCount)
 	{
@@ -79,7 +88,7 @@ bool GstHandlerControl::waitForDone(int MaximumDelayMilliseconds, std::string na
 	}
 	else
 	{
-		MW_LOG_MIL("GstPlayer: all instances of %s completed.", name.c_str());
+		MW_LOG_ERR("GstPlayer: all instances of %s completed.", name.c_str());
 		return true;
 	}
 }
