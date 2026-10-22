@@ -72,7 +72,7 @@ static void StopWorkerThread(std::thread &thread, const char *name, std::mutex &
 	if (thread.joinable())
 	{
 		NotifyAllSynchronised(mtx, cv);
-		AAMPLOG_WARN("Joining %s", name);
+		AAMPLOG_MIL("Joining %s", name);
 		thread.join();
 	}
 }

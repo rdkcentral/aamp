@@ -229,7 +229,7 @@ protected:
 	std::thread mPreFetchThread;                        /** Thread for pre-fetching license*/
 	std::deque<LicensePreFetchObjectPtr> mFetchQueue;   /** Queue for storing content protection objects*/
 	std::mutex mQMutex;                                 /** Mutex for accessing the mFetchQueue*/
-	std::atomic<bool> mExitLoop;                        /** Flag denotes if pre-fetch threads have to be exited; read by both worker threads*/
+	std::atomic<bool> mExitLoop;                        /** Flag denotes if pre-fetch threads have to be exited; read by both license fetching threads*/
 	std::array<bool, AAMP_TRACK_COUNT> mTrackStatus;    /** To mark the status of license acquisition for tracks*/
 
 	std::thread mVssPreFetchThread;                     /** Thread for pre-fetching VSS license*/

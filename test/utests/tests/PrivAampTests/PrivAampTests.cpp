@@ -4588,8 +4588,7 @@ static PreCacheUrlList MakePreCacheList()
  * @brief Play start signalled before the pre-cache thread reaches its wait.
  *
  * The first-frame notification runs on a different thread from the pre-cache thread and
- * can happen first. The pre-cache thread must still observe it and continue; previously
- * the notification was lost and the thread blocked forever (hanging Stop()'s join).
+ * can happen first. The pre-cache thread must still observe it and continue.
  * State is set to IDLE after play start so the task returns without downloading.
  */
 TEST_F(PrivAampTests, PreCachePlaylistDownloadTask_PlayStartBeforeWait_DoesNotBlock)
