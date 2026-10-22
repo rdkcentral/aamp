@@ -28,6 +28,9 @@
 // Phase 6 — setSourcePosition before first injection
 // ===========================================================================
 
+/**
+ * @test InjectSamples_FirstInjection_CallsSetSourcePosition
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	InjectSamples_FirstInjection_CallsSetSourcePosition)
 {
@@ -42,6 +45,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	SendVideoInitFragment();
 }
 
+/**
+ * @test AttachSource_NoFlush_DoesNotCallSetSourcePosition
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	AttachSource_NoFlush_DoesNotCallSetSourcePosition)
 {
@@ -57,6 +63,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 // Configure()/AttachSource()).  A stale staged position left over from
 // the ended session must not be reused by a fresh tune's own AttachSource()
 // when that tune issues no Flush() of its own (e.g. an ordinary HLS tune).
+/**
+ * @test Stop_ResetsPendingPositionForNextSessionsAttach
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	Stop_ResetsPendingPositionForNextSessionsAttach)
 {
@@ -78,6 +87,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 // Phase 7 — Flush calls pipeline flush + resets queues
 // ===========================================================================
 
+/**
+ * @test Flush_CallsPipelineSetPositionAtFlushPosition
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	Flush_CallsPipelineSetPositionAtFlushPosition)
 {
@@ -99,6 +111,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
 }
 
+/**
+ * @test Flush_NoPipeline_DoesNotCrash
+ */
 TEST_F(AampRialtoPlayerTest,
 	Flush_NoPipeline_DoesNotCrash)
 {
@@ -109,6 +124,9 @@ TEST_F(AampRialtoPlayerTest,
 // SeekStreamSink — Delegates to Flush() (matches AAMPGstPlayer::SeekStreamSink())
 // ===========================================================================
 
+/**
+ * @test SeekStreamSink_CallsSetPositionWithCorrectValue
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	SeekStreamSink_CallsSetPositionWithCorrectValue)
 {
@@ -125,6 +143,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	m_player->SeekStreamSink(10.5, 1.0);
 }
 
+/**
+ * @test SeekStreamSink_TrickplayRate_CallsSetPositionAndStoresRate
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	SeekStreamSink_TrickplayRate_CallsSetPositionAndStoresRate)
 {
@@ -140,6 +161,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	m_player->SeekStreamSink(20.0, 4.0);
 }
 
+/**
+ * @test SeekStreamSink_ReverseRate_CallsSetPosition
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	SeekStreamSink_ReverseRate_CallsSetPosition)
 {
@@ -155,6 +179,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	m_player->SeekStreamSink(15.0, -2.0);
 }
 
+/**
+ * @test SeekStreamSink_GatesAllSourcesDuringFlush
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	SeekStreamSink_GatesAllSourcesDuringFlush)
 {
@@ -181,6 +208,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	EXPECT_EQ(m_mockSources[eMEDIATYPE_AUDIO]->state().gateMode, AampRialtoMediaSource::GateMode::BLOCKED);
 }
 
+/**
+ * @test SeekStreamSink_AutoResumesAllSourcesAfterSeekDone
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	SeekStreamSink_AutoResumesAllSourcesAfterSeekDone)
 {
@@ -210,12 +240,18 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	EXPECT_EQ(m_mockSources[eMEDIATYPE_AUDIO]->state().gateMode, AampRialtoMediaSource::GateMode::NONE);
 }
 
+/**
+ * @test SeekStreamSink_NoPipeline_DoesNotCrash
+ */
 TEST_F(AampRialtoPlayerTest,
 	SeekStreamSink_NoPipeline_DoesNotCrash)
 {
 	EXPECT_NO_THROW(m_player->SeekStreamSink(0.0, 1.0));
 }
 
+/**
+ * @test SeekStreamSink_NoSourcesAttached_DoesNotCrash
+ */
 TEST_F(AampRialtoPlayerTest,
 	SeekStreamSink_NoSourcesAttached_DoesNotCrash)
 {
@@ -227,6 +263,9 @@ TEST_F(AampRialtoPlayerTest,
 // Flush — shouldTearDown parameter tests
 // ===========================================================================
 
+/**
+ * @test Flush_NullPipeline_ShouldTearDownTrue_StaysIdle
+ */
 TEST_F(AampRialtoPlayerTest,
 	Flush_NullPipeline_ShouldTearDownTrue_StaysIdle)
 {
@@ -245,6 +284,9 @@ TEST_F(AampRialtoPlayerTest,
 		<< "Player remains in IDLE after Flush(shouldTearDown=true) with no pipeline";
 }
 
+/**
+ * @test Flush_NullPipeline_ShouldTearDownTrue_DoesNotRunRecoveryStop
+ */
 TEST_F(AampRialtoPlayerTest,
 	Flush_NullPipeline_ShouldTearDownTrue_DoesNotRunRecoveryStop)
 {
@@ -264,6 +306,9 @@ TEST_F(AampRialtoPlayerTest,
 	Configure();
 }
 
+/**
+ * @test Flush_PipelineNotFlushable_ShouldTearDownTrue_StillStopsPipeline
+ */
 TEST_F(AampRialtoPlayerTest,
 	Flush_PipelineNotFlushable_ShouldTearDownTrue_StillStopsPipeline)
 {
@@ -278,6 +323,9 @@ TEST_F(AampRialtoPlayerTest,
 	m_player->Flush(/*position=*/5.0, /*rate=*/1, /*shouldTearDown=*/true);
 }
 
+/**
+ * @test Flush_NullPipeline_ShouldTearDownFalse_DoesNotCallStop
+ */
 TEST_F(AampRialtoPlayerTest,
 	Flush_NullPipeline_ShouldTearDownFalse_DoesNotCallStop)
 {
@@ -300,6 +348,9 @@ TEST_F(AampRialtoPlayerTest,
 		<< "Player must remain in IDLE when shouldTearDown=false";
 }
 
+/**
+ * @test Flush_NullPipeline_ShouldTearDownTrue_StagesPendingPositionAndRate
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	Flush_NullPipeline_ShouldTearDownTrue_StagesPendingPositionAndRate)
 {
@@ -324,6 +375,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	SendVideoInitFragment();
 }
 
+/**
+ * @test Flush_PipelineStopped_ShouldTearDownTrue_DoesNotCrash
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	Flush_PipelineStopped_ShouldTearDownTrue_DoesNotCrash)
 {
@@ -347,6 +401,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::IDLE);
 }
 
+/**
+ * @test Flush_PipelineStopped_ShouldTearDownFalse_DoesNotCrash
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	Flush_PipelineStopped_ShouldTearDownFalse_DoesNotCrash)
 {
@@ -369,6 +426,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::IDLE);
 }
 
+/**
+ * @test Flush_ValidPipeline_ShouldTearDownTrue_DoesNotCallStop
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	Flush_ValidPipeline_ShouldTearDownTrue_DoesNotCallStop)
 {
@@ -401,6 +461,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 		<< "Player must transition to FLUSHING after successful Flush()";
 }
 
+/**
+ * @test Configure_PipelineReused_CallsResumeTrackDownloadsForAllExistingSources
+ */
 TEST_F(AampRialtoPlayerTest,
 	Configure_PipelineReused_CallsResumeTrackDownloadsForAllExistingSources)
 {
@@ -426,6 +489,9 @@ TEST_F(AampRialtoPlayerTest,
 		/*setReadyAfterPipelineCreation=*/false);
 }
 
+/**
+ * @test Flush_ValidPipeline_ShouldTearDownFalse_DoesNotCallStop
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	Flush_ValidPipeline_ShouldTearDownFalse_DoesNotCallStop)
 {
@@ -461,6 +527,9 @@ static void SetupCapabilities(
 	bool querySucceeds,
 	bool videoMaster);
 
+/**
+ * @test Flush_SequentialFlushes_SecondFlushIssuesNewPipelineSetPositionWithNewPositionAndRate
+ */
 TEST_F(AampRialtoPlayerTest,
 	Flush_SequentialFlushes_SecondFlushIssuesNewPipelineSetPositionWithNewPositionAndRate)
 {
@@ -507,6 +576,9 @@ TEST_F(AampRialtoPlayerTest,
 	EXPECT_EQ(m_player->GetPositionMilliseconds(), 130'000LL);
 }
 
+/**
+ * @test Flush_CommitsRateOnlyAfterSeekDone
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	Flush_CommitsRateOnlyAfterSeekDone)
 {
@@ -546,6 +618,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	EXPECT_EQ(m_player->GetPositionMilliseconds(), 46'000LL);
 }
 
+/**
+ * @test Flush_PositionNotExactInBinary_IsRoundedToNearestMillisecond
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	Flush_PositionNotExactInBinary_IsRoundedToNearestMillisecond)
 {
@@ -592,6 +667,9 @@ static void SetupCapabilities(
 			}));
 }
 
+/**
+ * @test SetStreamCaps_FlushAtRate2_NotVideoMaster_UsesStoredRateInSetSourcePosition
+ */
 TEST_F(AampRialtoPlayerTest,
 	SetStreamCaps_FlushAtRate2_NotVideoMaster_UsesStoredRateInSetSourcePosition)
 {
@@ -633,6 +711,9 @@ TEST_F(AampRialtoPlayerTest,
 	m_player->SetStreamCaps(eMEDIATYPE_VIDEO, MakeVideoH264CodecInfo());
 }
 
+/**
+ * @test SetStreamCaps_FlushAtRate2_VideoMaster_UsesRate1InSetSourcePosition
+ */
 TEST_F(AampRialtoPlayerTest,
 	SetStreamCaps_FlushAtRate2_VideoMaster_UsesRate1InSetSourcePosition)
 {
@@ -667,6 +748,9 @@ TEST_F(AampRialtoPlayerTest,
 	m_player->SetStreamCaps(eMEDIATYPE_VIDEO, MakeVideoH264CodecInfo());
 }
 
+/**
+ * @test SetStreamCaps_FlushAtRate2_CapabilityQueryFails_UsesRate1InSetSourcePosition
+ */
 TEST_F(AampRialtoPlayerTest,
 	SetStreamCaps_FlushAtRate2_CapabilityQueryFails_UsesRate1InSetSourcePosition)
 {
@@ -701,6 +785,9 @@ TEST_F(AampRialtoPlayerTest,
 	m_player->SetStreamCaps(eMEDIATYPE_VIDEO, MakeVideoH264CodecInfo());
 }
 
+/**
+ * @test SeekDone_FlushAtRate2_NotVideoMaster_UsesStoredRateInSetSourcePosition
+ */
 TEST_F(AampRialtoPlayerTest,
 	SeekDone_FlushAtRate2_NotVideoMaster_UsesStoredRateInSetSourcePosition)
 {
@@ -741,6 +828,9 @@ TEST_F(AampRialtoPlayerTest,
 	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
 }
 
+/**
+ * @test SeekDone_FlushAtRate2_VideoMaster_SkipsSetSourcePosition
+ */
 TEST_F(AampRialtoPlayerTest,
 	SeekDone_FlushAtRate2_VideoMaster_SkipsSetSourcePosition)
 {
@@ -779,6 +869,9 @@ TEST_F(AampRialtoPlayerTest,
 	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHED);
 }
 
+/**
+ * @test SeekDone_SubtitleAttached_UpdatesSubtitlePosition
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	SeekDone_SubtitleAttached_UpdatesSubtitlePosition)
 {

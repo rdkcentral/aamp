@@ -77,6 +77,9 @@ protected:
 // Each forwarded event reaches the sink with its arguments
 // ---------------------------------------------------------------------------
 
+/**
+ * @test notifyNeedMediaData_ForwardsToSink
+ */
 TEST_F(AampRialtoMediaPipelineClientTest, notifyNeedMediaData_ForwardsToSink)
 {
 	EXPECT_CALL(m_events, OnNeedMediaData(1, 10u, 42u));
@@ -85,6 +88,9 @@ TEST_F(AampRialtoMediaPipelineClientTest, notifyNeedMediaData_ForwardsToSink)
 	m_client->notifyNeedMediaData(1, 10, 42, nullptr);
 }
 
+/**
+ * @test notifyCancelNeedMediaData_ForwardsToSink
+ */
 TEST_F(AampRialtoMediaPipelineClientTest, notifyCancelNeedMediaData_ForwardsToSink)
 {
 	EXPECT_CALL(m_events, OnCancelNeedMediaData(2));
@@ -93,6 +99,9 @@ TEST_F(AampRialtoMediaPipelineClientTest, notifyCancelNeedMediaData_ForwardsToSi
 	m_client->notifyCancelNeedMediaData(2);
 }
 
+/**
+ * @test notifyPlaybackState_ForwardsToSink
+ */
 TEST_F(AampRialtoMediaPipelineClientTest, notifyPlaybackState_ForwardsToSink)
 {
 	EXPECT_CALL(m_events, OnPlaybackState(PlaybackState::SEEK_DONE));
@@ -101,6 +110,9 @@ TEST_F(AampRialtoMediaPipelineClientTest, notifyPlaybackState_ForwardsToSink)
 	m_client->notifyPlaybackState(PlaybackState::SEEK_DONE);
 }
 
+/**
+ * @test notifyPosition_ForwardsToSink
+ */
 TEST_F(AampRialtoMediaPipelineClientTest, notifyPosition_ForwardsToSink)
 {
 	EXPECT_CALL(m_events, OnPosition(1'500'000'000LL));
@@ -109,6 +121,9 @@ TEST_F(AampRialtoMediaPipelineClientTest, notifyPosition_ForwardsToSink)
 	m_client->notifyPosition(1'500'000'000LL);
 }
 
+/**
+ * @test notifyDuration_ForwardsToSink
+ */
 TEST_F(AampRialtoMediaPipelineClientTest, notifyDuration_ForwardsToSink)
 {
 	EXPECT_CALL(m_events, OnDuration(123'456'789LL));
@@ -117,6 +132,9 @@ TEST_F(AampRialtoMediaPipelineClientTest, notifyDuration_ForwardsToSink)
 	m_client->notifyDuration(123'456'789LL);
 }
 
+/**
+ * @test notifyBufferUnderflow_ForwardsToSink
+ */
 TEST_F(AampRialtoMediaPipelineClientTest, notifyBufferUnderflow_ForwardsToSink)
 {
 	EXPECT_CALL(m_events, OnBufferUnderflow(2));
@@ -125,6 +143,9 @@ TEST_F(AampRialtoMediaPipelineClientTest, notifyBufferUnderflow_ForwardsToSink)
 	m_client->notifyBufferUnderflow(2);
 }
 
+/**
+ * @test notifyPlaybackError_ForwardsToSink
+ */
 TEST_F(AampRialtoMediaPipelineClientTest, notifyPlaybackError_ForwardsToSink)
 {
 	EXPECT_CALL(m_events, OnPlaybackError(3, PlaybackError::OUTPUT_PROTECTION));
@@ -133,6 +154,9 @@ TEST_F(AampRialtoMediaPipelineClientTest, notifyPlaybackError_ForwardsToSink)
 	m_client->notifyPlaybackError(3, PlaybackError::OUTPUT_PROTECTION);
 }
 
+/**
+ * @test UnforwardedNotifications_DoNotReachSink
+ */
 TEST_F(AampRialtoMediaPipelineClientTest, UnforwardedNotifications_DoNotReachSink)
 {
 	// StrictMock: any call fails the test.
@@ -151,6 +175,9 @@ TEST_F(AampRialtoMediaPipelineClientTest, UnforwardedNotifications_DoNotReachSin
 // Installing and removing the sink
 // ---------------------------------------------------------------------------
 
+/**
+ * @test NoSink_EventsAreDropped
+ */
 TEST_F(AampRialtoMediaPipelineClientTest, NoSink_EventsAreDropped)
 {
 	EXPECT_NO_THROW(m_client->notifyNeedMediaData(1, 10, 42, nullptr));
@@ -162,6 +189,9 @@ TEST_F(AampRialtoMediaPipelineClientTest, NoSink_EventsAreDropped)
 	EXPECT_NO_THROW(m_client->notifyPlaybackError(0, PlaybackError::DECRYPTION));
 }
 
+/**
+ * @test SetEventSink_ReplacesExisting
+ */
 TEST_F(AampRialtoMediaPipelineClientTest, SetEventSink_ReplacesExisting)
 {
 	StrictMock<MockPipelineEvents> second;
@@ -173,6 +203,9 @@ TEST_F(AampRialtoMediaPipelineClientTest, SetEventSink_ReplacesExisting)
 	m_client->notifyBufferUnderflow(1);
 }
 
+/**
+ * @test SetEventSinkNull_StopsDelivery
+ */
 TEST_F(AampRialtoMediaPipelineClientTest, SetEventSinkNull_StopsDelivery)
 {
 	m_client->SetEventSink(&m_events);
@@ -206,6 +239,9 @@ public:
 };
 }
 
+/**
+ * @test ConcurrentSinkChangeAndDelivery_IsRaceFree
+ */
 TEST_F(AampRialtoMediaPipelineClientTest,
 	ConcurrentSinkChangeAndDelivery_IsRaceFree)
 {
@@ -243,6 +279,9 @@ TEST_F(AampRialtoMediaPipelineClientTest,
 	EXPECT_EQ(first.calls.load(), before + 1);
 }
 
+/**
+ * @test Sink_MayReplaceItselfWhileRunning_DoesNotDeadlock
+ */
 TEST_F(AampRialtoMediaPipelineClientTest,
 	Sink_MayReplaceItselfWhileRunning_DoesNotDeadlock)
 {
@@ -270,6 +309,9 @@ TEST_F(AampRialtoMediaPipelineClientTest,
 // Log levels: frequent events stay out of INFO, rare ones keep their value
 // ---------------------------------------------------------------------------
 
+/**
+ * @test FrequentNotifications_DoNotLogAtInfo
+ */
 TEST_F(AampRialtoMediaPipelineClientTest,
 	FrequentNotifications_DoNotLogAtInfo)
 {
@@ -287,6 +329,9 @@ TEST_F(AampRialtoMediaPipelineClientTest,
 	EXPECT_EQ(log.find("[INFO]"), std::string::npos) << log;
 }
 
+/**
+ * @test notifyDuration_LogsTheDurationAtInfo
+ */
 TEST_F(AampRialtoMediaPipelineClientTest,
 	notifyDuration_LogsTheDurationAtInfo)
 {

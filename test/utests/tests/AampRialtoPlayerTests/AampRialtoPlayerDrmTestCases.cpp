@@ -50,6 +50,9 @@ protected:
 	std::unique_ptr<NiceMock<MockDrmBridge>> m_mockDrmBridge;
 };
 
+/**
+ * @test QueueProtectionEvent_Video_StoresParamsWithoutCallingBridge
+ */
 TEST_F(AampRialtoPlayerDrmTest,
 	QueueProtectionEvent_Video_StoresParamsWithoutCallingBridge)
 {
@@ -62,6 +65,9 @@ TEST_F(AampRialtoPlayerDrmTest,
 		systemId, initData, sizeof(initData), eMEDIATYPE_VIDEO);
 }
 
+/**
+ * @test QueueProtectionEvent_NullInitData_DoesNotCallBridge
+ */
 TEST_F(AampRialtoPlayerDrmTest,
 	QueueProtectionEvent_NullInitData_DoesNotCallBridge)
 {
@@ -70,6 +76,9 @@ TEST_F(AampRialtoPlayerDrmTest,
 		"com.widevine.alpha", nullptr, 0, eMEDIATYPE_VIDEO);
 }
 
+/**
+ * @test ClearProtectionEvent_ClearsPendingProtection
+ */
 TEST_F(AampRialtoPlayerDrmTest,
 	ClearProtectionEvent_ClearsPendingProtection)
 {
@@ -87,6 +96,9 @@ TEST_F(AampRialtoPlayerDrmTest,
 // SetEncryptedAamp — lazy DRM bridge initialisation for pre-roll ad scenario
 // ---------------------------------------------------------------------------
 
+/**
+ * @test SetEncryptedAamp_CreatesBridge_BridgeDelegatesToMock
+ */
 TEST_F(AampRialtoPlayerDrmTest,
 	SetEncryptedAamp_CreatesBridge_BridgeDelegatesToMock)
 {
@@ -102,6 +114,9 @@ TEST_F(AampRialtoPlayerDrmTest,
 	m_player->ClearProtectionEvent();
 }
 
+/**
+ * @test ChangeAamp_DefaultBridge_IsRecreatedForNewInstance
+ */
 TEST_F(AampRialtoPlayerDrmTest,
 	ChangeAamp_DefaultBridge_IsRecreatedForNewInstance)
 {
@@ -125,6 +140,9 @@ TEST_F(AampRialtoPlayerDrmTest,
 	EXPECT_EQ(g_lastDrmBridgeAamp, &newAamp);
 }
 
+/**
+ * @test ChangeAamp_AfterSetEncryptedAamp_KeepsEncryptedPlayerBridge
+ */
 TEST_F(AampRialtoPlayerDrmTest,
 	ChangeAamp_AfterSetEncryptedAamp_KeepsEncryptedPlayerBridge)
 {
@@ -147,6 +165,9 @@ TEST_F(AampRialtoPlayerDrmTest,
 	EXPECT_EQ(g_lastDrmBridgeAamp, &encryptedAamp);
 }
 
+/**
+ * @test SetEncryptedAamp_Null_RevertsToDefaultBridge
+ */
 TEST_F(AampRialtoPlayerDrmTest,
 	SetEncryptedAamp_Null_RevertsToDefaultBridge)
 {
@@ -164,6 +185,9 @@ TEST_F(AampRialtoPlayerDrmTest,
 		<< "a null encrypted instance must not leave a bridge with no target";
 }
 
+/**
+ * @test AttachSource_WithNoBridgeSet_LazilyCreatesBridge
+ */
 TEST_F(AampRialtoPlayerDrmTest,
 	AttachSource_WithNoBridgeSet_LazilyCreatesBridge)
 {
@@ -177,6 +201,9 @@ TEST_F(AampRialtoPlayerDrmTest,
 	m_player->ClearProtectionEvent();
 }
 
+/**
+ * @test AttachSource_AfterSetEncryptedAamp_DoesNotReplaceBridge
+ */
 TEST_F(AampRialtoPlayerDrmTest,
 	AttachSource_AfterSetEncryptedAamp_DoesNotReplaceBridge)
 {
@@ -219,6 +246,9 @@ TEST_F(AampRialtoPlayerDrmTest,
 	SendVideoInitFragment();
 }
 
+/**
+ * @test AttachVideoSource_WithValidMksId_AttachesWithHasDrmTrue
+ */
 TEST_F(AampRialtoPlayerDrmTest,
 	AttachVideoSource_WithValidMksId_AttachesWithHasDrmTrue)
 {
@@ -253,6 +283,9 @@ TEST_F(AampRialtoPlayerDrmTest,
 	SendVideoInitFragment();
 }
 
+/**
+ * @test AttachVideoSource_WithoutMksId_AttachesWithHasDrmFalse
+ */
 TEST_F(AampRialtoPlayerDrmTest,
 	AttachVideoSource_WithoutMksId_AttachesWithHasDrmFalse)
 {
@@ -285,6 +318,9 @@ TEST_F(AampRialtoPlayerDrmTest,
 // create a DRM session for an encrypted non-video source.
 // ---------------------------------------------------------------------------
 
+/**
+ * @test AttachAudioSource_EncryptedWithOnlyVideoProtectionQueued_UsesVideoProtection
+ */
 TEST_F(AampRialtoPlayerDrmTest,
 	AttachAudioSource_EncryptedWithOnlyVideoProtectionQueued_UsesVideoProtection)
 {
@@ -333,6 +369,9 @@ TEST_F(AampRialtoPlayerDrmTest,
 	SendAudioInitFragment(/*encrypted=*/true);
 }
 
+/**
+ * @test AttachAudioSource_NotEncrypted_DoesNotFallBackToVideoProtection
+ */
 TEST_F(AampRialtoPlayerDrmTest,
 	AttachAudioSource_NotEncrypted_DoesNotFallBackToVideoProtection)
 {

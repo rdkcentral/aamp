@@ -69,6 +69,9 @@ protected:
 // needData
 // ---------------------------------------------------------------------------
 
+/**
+ * @test NeedData_IsHandedToTheInjector
+ */
 TEST_F(AampRialtoNeedDataHandshakeTest, NeedData_IsHandedToTheInjector)
 {
 	const auto result = m_handshake.OnNeedData(3, 42);
@@ -84,6 +87,9 @@ TEST_F(AampRialtoNeedDataHandshakeTest, NeedData_IsHandedToTheInjector)
 	EXPECT_EQ(request.requestId, 42u);
 }
 
+/**
+ * @test NeedDataWhileGated_IsRejectedNotStaged
+ */
 TEST_F(AampRialtoNeedDataHandshakeTest, NeedDataWhileGated_IsRejectedNotStaged)
 {
 	SetGate(true);
@@ -94,6 +100,9 @@ TEST_F(AampRialtoNeedDataHandshakeTest, NeedDataWhileGated_IsRejectedNotStaged)
 	EXPECT_EQ(m_handshake.state().gateMode, GateMode::BLOCKED);
 }
 
+/**
+ * @test SecondNeedData_ClosesOutTheUnansweredOne
+ */
 TEST_F(AampRialtoNeedDataHandshakeTest, SecondNeedData_ClosesOutTheUnansweredOne)
 {
 	(void)m_handshake.OnNeedData(1, 7);
@@ -103,6 +112,9 @@ TEST_F(AampRialtoNeedDataHandshakeTest, SecondNeedData_ClosesOutTheUnansweredOne
 	EXPECT_EQ(m_handshake.state().pendingRequestId, 8u);
 }
 
+/**
+ * @test CancelNeedData_DropsTheRequest
+ */
 TEST_F(AampRialtoNeedDataHandshakeTest, CancelNeedData_DropsTheRequest)
 {
 	(void)m_handshake.OnNeedData(1, 7);
@@ -114,6 +126,9 @@ TEST_F(AampRialtoNeedDataHandshakeTest, CancelNeedData_DropsTheRequest)
 // Batch completion
 // ---------------------------------------------------------------------------
 
+/**
+ * @test Complete_RepliesOkWhenTheBatchIsFull
+ */
 TEST_F(AampRialtoNeedDataHandshakeTest, Complete_RepliesOkWhenTheBatchIsFull)
 {
 	(void)m_handshake.OnNeedData(2, 5);
@@ -135,6 +150,9 @@ TEST_F(AampRialtoNeedDataHandshakeTest, Complete_RepliesOkWhenTheBatchIsFull)
 	EXPECT_FALSE(m_handshake.state().injectorActive);
 }
 
+/**
+ * @test Complete_LastAvailableSampleRepliesOk
+ */
 TEST_F(AampRialtoNeedDataHandshakeTest, Complete_LastAvailableSampleRepliesOk)
 {
 	(void)m_handshake.OnNeedData(10, 5);
@@ -144,6 +162,9 @@ TEST_F(AampRialtoNeedDataHandshakeTest, Complete_LastAvailableSampleRepliesOk)
 	EXPECT_EQ(done.reply, Reply::Ok);
 }
 
+/**
+ * @test Complete_AfterEosRepliesEos
+ */
 TEST_F(AampRialtoNeedDataHandshakeTest, Complete_AfterEosRepliesEos)
 {
 	(void)m_handshake.OnNeedData(10, 5);
@@ -155,6 +176,9 @@ TEST_F(AampRialtoNeedDataHandshakeTest, Complete_AfterEosRepliesEos)
 	EXPECT_EQ(done.reply, Reply::Eos);
 }
 
+/**
+ * @test Complete_AfterFlushRepliesAbandoned
+ */
 TEST_F(AampRialtoNeedDataHandshakeTest, Complete_AfterFlushRepliesAbandoned)
 {
 	(void)m_handshake.OnNeedData(10, 5);
@@ -169,6 +193,9 @@ TEST_F(AampRialtoNeedDataHandshakeTest, Complete_AfterFlushRepliesAbandoned)
 	EXPECT_FALSE(m_handshake.state().hasPending);
 }
 
+/**
+ * @test NoSpace_ClaimsTheRequestAndMarksBufferFull
+ */
 TEST_F(AampRialtoNeedDataHandshakeTest, NoSpace_ClaimsTheRequestAndMarksBufferFull)
 {
 	(void)m_handshake.OnNeedData(10, 5);
@@ -185,6 +212,9 @@ TEST_F(AampRialtoNeedDataHandshakeTest, NoSpace_ClaimsTheRequestAndMarksBufferFu
 	EXPECT_FALSE(m_handshake.BufferFull());
 }
 
+/**
+ * @test NoSpace_FromAnOldGeneration_IsIgnored
+ */
 TEST_F(AampRialtoNeedDataHandshakeTest, NoSpace_FromAnOldGeneration_IsIgnored)
 {
 	const auto gen = m_handshake.Generation();
@@ -195,6 +225,9 @@ TEST_F(AampRialtoNeedDataHandshakeTest, NoSpace_FromAnOldGeneration_IsIgnored)
 	EXPECT_TRUE(m_handshake.state().hasPending);
 }
 
+/**
+ * @test DropSample_HandsBackTheRequest
+ */
 TEST_F(AampRialtoNeedDataHandshakeTest, DropSample_HandsBackTheRequest)
 {
 	(void)m_handshake.OnNeedData(10, 5);
@@ -210,6 +243,9 @@ TEST_F(AampRialtoNeedDataHandshakeTest, DropSample_HandsBackTheRequest)
 // EOS
 // ---------------------------------------------------------------------------
 
+/**
+ * @test SignalEos_AnswersAnIdleRequest
+ */
 TEST_F(AampRialtoNeedDataHandshakeTest, SignalEos_AnswersAnIdleRequest)
 {
 	(void)m_handshake.OnNeedData(1, 9);
@@ -218,6 +254,9 @@ TEST_F(AampRialtoNeedDataHandshakeTest, SignalEos_AnswersAnIdleRequest)
 	EXPECT_EQ(claim->requestId, 9u);
 }
 
+/**
+ * @test NeedDataAfterEos_IsAnsweredWithEos
+ */
 TEST_F(AampRialtoNeedDataHandshakeTest, NeedDataAfterEos_IsAnsweredWithEos)
 {
 	(void)m_handshake.SignalEos();
@@ -226,6 +265,9 @@ TEST_F(AampRialtoNeedDataHandshakeTest, NeedDataAfterEos_IsAnsweredWithEos)
 	EXPECT_EQ(result.eos->requestId, 9u);
 }
 
+/**
+ * @test EosWhileBlocked_IsDeferredUntilUngate
+ */
 TEST_F(AampRialtoNeedDataHandshakeTest, EosWhileBlocked_IsDeferredUntilUngate)
 {
 	(void)m_handshake.OnNeedData(1, 9);
@@ -242,6 +284,9 @@ TEST_F(AampRialtoNeedDataHandshakeTest, EosWhileBlocked_IsDeferredUntilUngate)
 	EXPECT_EQ(claim->requestId, 9u);
 }
 
+/**
+ * @test BeginInject_AfterEosWasAnswered_ReturnsFalse
+ */
 TEST_F(AampRialtoNeedDataHandshakeTest, BeginInject_AfterEosWasAnswered_ReturnsFalse)
 {
 	(void)m_handshake.SignalEos();
@@ -249,6 +294,9 @@ TEST_F(AampRialtoNeedDataHandshakeTest, BeginInject_AfterEosWasAnswered_ReturnsF
 	EXPECT_FALSE(m_handshake.state().injectorActive);
 }
 
+/**
+ * @test SetEos_ReportsOnlyChanges
+ */
 TEST_F(AampRialtoNeedDataHandshakeTest, SetEos_ReportsOnlyChanges)
 {
 	EXPECT_TRUE(m_handshake.SetEos(true));
@@ -261,6 +309,9 @@ TEST_F(AampRialtoNeedDataHandshakeTest, SetEos_ReportsOnlyChanges)
 // Flush / stop / reset
 // ---------------------------------------------------------------------------
 
+/**
+ * @test Unblock_WithNoInjector_ClaimsTheRequest
+ */
 TEST_F(AampRialtoNeedDataHandshakeTest, Unblock_WithNoInjector_ClaimsTheRequest)
 {
 	(void)m_handshake.OnNeedData(1, 9);
@@ -273,6 +324,9 @@ TEST_F(AampRialtoNeedDataHandshakeTest, Unblock_WithNoInjector_ClaimsTheRequest)
 	EXPECT_TRUE(m_handshake.IsEos());
 }
 
+/**
+ * @test Reset_KeepsTheGate
+ */
 TEST_F(AampRialtoNeedDataHandshakeTest, Reset_KeepsTheGate)
 {
 	SetGate(true);
@@ -288,6 +342,9 @@ TEST_F(AampRialtoNeedDataHandshakeTest, Reset_KeepsTheGate)
 // Injector waits (threads)
 // ---------------------------------------------------------------------------
 
+/**
+ * @test WaitForGate_HoldsWhileBlockedAndReleasesOnUngate
+ */
 TEST_F(AampRialtoNeedDataHandshakeTest, WaitForGate_HoldsWhileBlockedAndReleasesOnUngate)
 {
 	SetGate(true);
@@ -302,6 +359,9 @@ TEST_F(AampRialtoNeedDataHandshakeTest, WaitForGate_HoldsWhileBlockedAndReleases
 	EXPECT_EQ(waiter.get(), Wait::Proceed);
 }
 
+/**
+ * @test WaitForGate_DroppedAbortsWithoutBlocking
+ */
 TEST_F(AampRialtoNeedDataHandshakeTest, WaitForGate_DroppedAbortsWithoutBlocking)
 {
 	GateMode previous;
@@ -312,6 +372,9 @@ TEST_F(AampRialtoNeedDataHandshakeTest, WaitForGate_DroppedAbortsWithoutBlocking
 	EXPECT_FALSE(m_handshake.state().injectorActive);
 }
 
+/**
+ * @test WaitForRequest_FlushAbortsAndHandsBackTheRequest
+ */
 TEST_F(AampRialtoNeedDataHandshakeTest, WaitForRequest_FlushAbortsAndHandsBackTheRequest)
 {
 	ASSERT_TRUE(m_handshake.BeginInject());
@@ -337,6 +400,9 @@ TEST_F(AampRialtoNeedDataHandshakeTest, WaitForRequest_FlushAbortsAndHandsBackTh
 	EXPECT_EQ(result.abandoned->requestId, 11u);
 }
 
+/**
+ * @test WaitForRequest_GateReassertedSendsTheInjectorBack
+ */
 TEST_F(AampRialtoNeedDataHandshakeTest, WaitForRequest_GateReassertedSendsTheInjectorBack)
 {
 	ASSERT_TRUE(m_handshake.BeginInject());
@@ -349,6 +415,9 @@ TEST_F(AampRialtoNeedDataHandshakeTest, WaitForRequest_GateReassertedSendsTheInj
 	EXPECT_EQ(waiter.get(), Wait::GateReasserted);
 }
 
+/**
+ * @test WaitForAttach_NotPending_ReturnsAtOnce
+ */
 TEST_F(AampRialtoNeedDataHandshakeTest, WaitForAttach_NotPending_ReturnsAtOnce)
 {
 	bool blocked = false;
@@ -358,6 +427,9 @@ TEST_F(AampRialtoNeedDataHandshakeTest, WaitForAttach_NotPending_ReturnsAtOnce)
 	EXPECT_FALSE(blocked);
 }
 
+/**
+ * @test WaitForAttach_FlushAbortsTheWait
+ */
 TEST_F(AampRialtoNeedDataHandshakeTest, WaitForAttach_FlushAbortsTheWait)
 {
 	m_handshake.state().attachPending = true;
@@ -375,6 +447,9 @@ TEST_F(AampRialtoNeedDataHandshakeTest, WaitForAttach_FlushAbortsTheWait)
 	EXPECT_EQ(waiter.get(), Handshake::AttachWait::Aborted);
 }
 
+/**
+ * @test WaitForAttach_AttachedReleasesTheWait
+ */
 TEST_F(AampRialtoNeedDataHandshakeTest, WaitForAttach_AttachedReleasesTheWait)
 {
 	m_handshake.state().attachPending = true;

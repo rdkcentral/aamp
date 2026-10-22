@@ -28,6 +28,9 @@
 // SetVideoRectangle / GetVideoRectangle
 // ===========================================================================
 
+/**
+ * @test GetVideoRectangle_ReturnsStringSetBySetVideoRectangle
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	GetVideoRectangle_ReturnsStringSetBySetVideoRectangle)
 {
@@ -41,6 +44,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	EXPECT_EQ(m_player->GetVideoRectangle(), "10,20,640,480");
 }
 
+/**
+ * @test Configure_EventDeliveredDuringLoad_IsNotDropped
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	Configure_EventDeliveredDuringLoad_IsNotDropped)
 {
@@ -64,6 +70,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	EXPECT_EQ(m_player->GetDurationMilliseconds(), 7000);
 }
 
+/**
+ * @test SetVideoRectangle_CallsPipelineSetVideoWindow
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	SetVideoRectangle_CallsPipelineSetVideoWindow)
 {
@@ -77,6 +86,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	m_player->SetVideoRectangle(0, 0, 1920, 1080);
 }
 
+/**
+ * @test VideoRectangle_ConcurrentSetAndGet_NeverReadsATornValue
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	VideoRectangle_ConcurrentSetAndGet_NeverReadsATornValue)
 {
@@ -127,6 +139,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	EXPECT_EQ(m_player->GetVideoRectangle(), "400,400,400,400");
 }
 
+/**
+ * @test SetAudioVolume_ConcurrentCallers_ForwardOnlyWrittenValues
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	SetAudioVolume_ConcurrentCallers_ForwardOnlyWrittenValues)
 {
@@ -159,6 +174,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	EXPECT_FALSE(unexpected.load());
 }
 
+/**
+ * @test OnPlaybackState_Playing_FirstTime_PassesVideoRectangleToNotifyFirstBuffer
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	OnPlaybackState_Playing_FirstTime_PassesVideoRectangleToNotifyFirstBuffer)
 {
@@ -182,6 +200,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 // GetVideoSize
 // ===========================================================================
 
+/**
+ * @test GetVideoSize_AfterSetVideoRectangle_ReturnsWidthAndHeight
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	GetVideoSize_AfterSetVideoRectangle_ReturnsWidthAndHeight)
 {
@@ -199,6 +220,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	EXPECT_EQ(h, 480);
 }
 
+/**
+ * @test GetVideoSize_BeforeSetVideoRectangle_LeavesOutputsUnchanged
+ */
 TEST_F(AampRialtoPlayerTest, GetVideoSize_BeforeSetVideoRectangle_LeavesOutputsUnchanged)
 {
 	int w = 111;
@@ -215,6 +239,9 @@ TEST_F(AampRialtoPlayerTest, GetVideoSize_BeforeSetVideoRectangle_LeavesOutputsU
 // Phase N — Subtitle source injection
 // ===========================================================================
 
+/**
+ * @test SendTransfer_SubtitleRawFragment_RoutesViaProcessDataFragment
+ */
 TEST_F(AampRialtoPlayerTest,
 	SendTransfer_SubtitleRawFragment_RoutesViaProcessDataFragment)
 {
@@ -247,6 +274,9 @@ TEST_F(AampRialtoPlayerTest,
 	EXPECT_TRUE(result);
 }
 
+/**
+ * @test SendTransfer_SubtitleRawFragmentWithOffset_ForwardsFragmentPTSoffset
+ */
 TEST_F(AampRialtoPlayerTest,
 	SendTransfer_SubtitleRawFragmentWithOffset_ForwardsFragmentPTSoffset)
 {
@@ -280,6 +310,9 @@ TEST_F(AampRialtoPlayerTest,
 // SignalSubtitleClock
 // ===========================================================================
 
+/**
+ * @test SignalSubtitleClock_WithAttachedSubtitle_SyncsPosition
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
         SignalSubtitleClock_WithAttachedSubtitle_SyncsPosition)
 {
@@ -313,6 +346,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
         EXPECT_TRUE(m_player->SignalSubtitleClock());
 }
 
+/**
+ * @test SignalSubtitleClock_NoSubtitleSource_ReturnsFalse
+ */
 TEST_F(AampRialtoPlayerTest,
         SignalSubtitleClock_NoSubtitleSource_ReturnsFalse)
 {
@@ -328,6 +364,9 @@ TEST_F(AampRialtoPlayerTest,
         EXPECT_FALSE(m_player->SignalSubtitleClock());
 }
 
+/**
+ * @test SignalSubtitleClock_GetPositionFails_ReturnsFalse
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
         SignalSubtitleClock_GetPositionFails_ReturnsFalse)
 {
@@ -345,6 +384,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
         EXPECT_FALSE(m_player->SignalSubtitleClock());
 }
 
+/**
+ * @test SignalSubtitleClock_NoPipeline_ReturnsFalse
+ */
 TEST_F(AampRialtoPlayerTest,
         SignalSubtitleClock_NoPipeline_ReturnsFalse)
 {
@@ -359,6 +401,9 @@ TEST_F(AampRialtoPlayerTest,
 // SetSubtitleMute
 // ===========================================================================
 
+/**
+ * @test SetSubtitleMute_AttachedSubtitle_CallsPipelineSetMute
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	SetSubtitleMute_AttachedSubtitle_CallsPipelineSetMute)
 {
@@ -382,6 +427,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	m_player->SetSubtitleMute(false);
 }
 
+/**
+ * @test SetSubtitleMute_SubtitleNotYetAttached_MuteAppliedWhenAttached
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	SetSubtitleMute_SubtitleNotYetAttached_MuteAppliedWhenAttached)
 {
@@ -409,6 +457,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	ASSERT_TRUE(m_mockSources[eMEDIATYPE_SUBTITLE]->isAttached());
 }
 
+/**
+ * @test SetSubtitleMute_NoPipeline_DoesNotCrash
+ */
 TEST_F(AampRialtoPlayerTest,
 	SetSubtitleMute_NoPipeline_DoesNotCrash)
 {
@@ -423,6 +474,9 @@ TEST_F(AampRialtoPlayerTest,
 // SetAudioVolume
 // ===========================================================================
 
+/**
+ * @test SetAudioVolume_NoPipeline_DoesNotCrash
+ */
 TEST_F(AampRialtoPlayerTest,
 	SetAudioVolume_NoPipeline_DoesNotCrash)
 {
@@ -433,6 +487,9 @@ TEST_F(AampRialtoPlayerTest,
 	EXPECT_NO_FATAL_FAILURE(m_player->SetAudioVolume(50));
 }
 
+/**
+ * @test SetAudioVolume_NonZero_CallsPipelineSetVolume
+ */
 TEST_F(AampRialtoPlayerTest,
 	SetAudioVolume_NonZero_CallsPipelineSetVolume)
 {
@@ -447,6 +504,9 @@ TEST_F(AampRialtoPlayerTest,
 	m_player->SetAudioVolume(50);
 }
 
+/**
+ * @test SetAudioVolume_ZeroWithAttachedAudio_CallsPipelineSetMuteOnly
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	SetAudioVolume_ZeroWithAttachedAudio_CallsPipelineSetMuteOnly)
 {
@@ -468,6 +528,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	m_player->SetAudioVolume(0);
 }
 
+/**
+ * @test SetAudioVolume_NonZeroAfterMute_UnmutesAndSetsVolume
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	SetAudioVolume_NonZeroAfterMute_UnmutesAndSetsVolume)
 {
@@ -487,6 +550,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	m_player->SetAudioVolume(30);
 }
 
+/**
+ * @test SetAudioVolume_MutedBeforeAudioAttached_MuteAppliedOnAttach
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	SetAudioVolume_MutedBeforeAudioAttached_MuteAppliedOnAttach)
 {
@@ -513,6 +579,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	ASSERT_TRUE(m_mockSources[eMEDIATYPE_AUDIO]->isAttached());
 }
 
+/**
+ * @test Configure_Retune_ReappliesCachedAudioVolumeToNewPipeline
+ */
 TEST_F(AampRialtoPlayerTest,
 	Configure_Retune_ReappliesCachedAudioVolumeToNewPipeline)
 {
@@ -535,6 +604,9 @@ TEST_F(AampRialtoPlayerTest,
 // SetVideoMute
 // ===========================================================================
 
+/**
+ * @test SetVideoMute_AttachedVideo_CallsPipelineSetMute
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	SetVideoMute_AttachedVideo_CallsPipelineSetMute)
 {
@@ -557,6 +629,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	m_player->SetVideoMute(false);
 }
 
+/**
+ * @test SetVideoMute_VideoNotYetAttached_MuteAppliedWhenAttached
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	SetVideoMute_VideoNotYetAttached_MuteAppliedWhenAttached)
 {
@@ -582,6 +657,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	ASSERT_TRUE(m_mockSources[eMEDIATYPE_VIDEO]->isAttached());
 }
 
+/**
+ * @test SetVideoMute_NoPipeline_DoesNotCrash
+ */
 TEST_F(AampRialtoPlayerTest,
 	SetVideoMute_NoPipeline_DoesNotCrash)
 {
@@ -596,6 +674,9 @@ TEST_F(AampRialtoPlayerTest,
 // GetVideoPlaybackQuality
 // ===========================================================================
 
+/**
+ * @test GetVideoPlaybackQuality_Playing_ReturnsStats
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	GetVideoPlaybackQuality_Playing_ReturnsStats)
 {
@@ -624,6 +705,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	EXPECT_EQ(result->dropped, 5);
 }
 
+/**
+ * @test GetVideoPlaybackQuality_Paused_ReturnsStats
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	GetVideoPlaybackQuality_Paused_ReturnsStats)
 {
@@ -649,6 +733,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	EXPECT_EQ(result->dropped, 1);
 }
 
+/**
+ * @test GetVideoPlaybackQuality_NotPlayingOrPaused_ReturnsNullptrWithoutQuery
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	GetVideoPlaybackQuality_NotPlayingOrPaused_ReturnsNullptrWithoutQuery)
 {
@@ -666,6 +753,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	EXPECT_EQ(m_player->GetVideoPlaybackQuality(), nullptr);
 }
 
+/**
+ * @test GetVideoPlaybackQuality_VideoNotAttached_ReturnsNullptr
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	GetVideoPlaybackQuality_VideoNotAttached_ReturnsNullptr)
 {
@@ -682,6 +772,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	EXPECT_EQ(m_player->GetVideoPlaybackQuality(), nullptr);
 }
 
+/**
+ * @test GetVideoPlaybackQuality_PipelineGetStatsFails_ReturnsNullptr
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	GetVideoPlaybackQuality_PipelineGetStatsFails_ReturnsNullptr)
 {
@@ -701,6 +794,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	EXPECT_EQ(m_player->GetVideoPlaybackQuality(), nullptr);
 }
 
+/**
+ * @test GetVideoPlaybackQuality_NoPipeline_DoesNotCrash
+ */
 TEST_F(AampRialtoPlayerTest,
 	GetVideoPlaybackQuality_NoPipeline_DoesNotCrash)
 {

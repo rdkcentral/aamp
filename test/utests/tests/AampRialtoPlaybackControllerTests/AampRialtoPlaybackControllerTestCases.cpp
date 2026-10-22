@@ -76,6 +76,9 @@ protected:
 	std::string m_lastReason;
 };
 
+/**
+ * @test InitialState_SourcesNotAttachedIsHeld
+ */
 TEST_F(AampRialtoPlaybackControllerTest, InitialState_SourcesNotAttachedIsHeld)
 {
 	/**
@@ -90,6 +93,9 @@ TEST_F(AampRialtoPlaybackControllerTest, InitialState_SourcesNotAttachedIsHeld)
 	EXPECT_EQ(m_playCount, 0);
 }
 
+/**
+ * @test RequestPlay_NoHolds_FiresImmediately
+ */
 TEST_F(AampRialtoPlaybackControllerTest, RequestPlay_NoHolds_FiresImmediately)
 {
 	/**
@@ -105,6 +111,9 @@ TEST_F(AampRialtoPlaybackControllerTest, RequestPlay_NoHolds_FiresImmediately)
 	EXPECT_FALSE(m_controller->IsPlayPending());
 }
 
+/**
+ * @test RequestPlay_WhileHeld_DoesNotFire
+ */
 TEST_F(AampRialtoPlaybackControllerTest, RequestPlay_WhileHeld_DoesNotFire)
 {
 	/**
@@ -117,6 +126,9 @@ TEST_F(AampRialtoPlaybackControllerTest, RequestPlay_WhileHeld_DoesNotFire)
 	EXPECT_TRUE(m_controller->IsPlayPending());
 }
 
+/**
+ * @test ReleaseLastHold_FiresDeferredPlay
+ */
 TEST_F(AampRialtoPlaybackControllerTest, ReleaseLastHold_FiresDeferredPlay)
 {
 	/**
@@ -134,6 +146,9 @@ TEST_F(AampRialtoPlaybackControllerTest, ReleaseLastHold_FiresDeferredPlay)
 	EXPECT_FALSE(m_controller->IsPlayPending());
 }
 
+/**
+ * @test ReleaseHold_OtherHoldsRemaining_DoesNotFire
+ */
 TEST_F(AampRialtoPlaybackControllerTest,
 	ReleaseHold_OtherHoldsRemaining_DoesNotFire)
 {
@@ -159,6 +174,9 @@ TEST_F(AampRialtoPlaybackControllerTest,
 	EXPECT_EQ(m_lastReason, "Flush");
 }
 
+/**
+ * @test ReleaseHold_NoPlayRequested_DoesNotFire
+ */
 TEST_F(AampRialtoPlaybackControllerTest,
 	ReleaseHold_NoPlayRequested_DoesNotFire)
 {
@@ -174,6 +192,9 @@ TEST_F(AampRialtoPlaybackControllerTest,
 	EXPECT_EQ(m_playCount, 0);
 }
 
+/**
+ * @test DeferredPlay_FiresOnlyOnce
+ */
 TEST_F(AampRialtoPlaybackControllerTest, DeferredPlay_FiresOnlyOnce)
 {
 	/**
@@ -195,6 +216,9 @@ TEST_F(AampRialtoPlaybackControllerTest, DeferredPlay_FiresOnlyOnce)
 	EXPECT_EQ(m_playCount, 1);
 }
 
+/**
+ * @test RequestPlay_WhenUnheld_FiresEachTime
+ */
 TEST_F(AampRialtoPlaybackControllerTest, RequestPlay_WhenUnheld_FiresEachTime)
 {
 	/**
@@ -210,6 +234,9 @@ TEST_F(AampRialtoPlaybackControllerTest, RequestPlay_WhenUnheld_FiresEachTime)
 	EXPECT_EQ(m_playCount, 3);
 }
 
+/**
+ * @test CancelPlayRequest_PreventsDeferredPlay
+ */
 TEST_F(AampRialtoPlaybackControllerTest, CancelPlayRequest_PreventsDeferredPlay)
 {
 	/**
@@ -227,6 +254,9 @@ TEST_F(AampRialtoPlaybackControllerTest, CancelPlayRequest_PreventsDeferredPlay)
 	EXPECT_EQ(m_playCount, 0);
 }
 
+/**
+ * @test Reset_DropsLeakedHoldsAndRequest
+ */
 TEST_F(AampRialtoPlaybackControllerTest, Reset_DropsLeakedHoldsAndRequest)
 {
 	/**
@@ -257,6 +287,9 @@ TEST_F(AampRialtoPlaybackControllerTest, Reset_DropsLeakedHoldsAndRequest)
 	EXPECT_EQ(m_playCount, 1);
 }
 
+/**
+ * @test AddHold_IsIdempotent
+ */
 TEST_F(AampRialtoPlaybackControllerTest, AddHold_IsIdempotent)
 {
 	/**
@@ -275,6 +308,9 @@ TEST_F(AampRialtoPlaybackControllerTest, AddHold_IsIdempotent)
 	EXPECT_EQ(m_playCount, 1);
 }
 
+/**
+ * @test ReleaseHold_NotHeld_IsHarmless
+ */
 TEST_F(AampRialtoPlaybackControllerTest, ReleaseHold_NotHeld_IsHarmless)
 {
 	/**
@@ -288,6 +324,9 @@ TEST_F(AampRialtoPlaybackControllerTest, ReleaseHold_NotHeld_IsHarmless)
 	EXPECT_TRUE(m_controller->IsHeld(PlayHold::SourcesNotAttached));
 }
 
+/**
+ * @test HoldsAreIndependent
+ */
 TEST_F(AampRialtoPlaybackControllerTest, HoldsAreIndependent)
 {
 	/**
@@ -306,6 +345,9 @@ TEST_F(AampRialtoPlaybackControllerTest, HoldsAreIndependent)
 	EXPECT_TRUE(m_controller->IsHeld(PlayHold::FragmentCaching));
 }
 
+/**
+ * @test PlayActionMayReenterController
+ */
 TEST_F(AampRialtoPlaybackControllerTest, PlayActionMayReenterController)
 {
 	/**
@@ -329,6 +371,9 @@ TEST_F(AampRialtoPlaybackControllerTest, PlayActionMayReenterController)
 	EXPECT_TRUE(controller.IsHeld(PlayHold::FragmentCaching));
 }
 
+/**
+ * @test ConcurrentRequestAndRelease_FiresOnce
+ */
 TEST_F(AampRialtoPlaybackControllerTest, ConcurrentRequestAndRelease_FiresOnce)
 {
 	/**
@@ -397,6 +442,9 @@ protected:
 	std::string m_lastPreRollReason;
 };
 
+/**
+ * @test PreRollOnlyHold_PlayRequested_FiresPreRollNotPlay
+ */
 TEST_F(AampRialtoPlaybackControllerPreRollTest,
 	PreRollOnlyHold_PlayRequested_FiresPreRollNotPlay)
 {
@@ -415,6 +463,9 @@ TEST_F(AampRialtoPlaybackControllerPreRollTest,
 	EXPECT_TRUE(m_controller->IsPlayPending());
 }
 
+/**
+ * @test PreRollOnlyHold_NoPlayRequested_DoesNotFire
+ */
 TEST_F(AampRialtoPlaybackControllerPreRollTest,
 	PreRollOnlyHold_NoPlayRequested_DoesNotFire)
 {
@@ -428,6 +479,9 @@ TEST_F(AampRialtoPlaybackControllerPreRollTest,
 	EXPECT_EQ(m_playCount, 0);
 }
 
+/**
+ * @test PreRollWithOtherHolds_FiresOnlyWhenTheyClear
+ */
 TEST_F(AampRialtoPlaybackControllerPreRollTest,
 	PreRollWithOtherHolds_FiresOnlyWhenTheyClear)
 {
@@ -448,6 +502,9 @@ TEST_F(AampRialtoPlaybackControllerPreRollTest,
 	EXPECT_EQ(m_playCount, 0);
 }
 
+/**
+ * @test ReleasingPreRoll_IssuesPlay
+ */
 TEST_F(AampRialtoPlaybackControllerPreRollTest, ReleasingPreRoll_IssuesPlay)
 {
 	/**
@@ -464,6 +521,9 @@ TEST_F(AampRialtoPlaybackControllerPreRollTest, ReleasingPreRoll_IssuesPlay)
 	EXPECT_FALSE(m_controller->IsPlayPending());
 }
 
+/**
+ * @test PreRollReady_RepeatedRequest_FiresOnce
+ */
 TEST_F(AampRialtoPlaybackControllerPreRollTest,
 	PreRollReady_RepeatedRequest_FiresOnce)
 {
@@ -479,6 +539,9 @@ TEST_F(AampRialtoPlaybackControllerPreRollTest,
 	EXPECT_EQ(m_preRollCount, 1);
 }
 
+/**
+ * @test PreRollReady_InterruptedByFlush_FiresAgain
+ */
 TEST_F(AampRialtoPlaybackControllerPreRollTest,
 	PreRollReady_InterruptedByFlush_FiresAgain)
 {
@@ -497,6 +560,9 @@ TEST_F(AampRialtoPlaybackControllerPreRollTest,
 	EXPECT_EQ(m_playCount, 0);
 }
 
+/**
+ * @test Reset_ForgetsPreRollReadiness
+ */
 TEST_F(AampRialtoPlaybackControllerPreRollTest, Reset_ForgetsPreRollReadiness)
 {
 	/**
@@ -516,6 +582,9 @@ TEST_F(AampRialtoPlaybackControllerPreRollTest, Reset_ForgetsPreRollReadiness)
 	EXPECT_EQ(m_playCount, 0);
 }
 
+/**
+ * @test PreRollReady_CancelledThenRequested_FiresAgain
+ */
 TEST_F(AampRialtoPlaybackControllerPreRollTest,
 	PreRollReady_CancelledThenRequested_FiresAgain)
 {
@@ -532,6 +601,9 @@ TEST_F(AampRialtoPlaybackControllerPreRollTest,
 	EXPECT_EQ(m_preRollCount, 2);
 }
 
+/**
+ * @test AddPreRollHold_WhilePlayPendingAndUnheld_FiresPreRoll
+ */
 TEST_F(AampRialtoPlaybackControllerPreRollTest,
 	AddPreRollHold_WhilePlayPendingAndUnheld_FiresPreRoll)
 {
@@ -551,6 +623,9 @@ TEST_F(AampRialtoPlaybackControllerPreRollTest,
 	EXPECT_EQ(m_playCount, 0);
 }
 
+/**
+ * @test PreRollHold_NoPreRollAction_IsHarmless
+ */
 TEST_F(AampRialtoPlaybackControllerTest, PreRollHold_NoPreRollAction_IsHarmless)
 {
 	/**
@@ -567,6 +642,9 @@ TEST_F(AampRialtoPlaybackControllerTest, PreRollHold_NoPreRollAction_IsHarmless)
 	EXPECT_EQ(m_playCount, 1);
 }
 
+/**
+ * @test AddHold_WaitsForPlayAlreadyDecided
+ */
 TEST(AampRialtoPlaybackControllerDispatchTest,
 	AddHold_WaitsForPlayAlreadyDecided)
 {
@@ -619,6 +697,9 @@ TEST(AampRialtoPlaybackControllerDispatchTest,
 	EXPECT_TRUE(controller.IsHeld(PlayHold::Flushing));
 }
 
+/**
+ * @test PreRollAction_MayWaitForAnotherThreadUsingTheController
+ */
 TEST(AampRialtoPlaybackControllerDispatchTest,
 	PreRollAction_MayWaitForAnotherThreadUsingTheController)
 {

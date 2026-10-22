@@ -70,6 +70,9 @@ protected:
 // Constructor tests
 // ===========================================================================
 
+/**
+ * @test Constructor_NullFactory_DoesNotCrash
+ */
 TEST_F(AampRialtoControlBackendTest,
 	Constructor_NullFactory_DoesNotCrash)
 {
@@ -81,6 +84,9 @@ TEST_F(AampRialtoControlBackendTest,
 	EXPECT_FALSE(backend.waitForRunning(10));
 }
 
+/**
+ * @test Constructor_FactoryReturnsNullControl_DoesNotCrash
+ */
 TEST_F(AampRialtoControlBackendTest,
 	Constructor_FactoryReturnsNullControl_DoesNotCrash)
 {
@@ -91,6 +97,9 @@ TEST_F(AampRialtoControlBackendTest,
 	EXPECT_FALSE(backend.waitForRunning(10));
 }
 
+/**
+ * @test Constructor_RegisterClientFails_DoesNotCrash
+ */
 TEST_F(AampRialtoControlBackendTest,
 	Constructor_RegisterClientFails_DoesNotCrash)
 {
@@ -103,6 +112,9 @@ TEST_F(AampRialtoControlBackendTest,
 	EXPECT_FALSE(backend.waitForRunning(10));
 }
 
+/**
+ * @test Constructor_RegisterClientSucceeds_InitialStateUnknown
+ */
 TEST_F(AampRialtoControlBackendTest,
 	Constructor_RegisterClientSucceeds_InitialStateUnknown)
 {
@@ -122,6 +134,9 @@ TEST_F(AampRialtoControlBackendTest,
 // waitForRunning tests
 // ===========================================================================
 
+/**
+ * @test WaitForRunning_AlreadyRunning_ReturnsImmediately
+ */
 TEST_F(AampRialtoControlBackendTest,
 	WaitForRunning_AlreadyRunning_ReturnsImmediately)
 {
@@ -136,6 +151,9 @@ TEST_F(AampRialtoControlBackendTest,
 	EXPECT_TRUE(backend.waitForRunning(5000));
 }
 
+/**
+ * @test WaitForRunning_StateChangesToRunning_ReturnsTrue
+ */
 TEST_F(AampRialtoControlBackendTest,
 	WaitForRunning_StateChangesToRunning_ReturnsTrue)
 {
@@ -172,6 +190,9 @@ TEST_F(AampRialtoControlBackendTest,
 	EXPECT_TRUE(waiter.get());
 }
 
+/**
+ * @test WaitForRunning_Timeout_ReturnsFalse
+ */
 TEST_F(AampRialtoControlBackendTest,
 	WaitForRunning_Timeout_ReturnsFalse)
 {
@@ -191,6 +212,9 @@ TEST_F(AampRialtoControlBackendTest,
 	EXPECT_GE(elapsed, std::chrono::milliseconds(40));
 }
 
+/**
+ * @test NotificationAfterBackendDestroyed_DoesNotTouchFreedBackend
+ */
 TEST_F(AampRialtoControlBackendTest,
 	NotificationAfterBackendDestroyed_DoesNotTouchFreedBackend)
 {
@@ -226,6 +250,9 @@ TEST_F(AampRialtoControlBackendTest,
 	heldClient->notifyApplicationState(firebolt::rialto::ApplicationState::RUNNING);
 }
 
+/**
+ * @test RegisterClient_NotificationDuringRegistration_IsNotOverwritten
+ */
 TEST_F(AampRialtoControlBackendTest,
 	RegisterClient_NotificationDuringRegistration_IsNotOverwritten)
 {
@@ -256,6 +283,9 @@ TEST_F(AampRialtoControlBackendTest,
 	EXPECT_TRUE(backend.waitForRunning(50));
 }
 
+/**
+ * @test RegisterClient_ConcurrentNotification_IsRaceFree
+ */
 TEST_F(AampRialtoControlBackendTest,
 	RegisterClient_ConcurrentNotification_IsRaceFree)
 {

@@ -606,6 +606,9 @@ TEST_F(AampRialtoVideoSourceTest, AampRialtoVideoSource_TakePendingCodecData_Ret
 	EXPECT_EQ(cd2, nullptr);
 }
 
+/**
+ * @test AampRialtoVideoSource_IsEos_ReflectsSignalEosAndReset
+ */
 TEST_F(AampRialtoVideoSourceTest, AampRialtoVideoSource_IsEos_ReflectsSignalEosAndReset)
 {
 	EXPECT_FALSE(m_source.isEos());
@@ -617,6 +620,9 @@ TEST_F(AampRialtoVideoSourceTest, AampRialtoVideoSource_IsEos_ReflectsSignalEosA
 	EXPECT_FALSE(m_source.isEos());
 }
 
+/**
+ * @test AampRialtoVideoSource_ConcurrentAttachResetAndReaders_SeeOnlyValidValues
+ */
 TEST_F(AampRialtoVideoSourceTest,
 	AampRialtoVideoSource_ConcurrentAttachResetAndReaders_SeeOnlyValidValues)
 {
@@ -2237,6 +2243,9 @@ TEST_F(AampRialtoVideoSourceTest,
 // format() / setFormat() — StreamOutputFormat base-class state
 // ---------------------------------------------------------------------------
 
+/**
+ * @test AampRialtoVideoSource_format_InitiallyInvalid
+ */
 TEST_F(AampRialtoVideoSourceTest,
 	AampRialtoVideoSource_format_InitiallyInvalid)
 {
@@ -2246,6 +2255,9 @@ TEST_F(AampRialtoVideoSourceTest,
 	EXPECT_EQ(m_source.format(), FORMAT_INVALID);
 }
 
+/**
+ * @test AampRialtoVideoSource_setFormat_RoundTrip
+ */
 TEST_F(AampRialtoVideoSourceTest,
 	AampRialtoVideoSource_setFormat_RoundTrip)
 {
@@ -2395,6 +2407,9 @@ TEST_F(AampRialtoVideoSourceTest,
 }
 
 
+/**
+ * @test AampRialtoVideoSource_reset_PreservesFormat
+ */
 TEST_F(AampRialtoVideoSourceTest,
 	AampRialtoVideoSource_reset_PreservesFormat)
 {

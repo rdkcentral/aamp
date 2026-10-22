@@ -28,6 +28,9 @@
 // Phase 2 — Configure / pipeline creation
 // ===========================================================================
 
+/**
+ * @test Configure_ValidFormats_CreatesPipeline
+ */
 TEST_F(AampRialtoPlayerTest, Configure_ValidFormats_CreatesPipeline)
 {
 	EXPECT_CALL(*m_mockFactory, createMediaPipeline(_, _)).Times(1);
@@ -37,6 +40,9 @@ TEST_F(AampRialtoPlayerTest, Configure_ValidFormats_CreatesPipeline)
 	Configure();
 }
 
+/**
+ * @test Configure_NullSourceCreator_DoesNotCrash
+ */
 TEST_F(AampRialtoPlayerTest, Configure_NullSourceCreator_DoesNotCrash)
 {
 	g_mockPipelineFactory = nullptr;
@@ -55,6 +61,9 @@ TEST_F(AampRialtoPlayerTest, Configure_NullSourceCreator_DoesNotCrash)
 	g_mockPipelineFactory = m_mockFactory;
 }
 
+/**
+ * @test Configure_CallsSourceCreatorForEachFormat
+ */
 TEST_F(AampRialtoPlayerTest, Configure_CallsSourceCreatorForEachFormat)
 {
 	m_createSourceCallCount = 0;
@@ -65,6 +74,9 @@ TEST_F(AampRialtoPlayerTest, Configure_CallsSourceCreatorForEachFormat)
 	EXPECT_NE(m_mockSources[eMEDIATYPE_SUBTITLE], nullptr);  // inband CC
 }
 
+/**
+ * @test Configure_VideoOnly_CreatesVideoSourceOnly
+ */
 TEST_F(AampRialtoPlayerTest, Configure_VideoOnly_CreatesVideoSourceOnly)
 {
 	m_createSourceCallCount = 0;
@@ -75,6 +87,9 @@ TEST_F(AampRialtoPlayerTest, Configure_VideoOnly_CreatesVideoSourceOnly)
 	EXPECT_NE(m_mockSources[eMEDIATYPE_SUBTITLE], nullptr);  // inband CC
 }
 
+/**
+ * @test Configure_FormatUnknown_CreatesSourceWithoutDemuxer
+ */
 TEST_F(AampRialtoPlayerTest, Configure_FormatUnknown_CreatesSourceWithoutDemuxer)
 {
 	m_createSourceCallCount = 0;
@@ -86,6 +101,9 @@ TEST_F(AampRialtoPlayerTest, Configure_FormatUnknown_CreatesSourceWithoutDemuxer
 	EXPECT_FALSE(m_mockSources[eMEDIATYPE_AUDIO]->hasDemuxer());
 }
 
+/**
+ * @test Configure_FormatIsoBmff_DoesNotCreateDemuxer
+ */
 TEST_F(AampRialtoPlayerTest, Configure_FormatIsoBmff_DoesNotCreateDemuxer)
 {
 	// Demuxer creation is deferred until the first SendTransfer call so
@@ -96,6 +114,9 @@ TEST_F(AampRialtoPlayerTest, Configure_FormatIsoBmff_DoesNotCreateDemuxer)
 	EXPECT_FALSE(m_mockSources[eMEDIATYPE_AUDIO]->hasDemuxer());
 }
 
+/**
+ * @test Configure_AudioOnly_CreatesAudioSourceOnly
+ */
 TEST_F(AampRialtoPlayerTest, Configure_AudioOnly_CreatesAudioSourceOnly)
 {
 	m_createSourceCallCount = 0;
@@ -105,6 +126,9 @@ TEST_F(AampRialtoPlayerTest, Configure_AudioOnly_CreatesAudioSourceOnly)
 	EXPECT_NE(m_mockSources[eMEDIATYPE_AUDIO], nullptr);
 }
 
+/**
+ * @test Configure_AllThreeFormats_CreatesAllThreeSources
+ */
 TEST_F(AampRialtoPlayerTest, Configure_AllThreeFormats_CreatesAllThreeSources)
 {
 	m_createSourceCallCount = 0;
@@ -115,6 +139,9 @@ TEST_F(AampRialtoPlayerTest, Configure_AllThreeFormats_CreatesAllThreeSources)
 	EXPECT_NE(m_mockSources[eMEDIATYPE_SUBTITLE], nullptr);
 }
 
+/**
+ * @test Configure_SubtitleAttach_HoldsAttachMutex
+ */
 TEST_F(AampRialtoPlayerTest, Configure_SubtitleAttach_HoldsAttachMutex)
 {
 	/**
@@ -155,6 +182,9 @@ TEST_F(AampRialtoPlayerTest, Configure_SubtitleAttach_HoldsAttachMutex)
 	EXPECT_TRUE(muteReturned.load());
 }
 
+/**
+ * @test Configure_PipelineCreationFails_AudioOnlyWithSubtitle_DoesNotCrash
+ */
 TEST_F(AampRialtoPlayerTest,
 	Configure_PipelineCreationFails_AudioOnlyWithSubtitle_DoesNotCrash)
 {
@@ -181,6 +211,9 @@ TEST_F(AampRialtoPlayerTest,
 // Phase 3 — CheckAllSourcesAttached
 // ===========================================================================
 
+/**
+ * @test SendTransfer_InitFragment_CreatesDemuxerLazily
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	SendTransfer_InitFragment_CreatesDemuxerLazily)
 {
@@ -193,6 +226,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	EXPECT_TRUE(m_mockSources[eMEDIATYPE_VIDEO]->hasDemuxer());
 }
 
+/**
+ * @test SendTransfer_BothSources_CallsAllSourcesAttachedOnce
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	SendTransfer_BothSources_CallsAllSourcesAttachedOnce)
 {
@@ -204,6 +240,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	SendAudioInitFragment();
 }
 
+/**
+ * @test SendTransfer_VideoOnlyStream_CallsAllSourcesAttachedAfterVideo
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	SendTransfer_VideoOnlyStream_CallsAllSourcesAttachedAfterVideo)
 {
@@ -214,6 +253,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	SendVideoInitFragment();
 }
 
+/**
+ * @test SendTransfer_AudioOnlyStream_CallsAllSourcesAttachedAfterAudio
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	SendTransfer_AudioOnlyStream_CallsAllSourcesAttachedAfterAudio)
 {
@@ -228,6 +270,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 // IRialtoControlBackend integration
 // ===========================================================================
 
+/**
+ * @test Configure_CallsWaitForRunningBeforeCreatingPipeline
+ */
 TEST_F(AampRialtoPlayerTest, Configure_CallsWaitForRunningBeforeCreatingPipeline)
 {
 	testing::InSequence seq;
@@ -245,6 +290,9 @@ TEST_F(AampRialtoPlayerTest, Configure_CallsWaitForRunningBeforeCreatingPipeline
 	Configure();
 }
 
+/**
+ * @test Configure_ProceedsWhenWaitForRunningTimesOut
+ */
 TEST_F(AampRialtoPlayerTest, Configure_ProceedsWhenWaitForRunningTimesOut)
 {
 	EXPECT_CALL(*m_mockControlBackend, waitForRunning(_)).WillOnce(Return(false));
@@ -265,6 +313,9 @@ TEST_F(AampRialtoPlayerTest, Configure_ProceedsWhenWaitForRunningTimesOut)
 // Phase N — Configure idempotency and smart pipeline recreation
 // ===========================================================================
 
+/**
+ * @test Configure_SameFormats_SecondCallDoesNotRecreate
+ */
 TEST_F(AampRialtoPlayerTest,
 	Configure_SameFormats_SecondCallDoesNotRecreate)
 {
@@ -282,6 +333,9 @@ TEST_F(AampRialtoPlayerTest,
 		/*setReadyAfterPipelineCreation=*/false);
 }
 
+/**
+ * @test Configure_DifferentVideoFormat_RecreatesPipeline
+ */
 TEST_F(AampRialtoPlayerTest,
 	Configure_DifferentVideoFormat_RecreatesPipeline)
 {
@@ -297,6 +351,9 @@ TEST_F(AampRialtoPlayerTest,
 		/*setReadyAfterPipelineCreation=*/false);
 }
 
+/**
+ * @test Configure_VideoUnknownThenKnown_NoRecreate_UpdatesStoredFormat
+ */
 TEST_F(AampRialtoPlayerTest,
 	Configure_VideoUnknownThenKnown_NoRecreate_UpdatesStoredFormat)
 {
@@ -320,6 +377,9 @@ TEST_F(AampRialtoPlayerTest,
 	EXPECT_EQ(videoSource->format(), FORMAT_VIDEO_ES_H264);
 }
 
+/**
+ * @test Configure_VideoKnownThenUnknown_NoRecreate_KeepsStoredFormat
+ */
 TEST_F(AampRialtoPlayerTest,
 	Configure_VideoKnownThenUnknown_NoRecreate_KeepsStoredFormat)
 {
@@ -342,6 +402,9 @@ TEST_F(AampRialtoPlayerTest,
 	EXPECT_EQ(videoSource->format(), FORMAT_VIDEO_ES_H264);
 }
 
+/**
+ * @test Configure_AudioUnknownThenKnown_NoRecreate_UpdatesStoredFormat
+ */
 TEST_F(AampRialtoPlayerTest,
 	Configure_AudioUnknownThenKnown_NoRecreate_UpdatesStoredFormat)
 {
@@ -362,6 +425,9 @@ TEST_F(AampRialtoPlayerTest,
 	EXPECT_EQ(audioSource->format(), FORMAT_AUDIO_ES_AAC);
 }
 
+/**
+ * @test Configure_AudioKnownThenUnknown_NoRecreate_KeepsStoredFormat
+ */
 TEST_F(AampRialtoPlayerTest,
 	Configure_AudioKnownThenUnknown_NoRecreate_KeepsStoredFormat)
 {
@@ -384,6 +450,9 @@ TEST_F(AampRialtoPlayerTest,
 	EXPECT_EQ(audioSource->format(), FORMAT_AUDIO_ES_AAC);
 }
 
+/**
+ * @test Configure_AudioGoesInvalid_NoPipelineRecreation_EOSSignaled
+ */
 TEST_F(AampRialtoPlayerTest,
 	Configure_AudioGoesInvalid_NoPipelineRecreation_EOSSignaled)
 {
@@ -407,6 +476,9 @@ TEST_F(AampRialtoPlayerTest,
 	EXPECT_TRUE(audioSource->state().eos);
 }
 
+/**
+ * @test Configure_VideoGoesInvalid_RecreatesPipeline
+ */
 TEST_F(AampRialtoPlayerTest,
 	Configure_VideoGoesInvalid_RecreatesPipeline)
 {
@@ -423,6 +495,9 @@ TEST_F(AampRialtoPlayerTest,
 		/*setReadyAfterPipelineCreation=*/false);
 }
 
+/**
+ * @test Configure_AudioReturnsAfterEOS_SameFormatNoRecreation
+ */
 TEST_F(AampRialtoPlayerTest,
 	Configure_AudioReturnsAfterEOS_SameFormatNoRecreation)
 {
@@ -447,6 +522,9 @@ TEST_F(AampRialtoPlayerTest,
 	// Times(1) verification is implicit at end of test scope.
 }
 
+/**
+ * @test Configure_ESChangeStatus_ForcesRecreation
+ */
 TEST_F(AampRialtoPlayerTest,
 	Configure_ESChangeStatus_ForcesRecreation)
 {
@@ -462,6 +540,9 @@ TEST_F(AampRialtoPlayerTest,
 		/*setReadyAfterPipelineCreation=*/false);
 }
 
+/**
+ * @test Configure_SetReadyAfterPipeline_ForcesRecreation
+ */
 TEST_F(AampRialtoPlayerTest,
 	Configure_SetReadyAfterPipeline_ForcesRecreation)
 {
@@ -477,6 +558,9 @@ TEST_F(AampRialtoPlayerTest,
 		/*setReadyAfterPipelineCreation=*/true);
 }
 
+/**
+ * @test Configure_AfterStop_RecreatesPipeline
+ */
 TEST_F(AampRialtoPlayerTest,
 	Configure_AfterStop_RecreatesPipeline)
 {
@@ -493,6 +577,9 @@ TEST_F(AampRialtoPlayerTest,
 		/*setReadyAfterPipelineCreation=*/false);
 }
 
+/**
+ * @test Configure_Recreate_StopsAndReleasesOldPipelineBeforeCreatingNewOne
+ */
 TEST_F(AampRialtoPlayerTest,
 	Configure_Recreate_StopsAndReleasesOldPipelineBeforeCreatingNewOne)
 {
@@ -532,6 +619,9 @@ TEST_F(AampRialtoPlayerTest,
 		/*setReadyAfterPipelineCreation=*/false);
 }
 
+/**
+ * @test Configure_Recreate_ReleasesOldPipelineHeldByMonitorAV
+ */
 TEST_F(AampRialtoPlayerTest,
 	Configure_Recreate_ReleasesOldPipelineHeldByMonitorAV)
 {
@@ -571,6 +661,9 @@ TEST_F(AampRialtoPlayerTest,
 		/*setReadyAfterPipelineCreation=*/false);
 }
 
+/**
+ * @test Configure_Recreate_KeepsReplacedSourceAliveWhileInjectorIsInsideIt
+ */
 TEST_F(AampRialtoPlayerTest,
 	Configure_Recreate_KeepsReplacedSourceAliveWhileInjectorIsInsideIt)
 {
@@ -617,6 +710,9 @@ TEST_F(AampRialtoPlayerTest,
 		<< "replaced source was not released after the injector left";
 }
 
+/**
+ * @test Constructor_EmptySourceCreator_ConfigureDoesNotThrow
+ */
 TEST_F(AampRialtoPlayerTest,
 	Constructor_EmptySourceCreator_ConfigureDoesNotThrow)
 {
@@ -638,6 +734,9 @@ TEST_F(AampRialtoPlayerTest,
 		/*setReadyAfterPipelineCreation=*/false));
 }
 
+/**
+ * @test Configure_CreatesPipelineWithFixedRequirementsAndLoadsMse
+ */
 TEST_F(AampRialtoPlayerTest,
 	Configure_CreatesPipelineWithFixedRequirementsAndLoadsMse)
 {
@@ -659,6 +758,9 @@ TEST_F(AampRialtoPlayerTest,
 	Configure();
 }
 
+/**
+ * @test Configure_AudioOnlyNoSubtitleSource_SecondCallDoesNotRecreate
+ */
 TEST_F(AampRialtoPlayerTest,
 	Configure_AudioOnlyNoSubtitleSource_SecondCallDoesNotRecreate)
 {
@@ -678,6 +780,9 @@ TEST_F(AampRialtoPlayerTest,
 		/*setReadyAfterPipelineCreation=*/false);
 }
 
+/**
+ * @test Configure_AudioOnly_SubtitleFormatAppears_RecreatesPipeline
+ */
 TEST_F(AampRialtoPlayerTest,
 	Configure_AudioOnly_SubtitleFormatAppears_RecreatesPipeline)
 {
@@ -696,6 +801,9 @@ TEST_F(AampRialtoPlayerTest,
 		/*setReadyAfterPipelineCreation=*/false);
 }
 
+/**
+ * @test Configure_Trickplay_EosPersistsThroughFlush
+ */
 TEST_F(AampRialtoPlayerTest,
 	Configure_Trickplay_EosPersistsThroughFlush)
 {
@@ -730,6 +838,9 @@ TEST_F(AampRialtoPlayerTest,
 		<< "Audio EOS must survive Flush() when rate != AAMP_NORMAL_PLAY_RATE";
 }
 
+/**
+ * @test Flush_NormalRate_ClearsAudioEos
+ */
 TEST_F(AampRialtoPlayerTest,
 	Flush_NormalRate_ClearsAudioEos)
 {
@@ -756,6 +867,9 @@ TEST_F(AampRialtoPlayerTest,
 		<< "Audio EOS must be cleared when Flush() rate == AAMP_NORMAL_PLAY_RATE";
 }
 
+/**
+ * @test Configure_Trickplay_FlushingStateRespondsToRialtoCallbacks
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	Configure_Trickplay_FlushingStateRespondsToRialtoCallbacks)
 {
@@ -831,6 +945,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 		<< "FLUSHED must transition to PLAYING when Rialto sends PLAYING";
 }
 
+/**
+ * @test Configure_TrickplayExit_ClearsEos
+ */
 TEST_F(AampRialtoPlayerTest,
 	Configure_TrickplayExit_ClearsEos)
 {

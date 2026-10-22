@@ -28,6 +28,9 @@
 // Phase 5 — Segment injection baseline
 // ===========================================================================
 
+/**
+ * @test SendTransfer_MediaFragment_EnqueuesSamples
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	SendTransfer_MediaFragment_EnqueuesSamples)
 {
@@ -65,6 +68,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	WaitFor([&haveDataCalled]{ return haveDataCalled.load(); });
 }
 
+/**
+ * @test EndOfStreamReached_SetsEosFlag
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	EndOfStreamReached_SetsEosFlag)
 {
@@ -88,6 +94,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	WaitFor([&haveDataCalled]{ return haveDataCalled.load(); });
 }
 
+/**
+ * @test OnNeedMediaData_EnqueuesRequest
+ */
 TEST_F(AampRialtoPlayerTest,
 	OnNeedMediaData_EnqueuesRequest)
 {
@@ -98,6 +107,9 @@ TEST_F(AampRialtoPlayerTest,
 	EXPECT_NO_THROW(client->notifyNeedMediaData(0, 5, 100, nullptr));
 }
 
+/**
+ * @test OnCancelNeedMediaData_ClearsRequests
+ */
 TEST_F(AampRialtoPlayerTest,
 	OnCancelNeedMediaData_ClearsRequests)
 {
@@ -108,6 +120,9 @@ TEST_F(AampRialtoPlayerTest,
 	EXPECT_NO_THROW(client->notifyCancelNeedMediaData(0));
 }
 
+/**
+ * @test InjectSamples_EosOnly_CallsHaveDataWithEos
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	InjectSamples_EosOnly_CallsHaveDataWithEos)
 {
@@ -131,6 +146,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	WaitFor([&haveDataCalled]{ return haveDataCalled.load(); });
 }
 
+/**
+ * @test InjectSamples_NullPipeline_DoesNotCrash
+ */
 TEST_F(AampRialtoPlayerTest,
 	InjectSamples_NullPipeline_DoesNotCrash)
 {
@@ -154,6 +172,9 @@ TEST_F(AampRialtoPlayerTest,
 	WaitFor([]{ return false; }, std::chrono::milliseconds(10));
 }
 
+/**
+ * @test Stream_CallsPlay
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest, Stream_CallsPlay)
 {
 	Configure();
@@ -165,6 +186,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest, Stream_CallsPlay)
 	m_player->Stream();
 }
 
+/**
+ * @test PlaybackStateFailure_ReportsErrorOnce
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest, PlaybackStateFailure_ReportsErrorOnce)
 {
 	Configure();
@@ -182,6 +206,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest, PlaybackStateFailure_ReportsErrorOnce)
 	PostPlaybackState(firebolt::rialto::PlaybackState::FAILURE);
 }
 
+/**
+ * @test PlaybackStateFailure_NoActiveSession_NotReported
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest, PlaybackStateFailure_NoActiveSession_NotReported)
 {
 	Configure();
@@ -194,6 +221,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest, PlaybackStateFailure_NoActiveSession_NotRe
 	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::IDLE);
 }
 
+/**
+ * @test PlaybackStateFailure_DuringFlush_LeavesFlushingAndReports
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest, PlaybackStateFailure_DuringFlush_LeavesFlushingAndReports)
 {
 	Configure();
@@ -258,6 +288,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest, Stop_DuringFragmentCaching_NextSessionPlay
 	m_player->Stream();
 }
 
+/**
+ * @test Stream_DeferredDuringFlush_SeekDoneIssuesPlay
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	Stream_DeferredDuringFlush_SeekDoneIssuesPlay)
 {
@@ -388,6 +421,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	EXPECT_EQ(calls.load(), 2 * kIterations);
 }
 
+/**
+ * @test Stream_PlayRequestReset_SubsequentFlushWhilePausedNoPlay
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	Stream_PlayRequestReset_SubsequentFlushWhilePausedNoPlay)
 {
@@ -431,6 +467,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 		<< "Seek-while-paused flush must settle in PAUSED, not resume play";
 }
 
+/**
+ * @test Stop_CallsPipelineStop
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest, Stop_CallsPipelineStop)
 {
 	Configure();
@@ -440,11 +479,17 @@ TEST_F(AampRialtoPlayerWithDemuxTest, Stop_CallsPipelineStop)
 	m_player->Stop(false);
 }
 
+/**
+ * @test Stop_NullPipeline_DoesNotCrash
+ */
 TEST_F(AampRialtoPlayerTest, Stop_NullPipeline_DoesNotCrash)
 {
 	EXPECT_NO_THROW(m_player->Stop(false));
 }
 
+/**
+ * @test Stop_DestroysPipeline
+ */
 TEST_F(AampRialtoPlayerTest, Stop_DestroysPipeline)
 {
 	/**
@@ -487,6 +532,9 @@ TEST_F(AampRialtoPlayerTest, Stop_DestroysPipeline)
 		<< "Stop() must release the pipeline so its destructor runs immediately";
 }
 
+/**
+ * @test Stop_Idempotent_DoesNotCrash
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest, Stop_Idempotent_DoesNotCrash)
 {
 	Configure();
@@ -499,6 +547,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest, Stop_Idempotent_DoesNotCrash)
 	EXPECT_NO_THROW(m_player->Stop(false));
 }
 
+/**
+ * @test Stop_KeepLastFrame_StillCallsPipelineStop
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest, Stop_KeepLastFrame_StillCallsPipelineStop)
 {
 	Configure();
@@ -508,6 +559,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest, Stop_KeepLastFrame_StillCallsPipelineStop)
 	m_player->Stop(/*keepLastFrame=*/true);
 }
 
+/**
+ * @test Stop_WakesBlockedInjectionThread
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	Stop_WakesBlockedInjectionThread)
 {
@@ -543,6 +597,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 		<< "Injector should have been unblocked by Stop()";
 }
 
+/**
+ * @test Stop_NeedDataAfterStop_DoesNotCrash
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	Stop_NeedDataAfterStop_DoesNotCrash)
 {
@@ -568,6 +625,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	std::this_thread::sleep_for(std::chrono::milliseconds(20));
 }
 
+/**
+ * @test Stop_EosThenNeedDataAfterStop_DoesNotCrash
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	Stop_EosThenNeedDataAfterStop_DoesNotCrash)
 {
@@ -601,6 +661,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 // Phase 5b — NotifyInjectorToPause / wake blocked injection threads
 // ===========================================================================
 
+/**
+ * @test NotifyInjectorToPause_WakesBlockedInjectionThread
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	NotifyInjectorToPause_WakesBlockedInjectionThread)
 {
@@ -636,12 +699,18 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 		<< "Injector should have been unblocked by NotifyInjectorToPause()";
 }
 
+/**
+ * @test NotifyInjectorToPause_NoPipeline_DoesNotCrash
+ */
 TEST_F(AampRialtoPlayerTest,
 	NotifyInjectorToPause_NoPipeline_DoesNotCrash)
 {
 	EXPECT_NO_THROW(m_player->NotifyInjectorToPause());
 }
 
+/**
+ * @test NotifyInjectorToPause_DoesNotCallPipelineStop
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	NotifyInjectorToPause_DoesNotCallPipelineStop)
 {
@@ -657,6 +726,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 // Phase 5c — NotifyInjectorToResume / clear gateMode
 // ===========================================================================
 
+/**
+ * @test NotifyInjectorToResume_ClearsGateSoSubsequentSampleIsNotDropped
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	NotifyInjectorToResume_ClearsGateSoSubsequentSampleIsNotDropped)
 {
@@ -716,6 +788,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 		   "NotifyInjectorToResume() cleared the gate";
 }
 
+/**
+ * @test NotifyInjectorToResume_NoPipeline_DoesNotCrash
+ */
 TEST_F(AampRialtoPlayerTest,
 	NotifyInjectorToResume_NoPipeline_DoesNotCrash)
 {
@@ -736,6 +811,9 @@ TEST_F(AampRialtoPlayerTest,
 // being torn down while paused (but never resumed) hangs forever.
 // ===========================================================================
 
+/**
+ * @test NotifyInjectorToPause_NewSampleAfterPause_DoesNotBlockCallerThread
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	NotifyInjectorToPause_NewSampleAfterPause_DoesNotBlockCallerThread)
 {
@@ -783,6 +861,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 // SendCopy — fragment injection via legacy copy path
 // ===========================================================================
 
+/**
+ * @test SendCopy_AudioWhenUnattached_AttachesViaSetStreamCapsAndForwardsFragment
+ */
 TEST_F(AampRialtoPlayerTest,
 	SendCopy_AudioWhenUnattached_AttachesViaSetStreamCapsAndForwardsFragment)
 {
@@ -802,6 +883,9 @@ TEST_F(AampRialtoPlayerTest,
 	EXPECT_TRUE(m_player->PipelineConfiguredForMedia(eMEDIATYPE_AUDIO));
 }
 
+/**
+ * @test SendCopy_AudioAlreadyAttached_DoesNotReattach
+ */
 TEST_F(AampRialtoPlayerTest,
 	SendCopy_AudioAlreadyAttached_DoesNotReattach)
 {
@@ -823,6 +907,9 @@ TEST_F(AampRialtoPlayerTest,
 	EXPECT_TRUE(result);
 }
 
+/**
+ * @test SendCopy_SteadyState_DoesNotLogAtInfo
+ */
 TEST_F(AampRialtoPlayerTest,
 	SendCopy_SteadyState_DoesNotLogAtInfo)
 {
@@ -894,6 +981,9 @@ protected:
 	std::vector<Id3Call> m_calls;
 };
 
+/**
+ * @test SendCopy_Id3HeadedDsmCcPacket_ReachesHandlerWithTiming
+ */
 TEST_F(AampRialtoPlayerId3Test,
 	SendCopy_Id3HeadedDsmCcPacket_ReachesHandlerWithTiming)
 {
@@ -911,6 +1001,9 @@ TEST_F(AampRialtoPlayerId3Test,
 	EXPECT_DOUBLE_EQ(m_calls[0].duration, 0.1);
 }
 
+/**
+ * @test SendCopy_PacketWithoutId3Header_IsNotReported
+ */
 TEST_F(AampRialtoPlayerId3Test, SendCopy_PacketWithoutId3Header_IsNotReported)
 {
 	InstallHandler();
@@ -921,6 +1014,9 @@ TEST_F(AampRialtoPlayerId3Test, SendCopy_PacketWithoutId3Header_IsNotReported)
 	EXPECT_TRUE(m_calls.empty());
 }
 
+/**
+ * @test SendCopy_ShortOrEmptyBuffer_IsNotReported
+ */
 TEST_F(AampRialtoPlayerId3Test, SendCopy_ShortOrEmptyBuffer_IsNotReported)
 {
 	InstallHandler();
@@ -933,6 +1029,9 @@ TEST_F(AampRialtoPlayerId3Test, SendCopy_ShortOrEmptyBuffer_IsNotReported)
 	EXPECT_TRUE(m_calls.empty());
 }
 
+/**
+ * @test SendCopy_NoHandlerInstalled_DoesNotCrash
+ */
 TEST_F(AampRialtoPlayerId3Test, SendCopy_NoHandlerInstalled_DoesNotCrash)
 {
 	std::vector<uint8_t> packet = kId3Packet;
@@ -940,6 +1039,9 @@ TEST_F(AampRialtoPlayerId3Test, SendCopy_NoHandlerInstalled_DoesNotCrash)
 		eMEDIATYPE_DSM_CC, std::move(packet), 1.5, 1.4, 0.1));
 }
 
+/**
+ * @test SendCopy_Id3HeadedAudioBuffer_IsReportedAndStillInjected
+ */
 TEST_F(AampRialtoPlayerId3Test,
 	SendCopy_Id3HeadedAudioBuffer_IsReportedAndStillInjected)
 {
@@ -960,6 +1062,9 @@ TEST_F(AampRialtoPlayerId3Test,
 	EXPECT_EQ(m_calls[0].mediaType, eMEDIATYPE_AUDIO);
 }
 
+/**
+ * @test SendTransfer_Id3HeadedDsmCcPacket_ReachesHandler
+ */
 TEST_F(AampRialtoPlayerId3Test, SendTransfer_Id3HeadedDsmCcPacket_ReachesHandler)
 {
 	InstallHandler();
@@ -977,6 +1082,9 @@ TEST_F(AampRialtoPlayerId3Test, SendTransfer_Id3HeadedDsmCcPacket_ReachesHandler
 	EXPECT_DOUBLE_EQ(m_calls[0].duration, 0.2);
 }
 
+/**
+ * @test SendSample_Id3HeadedDsmCcSample_ReachesHandler
+ */
 TEST_F(AampRialtoPlayerId3Test, SendSample_Id3HeadedDsmCcSample_ReachesHandler)
 {
 	InstallHandler();
@@ -997,6 +1105,9 @@ TEST_F(AampRialtoPlayerId3Test, SendSample_Id3HeadedDsmCcSample_ReachesHandler)
 	EXPECT_DOUBLE_EQ(m_calls[0].duration, 0.3);
 }
 
+/**
+ * @test ChangeAamp_ReplacesTheHandler
+ */
 TEST_F(AampRialtoPlayerId3Test, ChangeAamp_ReplacesTheHandler)
 {
 	InstallHandler();
@@ -1013,6 +1124,9 @@ TEST_F(AampRialtoPlayerId3Test, ChangeAamp_ReplacesTheHandler)
 	EXPECT_EQ(replacementCalls, 1);
 }
 
+/**
+ * @test ChangeAamp_ConcurrentWithSendCopy_IsRaceFree
+ */
 TEST_F(AampRialtoPlayerId3Test, ChangeAamp_ConcurrentWithSendCopy_IsRaceFree)
 {
 	/**
@@ -1043,6 +1157,9 @@ TEST_F(AampRialtoPlayerId3Test, ChangeAamp_ConcurrentWithSendCopy_IsRaceFree)
 	EXPECT_EQ(calls.load(), before + 1);
 }
 
+/**
+ * @test SendCopy_WhenProcessDataFragmentFails_ReturnsFalse
+ */
 TEST_F(AampRialtoPlayerTest,
 	SendCopy_WhenProcessDataFragmentFails_ReturnsFalse)
 {
@@ -1150,6 +1267,9 @@ TEST_F(AampRialtoPlayerTest,
 // SendSample — per-sample injection via external demuxer path
 // ===========================================================================
 
+/**
+ * @test SendSample_Video_InjectsSample
+ */
 TEST_F(AampRialtoPlayerTest,
 	SendSample_Video_InjectsSample)
 {
@@ -1176,6 +1296,9 @@ TEST_F(AampRialtoPlayerTest,
 	EXPECT_TRUE(haveDataCalled.load());
 }
 
+/**
+ * @test SendSample_NoSourceAttached_ReturnsFalse
+ */
 TEST_F(AampRialtoPlayerTest,
 	SendSample_NoSourceAttached_ReturnsFalse)
 {
@@ -1185,6 +1308,9 @@ TEST_F(AampRialtoPlayerTest,
 	EXPECT_FALSE(result);
 }
 
+/**
+ * @test SendSample_AfterFlush_DropsRemainingSamples
+ */
 TEST_F(AampRialtoPlayerTest,
 	SendSample_AfterFlush_DropsRemainingSamples)
 {
@@ -1208,6 +1334,9 @@ TEST_F(AampRialtoPlayerTest,
 	sender.join();
 }
 
+/**
+ * @test SendSample_AfterStop_DropsRemainingSamples
+ */
 TEST_F(AampRialtoPlayerTest,
 	SendSample_AfterStop_DropsRemainingSamples)
 {
@@ -1234,6 +1363,9 @@ TEST_F(AampRialtoPlayerTest,
 // OnNeedMediaData dispatches to the correct source
 // ===========================================================================
 
+/**
+ * @test OnNeedMediaData_DoesNotBlockCallerThread
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	OnNeedMediaData_DoesNotBlockCallerThread)
 {
@@ -1257,6 +1389,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 // Back-pressure (synchronous pacing)
 // ===========================================================================
 
+/**
+ * @test BackPressure_SendTransfer_BlocksUntilNeedData
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	BackPressure_SendTransfer_BlocksUntilNeedData)
 {
@@ -1308,6 +1443,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	sender.join();
 }
 
+/**
+ * @test BackPressure_FlushWhileBlocked_UnblocksSendTransfer
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	BackPressure_FlushWhileBlocked_UnblocksSendTransfer)
 {
@@ -1346,6 +1484,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 // StopBuffering
 // ===========================================================================
 
+/**
+ * @test StopBuffering_ForceStop_CallsPipelinePlay
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	StopBuffering_ForceStop_CallsPipelinePlay)
 {
@@ -1355,6 +1496,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	m_player->StopBuffering(/*forceStop=*/true);
 }
 
+/**
+ * @test StopBuffering_NotForced_CallsPipelinePlay
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	StopBuffering_NotForced_CallsPipelinePlay)
 {
@@ -1364,6 +1508,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	m_player->StopBuffering(/*forceStop=*/false);
 }
 
+/**
+ * @test StopBuffering_NullPipeline_DoesNotCrash
+ */
 TEST_F(AampRialtoPlayerTest,
 	StopBuffering_NullPipeline_DoesNotCrash)
 {

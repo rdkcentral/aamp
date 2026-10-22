@@ -28,6 +28,9 @@
 // Phase 8 — Pause / SetPlayBackRate
 // ===========================================================================
 
+/**
+ * @test Pause_True_CallsPipelinePause
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	Pause_True_CallsPipelinePause)
 {
@@ -36,6 +39,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	EXPECT_TRUE(m_player->Pause(/*pause=*/true, false));
 }
 
+/**
+ * @test Pause_False_CallsPipelinePlay
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	Pause_False_CallsPipelinePlay)
 {
@@ -44,6 +50,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	EXPECT_TRUE(m_player->Pause(/*pause=*/false, false));
 }
 
+/**
+ * @test SetPlayBackRate_CallsPipelineSetPlaybackRate
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	SetPlayBackRate_CallsPipelineSetPlaybackRate)
 {
@@ -53,18 +62,27 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	EXPECT_TRUE(m_player->SetPlayBackRate(2.0));
 }
 
+/**
+ * @test Pause_NullPipeline_ReturnsFalse
+ */
 TEST_F(AampRialtoPlayerTest,
 	Pause_NullPipeline_ReturnsFalse)
 {
 	EXPECT_FALSE(m_player->Pause(true, false));
 }
 
+/**
+ * @test SetPlayBackRate_NullPipeline_ReturnsFalse
+ */
 TEST_F(AampRialtoPlayerTest,
 	SetPlayBackRate_NullPipeline_ReturnsFalse)
 {
 	EXPECT_FALSE(m_player->SetPlayBackRate(1.5));
 }
 
+/**
+ * @test ChangeAamp_NullNewAamp_KeepsExistingAssociation
+ */
 TEST_F(AampRialtoPlayerTest,
 	ChangeAamp_NullNewAamp_KeepsExistingAssociation)
 {
@@ -82,6 +100,9 @@ TEST_F(AampRialtoPlayerTest,
 // IStreamSinkNotifiable — OnPlaybackState notifications
 // ===========================================================================
 
+/**
+ * @test OnPlaybackState_Playing_FirstTime_CallsAllFirstFrameNotifications
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	OnPlaybackState_Playing_FirstTime_CallsAllFirstFrameNotifications)
 {
@@ -101,6 +122,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
 }
 
+/**
+ * @test OnPlaybackState_Playing_FirstTime_DoesNotCallSpeedChanged
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	OnPlaybackState_Playing_FirstTime_DoesNotCallSpeedChanged)
 {
@@ -114,6 +138,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
 }
 
+/**
+ * @test OnPlaybackState_Playing_PostSeek_CallsNotifyFirstBufferAndFrame
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	OnPlaybackState_Playing_PostSeek_CallsNotifyFirstBufferAndFrame)
 {
@@ -136,6 +163,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
 }
 
+/**
+ * @test OnPlaybackState_Playing_ResumeFromPause_CallsNotifySpeedChanged
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	OnPlaybackState_Playing_ResumeFromPause_CallsNotifySpeedChanged)
 {
@@ -157,6 +187,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
 }
 
+/**
+ * @test OnPlaybackState_EndOfStream_CallsNotifyEOSReached
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	OnPlaybackState_EndOfStream_CallsNotifyEOSReached)
 {
@@ -167,6 +200,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	PostPlaybackState(firebolt::rialto::PlaybackState::END_OF_STREAM);
 }
 
+/**
+ * @test OnPlaybackState_EndOfStream_DoesNotCallFirstFrameNotifications
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	OnPlaybackState_EndOfStream_DoesNotCallFirstFrameNotifications)
 {
@@ -178,6 +214,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	PostPlaybackState(firebolt::rialto::PlaybackState::END_OF_STREAM);
 }
 
+/**
+ * @test OnPlaybackState_Paused_DoesNotCallNotifiable
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	OnPlaybackState_Paused_DoesNotCallNotifiable)
 {
@@ -192,6 +231,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	PostPlaybackState(firebolt::rialto::PlaybackState::PAUSED);
 }
 
+/**
+ * @test OnPlaybackState_Paused_DoesNotChangeGateMode
+ */
 TEST_F(AampRialtoPlayerTest,
 	OnPlaybackState_Paused_DoesNotChangeGateMode)
 {
@@ -216,6 +258,9 @@ TEST_F(AampRialtoPlayerTest,
 	EXPECT_EQ(m_mockSources[eMEDIATYPE_AUDIO]->state().gateMode, AampRialtoMediaSource::GateMode::BLOCKED);
 }
 
+/**
+ * @test NotifyFragmentCachingOngoing_ThenComplete_IssuesPlay
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	NotifyFragmentCachingOngoing_ThenComplete_IssuesPlay)
 {
@@ -236,6 +281,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	m_player->NotifyFragmentCachingComplete();
 }
 
+/**
+ * @test NotifyFragmentCachingComplete_AfterPauseTrue_DoesNotIssuePlay
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	NotifyFragmentCachingComplete_AfterPauseTrue_DoesNotIssuePlay)
 {
@@ -256,6 +304,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	m_player->NotifyFragmentCachingComplete();
 }
 
+/**
+ * @test OnPlaybackState_Playing_DoesNotChangeGateMode
+ */
 TEST_F(AampRialtoPlayerTest,
 	OnPlaybackState_Playing_DoesNotChangeGateMode)
 {
@@ -290,6 +341,9 @@ TEST_F(AampRialtoPlayerTest,
 // (covered above) — see AampRialtoVideoSourceTests for the former group.
 
 
+/**
+ * @test Flush_SetsGateModeBlockedOnAllSources
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	Flush_SetsGateModeBlockedOnAllSources)
 {
@@ -311,6 +365,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	EXPECT_EQ(m_mockSources[eMEDIATYPE_AUDIO]->state().gateMode, AampRialtoMediaSource::GateMode::BLOCKED);
 }
 
+/**
+ * @test Stop_SetsGateModeDroppedOnAllSources
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	Stop_SetsGateModeDroppedOnAllSources)
 {
@@ -334,6 +391,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	EXPECT_EQ(m_mockSources[eMEDIATYPE_AUDIO]->state().gateMode, AampRialtoMediaSource::GateMode::DROPPED);
 }
 
+/**
+ * @test AttachSource_DoesNotClearGateMode
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	AttachSource_DoesNotClearGateMode)
 {
@@ -357,6 +417,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	EXPECT_EQ(m_mockSources[eMEDIATYPE_VIDEO]->state().gateMode, AampRialtoMediaSource::GateMode::BLOCKED);
 }
 
+/**
+ * @test Stream_ClearsGateModeOnAllSources
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	Stream_ClearsGateModeOnAllSources)
 {
@@ -373,6 +436,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	EXPECT_EQ(m_mockSources[eMEDIATYPE_AUDIO]->state().gateMode, AampRialtoMediaSource::GateMode::NONE);
 }
 
+/**
+ * @test Stream_AlreadyPlaying_ClearsGateModeAndCallsPlay
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	Stream_AlreadyPlaying_ClearsGateModeAndCallsPlay)
 {
@@ -407,6 +473,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	EXPECT_EQ(m_mockSources[eMEDIATYPE_AUDIO]->state().gateMode, AampRialtoMediaSource::GateMode::NONE);
 }
 
+/**
+ * @test CheckAllSourcesAttached_DeferredPlay_ClearsGateModeOnAllSources
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	CheckAllSourcesAttached_DeferredPlay_ClearsGateModeOnAllSources)
 {
@@ -433,6 +502,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	EXPECT_EQ(m_mockSources[eMEDIATYPE_AUDIO]->state().gateMode, AampRialtoMediaSource::GateMode::NONE);
 }
 
+/**
+ * @test Pause_False_ClearsGateModeOnAllSources
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	Pause_False_ClearsGateModeOnAllSources)
 {
@@ -447,6 +519,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	EXPECT_EQ(m_mockSources[eMEDIATYPE_AUDIO]->state().gateMode, AampRialtoMediaSource::GateMode::NONE);
 }
 
+/**
+ * @test Pause_True_DoesNotClearGateMode
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	Pause_True_DoesNotClearGateMode)
 {
@@ -460,6 +535,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	EXPECT_EQ(m_mockSources[eMEDIATYPE_VIDEO]->state().gateMode, AampRialtoMediaSource::GateMode::BLOCKED);
 }
 
+/**
+ * @test StopBuffering_ClearsGateModeOnAllSources
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	StopBuffering_ClearsGateModeOnAllSources)
 {
@@ -474,6 +552,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	EXPECT_EQ(m_mockSources[eMEDIATYPE_AUDIO]->state().gateMode, AampRialtoMediaSource::GateMode::NONE);
 }
 
+/**
+ * @test OnPlaybackState_SeekDone_ShouldPlay_ClearsGateModeOnAllSources
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	OnPlaybackState_SeekDone_ShouldPlay_ClearsGateModeOnAllSources)
 {
@@ -512,6 +593,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	EXPECT_EQ(m_mockSources[eMEDIATYPE_AUDIO]->state().gateMode, AampRialtoMediaSource::GateMode::NONE);
 }
 
+/**
+ * @test SendSample_BlockedByFlushGate_InjectsOnceGateClearsAfterStream
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	SendSample_BlockedByFlushGate_InjectsOnceGateClearsAfterStream)
 {
@@ -576,6 +660,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	sender.join();
 }
 
+/**
+ * @test OnPlaybackState_SeekDone_PreFlushStatePlaying_ClearsGateModeAndCallsPlay
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	OnPlaybackState_SeekDone_PreFlushStatePlaying_ClearsGateModeAndCallsPlay)
 {
@@ -632,6 +719,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::PLAYING);
 }
 
+/**
+ * @test OnPlaybackState_SeekDone_PositionStillPendingAfterConcurrentDiscontinuity_DefersPlay
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	OnPlaybackState_SeekDone_PositionStillPendingAfterConcurrentDiscontinuity_DefersPlay)
 {
@@ -699,6 +789,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 // notifyBufferUnderflow — OnBufferUnderflow dispatch
 // ===========================================================================
 
+/**
+ * @test OnBufferUnderflow_KnownVideoSourceId_CallsNotifyBufferUnderflowWithVideoType
+ */
 TEST_F(AampRialtoPlayerTest,
 	OnBufferUnderflow_KnownVideoSourceId_CallsNotifyBufferUnderflowWithVideoType)
 {
@@ -722,6 +815,9 @@ TEST_F(AampRialtoPlayerTest,
 	PostBufferUnderflow(/*sourceId=*/0);
 }
 
+/**
+ * @test OnBufferUnderflow_KnownAudioSourceId_CallsNotifyBufferUnderflowWithAudioType
+ */
 TEST_F(AampRialtoPlayerTest,
 	OnBufferUnderflow_KnownAudioSourceId_CallsNotifyBufferUnderflowWithAudioType)
 {
@@ -746,6 +842,9 @@ TEST_F(AampRialtoPlayerTest,
 	PostBufferUnderflow(/*sourceId=*/2);
 }
 
+/**
+ * @test OnBufferUnderflow_UnknownSourceId_DoesNotCallNotifiable
+ */
 TEST_F(AampRialtoPlayerTest,
 	OnBufferUnderflow_UnknownSourceId_DoesNotCallNotifiable)
 {
@@ -766,6 +865,9 @@ TEST_F(AampRialtoPlayerTest,
 // notifyPlaybackError — OnPlaybackError dispatch / mapping
 // ===========================================================================
 
+/**
+ * @test OnPlaybackError_Decryption_MapsToDrmDecryptFailedWithRetry
+ */
 TEST_F(AampRialtoPlayerTest,
 	OnPlaybackError_Decryption_MapsToDrmDecryptFailedWithRetry)
 {
@@ -780,6 +882,9 @@ TEST_F(AampRialtoPlayerTest,
 		firebolt::rialto::PlaybackError::DECRYPTION);
 }
 
+/**
+ * @test OnPlaybackError_OutputProtection_SchedulesRetune
+ */
 TEST_F(AampRialtoPlayerTest,
 	OnPlaybackError_OutputProtection_SchedulesRetune)
 {
@@ -794,6 +899,9 @@ TEST_F(AampRialtoPlayerTest,
 		firebolt::rialto::PlaybackError::OUTPUT_PROTECTION);
 }
 
+/**
+ * @test OnPlaybackError_Unknown_MapsToGstPipelineErrorWithRetry
+ */
 TEST_F(AampRialtoPlayerTest,
 	OnPlaybackError_Unknown_MapsToGstPipelineErrorWithRetry)
 {
@@ -808,6 +916,9 @@ TEST_F(AampRialtoPlayerTest,
 		firebolt::rialto::PlaybackError::UNKNOWN);
 }
 
+/**
+ * @test OnPlaybackError_UnknownSourceId_StillReportsError
+ */
 TEST_F(AampRialtoPlayerTest,
 	OnPlaybackError_UnknownSourceId_StillReportsError)
 {
@@ -891,6 +1002,9 @@ protected:
 	int m_preRollStarts{0};
 };
 
+/**
+ * @test Tune_DefersPlayAndUngatesSources
+ */
 TEST_F(AampRialtoPlayerPreRollTest, Tune_DefersPlayAndUngatesSources)
 {
 	/**
@@ -908,6 +1022,9 @@ TEST_F(AampRialtoPlayerPreRollTest, Tune_DefersPlayAndUngatesSources)
 		AampRialtoMediaSource::GateMode::NONE);
 }
 
+/**
+ * @test BelowFloor_HoldsPlay
+ */
 TEST_F(AampRialtoPlayerPreRollTest, BelowFloor_HoldsPlay)
 {
 	TuneAndStream();
@@ -917,6 +1034,9 @@ TEST_F(AampRialtoPlayerPreRollTest, BelowFloor_HoldsPlay)
 	EXPECT_EQ(PollPreRoll(), G_SOURCE_CONTINUE);
 }
 
+/**
+ * @test FloorReached_IssuesPlay
+ */
 TEST_F(AampRialtoPlayerPreRollTest, FloorReached_IssuesPlay)
 {
 	TuneAndStream();
@@ -926,6 +1046,9 @@ TEST_F(AampRialtoPlayerPreRollTest, FloorReached_IssuesPlay)
 	EXPECT_EQ(PollPreRoll(), G_SOURCE_REMOVE);
 }
 
+/**
+ * @test BufferFullBelowFloor_IssuesPlay
+ */
 TEST_F(AampRialtoPlayerPreRollTest, BufferFullBelowFloor_IssuesPlay)
 {
 	TuneAndStream();
@@ -937,6 +1060,9 @@ TEST_F(AampRialtoPlayerPreRollTest, BufferFullBelowFloor_IssuesPlay)
 	EXPECT_EQ(PollPreRoll(), G_SOURCE_REMOVE);
 }
 
+/**
+ * @test Tune_PausesPipelineForPreRoll
+ */
 TEST_F(AampRialtoPlayerPreRollTest, Tune_PausesPipelineForPreRoll)
 {
 	/**
@@ -948,6 +1074,9 @@ TEST_F(AampRialtoPlayerPreRollTest, Tune_PausesPipelineForPreRoll)
 	TuneAndStream();
 }
 
+/**
+ * @test PausedDuringPreRoll_ThenPlay_ReachesPlaying
+ */
 TEST_F(AampRialtoPlayerPreRollTest, PausedDuringPreRoll_ThenPlay_ReachesPlaying)
 {
 	/**
@@ -965,6 +1094,9 @@ TEST_F(AampRialtoPlayerPreRollTest, PausedDuringPreRoll_ThenPlay_ReachesPlaying)
 	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::PLAYING);
 }
 
+/**
+ * @test PauseRejected_StillPreRolls
+ */
 TEST_F(AampRialtoPlayerPreRollTest, PauseRejected_StillPreRolls)
 {
 	ON_CALL(*m_mockPipelinePtr, pause()).WillByDefault(Return(false));
@@ -975,6 +1107,9 @@ TEST_F(AampRialtoPlayerPreRollTest, PauseRejected_StillPreRolls)
 	EXPECT_EQ(m_preRollStarts, 1);
 }
 
+/**
+ * @test DecoderQueueFull_NothingAccepted_HoldsPlay
+ */
 TEST_F(AampRialtoPlayerPreRollTest, DecoderQueueFull_NothingAccepted_HoldsPlay)
 {
 	/**
@@ -990,6 +1125,9 @@ TEST_F(AampRialtoPlayerPreRollTest, DecoderQueueFull_NothingAccepted_HoldsPlay)
 	EXPECT_EQ(PollPreRoll(), G_SOURCE_CONTINUE);
 }
 
+/**
+ * @test Disabled_PlaysImmediately
+ */
 TEST_F(AampRialtoPlayerPreRollTest, Disabled_PlaysImmediately)
 {
 	ON_CALL(*g_mockAampConfig,
@@ -1003,6 +1141,9 @@ TEST_F(AampRialtoPlayerPreRollTest, Disabled_PlaysImmediately)
 	EXPECT_EQ(m_preRollStarts, 0);
 }
 
+/**
+ * @test SeekAtNormalRate_PreRollsAgain
+ */
 TEST_F(AampRialtoPlayerPreRollTest, SeekAtNormalRate_PreRollsAgain)
 {
 	TuneAndStream();
@@ -1026,6 +1167,9 @@ TEST_F(AampRialtoPlayerPreRollTest, SeekAtNormalRate_PreRollsAgain)
 	PollPreRoll();
 }
 
+/**
+ * @test TrickplayFlush_SkipsPreRoll
+ */
 TEST_F(AampRialtoPlayerPreRollTest, TrickplayFlush_SkipsPreRoll)
 {
 	/**
@@ -1046,6 +1190,9 @@ TEST_F(AampRialtoPlayerPreRollTest, TrickplayFlush_SkipsPreRoll)
 	EXPECT_EQ(m_preRollStarts, 1);
 }
 
+/**
+ * @test PauseWithForceStop_AbandonsPreRoll
+ */
 TEST_F(AampRialtoPlayerPreRollTest, PauseWithForceStop_AbandonsPreRoll)
 {
 	/**
@@ -1065,6 +1212,9 @@ TEST_F(AampRialtoPlayerPreRollTest, PauseWithForceStop_AbandonsPreRoll)
 	EXPECT_EQ(m_preRollStarts, 1);
 }
 
+/**
+ * @test PauseWithoutForceStop_KeepsPreRoll
+ */
 TEST_F(AampRialtoPlayerPreRollTest, PauseWithoutForceStop_KeepsPreRoll)
 {
 	TuneAndStream();
@@ -1079,6 +1229,9 @@ TEST_F(AampRialtoPlayerPreRollTest, PauseWithoutForceStop_KeepsPreRoll)
 	PollPreRoll();
 }
 
+/**
+ * @test Stop_StalePollDoesNotPlay
+ */
 TEST_F(AampRialtoPlayerPreRollTest, Stop_StalePollDoesNotPlay)
 {
 	TuneAndStream();
@@ -1110,6 +1263,9 @@ private:
 	std::shared_ptr<std::atomic<bool>> m_destroyed;
 };
 
+/**
+ * @test Stop_AfterPreRollCompleted_ReleasesPipeline
+ */
 TEST_F(AampRialtoPlayerPreRollTest, Stop_AfterPreRollCompleted_ReleasesPipeline)
 {
 	/**
@@ -1136,6 +1292,9 @@ TEST_F(AampRialtoPlayerPreRollTest, Stop_AfterPreRollCompleted_ReleasesPipeline)
 		<< "Stop() must drop the last reference to the Rialto pipeline";
 }
 
+/**
+ * @test Stop_DuringPreRoll_ReleasesPipeline
+ */
 TEST_F(AampRialtoPlayerPreRollTest, Stop_DuringPreRoll_ReleasesPipeline)
 {
 	auto pipelineDestroyed = std::make_shared<std::atomic<bool>>(false);
@@ -1152,6 +1311,9 @@ TEST_F(AampRialtoPlayerPreRollTest, Stop_DuringPreRoll_ReleasesPipeline)
 	EXPECT_TRUE(pipelineDestroyed->load());
 }
 
+/**
+ * @test StopThenReconfigure_SecondPipelineCreatedAfterFirstDestroyed
+ */
 TEST_F(AampRialtoPlayerPreRollTest, StopThenReconfigure_SecondPipelineCreatedAfterFirstDestroyed)
 {
 	/**
@@ -1186,6 +1348,9 @@ TEST_F(AampRialtoPlayerPreRollTest, StopThenReconfigure_SecondPipelineCreatedAft
 	EXPECT_TRUE(firstGoneAtCreate);
 }
 
+/**
+ * @test Stop_DuringPipelineCall_KeepsPipelineAliveUntilCallReturns
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest, Stop_DuringPipelineCall_KeepsPipelineAliveUntilCallReturns)
 {
 	/**

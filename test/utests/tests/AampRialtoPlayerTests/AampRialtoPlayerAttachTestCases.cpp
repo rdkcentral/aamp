@@ -28,6 +28,9 @@
 // Phase 4 — attachSource via SendTransfer
 // ===========================================================================
 
+/**
+ * @test SendTransfer_InitFragment_AttachesSourceToPipeline
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	SendTransfer_InitFragment_AttachesSourceToPipeline)
 {
@@ -39,6 +42,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	SendVideoInitFragment();
 }
 
+/**
+ * @test SendTransfer_InitFragment_AttachesAudioSourceToPipeline
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	SendTransfer_InitFragment_AttachesAudioSourceToPipeline)
 {
@@ -53,6 +59,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 // Phase 4b — Source attachment ordering (video before audio)
 // ===========================================================================
 
+/**
+ * @test SendTransfer_AudioInitFirst_DefersUntilVideoAttaches
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	SendTransfer_AudioInitFirst_DefersUntilVideoAttaches)
 {
@@ -115,6 +124,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	SendVideoInitFragment();
 }
 
+/**
+ * @test SendTransfer_AudioOnlyConfig_AttachesImmediately
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	SendTransfer_AudioOnlyConfig_AttachesImmediately)
 {
@@ -131,6 +143,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 // Phase 4c — Failed attach is reported (H4)
 // ===========================================================================
 
+/**
+ * @test SendTransfer_AttachSourceFails_ReportsErrorAndReturnsFalse
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	SendTransfer_AttachSourceFails_ReportsErrorAndReturnsFalse)
 {
@@ -148,6 +163,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 		0, 0, 0, 0, /*initFragment=*/true));
 }
 
+/**
+ * @test SendTransfer_DeferredSourceAttachFails_ReleasesBlockedInjectorAndReports
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	SendTransfer_DeferredSourceAttachFails_ReleasesBlockedInjectorAndReports)
 {
@@ -176,6 +194,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 		<< "a failed deferred attach must release injectors blocked on it";
 }
 
+/**
+ * @test SetStreamCaps_UnsupportedCodec_ReportsError
+ */
 TEST_F(AampRialtoPlayerTest, SetStreamCaps_UnsupportedCodec_ReportsError)
 {
 	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
@@ -190,6 +211,9 @@ TEST_F(AampRialtoPlayerTest, SetStreamCaps_UnsupportedCodec_ReportsError)
 	m_player->SetStreamCaps(eMEDIATYPE_VIDEO, std::move(ci));
 }
 
+/**
+ * @test SetStreamCaps_CodecNotYetIdentified_DoesNotReportError
+ */
 TEST_F(AampRialtoPlayerTest, SetStreamCaps_CodecNotYetIdentified_DoesNotReportError)
 {
 	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
@@ -207,6 +231,9 @@ TEST_F(AampRialtoPlayerTest, SetStreamCaps_CodecNotYetIdentified_DoesNotReportEr
 // SetStreamCaps — source attach via external demuxer path
 // ===========================================================================
 
+/**
+ * @test SetStreamCaps_VideoH264_AttachesVideoSource
+ */
 TEST_F(AampRialtoPlayerTest,
 	SetStreamCaps_VideoH264_AttachesVideoSource)
 {
@@ -228,6 +255,9 @@ TEST_F(AampRialtoPlayerTest,
 	m_player->SetStreamCaps(eMEDIATYPE_VIDEO, MakeVideoH264CodecInfo());
 }
 
+/**
+ * @test SetStreamCaps_AudioAAC_AttachesAudioSource
+ */
 TEST_F(AampRialtoPlayerTest,
 	SetStreamCaps_AudioAAC_AttachesAudioSource)
 {
@@ -248,6 +278,9 @@ TEST_F(AampRialtoPlayerTest,
 	m_player->SetStreamCaps(eMEDIATYPE_AUDIO, MakeAudioAacCodecInfo());
 }
 
+/**
+ * @test SetStreamCaps_VideoAndAudio_AllSourcesAttached
+ */
 TEST_F(AampRialtoPlayerTest,
 	SetStreamCaps_VideoAndAudio_AllSourcesAttached)
 {
@@ -271,6 +304,9 @@ TEST_F(AampRialtoPlayerTest,
 	m_player->SetStreamCaps(eMEDIATYPE_AUDIO, MakeAudioAacCodecInfo());
 }
 
+/**
+ * @test SetStreamCaps_VideoAlreadyAttached_StagesCodecData
+ */
 TEST_F(AampRialtoPlayerTest,
 	SetStreamCaps_VideoAlreadyAttached_StagesCodecData)
 {
@@ -292,6 +328,9 @@ TEST_F(AampRialtoPlayerTest,
 	m_player->SetStreamCaps(eMEDIATYPE_VIDEO, MakeVideoH264CodecInfo(1920, 1080));
 }
 
+/**
+ * @test SetStreamCaps_UnknownCodecFormat_DoesNotAttach
+ */
 TEST_F(AampRialtoPlayerTest,
 	SetStreamCaps_UnknownCodecFormat_DoesNotAttach)
 {
@@ -311,6 +350,9 @@ TEST_F(AampRialtoPlayerTest,
 	m_player->SetStreamCaps(eMEDIATYPE_VIDEO, std::move(ci));
 }
 
+/**
+ * @test SetStreamCaps_NoPipeline_DoesNotCrash
+ */
 TEST_F(AampRialtoPlayerTest,
 	SetStreamCaps_NoPipeline_DoesNotCrash)
 {
@@ -329,6 +371,9 @@ TEST_F(AampRialtoPlayerTest,
 		m_player->SetStreamCaps(eMEDIATYPE_VIDEO, MakeVideoH264CodecInfo()));
 }
 
+/**
+ * @test SetStreamCaps_WithFlushPosition_SetsSourcePosition
+ */
 TEST_F(AampRialtoPlayerTest,
 	SetStreamCaps_WithFlushPosition_SetsSourcePosition)
 {
@@ -356,6 +401,9 @@ TEST_F(AampRialtoPlayerTest,
 	m_player->SetStreamCaps(eMEDIATYPE_VIDEO, MakeVideoH264CodecInfo());
 }
 
+/**
+ * @test SetStreamCaps_Subtitle_ResumesTrackDownloads
+ */
 TEST_F(AampRialtoPlayerTest,
 	SetStreamCaps_Subtitle_ResumesTrackDownloads)
 {
@@ -378,6 +426,9 @@ TEST_F(AampRialtoPlayerTest,
 // PipelineConfiguredForMedia
 // ===========================================================================
 
+/**
+ * @test PipelineConfiguredForMedia_VideoAttached_ReturnsTrue
+ */
 TEST_F(AampRialtoPlayerTest,
 	PipelineConfiguredForMedia_VideoAttached_ReturnsTrue)
 {
@@ -387,6 +438,9 @@ TEST_F(AampRialtoPlayerTest,
 	EXPECT_TRUE(m_player->PipelineConfiguredForMedia(eMEDIATYPE_VIDEO));
 }
 
+/**
+ * @test PipelineConfiguredForMedia_NotAttached_ReturnsFalse
+ */
 TEST_F(AampRialtoPlayerTest,
 	PipelineConfiguredForMedia_NotAttached_ReturnsFalse)
 {
@@ -395,6 +449,9 @@ TEST_F(AampRialtoPlayerTest,
 	EXPECT_FALSE(m_player->PipelineConfiguredForMedia(eMEDIATYPE_VIDEO));
 }
 
+/**
+ * @test PipelineConfiguredForMedia_AudioAttached_ReturnsTrue
+ */
 TEST_F(AampRialtoPlayerTest,
 	PipelineConfiguredForMedia_AudioAttached_ReturnsTrue)
 {
@@ -410,6 +467,9 @@ TEST_F(AampRialtoPlayerTest,
 
 // When audio attachment is deferred (waiting for video), the audio source's
 // attachPending flag must be set so the inject thread knows to block.
+/**
+ * @test SendTransfer_DeferredAudio_SetsAttachPendingOnAudioSource
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	SendTransfer_DeferredAudio_SetsAttachPendingOnAudioSource)
 {
@@ -425,6 +485,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 // When a media fragment arrives for a deferred-audio source, the inject
 // thread must block until video attaches (which drains the pending audio
 // attachment), then inject normally.
+/**
+ * @test SendTransfer_DeferredAudio_BlocksUntilVideoAttaches
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	SendTransfer_DeferredAudio_BlocksUntilVideoAttaches)
 {
@@ -487,6 +550,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 
 // If Flush() is called while the inject thread is blocked on a deferred
 // attachment, the thread must unblock and discard the fragment.
+/**
+ * @test SendTransfer_DeferredAudio_FlushWhileBlockedAbortsSendTransfer
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	SendTransfer_DeferredAudio_FlushWhileBlockedAbortsSendTransfer)
 {
@@ -527,6 +593,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 // SendSample uses the same waitForAttach() helper as SendTransfer.  Verify
 // that a pre-decoded audio sample is also held until the deferred Rialto
 // attachment completes, then injected successfully.
+/**
+ * @test SendSample_DeferredAudio_BlocksUntilVideoAttaches
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	SendSample_DeferredAudio_BlocksUntilVideoAttaches)
 {

@@ -225,6 +225,9 @@ protected:
 // Timer lifecycle
 // ---------------------------------------------------------------------------
 
+/**
+ * @test start_RegistersSampleAndReportTimers
+ */
 TEST_F(AampRialtoMonitorAVTest, start_RegistersSampleAndReportTimers)
 {
 	EXPECT_CALL(*m_mockGLib,
@@ -235,6 +238,9 @@ TEST_F(AampRialtoMonitorAVTest, start_RegistersSampleAndReportTimers)
 	m_monitor->start();
 }
 
+/**
+ * @test start_NonPositiveInterval_DoesNotRegisterAnyTimer
+ */
 TEST_F(AampRialtoMonitorAVTest, start_NonPositiveInterval_DoesNotRegisterAnyTimer)
 {
 	/**
@@ -261,6 +267,9 @@ TEST_F(AampRialtoMonitorAVTest, start_NonPositiveInterval_DoesNotRegisterAnyTime
 	}
 }
 
+/**
+ * @test start_WhenAlreadyRunning_IsIdempotent
+ */
 TEST_F(AampRialtoMonitorAVTest, start_WhenAlreadyRunning_IsIdempotent)
 {
 	EXPECT_CALL(*m_mockGLib, g_timeout_add(_, _, _)).Times(2);
@@ -269,6 +278,9 @@ TEST_F(AampRialtoMonitorAVTest, start_WhenAlreadyRunning_IsIdempotent)
 	m_monitor->start(); // second call must not register more timers
 }
 
+/**
+ * @test stop_RemovesBothTimerIds
+ */
 TEST_F(AampRialtoMonitorAVTest, stop_RemovesBothTimerIds)
 {
 	m_monitor->start();
@@ -279,6 +291,9 @@ TEST_F(AampRialtoMonitorAVTest, stop_RemovesBothTimerIds)
 	m_monitor->stop();
 }
 
+/**
+ * @test stop_WhenNotRunning_IsIdempotent
+ */
 TEST_F(AampRialtoMonitorAVTest, stop_WhenNotRunning_IsIdempotent)
 {
 	// stop() before start() must not call g_source_remove.
@@ -286,6 +301,9 @@ TEST_F(AampRialtoMonitorAVTest, stop_WhenNotRunning_IsIdempotent)
 	m_monitor->stop();
 }
 
+/**
+ * @test destructor_StopsTimersWhenRunning
+ */
 TEST_F(AampRialtoMonitorAVTest, destructor_StopsTimersWhenRunning)
 {
 	m_monitor->start();
@@ -296,6 +314,9 @@ TEST_F(AampRialtoMonitorAVTest, destructor_StopsTimersWhenRunning)
 	m_monitor.reset(); // triggers destructor
 }
 
+/**
+ * @test stop_WaitsForTickInProgress
+ */
 TEST_F(AampRialtoMonitorAVTest, stop_WaitsForTickInProgress)
 {
 	/**
@@ -336,6 +357,9 @@ TEST_F(AampRialtoMonitorAVTest, stop_WaitsForTickInProgress)
 	EXPECT_TRUE(stopReturned.load());
 }
 
+/**
+ * @test dispatchAfterStop_DoesNothing
+ */
 TEST_F(AampRialtoMonitorAVTest, dispatchAfterStop_DoesNothing)
 {
 	m_monitor->start();
@@ -350,6 +374,9 @@ TEST_F(AampRialtoMonitorAVTest, dispatchAfterStop_DoesNothing)
 	EXPECT_EQ(m_reportCb(m_reportData), G_SOURCE_REMOVE);
 }
 
+/**
+ * @test dispatchAfterDestruction_IsSafe
+ */
 TEST_F(AampRialtoMonitorAVTest, dispatchAfterDestruction_IsSafe)
 {
 	/**
@@ -371,6 +398,9 @@ TEST_F(AampRialtoMonitorAVTest, dispatchAfterDestruction_IsSafe)
 // Sample tick — guard condition
 // ---------------------------------------------------------------------------
 
+/**
+ * @test sampleTick_WhenNotPlaying_SkipsGetPosition
+ */
 TEST_F(AampRialtoMonitorAVTest, sampleTick_WhenNotPlaying_SkipsGetPosition)
 {
 	m_playing = false;
@@ -385,6 +415,9 @@ TEST_F(AampRialtoMonitorAVTest, sampleTick_WhenNotPlaying_SkipsGetPosition)
 // Sample tick — classification
 // ---------------------------------------------------------------------------
 
+/**
+ * @test sampleTick_PositionAdvances_ClassifiesOk
+ */
 TEST_F(AampRialtoMonitorAVTest, sampleTick_PositionAdvances_ClassifiesOk)
 {
 	// After start(), trigger a sample tick.  getPosition returns 500 ms
@@ -401,6 +434,9 @@ TEST_F(AampRialtoMonitorAVTest, sampleTick_PositionAdvances_ClassifiesOk)
 	triggerReportTick();
 }
 
+/**
+ * @test sampleTick_PositionUnchanged_ClassifiesStall
+ */
 TEST_F(AampRialtoMonitorAVTest, sampleTick_PositionUnchanged_ClassifiesStall)
 {
 	// getPosition always returns 0 ns (= 0 ms).  On the first tick both
@@ -420,6 +456,9 @@ TEST_F(AampRialtoMonitorAVTest, sampleTick_PositionUnchanged_ClassifiesStall)
 	triggerReportTick();
 }
 
+/**
+ * @test sampleTick_GetPositionFails_ClassifiesEos
+ */
 TEST_F(AampRialtoMonitorAVTest, sampleTick_GetPositionFails_ClassifiesEos)
 {
 	// When getPosition() returns false the track is skipped → numTracks == 0
@@ -436,6 +475,9 @@ TEST_F(AampRialtoMonitorAVTest, sampleTick_GetPositionFails_ClassifiesEos)
 	triggerReportTick();
 }
 
+/**
+ * @test sampleTick_TrickplayRate_ClassifiesTrickplay
+ */
 TEST_F(AampRialtoMonitorAVTest, sampleTick_TrickplayRate_ClassifiesTrickplay)
 {
 	// When rate != AAMP_NORMAL_PLAY_RATE only the video track is sampled
@@ -451,6 +493,9 @@ TEST_F(AampRialtoMonitorAVTest, sampleTick_TrickplayRate_ClassifiesTrickplay)
 	triggerReportTick();
 }
 
+/**
+ * @test sampleTick_LargeForwardJumpWhenHealthy_ClassifiesJump
+ */
 TEST_F(AampRialtoMonitorAVTest, sampleTick_LargeForwardJumpWhenHealthy_ClassifiesJump)
 {
 	// Tick 1 (500 ms) is "ok".  Tick 2 is one sample interval later but the
@@ -470,6 +515,9 @@ TEST_F(AampRialtoMonitorAVTest, sampleTick_LargeForwardJumpWhenHealthy_Classifie
 	triggerReportTick();
 }
 
+/**
+ * @test sampleTick_JumpAfterUnhealthyTick_IsNotReportedAsJump
+ */
 TEST_F(AampRialtoMonitorAVTest, sampleTick_JumpAfterUnhealthyTick_IsNotReportedAsJump)
 {
 	// The jump check only applies when the previous tick was "ok", so the
@@ -494,6 +542,9 @@ TEST_F(AampRialtoMonitorAVTest, sampleTick_JumpAfterUnhealthyTick_IsNotReportedA
 // Report tick — event firing
 // ---------------------------------------------------------------------------
 
+/**
+ * @test reportTick_BeforeFirstSample_SkipsSendEvent
+ */
 TEST_F(AampRialtoMonitorAVTest, reportTick_BeforeFirstSample_SkipsSendEvent)
 {
 	// The report timer fires before any sample tick has been taken.
@@ -505,6 +556,9 @@ TEST_F(AampRialtoMonitorAVTest, reportTick_BeforeFirstSample_SkipsSendEvent)
 	triggerReportTick();
 }
 
+/**
+ * @test reportTick_AfterSample_PassesDroppedFrames
+ */
 TEST_F(AampRialtoMonitorAVTest, reportTick_AfterSample_PassesDroppedFrames)
 {
 	constexpr uint64_t kDropped = 7u;
@@ -524,6 +578,9 @@ TEST_F(AampRialtoMonitorAVTest, reportTick_AfterSample_PassesDroppedFrames)
 	triggerReportTick();
 }
 
+/**
+ * @test reportTick_WhenVideoSourceIdNegative_ReportsZeroDropped
+ */
 TEST_F(AampRialtoMonitorAVTest,
 	reportTick_WhenVideoSourceIdNegative_ReportsZeroDropped)
 {
@@ -540,6 +597,9 @@ TEST_F(AampRialtoMonitorAVTest,
 	triggerReportTick();
 }
 
+/**
+ * @test reportTick_WhenGetStatsFails_ReportsZeroDropped
+ */
 TEST_F(AampRialtoMonitorAVTest,
 	reportTick_WhenGetStatsFails_ReportsZeroDropped)
 {
@@ -555,6 +615,9 @@ TEST_F(AampRialtoMonitorAVTest,
 	triggerReportTick();
 }
 
+/**
+ * @test reportTick_TimeInState_ClampedToReportInterval
+ */
 TEST_F(AampRialtoMonitorAVTest,
 	reportTick_TimeInState_ClampedToReportInterval)
 {
@@ -595,6 +658,9 @@ TEST_F(AampRialtoMonitorAVTest,
 	triggerReportTick();
 }
 
+/**
+ * @test reportTick_PassesCorrectVideoAndAudioPositions
+ */
 TEST_F(AampRialtoMonitorAVTest,
 	reportTick_PassesCorrectVideoAndAudioPositions)
 {

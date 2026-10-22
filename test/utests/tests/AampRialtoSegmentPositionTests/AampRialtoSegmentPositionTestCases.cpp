@@ -41,6 +41,9 @@ protected:
 	AampRialtoSegmentPosition m_position;
 };
 
+/**
+ * @test InitialState_NothingStaged
+ */
 TEST_F(AampRialtoSegmentPositionTest, InitialState_NothingStaged)
 {
 	/**
@@ -54,6 +57,9 @@ TEST_F(AampRialtoSegmentPositionTest, InitialState_NothingStaged)
 	EXPECT_EQ(m_position.BaselineNs(), 0);
 }
 
+/**
+ * @test StageRequested_RecordsPositionAndRate
+ */
 TEST_F(AampRialtoSegmentPositionTest, StageRequested_RecordsPositionAndRate)
 {
 	/**
@@ -67,6 +73,9 @@ TEST_F(AampRialtoSegmentPositionTest, StageRequested_RecordsPositionAndRate)
 	EXPECT_EQ(m_position.StagedRate(), 4);
 }
 
+/**
+ * @test StageRequested_AcceptsNegativePosition
+ */
 TEST_F(AampRialtoSegmentPositionTest, StageRequested_AcceptsNegativePosition)
 {
 	/**
@@ -79,6 +88,9 @@ TEST_F(AampRialtoSegmentPositionTest, StageRequested_AcceptsNegativePosition)
 	EXPECT_EQ(m_position.StagedPositionNs(), -1'000LL);
 }
 
+/**
+ * @test ConsumeAuthoritative_AnswersOnce
+ */
 TEST_F(AampRialtoSegmentPositionTest, ConsumeAuthoritative_AnswersOnce)
 {
 	/**
@@ -92,6 +104,9 @@ TEST_F(AampRialtoSegmentPositionTest, ConsumeAuthoritative_AnswersOnce)
 	EXPECT_FALSE(m_position.ConsumeAuthoritative());
 }
 
+/**
+ * @test StageRequested_NonAuthoritativeClearsEarlierAuthority
+ */
 TEST_F(AampRialtoSegmentPositionTest,
 	StageRequested_NonAuthoritativeClearsEarlierAuthority)
 {
@@ -108,6 +123,9 @@ TEST_F(AampRialtoSegmentPositionTest,
 	EXPECT_FALSE(m_position.ConsumeAuthoritative());
 }
 
+/**
+ * @test ClaimDeferredFlush_SucceedsOnlyOnce
+ */
 TEST_F(AampRialtoSegmentPositionTest, ClaimDeferredFlush_SucceedsOnlyOnce)
 {
 	/**
@@ -121,6 +139,9 @@ TEST_F(AampRialtoSegmentPositionTest, ClaimDeferredFlush_SucceedsOnlyOnce)
 	EXPECT_FALSE(m_position.ClaimDeferredFlush());
 }
 
+/**
+ * @test ResetFlushClaim_ReopensElection
+ */
 TEST_F(AampRialtoSegmentPositionTest, ResetFlushClaim_ReopensElection)
 {
 	/**
@@ -135,6 +156,9 @@ TEST_F(AampRialtoSegmentPositionTest, ResetFlushClaim_ReopensElection)
 	EXPECT_TRUE(m_position.ClaimDeferredFlush());
 }
 
+/**
+ * @test ClaimDeferredFlush_IsRaceFree
+ */
 TEST_F(AampRialtoSegmentPositionTest, ClaimDeferredFlush_IsRaceFree)
 {
 	/**
@@ -172,6 +196,9 @@ TEST_F(AampRialtoSegmentPositionTest, ClaimDeferredFlush_IsRaceFree)
 	}
 }
 
+/**
+ * @test CommitBaseline_UpdatesBaseline
+ */
 TEST_F(AampRialtoSegmentPositionTest, CommitBaseline_UpdatesBaseline)
 {
 	/**
@@ -183,6 +210,9 @@ TEST_F(AampRialtoSegmentPositionTest, CommitBaseline_UpdatesBaseline)
 	EXPECT_EQ(m_position.BaselineNs(), 7'000'000'000LL);
 }
 
+/**
+ * @test CommitBaseline_IsIndependentOfStaging
+ */
 TEST_F(AampRialtoSegmentPositionTest, CommitBaseline_IsIndependentOfStaging)
 {
 	/**
@@ -197,6 +227,9 @@ TEST_F(AampRialtoSegmentPositionTest, CommitBaseline_IsIndependentOfStaging)
 	EXPECT_EQ(m_position.BaselineNs(), 3'000'000'000LL);
 }
 
+/**
+ * @test ClearForNewSession_DiscardsStagedAndBaseline
+ */
 TEST_F(AampRialtoSegmentPositionTest, ClearForNewSession_DiscardsStagedAndBaseline)
 {
 	/**
@@ -214,6 +247,9 @@ TEST_F(AampRialtoSegmentPositionTest, ClearForNewSession_DiscardsStagedAndBaseli
 	EXPECT_EQ(m_position.BaselineNs(), 0);
 }
 
+/**
+ * @test ClearForNewSession_KeepsStagedRate
+ */
 TEST_F(AampRialtoSegmentPositionTest, ClearForNewSession_KeepsStagedRate)
 {
 	/**
@@ -228,6 +264,9 @@ TEST_F(AampRialtoSegmentPositionTest, ClearForNewSession_KeepsStagedRate)
 	EXPECT_EQ(m_position.StagedRate(), 2);
 }
 
+/**
+ * @test ClearForNewSession_KeepsAuthority
+ */
 TEST_F(AampRialtoSegmentPositionTest, ClearForNewSession_KeepsAuthority)
 {
 	/**

@@ -93,6 +93,9 @@ protected:
 	std::unique_ptr<AampDrmBridge> m_bridge;
 };
 
+/**
+ * @test CreateSession_PassesMediaFormatOfCurrentTune
+ */
 TEST_F(AampDrmBridgeTest, CreateSession_PassesMediaFormatOfCurrentTune)
 {
 	/**
@@ -123,6 +126,9 @@ TEST_F(AampDrmBridgeTest, CreateSession_PassesMediaFormatOfCurrentTune)
 	}
 }
 
+/**
+ * @test CreateSession_InitDataOverLimit_IsRejectedNotTruncated
+ */
 TEST_F(AampDrmBridgeTest, CreateSession_InitDataOverLimit_IsRejectedNotTruncated)
 {
 	/**
@@ -138,6 +144,9 @@ TEST_F(AampDrmBridgeTest, CreateSession_InitDataOverLimit_IsRejectedNotTruncated
 		kSystemId, initData.data(), initData.size(), eMEDIATYPE_VIDEO));
 }
 
+/**
+ * @test CreateSession_InitDataAtLimit_IsForwardedWhole
+ */
 TEST_F(AampDrmBridgeTest, CreateSession_InitDataAtLimit_IsForwardedWhole)
 {
 	const std::vector<uint8_t> initData(kMaxInitDataLen, 0x33);
@@ -151,6 +160,9 @@ TEST_F(AampDrmBridgeTest, CreateSession_InitDataAtLimit_IsForwardedWhole)
 		kSystemId, initData.data(), initData.size(), eMEDIATYPE_AUDIO));
 }
 
+/**
+ * @test CreateSession_SessionCreationFails_ReturnsMinusOne
+ */
 TEST_F(AampDrmBridgeTest, CreateSession_SessionCreationFails_ReturnsMinusOne)
 {
 	const std::vector<uint8_t> initData(16, 0x44);
@@ -162,6 +174,9 @@ TEST_F(AampDrmBridgeTest, CreateSession_SessionCreationFails_ReturnsMinusOne)
 		kSystemId, initData.data(), initData.size(), eMEDIATYPE_VIDEO));
 }
 
+/**
+ * @test CreateSession_NoLicenseManager_ReturnsMinusOne
+ */
 TEST_F(AampDrmBridgeTest, CreateSession_NoLicenseManager_ReturnsMinusOne)
 {
 	const std::vector<uint8_t> initData(16, 0x55);

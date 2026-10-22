@@ -28,6 +28,9 @@
 // IStreamSinkNotifiable — position and duration callbacks
 // ===========================================================================
 
+/**
+ * @test NotifyPosition_DoesNotCallMonitorProgress
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	NotifyPosition_DoesNotCallMonitorProgress)
 {
@@ -40,6 +43,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	PostPosition(kTwoSecondsNs);
 }
 
+/**
+ * @test OnPlaybackState_Playing_StartsProgressTimer_UsesConfiguredInterval
+ */
 TEST_F(AampRialtoPlayerTest,
 	OnPlaybackState_Playing_StartsProgressTimer_UsesConfiguredInterval)
 {
@@ -57,6 +63,9 @@ TEST_F(AampRialtoPlayerTest,
 	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
 }
 
+/**
+ * @test Configure_DoesNotStartProgressTimer
+ */
 TEST_F(AampRialtoPlayerTest,
 	Configure_DoesNotStartProgressTimer)
 {
@@ -65,6 +74,9 @@ TEST_F(AampRialtoPlayerTest,
 	Configure();
 }
 
+/**
+ * @test ProgressTimer_WhenPaused_StillReportsProgress
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	ProgressTimer_WhenPaused_StillReportsProgress)
 {
@@ -82,6 +94,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	TriggerProgressTimerTick();
 }
 
+/**
+ * @test Stop_RemovesProgressTimer
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	Stop_RemovesProgressTimer)
 {
@@ -98,6 +113,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	m_player->Stop(/*keepLastFrame=*/false);
 }
 
+/**
+ * @test OnPlaybackState_Playing_DoesNotRestartProgressTimerWhenAlreadyRunning
+ */
 TEST_F(AampRialtoPlayerTest,
 	OnPlaybackState_Playing_DoesNotRestartProgressTimerWhenAlreadyRunning)
 {
@@ -115,6 +133,9 @@ TEST_F(AampRialtoPlayerTest,
 	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
 }
 
+/**
+ * @test StartProgressTimer_WhenAlreadyRunning_KicksTimerForImmediateDispatch
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	StartProgressTimer_WhenAlreadyRunning_KicksTimerForImmediateDispatch)
 {
@@ -141,6 +162,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	m_player->StartProgressTimer();
 }
 
+/**
+ * @test Stop_WaitsForMonitorAvTickInProgress
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest, Stop_WaitsForMonitorAvTickInProgress)
 {
 	/**
@@ -204,6 +228,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest, Stop_WaitsForMonitorAvTickInProgress)
 	EXPECT_TRUE(stopReturned.load());
 }
 
+/**
+ * @test StopProgressTimer_WaitsForTickInProgress
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest, StopProgressTimer_WaitsForTickInProgress)
 {
 	/**
@@ -244,6 +271,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest, StopProgressTimer_WaitsForTickInProgress)
 	EXPECT_TRUE(stopReturned.load());
 }
 
+/**
+ * @test ProgressTimer_DispatchAfterStop_DoesNothing
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest, ProgressTimer_DispatchAfterStop_DoesNothing)
 {
 	Configure();
@@ -256,6 +286,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest, ProgressTimer_DispatchAfterStop_DoesNothin
 	EXPECT_EQ(m_progressTimerCallback(m_progressTimerUserData), G_SOURCE_REMOVE);
 }
 
+/**
+ * @test ProgressTimer_DispatchAfterPlayerDestroyed_IsSafe
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest, ProgressTimer_DispatchAfterPlayerDestroyed_IsSafe)
 {
 	/**
@@ -281,6 +314,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest, ProgressTimer_DispatchAfterPlayerDestroyed
 // no AttachSource()/Flush() having run yet to resolve it,
 // GetPositionMilliseconds() must report 0 rather than a raw, unresolved
 // pipeline position.
+/**
+ * @test GetPositionMilliseconds_ReturnsElapsedTimeSinceSegmentStart
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	GetPositionMilliseconds_ReturnsElapsedTimeSinceSegmentStart)
 {
@@ -298,6 +334,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 // before any source is attached), AttachSource() commits that position as
 // the segment-start baseline.  GetPositionMilliseconds() must then return
 // elapsed time from that baseline, not the raw pipeline position.
+/**
+ * @test GetPositionMilliseconds_WithNonZeroSegmentStart_ReturnsElapsedTime
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	GetPositionMilliseconds_WithNonZeroSegmentStart_ReturnsElapsedTime)
 {
@@ -326,6 +365,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 // issue its own Flush() before the first AttachSource() reports 0 (not the
 // stale carried-over baseline) until that AttachSource()/Flush() resolves
 // the position afresh.
+/**
+ * @test GetPositionMilliseconds_AfterReconfigureWithoutNewFlush_ReportsZeroUntilResolved
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	GetPositionMilliseconds_AfterReconfigureWithoutNewFlush_ReportsZeroUntilResolved)
 {
@@ -356,6 +398,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	EXPECT_EQ(m_player->GetPositionMilliseconds(), 1'500LL);
 }
 
+/**
+ * @test GetPositionMilliseconds_BeforeConfigure_ReturnsZero
+ */
 TEST_F(AampRialtoPlayerTest,
 	GetPositionMilliseconds_BeforeConfigure_ReturnsZero)
 {
@@ -364,6 +409,9 @@ TEST_F(AampRialtoPlayerTest,
 
 // When the pipeline query fails after a segment start has been recorded,
 // GetPositionMilliseconds() must return 0.
+/**
+ * @test GetPositionMilliseconds_WhenPipelineQueryFails_ReturnsZero
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	GetPositionMilliseconds_WhenPipelineQueryFails_ReturnsZero)
 {
@@ -381,6 +429,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 //   reported_pos = seek_pos + GetPositionMilliseconds()
 // decrements correctly — mirroring GStreamer's
 //   rc = (pos - segmentStart) * rate.
+/**
+ * @test GetPositionMilliseconds_TrickplayRewind_ReturnsNegativeElapsed
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	GetPositionMilliseconds_TrickplayRewind_ReturnsNegativeElapsed)
 {
@@ -422,6 +473,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 
 // After returning from trickplay (rate resets to 1), GetPositionMilliseconds()
 // must revert to non-negative, forward-incrementing behaviour.
+/**
+ * @test GetPositionMilliseconds_AfterTrickplayExit_RateReturnsToOne
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	GetPositionMilliseconds_AfterTrickplayExit_RateReturnsToOne)
 {
@@ -461,6 +515,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 // immediately while the pipeline is in FLUSHING state (before SEEK_DONE
 // commits it as the new segment-start baseline).  This prevents position
 // reporting from snapping to zero during the flush window.
+/**
+ * @test GetPositionMilliseconds_WhileFlushing_ReturnsSeekPositionWithoutQueryingPipeline
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	GetPositionMilliseconds_WhileFlushing_ReturnsSeekPositionWithoutQueryingPipeline)
 {
@@ -493,6 +550,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 // == 0 so the reported position is 0 — correctly representing "just seeked,
 // no elapsed playback yet" rather than surfacing a non-zero fragment-offset
 // blip.
+/**
+ * @test GetPositionMilliseconds_AfterMidFragmentSeek_FirstQueryReturnsZero
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	GetPositionMilliseconds_AfterMidFragmentSeek_FirstQueryReturnsZero)
 {
@@ -518,6 +578,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	EXPECT_EQ(m_player->GetPositionMilliseconds(), 0LL);
 }
 
+/**
+ * @test GetDurationMilliseconds_ReturnsLatestNotifiedDuration
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	GetDurationMilliseconds_ReturnsLatestNotifiedDuration)
 {
@@ -531,6 +594,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	EXPECT_EQ(m_player->GetDurationMilliseconds(), kExpectedMs);
 }
 
+/**
+ * @test PositionAndDurationGetters_DoNotLogAtInfo
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	PositionAndDurationGetters_DoNotLogAtInfo)
 {
@@ -554,6 +620,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 // GetVideoPTS
 // ===========================================================================
 
+/**
+ * @test GetVideoPTS_ConvertsPipelinePositionTo90kHzTicks
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	GetVideoPTS_ConvertsPipelinePositionTo90kHzTicks)
 {
@@ -568,6 +637,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	EXPECT_EQ(m_player->GetVideoPTS(), kExpectedPts);
 }
 
+/**
+ * @test GetVideoPTS_WhenPipelineQueryFails_ReturnsZero
+ */
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	GetVideoPTS_WhenPipelineQueryFails_ReturnsZero)
 {
@@ -578,6 +650,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	EXPECT_EQ(m_player->GetVideoPTS(), 0LL);
 }
 
+/**
+ * @test GetVideoPTS_NoPipeline_ReturnsZero
+ */
 TEST_F(AampRialtoPlayerTest,
 	GetVideoPTS_NoPipeline_ReturnsZero)
 {

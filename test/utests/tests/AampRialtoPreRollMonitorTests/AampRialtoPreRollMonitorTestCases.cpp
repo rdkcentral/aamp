@@ -110,6 +110,9 @@ protected:
 	int m_completions{0};
 };
 
+/**
+ * @test Start_SchedulesPollTimer
+ */
 TEST_F(AampRialtoPreRollMonitorTest, Start_SchedulesPollTimer)
 {
 	EXPECT_CALL(*m_mockGLib, g_timeout_add(kPollIntervalMs, _, _)).Times(1);
@@ -120,6 +123,9 @@ TEST_F(AampRialtoPreRollMonitorTest, Start_SchedulesPollTimer)
 	EXPECT_EQ(m_completions, 0);
 }
 
+/**
+ * @test Poll_BelowFloor_KeepsPolling
+ */
 TEST_F(AampRialtoPreRollMonitorTest, Poll_BelowFloor_KeepsPolling)
 {
 	m_monitor->Start(MakeProbe());
@@ -131,6 +137,9 @@ TEST_F(AampRialtoPreRollMonitorTest, Poll_BelowFloor_KeepsPolling)
 	EXPECT_EQ(m_completions, 0);
 }
 
+/**
+ * @test Poll_FloorReached_CompletesOnce
+ */
 TEST_F(AampRialtoPreRollMonitorTest, Poll_FloorReached_CompletesOnce)
 {
 	m_monitor->Start(MakeProbe());
@@ -143,6 +152,9 @@ TEST_F(AampRialtoPreRollMonitorTest, Poll_FloorReached_CompletesOnce)
 	EXPECT_EQ(m_completions, 1);
 }
 
+/**
+ * @test Poll_NothingAcceptedYet_KeepsPolling
+ */
 TEST_F(AampRialtoPreRollMonitorTest, Poll_NothingAcceptedYet_KeepsPolling)
 {
 	/**
@@ -156,6 +168,9 @@ TEST_F(AampRialtoPreRollMonitorTest, Poll_NothingAcceptedYet_KeepsPolling)
 	EXPECT_EQ(m_completions, 0);
 }
 
+/**
+ * @test Poll_EndOfStream_Completes
+ */
 TEST_F(AampRialtoPreRollMonitorTest, Poll_EndOfStream_Completes)
 {
 	/**
@@ -169,6 +184,9 @@ TEST_F(AampRialtoPreRollMonitorTest, Poll_EndOfStream_Completes)
 	EXPECT_EQ(m_completions, 1);
 }
 
+/**
+ * @test Poll_BufferFull_Completes
+ */
 TEST_F(AampRialtoPreRollMonitorTest, Poll_BufferFull_Completes)
 {
 	/**
@@ -185,6 +203,9 @@ TEST_F(AampRialtoPreRollMonitorTest, Poll_BufferFull_Completes)
 	EXPECT_EQ(m_completions, 1);
 }
 
+/**
+ * @test Poll_TimeoutElapsed_Completes
+ */
 TEST_F(AampRialtoPreRollMonitorTest, Poll_TimeoutElapsed_Completes)
 {
 	m_monitor->Start(MakeProbe());
@@ -198,6 +219,9 @@ TEST_F(AampRialtoPreRollMonitorTest, Poll_TimeoutElapsed_Completes)
 	EXPECT_EQ(m_completions, 1);
 }
 
+/**
+ * @test Stop_RemovesTimerAndSuppressesCompletion
+ */
 TEST_F(AampRialtoPreRollMonitorTest, Stop_RemovesTimerAndSuppressesCompletion)
 {
 	m_monitor->Start(MakeProbe());
@@ -211,6 +235,9 @@ TEST_F(AampRialtoPreRollMonitorTest, Stop_RemovesTimerAndSuppressesCompletion)
 	EXPECT_EQ(m_completions, 0);
 }
 
+/**
+ * @test Start_WhileRunning_RestartsTimeout
+ */
 TEST_F(AampRialtoPreRollMonitorTest, Start_WhileRunning_RestartsTimeout)
 {
 	/**
@@ -230,6 +257,9 @@ TEST_F(AampRialtoPreRollMonitorTest, Start_WhileRunning_RestartsTimeout)
 	EXPECT_EQ(m_completions, 0);
 }
 
+/**
+ * @test TimerCallback_DrivesPoll
+ */
 TEST_F(AampRialtoPreRollMonitorTest, TimerCallback_DrivesPoll)
 {
 	m_monitor->Start(MakeProbe());
@@ -242,6 +272,9 @@ TEST_F(AampRialtoPreRollMonitorTest, TimerCallback_DrivesPoll)
 	EXPECT_EQ(m_completions, 1);
 }
 
+/**
+ * @test Completed_StopDoesNotRemoveSelfRemovedTimer
+ */
 TEST_F(AampRialtoPreRollMonitorTest, Completed_StopDoesNotRemoveSelfRemovedTimer)
 {
 	/**
@@ -256,6 +289,9 @@ TEST_F(AampRialtoPreRollMonitorTest, Completed_StopDoesNotRemoveSelfRemovedTimer
 	m_monitor->Stop();
 }
 
+/**
+ * @test Stop_WaitsForPollInProgress
+ */
 TEST_F(AampRialtoPreRollMonitorTest, Stop_WaitsForPollInProgress)
 {
 	/**
@@ -295,6 +331,9 @@ TEST_F(AampRialtoPreRollMonitorTest, Stop_WaitsForPollInProgress)
 	EXPECT_EQ(m_completions, 0);
 }
 
+/**
+ * @test DispatchAfterStop_DoesNothing
+ */
 TEST_F(AampRialtoPreRollMonitorTest, DispatchAfterStop_DoesNothing)
 {
 	m_monitor->Start(MakeProbe());
@@ -306,6 +345,9 @@ TEST_F(AampRialtoPreRollMonitorTest, DispatchAfterStop_DoesNothing)
 	EXPECT_EQ(m_completions, 0);
 }
 
+/**
+ * @test DispatchAfterDestruction_IsSafe
+ */
 TEST_F(AampRialtoPreRollMonitorTest, DispatchAfterDestruction_IsSafe)
 {
 	/**
@@ -324,6 +366,9 @@ TEST_F(AampRialtoPreRollMonitorTest, DispatchAfterDestruction_IsSafe)
 	EXPECT_EQ(m_completions, 0);
 }
 
+/**
+ * @test TimerUnavailable_CompletesImmediately
+ */
 TEST_F(AampRialtoPreRollMonitorTest, TimerUnavailable_CompletesImmediately)
 {
 	/**
@@ -338,6 +383,9 @@ TEST_F(AampRialtoPreRollMonitorTest, TimerUnavailable_CompletesImmediately)
 	EXPECT_FALSE(m_monitor->IsRunning());
 }
 
+/**
+ * @test Completion_MayRestartMonitor
+ */
 TEST_F(AampRialtoPreRollMonitorTest, Completion_MayRestartMonitor)
 {
 	/**
@@ -383,6 +431,9 @@ protected:
 	}
 };
 
+/**
+ * @test Completion_ReleasesProbe
+ */
 TEST_F(AampRialtoPreRollMonitorProbeLifetimeTest, Completion_ReleasesProbe)
 {
 	/**
@@ -400,6 +451,9 @@ TEST_F(AampRialtoPreRollMonitorProbeLifetimeTest, Completion_ReleasesProbe)
 	EXPECT_TRUE(observer.expired());
 }
 
+/**
+ * @test Stop_ReleasesProbe
+ */
 TEST_F(AampRialtoPreRollMonitorProbeLifetimeTest, Stop_ReleasesProbe)
 {
 	std::weak_ptr<int> observer;
@@ -411,6 +465,9 @@ TEST_F(AampRialtoPreRollMonitorProbeLifetimeTest, Stop_ReleasesProbe)
 	EXPECT_TRUE(observer.expired());
 }
 
+/**
+ * @test Restart_ReleasesPreviousProbe
+ */
 TEST_F(AampRialtoPreRollMonitorProbeLifetimeTest, Restart_ReleasesPreviousProbe)
 {
 	std::weak_ptr<int> first;
@@ -423,6 +480,9 @@ TEST_F(AampRialtoPreRollMonitorProbeLifetimeTest, Restart_ReleasesPreviousProbe)
 	EXPECT_FALSE(second.expired());
 }
 
+/**
+ * @test StillRunning_KeepsProbe
+ */
 TEST_F(AampRialtoPreRollMonitorProbeLifetimeTest, StillRunning_KeepsProbe)
 {
 	std::weak_ptr<int> observer;
@@ -434,6 +494,9 @@ TEST_F(AampRialtoPreRollMonitorProbeLifetimeTest, StillRunning_KeepsProbe)
 	EXPECT_FALSE(observer.expired());
 }
 
+/**
+ * @test Destruction_ReleasesProbe
+ */
 TEST_F(AampRialtoPreRollMonitorProbeLifetimeTest, Destruction_ReleasesProbe)
 {
 	std::weak_ptr<int> observer;

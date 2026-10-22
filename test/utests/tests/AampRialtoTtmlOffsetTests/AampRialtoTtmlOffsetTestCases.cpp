@@ -57,6 +57,9 @@ int64_t Refine(AampRialtoTtmlOffset &offset, const std::string &doc,
 // Parsing
 // ---------------------------------------------------------------------------
 
+/**
+ * @test ParseTimeToMs_ClockValue
+ */
 TEST(AampRialtoTtmlOffsetTest, ParseTimeToMs_ClockValue)
 {
 	EXPECT_EQ(AampRialtoTtmlOffset::ParseTimeToMs("01:02:03.500"), 3'723'500);
@@ -65,6 +68,9 @@ TEST(AampRialtoTtmlOffsetTest, ParseTimeToMs_ClockValue)
 	EXPECT_EQ(AampRialtoTtmlOffset::ParseTimeToMs("00:00:00.2505"), 251);
 }
 
+/**
+ * @test ParseTimeToMs_AbsoluteHoursAndFrames_AreAccepted
+ */
 TEST(AampRialtoTtmlOffsetTest, ParseTimeToMs_AbsoluteHoursAndFrames_AreAccepted)
 {
 	// Wall-clock TTML can count hours since 1970.
@@ -76,6 +82,9 @@ TEST(AampRialtoTtmlOffsetTest, ParseTimeToMs_AbsoluteHoursAndFrames_AreAccepted)
 	EXPECT_EQ(AampRialtoTtmlOffset::ParseTimeToMs("00:00:60"), 60'000);
 }
 
+/**
+ * @test ParseTimeToMs_NotAClockValue_IsRejected
+ */
 TEST(AampRialtoTtmlOffsetTest, ParseTimeToMs_NotAClockValue_IsRejected)
 {
 	for (const char *bad : {"12.5s", "", "00:00", "a0:00:00",
@@ -87,6 +96,9 @@ TEST(AampRialtoTtmlOffsetTest, ParseTimeToMs_NotAClockValue_IsRejected)
 	}
 }
 
+/**
+ * @test FindFirstBeginMs_ReturnsTheFirstOnly
+ */
 TEST(AampRialtoTtmlOffsetTest, FindFirstBeginMs_ReturnsTheFirstOnly)
 {
 	int64_t ms = -1;
@@ -95,6 +107,9 @@ TEST(AampRialtoTtmlOffsetTest, FindFirstBeginMs_ReturnsTheFirstOnly)
 	EXPECT_EQ(ms, 5'000);
 }
 
+/**
+ * @test FindFirstBeginMs_MissingOrUnterminated_ReturnsFalse
+ */
 TEST(AampRialtoTtmlOffsetTest, FindFirstBeginMs_MissingOrUnterminated_ReturnsFalse)
 {
 	int64_t ms = -1;
@@ -104,6 +119,9 @@ TEST(AampRialtoTtmlOffsetTest, FindFirstBeginMs_MissingOrUnterminated_ReturnsFal
 	EXPECT_EQ(ms, -1);
 }
 
+/**
+ * @test FindFirstBeginMs_Unparsable_ReturnsFalse
+ */
 TEST(AampRialtoTtmlOffsetTest, FindFirstBeginMs_Unparsable_ReturnsFalse)
 {
 	int64_t ms = -1;
@@ -112,6 +130,9 @@ TEST(AampRialtoTtmlOffsetTest, FindFirstBeginMs_Unparsable_ReturnsFalse)
 	EXPECT_EQ(ms, -1);
 }
 
+/**
+ * @test UnparsableBegin_DoesNotInventAnOffset
+ */
 TEST(AampRialtoTtmlOffsetTest, UnparsableBegin_DoesNotInventAnOffset)
 {
 	AampRialtoTtmlOffset offset;
@@ -126,6 +147,9 @@ TEST(AampRialtoTtmlOffsetTest, UnparsableBegin_DoesNotInventAnOffset)
 // Mode detection
 // ---------------------------------------------------------------------------
 
+/**
+ * @test CueTimesMatchPts_IsPassthroughForGood
+ */
 TEST(AampRialtoTtmlOffsetTest, CueTimesMatchPts_IsPassthroughForGood)
 {
 	AampRialtoTtmlOffset offset;
@@ -134,12 +158,18 @@ TEST(AampRialtoTtmlOffsetTest, CueTimesMatchPts_IsPassthroughForGood)
 	EXPECT_EQ(Refine(offset, Doc("01:00:10.000")), 0);
 }
 
+/**
+ * @test AbsoluteCueTimes_OffsetIsBeginMinusPts
+ */
 TEST(AampRialtoTtmlOffsetTest, AbsoluteCueTimes_OffsetIsBeginMinusPts)
 {
 	AampRialtoTtmlOffset offset;
 	EXPECT_EQ(Refine(offset, Doc("01:00:10.000")), 3'600'000);
 }
 
+/**
+ * @test AampOffsetWithMatchingCues_UsesAampOffset
+ */
 TEST(AampRialtoTtmlOffsetTest, AampOffsetWithMatchingCues_UsesAampOffset)
 {
 	AampRialtoTtmlOffset offset;
@@ -147,6 +177,9 @@ TEST(AampRialtoTtmlOffsetTest, AampOffsetWithMatchingCues_UsesAampOffset)
 	EXPECT_EQ(Refine(offset, Doc("00:00:15.000"), kPtsMs, 5'000), 5'000);
 }
 
+/**
+ * @test LinearOffset_IsRefinedEachDocument
+ */
 TEST(AampRialtoTtmlOffsetTest, LinearOffset_IsRefinedEachDocument)
 {
 	AampRialtoTtmlOffset offset;
@@ -157,6 +190,9 @@ TEST(AampRialtoTtmlOffsetTest, LinearOffset_IsRefinedEachDocument)
 	EXPECT_EQ(Refine(offset, Doc("00:00:16.500"), 12'000, 4'000), 4'000);
 }
 
+/**
+ * @test DocumentWithoutBegin_ReusesStoredOffset
+ */
 TEST(AampRialtoTtmlOffsetTest, DocumentWithoutBegin_ReusesStoredOffset)
 {
 	AampRialtoTtmlOffset offset;
@@ -165,6 +201,9 @@ TEST(AampRialtoTtmlOffsetTest, DocumentWithoutBegin_ReusesStoredOffset)
 	EXPECT_EQ(Refine(offset, "<?xml version=\"1.0\"?><tt/>"), 3'600'000);
 }
 
+/**
+ * @test ConcatenatedDocuments_OnlyTheFirstIsRead
+ */
 TEST(AampRialtoTtmlOffsetTest, ConcatenatedDocuments_OnlyTheFirstIsRead)
 {
 	AampRialtoTtmlOffset offset;
@@ -174,6 +213,9 @@ TEST(AampRialtoTtmlOffsetTest, ConcatenatedDocuments_OnlyTheFirstIsRead)
 	EXPECT_EQ(Refine(offset, doc), 0);
 }
 
+/**
+ * @test Reset_RedetectsTheMode
+ */
 TEST(AampRialtoTtmlOffsetTest, Reset_RedetectsTheMode)
 {
 	AampRialtoTtmlOffset offset;
