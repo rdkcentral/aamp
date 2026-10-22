@@ -30,7 +30,6 @@
 #include <inttypes.h>
 #include "TextStyleAttributes.h"
 #include <memory>
-#include <chrono>
 #include <gst/gst.h>
 #ifdef USE_EXTERNAL_STATS
 #include "player-xternal-stats.h"
@@ -1067,9 +1066,7 @@ void InterfacePlayerRDK::DestroyPipeline()
 	}
 	if (interfacePlayerPriv->gstPrivateContext->bus)
 	{
-		phaseStart = std::chrono::steady_clock::now();
 		gst_bus_remove_watch(interfacePlayerPriv->gstPrivateContext->bus);
-		traceStop("gst_bus_remove_watch", phaseStart);
 		gst_object_unref(interfacePlayerPriv->gstPrivateContext->bus);              /* Decreases the reference count on gstPrivateContext->bus, in this case it will become zero,
 																the reference to gstPrivateContext->bus will be freed in gstreamer */
 		interfacePlayerPriv->gstPrivateContext->bus = NULL;
@@ -1265,15 +1262,7 @@ static GstStateChangeReturn SetStateWithWarnings(GstElement *element, GstState t
 		GstState current;																	/* To hold the current state of the element */
 		GstState pending;																	/* Pending state, used in printing the pending state of the element */
 
-		auto stateQueryStart = std::chrono::steady_clock::now();
 		auto stateChangeReturn = gst_element_get_state(element, &current, &pending, 0);		/* Get the current playing state of the element with no blocking timeout,  this function is MT-safe */
-		if (targetState == GST_STATE_NULL)
-		{
-			auto elapsedUs = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - stateQueryStart).count();
-			MW_LOG_INFO("STOP_TRACE gst_element_get_state element=%p name=%s target=NULL took %lld us result=%d current=%s pending=%s",
-				element, SafeName(element).c_str(), (long long)elapsedUs, stateChangeReturn,
-				gst_element_state_get_name(current), gst_element_state_get_name(pending));
-		}
 		switch(stateChangeReturn)
 		{
 			case GST_STATE_CHANGE_FAILURE:
@@ -1303,14 +1292,7 @@ static GstStateChangeReturn SetStateWithWarnings(GstElement *element, GstState t
 		{
 			MW_LOG_DEBUG("InterfacePlayerRDK: Attempting to set %s state to %s", SafeName(element).c_str(), gst_element_state_get_name(targetState));
 		}
-		auto stateSetStart = std::chrono::steady_clock::now();
 		rc = gst_element_set_state(element, targetState);					/* Set the state of the element to the targetState, this function is MT-safe*/
-		if (targetState == GST_STATE_NULL)
-		{
-			auto elapsedUs = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - stateSetStart).count();
-			MW_LOG_INFO("STOP_TRACE gst_element_set_state element=%p name=%s target=NULL took %lld us result=%d",
-				element, SafeName(element).c_str(), (long long)elapsedUs, rc);
-		}
 		if(syncOnlyTransition)
 		{
 			MW_LOG_MIL("InterfacePlayerRDK: %s state set to %s",  SafeName(element).c_str(), gst_element_state_get_name(targetState));
@@ -1330,28 +1312,15 @@ static GstStateChangeReturn SetStateWithWarnings(GstElement *element, GstState t
 
 void InterfacePlayerRDK::TearDownStream(int type)
 {
-	auto teardownStart = std::chrono::steady_clock::now();
-	auto traceTeardown = [](const char* phase, std::chrono::steady_clock::time_point start)
-	{
-		auto elapsedUs = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - start).count();
-		MW_LOG_INFO("STOP_TRACE InterfacePlayerRDK::TearDownStream %s took %lld us", phase, (long long)elapsedUs);
-	};
-	MW_LOG_INFO("STOP_TRACE InterfacePlayerRDK::TearDownStream begin this=%p type=%d", this, type);
-	auto callbackStart = std::chrono::steady_clock::now();
 	tearDownCb(true, type);
-	traceTeardown("pre-teardown callback", callbackStart);
 	gst_media_stream* stream = &interfacePlayerPriv->gstPrivateContext->stream[type];
-	auto probeStart = std::chrono::steady_clock::now();
 	RemoveProbe(type);
-	traceTeardown("RemoveProbe", probeStart);
 	stream->bufferUnderrun = false;
 	stream->eosReached = false;
 
 	GstMediaType mediaType = static_cast<GstMediaType>(type);
 
-	auto sourceLockStart = std::chrono::steady_clock::now();
 	pthread_mutex_lock(&stream->sourceLock);
-	traceTeardown("sourceLock acquire", sourceLockStart);
 	if ((stream->format != GST_FORMAT_INVALID) ||
 		(mediaType == eGST_MEDIATYPE_SUBTITLE && interfacePlayerPriv->gstPrivateContext->usingClosedCaptionsControl))
 	{
@@ -1374,31 +1343,18 @@ void InterfacePlayerRDK::TearDownStream(int type)
 					 * decoder/HW resource is confirmed released before we start fresh. */
 					GstState current, pending;
 					gint retryCnt = GST_ELEMENT_GET_STATE_RETRY_CNT_MAX;
-					gint retryAttempts = 0;
-					auto retryStart = std::chrono::steady_clock::now();
 					do
 					{
-						++retryAttempts;
 						(void)gst_element_get_state(GST_ELEMENT(stream->sinkbin), &current, &pending, 100 * GST_MSECOND);
 					}
 					while ((current != GST_STATE_NULL) && (--retryCnt > 0));
-					auto retryElapsedUs = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - retryStart).count();
-					MW_LOG_INFO("STOP_TRACE sinkbin NULL retry type=%d sinkbin=%p attempts=%d took %lld us current=%s pending=%s",
-						type, stream->sinkbin, retryAttempts, (long long)retryElapsedUs,
-						gst_element_state_get_name(current), gst_element_state_get_name(pending));
 					if (current != GST_STATE_NULL)
 					{
 						MW_LOG_ERR("InterfacePlayerRDK::TearDownStream: sinkbin stopped abruptly, did not reach NULL (current=%s) - forcing synchronous reset before next decoder configuration", gst_element_state_get_name(current));
-						auto forceNullStart = std::chrono::steady_clock::now();
 						gst_element_set_state(GST_ELEMENT(stream->sinkbin), GST_STATE_NULL);
-						auto forceNullElapsedUs = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - forceNullStart).count();
-						MW_LOG_INFO("STOP_TRACE sinkbin forced gst_element_set_state NULL type=%d took %lld us", type, (long long)forceNullElapsedUs);
 					}
 				}
-				auto removeSinkStart = std::chrono::steady_clock::now();
-				gboolean removed = gst_bin_remove(GST_BIN(interfacePlayerPriv->gstPrivateContext->pipeline), GST_ELEMENT(stream->sinkbin));
-				traceTeardown("gst_bin_remove sinkbin", removeSinkStart);
-				if (!removed)
+				if (!gst_bin_remove(GST_BIN(interfacePlayerPriv->gstPrivateContext->pipeline), GST_ELEMENT(stream->sinkbin)))			/* Removes the sinkbin element from the pipeline */
 				{
 					MW_LOG_ERR("InterfacePlayerRDK::TearDownStream:  Unable to remove sinkbin from pipeline");
 				}
@@ -1420,9 +1376,7 @@ void InterfacePlayerRDK::TearDownStream(int type)
 		g_clear_object(&stream->source);
 		stream->sourceConfigured = false;
 	}
-	sourceLockStart = std::chrono::steady_clock::now();
 	pthread_mutex_unlock(&stream->sourceLock);
-	traceTeardown("sourceLock release", sourceLockStart);
 	if (mediaType == eGST_MEDIATYPE_VIDEO)
 	{
 		g_clear_object(&interfacePlayerPriv->gstPrivateContext->video_dec);
@@ -1449,39 +1403,19 @@ void InterfacePlayerRDK::TearDownStream(int type)
 		}
 		pthread_mutex_unlock(&stream->sourceLock);
 	}
-	callbackStart = std::chrono::steady_clock::now();
 	tearDownCb(false, mediaType);
-	traceTeardown("post-teardown callback", callbackStart);
 	MW_LOG_MIL("InterfacePlayerRDK::TearDownStream: exit mediaType = %d", mediaType);
-	traceTeardown("total", teardownStart);
 }
 
 void InterfacePlayerRDK::Stop(bool keepLastFrame)
 {
-	auto stopStart = std::chrono::steady_clock::now();
-	auto traceStop = [](const char* phase, std::chrono::steady_clock::time_point start)
-	{
-		auto elapsedUs = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - start).count();
-		MW_LOG_INFO("STOP_TRACE InterfacePlayerRDK::Stop %s took %lld us", phase, (long long)elapsedUs);
-	};
-	MW_LOG_INFO("STOP_TRACE InterfacePlayerRDK::Stop begin this=%p keepLastFrame=%d", this, keepLastFrame);
-	auto lockStart = std::chrono::steady_clock::now();
 	std::lock_guard<std::mutex> lock(mMutex);
-	traceStop("mMutex acquire", lockStart);
 	/*  make the execution of this function more deterministic and
 	 *  reduce scope for potential pipeline lockups*/
 
-	auto phaseStart = std::chrono::steady_clock::now();
-	{
-		std::lock_guard<std::mutex> bufferingLock(interfacePlayerPriv->gstPrivateContext->bufferingTimeoutMutex);
-		interfacePlayerPriv->gstPrivateContext->bufferingTimeoutControl.disable();
-	}
 	interfacePlayerPriv->gstPrivateContext->syncControl.disable();
 	interfacePlayerPriv->gstPrivateContext->aSyncControl.disable();
-	traceStop("disable handler controls", phaseStart);
-	auto sourceSetupLockStart = std::chrono::steady_clock::now();
 	std::unique_lock<std::mutex> sourceSetupLock(mSourceSetupMutex);
-	traceStop("mSourceSetupMutex acquire", sourceSetupLockStart);
 	mSourceSetupCV.notify_all();
 	if(interfacePlayerPriv->gstPrivateContext->bus)
 	{
@@ -1531,33 +1465,14 @@ void InterfacePlayerRDK::Stop(bool keepLastFrame)
 	 3) confirming that all signal handlers have completed.
 	 * This should complete very quickly and
 	 * should not have a significant performance impact.*/
-	phaseStart = std::chrono::steady_clock::now();
-	bool syncHandlersDone = interfacePlayerPriv->gstPrivateContext->syncControl.waitForDone(50, "bus_sync_handler");
-	traceStop("waitForDone bus_sync_handler", phaseStart);
-	MW_LOG_INFO("STOP_TRACE waitForDone bus_sync_handler completed=%d active=%d", syncHandlersDone, interfacePlayerPriv->gstPrivateContext->syncControl.instancesRunning());
-	phaseStart = std::chrono::steady_clock::now();
-	bool asyncHandlersDone = interfacePlayerPriv->gstPrivateContext->aSyncControl.waitForDone(50, "bus_message");
-	traceStop("waitForDone bus_message", phaseStart);
-	MW_LOG_INFO("STOP_TRACE waitForDone bus_message completed=%d active=%d", asyncHandlersDone, interfacePlayerPriv->gstPrivateContext->aSyncControl.instancesRunning());
-	phaseStart = std::chrono::steady_clock::now();
-	bool bufferingHandlersDone = interfacePlayerPriv->gstPrivateContext->bufferingTimeoutControl.waitForDone(50, "buffering_timeout");
-	traceStop("waitForDone buffering_timeout", phaseStart);
-	MW_LOG_INFO("STOP_TRACE waitForDone buffering_timeout completed=%d active=%d", bufferingHandlersDone, interfacePlayerPriv->gstPrivateContext->bufferingTimeoutControl.instancesRunning());
-	phaseStart = std::chrono::steady_clock::now();
+	interfacePlayerPriv->gstPrivateContext->syncControl.waitForDone(50, "bus_sync_handler");
+	interfacePlayerPriv->gstPrivateContext->aSyncControl.waitForDone(50, "bus_message");
 	interfacePlayerPriv->gstPrivateContext->callbackControl.disable();
-	traceStop("callbackControl disable", phaseStart);
-	phaseStart = std::chrono::steady_clock::now();
 	DisconnectSignals();
-	traceStop("DisconnectSignals", phaseStart);
-	phaseStart = std::chrono::steady_clock::now();
-	bool callbacksDone = interfacePlayerPriv->gstPrivateContext->aSyncControl.waitForDone(100, "callback handler");
-	traceStop("waitForDone callback handler", phaseStart);
-	MW_LOG_INFO("STOP_TRACE waitForDone callback handler completed=%d active=%d", callbacksDone, interfacePlayerPriv->gstPrivateContext->aSyncControl.instancesRunning());
+	interfacePlayerPriv->gstPrivateContext->aSyncControl.waitForDone(100, "callback handler");
 
 	// Remove probes before setting the pipeline to NULL
-	phaseStart = std::chrono::steady_clock::now();
 	RemoveProbes();
-	traceStop("RemoveProbes", phaseStart);
 
 	if (interfacePlayerPriv->gstPrivateContext->pipeline)
 	{
@@ -1569,27 +1484,19 @@ void InterfacePlayerRDK::Stop(bool keepLastFrame)
 		}
 
 		interfacePlayerPriv->gstPrivateContext->buffering_in_progress = false;   /* stopping pipeline, don't want to change state if GST_MESSAGE_ASYNC_DONE message comes in */
-		phaseStart = std::chrono::steady_clock::now();
 		SetStateWithWarnings(interfacePlayerPriv->gstPrivateContext->pipeline, GST_STATE_NULL);
-		traceStop("pipeline GST_STATE_NULL request", phaseStart);
 		MW_LOG_MIL(" InterfacePlayerRDK: Pipeline state set to null");
 	}
 	if(PlayerExternalsInterface::IsPlayerExternalsInterfaceInstanceActive())
 	{
-		phaseStart = std::chrono::steady_clock::now();
 		std::shared_ptr<PlayerExternalsInterface> pInstance = PlayerExternalsInterface::GetPlayerExternalsInterfaceInstance();
 		pInstance->setGstElement((GstElement *)(NULL));
-		traceStop("PlayerExternals setGstElement", phaseStart);
 	}
 	for(int i = 0; i<GST_TRACK_COUNT;i++)
 	{
-		phaseStart = std::chrono::steady_clock::now();
 		TearDownStream((int(i)));
-		traceStop(i == 0 ? "TearDownStream video" : (i == 1 ? "TearDownStream audio" : "TearDownStream subtitle"), phaseStart);
 	}
-	phaseStart = std::chrono::steady_clock::now();
 	DestroyPipeline();
-	traceStop("DestroyPipeline", phaseStart);
 	interfacePlayerPriv->gstPrivateContext->rate = GST_NORMAL_PLAY_RATE;
 	interfacePlayerPriv->gstPrivateContext->lastKnownPTS = 0;
 	interfacePlayerPriv->gstPrivateContext->segmentStart = 0;
@@ -1600,7 +1507,6 @@ void InterfacePlayerRDK::Stop(bool keepLastFrame)
 	interfacePlayerPriv->gstPrivateContext->videoMuted = false;
 	interfacePlayerPriv->gstPrivateContext->subtitleMuted = false;
 	interfacePlayerPriv->gstPrivateContext->audioVolume = 1.0;
-	traceStop("total", stopStart);
 }
 
 void InterfacePlayerRDK::ResetGstEvents()

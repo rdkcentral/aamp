@@ -60,7 +60,6 @@
 #include "AampCurlStore.h"
 
 #include <iomanip>
-#include <chrono>
 #include <unordered_set>
 
 #include <sys/time.h>
@@ -4930,16 +4929,7 @@ bool PrivateInstanceAAMP::IsAsyncTuneAbortRequired(const char* manifestUrl, cons
  */
 void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 {
-	auto teardownStart = std::chrono::steady_clock::now();
-	auto traceTeardown = [](const char* phase, std::chrono::steady_clock::time_point start)
-	{
-		auto elapsedUs = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - start).count();
-		AAMPLOG_INFO("STOP_TRACE TeardownStream %s took %lld us", phase, (long long)elapsedUs);
-	};
-	AAMPLOG_INFO("STOP_TRACE TeardownStream begin this=%p newTune=%d disableDownloads=%d", this, newTune, disableDownloads);
-	auto lockStart = std::chrono::steady_clock::now();
 	std::unique_lock<std::recursive_mutex> lock(mLock);
-	traceTeardown("mLock acquire", lockStart);
 	//Have to perform this for trick and stop operations but avoid ad insertion related ones
 	AAMPLOG_MIL(" mProgressReportFromProcessDiscontinuity:%d mDiscontinuityTuneOperationId:%d newTune:%d", mProgressReportFromProcessDiscontinuity, mDiscontinuityTuneOperationId, newTune);
 	if ((mDiscontinuityTuneOperationId != 0) && (!newTune || mState == eSTATE_IDLE))
@@ -4963,9 +4953,7 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 			if (mDiscontinuityTuneOperationInProgress)
 			{
 				AAMPLOG_WARN("TeardownStream invoked while mDiscontinuityTuneOperationInProgress set. Wait until the Discontinuity Tune operation to complete!!");
-				auto waitStart = std::chrono::steady_clock::now();
 				mCondDiscontinuity.wait(lock);
-				traceTeardown("discontinuity condition wait", waitStart);
 			}
 			else
 			{
@@ -4980,9 +4968,7 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 		if(mDiscontinuityTuneOperationInProgress)
 		{
 			AAMPLOG_WARN("TeardownStream invoked while mDiscontinuityTuneOperationInProgress set. Wait until the pending discontinuity tune operation to complete !!");
-			auto waitStart = std::chrono::steady_clock::now();
 			mCondDiscontinuity.wait(lock);
-			traceTeardown("pending discontinuity condition wait", waitStart);
 		}
 		else
 		{
@@ -4999,14 +4985,9 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 	if (mpStreamAbstractionAAMP)
 	{
 		// Using StreamLock to make sure this is not interfering with GetFile() from PreCachePlaylistDownloadTask
-		auto streamLockStart = std::chrono::steady_clock::now();
 		AcquireStreamLock();
-		traceTeardown("stream lock acquire", streamLockStart);
-		auto streamStopStart = std::chrono::steady_clock::now();
 		mpStreamAbstractionAAMP->Stop(disableDownloads);
-		traceTeardown("stream abstraction Stop", streamStopStart);
 
-		auto streamCleanupStart = std::chrono::steady_clock::now();
 		if(mContentType == ContentType_HDMIIN)
 		{
 			StreamAbstractionAAMP_HDMIIN::ResetInstance();
@@ -5025,7 +5006,6 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 			}
 		}
 		ReleaseStreamLock();
-		traceTeardown("stream abstraction cleanup and stream lock release", streamCleanupStart);
 	}
 	m_lastSubClockSyncTime = std::chrono::system_clock::time_point();
 
@@ -5049,9 +5029,7 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 				StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 				if (sink)
 				{
-					auto flushStart = std::chrono::steady_clock::now();
 					sink->Flush(0, rate);
-					traceTeardown("sink Flush", flushStart);
 				}
 			}
 		}
@@ -5072,9 +5050,7 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 				StreamSink *sink = AampStreamSinkManager::GetInstance().GetStoppingStreamSink(this);
 				if (sink)
 				{
-					auto sinkStopStart = std::chrono::steady_clock::now();
 					sink->Stop(!newTune);
-					traceTeardown("sink Stop", sinkStopStart);
 				}
 			}
 		}
@@ -5093,7 +5069,6 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 		std::lock_guard<std::mutex> lock(mAdEventQMtx);
 		std::swap( mAdEventsQ, emptyEvQ );
 	}
-	traceTeardown("total", teardownStart);
 }
 
 /**
@@ -7817,24 +7792,13 @@ bool PrivateInstanceAAMP::IsLiveStream()
  */
 void PrivateInstanceAAMP::Stop( bool isDestructing )
 {
-	auto stopTraceStart = std::chrono::steady_clock::now();
-	auto traceStop = [](const char* phase, std::chrono::steady_clock::time_point start)
-	{
-		auto elapsedUs = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - start).count();
-		AAMPLOG_INFO("STOP_TRACE AAMP Stop %s took %lld us", phase, (long long)elapsedUs);
-	};
-	AAMPLOG_INFO("STOP_TRACE AAMP Stop begin this=%p isDestructing=%d", this, isDestructing);
 	auto stopStartTime = NOW_STEADY_TS_MS;
 	mApplyCachedCCStatus = false;
 	// Clear all the player events in the queue and sets its state to RELEASED as everything is done
-	auto phaseStart = std::chrono::steady_clock::now();
 	mEventManager->FlushPendingEvents();
-	traceStop("FlushPendingEvents", phaseStart);
 	if( !isDestructing )
 	{
-		phaseStart = std::chrono::steady_clock::now();
 		SetState(eSTATE_STOPPING);
-		traceStop("SetState STOPPING", phaseStart);
 	}
 
 	{
@@ -7848,28 +7812,21 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 			if (iter->reTune && mIsRetuneInProgress)
 			{
 				// Wait for any ongoing re-tune operation to complete
-				phaseStart = std::chrono::steady_clock::now();
 				gCond.wait(lock);
-				traceStop("retune condition wait", phaseStart);
 			}
 			iter->reTune = false;
 		}
 	}
 	if (mAutoResumeTaskPending)
 	{
-		phaseStart = std::chrono::steady_clock::now();
 		RemoveAsyncTask(mAutoResumeTaskId);
-		traceStop("RemoveAsyncTask auto-resume", phaseStart);
 		mAutoResumeTaskId = AAMP_TASK_ID_INVALID;
 		mAutoResumeTaskPending = false;
 	}
-	phaseStart = std::chrono::steady_clock::now();
 	DisableDownloads();
-	traceStop("DisableDownloads", phaseStart);
 	//Moved the tsb delete request from XRE to AAMP to avoid the HTTP-404 erros
 	if(IsFogTSBSupported())
 	{
-		phaseStart = std::chrono::steady_clock::now();
 		std::string remoteUrl = "127.0.0.1:9080/tsb";
 		AampCurlDownloader T1;
 		DownloadResponsePtr respData = std::make_shared<DownloadResponse> ();
@@ -7879,18 +7836,12 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 		inpData->proxyName        = GetNetworkProxy();
 		T1.Initialize(std::move(inpData));
 		T1.Download(remoteUrl, std::move(respData) );
-		traceStop("Fog TSB DELETE request", phaseStart);
 	}
 
-	phaseStart = std::chrono::steady_clock::now();
 	UnblockWaitForDiscontinuityProcessToComplete();
-	traceStop("UnblockWaitForDiscontinuityProcessToComplete", phaseStart);
-	phaseStart = std::chrono::steady_clock::now();
 	StopRateCorrectionWorkerThread();
-	traceStop("StopRateCorrectionWorkerThread", phaseStart);
 	if(mTelemetryInterval > 0)
 	{
-		phaseStart = std::chrono::steady_clock::now();
 		double bufferedDuration = 0.0;
 		if (mpStreamAbstractionAAMP)
 		{
@@ -7901,7 +7852,6 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 		profiler.SetLatencyParam(latency, bufferedDuration, rate, mNetworkBandwidth);
 		profiler.GetTelemetryParam();
 		mTelemetryInterval = 0;
-		traceStop("telemetry shutdown", phaseStart);
 	}
 
 	// AAMP TSB flags have to be cleared before the stream abstraction object is deleted
@@ -7915,13 +7865,10 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 	// Stopping the playback, release all DRM context
 	if (mpStreamAbstractionAAMP)
 	{
-		phaseStart = std::chrono::steady_clock::now();
 		AcquireStreamLock();
-		traceStop("stream lock acquire before DRM cleanup", phaseStart);
 		streamLockStopTime = NOW_STEADY_TS_MS;
 		if (mDRMLicenseManager)
 		{
-			phaseStart = std::chrono::steady_clock::now();
 			ReleaseDynamicDRMToUpdateWait();
 			mDRMLicenseManager->setLicenseRequestAbort(true);
 			// Reset the mFetchInstance in AampLicensePreFetcher as we are going to delete
@@ -7931,37 +7878,26 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 			licenseAquisitionLockStartTime = NOW_STEADY_TS_MS;
 			mDRMLicenseManager->SetLicenseFetcher(nullptr);
 			licenseAquisitionLockStopTime = NOW_STEADY_TS_MS;
-			traceStop("DRM license fetcher shutdown", phaseStart);
 		}
 		if (HasSidecarData())
 		{ // has sidecar data
-			phaseStart = std::chrono::steady_clock::now();
 			mpStreamAbstractionAAMP->ResetSubtitle();
-			traceStop("ResetSubtitle", phaseStart);
 		}
-		phaseStart = std::chrono::steady_clock::now();
 		ReleaseStreamLock();
-		traceStop("stream lock release after DRM cleanup", phaseStart);
 	}
 	auto tearDownStartTime = NOW_STEADY_TS_MS;
-	phaseStart = std::chrono::steady_clock::now();
 	TeardownStream(true,true); //disable download as well
-	traceStop("TeardownStream", phaseStart);
 	auto tearDownEndTime = NOW_STEADY_TS_MS;
 
 	// stop the mpd update immediately after Stream abstraction delete
 	if(mMPDDownloaderInstance != nullptr)
 	{
-		phaseStart = std::chrono::steady_clock::now();
 		mMPDDownloaderInstance->Release();
-		traceStop("MPD downloader Release", phaseStart);
 	}
 	if(mTSBSessionManager)
 	{
 		// Clear all the local TSB data
-		phaseStart = std::chrono::steady_clock::now();
 		mTSBSessionManager->Flush();
-		traceStop("TSB session Flush", phaseStart);
 	}
 
 	mId3MetadataCache.Reset();
@@ -8028,16 +7964,12 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 	}
 	if(mPreCachePlaylistThreadId.joinable())
 	{
-		phaseStart = std::chrono::steady_clock::now();
 		mPreCachePlaylistThreadId.join();
-		traceStop("pre-cache playlist thread join", phaseStart);
 	}
 
 	if (mAampCacheHandler)
 	{
-		phaseStart = std::chrono::steady_clock::now();
 		mAampCacheHandler->StopPlaylistCache();
-		traceStop("StopPlaylistCache", phaseStart);
 	}
 
 	if (pipeline_paused)
@@ -8047,9 +7979,7 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 	if (mDRMLicenseManager)
 	{
 		/** Reset the license fetcher only DRM handle is deleting **/
-		phaseStart = std::chrono::steady_clock::now();
 		mDRMLicenseManager->Stop();
-		traceStop("DRM manager Stop", phaseStart);
 
 		// Set Session Manager State to Inactive after StreamSink has been stopped
 		// to avoid any race condition between data still being streamed and DRM session manager
@@ -8068,18 +7998,14 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 	{
 		// delete the MPD Downloader Instance
 		AAMPLOG_INFO("Calling delete of Downloader instance ");
-		phaseStart = std::chrono::steady_clock::now();
 		SAFE_DELETE(mMPDDownloaderInstance);
-		traceStop("delete MPD downloader", phaseStart);
 	}
 
 	if(mTSBSessionManager != nullptr)
 	{
 		//delete the TSBSession Manager instance
 		AAMPLOG_INFO("Calling delete of TSBSessionManager instance");
-		phaseStart = std::chrono::steady_clock::now();
 		SAFE_DELETE(mTSBSessionManager);
-		traceStop("delete TSB session manager", phaseStart);
 	}
 	SetFlushFdsNeededInCurlStore(false);
 	EnableDownloads();
@@ -8091,7 +8017,6 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 		(unsigned int)(streamLockStopTime - streamLockStartTime),
 		(unsigned int)(licenseAquisitionLockStopTime - licenseAquisitionLockStartTime),
 		(unsigned int)(tearDownEndTime - tearDownStartTime));
-	traceStop("total", stopTraceStart);
 	profiler.mStopDurationMs = mLastStopDurationMs;
 
 }
