@@ -372,7 +372,7 @@ Review of the 18 direct-rialto L1 suites (697 tests) against `.github/instructio
 | TS7 | Done | Gap | `AampRialtoGlibTimer.h` and `AampRialtoProgressTimer.h` have no suite |
 | TS8 | Done | Gap | `AampRialtoTime.h` conversions have no test |
 | TS9 | Done | Gap | State machine: IDLE+Error and ERROR+Error not asserted as ignored |
-| TS10 | Open | Gap | Log-only branches of `attachOrUpdate()` and the ES-path attach abort |
+| TS10 | Done | Gap | Log-only branches of `attachOrUpdate()` and the ES-path attach abort |
 | TS11 | Done | Build | Split `AampRialtoPlayerTestCases.cpp` (8307 lines, 44 s per edit) into functional areas |
 | TS12 | Won't do | Gap | Suites for `AampRialtoSourceCreators.cpp` and `RialtoSessionCreator.cpp` |
 | TS13 | Optional | Build | Split `AampRialtoVideoSourceTestCases.cpp` (2380 lines, 11 s per edit) |
@@ -642,6 +642,7 @@ Rialto behaviours confirmed or disproved, test gaps, design decisions).
 | 2026-10-21 | TS7 | FakeGLib was not changed: making g_source_remove call the destroy notify would free the timer Handle while the player suite still holds and fires the captured callback/data. Release() (a one-line delete) stays untested; the test fixtures note the per-run handle the fake leaks. |
 | 2026-10-21 | TS1-TS3 | TS3 correction: RialtoMediaKeySessionAdapterTests.cpp:328 is a 1 ms poll inside a 2 s deadline loop, not a fixed sleep; it was listed wrongly. |
 | 2026-10-21 | TS9 | OnError_FromError_IsIgnored cannot tell an ignored event from an ERROR->ERROR row (same state, only the log level differs); it pins the 'stays in ERROR' contract only. |
+| 2026-10-21 | TS10 | The video and audio sources always attach with hasDrm=true (documented: it avoids a Rialto server crash), so a source with protection but no DRM bridge is still attached as a DRM source; the first draft of the test assumed otherwise and was corrected. |
 
 ## Verification Notes
 
@@ -734,3 +735,4 @@ Record each completed task: what was done, files changed, tests added or run.
 | 2026-10-21 | TS4 | 488 @test Doxygen tags added so every one of the 729 direct-rialto tests (21 suites) has one (inserted into the doc comment directly above the test where there was one, otherwise a short block). RialtoMediaKeySessionAdapterTests, RialtoMediaKeySessionTests and RialtoMediaKeySystemTests split into the required runner (main only) and *TestCases.cpp (git mv, so history follows the tests). Comments and file layout only. | test/utests/tests/ (21 direct-rialto suites) | all 22 suites pass with unchanged counts (DRM 12/14/15, Player 316) |
 | 2026-10-21 | TS8 | New header-only AampRialtoTimeTests suite: unit constants, SecondsToNs and SecondsToMs rounding to nearest (1.001 s, 0.251 s, negative values, an exactly representable half) and a wall-clock-sized position converting exactly to ms. | test/utests/tests/AampRialtoTimeTests/ (new), test/utests/tests/CMakeLists.txt | 4 new tests; mutation (SecondsToMs truncating) fails, restored |
 | 2026-10-21 | TS9 | Two state-machine tests: onError() from IDLE is ignored (stays IDLE, returns IDLE) and a second onError() in ERROR stays ERROR (returns ERROR). | test/utests/tests/AampPlayerStateMachineTests/AampPlayerStateMachineTestCases.cpp | 2 new tests; mutation (IDLE+Error row added) makes the IDLE test fail, restored; state machine suite 60/60 |
+| 2026-10-21 | TS10 | Four video-source tests for degraded paths: protection with no DRM bridge attaches with no session and the params are not recorded, so a later attach with a bridge creates the session; changed params on an attached source with no bridge keep the existing session; a refused setSourcePosition does not undo the attach; on the HLS-TS path a frame waiting for a deferred attach is dropped (nothing reaches Rialto) when a flush aborts the wait. | test/utests/tests/AampRialtoVideoSourceTests/AampRialtoVideoSourceTestCases.cpp | 4 new tests; mutation (params recorded without a bridge) makes the retry test fail, restored; VideoSource suite 77/77 |

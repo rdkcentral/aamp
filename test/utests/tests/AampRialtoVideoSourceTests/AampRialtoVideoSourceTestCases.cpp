@@ -32,6 +32,7 @@
 
 #include <atomic>
 #include <chrono>
+#include <future>
 #include <thread>
 
 using ::testing::_;
@@ -2562,4 +2563,114 @@ TEST_F(AampRialtoVideoSourceTest,
 	m_source.handleNeedData(1, /*requestId=*/123, m_pipelinePtr);
 
 	EXPECT_EQ(m_source.state().gateMode, AampRialtoMediaSource::GateMode::DROPPED);
+}
+
+// ---------------------------------------------------------------------------
+// attachOrUpdate / processDataFragment — degraded paths
+// ---------------------------------------------------------------------------
+
+namespace
+{
+AampRialtoMediaSource::ProtectionParams WidevineProtection(uint8_t initByte)
+{
+	AampRialtoMediaSource::ProtectionParams prot;
+	prot.systemId = "edef8ba9-79d6-4ace-a3c8-27dcd51d21ed";
+	prot.initData = {0xCA, initByte};
+	prot.type     = eMEDIATYPE_VIDEO;
+	return prot;
+}
+} // namespace
+
+/**
+ * @test AampRialtoVideoSource_Attach_ProtectionWithoutBridge_NoSessionAndRetriesLater
+ * @brief Without a DRM bridge the source still attaches with no session, and
+ *        the params are not recorded as applied: a later attach with a
+ *        bridge creates the session.
+ */
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_Attach_ProtectionWithoutBridge_NoSessionAndRetriesLater)
+{
+	auto codecInfo = MakeH264CodecInfo();
+
+	EXPECT_EQ(m_source.attachOrUpdate(*m_pipelinePtr, codecInfo, nullptr, -1,
+			WidevineProtection(0x01)),
+		AampRialtoMediaSource::AttachResult::NEWLY_ATTACHED);
+	EXPECT_EQ(m_source.mksId(), -1);
+
+	NiceMock<MockDrmBridge> drm;
+	EXPECT_CALL(drm, createSession(_, _, _, eMEDIATYPE_VIDEO)).WillOnce(Return(7));
+	EXPECT_EQ(m_source.attachOrUpdate(*m_pipelinePtr, codecInfo, &drm, -1,
+			WidevineProtection(0x01)),
+		AampRialtoMediaSource::AttachResult::UPDATED);
+	EXPECT_EQ(m_source.mksId(), 7);
+}
+
+/**
+ * @test AampRialtoVideoSource_Update_ChangedProtectionWithoutBridge_KeepsSession
+ * @brief New protection params on an attached source with no bridge leave the
+ *        existing session in place (the update is still reported).
+ */
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_Update_ChangedProtectionWithoutBridge_KeepsSession)
+{
+	NiceMock<MockDrmBridge> drm;
+	EXPECT_CALL(drm, createSession(_, _, _, _)).WillOnce(Return(42));
+	auto codecInfo = MakeH264CodecInfo();
+	ASSERT_EQ(m_source.attachOrUpdate(*m_pipelinePtr, codecInfo, &drm, -1,
+			WidevineProtection(0x01)),
+		AampRialtoMediaSource::AttachResult::NEWLY_ATTACHED);
+
+	EXPECT_EQ(m_source.attachOrUpdate(*m_pipelinePtr, codecInfo, nullptr, -1,
+			WidevineProtection(0x02)),
+		AampRialtoMediaSource::AttachResult::UPDATED);
+	EXPECT_EQ(m_source.mksId(), 42);
+}
+
+/**
+ * @test AampRialtoVideoSource_Attach_SetSourcePositionFails_StillAttached
+ * @brief A refused initial segment position does not undo the attach; the
+ *        source keeps its id and is reported as newly attached.
+ */
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_Attach_SetSourcePositionFails_StillAttached)
+{
+	EXPECT_CALL(*m_pipelinePtr, setSourcePosition(_, 5'000'000'000LL, true, _, _))
+		.WillOnce(Return(false));
+	auto codecInfo = MakeH264CodecInfo();
+
+	EXPECT_EQ(m_source.attachOrUpdate(*m_pipelinePtr, codecInfo, nullptr,
+			5'000'000'000LL),
+		AampRialtoMediaSource::AttachResult::NEWLY_ATTACHED);
+	EXPECT_TRUE(m_source.isAttached());
+}
+
+/**
+ * @test AampRialtoVideoSource_ProcessDataFragment_EsPathAttachAborted_DropsFrame
+ * @brief On the HLS-TS path (no demuxer) a frame waiting for a deferred attach
+ *        is dropped when a flush aborts the wait; nothing reaches Rialto.
+ */
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_ProcessDataFragment_EsPathAttachAborted_DropsFrame)
+{
+	{
+		auto &st = m_source.state();
+		std::lock_guard<std::mutex> lock(st.mu);
+		st.attachPending = true;
+	}
+	EXPECT_CALL(*m_pipelinePtr, addSegment(_, _)).Times(0);
+
+	auto inject = std::async(std::launch::async, [this] {
+		return m_source.processDataFragment(*m_pipelinePtr,
+			std::make_shared<std::vector<uint8_t>>(4, 0x00),
+			1.0, 1.0, 0.033, 0.0);
+	});
+	// Negative check: blocked while the attach is pending.
+	EXPECT_EQ(inject.wait_for(std::chrono::milliseconds(50)),
+		std::future_status::timeout);
+
+	m_source.unblockInjection(m_pipelinePtr, "test");
+
+	ASSERT_EQ(inject.wait_for(std::chrono::seconds(5)), std::future_status::ready);
+	EXPECT_TRUE(inject.get());
+	EXPECT_FALSE(m_source.isAttached());
 }
