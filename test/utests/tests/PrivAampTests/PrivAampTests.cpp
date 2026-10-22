@@ -451,6 +451,10 @@ public:
 	{
 		return mTuneMetricDataPending.load();
 	}
+	void SetFirstProgress(bool value)
+	{
+		mFirstProgress = value;
+	}
 	};
 	TestablePrivAamp *testp_aamp{nullptr};
 };
@@ -848,8 +852,9 @@ TEST_F(PrivAampPrivTests,SendTuneMetricsEventTest2)
 }
 
 /**
- * Verify that AAMP_EVENT_TUNE_TIME_METRICS is dispatched by MonitorProgress
- * strictly after the state-changed-to-PLAYING event.
+ * Verify that MonitorProgress dispatches AAMP_EVENT_PROGRESS strictly after the
+ * state-changed-to-PLAYING event and AAMP_EVENT_TUNE_TIME_METRICS strictly after
+ * AAMP_EVENT_PROGRESS.
  */
 TEST_F(PrivAampPrivTests, MonitorProgressTuneMetricsAfterPlayingStateChange)
 {
@@ -857,6 +862,10 @@ TEST_F(PrivAampPrivTests, MonitorProgressTuneMetricsAfterPlayingStateChange)
 	testp_aamp->SetTuneTimeMetricData("{\"metric\":\"test\"}");
 	testp_aamp->mDownloadsEnabled = true;
 	testp_aamp->mSinkPaused = false;
+	// Must be non-negative, otherwise MonitorProgress() suppresses AAMP_EVENT_PROGRESS.
+	testp_aamp->trickStartUTCMS = 1;
+	// Position is unchanged from mReportProgressPosn (0) on the first tick; as on a real tune, mFirstProgress bypasses that de-dupe.
+	testp_aamp->SetFirstProgress(true);
 
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
 
@@ -864,22 +873,57 @@ TEST_F(PrivAampPrivTests, MonitorProgressTuneMetricsAfterPlayingStateChange)
 	EXPECT_CALL(*g_mockAampEventManager, IsEventListenerAvailable(AAMP_EVENT_STATE_CHANGED))
 		.WillOnce(Return(true));
 
-	// Ordering assertion: STATE_CHANGED(PLAYING) must be observed before TUNE_TIME_METRICS.
-	// Any other SendEvent calls (e.g. AAMP_EVENT_PROGRESS) are absorbed by NiceMock.
+	// Ordering assertion: STATE_CHANGED(PLAYING) -> PROGRESS -> TUNE_TIME_METRICS.
+	// Any other SendEvent calls are absorbed by NiceMock.
 	{
 		testing::InSequence seq;
 		EXPECT_CALL(*g_mockAampEventManager,
 			SendEvent(AnEventOfType(AAMP_EVENT_STATE_CHANGED), AAMP_EVENT_SYNC_MODE)).Times(1);
+		EXPECT_CALL(*g_mockAampEventManager,
+			SendEvent(AnEventOfType(AAMP_EVENT_PROGRESS), _)).Times(1);
 		EXPECT_CALL(*g_mockAampEventManager,
 			SendEvent(AnEventOfType(AAMP_EVENT_TUNE_TIME_METRICS), AAMP_EVENT_ASYNC_MODE)).Times(1);
 	}
 
 	// Step 1: transition to PLAYING — fires AAMP_EVENT_STATE_CHANGED synchronously.
 	testp_aamp->SetState(eSTATE_PLAYING, true);
-	// Step 2: first progress tick — fires AAMP_EVENT_TUNE_TIME_METRICS via SendTuneMetricsEvent.
+	// Step 2: first progress tick — fires AAMP_EVENT_PROGRESS, then AAMP_EVENT_TUNE_TIME_METRICS.
 	testp_aamp->MonitorProgress(true, false);
 
 	// Data is consumed exactly once; subsequent MonitorProgress ticks are no-ops.
+	EXPECT_FALSE(testp_aamp->GetTuneMetricDataPending());
+}
+
+/**
+ * Verify tune metrics stay pending when MonitorProgress cannot emit progress.
+ */
+TEST_F(PrivAampPrivTests, MonitorProgressDefersTuneMetricsUntilProgressEvent)
+{
+	testp_aamp->SetTuneTimeMetricData("{\"metric\":\"test\"}");
+	testp_aamp->SetState(eSTATE_PLAYING, true);
+	testp_aamp->mDownloadsEnabled = true;
+	testp_aamp->SetFirstProgress(true);
+	// Negative trickStartUTCMS suppresses AAMP_EVENT_PROGRESS for this tick.
+	testp_aamp->trickStartUTCMS = -1;
+
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampEventManager,
+		SendEvent(AnEventOfType(AAMP_EVENT_TUNE_TIME_METRICS), AAMP_EVENT_ASYNC_MODE)).Times(0);
+
+	testp_aamp->MonitorProgress(true, false);
+	EXPECT_TRUE(testp_aamp->GetTuneMetricDataPending());
+
+	testing::Mock::VerifyAndClearExpectations(g_mockAampEventManager.get());
+	testp_aamp->trickStartUTCMS = 1;
+	{
+		testing::InSequence seq;
+		EXPECT_CALL(*g_mockAampEventManager,
+			SendEvent(AnEventOfType(AAMP_EVENT_PROGRESS), _)).Times(1);
+		EXPECT_CALL(*g_mockAampEventManager,
+			SendEvent(AnEventOfType(AAMP_EVENT_TUNE_TIME_METRICS), AAMP_EVENT_ASYNC_MODE)).Times(1);
+	}
+	testp_aamp->MonitorProgress(true, false);
+
 	EXPECT_FALSE(testp_aamp->GetTuneMetricDataPending());
 }
 

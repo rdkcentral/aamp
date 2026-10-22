@@ -1114,15 +1114,15 @@ TEST_F(AampConfigTests, DoCustomSettingRevertsDynamicUseDirectRialto)
 	AampConfig aampConfig;
 	aampConfig.Initialize();
 
-	EXPECT_EQ(aampConfig.GetConfigValue(eAAMPConfig_useDirectRialto), false);
+	const bool defaultValue = aampConfig.GetConfigValue(eAAMPConfig_useDirectRialto);
 
-	//Simulate an app attempting to enable it dynamically via InitAAMPConfig
-	EXPECT_TRUE(aampConfig.SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_useDirectRialto, true));
-	EXPECT_EQ(aampConfig.GetConfigValue(eAAMPConfig_useDirectRialto), true);
+	//Simulate an app attempting to flip it dynamically via InitAAMPConfig
+	EXPECT_TRUE(aampConfig.SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_useDirectRialto, !defaultValue));
+	EXPECT_EQ(aampConfig.GetConfigValue(eAAMPConfig_useDirectRialto), !defaultValue);
 
 	aampConfig.DoCustomSetting(AAMP_APPLICATION_SETTING);
 
-	EXPECT_EQ(aampConfig.GetConfigValue(eAAMPConfig_useDirectRialto), false) << "DoCustomSetting failed to revert a dynamic override of useDirectRialto";
+	EXPECT_EQ(aampConfig.GetConfigValue(eAAMPConfig_useDirectRialto), defaultValue) << "DoCustomSetting failed to revert a dynamic override of useDirectRialto";
 }
 
 /*
@@ -1149,6 +1149,8 @@ TEST_F(AampConfigTests, DoCustomSettingUseDirectRialtoForcesMp4Demux)
 	AampConfig aampConfig;
 	aampConfig.Initialize();
 
+	// Clear useMp4Demux explicitly so the test doesn't depend on its default
+	EXPECT_TRUE(aampConfig.SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_UseMp4Demux, false));
 	EXPECT_TRUE(aampConfig.SetConfigValue(AAMP_DEV_CFG_SETTING, eAAMPConfig_useDirectRialto, true));
 	EXPECT_EQ(aampConfig.IsConfigSet(eAAMPConfig_UseMp4Demux), false);
 
@@ -1166,6 +1168,8 @@ TEST_F(AampConfigTests, IsUsingRialto)
 	AampConfig aampConfig;
 	aampConfig.Initialize();
 
+	// Clear useDirectRialto explicitly so the test doesn't depend on its default
+	EXPECT_TRUE(aampConfig.SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_useDirectRialto, false));
 	EXPECT_EQ(aampConfig.IsConfigSet(eAAMPConfig_useRialtoSink), false);
 	EXPECT_EQ(aampConfig.IsConfigSet(eAAMPConfig_useDirectRialto), false);
 	EXPECT_EQ(aampConfig.IsUsingRialto(), false) << "IsUsingRialto should be false when both flags are unset";
