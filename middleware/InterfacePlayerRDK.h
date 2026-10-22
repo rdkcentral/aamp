@@ -36,6 +36,7 @@
 #include <any>
 #include "SocUtils.h"
 #include "GstUtils.h"
+#include "GstHandlerControl.h"
 
 class InterfacePlayerPriv;
 
@@ -162,8 +163,6 @@ class InterfacePlayerRDK
 		void *mDRMSessionManager;
 		std::map<InterfaceCB, std::function<void()>> callbackMap;
 		std::map<InterfaceCB, std::function<void(int)>> setupStreamCallbackMap;
-        
-		PlayerScheduler mScheduler;
 		InterfacePlayerRDK(bool isRialto = false);
 		~InterfacePlayerRDK();
 		InterfacePlayerPriv* GetPrivatePlayer();
@@ -769,7 +768,12 @@ class InterfacePlayerRDK
 		const MonitorAVState& GetMonitorAVState();
 
 	private:
+		/**
+		 * @brief Cancel any pending idle/timer callbacks scheduled against this instance, so they can't fire after destruction.
+		 */
+		void CancelPendingCallbacks();
 		InterfacePlayerPriv *interfacePlayerPriv;
+		GstHandlerControl idleCallbackControl; /**< guards IdleCallbackOnFirstFrame/OnEOS/IdleCallback/FirstVideoFrameDisplayed */
 };
 struct data
 {

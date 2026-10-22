@@ -189,6 +189,13 @@ TEST_F(AampEventManagerTest,AddEventListenerTest)
 	handler->AddEventListener(AAMP_EVENT_ALL_EVENTS,eventListener);
 }
 
+TEST_F(AampEventManagerTest,SkipAnomalyEventListenerRegistrationTest)
+{
+    handler->AddEventListener(AAMP_EVENT_REPORT_ANOMALY,eventListener);
+
+    EXPECT_FALSE(handler->IsSpecificEventListenerAvailable(AAMP_EVENT_REPORT_ANOMALY));
+}
+
 TEST_F(AampEventManagerTest, RemoveListenerForAllEventsTest1)
 {
 	//Act: call the removeEventlistener function

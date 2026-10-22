@@ -236,6 +236,18 @@ guint g_timeout_add(guint interval, GSourceFunc function, gpointer data)
 	return retval;
 }
 
+guint g_idle_add_full(gint priority, GSourceFunc function, gpointer data, GDestroyNotify notify)
+{
+	guint retval = 0;
+
+	if (g_mockGLib != nullptr)
+	{
+		retval = g_mockGLib->g_idle_add_full(priority, function, data, notify);
+	}
+
+	return retval;
+}
+
 gboolean g_source_remove(guint tag)
 {
 	gboolean retval = FALSE;
