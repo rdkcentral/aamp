@@ -175,7 +175,7 @@ protected:
 	std::deque<AsyncTaskObj> mTaskQueue;	/**< Queue for storing scheduled tasks */
 	std::mutex mQMutex;			/**< Mutex for accessing mTaskQueue */
 	std::condition_variable mQCond;		/**< To notify when a task is queued in mTaskQueue */
-	bool mSchedulerRunning;			/**< Flag denotes if scheduler thread is running */
+	std::atomic<bool> mSchedulerRunning;	/**< Flag denotes if scheduler thread is running; written under mQMutex, read lock-free by ScheduleTask */
 	std::thread mSchedulerThread;		/**< Scheduler thread */
 	std::mutex mExMutex;			/**< Execution mutex for synchronization */
 	std::unique_lock<std::mutex> mExLock;	/**< Lock to be used by SuspendScheduler and ResumeScheduler */
