@@ -373,7 +373,7 @@ Review of the 18 direct-rialto L1 suites (697 tests) against `.github/instructio
 | TS8 | Open | Gap | `AampRialtoTime.h` conversions have no test |
 | TS9 | Open | Gap | State machine: IDLE+Error and ERROR+Error not asserted as ignored |
 | TS10 | Open | Gap | Log-only branches of `attachOrUpdate()` and the ES-path attach abort |
-| TS11 | Open | Build | Split `AampRialtoPlayerTestCases.cpp` (8307 lines, 44 s per edit) into functional areas |
+| TS11 | Done | Build | Split `AampRialtoPlayerTestCases.cpp` (8307 lines, 44 s per edit) into functional areas |
 | TS12 | Won't do | Gap | Suites for `AampRialtoSourceCreators.cpp` and `RialtoSessionCreator.cpp` |
 | TS13 | Optional | Build | Split `AampRialtoVideoSourceTestCases.cpp` (2380 lines, 11 s per edit) |
 
@@ -638,6 +638,7 @@ Rialto behaviours confirmed or disproved, test gaps, design decisions).
 | 2026-10-21 | Triage | M9, M10, L9 and L12 were already Done; the open-looking entries were their rows in the Verification Notes table, whose second column is the question. |
 | 2026-10-21 | Test review | Recompiling AampRialtoPlayerTestCases.cpp takes 44 s, of which about 8 s is the includes and fixture (lines 1-667 compiled alone); AampRialtoPlayer.cpp itself takes 4 s. |
 | 2026-10-21 | Test review | No test in any suite reads back the encryption metadata annotateEncryption() puts on a segment (TS5). |
+| 2026-10-21 | TS11 | The 8 s fixture-only estimate was too low: compiling the fixture alone did not instantiate its in-class SetUp()/helpers. With those left in the header every area file still took about 45 s; moving the 20 fixture member functions out of line into AampRialtoPlayerTestFixture.cpp (compiled once) was needed. The remaining per-file cost is the gmock expectations in the tests themselves. |
 
 ## Verification Notes
 
@@ -724,3 +725,4 @@ Record each completed task: what was done, files changed, tests added or run.
 | 2026-10-21 | Test review | Test-suite review recorded as section 8: 3 mistakes (TS1-TS3), structure (TS4), 6 gaps (TS5-TS10), split proposal for the player suite (TS11), modules without a suite assessed (TS6-TS8 practical, TS12 not worth it), VideoSource split optional (TS13). Verdict: Mostly valid, but needs revision. | docs/rialto-integration/direct-rialto-code-review.md | n/a (review only; no code changed) |
 | 2026-10-21 | TS5 | New AampRialtoVideoSourceEncryptionTest fixture (DRM session 42) captures the segment passed to addSegment() and checks: CENC key id/IV/session/cipher and big-endian sub-sample decoding (16-bit clear, 32-bit encrypted), the single all-encrypted entry when there is no table, the CBCS 1:9 pattern, CBC1/CENS mapping with no pattern, and a clear sample on a DRM source carrying no metadata. | test/utests/tests/AampRialtoVideoSourceTests/AampRialtoVideoSourceTestCases.cpp | 5 new tests; mutation check (sub-sample byte order, CBCS pattern) made 2 fail, restored; VideoSource suite 73/73 |
 | 2026-10-21 | TS6 | New AampRialtoPipelineSessionTests suite (real session, mock factory/pipeline/capabilities/control backend, fake client): Loaded/FactoryUnavailable/CreateFailed/LoadFailed (pipeline kept), RUNNING wait before create (and create after a timed-out wait), an event sent during load() reaches the sink, ClearClientEventSink stops delivery, the destructor releases the pipeline before clearing the sink (event during release still delivered), capabilities created once, and a GetPipeline() snapshot outliving SetPipeline(nullptr). | test/utests/tests/AampRialtoPipelineSessionTests/ (new), test/utests/tests/CMakeLists.txt | 10 new tests; mutation check (sink after load, sink cleared before release) made 2 fail, restored; all 20 suites pass |
+| 2026-10-21 | TS11 | AampRialtoPlayerTestCases.cpp (8307 lines) split into AampRialtoPlayerTestFixture.{h,cpp} and eight area files: Configure (44 tests), Attach (23), Injection (55), Flush (56), Playback (55), Position (31), Drm (13), AvSettings (39). Sections moved verbatim; the codec helpers became inline. Rebuild after editing one area, compile + link: Drm 19 s, Flush 28 s, Injection 33 s, against about 48 s before. | test/utests/tests/AampRialtoPlayerTests/ | --gtest_list_tests identical before/after (316 names); Player 316/316; all 20 suites pass |

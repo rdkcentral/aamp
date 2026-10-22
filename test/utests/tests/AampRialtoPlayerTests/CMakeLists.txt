@@ -23,7 +23,15 @@ include(${CMAKE_CURRENT_LIST_DIR}/../CommonTestIncludes.cmake)
 
 set(TEST_SOURCES
 	AampRialtoPlayerTests.cpp
-	AampRialtoPlayerTestCases.cpp
+	AampRialtoPlayerTestFixture.cpp
+	AampRialtoPlayerConfigureTestCases.cpp
+	AampRialtoPlayerAttachTestCases.cpp
+	AampRialtoPlayerInjectionTestCases.cpp
+	AampRialtoPlayerFlushTestCases.cpp
+	AampRialtoPlayerPlaybackTestCases.cpp
+	AampRialtoPlayerPositionTestCases.cpp
+	AampRialtoPlayerDrmTestCases.cpp
+	AampRialtoPlayerAvSettingsTestCases.cpp
 )
 
 set(AAMP_SOURCES
