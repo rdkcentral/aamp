@@ -89,6 +89,15 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
 </MPD>
 )";
 
+namespace
+{
+// Both WaitForNextAdResolved predicates call DownloadsAreEnabled() while the ad is unresolved,
+// so the waiter thread's call tells a test the waiter is about to block. Set up in SetUp(),
+// because changing a mock's expectations while the fulfil-loop thread calls it is unsafe in gmock.
+thread_local bool tlsIsAdWaiter = false;
+std::atomic<bool> gAdWaiterPredEvaluated{false};
+}
+
 /**
  * @brief AdManagerMPDTests tests common base class.
  */
@@ -120,7 +129,13 @@ protected:
 
     g_mockPrivateInstanceAAMP = std::make_shared<StrictMock<MockPrivateInstanceAAMP>>();
 
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Return(true));
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Invoke([]() {
+      if (tlsIsAdWaiter)
+      {
+        gAdWaiterPredEvaluated = true;
+      }
+      return true;
+    }));
     mCdaiObj = new CDAIObjectMPD(mPrivateInstanceAAMP);
     mPrivateCDAIObjectMPD = mCdaiObj->GetPrivateCDAIObjectMPD();
     EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdObjThreadID.joinable());
@@ -5507,6 +5522,50 @@ TEST_F(AdManagerMPDTests, GetAdMPD_RedirectPropagation)
 }
 
 /**
+ * @brief Concurrent ad MPD downloads (fulfilment thread and playback thread)
+ *        must not overlap on the shared eCURLINSTANCE_DAI handle.
+ */
+TEST_F(AdManagerMPDTests, GetAdMPD_ConcurrentDownloadsAreSerialised)
+{
+  mManifest = kSharedTenSecondAdManifest;
+  std::atomic<int> inFlight{0};
+  std::atomic<int> maxInFlight{0};
+
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _))
+      .WillRepeatedly(WithArgs<0, 2, 3, 4>(Invoke([this, &inFlight, &maxInFlight](std::string remoteUrl, std::vector<uint8_t> &buffer,
+                                                       std::string &effectiveUrl, int &httpError) {
+        int now = ++inFlight;
+        int prevMax = maxInFlight.load();
+        while (prevMax < now && !maxInFlight.compare_exchange_weak(prevMax, now)) {}
+        std::this_thread::sleep_for(std::chrono::milliseconds(30));
+        if (remoteUrl == "http://origin.example.com/ad/manifest.mpd")
+        {
+          buffer.assign(mManifest, mManifest + strlen(mManifest));
+        }
+        effectiveUrl = remoteUrl;
+        httpError = 200;
+        --inFlight;
+        return true;
+      })));
+
+  auto download = [this]() {
+    std::string url = "http://origin.example.com/ad/manifest.mpd";
+    bool finalManifest = false;
+    int http_error = 0;
+    double downloadTime = 0.0;
+    AAMPCDAIError errorCode = eCDAI_ERROR_NONE;
+    MPD *mpd = mPrivateCDAIObjectMPD->GetAdMPD(url, finalManifest, http_error, downloadTime, errorCode, false);
+    delete mpd;
+  };
+  auto first = std::async(std::launch::async, download);
+  auto second = std::async(std::launch::async, download);
+  first.get();
+  second.get();
+
+  EXPECT_EQ(maxInFlight.load(), 1) << "DAI downloads overlapped on the shared curl handle";
+}
+
+/**
  * @brief SetAlternateContents takes mVodAllAdsResolvedMtx before notifying,
  *        so it blocks while a waiter holds that mutex.
  */
@@ -5527,49 +5586,96 @@ TEST_F(AdManagerMPDTests, VodCdai_SetAlternateContents_NotifiesUnderWaiterMutex)
   EXPECT_EQ(fut.wait_for(std::chrono::seconds(5)), std::future_status::ready);
 }
 
+namespace
+{
+struct WaitOutcome
+{
+  bool completed;
+  std::chrono::milliseconds elapsed;
+};
+
+void ArmAdWaiterProbe()
+{
+  gAdWaiterPredEvaluated = false;
+}
+
+bool WaitForFlag(const std::atomic<bool> &flag)
+{
+  const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+  while (!flag && std::chrono::steady_clock::now() < deadline)
+  {
+    std::this_thread::yield();
+  }
+  return flag;
+}
+}
+
 /**
- * @brief The stitcher wait pattern (mVodAllAdsResolvedMtx, then mDaiMtx inside
- *        the predicate) against concurrent resolution must neither deadlock
- *        nor time out.
+ * @brief Resolving the last VOD ad wakes a blocked stitcher well before its timeout.
  */
 TEST_F(AdManagerMPDTests, VodCdai_StitcherWait_ConcurrentResolve_NoStallNoDeadlock)
 {
-  for (int i = 0; i < 100; i++)
+  for (int i = 0; i < 50; i++)
   {
     const std::string breakId = "brk-" + std::to_string(i);
     mPrivateCDAIObjectMPD->RegisterVodAdBreak(VodAdBreakInfo{breakId, 10.0 * i, 5.0, "midroll"});
 
+    std::atomic<bool> predFalse{false};
     auto waiter = std::async(std::launch::async, [&]() {
+      const auto start = std::chrono::steady_clock::now();
       std::unique_lock<std::mutex> lk(mPrivateCDAIObjectMPD->mVodAllAdsResolvedMtx);
-      return mPrivateCDAIObjectMPD->mVodAllAdsResolvedCV.wait_for(
+      bool done = mPrivateCDAIObjectMPD->mVodAllAdsResolvedCV.wait_for(
           lk, std::chrono::seconds(5),
-          [&]{ return mPrivateCDAIObjectMPD->AreAllVodAdsResolved(); });
+          [&]{
+            bool resolved = mPrivateCDAIObjectMPD->AreAllVodAdsResolved();
+            if (!resolved)
+            {
+              predFalse = true;
+            }
+            return resolved;
+          });
+      return WaitOutcome{done, std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start)};
     });
+
+    ASSERT_TRUE(WaitForFlag(predFalse)) << "iteration " << i;
+    // The waiter keeps its mutex until it blocks, so once acquired it is blocked.
+    { std::lock_guard<std::mutex> lk(mPrivateCDAIObjectMPD->mVodAllAdsResolvedMtx); }
     mPrivateCDAIObjectMPD->SetAlternateContents(breakId, "ad-" + std::to_string(i), "https://cdn.example.com/ad.mpd", 0, 0);
 
     ASSERT_EQ(waiter.wait_for(std::chrono::seconds(10)), std::future_status::ready) << "iteration " << i;
-    ASSERT_TRUE(waiter.get()) << "stitcher wait timed out in iteration " << i;
+    const WaitOutcome outcome = waiter.get();
+    ASSERT_TRUE(outcome.completed) << "iteration " << i;
+    ASSERT_LT(outcome.elapsed.count(), 2000) << "stitcher was not woken promptly in iteration " << i;
   }
 }
 
 /**
- * @brief WaitForNextAdResolved(timeout, periodId) returns true once the ad
- *        break is resolved by another thread.
+ * @brief Resolving an ad break wakes a blocked WaitForNextAdResolved(timeout, periodId) well before its timeout.
  */
 TEST_F(AdManagerMPDTests, WaitForNextAdResolved_PeriodId_ReturnsWhenBreakResolved)
 {
   const std::string periodId = "brk-wait";
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, "", "", 0, 30000);
   ASSERT_TRUE(mPrivateCDAIObjectMPD->isAdBreakObjectExist(periodId));
+  ArmAdWaiterProbe();
 
   auto waiter = std::async(std::launch::async, [&]() {
-    return mPrivateCDAIObjectMPD->WaitForNextAdResolved(5000, periodId);
+    tlsIsAdWaiter = true;
+    const auto start = std::chrono::steady_clock::now();
+    bool completed = mPrivateCDAIObjectMPD->WaitForNextAdResolved(5000, periodId);
+    return WaitOutcome{completed, std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start)};
   });
+
+  ASSERT_TRUE(WaitForFlag(gAdWaiterPredEvaluated)) << "waiter predicate never evaluated unresolved";
+  // The waiter keeps mAdPlacementMtx until it blocks, so once acquired it is blocked.
+  { std::lock_guard<std::mutex> lk(mPrivateCDAIObjectMPD->mAdPlacementMtx); }
   // An empty reservation resolves the break and aborts the wait.
   mPrivateCDAIObjectMPD->NotifyReservationComplete(periodId);
 
   ASSERT_EQ(waiter.wait_for(std::chrono::seconds(10)), std::future_status::ready);
-  EXPECT_TRUE(waiter.get());
+  const WaitOutcome outcome = waiter.get();
+  EXPECT_TRUE(outcome.completed);
+  EXPECT_LT(outcome.elapsed.count(), 2000) << "waiter was not woken promptly";
 }
 
 /**
@@ -5590,8 +5696,7 @@ TEST_F(AdManagerMPDTests, WaitForNextAdResolved_PeriodId_TimeoutMarksInvalid_Unk
 }
 
 /**
- * @brief WaitForNextAdResolved(timeout) returns true once the current
- *        fulfilment ad is resolved by another thread holding mDaiMtx.
+ * @brief Resolving the current fulfilment ad wakes a blocked WaitForNextAdResolved(timeout) well before its timeout.
  */
 TEST_F(AdManagerMPDTests, WaitForNextAdResolved_ReturnsWhenAdResolved)
 {
@@ -5602,10 +5707,18 @@ TEST_F(AdManagerMPDTests, WaitForNextAdResolved_ReturnsWhenAdResolved)
   mPrivateCDAIObjectMPD->mAdBreaks.at(periodId).ads->emplace_back(
       AdNode{false, false, false, adId, "https://cdn.example.com/ad.mpd", 0, "", 0, nullptr});
   mPrivateCDAIObjectMPD->mAdFulfillObj = AdFulfillObj(periodId, adId, "https://cdn.example.com/ad.mpd");
+  ArmAdWaiterProbe();
 
   auto waiter = std::async(std::launch::async, [&]() {
-    return mPrivateCDAIObjectMPD->WaitForNextAdResolved(5000);
+    tlsIsAdWaiter = true;
+    const auto start = std::chrono::steady_clock::now();
+    bool completed = mPrivateCDAIObjectMPD->WaitForNextAdResolved(5000);
+    return WaitOutcome{completed, std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start)};
   });
+
+  ASSERT_TRUE(WaitForFlag(gAdWaiterPredEvaluated)) << "waiter predicate never evaluated unresolved";
+  // The waiter keeps mAdPlacementMtx until it blocks, so once acquired it is blocked.
+  { std::lock_guard<std::mutex> lk(mPrivateCDAIObjectMPD->mAdPlacementMtx); }
   {
     std::lock_guard<std::recursive_mutex> lock(mPrivateCDAIObjectMPD->mDaiMtx);
     mPrivateCDAIObjectMPD->mAdBreaks.at(periodId).ads->at(0).resolved = true;
@@ -5613,5 +5726,7 @@ TEST_F(AdManagerMPDTests, WaitForNextAdResolved_ReturnsWhenAdResolved)
   mPrivateCDAIObjectMPD->AbortWaitForNextAdResolved();
 
   ASSERT_EQ(waiter.wait_for(std::chrono::seconds(10)), std::future_status::ready);
-  EXPECT_TRUE(waiter.get());
+  const WaitOutcome outcome = waiter.get();
+  EXPECT_TRUE(outcome.completed);
+  EXPECT_LT(outcome.elapsed.count(), 2000) << "waiter was not woken promptly";
 }

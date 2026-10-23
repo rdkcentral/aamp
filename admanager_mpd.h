@@ -476,6 +476,7 @@ public:
 	std::condition_variable                        mVodAllAdsResolvedCV;  /**< Signalled when all registered VOD ads are resolved/failed; manifest thread waits on this */
 	AampMPDParseHelperPtr                          mBaseMPDParseHelper;   /**< Latest base-stream MPD parse helper; used by FulFillAdObject to call PlaceAds immediately for static manifest */
 	std::mutex                                     mBaseMPDHelperMtx;     /**< Mutex protecting mBaseMPDParseHelper */
+	std::mutex                                     mDaiDownloadMtx;       /**< Serialises GetFile on eCURLINSTANCE_DAI; taken only in GetDaiFile, never held while taking mDaiMtx or a waiter mutex */
 
 	/**
 	 * @fn PrivateCDAIObjectMPD
@@ -789,6 +790,19 @@ public:
 	 *        Caller must NOT hold mDaiMtx (lock order is mVodAllAdsResolvedMtx then mDaiMtx).
 	 */
 	void NotifyVodAllAdsResolved();
+
+	/**
+	 * @brief GetFile on the shared DAI curl handle, serialised against other DAI downloads.
+	 * @param[in] remoteUrl URL to download
+	 * @param[in] mediaType Media type of the download
+	 * @param[out] buffer Downloaded data
+	 * @param[out] effectiveUrl URL after redirects
+	 * @param[out] http_error HTTP/curl error code
+	 * @param[out] downloadTimeS Download time in seconds
+	 * @return true on success
+	 */
+	bool GetDaiFile(std::string remoteUrl, AampMediaType mediaType, std::vector<uint8_t> &buffer,
+					std::string &effectiveUrl, int &http_error, double *downloadTimeS);
 
 	/**
 	 * @brief Get the ad duration of remaining ads to be placed in an adbreak

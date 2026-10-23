@@ -1015,7 +1015,7 @@ MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifes
 	std::vector<uint8_t> manifest;
 	bool gotManifest = false;
 	std::string effectiveUrl;
-	gotManifest = mAamp->GetFile(manifestUrl, eMEDIATYPE_MANIFEST, manifest, effectiveUrl, http_error, &downloadTime, NULL, eCURLINSTANCE_DAI);
+	gotManifest = GetDaiFile(manifestUrl, eMEDIATYPE_MANIFEST, manifest, effectiveUrl, http_error, &downloadTime);
 	if (gotManifest)
 	{
 		AAMPLOG_TRACE("PrivateCDAIObjectMPD:: manifest download success");
@@ -1072,7 +1072,7 @@ MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifes
 
 			std::vector<uint8_t> fogManifest;
 			http_error = 0;
-			mAamp->GetFile(effectiveUrl, eMEDIATYPE_MANIFEST, fogManifest, effectiveUrl, http_error, &downloadTime, NULL, eCURLINSTANCE_DAI);
+			GetDaiFile(effectiveUrl, eMEDIATYPE_MANIFEST, fogManifest, effectiveUrl, http_error, &downloadTime);
 			if(200 == http_error || 204 == http_error)
 			{
 				manifestUrl = std::move(effectiveUrl);
@@ -1328,11 +1328,16 @@ void PrivateCDAIObjectMPD::NotifyIfAllVodAdsResolved(const std::string& reservat
 
 void PrivateCDAIObjectMPD::NotifyVodAllAdsResolved()
 {
-	// Taking the waiter's mutex orders this notify after the waiter's predicate check or its block.
-	{
-		std::lock_guard<std::mutex> lock(mVodAllAdsResolvedMtx);
-	}
+	std::lock_guard<std::mutex> lock(mVodAllAdsResolvedMtx);
 	mVodAllAdsResolvedCV.notify_all();
+}
+
+bool PrivateCDAIObjectMPD::GetDaiFile(std::string remoteUrl, AampMediaType mediaType, std::vector<uint8_t> &buffer,
+									  std::string &effectiveUrl, int &http_error, double *downloadTimeS)
+{
+	// remoteUrl is by value: callers pass the same string as effectiveUrl.
+	std::lock_guard<std::mutex> lock(mDaiDownloadMtx);
+	return mAamp->GetFile(std::move(remoteUrl), mediaType, buffer, effectiveUrl, http_error, downloadTimeS, NULL, eCURLINSTANCE_DAI);
 }
 
 /**
@@ -1399,7 +1404,7 @@ bool PrivateCDAIObjectMPD::FulFillAdObject()
 	bool finalManifest = false;
 	int http_error = 0;
 	double downloadTime = 0;
-	// The download is not guarded by mDaiMtx, so waiters that read ad state under it are not stalled for its duration.
+	// Downloads are serialised by mDaiDownloadMtx, not mDaiMtx, so waiters that read ad state under mDaiMtx are not stalled by them.
 	MPD *ad = GetAdMPD(mAdFulfillObj.url, finalManifest, http_error, downloadTime, adErrorCode, true);
 	std::unique_lock<std::recursive_mutex> lock( mDaiMtx );
 	if(ad)
@@ -2195,7 +2200,7 @@ bool PrivateCDAIObjectMPD::FetchAndCacheInitHeaders(std::string& manifestStr, st
 						bool gotInit = mAamp->getAampCacheHandler()->RetrieveFromInitFragmentCache(fragmentUrl, adInit, fragmentUrl);
 						if(!gotInit)
 						{
-							gotInit = mAamp->GetFile(fragmentUrl, actualMediaType, adInit, fragmentUrl, segment_http_error, &segment_downloadTime, nullptr, eCURLINSTANCE_DAI);
+							gotInit = GetDaiFile(fragmentUrl, actualMediaType, adInit, fragmentUrl, segment_http_error, &segment_downloadTime);
 							mAamp->UpdateVideoEndMetrics(actualMediaType, fragmentDescriptor->Bandwidth, segment_http_error, fragmentUrl, 0, segment_downloadTime);
 						}
 						if (gotInit)
