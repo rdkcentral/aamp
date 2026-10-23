@@ -126,11 +126,13 @@ maxDownloadAttempt = 1 + retryCount
 
 ### Curl / Timeout Error Handling
 
+A download is a retry candidate when curl reports any of: `CURLE_COULDNT_CONNECT`, `CURLE_COULDNT_RESOLVE_HOST`, `CURLE_SEND_ERROR`, `CURLE_RECV_ERROR` (56, for example a connection reset), a timeout (`IsCurlTimeoutFailure()`), or a stall/start-timeout abort (other than low bandwidth). Retries are only attempted while a stream abstraction exists; a request made before it is created, such as the format-sniffing request for a URL with no recognised extension, is not retried. There is no wait before a curl-error retry.
+
 | Condition | Media type | Retry behaviour |
 |---|---|---|
-| `CURLE_COULDNT_CONNECT` or `IsCurlTimeoutFailure()` | Manifest, playlist, audio | Always retry (`loopAgain = true`) |
-| `CURLE_COULDNT_CONNECT` or `IsCurlTimeoutFailure()` | Init fragment | Retry; extends `maxDownloadAttempt` while `bufferDuration × 1000 > curlDownloadTimeoutMS` and still within the `maxInitDownloadTimeMS` window |
-| `CURLE_COULDNT_CONNECT` or `IsCurlTimeoutFailure()` | Video/audio segment | Retry only if `bufferDuration > curlDownloadTimeout + fragmentDuration`; if video has partial data and bandwidth is far below current ABR profile, retry is suppressed |
+| Any retry candidate above | Manifest, video/audio playlist, audio segment | Always retry (`loopAgain = true`) |
+| Any retry candidate above | Init fragment | Retry; extends `maxDownloadAttempt` while `bufferDuration × 1000 > curlDownloadTimeoutMS` and still within the `maxInitDownloadTimeMS` window |
+| Any retry candidate above | All other types (video, subtitle and I-frame segments; subtitle and I-frame playlists) | Retry only if the buffered duration is unknown or 0, or `bufferDuration > curlDownloadTimeout + fragmentDuration`; for video, if the download has partial data and bandwidth is far below the current ABR profile, retry is suppressed |
 | `eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT` | Any | **No retry** — caller drives ABR rampdown |
 | `CURLE_FILE_COULDNT_READ_FILE` | Any | Translated to HTTP `404`; no retry |
 
@@ -140,14 +142,18 @@ maxDownloadAttempt = 1 + retryCount
 
 ## Retry Logic: `AampCurlDownloader` Path (DASH Background Manifest)
 
-Used by `AampMPDDownloader` for background DASH MPD polling. Simpler loop in `AampCurlDownloader::Download()`:
+Used by `AampMPDDownloader` for background DASH MPD polling. Simpler loop in `AampCurlDownloader::Download()`.
+
+The retry count (`iDownloadRetryCount`) defaults to **0**. Only the manifest download config (`prepareManifestDownloadConfig()`) sets it to `DEFAULT_DOWNLOAD_RETRY_COUNT` = **1**. Other users of `AampCurlDownloader` that do not set it, such as the VOD ad MPD fetch, the JSON-RPC post and the TSB requests, make a single attempt.
 
 | Error class | Max retries | Retry wait |
 |---|---|---|
 | HTTP `408` | 1 (forced minimum) | `iDownloadRetryWaitMs` (**50 ms** — `_downloadConfig()` constructor default; no caller currently overrides this field) |
 | HTTP `502` | `iDownload502RetryCount` — **10** for manifests (`MANIFEST_DOWNLOAD_502_RETRY_COUNT`), **1** for fragments (`DEFAULT_FRAGMENT_DOWNLOAD_502_RETRY_COUNT`) | `MIN_DELAY_BETWEEN_MANIFEST_UPDATE_FOR_502_MS` = **1,000 ms** |
-| Other HTTP `5xx` | `iDownloadRetryCount` = `DEFAULT_DOWNLOAD_RETRY_COUNT` = **1** | `iDownloadRetryWaitMs` (**50 ms** — `_downloadConfig()` constructor default; no caller currently overrides this field) |
-| `CURLE_COULDNT_CONNECT` or timeout | `numRetriesAllowed` (same as above) | — |
+| Other HTTP `5xx` | `iDownloadRetryCount` | `iDownloadRetryWaitMs` (**50 ms** — `_downloadConfig()` constructor default; no caller currently overrides this field) |
+| `CURLE_COULDNT_CONNECT`, `CURLE_COULDNT_RESOLVE_HOST`, `CURLE_SEND_ERROR`, `CURLE_RECV_ERROR` or timeout | `iDownloadRetryCount` | None |
+
+Before any retry (HTTP `5xx` or curl error) the partial body, response headers and byte counter are cleared, so the retry starts from an empty response.
 
 The much higher 502 retry count for manifests (10 vs 1) reflects that manifest `502` errors are typically transient CDN propagation issues that resolve within seconds.
 
