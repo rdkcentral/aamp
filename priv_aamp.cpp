@@ -1993,7 +1993,19 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 PrivateInstanceAAMP::~PrivateInstanceAAMP()
 {
 	mAampTrackWorkerManager.reset();
-	StopPausePositionMonitoring("AAMP destroyed");
+	// StopPausePositionMonitoring() can throw std::system_error when its internal
+	// mutex is in an invalid state during process teardown (see the function body for
+	// details).  Destructors are implicitly noexcept, so an uncaught exception would
+	// call std::terminate() and abort the process.  The try-catch here is
+	// defence-in-depth: the primary fix lives inside StopPausePositionMonitoring itself.
+	try
+	{
+		StopPausePositionMonitoring("AAMP destroyed");
+	}
+	catch (...)
+	{
+		AAMPLOG_WARN("StopPausePositionMonitoring threw during AAMP destruction (ignored)");
+	}
 	PlayerCCManager::GetInstance()->Release(mCCId);
 	mCCId = 0;
 	{
@@ -2294,17 +2306,33 @@ void PrivateInstanceAAMP::StopPausePositionMonitoring(std::string reason)
 {
 	if (mPausePositionMonitoringThreadID.joinable())
 	{
-		std::unique_lock<std::mutex> lock(mPausePositionMonitorMutex);
-
-		if (mPausePositionMilliseconds != AAMP_PAUSE_POSITION_INVALID_POSITION)
+		try
 		{
-			long long positionMs = GetPositionMilliseconds();
-			AAMPLOG_WARN("PLAYER[%d] Stop position monitoring, reason: '%s', current position %lldms, requested position %lldms, rate %f",
-						mPlayerId, reason.c_str(), positionMs, mPausePositionMilliseconds.load(), rate);
-			mPausePositionMilliseconds = AAMP_PAUSE_POSITION_INVALID_POSITION;
-			mPausePositionMonitorCV.notify_one();
+			std::unique_lock<std::mutex> lock(mPausePositionMonitorMutex);
+
+			if (mPausePositionMilliseconds != AAMP_PAUSE_POSITION_INVALID_POSITION)
+			{
+				long long positionMs = GetPositionMilliseconds();
+				AAMPLOG_WARN("PLAYER[%d] Stop position monitoring, reason: '%s', current position %lldms, requested position %lldms, rate %f",
+							mPlayerId, reason.c_str(), positionMs, mPausePositionMilliseconds.load(), rate);
+				mPausePositionMilliseconds = AAMP_PAUSE_POSITION_INVALID_POSITION;
+				mPausePositionMonitorCV.notify_one();
+			}
+			lock.unlock();
 		}
-		lock.unlock();
+		catch (const std::system_error& e)
+		{
+			// Mutex lock failed (e.g. "Invalid argument") during process teardown.  This
+			// happens when the monitoring thread races against _aamp_term(): Stop() already
+			// joined the thread on one path, but a new monitoring cycle started in between,
+			// leaving the thread joinable again with internal state partially torn down.
+			// We cannot signal the CV, so detach instead of blocking on join().  The thread
+			// will exit shortly as the process winds down.
+			AAMPLOG_WARN("PLAYER[%d] StopPausePositionMonitoring mutex error during teardown (%s) — detaching thread",
+						mPlayerId, e.what());
+			mPausePositionMonitoringThreadID.detach();
+			return;
+		}
 		mPausePositionMonitoringThreadID.join();
 		AAMPLOG_TRACE("joined PositionMonitor");
 	}
