@@ -2081,6 +2081,7 @@ Example:
     - FALSE -> Video buffer has run dry post-tune and playback is stalled (underflow)
     - TRUE -> Rebuffering is complete and video is again streaming (healthy buffering)
 - Note: bufferingChanged will be followed by a general playbackStateChanged event.
+- Live DASH: if the buffer runs dry while the manifest refresh is failing, bufferingChanged (FALSE) is sent as usual. The manifest error (AAMP_TUNE_MANIFEST_REQ_FAILED, 30/1) follows only if the refresh keeps failing for 5 seconds; if the refresh recovers sooner, playback resumes and no error is sent.
 
 ---
 
