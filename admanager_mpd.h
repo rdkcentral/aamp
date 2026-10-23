@@ -763,8 +763,32 @@ public:
 
 	/**
 	 * @fn AbortWaitForNextAdResolved
+	 *     Caller must NOT hold mDaiMtx (lock order is mAdPlacementMtx then mDaiMtx).
 	 */
 	void AbortWaitForNextAdResolved();
+
+	/**
+	 * @brief Read an ad's resolved state under mDaiMtx.
+	 * @param[in] periodId Ad break id
+	 * @param[in] adId Ad id
+	 * @param[out] resolved Set to the ad's resolved flag when found
+	 * @return true if the ad exists
+	 */
+	bool TryGetAdResolved(const std::string &periodId, const std::string &adId, bool &resolved);
+
+	/**
+	 * @brief Read an ad break's resolved state under mDaiMtx.
+	 * @param[in] periodId Ad break id
+	 * @param[out] resolved Set to the ad break's resolved flag when found
+	 * @return true if the ad break exists
+	 */
+	bool TryGetAdBreakResolved(const std::string &periodId, bool &resolved);
+
+	/**
+	 * @brief Wake the VOD stitcher waiting on mVodAllAdsResolvedCV.
+	 *        Caller must NOT hold mDaiMtx (lock order is mVodAllAdsResolvedMtx then mDaiMtx).
+	 */
+	void NotifyVodAllAdsResolved();
 
 	/**
 	 * @brief Get the ad duration of remaining ads to be placed in an adbreak
@@ -836,6 +860,13 @@ public:
 	 * @param[in] reservationId Reservation/ad break ID
 	 */
 	void PlaceAdsForStaticManifest(const std::string& reservationId);
+
+	/**
+	 * @brief Wake the VOD stitcher if every registered VOD ad is now resolved/failed.
+	 *        Caller must NOT hold mDaiMtx.
+	 * @param[in] reservationId Reservation/ad break ID, for logging
+	 */
+	void NotifyIfAllVodAdsResolved(const std::string& reservationId);
 
 	/**
 	 * @brief Check whether every non-cancelled registered VOD break has a resolved or failed ad.

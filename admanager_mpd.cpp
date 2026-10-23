@@ -1314,14 +1314,25 @@ void PrivateCDAIObjectMPD::PlaceAdsForStaticManifest(const std::string& reservat
 	{
 		AAMPLOG_WARN("[CDAI] deferred placement for reservation [%s] skipped: base MPD helper unavailable", reservationId.c_str());
 	}
+}
 
-	// Signal the manifest thread if all registered VOD ads are now resolved/failed.
+void PrivateCDAIObjectMPD::NotifyIfAllVodAdsResolved(const std::string& reservationId)
+{
 	if (AreAllVodAdsResolved())
 	{
 		AAMPLOG_INFO("[CDAI-VOD] All VOD ads resolved after reservation [%s] — signalling manifest thread",
 			reservationId.c_str());
-		mVodAllAdsResolvedCV.notify_all();
+		NotifyVodAllAdsResolved();
 	}
+}
+
+void PrivateCDAIObjectMPD::NotifyVodAllAdsResolved()
+{
+	// Taking the waiter's mutex orders this notify after the waiter's predicate check or its block.
+	{
+		std::lock_guard<std::mutex> lock(mVodAllAdsResolvedMtx);
+	}
+	mVodAllAdsResolvedCV.notify_all();
 }
 
 /**
@@ -1386,10 +1397,11 @@ bool PrivateCDAIObjectMPD::FulFillAdObject()
 	uint64_t startMS = 0;
 	uint32_t durationMs = 0;
 	bool finalManifest = false;
-	std::unique_lock<std::recursive_mutex> lock( mDaiMtx );
 	int http_error = 0;
 	double downloadTime = 0;
+	// The download is not guarded by mDaiMtx, so waiters that read ad state under it are not stalled for its duration.
 	MPD *ad = GetAdMPD(mAdFulfillObj.url, finalManifest, http_error, downloadTime, adErrorCode, true);
+	std::unique_lock<std::recursive_mutex> lock( mDaiMtx );
 	if(ad)
 	{
 		adMPDParseHelper.Initialize(ad);
@@ -1542,7 +1554,12 @@ bool PrivateCDAIObjectMPD::FulFillAdObject()
 		PlaceAdsForStaticManifest(placementPeriodId);
 	}
 
-	// Send the resolved event
+	// Waiters lock their own mutex and then mDaiMtx, so notify without holding mDaiMtx.
+	lock.unlock();
+	if (shouldTriggerPlacement)
+	{
+		NotifyIfAllVodAdsResolved(placementPeriodId);
+	}
 	if(ret)
 	{
 		// Send the resolved event to the player
@@ -1624,13 +1641,14 @@ void PrivateCDAIObjectMPD::SetAlternateContents(const std::string &periodId, con
 		if (AreAllVodAdsResolved())
 		{
 			AAMPLOG_INFO("[CDAI-VOD] All VOD ads queued — signalling stitcher");
-			mVodAllAdsResolvedCV.notify_all();
+			NotifyVodAllAdsResolved();
 		}
 	}
 	else
 	{
 		bool adCached = false;
 		AAMPCDAIError adErrorCode = eCDAI_ERROR_UNKNOWN;
+		std::unique_lock<std::recursive_mutex> lock(mDaiMtx);
 		// VOD CDAI: create the AdBreakObject on the first SetAlternateContents
 		// call for a registered VOD break (live CDAI creates it via a prior
 		// placeholder SetAlternateContents("","") call; VOD skips that step).
@@ -1669,6 +1687,7 @@ void PrivateCDAIObjectMPD::SetAlternateContents(const std::string &periodId, con
 				adCached = true;
 			}
 		}
+		lock.unlock();
 		// Reject the promise as ad couldn't be resolved
 		if(!adCached)
 		{
@@ -1907,6 +1926,38 @@ void PrivateCDAIObjectMPD::CacheAdData(const std::string &periodId, const std::s
 	}
 }
 
+bool PrivateCDAIObjectMPD::TryGetAdResolved(const std::string &periodId, const std::string &adId, bool &resolved)
+{
+	std::lock_guard<std::recursive_mutex> lock(mDaiMtx);
+	auto brkIt = mAdBreaks.find(periodId);
+	if (brkIt == mAdBreaks.end() || !brkIt->second.ads)
+	{
+		return false;
+	}
+	const auto &ads = *brkIt->second.ads;
+	auto it = std::find_if(ads.begin(), ads.end(), [&adId](const AdNode &node) {
+		return node.adId == adId;
+	});
+	if (it == ads.end())
+	{
+		return false;
+	}
+	resolved = it->resolved;
+	return true;
+}
+
+bool PrivateCDAIObjectMPD::TryGetAdBreakResolved(const std::string &periodId, bool &resolved)
+{
+	std::lock_guard<std::recursive_mutex> lock(mDaiMtx);
+	auto brkIt = mAdBreaks.find(periodId);
+	if (brkIt == mAdBreaks.end())
+	{
+		return false;
+	}
+	resolved = brkIt->second.resolved;
+	return true;
+}
+
 /**
  * @fn WaitForNextAdResolved for ad fulfillment
  * @brief Wait for the next ad placement to complete with a timeout
@@ -1917,26 +1968,23 @@ bool PrivateCDAIObjectMPD::WaitForNextAdResolved(int timeoutMs)
 {
 	std::unique_lock<std::mutex> lock(mAdPlacementMtx);
 	bool completed = false;
-	if (!mAdFulfillObj.periodId.empty() && isAdBreakObjectExist(mAdFulfillObj.periodId))
+	const std::string periodId = mAdFulfillObj.periodId;
+	const std::string adId = mAdFulfillObj.adId;
+	bool resolved = false;
+	if (!periodId.empty() && TryGetAdResolved(periodId, adId, resolved))
 	{
-		auto& ads = this->mAdBreaks[mAdFulfillObj.periodId].ads;
-		auto adId = mAdFulfillObj.adId;
-		auto it = std::find_if(ads->begin(), ads->end(), [adId](const AdNode& node) {
-			return node.adId == std::move(adId);
-		});
-		if (it != ads->end())
+		if (!resolved)
 		{
-			if (!it->resolved)
-			{
-				AAMPLOG_INFO("Waiting for next ad placement to complete with timeout %d ms.", timeoutMs);
-				completed = mAdPlacementCV.wait_for(lock, std::chrono::milliseconds(timeoutMs), [this, &it] {
-					return it->resolved || !mAamp->DownloadsAreEnabled();
-				});
-			}
-			else
-			{
-				completed = true;
-			}
+			AAMPLOG_INFO("Waiting for next ad placement to complete with timeout %d ms.", timeoutMs);
+			completed = mAdPlacementCV.wait_for(lock, std::chrono::milliseconds(timeoutMs), [this, &periodId, &adId] {
+				bool adResolved = false;
+				TryGetAdResolved(periodId, adId, adResolved);
+				return adResolved || !mAamp->DownloadsAreEnabled();
+			});
+		}
+		else
+		{
+			completed = true;
 		}
 	}
 	AAMPLOG_INFO("Received notification for next ad placement.");
@@ -1954,10 +2002,13 @@ bool PrivateCDAIObjectMPD::WaitForNextAdResolved(int timeoutMs, std::string peri
 	std::unique_lock<std::mutex> lock(mAdPlacementMtx);
 	bool completed = false;
 	AAMPLOG_INFO("Attempting to wait for next ad placement in %s to complete with timeout %d ms.", periodId.c_str(), timeoutMs);
-	if (isAdBreakObjectExist(periodId))
+	bool resolved = false;
+	if (TryGetAdBreakResolved(periodId, resolved))
 	{
-		if (mAdPlacementCV.wait_for(lock, std::chrono::milliseconds(timeoutMs), [this, periodId] {
-			return !mAamp->DownloadsAreEnabled() || mAdBreaks[periodId].resolved;
+		if (mAdPlacementCV.wait_for(lock, std::chrono::milliseconds(timeoutMs), [this, &periodId] {
+			bool brkResolved = false;
+			TryGetAdBreakResolved(periodId, brkResolved);
+			return !mAamp->DownloadsAreEnabled() || brkResolved;
 		}))
 		{
 			completed = true;
@@ -1966,7 +2017,12 @@ bool PrivateCDAIObjectMPD::WaitForNextAdResolved(int timeoutMs, std::string peri
 		{
 			AAMPLOG_INFO("Timed out waiting for next ad placement.");
 			// Mark the ad break as invalid
-			mAdBreaks[periodId].invalid = true;
+			std::lock_guard<std::recursive_mutex> daiLock(mDaiMtx);
+			auto brkIt = mAdBreaks.find(periodId);
+			if (brkIt != mAdBreaks.end())
+			{
+				brkIt->second.invalid = true;
+			}
 		}
 	}
 	else
@@ -2160,20 +2216,23 @@ bool PrivateCDAIObjectMPD::FetchAndCacheInitHeaders(std::string& manifestStr, st
 					}
 					if (!initFragmentFetched)
 					{
-						if (isAdBreakObjectExist(mAdFulfillObj.periodId))
 						{
-							auto& adbreakObj = mAdBreaks[mAdFulfillObj.periodId];
-							if (adbreakObj.ads)
+							std::lock_guard<std::recursive_mutex> lock(mDaiMtx);
+							if (isAdBreakObjectExist(mAdFulfillObj.periodId))
 							{
-								for (auto& node : *adbreakObj.ads)
+								auto& adbreakObj = mAdBreaks[mAdFulfillObj.periodId];
+								if (adbreakObj.ads)
 								{
-									if (node.adId == mAdFulfillObj.adId)
+									for (auto& node : *adbreakObj.ads)
 									{
-										AAMPLOG_ERR("Failed to fetch init fragment for %s adId:%s periodId:%s", GetMediaTypeName(track), mAdFulfillObj.adId.c_str(), mAdFulfillObj.periodId.c_str());
-										node.resolved = true;
-										node.invalid = true;
-										errorCode = eCDAI_ERROR_INVALID_MEDIA;
-										ret = false;
+										if (node.adId == mAdFulfillObj.adId)
+										{
+											AAMPLOG_ERR("Failed to fetch init fragment for %s adId:%s periodId:%s", GetMediaTypeName(track), mAdFulfillObj.adId.c_str(), mAdFulfillObj.periodId.c_str());
+											node.resolved = true;
+											node.invalid = true;
+											errorCode = eCDAI_ERROR_INVALID_MEDIA;
+											ret = false;
+										}
 									}
 								}
 							}
@@ -2197,37 +2256,52 @@ bool PrivateCDAIObjectMPD::FetchAndCacheInitHeaders(std::string& manifestStr, st
  */
 void PrivateCDAIObjectMPD::NotifyReservationComplete(const std::string& reservationId)
 {
-	std::lock_guard<std::recursive_mutex> lock(mDaiMtx);
-	if (isAdBreakObjectExist(reservationId))
+	bool abortWait = false;
+	bool placed = false;
 	{
-		AdBreakObject& abObj = mAdBreaks[reservationId];
-		abObj.resolved = true;
-		abObj.reservationComplete = true;
-		AAMPLOG_INFO("[CDAI] Marked reservation complete for adBreakId: %s", reservationId.c_str());
-		//We are Aborting the wait when the AdBreakObject is empty. Not for the each ad to be resolved.
-		if (!abObj.ads || abObj.ads->empty())
+		std::lock_guard<std::recursive_mutex> lock(mDaiMtx);
+		if (isAdBreakObjectExist(reservationId))
 		{
-			AAMPLOG_INFO("[CDAI] Ad break %s is empty. No ads to play. Marking reservation invalid", reservationId.c_str());
-			abObj.invalid = true;
-			AbortWaitForNextAdResolved();
-		}
-		else
-		{
-			// For static manifest content, trigger PlaceAds only after all ads in the
-			// reservation are resolved. This avoids a race where ad duration isn't known yet.
-			if (AreAllAdsResolved(reservationId))
+			AdBreakObject& abObj = mAdBreaks[reservationId];
+			abObj.resolved = true;
+			abObj.reservationComplete = true;
+			AAMPLOG_INFO("[CDAI] Marked reservation complete for adBreakId: %s", reservationId.c_str());
+			//We are Aborting the wait when the AdBreakObject is empty. Not for the each ad to be resolved.
+			if (!abObj.ads || abObj.ads->empty())
 			{
-				PlaceAdsForStaticManifest(reservationId);
+				AAMPLOG_INFO("[CDAI] Ad break %s is empty. No ads to play. Marking reservation invalid", reservationId.c_str());
+				abObj.invalid = true;
+				abortWait = true;
 			}
 			else
 			{
-				AAMPLOG_INFO("[CDAI] Reservation [%s] marked complete; waiting for all ads to resolve before PlaceAds", reservationId.c_str());
+				// For static manifest content, trigger PlaceAds only after all ads in the
+				// reservation are resolved. This avoids a race where ad duration isn't known yet.
+				if (AreAllAdsResolved(reservationId))
+				{
+					PlaceAdsForStaticManifest(reservationId);
+					placed = true;
+				}
+				else
+				{
+					AAMPLOG_INFO("[CDAI] Reservation [%s] marked complete; waiting for all ads to resolve before PlaceAds", reservationId.c_str());
+				}
 			}
 		}
+		else
+		{
+			AAMPLOG_WARN("[CDAI] NotifyReservationComplete: adBreakId %s not found", reservationId.c_str());
+		}
 	}
-	else
+
+	// Waiters lock their own mutex and then mDaiMtx, so notify without holding mDaiMtx.
+	if (abortWait)
 	{
-		AAMPLOG_WARN("[CDAI] NotifyReservationComplete: adBreakId %s not found", reservationId.c_str());
+		AbortWaitForNextAdResolved();
+	}
+	if (placed)
+	{
+		NotifyIfAllVodAdsResolved(reservationId);
 	}
 }
 
