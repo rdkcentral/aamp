@@ -22,6 +22,7 @@
 #include <atomic>
 #include <chrono>
 #include <future>
+#include <functional>
 #include <limits>
 #include <memory>
 #include <thread>
@@ -5522,50 +5523,6 @@ TEST_F(AdManagerMPDTests, GetAdMPD_RedirectPropagation)
 }
 
 /**
- * @brief Concurrent ad MPD downloads (fulfilment thread and playback thread)
- *        must not overlap on the shared eCURLINSTANCE_DAI handle.
- */
-TEST_F(AdManagerMPDTests, GetAdMPD_ConcurrentDownloadsAreSerialised)
-{
-  mManifest = kSharedTenSecondAdManifest;
-  std::atomic<int> inFlight{0};
-  std::atomic<int> maxInFlight{0};
-
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _))
-      .WillRepeatedly(WithArgs<0, 2, 3, 4>(Invoke([this, &inFlight, &maxInFlight](std::string remoteUrl, std::vector<uint8_t> &buffer,
-                                                       std::string &effectiveUrl, int &httpError) {
-        int now = ++inFlight;
-        int prevMax = maxInFlight.load();
-        while (prevMax < now && !maxInFlight.compare_exchange_weak(prevMax, now)) {}
-        std::this_thread::sleep_for(std::chrono::milliseconds(30));
-        if (remoteUrl == "http://origin.example.com/ad/manifest.mpd")
-        {
-          buffer.assign(mManifest, mManifest + strlen(mManifest));
-        }
-        effectiveUrl = remoteUrl;
-        httpError = 200;
-        --inFlight;
-        return true;
-      })));
-
-  auto download = [this]() {
-    std::string url = "http://origin.example.com/ad/manifest.mpd";
-    bool finalManifest = false;
-    int http_error = 0;
-    double downloadTime = 0.0;
-    AAMPCDAIError errorCode = eCDAI_ERROR_NONE;
-    MPD *mpd = mPrivateCDAIObjectMPD->GetAdMPD(url, finalManifest, http_error, downloadTime, errorCode, false);
-    delete mpd;
-  };
-  auto first = std::async(std::launch::async, download);
-  auto second = std::async(std::launch::async, download);
-  first.get();
-  second.get();
-
-  EXPECT_EQ(maxInFlight.load(), 1) << "DAI downloads overlapped on the shared curl handle";
-}
-
-/**
  * @brief SetAlternateContents takes mVodAllAdsResolvedMtx before notifying,
  *        so it blocks while a waiter holds that mutex.
  */
@@ -5579,6 +5536,7 @@ TEST_F(AdManagerMPDTests, VodCdai_SetAlternateContents_NotifiesUnderWaiterMutex)
     mPrivateCDAIObjectMPD->SetAlternateContents("brk-sync", "ad-sync", "https://cdn.example.com/ad-sync.mpd", 0, 0);
   });
 
+  // Negative assertion, bounded to 20 ms: nothing observable signals that a thread is blocked on a mutex.
   EXPECT_EQ(fut.wait_for(std::chrono::milliseconds(20)), std::future_status::timeout)
       << "The notifier must wait for the waiter's mutex before notifying";
 
@@ -5729,4 +5687,91 @@ TEST_F(AdManagerMPDTests, WaitForNextAdResolved_ReturnsWhenAdResolved)
   const WaitOutcome outcome = waiter.get();
   EXPECT_TRUE(outcome.completed);
   EXPECT_LT(outcome.elapsed.count(), 2000) << "waiter was not woken promptly";
+}
+
+/**
+ * @brief A second GetAdMPD cannot enter GetFile on the shared DAI handle
+ *        while the first download is in flight.
+ */
+TEST_F(AdManagerMPDTests, GetAdMPD_ConcurrentDownloadsAreSerialised)
+{
+  mManifest = kSharedTenSecondAdManifest;
+  const std::string manifestUrl = "http://origin.example.com/ad/manifest.mpd";
+  std::promise<void> firstEntered;
+  std::promise<void> releaseFirst;
+  std::shared_future<void> gate = releaseFirst.get_future().share();
+  std::atomic<int> getFileCalls{0};
+  std::atomic<bool> secondAboutToDownload{false};
+  bool released = false;
+  auto release = [&]() {
+    if (!released)
+    {
+      released = true;
+      releaseFirst.set_value();
+    }
+  };
+
+  // The first GetFile call is held open until the gate is released.
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _))
+      .WillRepeatedly(WithArgs<0, 2, 3, 4>(Invoke([&](std::string remoteUrl, std::vector<uint8_t> &buffer,
+                                                       std::string &effectiveUrl, int &httpError) {
+        if (getFileCalls.fetch_add(1) == 0)
+        {
+          firstEntered.set_value();
+          gate.wait_for(std::chrono::seconds(5));
+        }
+        if (remoteUrl == manifestUrl)
+        {
+          buffer.assign(mManifest, mManifest + strlen(mManifest));
+        }
+        effectiveUrl = remoteUrl;
+        httpError = 200;
+        return true;
+      })));
+
+  auto download = [&]() {
+    std::string url = manifestUrl;
+    bool finalManifest = false;
+    int http_error = 0;
+    double downloadTime = 0.0;
+    AAMPCDAIError errorCode = eCDAI_ERROR_NONE;
+    MPD *mpd = mPrivateCDAIObjectMPD->GetAdMPD(url, finalManifest, http_error, downloadTime, errorCode, false);
+    delete mpd;
+  };
+
+  std::future<void> first;
+  std::future<void> second;
+  // Declared after the futures so the gate is released before they are joined on any exit path.
+  struct GateGuard
+  {
+    std::function<void()> release;
+    ~GateGuard() { release(); }
+  } guard{release};
+
+  first = std::async(std::launch::async, download);
+  ASSERT_EQ(firstEntered.get_future().wait_for(std::chrono::seconds(5)), std::future_status::ready);
+
+  {
+    // The first transfer is inside GetFile, so the download mutex must be held.
+    std::unique_lock<std::mutex> probe(mPrivateCDAIObjectMPD->mDaiDownloadMtx, std::try_to_lock);
+    EXPECT_FALSE(probe.owns_lock()) << "GetFile ran without the DAI download mutex";
+  }
+
+  second = std::async(std::launch::async, [&]() {
+    secondAboutToDownload = true;
+    download();
+  });
+  ASSERT_TRUE(WaitForFlag(secondAboutToDownload));
+  // Negative assertion, bounded to 50 ms: nothing observable signals that a thread is blocked on a mutex.
+  const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(50);
+  while (getFileCalls.load() == 1 && std::chrono::steady_clock::now() < deadline)
+  {
+    std::this_thread::yield();
+  }
+  EXPECT_EQ(getFileCalls.load(), 1) << "second download entered GetFile while the first was in flight";
+
+  release();
+  ASSERT_EQ(first.wait_for(std::chrono::seconds(10)), std::future_status::ready);
+  ASSERT_EQ(second.wait_for(std::chrono::seconds(10)), std::future_status::ready);
+  EXPECT_GT(getFileCalls.load(), 1);
 }
