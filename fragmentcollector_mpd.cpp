@@ -5195,6 +5195,11 @@ void StreamAbstractionAAMP_MPD::MPDUpdateCallbackExec()
 				}
 			}
 			AAMPLOG_ERR("manifest download failed [status:%d][http:%d], re-using old manifest", tmpManifestDnldRespPtr->mMPDStatus, http_error);
+			if (aamp->GetBufUnderFlowStatus())
+			{
+				// The buffering-start check allows a grace period; re-check now that this refresh has also failed
+				aamp->HandleManifestRefreshFailureOnBuffering();
+			}
 		}
 		else
 		{

@@ -3144,9 +3144,11 @@ void PrivateInstanceAAMP::UpdateRefreshPlaylistInterval(float maxIntervalSecs)
 /**
  * @brief Handle a pending manifest refresh failure when buffering starts.
  *
- * If buffering begins while the MPD downloader is already in a manifest
- * refresh failure state, send the corresponding fatal error event and let
- * the caller skip the normal BufferingChanged path.
+ * If buffering begins while the MPD downloader has been failing to refresh the
+ * manifest for at least MANIFEST_REFRESH_FAILURE_GRACE_MS, send the corresponding
+ * fatal error event and let the caller skip the normal BufferingChanged path.
+ * A shorter outage is left to the downloader's retries. This is re-evaluated on
+ * each failed refresh while buffering, so a persistent outage still ends in an error.
  *
  * @return true if a manifest failure event was sent; false otherwise.
  */
@@ -3164,6 +3166,12 @@ bool PrivateInstanceAAMP::HandleManifestRefreshFailureOnBuffering()
 	if (retryErrorType == AAMPStatusType::eAAMPSTATUS_OK)
 	{
 		AAMPLOG_DEBUG("Manifest refresh status is OK");
+		return false;
+	}
+	if (retryStatus.failingForMs < MANIFEST_REFRESH_FAILURE_GRACE_MS)
+	{
+		AAMPLOG_WARN("PrivateInstanceAAMP: Buffering while manifest refresh has been failing for %lldms (status=%d err=%d); waiting up to %dms for recovery",
+			retryStatus.failingForMs, retryErrorType, retryStatus.errorCode, MANIFEST_REFRESH_FAILURE_GRACE_MS);
 		return false;
 	}
 	// Buffer drained while manifest refresh was already failing.

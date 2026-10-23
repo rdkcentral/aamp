@@ -498,6 +498,91 @@ TEST_F(FunctionalTests,
 	mAampMPDDownloader->Release();
 }
 
+/**
+ * @brief The refresh status reports how long refreshes have been failing and clears on recovery.
+ *
+ * Refresh attempts 2 and 3 fail with curl 56 and attempt 4 succeeds. While attempt 4 is
+ * starting, the status must still show the outage that began with attempt 2, so the player
+ * can tell a one-off failure from a sustained one. After attempt 4 completes it must be clear.
+ */
+TEST_F(FunctionalTests, AampMPDDownloader_RefreshStatus_AccumulatesOutageAndClearsOnRecovery)
+{
+	static const char *kLiveMpdManifest =
+	R"(<?xml version="1.0" encoding="UTF-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="dynamic" profiles="urn:mpeg:dash:profile:isoff-live:2011" minBufferTime="PT2.000S" maxSegmentDuration="PT0H0M1.92S" minimumUpdatePeriod="PT0.5S" availabilityStartTime="1977-05-25T18:00:00.000Z" timeShiftBufferDepth="PT0H0M30.000S" publishTime="2024-11-08T12:53:09.725Z">
+    <Period id="901591170" start="PT416006H37M27.854S">
+        <EventStream schemeIdUri="urn:example:test:2024" timescale="1000"/>
+        <AdaptationSet id="2" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+            <Role schemeIdUri="urn:mpeg:dash:role:2011" value="main"/>
+            <SegmentTemplate initialization="init-$RepresentationID$.mp4" media="seg-$Number$.m4s" timescale="90000" startNumber="901599260" presentationTimeOffset="20213">
+                <SegmentTimeline>
+                    <S t="1377581813" d="172800" r="14"/>
+                </SegmentTimeline>
+            </SegmentTemplate>
+            <Representation id="root_video4" bandwidth="562800" codecs="hvc1.1.6.L63.90" width="640" height="360" frameRate="25000/1000"/>
+        </AdaptationSet>
+    </Period>
+</MPD>
+)";
+
+	std::shared_ptr<ManifestDownloadConfig> inpData =
+		std::make_shared<ManifestDownloadConfig>(-1);
+	inpData->mTuneUrl = url1;
+
+	std::atomic<int> attemptCount(0);
+	std::atomic<int> statusTypeAtAttempt4(-1);
+	std::atomic<int> errorCodeAtAttempt4(0);
+	std::atomic<long long> failingForMsAtAttempt4(-1);
+	const char *liveMpdManifestPtr = kLiveMpdManifest;
+	auto preProcessCallback = [&]() -> std::pair<std::string,int>
+	{
+		const int attempt = attemptCount.fetch_add(1) + 1;
+		if (attempt == 4)
+		{
+			ManifestRefreshStatus status = mAampMPDDownloader->GetManifestRefreshStatus();
+			statusTypeAtAttempt4.store(static_cast<int>(status.type));
+			errorCodeAtAttempt4.store(status.errorCode);
+			failingForMsAtAttempt4.store(status.failingForMs);
+		}
+		if (attempt == 2 || attempt == 3)
+		{
+			return { std::string(), CURLE_RECV_ERROR };
+		}
+		return { std::string(liveMpdManifestPtr), 200 };
+	};
+
+	mAampMPDDownloader->Initialize(inpData, appName, preProcessCallback);
+	mAampMPDDownloader->Start();
+
+	ManifestDownloadResponsePtr firstManifest = mAampMPDDownloader->GetManifest(true, 2000);
+	ASSERT_TRUE(firstManifest != nullptr);
+	ASSERT_TRUE(IS_HTTP_SUCCESS(firstManifest->mMPDDownloadResponse->iHttpRetValue));
+	EXPECT_EQ(mAampMPDDownloader->GetManifestRefreshStatus().failingForMs, 0);
+
+	auto waitFor = [](const std::function<bool()> &condition, std::chrono::milliseconds timeout)
+	{
+		const auto deadline = std::chrono::steady_clock::now() + timeout;
+		while (!condition() && std::chrono::steady_clock::now() < deadline)
+		{
+			std::this_thread::sleep_for(std::chrono::milliseconds(10));
+		}
+		return condition();
+	};
+
+	ASSERT_TRUE(waitFor([&]() { return attemptCount.load() >= 4; }, std::chrono::milliseconds(4000)));
+
+	// Attempt 4 started after two fast-retry waits, so the outage from attempt 2 is still counted.
+	EXPECT_EQ(statusTypeAtAttempt4.load(), static_cast<int>(AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR));
+	EXPECT_EQ(errorCodeAtAttempt4.load(), CURLE_RECV_ERROR);
+	EXPECT_GE(failingForMsAtAttempt4.load(), 800);
+
+	ASSERT_TRUE(waitFor([&]() { return mAampMPDDownloader->GetManifestRefreshStatus().type == AAMPStatusType::eAAMPSTATUS_OK; },
+		std::chrono::milliseconds(2000)));
+	EXPECT_EQ(mAampMPDDownloader->GetManifestRefreshStatus().failingForMs, 0);
+
+	mAampMPDDownloader->Release();
+}
+
 // p0 declares a 10s duration but its audio timeline ends with a 3.2s segment starting 0.2s before that end.
 static const char *kTailOverhangManifest =
 	"<?xml version=\"1.0\" encoding=\"utf-8\"?>"
