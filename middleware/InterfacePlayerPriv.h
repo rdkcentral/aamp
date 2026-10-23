@@ -249,8 +249,6 @@ struct GstPlayerPriv
 	GstHandlerControl aSyncControl;
 	GstHandlerControl syncControl;
 	GstHandlerControl callbackControl;
-	GstHandlerControl bufferingTimeoutControl;
-	std::mutex bufferingTimeoutMutex;
 
 	/* Guards ConfigurePipeline()/CreatePipeline() against running on this shared pipeline
 	 * object while a TearDownStream() from a prior tune is still releasing resources. */
