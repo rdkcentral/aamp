@@ -123,6 +123,7 @@ AampDRMLicenseManager::AampDRMLicenseManager(int maxDrmSessions, PrivateInstance
     mLicensePrefetcher = new AampLicensePreFetcher(aampInstance);
     ContentSecurityManager::UseFireboltSDK(aampInstance->mConfig->IsConfigSet(eAAMPConfig_UseFireboltSDK));
     mLicensePrefetcher->Init();
+	mWatermarkWorker = std::thread(&AampDRMLicenseManager::WatermarkWorkerThread, this);
 }
 
 /**
@@ -130,6 +131,7 @@ AampDRMLicenseManager::AampDRMLicenseManager(int maxDrmSessions, PrivateInstance
  */
 AampDRMLicenseManager::~AampDRMLicenseManager()
 {
+	StopWatermarkWorker();
 	SAFE_DELETE(mLicensePrefetcher);
 	SAFE_DELETE(mDrmSessionManager);
 	releaseLicenseRenewalThreads();
@@ -1420,7 +1422,12 @@ void AampDRMLicenseManager::QueueProtectionEvent(std::shared_ptr<DrmHelper> drmH
  */
 void AampDRMLicenseManager::setPlaybackSpeedState(bool live, double currentLatency, bool livepoint , double liveOffsetMs,int speed, double positionMs, bool firstFrameSeen)
 {
-	mDrmSessionManager->setPlaybackSpeedState(live, currentLatency, livepoint, liveOffsetMs, speed, positionMs, firstFrameSeen);
+	if (!EnqueueWatermarkTask([this, live, currentLatency, livepoint, liveOffsetMs, speed, positionMs, firstFrameSeen]() {
+		mDrmSessionManager->setPlaybackSpeedState(live, currentLatency, livepoint, liveOffsetMs, speed, positionMs, firstFrameSeen);
+	}))
+	{
+		mDrmSessionManager->setPlaybackSpeedState(live, currentLatency, livepoint, liveOffsetMs, speed, positionMs, firstFrameSeen);
+	}
 }
 
 /**
@@ -1428,7 +1435,12 @@ void AampDRMLicenseManager::setPlaybackSpeedState(bool live, double currentLaten
  */
 void AampDRMLicenseManager::hideWatermarkOnDetach(void)
 {
-	mDrmSessionManager->hideWatermarkOnDetach( );
+	if (!EnqueueWatermarkTask([this]() {
+		mDrmSessionManager->hideWatermarkOnDetach();
+	}))
+	{
+		mDrmSessionManager->hideWatermarkOnDetach();
+	}
 }
 
 /**
@@ -1436,12 +1448,85 @@ void AampDRMLicenseManager::hideWatermarkOnDetach(void)
  */
 void AampDRMLicenseManager::setVideoMute(bool live, double currentLatency, bool livepoint , double liveOffsetMs,bool isVideoOnMute, double positionMs)
 {
-	mDrmSessionManager->setVideoMute(live, currentLatency, livepoint, liveOffsetMs,isVideoOnMute, positionMs);
+	if (!EnqueueWatermarkTask([this, live, currentLatency, livepoint, liveOffsetMs, isVideoOnMute, positionMs]() {
+		mDrmSessionManager->setVideoMute(live, currentLatency, livepoint, liveOffsetMs, isVideoOnMute, positionMs);
+	}))
+	{
+		mDrmSessionManager->setVideoMute(live, currentLatency, livepoint, liveOffsetMs, isVideoOnMute, positionMs);
+	}
 }
 
 void AampDRMLicenseManager::setVideoWindowSize(int width, int height)
 {
-	mDrmSessionManager->setVideoWindowSize(width, height);
+	if (!EnqueueWatermarkTask([this, width, height]() {
+		mDrmSessionManager->setVideoWindowSize(width, height);
+	}))
+	{
+		mDrmSessionManager->setVideoWindowSize(width, height);
+	}
+}
+
+/**
+ * @brief Queue and process watermarking state updates serially away from caller threads.
+ */
+bool AampDRMLicenseManager::EnqueueWatermarkTask(std::function<void()> task)
+{
+	{
+		std::lock_guard<std::mutex> lock(mWatermarkTaskMutex);
+		if (mWatermarkWorkerStopping)
+		{
+			return false;
+		}
+		mWatermarkTaskQueue.emplace_back(std::move(task));
+	}
+	mWatermarkTaskCondition.notify_one();
+	return true;
+}
+
+void AampDRMLicenseManager::WatermarkWorkerThread()
+{
+	for (;;)
+	{
+		std::function<void()> task;
+		{
+			std::unique_lock<std::mutex> lock(mWatermarkTaskMutex);
+			mWatermarkTaskCondition.wait(lock, [this]() {
+				return mWatermarkWorkerStopping || !mWatermarkTaskQueue.empty();
+			});
+			if (mWatermarkTaskQueue.empty())
+			{
+				if (mWatermarkWorkerStopping)
+				{
+					return;
+				}
+				continue;
+			}
+			task = std::move(mWatermarkTaskQueue.front());
+			mWatermarkTaskQueue.pop_front();
+		}
+
+		try
+		{
+			task();
+		}
+		catch (...)
+		{
+			MW_LOG_ERR("Watermark worker task threw an exception");
+		}
+	}
+}
+
+void AampDRMLicenseManager::StopWatermarkWorker()
+{
+	{
+		std::lock_guard<std::mutex> lock(mWatermarkTaskMutex);
+		mWatermarkWorkerStopping = true;
+	}
+	mWatermarkTaskCondition.notify_all();
+	if (mWatermarkWorker.joinable())
+	{
+		mWatermarkWorker.join();
+	}
 }
 
 /**
