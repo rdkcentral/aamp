@@ -625,6 +625,15 @@ public:
 	bool isAdBreakObjectExist(const std::string &adBrkId);
 
 	/**
+	 * @brief Lock mDaiMtx and check the existence of Adbreak object in the AdbreakObject map.
+	 *        Safe to call with or without mDaiMtx already held.
+	 *
+	 * @param[in]  adBrkId - Adbreak id to be checked.
+	 * @return bool true or false
+	 */
+	bool isAdBreakObjectExistWithDaiMtx(const std::string &adBrkId);
+
+	/**
 	 * @fn PrunePeriodMaps
 	 *
 	 * @param[in]  newPeriodIds - Period ids from the latest manifest
@@ -769,7 +778,8 @@ public:
 	void AbortWaitForNextAdResolved();
 
 	/**
-	 * @brief Read an ad's resolved state under mDaiMtx.
+	 * @brief Lock mDaiMtx and read an ad's resolved state.
+	 *        Safe to call with or without mDaiMtx already held.
 	 * @param[in] periodId Ad break id
 	 * @param[in] adId Ad id
 	 * @param[out] resolved Set to the ad's resolved flag when found
@@ -778,7 +788,8 @@ public:
 	bool TryGetAdResolved(const std::string &periodId, const std::string &adId, bool &resolved);
 
 	/**
-	 * @brief Read an ad break's resolved state under mDaiMtx.
+	 * @brief Lock mDaiMtx and read an ad break's resolved state.
+	 *        Safe to call with or without mDaiMtx already held.
 	 * @param[in] periodId Ad break id
 	 * @param[out] resolved Set to the ad break's resolved flag when found
 	 * @return true if the ad break exists

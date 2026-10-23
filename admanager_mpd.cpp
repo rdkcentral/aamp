@@ -146,6 +146,15 @@ bool PrivateCDAIObjectMPD::isAdBreakObjectExist(const std::string &adBrkId)
 }
 
 /**
+ * @brief Method to lock mDaiMtx and check the existence of Adbreak object in the AdbreakObject map
+ */
+bool PrivateCDAIObjectMPD::isAdBreakObjectExistWithDaiMtx(const std::string &adBrkId)
+{
+	std::lock_guard<std::recursive_mutex> lock(mDaiMtx);
+	return isAdBreakObjectExist(adBrkId);
+}
+
+/**
  * @brief Method to remove expired periods from the period map
  */
 void PrivateCDAIObjectMPD::PrunePeriodMaps(std::vector<std::string> &newPeriodIds)
@@ -1643,11 +1652,7 @@ void PrivateCDAIObjectMPD::SetAlternateContents(const std::string &periodId, con
 		}
 
 		// Signal the manifest thread if every registered VOD break now has a URL.
-		if (AreAllVodAdsResolved())
-		{
-			AAMPLOG_INFO("[CDAI-VOD] All VOD ads queued — signalling stitcher");
-			NotifyVodAllAdsResolved();
-		}
+		NotifyIfAllVodAdsResolved(periodId);
 	}
 	else
 	{
@@ -1983,7 +1988,8 @@ bool PrivateCDAIObjectMPD::WaitForNextAdResolved(int timeoutMs)
 			AAMPLOG_INFO("Waiting for next ad placement to complete with timeout %d ms.", timeoutMs);
 			completed = mAdPlacementCV.wait_for(lock, std::chrono::milliseconds(timeoutMs), [this, &periodId, &adId] {
 				bool adResolved = false;
-				TryGetAdResolved(periodId, adId, adResolved);
+				// An ad that has vanished counts as unresolved.
+				static_cast<void>(TryGetAdResolved(periodId, adId, adResolved));
 				return adResolved || !mAamp->DownloadsAreEnabled();
 			});
 		}
@@ -1991,8 +1997,9 @@ bool PrivateCDAIObjectMPD::WaitForNextAdResolved(int timeoutMs)
 		{
 			completed = true;
 		}
+		AAMPLOG_INFO("Wait for next ad placement of ad[%s] in AdBreakId[%s] %s.", adId.c_str(), periodId.c_str(),
+			completed ? "finished (resolved or aborted)" : "timed out");
 	}
-	AAMPLOG_INFO("Received notification for next ad placement.");
 	return completed;
 }
 
@@ -2007,15 +2014,16 @@ bool PrivateCDAIObjectMPD::WaitForNextAdResolved(int timeoutMs, std::string peri
 	std::unique_lock<std::mutex> lock(mAdPlacementMtx);
 	bool completed = false;
 	AAMPLOG_INFO("Attempting to wait for next ad placement in %s to complete with timeout %d ms.", periodId.c_str(), timeoutMs);
-	bool resolved = false;
-	if (TryGetAdBreakResolved(periodId, resolved))
+	if (isAdBreakObjectExistWithDaiMtx(periodId))
 	{
 		if (mAdPlacementCV.wait_for(lock, std::chrono::milliseconds(timeoutMs), [this, &periodId] {
 			bool brkResolved = false;
-			TryGetAdBreakResolved(periodId, brkResolved);
+			// An ad break that has vanished counts as unresolved.
+			static_cast<void>(TryGetAdBreakResolved(periodId, brkResolved));
 			return !mAamp->DownloadsAreEnabled() || brkResolved;
 		}))
 		{
+			AAMPLOG_INFO("Ad placement wait for AdBreakId[%s] finished (resolved or aborted).", periodId.c_str());
 			completed = true;
 		}
 		else
