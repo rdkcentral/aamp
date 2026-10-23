@@ -136,6 +136,85 @@ static JSValueRef js_clear_timeout(
 }
 
 // ---------------------------------------------------------------------------
+// setInterval / clearInterval implementation backed by repeating GLib timers
+// ---------------------------------------------------------------------------
+
+static std::map<guint, TimeoutData*> gPendingIntervals;
+
+static gboolean interval_callback(gpointer userData)
+{
+    TimeoutData* data = static_cast<TimeoutData*>(userData);
+    JSValueRef exc = nullptr;
+    JSObjectCallAsFunction(data->ctx, data->callback, nullptr, 0, nullptr, &exc);
+    return G_SOURCE_CONTINUE;
+}
+
+static JSValueRef js_set_interval(
+    JSContextRef ctx,
+    JSObjectRef  /*function*/,
+    JSObjectRef  /*thisObject*/,
+    size_t argumentCount,
+    const JSValueRef arguments[],
+    JSValueRef* exception)
+{
+    if (argumentCount < 1 || !JSValueIsObject(ctx, arguments[0])) {
+        return JSValueMakeNumber(ctx, 0);
+    }
+
+    JSObjectRef cb = JSValueToObject(ctx, arguments[0], exception);
+    if (!cb) { return JSValueMakeNumber(ctx, 0); }
+
+    unsigned int delay = 0;
+    if (argumentCount >= 2) {
+        delay = static_cast<unsigned int>(JSValueToNumber(ctx, arguments[1], exception));
+    }
+
+    JSGlobalContextRef globalCtx = JSContextGetGlobalContext(ctx);
+    JSValueProtect(globalCtx, cb);
+
+    TimeoutData* data = new TimeoutData{globalCtx, cb, 0};
+    data->timerId = g_timeout_add(delay, interval_callback, data);
+    gPendingIntervals[data->timerId] = data;
+    return JSValueMakeNumber(ctx, data->timerId);
+}
+
+static JSValueRef js_clear_interval(
+    JSContextRef ctx,
+    JSObjectRef  /*function*/,
+    JSObjectRef  /*thisObject*/,
+    size_t argumentCount,
+    const JSValueRef arguments[],
+    JSValueRef* exception)
+{
+    if (argumentCount >= 1) {
+        guint timerId = static_cast<guint>(JSValueToNumber(ctx, arguments[0], exception));
+        auto it = gPendingIntervals.find(timerId);
+        if (it != gPendingIntervals.end()) {
+            TimeoutData* data = it->second;
+            gPendingIntervals.erase(it);
+            g_source_remove(timerId);
+            JSValueUnprotect(data->ctx, data->callback);
+            delete data;
+        }
+    }
+    return JSValueMakeUndefined(ctx);
+}
+
+/**
+ * Remove outstanding intervals; must run on the main thread after the loop
+ * exits and before the JS context is released.
+ */
+static void interval_shutdown()
+{
+    for (auto& entry : gPendingIntervals) {
+        g_source_remove(entry.first);
+        JSValueUnprotect(entry.second->ctx, entry.second->callback);
+        delete entry.second;
+    }
+    gPendingIntervals.clear();
+}
+
+// ---------------------------------------------------------------------------
 // __httpRequest__(method, url, headerLines, body, callback) backing fetch().
 // libcurl runs on a worker thread; the callback runs on the GLib main loop.
 // ---------------------------------------------------------------------------
@@ -415,13 +494,174 @@ function URL(href) {
     this.searchParams = new URLSearchParams(search);
 }
 
-// Minimal document stub — getElementById returns an inert object whose
-// innerHTML setter is a no-op (UI updates are silently ignored in CLI)
+// Minimal document stub — elements are inert objects whose innerHTML setter
+// is a no-op (UI updates are silently ignored in CLI). Enough of the element
+// API is stubbed for browser libraries (e.g. PPJS) that touch the DOM.
+function __inertElement__(tag) {
+    return {
+        tagName: String(tag || "div").toUpperCase(),
+        style: {},
+        dataset: {},
+        children: [],
+        attributes: {},
+        classList: { add: function() {}, remove: function() {}, toggle: function() {}, contains: function() { return false; } },
+        get innerHTML() { return ""; }, set innerHTML(v) {},
+        innerText: "", textContent: "",
+        get firstChild() { return this.children[0] || null; },
+        appendChild: function(c) { this.children.push(c); c.parentNode = this; return c; },
+        insertBefore: function(c) { this.children.push(c); c.parentNode = this; return c; },
+        removeChild: function(c) { this.children = this.children.filter(function(x) { return x !== c; }); return c; },
+        setAttribute: function(k, v) { this.attributes[k] = String(v); },
+        getAttribute: function(k) { return Object.prototype.hasOwnProperty.call(this.attributes, k) ? this.attributes[k] : null; },
+        removeAttribute: function(k) { delete this.attributes[k]; },
+        addEventListener: function() {}, removeEventListener: function() {}, dispatchEvent: function() { return true; },
+        getBoundingClientRect: function() { return { x: 0, y: 0, top: 0, left: 0, width: 1280, height: 720 }; },
+        querySelector: function() { return null; }, querySelectorAll: function() { return []; },
+        getElementsByTagName: function() { return []; },
+        offsetWidth: 1280, offsetHeight: 720, clientWidth: 1280, clientHeight: 720
+    };
+}
 var document = {
-    getElementById: function(id) {
-        return { get innerHTML() { return ""; }, set innerHTML(v) {} };
-    }
+    getElementById: function(id) { return __inertElement__("div"); },
+    createElement: function(tag) { return __inertElement__(tag); },
+    createTextNode: function(text) { return { textContent: String(text) }; },
+    getElementsByTagName: function(tag) {
+        tag = String(tag).toLowerCase();
+        return tag === "head" ? [document.head] : tag === "body" ? [document.body] : [];
+    },
+    querySelector: function() { return null; },
+    querySelectorAll: function() { return []; },
+    addEventListener: function() {},
+    removeEventListener: function() {},
+    readyState: "complete",
+    hidden: false,
+    visibilityState: "visible"
 };
+document.head = __inertElement__("head");
+document.body = __inertElement__("body");
+document.documentElement = __inertElement__("html");
+
+// Browser globals expected by UMD/webpack bundles and browser SDKs (e.g. PPJS).
+// NOTE: do not polyfill queueMicrotask or MutationObserver here. core-js then
+// falls back to native promises; with those polyfilled its promise jobs spin forever.
+var self = window;
+
+if (typeof performance === "undefined") {
+    var __perfOrigin__ = Date.now();
+    var performance = {
+        timeOrigin: __perfOrigin__,
+        timing: { navigationStart: __perfOrigin__ },
+        now: function() { return Date.now() - __perfOrigin__; },
+        mark: function() {}, measure: function() {}, clearMarks: function() {}, clearMeasures: function() {},
+        getEntries: function() { return []; }, getEntriesByName: function() { return []; }, getEntriesByType: function() { return []; }
+    };
+}
+
+if (typeof localStorage === "undefined") {
+    var __makeStorage__ = function() {
+        var data = {};
+        return {
+            getItem: function(k) { return Object.prototype.hasOwnProperty.call(data, k) ? data[k] : null; },
+            setItem: function(k, v) { data[k] = String(v); },
+            removeItem: function(k) { delete data[k]; },
+            clear: function() { data = {}; }
+        };
+    };
+    var localStorage = __makeStorage__();
+    var sessionStorage = __makeStorage__();
+}
+
+if (typeof Event === "undefined") {
+    var Event = function Event(type, init) {
+        init = init || {};
+        this.type = type;
+        this.bubbles = !!init.bubbles;
+        this.cancelable = !!init.cancelable;
+        this.defaultPrevented = false;
+    };
+    Event.prototype.preventDefault = function() { this.defaultPrevented = true; };
+    Event.prototype.stopPropagation = function() {};
+    Event.prototype.stopImmediatePropagation = function() {};
+    var CustomEvent = function CustomEvent(type, init) {
+        Event.call(this, type, init);
+        this.detail = init ? init.detail : undefined;
+    };
+    CustomEvent.prototype = Object.create(Event.prototype);
+}
+
+if (typeof EventTarget === "undefined") {
+    var EventTarget = function EventTarget() {};
+    EventTarget.prototype.addEventListener = function(type, listener) {
+        this.__listeners__ = this.__listeners__ || {};
+        (this.__listeners__[type] = this.__listeners__[type] || []).push(listener);
+    };
+    EventTarget.prototype.removeEventListener = function(type, listener) {
+        if (this.__listeners__ && this.__listeners__[type]) {
+            this.__listeners__[type] = this.__listeners__[type].filter(function(l) { return l !== listener; });
+        }
+    };
+    EventTarget.prototype.dispatchEvent = function(event) {
+        var target = this;
+        ((this.__listeners__ && this.__listeners__[event.type]) || []).slice().forEach(function(l) {
+            if (typeof l === "function") { l.call(target, event); } else { l.handleEvent(event); }
+        });
+        return !event.defaultPrevented;
+    };
+}
+
+// Minimal XMLHttpRequest over native __httpRequest__ (text bodies only, no response headers).
+if (typeof XMLHttpRequest === "undefined") {
+    var XMLHttpRequest = function XMLHttpRequest() {
+        this.readyState = 0;
+        this.status = 0;
+        this.responseText = "";
+        this.response = "";
+        this._headers = {};
+    };
+    XMLHttpRequest.prototype.open = function(method, url) { this._method = method; this._url = String(url); this.readyState = 1; };
+    XMLHttpRequest.prototype.setRequestHeader = function(name, value) { this._headers[name] = value; };
+    XMLHttpRequest.prototype.getAllResponseHeaders = function() { return ""; };
+    XMLHttpRequest.prototype.getResponseHeader = function() { return null; };
+    XMLHttpRequest.prototype.abort = function() { this._aborted = true; };
+    XMLHttpRequest.prototype.send = function(body) {
+        var xhr = this;
+        var headerLines = [];
+        for (var name in xhr._headers) { headerLines.push(name + ": " + xhr._headers[name]); }
+        __httpRequest__(String(xhr._method || "GET").toUpperCase(), xhr._url, headerLines.join("\n"),
+            (body === undefined || body === null) ? "" : String(body),
+            function(status, text, error, effectiveUrl) {
+                if (xhr._aborted) { return; }
+                xhr.readyState = 4;
+                xhr.status = error !== undefined ? 0 : status;
+                xhr.responseText = xhr.response = text;
+                xhr.responseURL = effectiveUrl || xhr._url;
+                if (xhr.onreadystatechange) { xhr.onreadystatechange(); }
+                if (error !== undefined) {
+                    if (xhr.onerror) { xhr.onerror({ type: "error" }); }
+                } else if (xhr.onload) {
+                    xhr.onload({ type: "load" });
+                }
+            });
+    };
+}
+
+// Inert constructors for browser classes some bundles reference at module load time.
+["DOMParser", "XMLSerializer", "Blob", "Worker", "MediaSource", "SourceBuffer", "HTMLElement",
+ "HTMLVideoElement", "HTMLMediaElement", "Image", "FileReader", "TextTrackCue", "VTTCue", "WebSocket",
+ "ResizeObserver", "IntersectionObserver", "AbortController"].forEach(function(name) {
+    if (typeof window[name] === "undefined") {
+        var Ctor = function() {};
+        Ctor.prototype.parseFromString = function() {
+            return { documentElement: null, getElementsByTagName: function() { return []; } };
+        };
+        Ctor.prototype.observe = Ctor.prototype.disconnect = Ctor.prototype.abort = function() {};
+        Ctor.isTypeSupported = function() { return false; };
+        window[name] = Ctor;
+    }
+});
+
+navigator.platform = navigator.platform || "MacIntel";
+navigator.onLine = true;
 
 // Minimal fetch() over native __httpRequest__: method, plain-object headers and
 // string body in; ok, status, url, text() and json() out.  Text bodies only.
@@ -555,12 +795,15 @@ static void installConsole(JSGlobalContextRef ctx)
     // console object
     JSObjectRef console = JSObjectMake(ctx, nullptr, nullptr);
 
-    JSStringRef logName = JSStringCreateWithUTF8CString("log");
-    JSObjectRef logFunc =
-        JSObjectMakeFunctionWithCallback(ctx, logName, js_console_log);
-    JSObjectSetProperty(ctx, console, logName, logFunc,
-                        kJSPropertyAttributeNone, nullptr);
-    JSStringRelease(logName);
+    // console.log plus the other common console methods, all writing to stdout
+    for (const char* method : {"log", "info", "warn", "error", "debug", "trace"}) {
+        JSStringRef methodName = JSStringCreateWithUTF8CString(method);
+        JSObjectRef methodFunc =
+            JSObjectMakeFunctionWithCallback(ctx, methodName, js_console_log);
+        JSObjectSetProperty(ctx, console, methodName, methodFunc,
+                            kJSPropertyAttributeNone, nullptr);
+        JSStringRelease(methodName);
+    }
 
     JSStringRef consoleName = JSStringCreateWithUTF8CString("console");
     JSObjectSetProperty(ctx, global, consoleName, console,
@@ -581,6 +824,20 @@ static void installConsole(JSGlobalContextRef ctx)
                         kJSPropertyAttributeNone, nullptr);
     JSStringRelease(clearTimeoutName);
 
+    // setInterval
+    JSStringRef setIntervalName = JSStringCreateWithUTF8CString("setInterval");
+    JSObjectRef setIntervalFunc = JSObjectMakeFunctionWithCallback(ctx, setIntervalName, js_set_interval);
+    JSObjectSetProperty(ctx, global, setIntervalName, setIntervalFunc,
+                        kJSPropertyAttributeNone, nullptr);
+    JSStringRelease(setIntervalName);
+
+    // clearInterval
+    JSStringRef clearIntervalName = JSStringCreateWithUTF8CString("clearInterval");
+    JSObjectRef clearIntervalFunc = JSObjectMakeFunctionWithCallback(ctx, clearIntervalName, js_clear_interval);
+    JSObjectSetProperty(ctx, global, clearIntervalName, clearIntervalFunc,
+                        kJSPropertyAttributeNone, nullptr);
+    JSStringRelease(clearIntervalName);
+
     JSStringRef httpName = JSStringCreateWithUTF8CString("__httpRequest__");
     JSObjectRef httpFunc = JSObjectMakeFunctionWithCallback(ctx, httpName, js_http_request);
     JSObjectSetProperty(ctx, global, httpName, httpFunc,
@@ -595,6 +852,45 @@ static void installConsole(JSGlobalContextRef ctx)
     JSStringRelease(quitName);
 }
 
+static bool readFile(const char* path, std::string& out)
+{
+    std::ifstream file(path);
+    if (!file.is_open()) {
+        std::cerr << "Failed to open JS file: " << path << "\n";
+        return false;
+    }
+    std::stringstream buffer;
+    buffer << file.rdbuf();
+    out = buffer.str();
+    return true;
+}
+
+/**
+ * Evaluate a script at global scope; report any exception (with stack) to stderr.
+ */
+static bool evaluateGlobalScript(JSGlobalContextRef ctx, const std::string& source, const char* sourceUrl)
+{
+    JSStringRef jsSource = JSStringCreateWithUTF8CString(source.c_str());
+    JSStringRef jsUrl = JSStringCreateWithUTF8CString(sourceUrl);
+    JSValueRef exc = nullptr;
+    JSEvaluateScript(ctx, jsSource, nullptr, jsUrl, 1, &exc);
+    JSStringRelease(jsSource);
+    JSStringRelease(jsUrl);
+    if (exc) {
+        std::cerr << "Exception while evaluating " << sourceUrl << ": " << JSValueToStdString(ctx, exc, nullptr) << "\n";
+        if (JSValueIsObject(ctx, exc)) {
+            JSStringRef stackName = JSStringCreateWithUTF8CString("stack");
+            JSValueRef stack = JSObjectGetProperty(ctx, JSValueToObject(ctx, exc, nullptr), stackName, nullptr);
+            JSStringRelease(stackName);
+            if (stack && !JSValueIsUndefined(ctx, stack)) {
+                std::cerr << JSValueToStdString(ctx, stack, nullptr) << "\n";
+            }
+        }
+        return false;
+    }
+    return true;
+}
+
 static int main_func(int argc, char** argv)
 {
 
@@ -602,19 +898,18 @@ static int main_func(int argc, char** argv)
     curl_global_init(CURL_GLOBAL_DEFAULT);
 
     if (argc < 2) {
-        std::cerr << "Usage: ./jsbind <script.js>\n";
+        std::cerr << "Usage: ./uveExecuter [preload.js ...] <script.js>\n"
+                     "  preload.js  evaluated in order at global scope before script.js (e.g. a UMD bundle)\n"
+                     "  script.js   test script; may use top-level await\n";
         return 1;
     }
 
-    std::ifstream file(argv[1]);
-    if (!file.is_open()) {
-        std::cerr << "Failed to open JS file\n";
-        return 1;
+    std::vector<std::string> preloads(argc - 2);
+    for (int i = 1; i < argc - 1; i++) {
+        if (!readFile(argv[i], preloads[i - 1])) { return 1; }
     }
-
-    std::stringstream buffer;
-    buffer << file.rdbuf();
-    std::string script = buffer.str();
+    std::string script;
+    if (!readFile(argv[argc - 1], script)) { return 1; }
 
     JSGlobalContextRef ctx = JSGlobalContextCreate(nullptr);
 
@@ -623,13 +918,22 @@ static int main_func(int argc, char** argv)
     // Register AAMP bindings
     aamp_LoadJSController(ctx);
 
-    // Combine the browser-API polyfill with the user script.
-    // Wrap in an async IIFE so that top-level `await` expressions in the
+    // Browser-API polyfill, then any preload scripts, all at global scope.
+    evaluateGlobalScript(ctx, kBrowserPolyfill, "uveExecuter-polyfill.js");
+    for (int i = 1; i < argc - 1; i++) {
+        if (!evaluateGlobalScript(ctx, preloads[i - 1], argv[i])) {
+			interval_shutdown();
+			http_shutdown();
+			JSGlobalContextRelease(ctx);
+			return 1;
+        }
+    }
+
+    // Wrap the user script in an async IIFE so that top-level `await` expressions in the
     // user script (e.g. `await TST_2000_UVE_AampPlayback()`) work correctly
     // under JSEvaluateScript, which does not support module-level top-level await.
     std::string combined =
-        std::string(kBrowserPolyfill) +
-        "\n(async function() {\n" +
+        "(async function() {\n" +
         script +
         "\n})().then(\n"
         "    function() { __quitMainLoop__(); },\n"
@@ -648,6 +952,7 @@ static int main_func(int argc, char** argv)
 
     // Cleanup (only reached if loop exits)
     g_main_loop_unref(gMainLoop);
+    interval_shutdown();
     http_shutdown();
     JSGlobalContextRelease(ctx);
 
