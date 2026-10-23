@@ -922,8 +922,10 @@ static int main_func(int argc, char** argv)
     evaluateGlobalScript(ctx, kBrowserPolyfill, "uveExecuter-polyfill.js");
     for (int i = 1; i < argc - 1; i++) {
         if (!evaluateGlobalScript(ctx, preloads[i - 1], argv[i])) {
-            JSGlobalContextRelease(ctx);
-            return 1;
+			interval_shutdown();
+			http_shutdown();
+			JSGlobalContextRelease(ctx);
+			return 1;
         }
     }
 
