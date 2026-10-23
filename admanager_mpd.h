@@ -791,10 +791,9 @@ public:
 	 * @brief Lock mDaiMtx and read an ad break's resolved state.
 	 *        Safe to call with or without mDaiMtx already held.
 	 * @param[in] periodId Ad break id
-	 * @param[out] resolved Set to the ad break's resolved flag when found
-	 * @return true if the ad break exists
+	 * @return true if the ad break exists and is resolved; false if unresolved or absent
 	 */
-	bool TryGetAdBreakResolved(const std::string &periodId, bool &resolved);
+	bool IsAdBreakResolved(const std::string &periodId);
 
 	/**
 	 * @brief Wake the VOD stitcher waiting on mVodAllAdsResolvedCV.

@@ -1956,16 +1956,11 @@ bool PrivateCDAIObjectMPD::TryGetAdResolved(const std::string &periodId, const s
 	return true;
 }
 
-bool PrivateCDAIObjectMPD::TryGetAdBreakResolved(const std::string &periodId, bool &resolved)
+bool PrivateCDAIObjectMPD::IsAdBreakResolved(const std::string &periodId)
 {
 	std::lock_guard<std::recursive_mutex> lock(mDaiMtx);
 	auto brkIt = mAdBreaks.find(periodId);
-	if (brkIt == mAdBreaks.end())
-	{
-		return false;
-	}
-	resolved = brkIt->second.resolved;
-	return true;
+	return brkIt != mAdBreaks.end() && brkIt->second.resolved;
 }
 
 /**
@@ -2017,10 +2012,7 @@ bool PrivateCDAIObjectMPD::WaitForNextAdResolved(int timeoutMs, std::string peri
 	if (isAdBreakObjectExistWithDaiMtx(periodId))
 	{
 		if (mAdPlacementCV.wait_for(lock, std::chrono::milliseconds(timeoutMs), [this, &periodId] {
-			bool brkResolved = false;
-			// An ad break that has vanished counts as unresolved.
-			static_cast<void>(TryGetAdBreakResolved(periodId, brkResolved));
-			return !mAamp->DownloadsAreEnabled() || brkResolved;
+			return !mAamp->DownloadsAreEnabled() || IsAdBreakResolved(periodId);
 		}))
 		{
 			AAMPLOG_INFO("Ad placement wait for AdBreakId[%s] finished (resolved or aborted).", periodId.c_str());
