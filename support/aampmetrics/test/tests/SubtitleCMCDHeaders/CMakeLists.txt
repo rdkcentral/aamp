@@ -34,8 +34,8 @@ include_directories(${GMOCK_INCLUDE_DIRS})
 
 set(TEST_SOURCES    SubtitleCMCDHeadersGTest.cpp
                     SubtitleCMCDHeadersTest.cpp)
-set(ABR_SOURCES ${AAMPMETRICS_ROOT}/SubtitleCMCDHeaders.cpp )
-set(ABR_SOURCES ${AAMPMETRICS_ROOT}/CMCDHeaders.cpp )
+set(ABR_SOURCES ${AAMPMETRICS_ROOT}/SubtitleCMCDHeaders.cpp
+                ${AAMPMETRICS_ROOT}/CMCDSerializer.cpp)
 
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}
