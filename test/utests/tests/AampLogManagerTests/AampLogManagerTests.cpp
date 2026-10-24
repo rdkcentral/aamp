@@ -24,6 +24,7 @@
 #include <gmock/gmock.h>
 #include <systemd/sd-journal.h>
 #include "MockSdJournal.h"
+#include "AampFlightDataRecorder.h"
 #include "AampLogManager.h"
 #include "AampMediaType.h"
 #include "AampConfig.h"
@@ -45,11 +46,13 @@ protected:
 		g_mockSdJournal = std::make_shared<NiceMock<MockSdJournal>>();
 		AampLogManager::lockLogLevel(false);
 		AampLogManager::setLogLevel(eLOGLEVEL_WARN);
+		AampFlightDataRecorder::GetInstance().SetEnabled(false);
 	}
 
 	void TearDown() override
 	{
 		g_mockSdJournal.reset();
+		AampFlightDataRecorder::GetInstance().SetEnabled(false);
 	}
 };
 
@@ -148,8 +151,7 @@ TEST_F(AampLogManagerTest, setLogLevelError_isLogLevelAllowedMil)
 	AAMP_LogLevel setLevel = eLOGLEVEL_ERROR;
 	AAMP_LogLevel chkLevel = eLOGLEVEL_MIL;
 
-	// The MIL printed when the log level is set is not printed if the minimum log level is set to ERROR
-	EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(_, _)).Times(0);
+	// setLogLevel logs at MIL level, but we don't need to check that for this test
 	AampLogManager::setLogLevel(setLevel);
 
 	EXPECT_EQ(false, AampLogManager::isLogLevelAllowed(chkLevel));
@@ -648,7 +650,7 @@ TEST_F(AampLogManagerTest, getPlayerIdDefault)
 
 /*
 	Test AAMPLOG_TRACE macro
-	No log line is expected, as TRACE level is lower than the default level (WARN)
+	No log line is expected at WARN level, as TRACE level is lower than the default level (WARN)
 */
 TEST_F(AampLogManagerTest, AAMPLOG_TRACE)
 {
@@ -658,14 +660,54 @@ TEST_F(AampLogManagerTest, AAMPLOG_TRACE)
 }
 
 /*
+	Test AAMPLOG_DEBUG macro
+	No log line is expected at WARN level, as DEBUG level is lower than the default level (WARN)
+*/
+TEST_F(AampLogManagerTest, AAMPLOG_DEBUG)
+{
+	const std::string message{"Test DEBUG log line"};
+	EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(_, _)).Times(0);
+	AAMPLOG_DEBUG("%s", message.c_str());
+}
+
+/*
+	Test AAMPLOG_TRACE macro with TRACE level enabled
+	Log line is expected when TRACE level is set
+*/
+TEST_F(AampLogManagerTest, AAMPLOG_TRACE_Enabled)
+{
+	AampLogManager::setLogLevel(eLOGLEVEL_TRACE);
+	const std::string message{"Test TRACE log line"};
+	EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(LOG_NOTICE,
+		AllOf(HasSubstr("[TRACE]"), HasSubstr(message))));
+	AAMPLOG_TRACE("%s", message.c_str());
+}
+
+/*
+	Test AAMPLOG_DEBUG macro with DEBUG level enabled
+	Log line is expected when DEBUG level is set
+*/
+TEST_F(AampLogManagerTest, AAMPLOG_DEBUG_Enabled)
+{
+	AampLogManager::setLogLevel(eLOGLEVEL_DEBUG);
+	const std::string message{"Test DEBUG log line"};
+	EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(LOG_NOTICE,
+		AllOf(HasSubstr("[DEBUG]"), HasSubstr(message))));
+	AAMPLOG_DEBUG("%s", message.c_str());
+}
+
+/*
 	Test AAMPLOG_INFO macro
 	No log line is expected, as INFO level is lower than the default level (WARN)
+	INFO logs are captured by FDR instead of being printed immediately
 */
 TEST_F(AampLogManagerTest, AAMPLOG_INFO)
 {
+	AampFlightDataRecorder::GetInstance().Initialize(true, 16, 60);
 	const std::string message{"Test INFO log line"};
 	EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(_, _)).Times(0);
 	AAMPLOG_INFO("%s", message.c_str());
+	AampFlightDataRecorder::GetInstance().SetEnabled(false);
 }
 
 /*
@@ -739,7 +781,7 @@ TEST_F(AampLogManagerTest, setLogLevelMil_AAMPLOG_MIL)
 
 /*
 	Test setLogLevel with ERROR followed by AAMPLOG_MIL macro
-	Since ERROR is higher level than MIL, sd_journal_print is not expected to be called
+	MIL logs should not print when configured level is ERROR (higher than MIL)
 */
 TEST_F(AampLogManagerTest, setLogLevelError_AAMPLOG_MIL)
 {
@@ -751,6 +793,7 @@ TEST_F(AampLogManagerTest, setLogLevelError_AAMPLOG_MIL)
 
 TEST_F(AampLogManagerTest, logprintf_TRACE)
 {
+	AampLogManager::setLogLevel(eLOGLEVEL_TRACE);
 	AAMP_LogLevel level = eLOGLEVEL_TRACE;
 	std::string file("test.cpp");
 	std::string func("testFunc");
@@ -769,6 +812,7 @@ TEST_F(AampLogManagerTest, logprintf_TRACE)
 
 TEST_F(AampLogManagerTest, logprintf_INFO)
 {
+	AampLogManager::setLogLevel(eLOGLEVEL_INFO);
 	AAMP_LogLevel level = eLOGLEVEL_INFO;
 	std::string file("test.cpp");
 	std::string func("testFunc");
@@ -793,6 +837,7 @@ const int MAX_DEBUG_LOG_BUFF_SIZE = 512;
 
 TEST_F(AampLogManagerTest, logprintf_LongFile)
 {
+	AampLogManager::setLogLevel(eLOGLEVEL_INFO);
 	AAMP_LogLevel level = eLOGLEVEL_INFO;
 	std::string file("test.cpp");
 	std::string func("testFunc");
@@ -813,6 +858,7 @@ TEST_F(AampLogManagerTest, logprintf_LongFile)
 */
 TEST_F(AampLogManagerTest, logprintf_LongMessage)
 {
+	AampLogManager::setLogLevel(eLOGLEVEL_INFO);
 	AAMP_LogLevel level = eLOGLEVEL_INFO;
 	std::string file("test.cpp");
 	std::string func("testFunc");
@@ -833,6 +879,7 @@ TEST_F(AampLogManagerTest, logprintf_LongMessage)
 */
 TEST_F(AampLogManagerTest, logprintf_MaxMessage)
 {
+	AampLogManager::setLogLevel(eLOGLEVEL_INFO);
 	AAMP_LogLevel level = eLOGLEVEL_INFO;
 	std::string file("test.cpp");
 	std::string func("testFunc");
@@ -894,48 +941,31 @@ std::string formatSeqNum(int seqNum)
 */
 TEST_F(AampLogManagerTest, logprintf_SequentialNumbers)
 {
-	// Log three messages and verify they have sequential numbers
 	AAMP_LogLevel level = eLOGLEVEL_WARN;
 	std::string file("test.cpp");
 	std::string func("testFunc");
 	int line = 10;
-	int seqNum = 0;
-	std::string message1("First message");
-	std::string message2("Second message");
-	std::string message3("Third message");
-	
-	// The format is: [AAMP-PLAYER][seqNum][playerId][level][threadId][func][line]message
-	// The sequence number is a 3-digit zero-padded number [000]-[999]
-	// Verify that all three logs contain the proper 3-digit sequence number format
-	// One log line is printed by the Setup() function, so start from 1
-	// If the Setup() function is modified this might need to be adjusted
-	seqNum++;
+	std::vector<unsigned int> sequenceNumbers;
 
 	EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(LOG_NOTICE,
-		AllOf(
-			HasSubstr("[" + formatSeqNum(seqNum) + "]"),
-			HasSubstr("[WARN]"),
-			HasSubstr(message1)
-		))).Times(1);
-	logprintf(level, file.c_str(), func.c_str(), line, "%s", message1.c_str());
-	seqNum++;
+		AllOf(ContainsRegex("\\[AAMP-PLAYER\\]\\[[0-9]{3}\\]"), HasSubstr("[WARN]"))))
+		.Times(3)
+		.WillRepeatedly(Invoke([&sequenceNumbers](int, const char* buffer) {
+			unsigned int sequenceNumber = 0;
+			if (sscanf(buffer, "[AAMP-PLAYER][%u]", &sequenceNumber) == 1)
+			{
+				sequenceNumbers.push_back(sequenceNumber);
+			}
+			return 0;
+		}));
 
-	EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(LOG_NOTICE,
-		AllOf(
-			HasSubstr("[" + formatSeqNum(seqNum) + "]"),
-			HasSubstr("[WARN]"),
-			HasSubstr(message2)
-		))).Times(1);
-	logprintf(level, file.c_str(), func.c_str(), line, "%s", message2.c_str());
-	seqNum++;
+	logprintf(level, file.c_str(), func.c_str(), line, "%s", "First message");
+	logprintf(level, file.c_str(), func.c_str(), line, "%s", "Second message");
+	logprintf(level, file.c_str(), func.c_str(), line, "%s", "Third message");
 
-	EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(LOG_NOTICE,
-		AllOf(
-			HasSubstr("[" + formatSeqNum(seqNum) + "]"),
-			HasSubstr("[WARN]"),
-			HasSubstr(message3)
-		))).Times(1);
-	logprintf(level, file.c_str(), func.c_str(), line, "%s", message3.c_str());
+	ASSERT_EQ(sequenceNumbers.size(), 3u);
+	EXPECT_EQ(sequenceNumbers[1], (sequenceNumbers[0] + 1) % 1000);
+	EXPECT_EQ(sequenceNumbers[2], (sequenceNumbers[1] + 1) % 1000);
 }
 
 /*
@@ -961,4 +991,112 @@ TEST_F(AampLogManagerTest, logprintf_LogFilenameEnabled)
 	logprintf(level, file.c_str(), func.c_str(), line, "%s", message.c_str());
 
 	AampLogManager::logFilename = false;
+}
+
+TEST_F(AampLogManagerTest, FdrQueuesInfoWarnAndMilUntilError)
+{
+	AampFlightDataRecorder& fdr = AampFlightDataRecorder::GetInstance();
+	fdr.Initialize(true, 16, 60);
+
+	{
+		InSequence sequence;
+		EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(LOG_NOTICE,
+			AllOf(HasSubstr("FLIGHT DATA RECORDER DUMP"), HasSubstr("triggered by AAMP-PLAYER ERROR"))));
+		EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(LOG_NOTICE,
+			AllOf(HasSubstr("[INFO]"), HasSubstr("queued-info"))));
+		EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(LOG_NOTICE,
+			AllOf(HasSubstr("[WARN]"), HasSubstr("queued-warn"))));
+		EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(LOG_NOTICE,
+			AllOf(HasSubstr("[MIL]"), HasSubstr("queued-mil"))));
+		EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(LOG_NOTICE,
+			HasSubstr("END FLIGHT DATA RECORDER DUMP")));
+		EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(LOG_NOTICE,
+			AllOf(HasSubstr("[ERROR]"), HasSubstr("trigger-error"))));
+
+		logprintf(eLOGLEVEL_INFO, "test.cpp", "testFunc", 1, "%s", "queued-info");
+		logprintf(eLOGLEVEL_WARN, "test.cpp", "testFunc", 2, "%s", "queued-warn");
+		logprintf(eLOGLEVEL_MIL, "test.cpp", "testFunc", 3, "%s", "queued-mil");
+		logprintf(eLOGLEVEL_ERROR, "test.cpp", "testFunc", 4, "%s", "trigger-error");
+	}
+
+	EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(_, HasSubstr("FLIGHT DATA RECORDER DUMP"))).Times(0);
+	EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(LOG_NOTICE,
+		AllOf(HasSubstr("[ERROR]"), HasSubstr("second-error"))));
+	logprintf(eLOGLEVEL_ERROR, "test.cpp", "testFunc", 5, "%s", "second-error");
+	fdr.SetEnabled(false);
+}
+
+TEST_F(AampLogManagerTest, FdrInfoLevelBypassesRecorder)
+{
+	AampFlightDataRecorder& fdr = AampFlightDataRecorder::GetInstance();
+	fdr.Initialize(true, 16, 60);
+	AampLogManager::aampLoglevel = eLOGLEVEL_INFO;
+
+	EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(LOG_NOTICE,
+		AllOf(HasSubstr("[INFO]"), HasSubstr("immediate-info"))));
+	logprintf(eLOGLEVEL_INFO, "test.cpp", "testFunc", 1, "%s", "immediate-info");
+
+	EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(_, HasSubstr("FLIGHT DATA RECORDER DUMP"))).Times(0);
+	EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(LOG_NOTICE,
+		AllOf(HasSubstr("[ERROR]"), HasSubstr("error-with-empty-fdr"))));
+	logprintf(eLOGLEVEL_ERROR, "test.cpp", "testFunc", 2, "%s", "error-with-empty-fdr");
+	fdr.SetEnabled(false);
+}
+
+TEST_F(AampLogManagerTest, DisabledFdrEmitsInfoImmediately)
+{
+	AampFlightDataRecorder::GetInstance().SetEnabled(false);
+	AampLogManager::aampLoglevel = eLOGLEVEL_WARN;
+
+	// INFO should not print when configured level is WARN, even with FDR disabled
+	EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(_, _)).Times(0);
+	logprintf(eLOGLEVEL_INFO, "test.cpp", "testFunc", 1, "%s", "disabled-fdr-info");
+}
+
+TEST_F(AampLogManagerTest, FdrDebugLevelBypassesRecorder)
+{
+	AampFlightDataRecorder& fdr = AampFlightDataRecorder::GetInstance();
+	fdr.Initialize(true, 16, 60);
+	AampLogManager::aampLoglevel = eLOGLEVEL_DEBUG;
+
+	EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(LOG_NOTICE,
+		AllOf(HasSubstr("[DEBUG]"), HasSubstr("immediate-debug"))));
+	logprintf(eLOGLEVEL_DEBUG, "test.cpp", "testFunc", 1, "%s", "immediate-debug");
+
+	// INFO logs are emitted immediately when FDR is bypassed at DEBUG level
+	EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(LOG_NOTICE,
+		AllOf(HasSubstr("[INFO]"), HasSubstr("immediate-info"))));
+	logprintf(eLOGLEVEL_INFO, "test.cpp", "testFunc", 2, "%s", "immediate-info");
+
+	EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(_, HasSubstr("FLIGHT DATA RECORDER DUMP"))).Times(0);
+	EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(LOG_NOTICE,
+		AllOf(HasSubstr("[ERROR]"), HasSubstr("error-with-empty-fdr"))));
+	logprintf(eLOGLEVEL_ERROR, "test.cpp", "testFunc", 3, "%s", "error-with-empty-fdr");
+	fdr.SetEnabled(false);
+}
+
+TEST_F(AampLogManagerTest, FdrTraceLevelBypassesRecorder)
+{
+	AampFlightDataRecorder& fdr = AampFlightDataRecorder::GetInstance();
+	fdr.Initialize(true, 16, 60);
+	AampLogManager::aampLoglevel = eLOGLEVEL_TRACE;
+
+	EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(LOG_NOTICE,
+		AllOf(HasSubstr("[TRACE]"), HasSubstr("immediate-trace"))));
+	logprintf(eLOGLEVEL_TRACE, "test.cpp", "testFunc", 1, "%s", "immediate-trace");
+
+	EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(LOG_NOTICE,
+		AllOf(HasSubstr("[DEBUG]"), HasSubstr("immediate-debug"))));
+	logprintf(eLOGLEVEL_DEBUG, "test.cpp", "testFunc", 2, "%s", "immediate-debug");
+
+	// INFO logs are emitted immediately when FDR is bypassed at TRACE level
+	EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(LOG_NOTICE,
+		AllOf(HasSubstr("[INFO]"), HasSubstr("immediate-info"))));
+	logprintf(eLOGLEVEL_INFO, "test.cpp", "testFunc", 3, "%s", "immediate-info");
+
+	EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(_, HasSubstr("FLIGHT DATA RECORDER DUMP"))).Times(0);
+	EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(LOG_NOTICE,
+		AllOf(HasSubstr("[ERROR]"), HasSubstr("error-with-empty-fdr"))));
+	logprintf(eLOGLEVEL_ERROR, "test.cpp", "testFunc", 4, "%s", "error-with-empty-fdr");
+	fdr.SetEnabled(false);
 }

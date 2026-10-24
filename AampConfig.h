@@ -234,7 +234,7 @@ typedef enum
 	eAAMPConfig_EnablePTSReStampLogging,		/**< Config to enable logging for PTS restamping in Mp4Demuxer */
 	eAAMPConfig_LogFilename,				/**< Config to include source filename in log output */
 	eAAMPConfig_ProcessLicenseFromEAP,			/**< Config to enable non-VSS early available period DRM prefetch */
-	eAAMPConfig_EnableProducerReferenceDelay,		/**< Add PRT-derived encoder delay (from CalculateProducerReferenceTimeOffset) to DASH live latency calculation; default false */
+	eAAMPConfig_EnableProducerReferenceDelay,			/**< Add PRT-derived encoder delay (from CalculateProducerReferenceTimeOffset) to DASH live latency calculation; default false */
 	eAAMPConfig_SynthesizeIframeForVOD,			/**< When true, synthesize an I-frame-only segment from the regular video track
 	                                                         to support VOD trickplay on assets/ads that lack a dedicated iframe adaptation
 	                                                         set. The download is intentionally aborted after the first sample payload has
@@ -243,6 +243,7 @@ typedef enum
 	                                                         outside VOD (live and local-TSB streams are not eligible). Default: false. */
 	eAAMPConfig_EnableEventProfiling,			/**< Enable event round-trip time profiling (async queue dwell + sync delivery). Default: false */
 	eAAMPConfig_EnableNetworkPersonaLogging,	/**< Collect network metrics and log the JSON persona on Stop. Default: false */
+	eAAMPConfig_EnableFlightDataRecorder,			/**< Enable/Disable Flight Data Recorder for logging */
 	eAAMPConfig_BoolMaxValue				/**< Max value of bool config always last element */	
 
 } AAMPConfigSettingBool;
@@ -341,8 +342,10 @@ typedef enum
 	eAAMPConfig_EarlyAbortProfileBandwidthPercent,	/**< Early abort threshold as percentage of profile bandwidth */
 	eAAMPConfig_UnderflowLowBufferPollMs,			/**< Underflow monitor polling interval for low buffer condition in milliseconds */
 	eAAMPConfig_UnderflowMediumBufferPollMs,		/**< Underflow monitor polling interval for medium buffer condition in milliseconds */
-	eAAMPConfig_UnderflowHighBufferPollMs,			/**< Underflow monitor polling interval for high buffer condition in milliseconds */
+	eAAMPConfig_UnderflowHighBufferPollMs,		/**< Underflow monitor polling interval for high buffer condition in milliseconds */
 	eAAMPConfig_EventProfilingThresholdMs,			/**< Round-trip threshold (ms): log only when async (dwell+delivery) or sync delivery time exceeds this value */
+	eAAMPConfig_FlightDataRecorderMaxLines,			/**< Maximum number of log lines to store in Flight Data Recorder */
+	eAAMPConfig_FlightDataRecorderMaxSeconds,		/**< Maximum age of log entries in Flight Data Recorder in seconds */
 	eAAMPConfig_IntMaxValue							/**< Max value of int config always last element*/
 } AAMPConfigSettingInt;
 #define AAMPCONFIG_INT_COUNT (eAAMPConfig_IntMaxValue)
@@ -802,6 +805,5 @@ private:
  * @brief Global configuration */
 extern AampConfig  *gpGlobalConfig;
 #endif
-
 
 
