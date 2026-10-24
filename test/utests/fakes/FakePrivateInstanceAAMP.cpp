@@ -1274,6 +1274,10 @@ void PrivateInstanceAAMP::ResetTrackDiscontinuityIgnoredStatusForTrack(AampMedia
 
 void PrivateInstanceAAMP::ScheduleRetune(PlaybackErrorType errorType, AampMediaType trackType)
 {
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		g_mockPrivateInstanceAAMP->ScheduleRetune(errorType, trackType);
+	}
 }
 
 void PrivateInstanceAAMP::SendStalledErrorEvent()
@@ -1704,6 +1708,14 @@ void PrivateInstanceAAMP::LogFirstFrame(void)
 }
 
 void PrivateInstanceAAMP::LogTuneComplete(void)
+{
+}
+
+void PrivateInstanceAAMP::LogDrmInitComplete(void)
+{
+}
+
+void PrivateInstanceAAMP::LogDrmDecryptEnd(int)
 {
 }
 

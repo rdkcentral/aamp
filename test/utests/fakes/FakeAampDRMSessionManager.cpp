@@ -151,11 +151,33 @@ KeyState DrmSessionManager::initializeDrmSession(DrmHelperPtr drmHelper, int ses
 
 void DrmSessionManager::clearDrmSession(bool forceClearSession)
 {
+	if (g_mockDRMSessionManager)
+	{
+		g_mockDRMSessionManager->clearDrmSession(forceClearSession);
+	}
 }
 
 void DrmSessionManager::clearFailedKeyIds()
 {
+	if (g_mockDRMSessionManager)
+	{
+		g_mockDRMSessionManager->clearFailedKeyIds();
+	}
 }
+
+void DrmSessionManager::clearFailedSlots()
+{
+	if (g_mockDRMSessionManager)
+	{
+		g_mockDRMSessionManager->clearFailedSlots();
+	}
+}
+
+bool DrmSessionManager::markSessionFailed(const std::vector<uint8_t> &keyId)
+{
+	return g_mockDRMSessionManager ? g_mockDRMSessionManager->markSessionFailed(keyId) : false;
+}
+
 
 void DrmSessionManager::setSessionMgrState(SessionMgrState state)
 {
