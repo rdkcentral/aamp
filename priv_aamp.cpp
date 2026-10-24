@@ -205,6 +205,8 @@ static TuneFailureMap tuneFailureMap[] =
 
 	//Authorization failure
 	{AAMP_TUNE_AUTHORIZATION_FAILURE, 40, 1, "AAMP: Authorization failure"},
+	{AAMP_TUNE_CONCURRENCY_ERROR, 40, 2, "AAMP: Concurrency limit reached"},
+	{AAMP_TUNE_GEOBLOCKED_ERROR, 40, 3, "AAMP: Content geo-blocked"},
 
 	//DRM Failure
 	{AAMP_TUNE_UNTRACKED_DRM_ERROR, 50, 1, "AAMP: DRM error untracked error"},
@@ -2997,10 +2999,9 @@ void PrivateInstanceAAMP::SendDrmErrorEvent(DrmMetaDataEventPtr event, bool isRe
 		if(AAMP_TUNE_FAILED_TO_GET_ACCESS_TOKEN == tuneFailure || AAMP_TUNE_LICENCE_REQUEST_FAILED == tuneFailure)
 		{
 			char description[128] = {};
-			//When using secmanager the erro_code would not be less than 100
+			//When using secmanager the error_code would not be less than 100
 			if(AAMP_TUNE_LICENCE_REQUEST_FAILED == tuneFailure && (error_code < 100 || (ISCONFIGSET_PRIV(eAAMPConfig_UseSecManager) || ISCONFIGSET_PRIV(eAAMPConfig_UseFireboltSDK))))
 			{
-
 				if (isSecClientError)
 				{
 					if(ISCONFIGSET_PRIV(eAAMPConfig_UseSecManager) || ISCONFIGSET_PRIV(eAAMPConfig_UseFireboltSDK))
@@ -3030,6 +3031,12 @@ void PrivateInstanceAAMP::SendDrmErrorEvent(DrmMetaDataEventPtr event, bool isRe
 				snprintf(description, MAX_ERROR_DESCRIPTION_LENGTH - 1, "%s : Http Error Code %d", tuneFailureMap[tuneFailure].description, error_code);
 			}
 			SendErrorEvent(tuneFailure, description, isRetryEnabled, event->getSecManagerClassCode(),event->getSecManagerReasonCode(), event->getBusinessStatus(), event->getResponseData());
+		}
+		else if (tuneFailure == AAMP_TUNE_CONCURRENCY_ERROR || tuneFailure == AAMP_TUNE_GEOBLOCKED_ERROR)
+		{
+			std::string description{tuneFailureMap[tuneFailure].description};
+			description += " Business Status: " + std::to_string(event->getBusinessStatus());
+			SendErrorEvent(tuneFailure, description.c_str(), isRetryEnabled, event->getSecManagerClassCode(),event->getSecManagerReasonCode(), event->getBusinessStatus(), event->getResponseData());
 		}
 		else if(tuneFailure >= 0 && tuneFailure < AAMP_TUNE_FAILURE_UNKNOWN)
 		{
