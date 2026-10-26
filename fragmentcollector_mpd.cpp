@@ -3395,15 +3395,9 @@ AAMPStatusType StreamAbstractionAAMP_MPD::GetMPDFromManifest( ManifestDownloadRe
 
 	if (tmpMPD)
 	{
-		auto previousMPDParseHelper = mMPDParseHelper;
 		this->mpd	=	tmpMPD;
 		// Parse for generic parameters
 		mMPDParseHelper	=	mpdDnldResp->GetMPDParseHelper();
-		// Preserve availability start time from previous manifest to handle HOT->COLD transitions.
-		if (!init && previousMPDParseHelper && previousMPDParseHelper->GetAvailabilityStartTime() > 0)
-		{
-			mMPDParseHelper->SetAvailabilityStartTime(previousMPDParseHelper->GetAvailabilityStartTime());
-		}
 
 		// this flag for current state of manifest ( Linear to VOD can happen)
 		if((mMPDParseHelper->IsLiveManifest() != mIsLiveManifest) && !init )
@@ -9202,8 +9196,6 @@ void StreamAbstractionAAMP_MPD::UpdateCulledAndDurationFromPeriodInfo(std::vecto
 		}
 		double firstPeriodStart = mMPDParseHelper->GetPeriodStartTime(firstPeriodIdx,mLastPlaylistDownloadTimeMs);
 		double availStartTime = mMPDParseHelper->GetAvailabilityStartTime();
-		bool isHotToColdTransition = mUpdateManifestState && !mIsLiveManifest && mIsLiveStream &&
-			mpd->GetAvailabilityStarttime().empty() && availStartTime > 0;
 		if( ( mUpdateManifestState == true )|| (true == aamp->IsIVODContent() && ( firstPeriodStart != mPrevFirstPeriodStart && availStartTime <=0 )) )
 		{
 
@@ -9223,10 +9215,7 @@ void StreamAbstractionAAMP_MPD::UpdateCulledAndDurationFromPeriodInfo(std::vecto
 			mCulledSeconds = aamp->culledSeconds;
 			aamp->mAbsoluteEndPosition = aamp->culledSeconds;
 			seekPosition = aamp->seek_pos_seconds;
-			if (!isHotToColdTransition)
-			{
-				aamp->mProgressReportOffset = -1;
-			}
+			aamp->mProgressReportOffset = -1;
 			aamp->mPrevPositionMilliseconds.Invalidate();
 
 			AAMPLOG_WARN("firstPeriodStart: %lf aamp->culledSeconds: %lf aamp->seek_pos_seconds: %lf aamp->mAbsoluteEndPosition: %lf seekPosition: %lf mCulledSeconds: %lf", firstPeriodStart, aamp->culledSeconds, aamp->seek_pos_seconds, aamp->mAbsoluteEndPosition, seekPosition, mCulledSeconds);

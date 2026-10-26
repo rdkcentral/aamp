@@ -768,6 +768,73 @@ TEST_F(FunctionalTests, RegisterCallback_InvokedWhenManifestPublished)
 	mAampMPDDownloader->Release();
 }
 
+// Static (COLD) version of kLongRefreshLiveMpd: no availabilityStartTime and an unchanged publishTime.
+static const char *kStaticNoAstMpd =
+	R"(<?xml version="1.0" encoding="UTF-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="static" profiles="urn:mpeg:dash:profile:isoff-live:2011" minBufferTime="PT2.000S" maxSegmentDuration="PT0H0M1.92S" mediaPresentationDuration="PT0H0M28.8S" publishTime="2024-11-08T12:53:09.725Z">
+    <Period id="901591170" start="PT416006H37M27.854S">
+        <AdaptationSet id="2" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+            <SegmentTemplate initialization="init-$RepresentationID$.mp4" media="seg-$Number$.m4s" timescale="90000" startNumber="901599260" presentationTimeOffset="20213">
+                <SegmentTimeline>
+                    <S t="1377581813" d="172800" r="14"/>
+                </SegmentTimeline>
+            </SegmentTemplate>
+            <Representation id="root_video4" bandwidth="562800" codecs="hvc1.1.6.L63.90" width="640" height="360" frameRate="25000/1000"/>
+        </AdaptationSet>
+    </Period>
+</MPD>
+)";
+
+// On a dynamic->static transition the published static manifest keeps the last dynamic availabilityStartTime,
+// and the download loop stops refreshing.
+TEST_F(FunctionalTests, DynamicToStatic_PreservesAvailabilityStartTimeAndStopsRefresh)
+{
+	NotifyContext ctx;
+	auto calls = std::make_shared<std::atomic<int>>(0);
+	std::shared_ptr<ManifestDownloadConfig> inpData = std::make_shared<ManifestDownloadConfig>(-1);
+	inpData->mTuneUrl = url1;
+	mAampMPDDownloader->Initialize(inpData, appName, [calls, &ctx]() -> std::pair<std::string,int>
+	{
+		int n = calls->fetch_add(1) + 1;
+		ctx.cv.notify_all();
+		return { std::string(n == 1 ? kLongRefreshLiveMpd : kStaticNoAstMpd), 200 };
+	});
+	DownloaderReleaseGuard guard{mAampMPDDownloader};
+	mAampMPDDownloader->RegisterCallback(CountingNotifyCallback, &ctx);
+	mAampMPDDownloader->Start();
+
+	ManifestDownloadResponsePtr live = mAampMPDDownloader->GetManifest(true, 5000);
+	ASSERT_TRUE(live != nullptr);
+	ASSERT_TRUE(live->mIsLiveManifest);
+	const double liveAst = live->GetMPDParseHelper()->GetAvailabilityStartTime();
+	ASSERT_GT(liveAst, 0);
+
+	bool staticPublished;
+	{
+		std::unique_lock<std::mutex> lock(ctx.mtx);
+		staticPublished = ctx.cv.wait_for(lock, std::chrono::seconds(10), [&ctx] { return ctx.count >= 2; });
+	}
+	ASSERT_TRUE(staticPublished);
+
+	ManifestDownloadResponsePtr cold = mAampMPDDownloader->GetManifest(true, 5000);
+	ASSERT_TRUE(cold != nullptr);
+	EXPECT_FALSE(cold->mIsLiveManifest);
+	EXPECT_FALSE(cold->GetMPDParseHelper()->IsLiveManifest());
+	EXPECT_DOUBLE_EQ(cold->GetMPDParseHelper()->GetAvailabilityStartTime(), liveAst);
+
+	// No refresh must follow the static manifest (a live refresh would come after ~3s).
+	bool refreshedAgain;
+	{
+		std::unique_lock<std::mutex> lock(ctx.mtx);
+		refreshedAgain = ctx.cv.wait_for(lock, std::chrono::seconds(4), [&calls] { return calls->load() > 2; });
+	}
+	EXPECT_FALSE(refreshedAgain);
+	EXPECT_EQ(calls->load(), 2);
+
+	mAampMPDDownloader->UnRegisterCallback();
+	mAampMPDDownloader->Release();
+}
+
 // Waking the notifier thread for unregister/release must not be reported to the callback as a manifest update.
 TEST_F(FunctionalTests, RegisterCallback_NotInvokedWhenNoManifestPublished)
 {
