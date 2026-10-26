@@ -395,6 +395,12 @@ public:
 	bool getPosition(int64_t &position) override
 	{
 		position = refreshAndGetPositionNs();
+		if (position>0)
+		{
+			// Round to the nearest mS
+			position = ( position + 1000000/2)/1000000;
+		}
+
 		return true;
 	}
 
