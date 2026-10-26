@@ -753,7 +753,7 @@ void SecManagerThunder::removeWatermarkHandler(const JsonObject& parameters)
 					{
 					SecManagerThunder *instance = static_cast<SecManagerThunder *>(data);
 					instance->DeleteWatermark(graphicId);
-					}, (void *) ContentSecurityManager::GetInstance(), "WatermarkDelete"));
+					}, (void *) this, "WatermarkDelete"));
 		}
 		if (taskId == PLAYER_TASK_ID_INVALID)
 		{
