@@ -398,7 +398,7 @@ public:
 		if (position>0)
 		{
 			// Round to the nearest mS
-			position = ( position + 1000000/2)/1000000;
+			position = (( position + 1000000/2)/1000000) * 1000000;
 		}
 
 		return true;
