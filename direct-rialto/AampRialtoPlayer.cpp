@@ -1817,8 +1817,8 @@ long long AampRialtoPlayer::GetPositionMilliseconds()
 			// began at (attach-time stage or last SEEK_DONE) - may differ
 			// from the first injected sample's own PTS when a flush/seek
 			// lands mid-fragment.
-			const int64_t startMs =
-				m_segmentStartPositionNs.load(std::memory_order_relaxed) / kNsPerMs;
+			const int64_t startNs =	m_segmentStartPositionNs.load(std::memory_order_relaxed);
+			const int64_t startMs = startNs / kNsPerMs;
 			const int64_t rawMs = queriedNs / kNsPerMs;
 			const int rate = m_rate.load(std::memory_order_relaxed);
 			const int64_t elapsed = rawMs - startMs;
@@ -1830,8 +1830,8 @@ long long AampRialtoPlayer::GetPositionMilliseconds()
 			result = (rate > 0)
 				? std::max(int64_t{0}, elapsed) * rate
 				: elapsed * rate;
-			AAMPLOG_INFO("queried=%" PRId64 " ms  segmentStart=%" PRId64
-				" ms  rate=%d  position=%lld ms", rawMs, startMs, rate, result);
+			AAMPLOG_INFO("queriedNs=%" PRId64 "   startNs=%" PRId64
+				" ms  rate=%d  position=%lld ms", queriedNs, startNs, rate, result);
 		}
 		else
 		{
