@@ -1990,10 +1990,37 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 /**
  * @brief PrivateInstanceAAMP Destructor
  */
+/**
+ * @brief Reports an exception escaping teardown of the pause position monitor.
+ * Has external linkage and a stable name so a debugger breakpoint can be set on it; the marker
+ * line is written straight to stderr so test harnesses see it regardless of AAMP log level.
+ */
+void AampTeardownExceptionHook(int playerId, const char *what, bool stillJoinable)
+{
+	fprintf(stderr, "AAMP_TEARDOWN_EXCEPTION: PLAYER[%d] StopPausePositionMonitoring threw during destruction: %s%s\n",
+			playerId, what, stillJoinable ? " (monitor thread still joinable, std::terminate will follow)" : "");
+	fflush(stderr);
+	AAMPLOG_ERR("AAMP_TEARDOWN_EXCEPTION: PLAYER[%d] %s", playerId, what);
+}
+
 PrivateInstanceAAMP::~PrivateInstanceAAMP()
 {
 	mAampTrackWorkerManager.reset();
-	StopPausePositionMonitoring("AAMP destroyed");
+	// Last resort: StopPausePositionMonitoring() should not throw, but an intermittent
+	// teardown abort was still observed. Report it loudly instead of letting it escape this noexcept
+	// destructor. If the thread is still joinable, its member destructor will terminate anyway.
+	try
+	{
+		StopPausePositionMonitoring("AAMP destroyed");
+	}
+	catch (const std::exception &e)
+	{
+		AampTeardownExceptionHook(mPlayerId, e.what(), mPausePositionMonitoringThreadID.joinable());
+	}
+	catch (...)
+	{
+		AampTeardownExceptionHook(mPlayerId, "unknown exception", mPausePositionMonitoringThreadID.joinable());
+	}
 	PlayerCCManager::GetInstance()->Release(mCCId);
 	mCCId = 0;
 	{
@@ -2255,7 +2282,10 @@ void PrivateInstanceAAMP::RunPausePositionMonitoring(void)
  */
 void PrivateInstanceAAMP::StartPausePositionMonitoring(long long pausePositionMilliseconds)
 {
-	StopPausePositionMonitoring("Start new pos monitor");
+	// Serialize with StopPausePositionMonitoring() so a monitor cannot be (re)started while another
+	// thread is stopping/joining it, which would leave a joinable thread behind at teardown.
+	std::lock_guard<std::mutex> lifecycleLock(mPausePositionLifecycleMutex);
+	StopPausePositionMonitoringLocked("Start new pos monitor");
 
 	if (pausePositionMilliseconds < 0)
 	{
@@ -2292,19 +2322,31 @@ void PrivateInstanceAAMP::StartPausePositionMonitoring(long long pausePositionMi
  */
 void PrivateInstanceAAMP::StopPausePositionMonitoring(std::string reason)
 {
+	std::lock_guard<std::mutex> lifecycleLock(mPausePositionLifecycleMutex);
+	StopPausePositionMonitoringLocked(reason);
+}
+
+/**
+ * @brief cancel and always join the PausePositionMonitoring thread; caller holds mPausePositionLifecycleMutex
+ */
+void PrivateInstanceAAMP::StopPausePositionMonitoringLocked(const std::string &reason)
+{
 	if (mPausePositionMonitoringThreadID.joinable())
 	{
-		std::unique_lock<std::mutex> lock(mPausePositionMonitorMutex);
-
-		if (mPausePositionMilliseconds != AAMP_PAUSE_POSITION_INVALID_POSITION)
 		{
-			long long positionMs = GetPositionMilliseconds();
-			AAMPLOG_WARN("PLAYER[%d] Stop position monitoring, reason: '%s', current position %lldms, requested position %lldms, rate %f",
-						mPlayerId, reason.c_str(), positionMs, mPausePositionMilliseconds.load(), rate);
-			mPausePositionMilliseconds = AAMP_PAUSE_POSITION_INVALID_POSITION;
-			mPausePositionMonitorCV.notify_one();
+			// Cancel under the monitor mutex so the worker cannot miss the wake-up between its
+			// predicate check and wait_until(). The mutex is a member and valid for the object's lifetime.
+			std::lock_guard<std::mutex> lock(mPausePositionMonitorMutex);
+			if (mPausePositionMilliseconds != AAMP_PAUSE_POSITION_INVALID_POSITION)
+			{
+				long long positionMs = GetPositionMilliseconds();
+				AAMPLOG_WARN("PLAYER[%d] Stop position monitoring, reason: '%s', current position %lldms, requested position %lldms, rate %f",
+							mPlayerId, reason.c_str(), positionMs, mPausePositionMilliseconds.load(), rate);
+				mPausePositionMilliseconds = AAMP_PAUSE_POSITION_INVALID_POSITION;
+			}
+			mPausePositionMonitorCV.notify_all();
 		}
-		lock.unlock();
+		// Never detach: the worker uses this object, so it must be joined before the owner can be destroyed.
 		mPausePositionMonitoringThreadID.join();
 		AAMPLOG_TRACE("joined PositionMonitor");
 	}

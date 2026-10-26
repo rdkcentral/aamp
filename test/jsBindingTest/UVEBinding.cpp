@@ -38,6 +38,7 @@
 
 // AAMP JS registration
 extern "C" void aamp_LoadJSController(JSGlobalContextRef context);
+extern "C" void aamp_UnloadJSController(JSGlobalContextRef context);
 
 static GMainLoop* gMainLoop = nullptr;
 
@@ -924,6 +925,7 @@ static int main_func(int argc, char** argv)
         if (!evaluateGlobalScript(ctx, preloads[i - 1], argv[i])) {
 			interval_shutdown();
 			http_shutdown();
+			aamp_UnloadJSController(ctx);
 			JSGlobalContextRelease(ctx);
 			return 1;
         }
@@ -954,6 +956,12 @@ static int main_func(int argc, char** argv)
     g_main_loop_unref(gMainLoop);
     interval_shutdown();
     http_shutdown();
+    // Explicitly tear down the AAMP player while C++ statics (gMutex, gActivePrivAAMPs,
+    // PlayerCCManager, AampStreamSinkManager, ...) are still alive.  _aamp_term() is a
+    // __attribute__((destructor(101))) that fires very late — after those statics are
+    // destroyed — so it must find _allocated_aamp already NULL or it will crash trying
+    // to lock a destroyed mutex (SIGABRT / std::terminate).
+    aamp_UnloadJSController(ctx);
     JSGlobalContextRelease(ctx);
 
     return 0;
