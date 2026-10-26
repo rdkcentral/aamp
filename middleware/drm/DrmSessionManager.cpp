@@ -30,12 +30,21 @@
 #include <inttypes.h>
 #include "PlayerUtils.h"
 #include "ContentSecurityManager.h"
+#include <chrono>
 #define DRM_METADATA_TAG_START "<ckm:policy xmlns:ckm=\"urn:ccp:ckm\">"
 #define DRM_METADATA_TAG_END "</ckm:policy>"
 #define SESSION_TOKEN_URL "http://localhost:50050/authService/getSessionToken"
 
 #define INVALID_SESSION_SLOT -1
 #define DEFAULT_CDM_WAIT_TIMEOUT_MS 2000
+
+namespace
+{
+static long long SecurityManagerElapsedUs(std::chrono::steady_clock::time_point start, std::chrono::steady_clock::time_point end)
+{
+	return std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+}
+}
 
 /**
  * @brief KeyIdEntries constructor.
@@ -221,7 +230,10 @@ void DrmSessionManager::setVideoWindowSize(int width, int height)
 	if(localSession.isSessionValid())
 	{
 		MW_LOG_WARN("In DrmSessionManager:: valid session ID. Calling setVideoWindowSize().");
-		ContentSecurityManager::GetInstance()->setVideoWindowSize(localSession.getSessionID(), width, height);
+		auto apiStart = std::chrono::steady_clock::now();
+		bool result = ContentSecurityManager::GetInstance()->setVideoWindowSize(localSession.getSessionID(), width, height);
+		MW_LOG_ERR("[WM_TIMING] op=setVideoWindowSize phase=api_end api_us=%lld result=%d",
+			SecurityManagerElapsedUs(apiStart, std::chrono::steady_clock::now()), result);
 	}
 }
 /**
@@ -235,7 +247,10 @@ void DrmSessionManager::setVideoMute(bool live, double currentLatency, bool live
 	auto localSession = mContentSecurityManagerSession; //Remove potential isSessionValid(), getSessionID() race by using a local copy
 	if(localSession.isSessionValid())
 	{
-		ContentSecurityManager::GetInstance()->UpdateSessionState(localSession.getSessionID(), !mIsVideoOnMute.load());
+		auto apiStart = std::chrono::steady_clock::now();
+		bool result = ContentSecurityManager::GetInstance()->UpdateSessionState(localSession.getSessionID(), !mIsVideoOnMute.load());
+		MW_LOG_ERR("[WM_TIMING] op=setVideoMute.UpdateSessionState phase=api_end api_us=%lld result=%d",
+			SecurityManagerElapsedUs(apiStart, std::chrono::steady_clock::now()), result);
 		if(!mIsVideoOnMute.load())
 		{
 			//this is required as secmanager waits for speed update to show wm once session is active
@@ -255,7 +270,10 @@ void DrmSessionManager::hideWatermarkOnDetach(void)
 	auto localSession = mContentSecurityManagerSession; //Remove potential isSessionValid(), getSessionID() race by using a local copy
 	if(localSession.isSessionValid())
 	{
-		ContentSecurityManager::GetInstance()->UpdateSessionState(localSession.getSessionID(), false);
+		auto apiStart = std::chrono::steady_clock::now();
+		bool result = ContentSecurityManager::GetInstance()->UpdateSessionState(localSession.getSessionID(), false);
+		MW_LOG_ERR("[WM_TIMING] op=hideWatermarkOnDetach.UpdateSessionState phase=api_end api_us=%lld result=%d",
+			SecurityManagerElapsedUs(apiStart, std::chrono::steady_clock::now()), result);
 	}
 	mFirstFrameSeen.store(false);
 }
@@ -297,7 +315,10 @@ void DrmSessionManager::setPlaybackSpeedState(bool live, double currentLatency, 
 		}
 
 		MW_LOG_INFO("setPlaybackSpeedState pos=%fs speed=%d", adjustedPos/1000, speed );
-		ContentSecurityManager::GetInstance()->setPlaybackSpeedState(localSession.getSessionID(), speed, adjustedPos);
+		auto apiStart = std::chrono::steady_clock::now();
+		bool result = ContentSecurityManager::GetInstance()->setPlaybackSpeedState(localSession.getSessionID(), speed, adjustedPos);
+		MW_LOG_ERR("[WM_TIMING] op=setPlaybackSpeedState phase=api_end api_us=%lld result=%d",
+			SecurityManagerElapsedUs(apiStart, std::chrono::steady_clock::now()), result);
 	}
 	else
 	{
