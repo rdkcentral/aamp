@@ -352,7 +352,7 @@ public:
 
 private:
 	void WatermarkWorkerThread();
-	bool EnqueueWatermarkTask(std::function<void()> task);
+	void EnqueueWatermarkTask(const char *operation, std::function<void()> task);
 	void StopWatermarkWorker();
 
 	std::mutex mWatermarkTaskMutex;
