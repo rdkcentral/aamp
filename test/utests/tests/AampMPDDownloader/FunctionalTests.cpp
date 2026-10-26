@@ -768,8 +768,12 @@ TEST_F(FunctionalTests, RegisterCallback_InvokedWhenManifestPublished)
 	mAampMPDDownloader->Release();
 }
 
-// Static (COLD) version of kLongRefreshLiveMpd: no availabilityStartTime and an unchanged publishTime.
-static const char *kStaticNoAstMpd =
+// On a dynamic->static transition the published static manifest keeps the last dynamic availabilityStartTime,
+// and the download loop stops refreshing.
+TEST_F(FunctionalTests, DynamicToStatic_PreservesAvailabilityStartTimeAndStopsRefresh)
+{
+	// Static (COLD) version of kLongRefreshLiveMpd: no availabilityStartTime and an unchanged publishTime.
+	static const char *kStaticNoAstMpd =
 	R"(<?xml version="1.0" encoding="UTF-8"?>
 <MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="static" profiles="urn:mpeg:dash:profile:isoff-live:2011" minBufferTime="PT2.000S" maxSegmentDuration="PT0H0M1.92S" mediaPresentationDuration="PT0H0M28.8S" publishTime="2024-11-08T12:53:09.725Z">
     <Period id="901591170" start="PT416006H37M27.854S">
@@ -785,10 +789,6 @@ static const char *kStaticNoAstMpd =
 </MPD>
 )";
 
-// On a dynamic->static transition the published static manifest keeps the last dynamic availabilityStartTime,
-// and the download loop stops refreshing.
-TEST_F(FunctionalTests, DynamicToStatic_PreservesAvailabilityStartTimeAndStopsRefresh)
-{
 	NotifyContext ctx;
 	auto calls = std::make_shared<std::atomic<int>>(0);
 	std::shared_ptr<ManifestDownloadConfig> inpData = std::make_shared<ManifestDownloadConfig>(-1);
