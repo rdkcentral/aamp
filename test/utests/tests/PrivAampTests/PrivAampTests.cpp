@@ -3240,6 +3240,57 @@ TEST_F(PrivAampTests,GetFileTest_RetryInitWhilstBufferDepthBeforeSuccessTest)
 								eCURLINSTANCE_MANIFEST_MAIN, resetBuffer, &bitrate, &fogError, 0.0));
 }
 
+/**
+ * @brief GetFile() must discard response headers left by a failed attempt before retrying.
+ *
+ * The first attempt fails with CURLE_RECV_ERROR after an X-Reason header was parsed;
+ * the retry succeeds without that header, so it must not be reported.
+ */
+TEST_F(PrivAampTests, GetFileTest_RetryAfterRecvErrorDiscardsStaleResponseHeaders)
+{
+	std::string effectiveUrl;
+	int http_error = 0;
+	std::vector<uint8_t> gBuff{};
+	double downloadTime;
+	BitsPerSecond bitrate;
+	int fogError;
+	using namespace std::string_view_literals;
+	constexpr auto dummyData = "0x0a"sv;
+	constexpr auto curlInstance = eCURLINSTANCE_MANIFEST_MAIN;
+
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
+	p_aamp->EnableDownloads();
+	p_aamp->curl[curlInstance] = mCurlEasyHandle;
+	p_aamp->curlDLTimeout[curlInstance] = 2000;
+
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(Matcher<AAMPConfigSettingInt>(_))).WillRepeatedly(Return(0));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(Matcher<AAMPConfigSettingFloat>(_))).WillRepeatedly(Return(0.0));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(Matcher<AAMPConfigSettingString>(_))).WillRepeatedly(Return(""));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_ptr(mCurlEasyHandle, _, _)).WillRepeatedly(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_str(mCurlEasyHandle, _, _)).WillRepeatedly(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_long(mCurlEasyHandle, _, _)).WillRepeatedly(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockAampCurlStore, GetCurlResponseCode(mCurlEasyHandle)).WillOnce(Return(200));
+
+	EXPECT_CALL(*g_mockCurl, curl_easy_perform(mCurlEasyHandle))
+		.WillOnce([this, curlInstance]() -> CURLcode
+				{
+					// Stands in for HandleSSLHeaderCallback() running before the connection reset
+					p_aamp->httpRespHeaders[curlInstance].type = eHTTPHEADERTYPE_XREASON;
+					p_aamp->httpRespHeaders[curlInstance].data = "stale reason;";
+					return CURLE_RECV_ERROR;
+				})
+		.WillOnce([&gBuff, dummyData]() -> CURLcode
+				{
+					gBuff.assign(dummyData.begin(), dummyData.end());
+					return CURLE_OK;
+				});
+
+	EXPECT_TRUE(p_aamp->GetFile("remoteurl", eMEDIATYPE_MANIFEST, gBuff, effectiveUrl, http_error, &downloadTime, nullptr,
+								curlInstance, true, &bitrate, &fogError, 0.0));
+	EXPECT_EQ(p_aamp->httpRespHeaders[curlInstance].type, eHTTPHEADERTYPE_UNKNOWN);
+	EXPECT_TRUE(p_aamp->httpRespHeaders[curlInstance].data.empty());
+}
+
 TEST_F(PrivAampTests,GetOnVideoEndSessionStatDataTest)
 {
 	std::string stringData= "sampleStringdata";
