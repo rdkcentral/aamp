@@ -661,7 +661,7 @@ void SecManagerThunder::addWatermarkHandler(const JsonObject& parameters)
 						MW_LOG_WARN("ContentSecurityManager::addWatermarkHandler adjustVisibilityRequired is true, invoking GetWaterMarkPalette after UpdateWatermark. graphicId : %d", graphicId);
 						instance->GetWaterMarkPalette(sessionId, graphicId, generation);
 					}
-					}, (void *)ContentSecurityManager::GetInstance(), "WatermarkAdd"));
+					}, (void *)this, "WatermarkAdd"));
 		}
 		if (taskId == PLAYER_TASK_ID_INVALID)
 		{
