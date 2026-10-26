@@ -300,7 +300,6 @@ class InterfacePlayerRDK
         	std::function<void(bool, int)> tearDownCb;
         	std::function<void(int, bool, bool, bool &, bool &)> notifyFirstFrameCallback;
         	std::function<void(const unsigned char *, int, int, int)> gstCbExportYUVFrame;
-        	pthread_mutex_t mProtectionLock;
         	bool mFirstFrameRequired;
         	bool mPauseInjector;
         	bool mResumeInjector;
