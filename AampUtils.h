@@ -30,6 +30,8 @@
 #include "StreamOutputFormat.h"
 #include "AampMediaType.h"
 #include <thread>
+#include <mutex>
+#include <condition_variable>
 #include <vector>
 #include "iso639map.h"
 #include <string>
@@ -322,6 +324,25 @@ const char * GetMediaTypeName(AampMediaType mediaType);
 std::size_t GetPrintableThreadID( const std::thread &t );
 std::size_t GetPrintableThreadID( const pthread_t &t );
 std::size_t GetPrintableThreadID();
+
+/**
+ * @brief Notify all waiters of a condition variable without losing a wakeup.
+ *
+ * Call after updating the state the waiter's predicate reads. The empty
+ * critical section guarantees that any waiter is either before its predicate
+ * check (and will see the updated state) or already blocked (and will be
+ * woken by the notification).
+ *
+ * @param[in] mtx Mutex the waiter holds while checking its predicate
+ * @param[in] cv Condition variable the waiter blocks on
+ */
+inline void NotifyAllSynchronised(std::mutex &mtx, std::condition_variable &cv)
+{
+	{
+		std::lock_guard<std::mutex> lock{mtx};
+	}
+	cv.notify_all();
+}
 
 /**
  * @brief Parse duration from ISO8601 string

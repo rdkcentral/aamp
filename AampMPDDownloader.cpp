@@ -297,21 +297,6 @@ void AampMPDDownloader::SetBufferAvailability(int iDurationMilliSec)
 }
 
 /**
- * @brief Notify all waiters of a condition variable without losing a wakeup.
- *
- * The empty critical section guarantees that any waiter is either before its
- * predicate check (and will see the updated state) or already blocked (and
- * will be woken by the notification).
- */
-static void NotifyAllSynchronised(std::mutex &mtx, std::condition_variable &cv)
-{
-	{
-		std::lock_guard<std::mutex> lock(mtx);
-	}
-	cv.notify_all();
-}
-
-/**
 *   @fn Release
 *   @brief Release function to clear the allocation and join threads
 */
