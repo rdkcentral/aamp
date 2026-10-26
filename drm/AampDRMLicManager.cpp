@@ -34,11 +34,11 @@
 #include "AampConfig.h"
 #include "PlayerUtils.h"
 #include "PlayerSecInterface.h"
-#include <chrono>
-#include <atomic>
 
 #include "AAMPAnomalyMessageType.h"
 #include "AuthTokenErrors.h"
+#include <chrono>
+#include <atomic>
 
 namespace
 {
@@ -1435,9 +1435,24 @@ void AampDRMLicenseManager::QueueProtectionEvent(std::shared_ptr<DrmHelper> drmH
  */
 void AampDRMLicenseManager::setPlaybackSpeedState(bool live, double currentLatency, bool livepoint , double liveOffsetMs,int speed, double positionMs, bool firstFrameSeen)
 {
-	EnqueueWatermarkTask("setPlaybackSpeedState", [this, live, currentLatency, livepoint, liveOffsetMs, speed, positionMs, firstFrameSeen]() {
+	const auto callerStart = WatermarkTimingClock::now();
+	const auto timingId = ++gWatermarkTimingId;
+	auto task = [this, live, currentLatency, livepoint, liveOffsetMs, speed, positionMs, firstFrameSeen, callerStart, timingId]() {
+		const auto taskStart = WatermarkTimingClock::now();
+		MW_LOG_ERR("[WM_TIMING] id=%llu op=setPlaybackSpeedState phase=task_start dispatch_delay_us=%lld",
+			timingId, WatermarkElapsedUs(callerStart, taskStart));
 		mDrmSessionManager->setPlaybackSpeedState(live, currentLatency, livepoint, liveOffsetMs, speed, positionMs, firstFrameSeen);
-	});
+		MW_LOG_ERR("[WM_TIMING] id=%llu op=setPlaybackSpeedState phase=task_end operation_us=%lld",
+			timingId, WatermarkElapsedUs(taskStart, WatermarkTimingClock::now()));
+	};
+	const bool queued = EnqueueWatermarkTask(task);
+	if (!queued)
+	{
+		MW_LOG_ERR("[WM_TIMING] id=%llu op=setPlaybackSpeedState phase=caller_fallback", timingId);
+		task();
+	}
+	MW_LOG_ERR("[WM_TIMING] id=%llu op=setPlaybackSpeedState phase=caller_return dispatch=%s caller_us=%lld",
+		timingId, queued ? "queued" : "fallback", WatermarkElapsedUs(callerStart, WatermarkTimingClock::now()));
 }
 
 /**
@@ -1445,9 +1460,24 @@ void AampDRMLicenseManager::setPlaybackSpeedState(bool live, double currentLaten
  */
 void AampDRMLicenseManager::hideWatermarkOnDetach(void)
 {
-	EnqueueWatermarkTask("hideWatermarkOnDetach", [this]() {
+	const auto callerStart = WatermarkTimingClock::now();
+	const auto timingId = ++gWatermarkTimingId;
+	auto task = [this, callerStart, timingId]() {
+		const auto taskStart = WatermarkTimingClock::now();
+		MW_LOG_ERR("[WM_TIMING] id=%llu op=hideWatermarkOnDetach phase=task_start dispatch_delay_us=%lld",
+			timingId, WatermarkElapsedUs(callerStart, taskStart));
 		mDrmSessionManager->hideWatermarkOnDetach();
-	});
+		MW_LOG_ERR("[WM_TIMING] id=%llu op=hideWatermarkOnDetach phase=task_end operation_us=%lld",
+			timingId, WatermarkElapsedUs(taskStart, WatermarkTimingClock::now()));
+	};
+	const bool queued = EnqueueWatermarkTask(task);
+	if (!queued)
+	{
+		MW_LOG_ERR("[WM_TIMING] id=%llu op=hideWatermarkOnDetach phase=caller_fallback", timingId);
+		task();
+	}
+	MW_LOG_ERR("[WM_TIMING] id=%llu op=hideWatermarkOnDetach phase=caller_return dispatch=%s caller_us=%lld",
+		timingId, queued ? "queued" : "fallback", WatermarkElapsedUs(callerStart, WatermarkTimingClock::now()));
 }
 
 /**
@@ -1455,55 +1485,63 @@ void AampDRMLicenseManager::hideWatermarkOnDetach(void)
  */
 void AampDRMLicenseManager::setVideoMute(bool live, double currentLatency, bool livepoint , double liveOffsetMs,bool isVideoOnMute, double positionMs)
 {
-	EnqueueWatermarkTask("setVideoMute", [this, live, currentLatency, livepoint, liveOffsetMs, isVideoOnMute, positionMs]() {
+	const auto callerStart = WatermarkTimingClock::now();
+	const auto timingId = ++gWatermarkTimingId;
+	auto task = [this, live, currentLatency, livepoint, liveOffsetMs, isVideoOnMute, positionMs, callerStart, timingId]() {
+		const auto taskStart = WatermarkTimingClock::now();
+		MW_LOG_ERR("[WM_TIMING] id=%llu op=setVideoMute phase=task_start dispatch_delay_us=%lld",
+			timingId, WatermarkElapsedUs(callerStart, taskStart));
 		mDrmSessionManager->setVideoMute(live, currentLatency, livepoint, liveOffsetMs, isVideoOnMute, positionMs);
-	});
+		MW_LOG_ERR("[WM_TIMING] id=%llu op=setVideoMute phase=task_end operation_us=%lld",
+			timingId, WatermarkElapsedUs(taskStart, WatermarkTimingClock::now()));
+	};
+	const bool queued = EnqueueWatermarkTask(task);
+	if (!queued)
+	{
+		MW_LOG_ERR("[WM_TIMING] id=%llu op=setVideoMute phase=caller_fallback", timingId);
+		task();
+	}
+	MW_LOG_ERR("[WM_TIMING] id=%llu op=setVideoMute phase=caller_return dispatch=%s caller_us=%lld",
+		timingId, queued ? "queued" : "fallback", WatermarkElapsedUs(callerStart, WatermarkTimingClock::now()));
 }
 
 void AampDRMLicenseManager::setVideoWindowSize(int width, int height)
 {
-	EnqueueWatermarkTask("setVideoWindowSize", [this, width, height]() {
+	const auto callerStart = WatermarkTimingClock::now();
+	const auto timingId = ++gWatermarkTimingId;
+	auto task = [this, width, height, callerStart, timingId]() {
+		const auto taskStart = WatermarkTimingClock::now();
+		MW_LOG_ERR("[WM_TIMING] id=%llu op=setVideoWindowSize phase=task_start dispatch_delay_us=%lld",
+			timingId, WatermarkElapsedUs(callerStart, taskStart));
 		mDrmSessionManager->setVideoWindowSize(width, height);
-	});
+		MW_LOG_ERR("[WM_TIMING] id=%llu op=setVideoWindowSize phase=task_end operation_us=%lld",
+			timingId, WatermarkElapsedUs(taskStart, WatermarkTimingClock::now()));
+	};
+	const bool queued = EnqueueWatermarkTask(task);
+	if (!queued)
+	{
+		MW_LOG_ERR("[WM_TIMING] id=%llu op=setVideoWindowSize phase=caller_fallback", timingId);
+		task();
+	}
+	MW_LOG_ERR("[WM_TIMING] id=%llu op=setVideoWindowSize phase=caller_return dispatch=%s caller_us=%lld",
+		timingId, queued ? "queued" : "fallback", WatermarkElapsedUs(callerStart, WatermarkTimingClock::now()));
 }
 
 /**
  * @brief Queue and process watermarking state updates serially away from caller threads.
  */
-void AampDRMLicenseManager::EnqueueWatermarkTask(const char *operation, std::function<void()> task)
+bool AampDRMLicenseManager::EnqueueWatermarkTask(std::function<void()> task)
 {
-	const auto callerStart = WatermarkTimingClock::now();
-	const auto timingId = ++gWatermarkTimingId;
-	const auto dispatchStart = WatermarkTimingClock::now();
-	auto timedTask = [operation, timingId, dispatchStart, task = std::move(task)]() mutable {
-		const auto taskStart = WatermarkTimingClock::now();
-		MW_LOG_INFO("[WM_TIMING] id=%llu op=%s phase=task_start dispatch_delay_us=%lld",
-			timingId, operation, WatermarkElapsedUs(dispatchStart, taskStart));
-		task();
-		const auto taskEnd = WatermarkTimingClock::now();
-		MW_LOG_INFO("[WM_TIMING] id=%llu op=%s phase=task_end operation_us=%lld",
-			timingId, operation, WatermarkElapsedUs(taskStart, taskEnd));
-	};
-	bool queued = false;
 	{
 		std::lock_guard<std::mutex> lock(mWatermarkTaskMutex);
-		if (!mWatermarkWorkerStopping)
+		if (mWatermarkWorkerStopping)
 		{
-			mWatermarkTaskQueue.emplace_back(std::move(timedTask));
-			queued = true;
+			return false;
 		}
+		mWatermarkTaskQueue.emplace_back(std::move(task));
 	}
-	if (queued)
-	{
-		mWatermarkTaskCondition.notify_one();
-	}
-	else
-	{
-		MW_LOG_WARN("[WM_TIMING] id=%llu op=%s phase=caller_fallback", timingId, operation);
-		timedTask();
-	}
-	MW_LOG_INFO("[WM_TIMING] id=%llu op=%s phase=caller_return dispatch=%s caller_us=%lld",
-		timingId, operation, queued ? "queued" : "fallback", WatermarkElapsedUs(callerStart, WatermarkTimingClock::now()));
+	mWatermarkTaskCondition.notify_one();
+	return true;
 }
 
 void AampDRMLicenseManager::WatermarkWorkerThread()
