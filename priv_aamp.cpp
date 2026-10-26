@@ -4812,10 +4812,13 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 			AAMPLOG_INFO("[%s] steady ms %lld, maxInitDownloadRetryUntil %lld, maxInitDownloadTimeMS %d maxDownloadAttempt %d",
 				GetMediaTypeName(mediaType), (long long int)NOW_STEADY_TS_MS, maxInitDownloadRetryUntil, maxInitDownloadTimeMS, maxDownloadAttempt);
 
+			const httpRespHeaderData respHeadersBeforeRequest = httpRespHeaders[curlInstance];
 			while(downloadAttempt < maxDownloadAttempt)
 			{
 				// Reset context values specific to each download attempt
 				context.ResetForNewDownload();
+				// The header callback only overwrites matching headers, so drop what a failed attempt left behind
+				httpRespHeaders[curlInstance] = respHeadersBeforeRequest;
 				progressCtx.downloadStartTime = NOW_STEADY_TS_MS;
 
 				progressCtx.downloadUpdatedTime = -1;
