@@ -711,7 +711,7 @@ void SecManagerThunder::updateWatermarkHandler(const JsonObject& parameters)
 					{
 						instance->ModifyWatermarkPalette(graphicId, clutKey, imageKey);
 					}
-					}, (void *) ContentSecurityManager::GetInstance(), "WatermarkModifyPalette"));
+					}, this, "WatermarkModifyPalette"));
 			}
 		}
 		if (!watermarkActive)
