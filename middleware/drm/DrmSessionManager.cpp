@@ -232,7 +232,7 @@ void DrmSessionManager::setVideoWindowSize(int width, int height)
 		MW_LOG_WARN("In DrmSessionManager:: valid session ID. Calling setVideoWindowSize().");
 		auto apiStart = std::chrono::steady_clock::now();
 		bool result = ContentSecurityManager::GetInstance()->setVideoWindowSize(localSession.getSessionID(), width, height);
-		MW_LOG_INFO("[WM_TIMING] op=setVideoWindowSize phase=api_end api_us=%lld result=%d",
+		MW_LOG_ERR("[WM_TIMING] op=setVideoWindowSize phase=api_end api_us=%lld result=%d",
 			SecurityManagerElapsedUs(apiStart, std::chrono::steady_clock::now()), result);
 	}
 }
@@ -249,7 +249,7 @@ void DrmSessionManager::setVideoMute(bool live, double currentLatency, bool live
 	{
 		auto apiStart = std::chrono::steady_clock::now();
 		bool result = ContentSecurityManager::GetInstance()->UpdateSessionState(localSession.getSessionID(), !mIsVideoOnMute.load());
-		MW_LOG_INFO("[WM_TIMING] op=setVideoMute.UpdateSessionState phase=api_end api_us=%lld result=%d",
+		MW_LOG_ERR("[WM_TIMING] op=setVideoMute.UpdateSessionState phase=api_end api_us=%lld result=%d",
 			SecurityManagerElapsedUs(apiStart, std::chrono::steady_clock::now()), result);
 		if(!mIsVideoOnMute.load())
 		{
@@ -272,7 +272,7 @@ void DrmSessionManager::hideWatermarkOnDetach(void)
 	{
 		auto apiStart = std::chrono::steady_clock::now();
 		bool result = ContentSecurityManager::GetInstance()->UpdateSessionState(localSession.getSessionID(), false);
-		MW_LOG_INFO("[WM_TIMING] op=hideWatermarkOnDetach.UpdateSessionState phase=api_end api_us=%lld result=%d",
+		MW_LOG_ERR("[WM_TIMING] op=hideWatermarkOnDetach.UpdateSessionState phase=api_end api_us=%lld result=%d",
 			SecurityManagerElapsedUs(apiStart, std::chrono::steady_clock::now()), result);
 	}
 	mFirstFrameSeen.store(false);
@@ -317,7 +317,7 @@ void DrmSessionManager::setPlaybackSpeedState(bool live, double currentLatency, 
 		MW_LOG_INFO("setPlaybackSpeedState pos=%fs speed=%d", adjustedPos/1000, speed );
 		auto apiStart = std::chrono::steady_clock::now();
 		bool result = ContentSecurityManager::GetInstance()->setPlaybackSpeedState(localSession.getSessionID(), speed, adjustedPos);
-		MW_LOG_INFO("[WM_TIMING] op=setPlaybackSpeedState phase=api_end api_us=%lld result=%d",
+		MW_LOG_ERR("[WM_TIMING] op=setPlaybackSpeedState phase=api_end api_us=%lld result=%d",
 			SecurityManagerElapsedUs(apiStart, std::chrono::steady_clock::now()), result);
 	}
 	else
