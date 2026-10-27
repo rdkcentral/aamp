@@ -1907,8 +1907,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 			}
 			else
 			{
-				IBaseUrl *baseURL = pMediaStreamContext->representation->GetBaseURLs().at(0);
-				if(baseURL && (pMediaStreamContext->mediaType == eMEDIATYPE_SUBTITLE))
+				if((pMediaStreamContext->mediaType == eMEDIATYPE_SUBTITLE) && (!pMediaStreamContext->representation->GetBaseURLs().empty()))
 				{
 					pMediaStreamContext->eos = true;
 				}
