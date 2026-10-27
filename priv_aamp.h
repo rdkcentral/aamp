@@ -3859,6 +3859,7 @@ public:
 	 * @param[in] reason - Reason why the pause position monitoring is stopped
 	 */
 	void StopPausePositionMonitoring(std::string reason);
+	void StopPausePositionMonitoringLocked(const std::string &reason);
 
 	/**
 	 * @fn WaitForDiscontinuityProcessToComplete
@@ -4468,6 +4469,7 @@ protected:
 	 */
 	void StopLatencyMonitor();
 
+	std::mutex mPausePositionLifecycleMutex;			// Serializes start/stop/join of the PausePositionMonitoring thread
 	std::mutex mPausePositionMonitorMutex;				// Mutex lock for PausePosition condition variable
 	std::condition_variable mPausePositionMonitorCV;	// Condition Variable to signal to stop PausePosition monitoring
     std::thread mPausePositionMonitoringThreadID;			// Thread Id of the PausePositionMonitoring thread
