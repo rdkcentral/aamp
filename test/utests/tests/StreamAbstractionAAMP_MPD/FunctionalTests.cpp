@@ -5161,6 +5161,38 @@ TEST_F(StreamAbstractionAAMP_MPDTest, MPDUpdateCallbackExec_RefreshFailsNotBuffe
 }
 
 /**
+ * @brief An OK-status cached-manifest notification while buffering must re-check the failure policy.
+ *
+ * With MPD stitching, pushDownloadDataToQueue() serves the last valid cached manifest
+ * (status eAAMPSTATUS_OK) even when the underlying refresh failed, so
+ * tmpManifestDnldRespPtr->mMPDStatus cannot be relied upon to detect the failure.
+ * HandleManifestRefreshFailureOnBuffering() must still be called so that a sustained
+ * outage is not silently swallowed while the player buffers forever.
+ */
+TEST_F(StreamAbstractionAAMP_MPDTest, MPDUpdateCallbackExec_CachedManifestOkWhileBuffering_RechecksFailurePolicy)
+{
+	// Simulate the stitching case: GetManifest returns OK status (cached manifest) even
+	// though the underlying download failed. _manifestDownloadResponse always constructs
+	// a non-null mMPDParseHelper, so null it out explicitly so the inner SendEvent block
+	// (which dereferences mMPDInstance) is skipped; only the new stitching-aware
+	// re-check path is exercised.
+	ManifestDownloadResponsePtr cachedOkResp = MakeSharedManifestDownloadResponsePtr();
+	cachedOkResp->mMPDStatus = AAMPStatusType::eAAMPSTATUS_OK;
+	cachedOkResp->mMPDDownloadResponse->iHttpRetValue = 200;
+	cachedOkResp->SetMPDParseHelper(nullptr);
+	EXPECT_CALL(*g_mockAampMPDDownloader, GetManifest (_, _, _))
+		.WillOnce(Return(cachedOkResp));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
+		.WillOnce(Return(true));
+	mPrivateInstanceAAMP->SetBufUnderFlowStatus(true);
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, HandleManifestRefreshFailureOnBuffering())
+		.Times(1);
+
+	mStreamAbstractionAAMP_MPD->CallMPDUpdateCallbackExec();
+}
+
+/**
  * @brief Test GetFirstValidCurrMPDPeriod with first period having content.
  *
  * Scenario: Initial manifest refresh where first period is not empty.

@@ -215,6 +215,7 @@ public:
 	 * @return A shared pointer to the AampMPDParseHelper.
 	 */
 	AampMPDParseHelperPtr 	GetMPDParseHelper() { return mMPDParseHelper;}
+	void 					SetMPDParseHelper(AampMPDParseHelperPtr helper) { mMPDParseHelper = helper; }
 }ManifestDownloadResponse;
 
 typedef std::shared_ptr<ManifestDownloadResponse> ManifestDownloadResponsePtr;

@@ -551,6 +551,14 @@ TEST_F(FunctionalTests, AampMPDDownloader_RefreshStatus_AccumulatesOutageAndClea
 		return { std::string(liveMpdManifestPtr), 200 };
 	};
 
+	// Guard: joins the worker on any exit path (including failed ASSERTs) so the
+	// worker thread never accesses expired captured locals during TearDown.
+	struct ScopeRelease
+	{
+		AampMPDDownloader *d;
+		~ScopeRelease() { d->Release(); }
+	} releaseGuard{mAampMPDDownloader};
+
 	mAampMPDDownloader->Initialize(inpData, appName, preProcessCallback);
 	mAampMPDDownloader->Start();
 
@@ -564,12 +572,16 @@ TEST_F(FunctionalTests, AampMPDDownloader_RefreshStatus_AccumulatesOutageAndClea
 		const auto deadline = std::chrono::steady_clock::now() + timeout;
 		while (!condition() && std::chrono::steady_clock::now() < deadline)
 		{
-			std::this_thread::sleep_for(std::chrono::milliseconds(10));
+			std::this_thread::yield();
 		}
 		return condition();
 	};
 
-	ASSERT_TRUE(waitFor([&]() { return attemptCount.load() >= 4; }, std::chrono::milliseconds(4000)));
+	// Wait for the attempt-4 snapshot to be fully stored; failingForMsAtAttempt4 is
+	// initialised to -1 and written only after the stores for type and errorCode,
+	// so waiting on it avoids the race where attemptCount reaches 4 before the
+	// callback has written the captured status values.
+	ASSERT_TRUE(waitFor([&]() { return failingForMsAtAttempt4.load() >= 0; }, std::chrono::milliseconds(4000)));
 
 	// Attempt 4 started after two fast-retry waits, so the outage from attempt 2 is still counted.
 	EXPECT_EQ(statusTypeAtAttempt4.load(), static_cast<int>(AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR));
@@ -579,8 +591,80 @@ TEST_F(FunctionalTests, AampMPDDownloader_RefreshStatus_AccumulatesOutageAndClea
 	ASSERT_TRUE(waitFor([&]() { return mAampMPDDownloader->GetManifestRefreshStatus().type == AAMPStatusType::eAAMPSTATUS_OK; },
 		std::chrono::milliseconds(2000)));
 	EXPECT_EQ(mAampMPDDownloader->GetManifestRefreshStatus().failingForMs, 0);
+}
 
-	mAampMPDDownloader->Release();
+/**
+ * @brief After a live HTTP 404, the downloader sets failingForMs >= MANIFEST_REFRESH_FAILURE_GRACE_MS.
+ *
+ * HTTP 404 is excluded from the fast-retry loop, so the download thread exits after the
+ * failing attempt. HandleManifestRefreshFailureOnBuffering() must be able to fire the fatal
+ * error immediately on the next call, without waiting for a grace period that can never elapse.
+ */
+TEST_F(FunctionalTests, AampMPDDownloader_RefreshStatus_404FailureExceedsGracePeriodImmediately)
+{
+	static const char *kLiveMpdManifest404 =
+	R"(<?xml version="1.0" encoding="UTF-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="dynamic" profiles="urn:mpeg:dash:profile:isoff-live:2011" minBufferTime="PT2.000S" maxSegmentDuration="PT0H0M1.92S" minimumUpdatePeriod="PT0.5S" availabilityStartTime="1977-05-25T18:00:00.000Z" timeShiftBufferDepth="PT0H0M30.000S" publishTime="2024-11-08T12:53:09.725Z">
+    <Period id="901591170" start="PT416006H37M27.854S">
+        <EventStream schemeIdUri="urn:example:test:2024" timescale="1000"/>
+        <AdaptationSet id="2" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+            <Role schemeIdUri="urn:mpeg:dash:role:2011" value="main"/>
+            <SegmentTemplate initialization="init-$RepresentationID$.mp4" media="seg-$Number$.m4s" timescale="90000" startNumber="901599260" presentationTimeOffset="20213">
+                <SegmentTimeline>
+                    <S t="1377581813" d="172800" r="14"/>
+                </SegmentTimeline>
+            </SegmentTemplate>
+            <Representation id="root_video4" bandwidth="562800" codecs="hvc1.1.6.L63.90" width="640" height="360" frameRate="25000/1000"/>
+        </AdaptationSet>
+    </Period>
+</MPD>
+)";
+
+	std::shared_ptr<ManifestDownloadConfig> inpData =
+		std::make_shared<ManifestDownloadConfig>(-1);
+	inpData->mTuneUrl = url1;
+
+	std::atomic<int> attemptCount(0);
+	const char *liveMpdManifestPtr = kLiveMpdManifest404;
+	auto preProcessCallback = [&]() -> std::pair<std::string,int>
+	{
+		const int attempt = attemptCount.fetch_add(1) + 1;
+		if (attempt == 2)
+			return { std::string(), 404 };
+		return { std::string(liveMpdManifestPtr), 200 };
+	};
+
+	// Guard: joins the worker on any exit path (including failed ASSERTs) so the
+	// worker thread never accesses expired captured locals during TearDown.
+	struct ScopeRelease
+	{
+		AampMPDDownloader *d;
+		~ScopeRelease() { d->Release(); }
+	} releaseGuard{mAampMPDDownloader};
+
+	mAampMPDDownloader->Initialize(inpData, appName, preProcessCallback);
+	mAampMPDDownloader->Start();
+
+	ManifestDownloadResponsePtr firstManifest = mAampMPDDownloader->GetManifest(true, 2000);
+	ASSERT_TRUE(firstManifest != nullptr);
+	ASSERT_TRUE(IS_HTTP_SUCCESS(firstManifest->mMPDDownloadResponse->iHttpRetValue));
+
+	// Wait for the 404 attempt to complete: the status type changes to DOWNLOAD_ERROR.
+	// The download loop exits after the 404 (no fast retry), so no further callbacks fire.
+	auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(4000);
+	while (mAampMPDDownloader->GetManifestRefreshStatus().type == AAMPStatusType::eAAMPSTATUS_OK
+		&& std::chrono::steady_clock::now() < deadline)
+	{
+		std::this_thread::yield();
+	}
+
+	// The downloader must mark failingForMs >= MANIFEST_REFRESH_FAILURE_GRACE_MS for 404 so
+	// HandleManifestRefreshFailureOnBuffering() fires the fatal error immediately without
+	// waiting for a grace period that no further refresh callback can advance.
+	ManifestRefreshStatus status = mAampMPDDownloader->GetManifestRefreshStatus();
+	EXPECT_EQ(status.type, AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR);
+	EXPECT_EQ(status.errorCode, 404);
+	EXPECT_GE(status.failingForMs, static_cast<long long>(MANIFEST_REFRESH_FAILURE_GRACE_MS));
 }
 
 // p0 declares a 10s duration but its audio timeline ends with a 3.2s segment starting 0.2s before that end.

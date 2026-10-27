@@ -556,6 +556,14 @@ void AampMPDDownloader::downloadMPDThread1()
 			{
 				mManifestRefreshFailureStartMs.store(-1);
 			}
+			else if (mMPDData->mMPDDownloadResponse->iHttpRetValue == 404)
+			{
+				// HTTP 404 is not retried; the download loop exits after this attempt.
+				// Force failingForMs >= MANIFEST_REFRESH_FAILURE_GRACE_MS so
+				// HandleManifestRefreshFailureOnBuffering() sends the fatal error immediately
+				// rather than waiting for a grace period that can never complete.
+				mManifestRefreshFailureStartMs.store(tStartTime - MANIFEST_REFRESH_FAILURE_GRACE_MS);
+			}
 			else
 			{
 				// Outage starts when the first failed attempt began, so slow failures count their full duration
