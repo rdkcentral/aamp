@@ -75,11 +75,13 @@ struct ManifestRefreshStatus
 {
 	AAMPStatusType type;  /**< Refresh status from the latest manifest refresh */
 	int errorCode;        /**< HTTP/curl code if manifest failed */
+	long long failingForMs; /**< How long refreshes have been failing continuously; 0 when the latest refresh succeeded */
 
 	ManifestRefreshStatus(
 		AAMPStatusType retryType = AAMPStatusType::eAAMPSTATUS_OK,
-		int code = 0)
-		: type(retryType), errorCode(code)
+		int code = 0,
+		long long failingMs = 0)
+		: type(retryType), errorCode(code), failingForMs(failingMs)
 	{
 	}
 };
@@ -213,6 +215,7 @@ public:
 	 * @return A shared pointer to the AampMPDParseHelper.
 	 */
 	AampMPDParseHelperPtr 	GetMPDParseHelper() { return mMPDParseHelper;}
+	void 					SetMPDParseHelper(AampMPDParseHelperPtr helper) { mMPDParseHelper = helper; }
 }ManifestDownloadResponse;
 
 typedef std::shared_ptr<ManifestDownloadResponse> ManifestDownloadResponsePtr;
@@ -461,8 +464,7 @@ private:
 	std::mutex mRefreshMtx;
 	std::condition_variable mRefreshCondVar;
 
-	std::mutex mMPDDnldDataMtx;
-	std::condition_variable mMPDDnldDataCondVar;
+	std::condition_variable mMPDDnldDataCondVar; // waits on mMPDBufferMutex
 
 	std::mutex mMPDNotifierMtx;
 	std::condition_variable mMPDNotifierCondVar;
@@ -485,6 +487,7 @@ private:
 	int mPreProcessErrorCode; /**< curl/HTTP error injected when mMpdPreProcessFuncptr returns empty; default CURLE_OPERATION_TIMEDOUT */
 	std::atomic<int> mManifestRefreshErrorCode;
 	std::atomic<AAMPStatusType> mManifestRefreshErrorType;
+	std::atomic<long long> mManifestRefreshFailureStartMs{-1}; /**< Steady-clock start of the current refresh outage; -1 when refreshes are succeeding */
 };
 
 #endif /* __AAMP_MPD_DOWNLOADER_H__ */

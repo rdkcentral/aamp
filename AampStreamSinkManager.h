@@ -29,6 +29,7 @@
 #include <vector>
 #include <stddef.h>
 #include "aampgstplayer.h"
+#include "AampRialtoPlayer.h"
 #include "AampStreamSinkInactive.h"
 
 class PrivateInstanceAAMP;
@@ -100,6 +101,20 @@ public:
 	 *  @param[in] mappedHeaders - the encrypted headers, Mediatype mapped to url
 	 */
 	virtual void GetEncryptedHeaders(std::map<int, std::string>& mappedHeaders);
+	/**
+	 *  @fn IsEncryptedHeadersCached
+	 *  @brief Returns true if encrypted headers have already been cached in the current lifecycle.
+	 *         This can be used to keep downstream pipeline caps encrypted across clear/enc transitions.
+	 */
+	virtual bool IsEncryptedHeadersCached();
+	/**
+	 *  @fn IsEncryptedHeadersCached
+	 *  @brief Returns true if encrypted headers for the specific media type have been cached.
+	 *         This allows per-track checks to avoid forcing encryption on clear tracks (e.g., clear audio/subtitles)
+	 *         when only other tracks (e.g., video) were encrypted.
+	 *  @param[in] mediaType - The media type to check (e.g., eMEDIATYPE_VIDEO, eMEDIATYPE_AUDIO)
+	 */
+	virtual bool IsEncryptedHeadersCached(int mediaType);
 	/**
 	 *  @fn ReinjectEncryptedHeaders
 	 *  @brief Clears the mEncryptedHeadersInjected flag so that GetEncryptedHeaders returns the headers on next call
