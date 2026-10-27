@@ -63,6 +63,7 @@ static constexpr double kNetTraceBurstGapThresholdS = 0.005;  // 5 milliseconds
 #include "PlayerCCManager.h"
 #include "AampDRMLicPreFetcher.h"
 #include "AampDRMLicManager.h"
+#include "RialtoSessionCreator.h"
 
 #ifdef AAMP_TELEMETRY_SUPPORT
 #include <AampTelemetry2.hpp>
@@ -1909,7 +1910,8 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	mCMCDCollector = new AampCMCDCollector();
 
 	// Ensure the correct CC variant class will be used
-	PlayerCCManager::SetRialto(GETCONFIGVALUE_PRIV(eAAMPConfig_useRialtoSink));
+	PlayerCCManager::SetRialto(GETCONFIGVALUE_PRIV(eAAMPConfig_useRialtoSink),
+					GETCONFIGVALUE_PRIV(eAAMPConfig_useDirectRialto));
 
 	preferredLanguagesString = GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredAudioLanguage);
 	preferredRenditionString = GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredAudioRendition);
@@ -1921,7 +1923,12 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	preferredTextLabelString = GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredTextLabel);
 	preferredTextTypeString = GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredTextType);
 	int maxDrmSession = GETCONFIGVALUE_PRIV(eAAMPConfig_MaxDASHDRMSessions);
-	mDRMLicenseManager = new AampDRMLicenseManager(maxDrmSession, this);
+	DrmSessionCreator rialtoCreator;
+	if (GETCONFIGVALUE_PRIV(eAAMPConfig_useDirectRialto))
+	{
+		rialtoCreator = makeRialtoSessionCreator();
+	}
+	mDRMLicenseManager = new AampDRMLicenseManager(maxDrmSession, this, std::move(rialtoCreator));
 	mSubLanguage = GETCONFIGVALUE_PRIV(eAAMPConfig_SubTitleLanguage);
 	for (int i = 0; i < eCURLINSTANCE_MAX; i++)
 	{
@@ -1983,10 +1990,37 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 /**
  * @brief PrivateInstanceAAMP Destructor
  */
+/**
+ * @brief Reports an exception escaping teardown of the pause position monitor.
+ * Has external linkage and a stable name so a debugger breakpoint can be set on it; the marker
+ * line is written straight to stderr so test harnesses see it regardless of AAMP log level.
+ */
+void AampTeardownExceptionHook(int playerId, const char *what, bool stillJoinable)
+{
+	fprintf(stderr, "AAMP_TEARDOWN_EXCEPTION: PLAYER[%d] StopPausePositionMonitoring threw during destruction: %s%s\n",
+			playerId, what, stillJoinable ? " (monitor thread still joinable, std::terminate will follow)" : "");
+	fflush(stderr);
+	AAMPLOG_ERR("AAMP_TEARDOWN_EXCEPTION: PLAYER[%d] %s", playerId, what);
+}
+
 PrivateInstanceAAMP::~PrivateInstanceAAMP()
 {
 	mAampTrackWorkerManager.reset();
-	StopPausePositionMonitoring("AAMP destroyed");
+	// Last resort: StopPausePositionMonitoring() should not throw, but an intermittent
+	// teardown abort was still observed. Report it loudly instead of letting it escape this noexcept
+	// destructor. If the thread is still joinable, its member destructor will terminate anyway.
+	try
+	{
+		StopPausePositionMonitoring("AAMP destroyed");
+	}
+	catch (const std::exception &e)
+	{
+		AampTeardownExceptionHook(mPlayerId, e.what(), mPausePositionMonitoringThreadID.joinable());
+	}
+	catch (...)
+	{
+		AampTeardownExceptionHook(mPlayerId, "unknown exception", mPausePositionMonitoringThreadID.joinable());
+	}
 	PlayerCCManager::GetInstance()->Release(mCCId);
 	mCCId = 0;
 	{
@@ -2248,7 +2282,10 @@ void PrivateInstanceAAMP::RunPausePositionMonitoring(void)
  */
 void PrivateInstanceAAMP::StartPausePositionMonitoring(long long pausePositionMilliseconds)
 {
-	StopPausePositionMonitoring("Start new pos monitor");
+	// Serialize with StopPausePositionMonitoring() so a monitor cannot be (re)started while another
+	// thread is stopping/joining it, which would leave a joinable thread behind at teardown.
+	std::lock_guard<std::mutex> lifecycleLock(mPausePositionLifecycleMutex);
+	StopPausePositionMonitoringLocked("Start new pos monitor");
 
 	if (pausePositionMilliseconds < 0)
 	{
@@ -2285,19 +2322,31 @@ void PrivateInstanceAAMP::StartPausePositionMonitoring(long long pausePositionMi
  */
 void PrivateInstanceAAMP::StopPausePositionMonitoring(std::string reason)
 {
+	std::lock_guard<std::mutex> lifecycleLock(mPausePositionLifecycleMutex);
+	StopPausePositionMonitoringLocked(reason);
+}
+
+/**
+ * @brief cancel and always join the PausePositionMonitoring thread; caller holds mPausePositionLifecycleMutex
+ */
+void PrivateInstanceAAMP::StopPausePositionMonitoringLocked(const std::string &reason)
+{
 	if (mPausePositionMonitoringThreadID.joinable())
 	{
-		std::unique_lock<std::mutex> lock(mPausePositionMonitorMutex);
-
-		if (mPausePositionMilliseconds != AAMP_PAUSE_POSITION_INVALID_POSITION)
 		{
-			long long positionMs = GetPositionMilliseconds();
-			AAMPLOG_WARN("PLAYER[%d] Stop position monitoring, reason: '%s', current position %lldms, requested position %lldms, rate %f",
-						mPlayerId, reason.c_str(), positionMs, mPausePositionMilliseconds.load(), rate);
-			mPausePositionMilliseconds = AAMP_PAUSE_POSITION_INVALID_POSITION;
-			mPausePositionMonitorCV.notify_one();
+			// Cancel under the monitor mutex so the worker cannot miss the wake-up between its
+			// predicate check and wait_until(). The mutex is a member and valid for the object's lifetime.
+			std::lock_guard<std::mutex> lock(mPausePositionMonitorMutex);
+			if (mPausePositionMilliseconds != AAMP_PAUSE_POSITION_INVALID_POSITION)
+			{
+				long long positionMs = GetPositionMilliseconds();
+				AAMPLOG_WARN("PLAYER[%d] Stop position monitoring, reason: '%s', current position %lldms, requested position %lldms, rate %f",
+							mPlayerId, reason.c_str(), positionMs, mPausePositionMilliseconds.load(), rate);
+				mPausePositionMilliseconds = AAMP_PAUSE_POSITION_INVALID_POSITION;
+			}
+			mPausePositionMonitorCV.notify_all();
 		}
-		lock.unlock();
+		// Never detach: the worker uses this object, so it must be joined before the owner can be destroyed.
 		mPausePositionMonitoringThreadID.join();
 		AAMPLOG_TRACE("joined PositionMonitor");
 	}
@@ -2463,11 +2512,7 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 		(state != eSTATE_COMPLETE) &&
 		(state != eSTATE_SEEKING))
 	{
-		// mTuneMetricDataPending is checked inside SendTuneMetricsEvent()
-		if (state == eSTATE_PLAYING)
-		{
-			SendTuneMetricsEvent();
-		}
+		bool progressEventSent = false;
 		double position = 0.0;
 		double duration = durationSeconds * 1000.0;
 		float speed = mSinkPaused.load() ? 0 : rate;
@@ -2731,6 +2776,7 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 				mEventManager->SendEvent(evt);
 			}
 
+			progressEventSent = true;
 			mReportProgressPosn = position;
 		}
 
@@ -2741,6 +2787,12 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 			{
 				PlayFromTsbStart();
 			}
+		}
+
+		// Only send tune metrics after a progress event was actually dispatched.
+		if (state == eSTATE_PLAYING && progressEventSent)
+		{
+			SendTuneMetricsEvent();
 		}
 	}
 }
@@ -4760,10 +4812,13 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 			AAMPLOG_INFO("[%s] steady ms %lld, maxInitDownloadRetryUntil %lld, maxInitDownloadTimeMS %d maxDownloadAttempt %d",
 				GetMediaTypeName(mediaType), (long long int)NOW_STEADY_TS_MS, maxInitDownloadRetryUntil, maxInitDownloadTimeMS, maxDownloadAttempt);
 
+			const httpRespHeaderData respHeadersBeforeRequest = httpRespHeaders[curlInstance];
 			while(downloadAttempt < maxDownloadAttempt)
 			{
 				// Reset context values specific to each download attempt
 				context.ResetForNewDownload();
+				// The header callback only overwrites matching headers, so drop what a failed attempt left behind
+				httpRespHeaders[curlInstance] = respHeadersBeforeRequest;
 				progressCtx.downloadStartTime = NOW_STEADY_TS_MS;
 
 				progressCtx.downloadUpdatedTime = -1;
@@ -7171,7 +7226,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 				AAMPLOG_ERR("mpStreamAbstractionAAMP is NULL, cannot apply cached video mute");
 			}
 		}
-		else if (mApplyCachedCCStatus.load())
+		if (mApplyCachedCCStatus.load())
 		{
 			while (mApplyCachedCCStatus.exchange(false))
 			{
@@ -8843,6 +8898,7 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 	mDiscontinuityFound = false;
 	{
 		std::lock_guard<std::mutex> guard(mMutexPlaystart);
+		mPlayStartSignalled = true;
 		waitforplaystart.notify_all();
 	}
 	if(mPreCachePlaylistThreadId.joinable())
@@ -9189,6 +9245,7 @@ void PrivateInstanceAAMP::NotifyFirstFrameReceived(unsigned long ccDecoderHandle
 	}
 	{
 		std::lock_guard<std::mutex> guard(mMutexPlaystart);
+		mPlayStartSignalled = true;
 		waitforplaystart.notify_all();
 	}
 	if (eTUNED_EVENT_ON_GST_PLAYING == GetTuneEventConfig(IsLive()))
@@ -11116,7 +11173,7 @@ void PrivateInstanceAAMP::PreCachePlaylistDownloadTask()
 		// First wait for Tune to complete to start this functionality
 		{
 			std::unique_lock<std::mutex> lock(mMutexPlaystart);
-			waitforplaystart.wait(lock);
+			waitforplaystart.wait(lock, [this] { return mPlayStartSignalled; });
 		}
 		// May be Stop is called to release all resources .
 		// Before download , check the state
@@ -11187,6 +11244,12 @@ void PrivateInstanceAAMP::PreCachePlaylistDownloadTask()
  */
 void PrivateInstanceAAMP::SetPreCacheDownloadList(PreCacheUrlList &dnldListInput)
 {
+	{
+		// Must run before the pre-cache thread is created: the thread waits on
+		// mPlayStartSignalled, so a play start from a previous tune must not release it
+		std::lock_guard<std::mutex> guard(mMutexPlaystart);
+		mPlayStartSignalled = false;
+	}
 	mPreCacheDnldList = dnldListInput;
 	if(mPreCacheDnldList.size())
 	{
@@ -12167,7 +12230,7 @@ void PrivateInstanceAAMP::SetTextTrack(int trackId, char *data)
 							SetPreferredTextTrack(std::move(track));
 							if((UsingRialto()) && ((mCurrentTextTrackIndex == -1) || (mCurrentTextTrackIndex == trackId)))
 							{ // by default text track is enabled and muted for Rialto; notify only if there is change in the subtitles
-								AAMPLOG_INFO("useRialtoSink mCurrentTextTrackIndex = %d trackId = %d",mCurrentTextTrackIndex,trackId);
+								AAMPLOG_INFO("useRialto mCurrentTextTrackIndex = %d trackId = %d",mCurrentTextTrackIndex,trackId);
 								mpStreamAbstractionAAMP->currentTextTrackProfileIndex = mCurrentTextTrackIndex = trackId;
 							}
 							else
@@ -15322,6 +15385,13 @@ void PrivateInstanceAAMP::GetStreamFormat(StreamOutputFormat &primaryOutputForma
 void PrivateInstanceAAMP::SetStreamCaps(AampMediaType type, MediaCodecInfo&& codecInfo)
 {
 	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+	if (ISCONFIGSET_PRIV(eAAMPConfig_UseMp4Demux) &&
+		!codecInfo.mIsEncrypted &&
+		AampStreamSinkManager::GetInstance().IsEncryptedHeadersCached(type))
+	{
+		AAMPLOG_WARN("Forcing encrypted stream caps for mediaType %d due to cached encrypted headers", type);
+		codecInfo.mIsEncrypted = true;
+	}
 	SetTrackEncrypted(type, codecInfo.mIsEncrypted);
 	StreamOutputFormat videoFormat = FORMAT_INVALID;
 	StreamOutputFormat audioFormat = FORMAT_INVALID;

@@ -135,15 +135,14 @@ void AampStreamSinkManager::SetSinglePipelineMode(PrivateInstanceAAMP *aamp)
 StreamSink* AampStreamSinkManager::CreateSinkInstance(PrivateInstanceAAMP *aamp, id3_callback_t id3HandlerCallback, std::function<void(const unsigned char *, int, int, int)> exportFrames)
 {
 	StreamSink *sink = nullptr;
-	// DirectRialto is not yet supported, so we will always create the GstPlayer for now.
-	// The config is in place for when DirectRialto support is added.
 	if (ISCONFIGSET(eAAMPConfig_useDirectRialto))
 	{
-		AAMPLOG_ERR("Creating AampRialtoPlayer not yet supported");
+		AAMPLOG_MIL("Creating AampRialtoPlayer");
+		sink = new AampRialtoPlayer(aamp, std::move(id3HandlerCallback), std::move(exportFrames));
 	}
-	//else
+	else
 	{
-		AAMPLOG_MIL("Creating stream player");
+		AAMPLOG_MIL("Creating AAMPGstPlayer");
 		sink = new AAMPGstPlayer(aamp, std::move(id3HandlerCallback), std::move(exportFrames));
 	}
 	return sink;
@@ -366,6 +365,18 @@ void AampStreamSinkManager::GetEncryptedHeaders(std::map<int, std::string>& mapp
 		AAMPLOG_INFO("AampStreamSinkManager(%p) Encrypted headers already injected", this );
 		mappedHeaders.clear();
 	}
+}
+
+bool AampStreamSinkManager::IsEncryptedHeadersCached()
+{
+	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
+	return !mEncryptedHeaders.empty();
+}
+
+bool AampStreamSinkManager::IsEncryptedHeadersCached(int mediaType)
+{
+	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
+	return mEncryptedHeaders.find(mediaType) != mEncryptedHeaders.end();
 }
 
 void AampStreamSinkManager::DeactivatePlayer(PrivateInstanceAAMP *aamp, bool stop)
