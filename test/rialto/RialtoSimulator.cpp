@@ -400,7 +400,7 @@ public:
 			// Round to the nearest mS
 			position = (( position + 1000000/2)/1000000) * 1000000;
 		}
-
+        RIALTO_SIM_LOG("getPosition: position=%jd ns", static_cast<intmax_t>(position));
 		return true;
 	}
 
@@ -426,8 +426,11 @@ public:
 	bool haveData(MediaSourceStatus status,
 		uint32_t needDataRequestId) override
 	{
-		RIALTO_SIM_LOG("haveData: status=%d requestId=%u",
-			static_cast<int>(status), needDataRequestId);
+		RIALTO_SIM_LOG("haveData: status=%d requestId=%u "
+			"steady_clock::period=%jd/%jd s",
+			static_cast<int>(status), needDataRequestId,
+			static_cast<intmax_t>(std::chrono::steady_clock::period::num),
+			static_cast<intmax_t>(std::chrono::steady_clock::period::den));
 
 		// Resolve which source this response belongs to, and pick up any
 		// segment data staged by addSegment() for this request.
