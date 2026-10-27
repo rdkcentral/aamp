@@ -94,6 +94,7 @@ constexpr CodecMapping gCodecMappings[] = {
 	{ MultiChar_Constant("avcC"), GST_FORMAT_VIDEO_ES_H264 },
 	{ MultiChar_Constant("hvcC"), GST_FORMAT_VIDEO_ES_HEVC },
 	{ MultiChar_Constant("esds"), GST_FORMAT_AUDIO_ES_AAC_RAW },
+	{ MultiChar_Constant("dac3"), GST_FORMAT_AUDIO_ES_AC3 }, // AC-3 decoder config box
 	{ MultiChar_Constant("dec3"), GST_FORMAT_AUDIO_ES_EC3 },
 	{ MultiChar_Constant("dac4"), GST_FORMAT_AUDIO_ES_AC4 }, // AC-4 decoder config box
 	{ MultiChar_Constant("stpp"), GST_FORMAT_SUBTITLE_TTML }, // TTML in MP4
@@ -113,6 +114,7 @@ constexpr CipherMapping gCipherMappings[] = {
  * - avcC: H.264 video
  * - hvcC: HEVC video
  * - esds: AAC audio (raw)
+ * - dac3: AC3 audio
  * - dec3: Enhanced AC3 audio
  *
  * @param fourCC Four character code from MP4 container
@@ -1083,6 +1085,7 @@ void Mp4Demux::ParseStreamFormatBox(uint32_t type, const uint8_t *next)
 			ParseVideoInformation();
 			break;
 		case MultiChar_Constant("mp4a"):
+		case MultiChar_Constant("ac-3"):
 		case MultiChar_Constant("ec-3"):
 		case MultiChar_Constant("ac-4"):
 		case MultiChar_Constant("enca"):
@@ -1201,7 +1204,7 @@ void Mp4Demux::ParseEsdsCodecConfigHelper(const uint8_t *next)
  * - ESDS: AAC Elementary Stream Descriptor (complex structure)
  * - avcC: H.264 configuration (SPS/PPS data)
  * - hvcC: HEVC configuration (VPS/SPS/PPS data)
- * - dec3: Enhanced AC3 configuration (skipped for now)
+ * - dac3/dec3: AC3/Enhanced AC3 configuration (skipped for now)
  *
  * @param type FourCC type identifier
  * @param next Pointer to next box boundary
@@ -1223,8 +1226,8 @@ void Mp4Demux::ParseCodecConfigurationBox(uint32_t type, const uint8_t *next)
 	else
 	{
 		size_t codecDataLen = next - ptr;
-		// No need to read this for dec3 box. Expand the filter later if needed.
-		if (type != MultiChar_Constant("dec3"))
+		// No need to read this for dac3/dec3 boxes. Expand the filter later if needed.
+		if (type != MultiChar_Constant("dac3") && type != MultiChar_Constant("dec3"))
 		{
 			codecInfo.mCodecData = std::vector<uint8_t>(ptr, ptr + codecDataLen);
 		}
@@ -1471,6 +1474,7 @@ void Mp4Demux::DemuxHelper(const uint8_t *fin)
 			case MultiChar_Constant("hvc1"):
 			case MultiChar_Constant("avc1"):
 			case MultiChar_Constant("mp4a"):
+			case MultiChar_Constant("ac-3"):
 			case MultiChar_Constant("ec-3"):
 			case MultiChar_Constant("ac-4"):
 			case MultiChar_Constant("enca"):
@@ -1480,6 +1484,7 @@ void Mp4Demux::DemuxHelper(const uint8_t *fin)
 				ParseStreamFormatBox(type, next);
 				break;
 			case MultiChar_Constant("hvcC"):
+			case MultiChar_Constant("dac3"): // AC-3 DecoderSpecific box
 			case MultiChar_Constant("dac4"): // AC-4 DecoderSpecific box
 			case MultiChar_Constant("dec3"):
 			case MultiChar_Constant("avcC"):
