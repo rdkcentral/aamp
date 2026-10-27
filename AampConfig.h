@@ -227,15 +227,8 @@ typedef enum
 	eAAMPConfig_CurlThroughput,
 	eAAMPConfig_UseFireboltSDK,						/**< Config to use Firebolt SDK for license Acquisition */
 	eAAMPConfig_EnableChunkInjection,					/**< Config to enable chunk injection for low latency DASH */
-	eAAMPConfig_DebugChunkTransfer,					/**< app-managed chunked transfer protocol */
-	eAAMPConfig_UTCSyncOnStartup,					/**< Perform sync at startup */
-	eAAMPConfig_DisableWebVTT,					/**< Config to disable/exclude WebVTT tracks (default: WebVTT enabled) */
-	eAAMPConfig_EnablePTSReStampLogging,		/**< Config to enable logging for PTS restamping in Mp4Demuxer */
-	eAAMPConfig_NetTraceCsvDump,			/**< Write AAMP_NET_TRACE CSV files when true (default path: /tmp; may be overridden via AAMP_REQ_CSV/AAMP_BUR_CSV; output includes a PID suffix; default: false) */
-	eAAMPConfig_LogFilename,				/**< Config to include source filename in log output */
-	eAAMPConfig_ProcessLicenseFromEAP,			/**< Config to enable non-VSS early available period DRM prefetch */
-	eAAMPConfig_EnableProducerReferenceDelay,		/**< Add PRT-derived encoder delay (from CalculateProducerReferenceTimeOffset) to DASH live latency calculation; default false */
-	eAAMPConfig_BoolMaxValue				/**< Max value of bool config always last element */	
+	eAAMPConfig_DisableTTML,					/**< Config to disable/exclude TTML tracks in DASH (default: TTML enabled) */
+	eAAMPConfig_BoolMaxValue						/**< Max value of bool config always last element */
 
 } AAMPConfigSettingBool;
 #define AAMPCONFIG_BOOL_COUNT (eAAMPConfig_BoolMaxValue)
@@ -781,6 +774,5 @@ private:
  * @brief Global configuration */
 extern AampConfig  *gpGlobalConfig;
 #endif
-
 
 
