@@ -395,12 +395,13 @@ public:
 	bool getPosition(int64_t &position) override
 	{
 		position = refreshAndGetPositionNs();
+		auto before = position;
 		if (position>0)
 		{
 			// Round to the nearest mS
 			position = (( position + 1000000/2)/1000000) * 1000000;
 		}
-        RIALTO_SIM_LOG("getPosition: position=%jd ns", static_cast<intmax_t>(position));
+        RIALTO_SIM_LOG("getPosition: position=%jd before=%jd", static_cast<intmax_t>(position), static_cast<intmax_t>(before));
 		return true;
 	}
 
