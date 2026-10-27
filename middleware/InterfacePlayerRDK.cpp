@@ -1460,19 +1460,25 @@ void InterfacePlayerRDK::Stop(bool keepLastFrame)
 		}
 
 		interfacePlayerPriv->gstPrivateContext->buffering_in_progress = false;   /* stopping pipeline, don't want to change state if GST_MESSAGE_ASYNC_DONE message comes in */
+		MW_LOG_MIL("InterfacePlayerRDK:stop_debug Begin changing pipeline state to NULL);
 		SetStateWithWarnings(interfacePlayerPriv->gstPrivateContext->pipeline, GST_STATE_NULL);
-		MW_LOG_MIL(" InterfacePlayerRDK: Pipeline state set to null");
+		MW_LOG_MIL("InterfacePlayerRDK:stop_debug Finished changing pipeline state to NULL");
+		//MW_LOG_MIL(" InterfacePlayerRDK: Pipeline state set to null");
 	}
 	if(PlayerExternalsInterface::IsPlayerExternalsInterfaceInstanceActive())
 	{
 		std::shared_ptr<PlayerExternalsInterface> pInstance = PlayerExternalsInterface::GetPlayerExternalsInterfaceInstance();
 		pInstance->setGstElement((GstElement *)(NULL));
 	}
+	MW_LOG_MIL("InterfacePlayerRDK:stop_debug Begin tearing down streams track-count: %d", GST_TRACK_COUNT);
 	for(int i = 0; i<GST_TRACK_COUNT;i++)
 	{
 		TearDownStream((int(i)));
 	}
+	MW_LOG_MIL("InterfacePlayerRDK:stop_debug Finished tearing down streams");
+	MW_LOG_MIL("InterfacePlayerRDK:stop_debug begin DestroyPipeline");
 	DestroyPipeline();
+	MW_LOG_MIL("InterfacePlayerRDK:stop_debug Finished DestroyPipeline");
 	interfacePlayerPriv->gstPrivateContext->rate = GST_NORMAL_PLAY_RATE;
 	interfacePlayerPriv->gstPrivateContext->lastKnownPTS = 0;
 	interfacePlayerPriv->gstPrivateContext->segmentStart = 0;
