@@ -428,6 +428,44 @@ TEST(Mp4Demux_Gaps, EsdsVarintDecode) {
 	EXPECT_EQ(info.mCodecData[3], 0x44);
 }
 
+// AC-3 init: ac-3 + dac3 must yield a valid AC-3 codec format
+TEST(Mp4Demux_Gaps, AC3InitYieldsAc3Format) {
+	std::vector<uint8_t> buf;
+	{
+		Box moov(buf, "moov");
+		{
+			Box stsd(buf, "stsd");
+			writeFullBoxHeader(buf, /*version*/0, /*flags*/0);
+			write32be(buf, /*entry_count*/1);
+			{
+				Box ac3(buf, "ac-3");
+				for (int i=0; i<16; ++i) buf.push_back(0x00);
+				write16be(buf, 6);
+				buf.insert(buf.end(), 6, 0x00);
+				write16be(buf, 48000);
+				write16be(buf, 0x0000);
+				{
+					Box dac3(buf, "dac3");
+					for (int i=0; i<3; ++i) buf.push_back(uint8_t(0x50 + i));
+					dac3.close();
+				}
+				ac3.close();
+			}
+			stsd.close();
+		}
+		moov.close();
+	}
+
+	Mp4Demux d;
+	ASSERT_TRUE(d.Parse(std::make_shared<std::vector<uint8_t>>(buf)));
+	auto info = d.GetCodecInfo();
+	EXPECT_EQ(info.mCodecFormat, GST_FORMAT_AUDIO_ES_AC3);
+	EXPECT_EQ(info.mInfo.audio.mChannelCount, 6);
+	EXPECT_EQ(info.mInfo.audio.mSampleRate, 48000u);
+	EXPECT_TRUE(info.mCodecData.empty()) << "dac3 payload is not forwarded, same as dec3";
+	EXPECT_FALSE(info.mNaluLengthPrefixed);
+}
+
 // D) AC-4 init: ac-4 + dac4
 TEST(Mp4Demux_Gaps, AC4InitHasCodecData) {
 	std::vector<uint8_t> buf;
