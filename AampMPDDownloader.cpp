@@ -346,6 +346,7 @@ void AampMPDDownloader::Release()
 		mMinimalRefreshRetryCount = 0; //Reset the refresh interval retry counter
 		mManifestRefreshErrorType.store(AAMPStatusType::eAAMPSTATUS_OK);
 		mManifestRefreshErrorCode.store(0);
+		mManifestRefreshFailureStartMs.store(-1);
 		AAMPLOG_INFO("Release Called in MPD Downloader - Exit %ld %ld", mMPDData.use_count(),mMPDDnldCfg.use_count());
 	}
 }
@@ -549,6 +550,25 @@ void AampMPDDownloader::downloadMPDThread1()
 			if (mMPDData->mMPDStatus == AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR)
 			{
 				errorCode = mMPDData->mMPDDownloadResponse->iHttpRetValue;
+			}
+			// Update the outage timer first so a reader never sees an OK status with a stale timer
+			if (mMPDData->mMPDStatus == AAMPStatusType::eAAMPSTATUS_OK)
+			{
+				mManifestRefreshFailureStartMs.store(-1);
+			}
+			else if (mMPDData->mMPDDownloadResponse->iHttpRetValue == 404)
+			{
+				// HTTP 404 is not retried; the download loop exits after this attempt.
+				// Force failingForMs >= MANIFEST_REFRESH_FAILURE_GRACE_MS so
+				// HandleManifestRefreshFailureOnBuffering() sends the fatal error immediately
+				// rather than waiting for a grace period that can never complete.
+				mManifestRefreshFailureStartMs.store(tStartTime - MANIFEST_REFRESH_FAILURE_GRACE_MS);
+			}
+			else
+			{
+				// Outage starts when the first failed attempt began, so slow failures count their full duration
+				long long expected = -1;
+				mManifestRefreshFailureStartMs.compare_exchange_strong(expected, tStartTime);
 			}
 			mManifestRefreshErrorType.store(mMPDData->mMPDStatus);
 			mManifestRefreshErrorCode.store(errorCode);
@@ -1199,9 +1219,12 @@ void AampMPDDownloader::RegisterCallback(ManifestUpdateCallbackFunc fnPtr, void 
 
 ManifestRefreshStatus AampMPDDownloader::GetManifestRefreshStatus() const
 {
+	const long long failureStartMs = mManifestRefreshFailureStartMs.load();
+	const long long failingForMs = (failureStartMs >= 0) ? (NOW_STEADY_TS_MS - failureStartMs) : 0;
 	return ManifestRefreshStatus(
 		mManifestRefreshErrorType.load(),
-		mManifestRefreshErrorCode.load());
+		mManifestRefreshErrorCode.load(),
+		failingForMs);
 }
 
 /**

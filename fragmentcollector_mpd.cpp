@@ -5158,6 +5158,13 @@ void StreamAbstractionAAMP_MPD::MPDUpdateCallbackExec()
 			AAMPLOG_INFO( "Send RefreshNotify Dur[%" PRIu64 "] NoOfPeriods[%d] PubTime[%u] ManifestType[%s]", manifestDuration, mMPDParser->GetNumberOfPeriods(), tmpManifestDnldRespPtr->mMPDInstance->GetFetchTime(), manifestType.c_str());
 			aamp->SendEvent(std::make_shared<ManifestRefreshEvent>(manifestDuration, mMPDParser->GetNumberOfPeriods(), tmpManifestDnldRespPtr->mMPDInstance->GetFetchTime(), manifestType, aamp->GetSessionId()), AAMP_EVENT_ASYNC_MODE);
 		}
+		// With MPD stitching a failed refresh pushes the last valid cached manifest (status OK)
+		// so tmpManifestDnldRespPtr->mMPDStatus is OK even though the underlying refresh failed.
+		// Re-check the grace policy now so a sustained failure is not silently swallowed.
+		if (aamp->DownloadsAreEnabled() && aamp->GetBufUnderFlowStatus())
+		{
+			aamp->HandleManifestRefreshFailureOnBuffering();
+		}
 	}
 	else
 	{
@@ -5195,6 +5202,11 @@ void StreamAbstractionAAMP_MPD::MPDUpdateCallbackExec()
 				}
 			}
 			AAMPLOG_ERR("manifest download failed [status:%d][http:%d], re-using old manifest", tmpManifestDnldRespPtr->mMPDStatus, http_error);
+			if (aamp->GetBufUnderFlowStatus())
+			{
+				// The buffering-start check allows a grace period; re-check now that this refresh has also failed
+				aamp->HandleManifestRefreshFailureOnBuffering();
+			}
 		}
 		else
 		{
