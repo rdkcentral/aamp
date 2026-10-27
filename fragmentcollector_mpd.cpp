@@ -5158,6 +5158,13 @@ void StreamAbstractionAAMP_MPD::MPDUpdateCallbackExec()
 			AAMPLOG_INFO( "Send RefreshNotify Dur[%" PRIu64 "] NoOfPeriods[%d] PubTime[%u] ManifestType[%s]", manifestDuration, mMPDParser->GetNumberOfPeriods(), tmpManifestDnldRespPtr->mMPDInstance->GetFetchTime(), manifestType.c_str());
 			aamp->SendEvent(std::make_shared<ManifestRefreshEvent>(manifestDuration, mMPDParser->GetNumberOfPeriods(), tmpManifestDnldRespPtr->mMPDInstance->GetFetchTime(), manifestType, aamp->GetSessionId()), AAMP_EVENT_ASYNC_MODE);
 		}
+		// With MPD stitching a failed refresh pushes the last valid cached manifest (status OK)
+		// so tmpManifestDnldRespPtr->mMPDStatus is OK even though the underlying refresh failed.
+		// Re-check the grace policy now so a sustained failure is not silently swallowed.
+		if (aamp->DownloadsAreEnabled() && aamp->GetBufUnderFlowStatus())
+		{
+			aamp->HandleManifestRefreshFailureOnBuffering();
+		}
 	}
 	else
 	{
@@ -5195,6 +5202,11 @@ void StreamAbstractionAAMP_MPD::MPDUpdateCallbackExec()
 				}
 			}
 			AAMPLOG_ERR("manifest download failed [status:%d][http:%d], re-using old manifest", tmpManifestDnldRespPtr->mMPDStatus, http_error);
+			if (aamp->GetBufUnderFlowStatus())
+			{
+				// The buffering-start check allows a grace period; re-check now that this refresh has also failed
+				aamp->HandleManifestRefreshFailureOnBuffering();
+			}
 		}
 		else
 		{
@@ -6591,6 +6603,21 @@ Accessibility StreamAbstractionAAMP_MPD::getAccessibilityNode(void* adaptationSe
 }
 
 /**
+ * @fn AddIfUnique
+ * @brief Adds a text track to the list if it is not already in list
+ * @return true if the text track was added, false otherwise
+ */
+bool StreamAbstractionAAMP_MPD::AddIfUnique(std::vector<TextTrackInfo> &tTracks, TextTrackInfo value)
+{
+	if (std::find(tTracks.begin(), tTracks.end(), value) == tTracks.end())
+	{
+		tTracks.push_back(std::move(value));
+		return true;
+	}
+	return false;
+}
+
+/**
  * @fn ParseTrackInformation
  *
  * @brief get the Label value from adaptation in Dash
@@ -6748,34 +6775,43 @@ void StreamAbstractionAAMP_MPD::ParseTrackInformation(IAdaptationSet *adaptation
 						while (delim != std::string::npos)
 						{
 							ParseCCStreamIDAndLang(value.substr(0, delim), id, lang);
-							AAMPLOG_WARN("StreamAbstractionAAMP_MPD: CC Track - lang:%s, isCC:1, group:%s, id:%s",
-								lang.c_str(), schemeId.c_str(), id.c_str());
+
 							TextTrackInfo textTrack = TextTrackInfo(true, schemeId);
 							textTrack.setInstreamId(id);
 							textTrack.setLanguage(lang);
 							textTrack.setType("captions");
-							tTracks.push_back(std::move(textTrack));
+							if (AddIfUnique(tTracks, textTrack))
+							{
+								AAMPLOG_INFO("StreamAbstractionAAMP_MPD: CC Track - lang:%s, isCC:1, group:%s, id:%s",
+											 lang.c_str(), schemeId.c_str(), id.c_str());
+							}
 							value = value.substr(delim + 1);
 							delim = value.find(';');
 						}
 						ParseCCStreamIDAndLang(std::move(value), id, lang);
 						lang = Getiso639map_NormalizeLanguageCode(lang,aamp->GetLangCodePreference());
-						AAMPLOG_WARN("StreamAbstractionAAMP_MPD: CC Track - lang:%s, isCC:1, group:%s, id:%s",
-							lang.c_str(), schemeId.c_str(), id.c_str());
-						TextTrackInfo textTrack = TextTrackInfo(true, std::move(schemeId));
+
+						TextTrackInfo textTrack = TextTrackInfo(true, schemeId);
 						textTrack.setInstreamId(id);
 						textTrack.setLanguage(lang);
 						textTrack.setType("captions");
-						tTracks.push_back(std::move(textTrack));
+						if (AddIfUnique(tTracks, textTrack))
+						{
+							AAMPLOG_INFO("StreamAbstractionAAMP_MPD: CC Track - lang:%s, isCC:1, group:%s, id:%s",
+										 lang.c_str(), schemeId.c_str(), id.c_str());
+						}
 					}
 					else
 					{
 						// value = empty is highly discouraged as per spec, just added as fallback
-						AAMPLOG_WARN("StreamAbstractionAAMP_MPD: CC Track - group:%s, isCC:1", schemeId.c_str());
-						TextTrackInfo textTrack = TextTrackInfo(true, std::move(schemeId));
+
+						TextTrackInfo textTrack = TextTrackInfo(true, schemeId);
 						textTrack.setAccessibilityItem(accessibilityNode);
 						textTrack.setAvailable(true);
-						tTracks.push_back(std::move(textTrack));
+						if (AddIfUnique(tTracks, textTrack))
+						{
+							AAMPLOG_INFO("StreamAbstractionAAMP_MPD: CC Track - group:%s, isCC:1", schemeId.c_str());
+						}
 					}
 				}
 			}

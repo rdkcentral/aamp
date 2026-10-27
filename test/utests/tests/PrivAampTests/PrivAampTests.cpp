@@ -2400,24 +2400,55 @@ TEST_F(PrivAampTests, HandleManifestRefreshFailureOnBuffering_NoError_ReturnsFal
 	EXPECT_FALSE(p_aamp->GetBufUnderFlowStatus());
 }
 
-// When manifest refresh reports a content error, the function
-// must return true to signal that an error event was sent and the normal
+// When manifest refresh reports a content error that has persisted for the grace period,
+// the function must return true to signal that an error event was sent and the normal
 // buffering path should be skipped.
 TEST_F(PrivAampTests, HandleManifestRefreshFailureOnBuffering_ContentError_ReturnsTrue)
 {
 	EXPECT_CALL(*g_mockAampMPDDownloader, GetManifestRefreshStatus())
 		.WillOnce(Return(ManifestRefreshStatus(
-			AAMPStatusType::eAAMPSTATUS_MANIFEST_CONTENT_ERROR, 0)));
+			AAMPStatusType::eAAMPSTATUS_MANIFEST_CONTENT_ERROR, 0, MANIFEST_REFRESH_FAILURE_GRACE_MS)));
 	EXPECT_TRUE(p_aamp->HandleManifestRefreshFailureOnBuffering());
 }
 
-// When the error code is a real HTTP/curl transport error (e.g. 408), the function
-// must return true (manifest-req-failed event path).
+// When the error code is a real HTTP/curl transport error (e.g. 408) that has persisted for the
+// grace period, the function must return true (manifest-req-failed event path).
 TEST_F(PrivAampTests, HandleManifestRefreshFailureOnBuffering_TransportError_ReturnsTrue)
 {
 	EXPECT_CALL(*g_mockAampMPDDownloader, GetManifestRefreshStatus())
 		.WillOnce(Return(ManifestRefreshStatus(
-			AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR, 408)));
+			AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR, 408, MANIFEST_REFRESH_FAILURE_GRACE_MS)));
+	EXPECT_TRUE(p_aamp->HandleManifestRefreshFailureOnBuffering());
+}
+
+// A refresh that only just started failing must not end playback: the downloader's retries
+// get the grace period to recover before a fatal error is sent.
+TEST_F(PrivAampTests, HandleManifestRefreshFailureOnBuffering_RecentFailure_WaitsForRecovery)
+{
+	EXPECT_CALL(*g_mockAampMPDDownloader, GetManifestRefreshStatus())
+		.WillOnce(Return(ManifestRefreshStatus(
+			AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR, CURLE_RECV_ERROR, MANIFEST_REFRESH_FAILURE_GRACE_MS - 1)));
+	EXPECT_FALSE(p_aamp->HandleManifestRefreshFailureOnBuffering());
+}
+
+// Content and parse errors get the same grace period as transport errors.
+TEST_F(PrivAampTests, HandleManifestRefreshFailureOnBuffering_RecentContentError_WaitsForRecovery)
+{
+	EXPECT_CALL(*g_mockAampMPDDownloader, GetManifestRefreshStatus())
+		.WillOnce(Return(ManifestRefreshStatus(
+			AAMPStatusType::eAAMPSTATUS_MANIFEST_CONTENT_ERROR, 0, 0)));
+	EXPECT_FALSE(p_aamp->HandleManifestRefreshFailureOnBuffering());
+}
+
+// The same outage becomes fatal once re-checked after the grace period has elapsed.
+TEST_F(PrivAampTests, HandleManifestRefreshFailureOnBuffering_FailureOutlastsGrace_BecomesFatal)
+{
+	EXPECT_CALL(*g_mockAampMPDDownloader, GetManifestRefreshStatus())
+		.WillOnce(Return(ManifestRefreshStatus(
+			AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR, CURLE_RECV_ERROR, MANIFEST_REFRESH_FAILURE_GRACE_MS - 1)))
+		.WillOnce(Return(ManifestRefreshStatus(
+			AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR, CURLE_RECV_ERROR, MANIFEST_REFRESH_FAILURE_GRACE_MS)));
+	EXPECT_FALSE(p_aamp->HandleManifestRefreshFailureOnBuffering());
 	EXPECT_TRUE(p_aamp->HandleManifestRefreshFailureOnBuffering());
 }
 
@@ -2427,27 +2458,41 @@ TEST_F(PrivAampTests, HandleManifestRefreshFailureOnBuffering_AfterRecovery_Retu
 {
 	EXPECT_CALL(*g_mockAampMPDDownloader, GetManifestRefreshStatus())
 		.WillOnce(Return(ManifestRefreshStatus(
-			AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR, 503)))
+			AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR, 503, MANIFEST_REFRESH_FAILURE_GRACE_MS)))
 		.WillOnce(Return(ManifestRefreshStatus()));
 	ASSERT_TRUE(p_aamp->HandleManifestRefreshFailureOnBuffering());
 
 	EXPECT_FALSE(p_aamp->HandleManifestRefreshFailureOnBuffering());
 }
 
-// When a manifest retry error is pending, SendBufferChangeEvent(true) must take
+// When a manifest refresh outage has lasted the grace period, SendBufferChangeEvent(true) must take
 // the early-return path: underflow status must NOT be set (player tears down via
 // the error event; the normal buffering path is skipped entirely).
 TEST_F(PrivAampTests, SendBufferChangeEvent_ManifestRetryPending_SkipsUnderflowStatus)
 {
 	EXPECT_CALL(*g_mockAampMPDDownloader, GetManifestRefreshStatus())
 		.WillOnce(Return(ManifestRefreshStatus(
-			AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR, 408)));
+			AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR, 408, MANIFEST_REFRESH_FAILURE_GRACE_MS)));
 	ASSERT_FALSE(p_aamp->GetBufUnderFlowStatus());
 
 	p_aamp->SendBufferChangeEvent(true);
 
 	// Early return was taken — SetBufUnderFlowStatus(true) must NOT have been called.
 	EXPECT_FALSE(p_aamp->GetBufUnderFlowStatus());
+}
+
+// A refresh failure shorter than the grace period must not skip the normal buffering path:
+// underflow status is set so the failed-refresh re-check can run while buffering.
+TEST_F(PrivAampTests, SendBufferChangeEvent_RecentManifestFailure_SetsUnderflowStatus)
+{
+	EXPECT_CALL(*g_mockAampMPDDownloader, GetManifestRefreshStatus())
+		.WillOnce(Return(ManifestRefreshStatus(
+			AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR, CURLE_RECV_ERROR, 0)));
+	ASSERT_FALSE(p_aamp->GetBufUnderFlowStatus());
+
+	p_aamp->SendBufferChangeEvent(true);
+
+	EXPECT_TRUE(p_aamp->GetBufUnderFlowStatus());
 }
 
 // When no manifest retry error is pending, SendBufferChangeEvent(true) must follow
@@ -3238,6 +3283,57 @@ TEST_F(PrivAampTests,GetFileTest_RetryInitWhilstBufferDepthBeforeSuccessTest)
 
 	EXPECT_TRUE(p_aamp->GetFile("remoteurl", mType, gBuff, effectiveUrl, http_error, &downloadTime, "0-150",
 								eCURLINSTANCE_MANIFEST_MAIN, resetBuffer, &bitrate, &fogError, 0.0));
+}
+
+/**
+ * @brief GetFile() must discard response headers left by a failed attempt before retrying.
+ *
+ * The first attempt fails with CURLE_RECV_ERROR after an X-Reason header was parsed;
+ * the retry succeeds without that header, so it must not be reported.
+ */
+TEST_F(PrivAampTests, GetFileTest_RetryAfterRecvErrorDiscardsStaleResponseHeaders)
+{
+	std::string effectiveUrl;
+	int http_error = 0;
+	std::vector<uint8_t> gBuff{};
+	double downloadTime;
+	BitsPerSecond bitrate;
+	int fogError;
+	using namespace std::string_view_literals;
+	constexpr auto dummyData = "0x0a"sv;
+	constexpr auto curlInstance = eCURLINSTANCE_MANIFEST_MAIN;
+
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
+	p_aamp->EnableDownloads();
+	p_aamp->curl[curlInstance] = mCurlEasyHandle;
+	p_aamp->curlDLTimeout[curlInstance] = 2000;
+
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(Matcher<AAMPConfigSettingInt>(_))).WillRepeatedly(Return(0));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(Matcher<AAMPConfigSettingFloat>(_))).WillRepeatedly(Return(0.0));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(Matcher<AAMPConfigSettingString>(_))).WillRepeatedly(Return(""));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_ptr(mCurlEasyHandle, _, _)).WillRepeatedly(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_str(mCurlEasyHandle, _, _)).WillRepeatedly(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_long(mCurlEasyHandle, _, _)).WillRepeatedly(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockAampCurlStore, GetCurlResponseCode(mCurlEasyHandle)).WillOnce(Return(200));
+
+	EXPECT_CALL(*g_mockCurl, curl_easy_perform(mCurlEasyHandle))
+		.WillOnce([this, curlInstance]() -> CURLcode
+				{
+					// Stands in for HandleSSLHeaderCallback() running before the connection reset
+					p_aamp->httpRespHeaders[curlInstance].type = eHTTPHEADERTYPE_XREASON;
+					p_aamp->httpRespHeaders[curlInstance].data = "stale reason;";
+					return CURLE_RECV_ERROR;
+				})
+		.WillOnce([&gBuff, dummyData]() -> CURLcode
+				{
+					gBuff.assign(dummyData.begin(), dummyData.end());
+					return CURLE_OK;
+				});
+
+	EXPECT_TRUE(p_aamp->GetFile("remoteurl", eMEDIATYPE_MANIFEST, gBuff, effectiveUrl, http_error, &downloadTime, nullptr,
+								curlInstance, true, &bitrate, &fogError, 0.0));
+	EXPECT_EQ(p_aamp->httpRespHeaders[curlInstance].type, eHTTPHEADERTYPE_UNKNOWN);
+	EXPECT_TRUE(p_aamp->httpRespHeaders[curlInstance].data.empty());
 }
 
 TEST_F(PrivAampTests,GetOnVideoEndSessionStatDataTest)
