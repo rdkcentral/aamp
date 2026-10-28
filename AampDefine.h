@@ -135,6 +135,7 @@
 #define MAX_DELAY_BETWEEN_PLAYLIST_UPDATE_MS (6000)
 #define MIN_DELAY_BETWEEN_PLAYLIST_UPDATE_MS (500) // 500mSec
 #define MIN_DELAY_BETWEEN_MANIFEST_UPDATE_FOR_502_MS (1000) // 1000mSec
+#define MANIFEST_REFRESH_FAILURE_GRACE_MS (5000) /**< How long a live manifest refresh may keep failing, with the buffer already dry, before a fatal error is sent */
 #define STEADYSTATE_RAMPDOWN_DELTA 2000000 //2000 kbps
 #define DEFAULT_TELEMETRY_REPORT_INTERVAL (300) 	/**< time interval for the telemetry reporting 300sec*/
 #define MIN_MONITOR_AVSYNC_POSITIVE_DELTA_MS 1 /*< minimum positive delta to trigger AVSync reporting */

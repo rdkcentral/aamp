@@ -17,7 +17,9 @@
 * limitations under the License.
 */
 
+#include <chrono>
 #include <cstdlib>
+#include <future>
 #include <iostream>
 #include <string>
 #include <string.h>
@@ -2398,24 +2400,55 @@ TEST_F(PrivAampTests, HandleManifestRefreshFailureOnBuffering_NoError_ReturnsFal
 	EXPECT_FALSE(p_aamp->GetBufUnderFlowStatus());
 }
 
-// When manifest refresh reports a content error, the function
-// must return true to signal that an error event was sent and the normal
+// When manifest refresh reports a content error that has persisted for the grace period,
+// the function must return true to signal that an error event was sent and the normal
 // buffering path should be skipped.
 TEST_F(PrivAampTests, HandleManifestRefreshFailureOnBuffering_ContentError_ReturnsTrue)
 {
 	EXPECT_CALL(*g_mockAampMPDDownloader, GetManifestRefreshStatus())
 		.WillOnce(Return(ManifestRefreshStatus(
-			AAMPStatusType::eAAMPSTATUS_MANIFEST_CONTENT_ERROR, 0)));
+			AAMPStatusType::eAAMPSTATUS_MANIFEST_CONTENT_ERROR, 0, MANIFEST_REFRESH_FAILURE_GRACE_MS)));
 	EXPECT_TRUE(p_aamp->HandleManifestRefreshFailureOnBuffering());
 }
 
-// When the error code is a real HTTP/curl transport error (e.g. 408), the function
-// must return true (manifest-req-failed event path).
+// When the error code is a real HTTP/curl transport error (e.g. 408) that has persisted for the
+// grace period, the function must return true (manifest-req-failed event path).
 TEST_F(PrivAampTests, HandleManifestRefreshFailureOnBuffering_TransportError_ReturnsTrue)
 {
 	EXPECT_CALL(*g_mockAampMPDDownloader, GetManifestRefreshStatus())
 		.WillOnce(Return(ManifestRefreshStatus(
-			AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR, 408)));
+			AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR, 408, MANIFEST_REFRESH_FAILURE_GRACE_MS)));
+	EXPECT_TRUE(p_aamp->HandleManifestRefreshFailureOnBuffering());
+}
+
+// A refresh that only just started failing must not end playback: the downloader's retries
+// get the grace period to recover before a fatal error is sent.
+TEST_F(PrivAampTests, HandleManifestRefreshFailureOnBuffering_RecentFailure_WaitsForRecovery)
+{
+	EXPECT_CALL(*g_mockAampMPDDownloader, GetManifestRefreshStatus())
+		.WillOnce(Return(ManifestRefreshStatus(
+			AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR, CURLE_RECV_ERROR, MANIFEST_REFRESH_FAILURE_GRACE_MS - 1)));
+	EXPECT_FALSE(p_aamp->HandleManifestRefreshFailureOnBuffering());
+}
+
+// Content and parse errors get the same grace period as transport errors.
+TEST_F(PrivAampTests, HandleManifestRefreshFailureOnBuffering_RecentContentError_WaitsForRecovery)
+{
+	EXPECT_CALL(*g_mockAampMPDDownloader, GetManifestRefreshStatus())
+		.WillOnce(Return(ManifestRefreshStatus(
+			AAMPStatusType::eAAMPSTATUS_MANIFEST_CONTENT_ERROR, 0, 0)));
+	EXPECT_FALSE(p_aamp->HandleManifestRefreshFailureOnBuffering());
+}
+
+// The same outage becomes fatal once re-checked after the grace period has elapsed.
+TEST_F(PrivAampTests, HandleManifestRefreshFailureOnBuffering_FailureOutlastsGrace_BecomesFatal)
+{
+	EXPECT_CALL(*g_mockAampMPDDownloader, GetManifestRefreshStatus())
+		.WillOnce(Return(ManifestRefreshStatus(
+			AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR, CURLE_RECV_ERROR, MANIFEST_REFRESH_FAILURE_GRACE_MS - 1)))
+		.WillOnce(Return(ManifestRefreshStatus(
+			AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR, CURLE_RECV_ERROR, MANIFEST_REFRESH_FAILURE_GRACE_MS)));
+	EXPECT_FALSE(p_aamp->HandleManifestRefreshFailureOnBuffering());
 	EXPECT_TRUE(p_aamp->HandleManifestRefreshFailureOnBuffering());
 }
 
@@ -2425,27 +2458,41 @@ TEST_F(PrivAampTests, HandleManifestRefreshFailureOnBuffering_AfterRecovery_Retu
 {
 	EXPECT_CALL(*g_mockAampMPDDownloader, GetManifestRefreshStatus())
 		.WillOnce(Return(ManifestRefreshStatus(
-			AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR, 503)))
+			AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR, 503, MANIFEST_REFRESH_FAILURE_GRACE_MS)))
 		.WillOnce(Return(ManifestRefreshStatus()));
 	ASSERT_TRUE(p_aamp->HandleManifestRefreshFailureOnBuffering());
 
 	EXPECT_FALSE(p_aamp->HandleManifestRefreshFailureOnBuffering());
 }
 
-// When a manifest retry error is pending, SendBufferChangeEvent(true) must take
+// When a manifest refresh outage has lasted the grace period, SendBufferChangeEvent(true) must take
 // the early-return path: underflow status must NOT be set (player tears down via
 // the error event; the normal buffering path is skipped entirely).
 TEST_F(PrivAampTests, SendBufferChangeEvent_ManifestRetryPending_SkipsUnderflowStatus)
 {
 	EXPECT_CALL(*g_mockAampMPDDownloader, GetManifestRefreshStatus())
 		.WillOnce(Return(ManifestRefreshStatus(
-			AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR, 408)));
+			AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR, 408, MANIFEST_REFRESH_FAILURE_GRACE_MS)));
 	ASSERT_FALSE(p_aamp->GetBufUnderFlowStatus());
 
 	p_aamp->SendBufferChangeEvent(true);
 
 	// Early return was taken — SetBufUnderFlowStatus(true) must NOT have been called.
 	EXPECT_FALSE(p_aamp->GetBufUnderFlowStatus());
+}
+
+// A refresh failure shorter than the grace period must not skip the normal buffering path:
+// underflow status is set so the failed-refresh re-check can run while buffering.
+TEST_F(PrivAampTests, SendBufferChangeEvent_RecentManifestFailure_SetsUnderflowStatus)
+{
+	EXPECT_CALL(*g_mockAampMPDDownloader, GetManifestRefreshStatus())
+		.WillOnce(Return(ManifestRefreshStatus(
+			AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR, CURLE_RECV_ERROR, 0)));
+	ASSERT_FALSE(p_aamp->GetBufUnderFlowStatus());
+
+	p_aamp->SendBufferChangeEvent(true);
+
+	EXPECT_TRUE(p_aamp->GetBufUnderFlowStatus());
 }
 
 // When no manifest retry error is pending, SendBufferChangeEvent(true) must follow
@@ -3236,6 +3283,57 @@ TEST_F(PrivAampTests,GetFileTest_RetryInitWhilstBufferDepthBeforeSuccessTest)
 
 	EXPECT_TRUE(p_aamp->GetFile("remoteurl", mType, gBuff, effectiveUrl, http_error, &downloadTime, "0-150",
 								eCURLINSTANCE_MANIFEST_MAIN, resetBuffer, &bitrate, &fogError, 0.0));
+}
+
+/**
+ * @brief GetFile() must discard response headers left by a failed attempt before retrying.
+ *
+ * The first attempt fails with CURLE_RECV_ERROR after an X-Reason header was parsed;
+ * the retry succeeds without that header, so it must not be reported.
+ */
+TEST_F(PrivAampTests, GetFileTest_RetryAfterRecvErrorDiscardsStaleResponseHeaders)
+{
+	std::string effectiveUrl;
+	int http_error = 0;
+	std::vector<uint8_t> gBuff{};
+	double downloadTime;
+	BitsPerSecond bitrate;
+	int fogError;
+	using namespace std::string_view_literals;
+	constexpr auto dummyData = "0x0a"sv;
+	constexpr auto curlInstance = eCURLINSTANCE_MANIFEST_MAIN;
+
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
+	p_aamp->EnableDownloads();
+	p_aamp->curl[curlInstance] = mCurlEasyHandle;
+	p_aamp->curlDLTimeout[curlInstance] = 2000;
+
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(Matcher<AAMPConfigSettingInt>(_))).WillRepeatedly(Return(0));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(Matcher<AAMPConfigSettingFloat>(_))).WillRepeatedly(Return(0.0));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(Matcher<AAMPConfigSettingString>(_))).WillRepeatedly(Return(""));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_ptr(mCurlEasyHandle, _, _)).WillRepeatedly(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_str(mCurlEasyHandle, _, _)).WillRepeatedly(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_long(mCurlEasyHandle, _, _)).WillRepeatedly(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockAampCurlStore, GetCurlResponseCode(mCurlEasyHandle)).WillOnce(Return(200));
+
+	EXPECT_CALL(*g_mockCurl, curl_easy_perform(mCurlEasyHandle))
+		.WillOnce([this, curlInstance]() -> CURLcode
+				{
+					// Stands in for HandleSSLHeaderCallback() running before the connection reset
+					p_aamp->httpRespHeaders[curlInstance].type = eHTTPHEADERTYPE_XREASON;
+					p_aamp->httpRespHeaders[curlInstance].data = "stale reason;";
+					return CURLE_RECV_ERROR;
+				})
+		.WillOnce([&gBuff, dummyData]() -> CURLcode
+				{
+					gBuff.assign(dummyData.begin(), dummyData.end());
+					return CURLE_OK;
+				});
+
+	EXPECT_TRUE(p_aamp->GetFile("remoteurl", eMEDIATYPE_MANIFEST, gBuff, effectiveUrl, http_error, &downloadTime, nullptr,
+								curlInstance, true, &bitrate, &fogError, 0.0));
+	EXPECT_EQ(p_aamp->httpRespHeaders[curlInstance].type, eHTTPHEADERTYPE_UNKNOWN);
+	EXPECT_TRUE(p_aamp->httpRespHeaders[curlInstance].data.empty());
 }
 
 TEST_F(PrivAampTests,GetOnVideoEndSessionStatDataTest)
@@ -4603,6 +4701,128 @@ TEST_F(PrivAampTests,FlushStreamSinkTest)
 TEST_F(PrivAampTests,PreCachePlaylistDownloadTaskTest)
 {
 	p_aamp->PreCachePlaylistDownloadTask();
+}
+
+/**
+ * @brief Release a PreCachePlaylistDownloadTask() blocked on waitforplaystart so that a
+ *        failing test does not hang when its std::future is destroyed.
+ */
+static void ReleasePreCacheTask(PrivateInstanceAAMP *aamp)
+{
+	{
+		std::lock_guard<std::mutex> guard(aamp->mMutexPlaystart);
+		aamp->mPlayStartSignalled = true;
+	}
+	aamp->waitforplaystart.notify_all();
+}
+
+static PreCacheUrlList MakePreCacheList()
+{
+	PreCacheUrlStruct entry;
+	entry.url = "http://host/precache/video.m3u8";
+	entry.type = eMEDIATYPE_PLAYLIST_VIDEO;
+	return PreCacheUrlList{entry};
+}
+
+/**
+ * @brief Play start signalled before the pre-cache thread reaches its wait.
+ *
+ * The first-frame notification runs on a different thread from the pre-cache thread and
+ * can happen first. The pre-cache thread must still observe it and continue.
+ * State is set to IDLE after play start so the task returns without downloading.
+ */
+TEST_F(PrivAampTests, PreCachePlaylistDownloadTask_PlayStartBeforeWait_DoesNotBlock)
+{
+	PreCacheUrlList list = MakePreCacheList();
+	p_aamp->SetPreCacheDownloadList(list);
+
+	// Play start happens before the pre-cache thread runs
+	p_aamp->NotifyFirstFrameReceived(0);
+	p_aamp->SetState(eSTATE_IDLE, false);
+
+	auto task = std::async(std::launch::async, [this]() { p_aamp->PreCachePlaylistDownloadTask(); });
+	std::future_status status = task.wait_for(std::chrono::seconds(2));
+	if (status != std::future_status::ready)
+	{
+		ReleasePreCacheTask(p_aamp);
+	}
+	task.wait();
+
+	EXPECT_EQ(status, std::future_status::ready)
+		<< "PreCachePlaylistDownloadTask() missed a play start signalled before it waited";
+}
+
+/**
+ * @brief Pre-cache must not start until play start has been signalled for this tune.
+ */
+TEST_F(PrivAampTests, PreCachePlaylistDownloadTask_NoPlayStart_WaitsUntilSignalled)
+{
+	PreCacheUrlList list = MakePreCacheList();
+	p_aamp->SetPreCacheDownloadList(list);
+	p_aamp->SetState(eSTATE_IDLE, false);
+
+	auto task = std::async(std::launch::async, [this]() { p_aamp->PreCachePlaylistDownloadTask(); });
+	std::future_status beforeSignal = task.wait_for(std::chrono::milliseconds(20));
+
+	ReleasePreCacheTask(p_aamp);
+	std::future_status afterSignal = task.wait_for(std::chrono::seconds(2));
+	task.wait();
+
+	EXPECT_EQ(beforeSignal, std::future_status::timeout);
+	EXPECT_EQ(afterSignal, std::future_status::ready);
+}
+
+/**
+ * @brief SetPreCacheDownloadList() starts a new tune's pre-cache: a play start from a
+ *        previous tune must not release the new pre-cache thread.
+ */
+TEST_F(PrivAampTests, SetPreCacheDownloadList_PreviousTunePlayStart_DoesNotReleaseTask)
+{
+	// Play start of the previous tune
+	p_aamp->NotifyFirstFrameReceived(0);
+
+	PreCacheUrlList list = MakePreCacheList();
+	p_aamp->SetPreCacheDownloadList(list);
+	p_aamp->SetState(eSTATE_IDLE, false);
+
+	auto task = std::async(std::launch::async, [this]() { p_aamp->PreCachePlaylistDownloadTask(); });
+	std::future_status beforeSignal = task.wait_for(std::chrono::milliseconds(20));
+
+	ReleasePreCacheTask(p_aamp);
+	std::future_status afterSignal = task.wait_for(std::chrono::seconds(2));
+	task.wait();
+
+	EXPECT_EQ(beforeSignal, std::future_status::timeout)
+		<< "Play start from the previous tune released the new pre-cache task";
+	EXPECT_EQ(afterSignal, std::future_status::ready);
+}
+
+/**
+ * @brief Stop() must release a pre-cache thread still waiting for play start.
+ *
+ * Stop() signals mPlayStartSignalled and then joins mPreCachePlaylistThreadId. Without the
+ * signal the worker stays blocked on the predicate and the join never returns.
+ * Stop() runs on a helper thread so a regression fails on the deadline rather than hanging.
+ */
+TEST_F(PrivAampTests, Stop_PreCacheThreadWaitingForPlayStart_JoinsWithinDeadline)
+{
+	PreCacheUrlList list = MakePreCacheList();
+	p_aamp->SetPreCacheDownloadList(list);
+	p_aamp->mPreCachePlaylistThreadId =
+		std::thread(&PrivateInstanceAAMP::PreCachePlaylistDownloadTask, p_aamp);
+
+	auto stopTask = std::async(std::launch::async, [this]() { p_aamp->Stop(false); });
+	std::future_status status = stopTask.wait_for(std::chrono::seconds(2));
+	if (status != std::future_status::ready)
+	{
+		// Timeout cleanup only, so a regression fails instead of hanging CI
+		ReleasePreCacheTask(p_aamp);
+	}
+	stopTask.wait();
+
+	EXPECT_EQ(status, std::future_status::ready)
+		<< "Stop() did not release and join the pre-cache thread";
+	EXPECT_FALSE(p_aamp->mPreCachePlaylistThreadId.joinable());
 }
 
 TEST_F(PrivAampTests,GetPreferredTextPropertiesTest)

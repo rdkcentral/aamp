@@ -347,6 +347,9 @@ struct CurlCallbackContext
 		abortReason = eCURL_ABORT_REASON_NONE;
 		dataTransferStartTime = -1;
 		chunkDurationInTicks = 0;
+		downloadIsEncoded = false;
+		contentLength = 0;
+		bitrate = 0;
 	}
 };
 
