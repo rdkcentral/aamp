@@ -34,6 +34,7 @@
 #include "priv_aamp.h"
 #include "AampEvent.h"
 #include "AampLogManager.h"
+#include "AampDefine.h"
 
 #include <algorithm>
 #include <chrono>
@@ -252,19 +253,38 @@ static std::string CompressTimeline(const std::vector<uint64_t> &samples)
 }
 
 /**
- * @brief Return the index of the first sample whose start time >= sec*timescale.
+ * @brief Return the index of the segment boundary at which to split for a
+ *        period-relative time.
+ *
+ *        sec is mapped onto the timeline as pto + sec*timescale.  The nearest
+ *        boundary within AAMP_VOD_SPLICE_SNAP_TOLERANCE_SEC is used, so a splice
+ *        slightly either side of a boundary does not straddle a segment;
+ *        otherwise the first boundary after the target is used.
  *        Returns samples.size()-1 (the sentinel index) if sec is beyond the end.
  */
 static size_t GetTimelineIndex(const std::vector<uint64_t> &samples,
-                               uint64_t timescale, double sec)
+                               uint64_t timescale, uint64_t pto, double sec)
 {
-	uint64_t pts = (uint64_t)(sec * (double)timescale);
+	if (samples.empty())
+		return 0;
+	const double target = (double)pto + sec * (double)timescale;
+	const double tolerance = AAMP_VOD_SPLICE_SNAP_TOLERANCE_SEC * (double)timescale;
+	size_t next = samples.size() - 1;
 	for (size_t i = 0; i < samples.size(); i++)
 	{
-		if (samples[i] >= pts)
-			return i;
+		if ((double)samples[i] >= target)
+		{
+			next = i;
+			break;
+		}
 	}
-	return samples.size() > 0 ? samples.size() - 1 : 0;
+	if (next > 0)
+	{
+		const double pastPrev = target - (double)samples[next - 1];
+		if (pastPrev <= tolerance && pastPrev < (double)samples[next] - target)
+			return next - 1;
+	}
+	return next;
 }
 
 /* -------------------------------------------------------------------------
@@ -309,6 +329,9 @@ std::string TrimPeriod(const std::string &periodBody,
 		std::string snStr = GetAttr(tmplTag, "startNumber");
 		int startNumber = snStr.empty() ? 1 : std::stoi(snStr);
 
+		std::string ptoStr = GetAttr(tmplTag, "presentationTimeOffset");
+		uint64_t origPto = ptoStr.empty() ? 0 : (uint64_t)std::stoull(ptoStr);
+
 		const std::string TL_OPEN  = "<SegmentTimeline>";
 		const std::string TL_CLOSE = "</SegmentTimeline>";
 
@@ -339,9 +362,9 @@ std::string TrimPeriod(const std::string &periodBody,
 		size_t idx2 = samples.size() - 1; // default: all segments (excluding sentinel)
 
 		if (startSec > 0.0)
-			idx1 = GetTimelineIndex(samples, timescale, startSec);
+			idx1 = GetTimelineIndex(samples, timescale, origPto, startSec);
 		if (endSec > 0.0)
-			idx2 = GetTimelineIndex(samples, timescale, endSec); // samples[idx2] becomes the sentinel, so a straddling segment is already included
+			idx2 = GetTimelineIndex(samples, timescale, origPto, endSec); // samples[idx2] becomes the sentinel, so a straddling segment is already included
 
 		// Clamp to valid range
 		if (idx1 >= samples.size() - 1)

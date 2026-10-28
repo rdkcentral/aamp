@@ -59,8 +59,10 @@ std::string BuildStitchedVodManifest(
 
 /**
  * @brief Trim a period's SegmentTemplate/SegmentTimeline blocks to the window
- *        [startSec, endSec), snapping each edge up to the first segment
- *        boundary at or after it.  Exposed for L1 unit tests.
+ *        [startSec, endSec).  Each edge snaps to the nearest segment boundary
+ *        within AAMP_VOD_SPLICE_SNAP_TOLERANCE_SEC, otherwise up to the next
+ *        boundary.  Times are period-relative and mapped onto each timeline
+ *        via its presentationTimeOffset.  Exposed for L1 unit tests.
  *
  * @param periodBody  Inner XML of the <Period> element.
  * @param startSec    Window start relative to the period (0 = from the beginning).

@@ -24,10 +24,12 @@
  *
  * Contract
  * --------
- * TrimPeriod(body, startSec, endSec) keeps the segments covering [startSec, endSec),
- * with each edge snapped up to the first segment boundary at or after it:
- *   - the content slice before a splice ends at the first boundary >= splice
- *     (a segment straddling the splice is kept, nothing after it);
+ * TrimPeriod(body, startSec, endSec) keeps the segments covering [startSec, endSec).
+ * Times are period-relative, mapped onto each timeline via its presentationTimeOffset.
+ * Each edge snaps to the nearest segment boundary within
+ * AAMP_VOD_SPLICE_SNAP_TOLERANCE_SEC, otherwise up to the next boundary:
+ *   - the content slice before a splice ends at that boundary (a segment
+ *     straddling the splice beyond the window is kept, nothing after it);
  *   - the slice after the splice starts at that same boundary;
  *   so every segment is emitted exactly once across the slices (no extra
  *   main content before the ad, and no repeated content after it).
@@ -46,17 +48,23 @@
 #include <vector>
 
 #include "AampVodStitcher.h"
+#include "AampDefine.h"
 
 namespace
 {
 constexpr uint64_t kTimescale = 48000;
+constexpr double kSnapSec = AAMP_VOD_SPLICE_SNAP_TOLERANCE_SEC;
 
 // 618 x 1.92s (-> 1186.56s), then 2.64s (-> 1189.2s), 1.2s (-> 1190.4s), 4 x 1.92s (-> 1198.08s)
-const char *kVideoTimeline =
-	"<S t=\"0\" d=\"92160\" r=\"617\"/><S d=\"126720\"/><S d=\"57600\"/><S d=\"92160\" r=\"3\"/>";
+std::string VideoTimeline(uint64_t t0 = 0)
+{
+	return "<S t=\"" + std::to_string(t0) + "\" d=\"92160\" r=\"617\"/><S d=\"126720\"/><S d=\"57600\"/><S d=\"92160\" r=\"3\"/>";
+}
 // 618 x 1.92s (-> 1186.56s), then 2.656s (-> 1189.216s), 1.184s (-> 1190.4s), 4 x 1.92s (-> 1198.08s)
-const char *kAudioTimeline =
-	"<S t=\"0\" d=\"92160\" r=\"617\"/><S d=\"127488\"/><S d=\"56832\"/><S d=\"92160\" r=\"3\"/>";
+std::string AudioTimeline(uint64_t t0 = 0)
+{
+	return "<S t=\"" + std::to_string(t0) + "\" d=\"92160\" r=\"617\"/><S d=\"127488\"/><S d=\"56832\"/><S d=\"92160\" r=\"3\"/>";
+}
 
 constexpr size_t kSegmentCount = 624;
 constexpr size_t kVideo = 0;
@@ -128,10 +136,11 @@ std::vector<Track> ParseTracks(const std::string &body)
 	return tracks;
 }
 
-std::string AdaptationSet(const char *type, const std::string &templateAttrs, const char *timeline)
+std::string AdaptationSet(const char *type, const std::string &templateAttrs, const std::string &timeline,
+						  uint64_t timescale = kTimescale)
 {
 	return std::string("<AdaptationSet contentType=\"") + type + "\" mimeType=\"" + type + "/mp4\">\n"
-		   "<SegmentTemplate timescale=\"48000\" " + templateAttrs + "media=\"" + type + "-$Number$.mp4\" initialization=\"" + type + "-init.mp4\">\n"
+		   "<SegmentTemplate timescale=\"" + std::to_string(timescale) + "\" " + templateAttrs + "media=\"" + type + "-$Number$.mp4\" initialization=\"" + type + "-init.mp4\">\n"
 		   "<SegmentTimeline>\n" + timeline + "\n</SegmentTimeline>\n"
 		   "</SegmentTemplate>\n"
 		   "<Representation id=\"" + type + "\" bandwidth=\"1000\"/>\n"
@@ -140,19 +149,27 @@ std::string AdaptationSet(const char *type, const std::string &templateAttrs, co
 
 /**
  * @brief Main-content period body: video with an explicit startNumber, audio relying on the default of 1.
+ *        With a non-zero offset a track's timeline starts at t = presentationTimeOffset.
  */
-std::string MainPeriodBody()
+std::string MainPeriodBody(uint64_t videoPto = 0, uint64_t audioPto = 0)
 {
-	return AdaptationSet("video", "startNumber=\"1\" ", kVideoTimeline) + AdaptationSet("audio", "", kAudioTimeline);
+	auto ptoAttr = [](uint64_t pto) { return pto ? "presentationTimeOffset=\"" + std::to_string(pto) + "\" " : std::string(); };
+	return AdaptationSet("video", "startNumber=\"1\" " + ptoAttr(videoPto), VideoTimeline(videoPto)) +
+		   AdaptationSet("audio", ptoAttr(audioPto), AudioTimeline(audioPto));
+}
+
+std::vector<Track> TrimBody(const std::string &body, double startSec, double endSec, size_t expectedTracks = 2)
+{
+	std::vector<Track> tracks = ParseTracks(TrimPeriod(body, startSec, endSec));
+	EXPECT_EQ(tracks.size(), expectedTracks);
+	for (const Track &track : tracks)
+		EXPECT_FALSE(track.segments.empty());
+	return tracks;
 }
 
 std::vector<Track> Trim(double startSec, double endSec)
 {
-	std::vector<Track> tracks = ParseTracks(TrimPeriod(MainPeriodBody(), startSec, endSec));
-	EXPECT_EQ(tracks.size(), 2u);
-	for (const Track &track : tracks)
-		EXPECT_FALSE(track.segments.empty());
-	return tracks;
+	return TrimBody(MainPeriodBody(), startSec, endSec);
 }
 } // namespace
 
@@ -261,19 +278,122 @@ TEST(AampVodStitcherTrimPeriodTests, SubTickJitter_SnapsToBoundary)
 }
 
 /**
- * @brief A splice clearly past a boundary is mid-segment: the content between the boundary
- *        and the splice belongs before the ad, so the straddling segment is kept pre-splice.
+ * @brief A splice shortly after a boundary (within the snap window) snaps back to it rather
+ *        than playing most of the next segment before the ad.
  */
-TEST(AampVodStitcherTrimPeriodTests, JustPastBoundary_KeepsStraddlingSegment)
+TEST(AampVodStitcherTrimPeriodTests, SnapWindow_JustAfterBoundary_SnapsBackToBoundary)
 {
-	const double splice = 1189.2 + 1.5 / (double)kTimescale;
+	for (double offset : {1.5 / (double)kTimescale, 0.01, 0.05, 0.9 * kSnapSec})
+	{
+		const double splice = 1189.2 + offset;
+		SCOPED_TRACE(testing::Message() << "splice=" << std::to_string(splice));
+		std::vector<Track> pre = Trim(0.0, splice);
+		std::vector<Track> post = Trim(splice, 0.0);
+		ASSERT_EQ(pre.size(), 2u);
+		ASSERT_EQ(post.size(), 2u);
+		EXPECT_EQ(pre[kVideo].segments.size(), 619u);
+		EXPECT_EQ(pre[kVideo].End(), Ticks(1189.2));
+		EXPECT_EQ(post[kVideo].Start(), Ticks(1189.2));
+		EXPECT_EQ(pre[kAudio].End(), Ticks(1189.216));
+		EXPECT_EQ(post[kAudio].Start(), Ticks(1189.216));
+	}
+}
+
+/**
+ * @brief A splice shortly before a boundary (within the snap window) snaps up to it.
+ */
+TEST(AampVodStitcherTrimPeriodTests, SnapWindow_JustBeforeBoundary_SnapsUpToBoundary)
+{
+	for (double offset : {0.01, 0.05, 0.9 * kSnapSec})
+	{
+		const double splice = 1189.2 - offset;
+		SCOPED_TRACE(testing::Message() << "splice=" << std::to_string(splice));
+		std::vector<Track> pre = Trim(0.0, splice);
+		std::vector<Track> post = Trim(splice, 0.0);
+		ASSERT_EQ(pre.size(), 2u);
+		ASSERT_EQ(post.size(), 2u);
+		EXPECT_EQ(pre[kVideo].segments.size(), 619u);
+		EXPECT_EQ(pre[kVideo].End(), Ticks(1189.2));
+		EXPECT_EQ(post[kVideo].Start(), Ticks(1189.2));
+	}
+}
+
+/**
+ * @brief A splice past a boundary by more than the snap window is mid-segment: the content
+ *        between the boundary and the splice belongs before the ad, so the straddling
+ *        segment is kept pre-splice.
+ */
+TEST(AampVodStitcherTrimPeriodTests, BeyondSnapWindow_KeepsStraddlingSegment)
+{
+	const double splice = 1189.2 + 1.5 * kSnapSec;
 	std::vector<Track> pre = Trim(0.0, splice);
 	std::vector<Track> post = Trim(splice, 0.0);
 	ASSERT_EQ(pre.size(), 2u);
 	ASSERT_EQ(post.size(), 2u);
 	EXPECT_EQ(pre[kVideo].segments.size(), 620u);
-	EXPECT_EQ(pre[kVideo].End(), Ticks(1190.4));
-	EXPECT_EQ(post[kVideo].Start(), Ticks(1190.4));
+	for (size_t i : {kVideo, kAudio})
+	{
+		EXPECT_EQ(pre[i].End(), Ticks(1190.4));
+		EXPECT_EQ(post[i].Start(), Ticks(1190.4));
+	}
+}
+
+/**
+ * @brief With boundaries on both sides of the splice inside the snap window, the nearer one wins.
+ */
+TEST(AampVodStitcherTrimPeriodTests, SnapWindow_PrefersNearestBoundary)
+{
+	// timescale 1000: boundaries at 0, 1.000, 1.060, 2.060s
+	const std::string body = AdaptationSet("video", "", "<S t=\"0\" d=\"1000\"/><S d=\"60\"/><S d=\"1000\"/>", 1000);
+	ASSERT_LT(0.04, kSnapSec);
+
+	std::vector<Track> nearerPrev = TrimBody(body, 0.0, 1.02, 1);
+	ASSERT_EQ(nearerPrev.size(), 1u);
+	EXPECT_EQ(nearerPrev[0].End(), 1000u);
+
+	std::vector<Track> nearerNext = TrimBody(body, 0.0, 1.04, 1);
+	ASSERT_EQ(nearerNext.size(), 1u);
+	EXPECT_EQ(nearerNext[0].End(), 1060u);
+}
+
+/**
+ * @brief Timelines whose t values start at a non-zero presentationTimeOffset (each track with
+ *        its own offset) split at the same period-relative positions as zero-based ones, and
+ *        each slice's offset is rebased to its first segment.
+ */
+TEST(AampVodStitcherTrimPeriodTests, NonZeroPresentationTimeOffset_SplitsAtSamePositions)
+{
+	const uint64_t videoPto = 100000ULL * kTimescale;
+	const uint64_t audioPto = videoPto + 7ULL * kTimescale;
+	const std::string body = MainPeriodBody(videoPto, audioPto);
+	const uint64_t pto[] = {videoPto, audioPto};
+
+	std::vector<Track> pre = TrimBody(body, 0.0, 1189.2);
+	std::vector<Track> post = TrimBody(body, 1189.2, 0.0);
+	ASSERT_EQ(pre.size(), 2u);
+	ASSERT_EQ(post.size(), 2u);
+	EXPECT_EQ(pre[kVideo].End(), videoPto + Ticks(1189.2));
+	EXPECT_EQ(pre[kAudio].End(), audioPto + Ticks(1189.216));
+	for (size_t i : {kVideo, kAudio})
+	{
+		SCOPED_TRACE(i == kVideo ? "video" : "audio");
+		EXPECT_EQ(pre[i].segments.size(), 619u);
+		EXPECT_EQ(pre[i].Start(), pto[i]);
+		EXPECT_EQ(pre[i].pto, pto[i]);
+		EXPECT_EQ(pre[i].startNumber, 1);
+		EXPECT_EQ(post[i].Start(), pre[i].End());
+		EXPECT_EQ(post[i].pto, post[i].Start());
+		EXPECT_EQ(post[i].segments.size(), 5u);
+		EXPECT_EQ(post[i].startNumber, 620);
+	}
+
+	std::vector<Track> middle = TrimBody(body, 1189.2, 1194.0);
+	ASSERT_EQ(middle.size(), 2u);
+	for (size_t i : {kVideo, kAudio})
+	{
+		EXPECT_EQ(middle[i].segments.size(), 3u);
+		EXPECT_EQ(middle[i].End(), pto[i] + Ticks(1194.24));
+	}
 }
 
 /**
