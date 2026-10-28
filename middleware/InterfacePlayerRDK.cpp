@@ -2750,6 +2750,7 @@ void InterfacePlayerPriv::SendGstEvents(int mediaType, GstClockTime pts, int ena
 		// since they are encrypted using same id. Hence check if protection event is queued for
 		// other types
 		GstEvent* event = NULL;
+		int cachedType = mediaType;
 		{
 			std::lock_guard<std::mutex> lock(gstPrivateContext->protectionEventMutex);
 			event = gstPrivateContext->protectionEvent[mediaType];
@@ -2761,21 +2762,28 @@ void InterfacePlayerPriv::SendGstEvents(int mediaType, GstClockTime pts, int ena
 					if (i != mediaType && gstPrivateContext->protectionEvent[i] != NULL)
 					{
 						event = gstPrivateContext->protectionEvent[i];
+						cachedType = i;
 						break;
 					}
 				}
 			}
 			if (event)
 			{
+				MW_LOG_MIL("ProtectionEvent selected for send: requestedType=%d cachedType=%d event=%p; acquiring reference", mediaType, cachedType, static_cast<void *>(event));
 				event = gst_event_ref(event);
+				MW_LOG_MIL("ProtectionEvent reference acquired: requestedType=%d cachedType=%d event=%p", mediaType, cachedType, static_cast<void *>(event));
 			}
 		}
 		if(event)
 		{
-			MW_LOG_MIL("pushing protection event! mediatype: %d", type);
+			MW_LOG_MIL("Pushing protection event: mediaType=%d cachedType=%d event=%p", type, cachedType, static_cast<void *>(event));
 			if (!gst_pad_push_event(sourceEleSrcPad, event))
 			{
-				MW_LOG_ERR("push protection event failed!");
+				MW_LOG_ERR("ProtectionEvent push failed: mediaType=%d cachedType=%d", type, cachedType);
+			}
+			else
+			{
+				MW_LOG_MIL("ProtectionEvent push succeeded: mediaType=%d cachedType=%d", type, cachedType);
 			}
 		}
 	}
@@ -3612,15 +3620,17 @@ void InterfacePlayerRDK::QueueProtectionEvent(const std::string& formatType, con
 
 		gst_buffer_unref (pssi);
 	}
+	MW_LOG_MIL("ProtectionEvent created for cache: type=%d event=%p", type, static_cast<void *>(newEvent));
 
 	GstPlayerPriv *context = interfacePlayerPriv->gstPrivateContext;
 	std::lock_guard<std::mutex> lock(context->protectionEventMutex);
 	if (context->protectionEvent[type] != NULL)
 	{
-		MW_LOG_MIL("Previously cached protection event is present for type(%d), clearing!", type);
+		MW_LOG_MIL("Replacing cached ProtectionEvent: type=%d oldEvent=%p newEvent=%p", type, static_cast<void *>(context->protectionEvent[type]), static_cast<void *>(newEvent));
 		gst_event_unref(context->protectionEvent[type]);
 	}
 	context->protectionEvent[type] = newEvent;
+	MW_LOG_MIL("ProtectionEvent cached: type=%d event=%p", type, static_cast<void *>(context->protectionEvent[type]));
 }
 
 /**
@@ -3630,11 +3640,12 @@ void InterfacePlayerRDK::ClearProtectionEvent()
 {
 	GstPlayerPriv *context = interfacePlayerPriv->gstPrivateContext;
 	std::lock_guard<std::mutex> lock(context->protectionEventMutex);
+	MW_LOG_MIL("ProtectionEvent cache clear requested");
 	for (int i = 0; i < GST_TRACK_COUNT; i++)
 	{
 		if(context->protectionEvent[i])
 		{
-			MW_LOG_MIL("removing protection event! ");
+			MW_LOG_MIL("Removing cached ProtectionEvent: type=%d event=%p", i, static_cast<void *>(context->protectionEvent[i]));
 			gst_event_unref(context->protectionEvent[i]);
 			context->protectionEvent[i] = NULL;
 		}
