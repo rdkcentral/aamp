@@ -165,10 +165,12 @@ After all per-download retries are exhausted, the track-level download loop cont
 
 | Counter | Threshold constant | Default | Action |
 |---|---|---|---|
+| Live manifest refresh failing while buffering | `MANIFEST_REFRESH_FAILURE_GRACE_MS` | **5000 ms** (`AampDefine.h`) | `SendDownloadErrorEvent(AAMP_TUNE_MANIFEST_REQ_FAILED)` once refreshes have failed continuously for this long while buffering |
 | `segDLFailCount` (media segments) | `eAAMPConfig_FragmentDownloadFailThreshold` | `MAX_SEG_DOWNLOAD_FAIL_COUNT` = **10** | `SendDownloadErrorEvent(AAMP_TUNE_FRAGMENT_DOWNLOAD_FAILURE)` |
 | `manifestDLFailCount` (HLS sub-manifest) | `MAX_MANIFEST_DOWNLOAD_RETRY` | **3** (`fragmentcollector_hls.h`) | `SendDownloadErrorEvent(AAMP_TUNE_MANIFEST_REQ_FAILED)` |
-| MPD manifest failures | `MAX_MANIFEST_DOWNLOAD_RETRY_MPD` | **2** (`fragmentcollector_mpd.h`) | Same error event |
 | Ad segment failures | `MAX_AD_SEG_DOWNLOAD_FAIL_COUNT` | **2** (`AampDefine.h`) | Ad playback failure event |
+
+For a live MPD, a refresh failure while the buffer is already dry does not end playback immediately. `AampMPDDownloader` keeps retrying every 500 ms (`MIN_DELAY_BETWEEN_PLAYLIST_UPDATE_MS`), and the player reports buffering. The error event is sent if the refresh has been failing for `MANIFEST_REFRESH_FAILURE_GRACE_MS`, checked when buffering starts and again on each failed refresh while buffering. A refresh that recovers within that time resumes playback with no error. A failed MPD download at tune time, after the downloader's attempts, fails the tune immediately.
 
 ---
 

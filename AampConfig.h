@@ -243,6 +243,7 @@ typedef enum
 	                                                         outside VOD (live and local-TSB streams are not eligible). Default: false. */
 	eAAMPConfig_EnableEventProfiling,			/**< Enable event round-trip time profiling (async queue dwell + sync delivery). Default: false */
 	eAAMPConfig_EnableNetworkPersonaLogging,	/**< Collect network metrics and log the JSON persona on Stop. Default: false */
+	eAAMPConfig_DisableTTML,					/**< Config to disable/exclude TTML tracks in DASH (default: TTML enabled) */
 	eAAMPConfig_BoolMaxValue				/**< Max value of bool config always last element */	
 
 } AAMPConfigSettingBool;

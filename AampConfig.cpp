@@ -386,6 +386,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false, "synthesizeIframeForVOD", eAAMPConfig_SynthesizeIframeForVOD, false},
 	{false, "enableEventProfiling", eAAMPConfig_EnableEventProfiling, false},
 	{false, "enableNetworkPersonaLogging", eAAMPConfig_EnableNetworkPersonaLogging, false},
+	{false, "disableTTML", eAAMPConfig_DisableTTML, false},
 };
 
 #define CONFIG_INT_ALIAS_COUNT 2
