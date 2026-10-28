@@ -1227,6 +1227,7 @@ public:
 	bool IsTuneTypeNew; 					/**< Flag for the eTUNETYPE_NEW_NORMAL */
 	std::condition_variable waitforplaystart;    			/**< Signaled after playback starts */
 	std::mutex mMutexPlaystart;			/**< Mutex associated with playstart */
+	bool mPlayStartSignalled{false};		/**< Predicate for waitforplaystart; set on first frame or Stop, reset by SetPreCacheDownloadList. Access only while holding mMutexPlaystart */
 	long long trickStartUTCMS;
 	double durationSeconds;
 	double culledSeconds;
@@ -1708,10 +1709,11 @@ public:
 
 	/**
 	 * @fn HandleManifestRefreshFailureOnBuffering
-	 * @brief When buffering starts, checks whether the buffer drained because manifest
-	 *        refresh was already failing. If so, sends the appropriate error event
-	 *        (manifest request failed or invalid manifest) and returns true so the
-	 *        caller can skip the normal BufferingChanged event.
+	 * @brief Checks whether the buffer ran dry while manifest refresh has been failing for at
+	 *        least MANIFEST_REFRESH_FAILURE_GRACE_MS. If so, sends the appropriate error event
+	 *        (manifest request failed or invalid manifest) and returns true so the caller can
+	 *        skip the normal BufferingChanged event. Shorter outages return false.
+	 *        Called when buffering starts and again on each failed refresh while buffering.
 	 * @return true if a fatal manifest error event was sent; false otherwise.
 	 */
 	bool HandleManifestRefreshFailureOnBuffering();
@@ -3856,6 +3858,7 @@ public:
 	 * @param[in] reason - Reason why the pause position monitoring is stopped
 	 */
 	void StopPausePositionMonitoring(std::string reason);
+	void StopPausePositionMonitoringLocked(const std::string &reason);
 
 	/**
 	 * @fn WaitForDiscontinuityProcessToComplete
@@ -4465,6 +4468,7 @@ protected:
 	 */
 	void StopLatencyMonitor();
 
+	std::mutex mPausePositionLifecycleMutex;			// Serializes start/stop/join of the PausePositionMonitoring thread
 	std::mutex mPausePositionMonitorMutex;				// Mutex lock for PausePosition condition variable
 	std::condition_variable mPausePositionMonitorCV;	// Condition Variable to signal to stop PausePosition monitoring
     std::thread mPausePositionMonitoringThreadID;			// Thread Id of the PausePositionMonitoring thread

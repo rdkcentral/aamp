@@ -57,28 +57,36 @@ AampLicensePreFetcher::AampLicensePreFetcher(PrivateInstanceAAMP *aamp) : mPreFe
 }
 
 /**
+ * @brief Wake a worker thread blocked on its queue and join it
+ *
+ * The caller must already have set the exit flag that the worker's wait
+ * predicate checks.
+ *
+ * @param[in] thread Worker thread to join, if running
+ * @param[in] name Thread name for logging
+ * @param[in] mtx Mutex the worker holds while checking its wait predicate
+ * @param[in] cv Condition variable the worker waits on
+ */
+static void StopWorkerThread(std::thread &thread, const char *name, std::mutex &mtx, std::condition_variable &cv)
+{
+	if (thread.joinable())
+	{
+		NotifyAllSynchronised(mtx, cv);
+		AAMPLOG_MIL("Joining %s", name);
+		thread.join();
+	}
+}
+
+/**
  * @brief Destroy the Aamp License Pre Fetcher object
  * 
  */
 AampLicensePreFetcher::~AampLicensePreFetcher()
 {
 	Term();
-	{
-		std::lock_guard<std::mutex>lock(mQMutex);
-		mExitLoop = true;
-	}
-	if (mPreFetchThread.joinable())
-	{
-		mQCond.notify_one();
-		AAMPLOG_WARN("Joining mPreFetchThread");
-		mPreFetchThread.join();
-	}
-	if (mVssPreFetchThread.joinable())
-	{
-		mQVssCond.notify_one();
-		AAMPLOG_WARN("Joining mVssFetchThread");
-		mVssPreFetchThread.join();
-	}
+	mExitLoop = true;
+	StopWorkerThread(mPreFetchThread, "mPreFetchThread", mQMutex, mQCond);
+	StopWorkerThread(mVssPreFetchThread, "mVssPreFetchThread", mQVssMutex, mQVssCond);
 }
 
 /**
@@ -209,6 +217,10 @@ bool AampLicensePreFetcher::Term()
 		{
 			mFetchQueue.pop_front();
 		}
+	}
+	{
+		std::lock_guard<std::mutex>lock(mQVssMutex);
+
 		while (!mVssFetchQueue.empty())
 		{
 			mVssFetchQueue.pop_front();
@@ -252,7 +264,7 @@ void AampLicensePreFetcher::PreFetchThread()
 		if (mFetchQueue.empty())
 		{
 			AAMPLOG_INFO("Waiting for new entry in mFetchQueue");
-			mQCond.wait(queueLock);
+			mQCond.wait(queueLock, [this] { return mExitLoop || !mFetchQueue.empty(); });
 		}
 		else
 		{
@@ -331,8 +343,8 @@ void AampLicensePreFetcher::VssPreFetchThread()
 	{
 		if (mVssFetchQueue.empty())
 		{
-			AAMPLOG_INFO("Waiting for new entry in mFetchQueue");
-			mQVssCond.wait(queueLock);
+			AAMPLOG_INFO("Waiting for new entry in mVssFetchQueue");
+			mQVssCond.wait(queueLock, [this] { return mExitLoop || !mVssFetchQueue.empty(); });
 		}
 		else
 		{

@@ -1989,10 +1989,37 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 /**
  * @brief PrivateInstanceAAMP Destructor
  */
+/**
+ * @brief Reports an exception escaping teardown of the pause position monitor.
+ * Has external linkage and a stable name so a debugger breakpoint can be set on it; the marker
+ * line is written straight to stderr so test harnesses see it regardless of AAMP log level.
+ */
+void AampTeardownExceptionHook(int playerId, const char *what, bool stillJoinable)
+{
+	fprintf(stderr, "AAMP_TEARDOWN_EXCEPTION: PLAYER[%d] StopPausePositionMonitoring threw during destruction: %s%s\n",
+			playerId, what, stillJoinable ? " (monitor thread still joinable, std::terminate will follow)" : "");
+	fflush(stderr);
+	AAMPLOG_ERR("AAMP_TEARDOWN_EXCEPTION: PLAYER[%d] %s", playerId, what);
+}
+
 PrivateInstanceAAMP::~PrivateInstanceAAMP()
 {
 	mAampTrackWorkerManager.reset();
-	StopPausePositionMonitoring("AAMP destroyed");
+	// Last resort: StopPausePositionMonitoring() should not throw, but an intermittent
+	// teardown abort was still observed. Report it loudly instead of letting it escape this noexcept
+	// destructor. If the thread is still joinable, its member destructor will terminate anyway.
+	try
+	{
+		StopPausePositionMonitoring("AAMP destroyed");
+	}
+	catch (const std::exception &e)
+	{
+		AampTeardownExceptionHook(mPlayerId, e.what(), mPausePositionMonitoringThreadID.joinable());
+	}
+	catch (...)
+	{
+		AampTeardownExceptionHook(mPlayerId, "unknown exception", mPausePositionMonitoringThreadID.joinable());
+	}
 	PlayerCCManager::GetInstance()->Release(mCCId);
 	mCCId = 0;
 	{
@@ -2254,7 +2281,10 @@ void PrivateInstanceAAMP::RunPausePositionMonitoring(void)
  */
 void PrivateInstanceAAMP::StartPausePositionMonitoring(long long pausePositionMilliseconds)
 {
-	StopPausePositionMonitoring("Start new pos monitor");
+	// Serialize with StopPausePositionMonitoring() so a monitor cannot be (re)started while another
+	// thread is stopping/joining it, which would leave a joinable thread behind at teardown.
+	std::lock_guard<std::mutex> lifecycleLock(mPausePositionLifecycleMutex);
+	StopPausePositionMonitoringLocked("Start new pos monitor");
 
 	if (pausePositionMilliseconds < 0)
 	{
@@ -2291,19 +2321,31 @@ void PrivateInstanceAAMP::StartPausePositionMonitoring(long long pausePositionMi
  */
 void PrivateInstanceAAMP::StopPausePositionMonitoring(std::string reason)
 {
+	std::lock_guard<std::mutex> lifecycleLock(mPausePositionLifecycleMutex);
+	StopPausePositionMonitoringLocked(reason);
+}
+
+/**
+ * @brief cancel and always join the PausePositionMonitoring thread; caller holds mPausePositionLifecycleMutex
+ */
+void PrivateInstanceAAMP::StopPausePositionMonitoringLocked(const std::string &reason)
+{
 	if (mPausePositionMonitoringThreadID.joinable())
 	{
-		std::unique_lock<std::mutex> lock(mPausePositionMonitorMutex);
-
-		if (mPausePositionMilliseconds != AAMP_PAUSE_POSITION_INVALID_POSITION)
 		{
-			long long positionMs = GetPositionMilliseconds();
-			AAMPLOG_WARN("PLAYER[%d] Stop position monitoring, reason: '%s', current position %lldms, requested position %lldms, rate %f",
-						mPlayerId, reason.c_str(), positionMs, mPausePositionMilliseconds.load(), rate);
-			mPausePositionMilliseconds = AAMP_PAUSE_POSITION_INVALID_POSITION;
-			mPausePositionMonitorCV.notify_one();
+			// Cancel under the monitor mutex so the worker cannot miss the wake-up between its
+			// predicate check and wait_until(). The mutex is a member and valid for the object's lifetime.
+			std::lock_guard<std::mutex> lock(mPausePositionMonitorMutex);
+			if (mPausePositionMilliseconds != AAMP_PAUSE_POSITION_INVALID_POSITION)
+			{
+				long long positionMs = GetPositionMilliseconds();
+				AAMPLOG_WARN("PLAYER[%d] Stop position monitoring, reason: '%s', current position %lldms, requested position %lldms, rate %f",
+							mPlayerId, reason.c_str(), positionMs, mPausePositionMilliseconds.load(), rate);
+				mPausePositionMilliseconds = AAMP_PAUSE_POSITION_INVALID_POSITION;
+			}
+			mPausePositionMonitorCV.notify_all();
 		}
-		lock.unlock();
+		// Never detach: the worker uses this object, so it must be joined before the owner can be destroyed.
 		mPausePositionMonitoringThreadID.join();
 		AAMPLOG_TRACE("joined PositionMonitor");
 	}
@@ -3125,9 +3167,11 @@ void PrivateInstanceAAMP::UpdateRefreshPlaylistInterval(float maxIntervalSecs)
 /**
  * @brief Handle a pending manifest refresh failure when buffering starts.
  *
- * If buffering begins while the MPD downloader is already in a manifest
- * refresh failure state, send the corresponding fatal error event and let
- * the caller skip the normal BufferingChanged path.
+ * If buffering begins while the MPD downloader has been failing to refresh the
+ * manifest for at least MANIFEST_REFRESH_FAILURE_GRACE_MS, send the corresponding
+ * fatal error event and let the caller skip the normal BufferingChanged path.
+ * A shorter outage is left to the downloader's retries. This is re-evaluated on
+ * each failed refresh while buffering, so a persistent outage still ends in an error.
  *
  * @return true if a manifest failure event was sent; false otherwise.
  */
@@ -3145,6 +3189,12 @@ bool PrivateInstanceAAMP::HandleManifestRefreshFailureOnBuffering()
 	if (retryErrorType == AAMPStatusType::eAAMPSTATUS_OK)
 	{
 		AAMPLOG_DEBUG("Manifest refresh status is OK");
+		return false;
+	}
+	if (retryStatus.failingForMs < MANIFEST_REFRESH_FAILURE_GRACE_MS)
+	{
+		AAMPLOG_WARN("PrivateInstanceAAMP: Buffering while manifest refresh has been failing for %lldms (status=%d err=%d); waiting up to %dms for recovery",
+			retryStatus.failingForMs, retryErrorType, retryStatus.errorCode, MANIFEST_REFRESH_FAILURE_GRACE_MS);
 		return false;
 	}
 	// Buffer drained while manifest refresh was already failing.
@@ -4751,10 +4801,13 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 			AAMPLOG_INFO("[%s] steady ms %lld, maxInitDownloadRetryUntil %lld, maxInitDownloadTimeMS %d maxDownloadAttempt %d",
 				GetMediaTypeName(mediaType), (long long int)NOW_STEADY_TS_MS, maxInitDownloadRetryUntil, maxInitDownloadTimeMS, maxDownloadAttempt);
 
+			const httpRespHeaderData respHeadersBeforeRequest = httpRespHeaders[curlInstance];
 			while(downloadAttempt < maxDownloadAttempt)
 			{
 				// Reset context values specific to each download attempt
 				context.ResetForNewDownload();
+				// The header callback only overwrites matching headers, so drop what a failed attempt left behind
+				httpRespHeaders[curlInstance] = respHeadersBeforeRequest;
 				progressCtx.downloadStartTime = NOW_STEADY_TS_MS;
 
 				progressCtx.downloadUpdatedTime = -1;
@@ -8817,6 +8870,7 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 	mDiscontinuityFound = false;
 	{
 		std::lock_guard<std::mutex> guard(mMutexPlaystart);
+		mPlayStartSignalled = true;
 		waitforplaystart.notify_all();
 	}
 	if(mPreCachePlaylistThreadId.joinable())
@@ -9163,6 +9217,7 @@ void PrivateInstanceAAMP::NotifyFirstFrameReceived(unsigned long ccDecoderHandle
 	}
 	{
 		std::lock_guard<std::mutex> guard(mMutexPlaystart);
+		mPlayStartSignalled = true;
 		waitforplaystart.notify_all();
 	}
 	if (eTUNED_EVENT_ON_GST_PLAYING == GetTuneEventConfig(IsLive()))
@@ -11090,7 +11145,7 @@ void PrivateInstanceAAMP::PreCachePlaylistDownloadTask()
 		// First wait for Tune to complete to start this functionality
 		{
 			std::unique_lock<std::mutex> lock(mMutexPlaystart);
-			waitforplaystart.wait(lock);
+			waitforplaystart.wait(lock, [this] { return mPlayStartSignalled; });
 		}
 		// May be Stop is called to release all resources .
 		// Before download , check the state
@@ -11161,6 +11216,12 @@ void PrivateInstanceAAMP::PreCachePlaylistDownloadTask()
  */
 void PrivateInstanceAAMP::SetPreCacheDownloadList(PreCacheUrlList &dnldListInput)
 {
+	{
+		// Must run before the pre-cache thread is created: the thread waits on
+		// mPlayStartSignalled, so a play start from a previous tune must not release it
+		std::lock_guard<std::mutex> guard(mMutexPlaystart);
+		mPlayStartSignalled = false;
+	}
 	mPreCacheDnldList = dnldListInput;
 	if(mPreCacheDnldList.size())
 	{
