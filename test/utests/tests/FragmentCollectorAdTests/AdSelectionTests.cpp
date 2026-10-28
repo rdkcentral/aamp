@@ -344,6 +344,7 @@ protected:
 			{eAAMPConfig_AudioOnlyPlayback, false},
 			{eAAMPConfig_LimitResolution, false},
 			{eAAMPConfig_Disable4K, false},
+			{eAAMPConfig_DisableTTML, false},
 			{eAAMPConfig_PersistHighNetworkBandwidth, false},
 			{eAAMPConfig_PersistLowNetworkBandwidth, false},
 			{eAAMPConfig_MidFragmentSeek, false},

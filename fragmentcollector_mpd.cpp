@@ -4476,7 +4476,8 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 		// Rialto does not support dynamic streams, so we need to extract and save the
 		// subtitle init fragment from the main vod asset, so that it can be injected
 		// later if a pre-roll advert is played that does not contain subtitles.
-		if (ISCONFIGSET(eAAMPConfig_useRialtoSink))
+		if (ISCONFIGSET(eAAMPConfig_useRialtoSink) &&
+			!ISCONFIGSET(eAAMPConfig_DisableTTML))
 		{
 			/* XIONE-19145 / DELIA-71066: the foreground player owns the shared
 			 * Rialto pipeline's subtitle header slot - it always evicts any
@@ -6585,7 +6586,14 @@ void StreamAbstractionAAMP_MPD::SwitchSubtitleTrack(bool newTune)
 		PushNextFragment(pMediaStreamContext, getCurlInstanceByMediaType(static_cast<AampMediaType>(eMEDIATYPE_SUBTITLE)),true);
 	}
 	/* Switching to selected Subtitle Track */
-	SelectSubtitleTrack(newTune,mTextTracks,tTrackIdx);
+	if (!ISCONFIGSET(eAAMPConfig_DisableTTML))
+	{
+		SelectSubtitleTrack(newTune,mTextTracks,tTrackIdx);
+	}
+	else
+	{
+		AAMPLOG_INFO("TTML is disabled");
+	}
 	SetTextTrackInfo(mTextTracks, tTrackIdx);
 	printSelectedTrack(tTrackIdx, eMEDIATYPE_SUBTITLE);
 	/* Caching the oldPlaylistPosition and oldMediaSequenceNumber */
@@ -6668,7 +6676,6 @@ void StreamAbstractionAAMP_MPD::SelectSubtitleTrack(bool newTune, std::vector<Te
 		AAMPLOG_WARN("period is null");  //CID:84742 - Null Returns
 		return;
 	}
-
 	size_t numAdaptationSets = period->GetAdaptationSets().size();
 	if (AAMP_NORMAL_PLAY_RATE == mPlayRate)
 	{
@@ -7400,7 +7407,15 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 
 		if (eMEDIATYPE_SUBTITLE == i)
 		{
-			SelectSubtitleTrack(newTune,tTracks,tTrackIdx);
+			if (!ISCONFIGSET(eAAMPConfig_DisableTTML))
+			{
+				SelectSubtitleTrack(newTune,tTracks,tTrackIdx);
+			}
+			else
+			{
+				aamp->mIsInbandCC = true;
+				AAMPLOG_WARN("TTML is disabled, so not selecting any subtitle track");
+			}
 			if(mMediaStreamContext[eMEDIATYPE_SUBTITLE]->enabled)
 			{
 				mNumberOfTracks++;
@@ -15051,4 +15066,3 @@ void StreamAbstractionAAMP_MPD::clearFirstPTS(void)
 {
 	mFirstPTS = 0.0;
 }
-
