@@ -80,7 +80,11 @@ void AampStreamSinkManager::Clear(void)
 	mPipelineMode = ePIPELINEMODE_UNDEFINED;
 	mEncryptedHeaders.clear();
 	mEncryptedHeadersInjected = false;
-	mMediaHeaders.clear();
+	for (auto& header : mMediaHeaders)
+	{
+		header.reset();
+		AAMPLOG_MIL("cleared mMediaHeaders");
+	}
 }
 
 void AampStreamSinkManager::SetSinglePipelineMode(PrivateInstanceAAMP *aamp)
@@ -222,7 +226,6 @@ void AampStreamSinkManager::DeleteStreamSink(PrivateInstanceAAMP *aamp)
 	
 	//Do not edit or remove this log - it is used in L2 test
 	AAMPLOG_WARN("AampStreamSinkManager(%p) DeleteStreamSink for PLAYER[%d]", this, aamp->mPlayerId);
-	mMediaHeaders.erase(aamp);
 
 	switch(mPipelineMode)
 	{
@@ -266,6 +269,11 @@ void AampStreamSinkManager::DeleteStreamSink(PrivateInstanceAAMP *aamp)
 				mStreamPlayer = nullptr;
 				mPipelineMode = ePIPELINEMODE_UNDEFINED;
 				mEncryptedHeadersInjected = false;
+				for (auto& header : mMediaHeaders)
+				{
+					header.reset();
+					AAMPLOG_MIL("cleared mMediaHeaders");
+				}
 			}
 		}
 		break;
@@ -274,6 +282,11 @@ void AampStreamSinkManager::DeleteStreamSink(PrivateInstanceAAMP *aamp)
 		case ePIPELINEMODE_MULTI:
 		{
 			mEncryptedHeadersInjected = false;
+			for (auto& header : mMediaHeaders)
+			{
+				header.reset();
+				AAMPLOG_MIL("Multi Pipeline mode, cleared mMediaHeaders");
+			}
 
 			if (mInactivePlayersMap.count(aamp))
 			{
@@ -382,10 +395,6 @@ bool AampStreamSinkManager::IsEncryptedHeadersCached(int mediaType)
 void AampStreamSinkManager::DeactivatePlayer(PrivateInstanceAAMP *aamp, bool stop)
 {
 	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
-	if (stop)
-	{
-		mMediaHeaders.erase(aamp);
-	}
 	
 	switch(mPipelineMode)
 	{
@@ -397,6 +406,11 @@ void AampStreamSinkManager::DeactivatePlayer(PrivateInstanceAAMP *aamp, bool sto
 				AAMPLOG_WARN("AampStreamSinkManager(%p) Multi Pipeline mode, deactivating and stopping active PLAYER[%d]", this, aamp->mPlayerId);
 				mEncryptedHeadersInjected = false;
 				mEncryptedHeaders.clear();
+				for (auto& header : mMediaHeaders)
+				{
+					header.reset();
+					AAMPLOG_MIL("Multi Pipeline mode, cleared mMediaHeaders");
+				}
 			}
 			else
 			{
@@ -419,6 +433,11 @@ void AampStreamSinkManager::DeactivatePlayer(PrivateInstanceAAMP *aamp, bool sto
 					AAMPLOG_WARN("AampStreamSinkManager(%p) Single Pipeline mode, deactivating and stopping active PLAYER[%d]", this, aamp->mPlayerId);
 					mEncryptedHeadersInjected = false;
 					mEncryptedHeaders.clear();
+					for (auto& header : mMediaHeaders)
+					{
+						header.reset();
+						AAMPLOG_MIL("cleared mMediaHeaders");
+					}
 				}
 				else
 				{
