@@ -13171,9 +13171,10 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 						//Dai ad playback should start from first fragment.
 						mCdaiObject->mContentSeekOffset = 0;
 
+						AdNodeVectorPtr adsToCheck = mCdaiObject->mAdBreaks[brkId].ads;
 						lock.unlock();
 						// Check if ad is resolved, if not wait
-						CheckAdResolvedStatus(mCdaiObject->mAdBreaks[brkId].ads, adIdx);
+						CheckAdResolvedStatus(adsToCheck, adIdx);
 						lock.lock();
 
 						// If the ad is not invalid (failed to reserve), start the ad playback
@@ -13238,9 +13239,10 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 								}
 								else
 								{
+									AdNodeVectorPtr noAds;	// Only the break id is needed for the wait
 									lock.unlock();
 									// Wait for some time for the ads to be added
-									CheckAdResolvedStatus(mCdaiObject->mAdBreaks[mBasePeriodId].ads, -1, mBasePeriodId);
+									CheckAdResolvedStatus(noAds, -1, mBasePeriodId);
 									lock.lock();
 								}
 							}
@@ -13281,8 +13283,9 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 					if (mPlayRate >= AAMP_NORMAL_PLAY_RATE)
 					{
 						// Wait for some time if the ad is not ready yet.
+						AdNodeVectorPtr adsToCheck = mCdaiObject->mAdBreaks[brkId].ads;
 						lock.unlock();
-						CheckAdResolvedStatus(mCdaiObject->mAdBreaks[brkId].ads, adIdx);
+						CheckAdResolvedStatus(adsToCheck, adIdx);
 						lock.lock();
 					}
 					if(!(mCdaiObject->mAdBreaks[brkId].ads->at(adIdx).invalid))
@@ -13397,8 +13400,9 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 				if(mCdaiObject->mCurAdIdx >= 0 && mCdaiObject->mCurAdIdx < mCdaiObject->mCurAds->size())
 				{
 					// Wait for some time if the ad is not ready yet.
+					AdNodeVectorPtr adsToCheck = mCdaiObject->mCurAds;
 					lock.unlock();
-					CheckAdResolvedStatus(mCdaiObject->mCurAds, mCdaiObject->mCurAdIdx);
+					CheckAdResolvedStatus(adsToCheck, mCdaiObject->mCurAdIdx);
 					lock.lock();
 					if(mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).invalid)
 					{
