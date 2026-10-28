@@ -31,7 +31,11 @@
 #include "MockJavaScriptCore.h"
 
 #include <algorithm>
+#include <chrono>
+#include <condition_variable>
 #include <memory>
+#include <mutex>
+#include <thread>
 
 using ::testing::_;
 
@@ -280,6 +284,67 @@ TEST_F(JsBindingTests, EventOnDetachedListenerIsNoOp)
 	inFlightRef.reset();
 }
 
+TEST_F(JsBindingTests, TeardownDuringEventDispatchDoesNotTouchOwner)
+{
+	PrivAAMPStruct_JS *obj = new PrivAAMPStruct_JS();
+	obj->_aamp = playerInstanceAAMP;
+	obj->_ctx = reinterpret_cast<JSGlobalContextRef>(0x1234);
+
+	JSObjectRef jsCallback = reinterpret_cast<JSObjectRef>(0x5678);
+	AAMP_JSEventListener::AddEventListener(obj, AAMP_EVENT_STATE_CHANGED, jsCallback);
+	ASSERT_EQ(obj->_listeners.size(), 1u);
+	auto inFlightRef = std::static_pointer_cast<AAMP_JSEventListener>(obj->_listeners.begin()->second);
+
+	std::mutex callbackMutex;
+	std::condition_variable callbackCondition;
+	bool callbackEntered = false;
+	bool releaseCallback = false;
+
+	EXPECT_CALL(*g_mockJavaScriptCore, JSObjectCallAsFunction(_, jsCallback, _, _, _, _))
+		.WillOnce(testing::InvokeWithoutArgs([&]() -> JSValueRef {
+			std::unique_lock<std::mutex> lock(callbackMutex);
+			callbackEntered = true;
+			callbackCondition.notify_one();
+			callbackCondition.wait(lock, [&]() { return releaseCallback; });
+			return nullptr;
+		}));
+
+	std::thread dispatchThread([&]() {
+		inFlightRef->Event(std::make_shared<StateChangedEvent>(eSTATE_PLAYING, ""));
+	});
+
+	{
+		std::unique_lock<std::mutex> lock(callbackMutex);
+		bool entered = callbackCondition.wait_for(lock, std::chrono::seconds(5), [&]() {
+			return callbackEntered;
+		});
+		EXPECT_TRUE(entered);
+		if (!entered)
+		{
+			releaseCallback = true;
+			lock.unlock();
+			callbackCondition.notify_one();
+			dispatchThread.join();
+			inFlightRef.reset();
+			delete obj;
+			return;
+		}
+	}
+
+	// Remove and destroy the owner while the event callback is still in flight.
+	AAMP_JSEventListener::RemoveAllEventListener(obj);
+	delete obj;
+	obj = nullptr;
+
+	{
+		std::lock_guard<std::mutex> lock(callbackMutex);
+		releaseCallback = true;
+	}
+	callbackCondition.notify_one();
+	dispatchThread.join();
+	inFlightRef.reset();
+}
+
 // Owner that serves a promise callback for AAMP_EVENT_AD_RESOLVED, as the real
 // AAMPMediaPlayer JS object does.
 struct AdPromiseOwner : public PrivAAMPStruct_JS
@@ -314,7 +379,7 @@ TEST_F(JsBindingTests, AdResolvedPromiseHandlerCanReleasePlayer)
 	inFlightRef->Event(std::make_shared<AdResolvedEvent>(true, "ad1", 0, 30000, "", "", ""));
 
 	EXPECT_EQ(inFlightRef->p_obj, nullptr);
-	EXPECT_EQ(obj->removeCallbackCount, 0);
+	EXPECT_EQ(obj->removeCallbackCount, 1);
 
 	delete obj;
 	inFlightRef.reset();

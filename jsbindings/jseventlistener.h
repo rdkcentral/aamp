@@ -28,6 +28,7 @@
 
 
 #include "jsbindings.h"
+#include <mutex>
 
 
 /**
@@ -88,10 +89,21 @@ public:
 	*/
 	virtual void SetEventProperties(const AAMPEventPtr& ev, JSObjectRef jsEventObj);
 
+private:
+	void FinishEventDispatch(JSGlobalContextRef ctx);
+
 public:
 	PrivAAMPStruct_JS* p_obj;   /**< JS execution context to use */
 	AAMPEventType p_type;       /**< event type */
 	JSObjectRef p_jsCallback;   /**< callback registered for event */
+
+private:
+	std::mutex mStateMutex;
+	size_t mDispatchCount;
+	bool mDetached;
+	bool mCallbackProtected;
+	JSGlobalContextRef mCallbackContext;
+	JSObjectRef mProtectedCallback;
 };
 
 #endif /** __AAMP_JSEVENTLISTENER__H__ **/

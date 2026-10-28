@@ -1781,6 +1781,11 @@ AAMP_JSEventListener::AAMP_JSEventListener(PrivAAMPStruct_JS *obj, AAMPEventType
 	: p_obj(obj)
 	, p_type(type)
 	, p_jsCallback(jsCallback)
+	, mDispatchCount(0)
+	, mDetached(false)
+	, mCallbackProtected(jsCallback != NULL)
+	, mCallbackContext(obj != NULL ? obj->_ctx : NULL)
+	, mProtectedCallback(jsCallback)
 {
 	if (p_jsCallback != NULL)
 	{
@@ -1793,12 +1798,11 @@ AAMP_JSEventListener::AAMP_JSEventListener(PrivAAMPStruct_JS *obj, AAMPEventType
  */
 AAMP_JSEventListener::~AAMP_JSEventListener()
 {
-	// p_obj is NULL when this listener was detached by RemoveAllEventListener() during
-	// JS object teardown. The callback was already unprotected there, while the JS
-	// context was still valid, so there is nothing left to do here.
-	if (p_jsCallback != NULL && p_obj != NULL)
+	std::lock_guard<std::mutex> lock(mStateMutex);
+	if (mCallbackProtected)
 	{
-		JSValueUnprotect(p_obj->_ctx, p_jsCallback);
+		JSValueUnprotect(mCallbackContext, mProtectedCallback);
+		mCallbackProtected = false;
 	}
 }
 
@@ -1808,57 +1812,93 @@ AAMP_JSEventListener::~AAMP_JSEventListener()
 void AAMP_JSEventListener::Event(const AAMPEventPtr& e)
 {
 	AAMPEventType evtType = e->getType();
-        LOG_TRACE("type=%d, jsCallback=%p", evtType, p_jsCallback);
 
 	if (evtType < 0 || evtType >= AAMP_MAX_NUM_EVENTS)
 	{
 		return;
 	}
-	// Listener was detached during JS object teardown - drop the event rather than
-	// dereferencing a JS context which may already have been destroyed.
-	if (p_obj == NULL)
-	{
-		return;
-	}
-	JSObjectRef event = createNewAAMPJSEvent(p_obj->_ctx, aampPlayer_getNameFromEventType(evtType), false, false);
-	if (event)
-	{
-		JSGlobalContextRef ctx = p_obj->_ctx;
-		JSValueProtect(ctx, event);
 
-		AAMP_JSEventListener::SetEventProperties(e, event);
-		SetEventProperties(e, event);
+	JSGlobalContextRef ctx = NULL;
+	JSObjectRef callback = NULL;
+	JSObjectRef promiseCallback = NULL;
+	JSObjectRef event = NULL;
+	std::string adId;
 
-		//send this event through promise callback if an event listener is not registered
-		if (p_type == AAMP_EVENT_AD_RESOLVED && p_jsCallback == NULL)
+	// Keep teardown from destroying p_obj while event data is being built. After this
+	// scope, dispatch uses only copied JS references and no longer touches p_obj.
+	{
+		std::unique_lock<std::mutex> lock(mStateMutex);
+		if (mDetached || p_obj == NULL)
 		{
-			AdResolvedEventPtr evt = std::dynamic_pointer_cast<AdResolvedEvent>(e);
-			std::string adId = evt->getAdId();
-			JSObjectRef cbObj = p_obj->getCallbackForAdId(adId);
-			if (cbObj != NULL)
+			return;
+		}
+
+		++mDispatchCount;
+		ctx = p_obj->_ctx;
+		callback = p_jsCallback;
+		event = createNewAAMPJSEvent(ctx, aampPlayer_getNameFromEventType(evtType), false, false);
+		if (event != NULL)
+		{
+			JSValueProtect(ctx, event);
+			AAMP_JSEventListener::SetEventProperties(e, event);
+			SetEventProperties(e, event);
+
+			// Resolve the promise and remove it before releasing the owner lock. This
+			// avoids touching p_obj after a callback can release the JS player.
+			if (p_type == AAMP_EVENT_AD_RESOLVED && callback == NULL)
 			{
-				aamp_dispatchEventToJS(ctx, cbObj, event);
-				// The JS handler may have released the player, detaching this listener (p_obj == NULL)
-				// and freeing its owner, so re-check before touching the owner again.
-				if (p_obj != NULL)
+				AdResolvedEventPtr evt = std::dynamic_pointer_cast<AdResolvedEvent>(e);
+				adId = evt->getAdId();
+				promiseCallback = p_obj->getCallbackForAdId(adId);
+				if (promiseCallback != NULL)
 				{
-					p_obj->removeCallbackForAdId(adId); //promise callbacks are intended for a single-time use for an ad id
+					p_obj->removeCallbackForAdId(adId);
 				}
 			}
-			else
-			{
-				LOG_ERROR_EX("No promise callback registered ctx=%p, jsCallback=%p", ctx, cbObj);
-			}
 		}
-		else if (p_jsCallback != NULL)
+	}
+
+	if (event == NULL)
+	{
+		FinishEventDispatch(ctx);
+		return;
+	}
+
+	if (p_type == AAMP_EVENT_AD_RESOLVED && callback == NULL)
+	{
+		if (promiseCallback != NULL)
 		{
-			aamp_dispatchEventToJS(ctx, p_jsCallback, event);
+			aamp_dispatchEventToJS(ctx, promiseCallback, event);
 		}
 		else
 		{
-			LOG_WARN_EX("Callback registered is (%p) for event=%d", p_jsCallback, p_type);
+			LOG_ERROR_EX("No promise callback registered ctx=%p, jsCallback=%p", ctx, promiseCallback);
 		}
-		JSValueUnprotect(ctx, event);
+	}
+	else if (callback != NULL)
+	{
+		aamp_dispatchEventToJS(ctx, callback, event);
+	}
+	else
+	{
+		LOG_WARN_EX("Callback registered is (%p) for event=%d", callback, p_type);
+	}
+
+	JSValueUnprotect(ctx, event);
+	FinishEventDispatch(ctx);
+}
+
+void AAMP_JSEventListener::FinishEventDispatch(JSGlobalContextRef ctx)
+{
+	std::lock_guard<std::mutex> lock(mStateMutex);
+	if (mDispatchCount > 0)
+	{
+		--mDispatchCount;
+	}
+	if (mDispatchCount == 0 && mDetached && mCallbackProtected)
+	{
+		JSValueUnprotect(ctx, mProtectedCallback);
+		mCallbackProtected = false;
 	}
 }
 
@@ -1885,6 +1925,7 @@ void AAMP_JSEventListener::AddEventListener(PrivAAMPStruct_JS* obj, AAMPEventTyp
 		for (auto iter = range.first; iter != range.second; ++iter)
 		{
 			auto listener = std::static_pointer_cast<AAMP_JSEventListener>(iter->second);
+			std::lock_guard<std::mutex> lock(listener->mStateMutex);
 			if (listener->p_jsCallback == jsCallback)
 			{
 				// Listener already registered for this type and callback, ignore registration
@@ -2027,21 +2068,21 @@ void AAMP_JSEventListener::RemoveEventListener(PrivAAMPStruct_JS* obj, AAMPEvent
 		for(listenerIter_t iter = range.first; iter != range.second; )
 		{
 			auto listener = std::static_pointer_cast<AAMP_JSEventListener>((iter->second));
+			std::lock_guard<std::mutex> lock(listener->mStateMutex);
 			if (listener->p_jsCallback == jsCallback)
 			{
 				if (obj->_aamp != NULL)
 				{
 					obj->_aamp->RemoveEventListener(iter->first, listener);
 				}
-				// Event dispatch on the AAMP event thread may still hold a reference to this
-				// listener and destroy it later, after this JS object has been freed.
-				// Detaching p_obj makes both that destructor and Event() a safe no-op.
-				if (listener->p_jsCallback != NULL)
-				{
-					JSValueUnprotect(obj->_ctx, listener->p_jsCallback);
-					listener->p_jsCallback = NULL;
-				}
+				listener->mDetached = true;
 				listener->p_obj = NULL;
+				if (listener->mDispatchCount == 0 && listener->mCallbackProtected)
+				{
+					JSValueUnprotect(listener->mCallbackContext, listener->mProtectedCallback);
+					listener->mCallbackProtected = false;
+				}
+				listener->p_jsCallback = NULL;
 
 				iter = obj->_listeners.erase(iter);
 			}
@@ -2070,16 +2111,17 @@ void AAMP_JSEventListener::RemoveAllEventListener(PrivAAMPStruct_JS * obj)
 			obj->_aamp->RemoveEventListener(listenerIter->first, listener);
 		}
 
-		// Release the JS callback here, while _ctx is still valid and we are on the JS
-		// thread. An in-flight event dispatch on the AAMP event thread may still hold a
-		// reference to this listener and destroy it later, after the JS object has been
-		// freed; detaching p_obj makes both that destructor and Event() a safe no-op.
-		if (listener->p_jsCallback != NULL)
 		{
-			JSValueUnprotect(obj->_ctx, listener->p_jsCallback);
+			std::lock_guard<std::mutex> lock(listener->mStateMutex);
+			listener->mDetached = true;
+			listener->p_obj = NULL;
+			if (listener->mDispatchCount == 0 && listener->mCallbackProtected)
+			{
+				JSValueUnprotect(listener->mCallbackContext, listener->mProtectedCallback);
+				listener->mCallbackProtected = false;
+			}
 			listener->p_jsCallback = NULL;
 		}
-		listener->p_obj = NULL;
 
 		listenerIter = obj->_listeners.erase(listenerIter);
 	}
