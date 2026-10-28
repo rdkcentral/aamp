@@ -4807,7 +4807,15 @@ AAMPStatusType StreamAbstractionAAMP_MPD::IndexNewMPDDocument(bool updateTrackIn
 	if( mpd )
 	{
 		int deltaInPeriodIndex = mCurrentPeriodIdx;
-		mNumberOfPeriods = 	mMPDParseHelper->GetNumberOfPeriods();
+		mNumberOfPeriods = mMPDParseHelper->GetNumberOfPeriods();
+		if (mNumberOfPeriods == 0)
+		{
+			AAMPLOG_ERR("MPD_ZERO_PERIOD_GUARD: Cannot index MPD with no periods "
+				"currentPeriodIdx=%d updateTrackInfo=%d", mCurrentPeriodIdx,
+				updateTrackInfo);
+			return eAAMPSTATUS_MANIFEST_CONTENT_ERROR;
+		}
+
 		if(mIsLiveStream && updateTrackInfo)
 		{
 			//Periods could be added or removed, So select period based on periodID
@@ -11491,6 +11499,16 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateMPD(bool init)
 		{
 			if(tmpManifestDnldRespPtr->mMPDInstance != mManifestDnldRespPtr->mMPDInstance)
 			{
+				const size_t periodCount = tmpManifestDnldRespPtr->mMPDInstance
+					? tmpManifestDnldRespPtr->mMPDInstance->GetPeriods().size() : 0;
+				if (periodCount == 0)
+				{
+					AAMPLOG_ERR("MPD_ZERO_PERIOD_REFRESH: Detected MPD refresh "
+						"with no periods status=%d http=%d",
+						tmpManifestDnldRespPtr->mMPDStatus,
+						tmpManifestDnldRespPtr->mMPDDownloadResponse->iHttpRetValue);
+				}
+
 				// Acquire lock to update current period to sync with ABR changes on video track
 				std::lock_guard<std::recursive_mutex> lock(mMediaStreamContext[eMEDIATYPE_VIDEO]->mMediaStreamContextMutex);
 				mManifestDnldRespPtr = std::move(tmpManifestDnldRespPtr);
