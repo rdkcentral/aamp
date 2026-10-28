@@ -284,7 +284,7 @@ static size_t GetTimelineIndex(const std::vector<uint64_t> &samples,
  *                    keep to the end).
  * @return Trimmed period body XML.
  */
-static std::string TrimPeriod(const std::string &periodBody,
+std::string TrimPeriod(const std::string &periodBody,
                               double startSec, double endSec)
 {
 	std::string result = periodBody;
@@ -341,11 +341,7 @@ static std::string TrimPeriod(const std::string &periodBody,
 		if (startSec > 0.0)
 			idx1 = GetTimelineIndex(samples, timescale, startSec);
 		if (endSec > 0.0)
-		{
-			idx2 = GetTimelineIndex(samples, timescale, endSec);
-			if (idx2 < samples.size() - 1)
-				idx2++; // include the segment that straddles the boundary
-		}
+			idx2 = GetTimelineIndex(samples, timescale, endSec); // samples[idx2] becomes the sentinel, so a straddling segment is already included
 
 		// Clamp to valid range
 		if (idx1 >= samples.size() - 1)

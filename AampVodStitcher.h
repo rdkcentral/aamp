@@ -56,3 +56,15 @@ std::string BuildStitchedVodManifest(
 	const std::string      &mainMpdText,
 	const std::string      &mainMpdUrl,
 	PrivateCDAIObjectMPD   *cdaiObj);
+
+/**
+ * @brief Trim a period's SegmentTemplate/SegmentTimeline blocks to the window
+ *        [startSec, endSec), snapping each edge up to the first segment
+ *        boundary at or after it.  Exposed for L1 unit tests.
+ *
+ * @param periodBody  Inner XML of the <Period> element.
+ * @param startSec    Window start relative to the period (0 = from the beginning).
+ * @param endSec      Window end relative to the period (0 = to the end).
+ * @return Trimmed period body XML.
+ */
+std::string TrimPeriod(const std::string &periodBody, double startSec, double endSec);
