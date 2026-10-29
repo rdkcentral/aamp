@@ -31,7 +31,6 @@
 #include <inttypes.h>
 #include "TextStyleAttributes.h"
 #include <memory>
-#include <chrono>
 #include <gst/gst.h>
 #ifdef USE_EXTERNAL_STATS
 #include "player-xternal-stats.h"
@@ -560,7 +559,6 @@ void InterfacePlayerRDK::SetPauseOnStartPlayback(bool enable)
  */
 gboolean InterfacePlayerRDK::IdleCallbackOnFirstFrame(gpointer user_data)
 {
-	MW_LOG_ERR("InterfacePlayerRDK::IdleCallbackOnFirstFrame entered");
 	InterfacePlayerRDK *pInterfacePlayerRDK = (InterfacePlayerRDK *)user_data;
 	InterfacePlayerPriv* privatePlayer = nullptr;
       
@@ -572,7 +570,6 @@ gboolean InterfacePlayerRDK::IdleCallbackOnFirstFrame(gpointer user_data)
 		privatePlayer->gstPrivateContext->firstFrameCallbackIdleTaskId = PLAYER_TASK_ID_INVALID;
 		privatePlayer->gstPrivateContext->firstFrameCallbackIdleTaskPending = false;
 	}
-	MW_LOG_ERR("InterfacePlayerRDK::IdleCallbackOnFirstFrame exited");
 	return G_SOURCE_REMOVE;
 }
 
@@ -626,7 +623,6 @@ static void GstPlayer_OnAudioFirstFrameAudDecoder(GstElement* object, guint arg0
  */
 gboolean InterfacePlayerRDK::IdleCallbackOnEOS(gpointer user_data)
 {
-	MW_LOG_ERR("InterfacePlayerRDK::IdleCallbackOnEOS entered");
 	InterfacePlayerRDK *pInterfacePlayerRDK = (InterfacePlayerRDK *)user_data;
 
 	InterfacePlayerPriv* privatePlayer = nullptr;
@@ -640,7 +636,6 @@ gboolean InterfacePlayerRDK::IdleCallbackOnEOS(gpointer user_data)
 		privatePlayer->gstPrivateContext->eosCallbackIdleTaskId = PLAYER_TASK_ID_INVALID;
 		privatePlayer->gstPrivateContext->eosCallbackIdleTaskPending = false;
 	}
-	MW_LOG_ERR("InterfacePlayerRDK::IdleCallbackOnEOS exited");
 	return G_SOURCE_REMOVE;
 }
 
@@ -801,7 +796,6 @@ gboolean InterfacePlayerRDK::ProgressCallbackOnTimeout(gpointer user_data)
  */
 gboolean InterfacePlayerRDK::IdleCallback(gpointer user_data)
 {
-	MW_LOG_ERR("InterfacePlayerRDK::IdleCallback entered");
 	InterfacePlayerRDK *pInterfacePlayerRDK = (InterfacePlayerRDK *)user_data;
 	InterfacePlayerPriv* privatePlayer = nullptr;
 	if (pInterfacePlayerRDK)
@@ -824,7 +818,6 @@ gboolean InterfacePlayerRDK::IdleCallback(gpointer user_data)
 			MW_LOG_INFO("Progress callback already available: periodicProgressCallbackIdleTaskId %d", privatePlayer->gstPrivateContext->periodicProgressCallbackIdleTaskId);
 		}
 	}
-	MW_LOG_ERR("InterfacePlayerRDK::IdleCallback exited");
 	return G_SOURCE_REMOVE;
 }
 
@@ -835,7 +828,6 @@ gboolean InterfacePlayerRDK::IdleCallback(gpointer user_data)
  */
 gboolean InterfacePlayerRDK::IdleCallbackFirstVideoFrameDisplayed(gpointer user_data)
 {
-	MW_LOG_ERR("InterfacePlayerRDK::IdleCallbackFirstVideoFrameDisplayed entered");
 	InterfacePlayerRDK *pInterfacePlayerRDK = (InterfacePlayerRDK *)user_data;
 	InterfacePlayerPriv* privatePlayer = nullptr;
 	if (pInterfacePlayerRDK)
@@ -844,7 +836,6 @@ gboolean InterfacePlayerRDK::IdleCallbackFirstVideoFrameDisplayed(gpointer user_
 		HANDLER_CONTROL_HELPER(pInterfacePlayerRDK->idleCallbackControl, G_SOURCE_REMOVE);
 		pInterfacePlayerRDK->TriggerEvent(InterfaceCB::firstVideoFrameDisplayed);
 		pInterfacePlayerRDK->IdleTaskRemove(privatePlayer->gstPrivateContext->firstVideoFrameDisplayedCallbackTask);
-		MW_LOG_ERR("InterfacePlayerRDK::IdleCallbackFirstVideoFrameDisplayed exited");
 	}
 	return G_SOURCE_REMOVE;
 }
@@ -1482,13 +1473,11 @@ void InterfacePlayerRDK::TearDownStream(int type)
 	}
 	interfacePlayerPriv->gstPrivateContext->mTeardownCV.notify_all();
 
-	MW_LOG_ERR("InterfacePlayerRDK::TearDownStream: exit mediaType = %d", mediaType);
+	MW_LOG_MIL("InterfacePlayerRDK::TearDownStream: exit mediaType = %d", mediaType);
 }
 
 void InterfacePlayerRDK::Stop(bool keepLastFrame)
 {
-	const auto stopStart = std::chrono::steady_clock::now();
-	MW_LOG_ERR("InterfacePlayerRDK::Stop entered keepLastFrame=%d", keepLastFrame);
 	std::lock_guard<std::mutex> lock(mMutex);
 	/*  make the execution of this function more deterministic and
 	 *  reduce scope for potential pipeline lockups*/
@@ -1563,9 +1552,7 @@ void InterfacePlayerRDK::Stop(bool keepLastFrame)
 	interfacePlayerPriv->gstPrivateContext->videoMuted = false;
 	interfacePlayerPriv->gstPrivateContext->subtitleMuted = false;
 	interfacePlayerPriv->gstPrivateContext->audioVolume = 1.0;
-	const auto stopElapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - stopStart).count();
-	MW_LOG_ERR("InterfacePlayerRDK::Stop exited after %lld ms", static_cast<long long>(stopElapsedMs));
-}
+
 
 /**
  *  @brief CancelPendingCallbacks - cancel idle/timer callbacks scheduled against this instance
@@ -4074,7 +4061,6 @@ void InterfacePlayerRDK::TearDownCallback(std::function<void(bool, int)> callbac
  */
 void InterfacePlayerRDK::NotifyFirstFrame(int mediaType)
 {
-	MW_LOG_ERR("InterfacePlayerRDK::NotifyFirstFrame entered mediaType=%d", mediaType);
 	bool notifyFirstBuffer = false;
 	bool audioOnly = false;
 	bool requireFirstVideoFrameDisplay = false;
@@ -4134,8 +4120,6 @@ void InterfacePlayerRDK::NotifyFirstFrame(int mediaType)
 			IdleTaskAdd(interfacePlayerPriv->gstPrivateContext->firstProgressCallbackIdleTask, IdleCallback);
 		}
 	}
-
-	MW_LOG_ERR("InterfacePlayerRDK::NotifyFirstFrame exited mediaType=%d", mediaType);
 }
 
 void InterfacePlayerRDK::TriggerEvent(InterfaceCB event)
