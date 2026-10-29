@@ -357,6 +357,20 @@ struct PlacementObj {
 	}
 };
 
+struct VodAdEventEntry
+{
+	std::string breakId;
+	std::string adId;
+	double breakStartSec = 0.0;
+	double breakDurationSec = 0.0;
+	double adStartSec = 0.0;
+	double adDurationSec = 0.0;
+	bool reservationStartFired = false;
+	bool reservationEndFired = false;
+	bool placementStartFired = false;
+	bool placementEndFired = false;
+};
+
 
 /**
  * @class PrivateCDAIObjectMPD
@@ -391,6 +405,8 @@ public:
 	uint64_t                                       mWaitForManifestUpdate;/**< segment position in manifest at end of Ad */
 	AampMPDParseHelperPtr                          mBaseMPDParseHelper;   /**< Latest base-stream MPD parse helper; used by FulFillAdObject to call PlaceAds immediately for static manifest */
 	std::mutex                                     mBaseMPDHelperMtx;     /**< Mutex protecting mBaseMPDParseHelper */
+	bool                                           mVodManifestStitched;  /**< Whether this session is using a stitched VOD manifest */
+	std::vector<VodAdEventEntry>                   mVodAdEventTracker;    /**< Ad event boundaries for the stitched VOD timeline */
 
 	/**
 	 * @fn PrivateCDAIObjectMPD
@@ -430,6 +446,9 @@ public:
 	 * @param[in] reservationId The reservation identifier
 	 */
 	void NotifyReservationComplete(const std::string& reservationId);
+
+	void ResetVodAdEventTracker();
+	void CheckVodStitchedAdEvents(double positionMs);
 
 	/**
 	 * @brief Cancel ad reservation
