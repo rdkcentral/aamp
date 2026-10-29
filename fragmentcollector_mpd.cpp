@@ -8060,6 +8060,8 @@ std::string StreamAbstractionAAMP_MPD::GetCurrentCodec(AampMediaType mediaType)
 		{
 			if( pMediaStreamContext->representation )
 			{
+				AAMPLOG_INFO("patrick %d",mediaType);
+				std::lock_guard<std::recursive_mutex> lock(mMediaStreamContext[eMEDIATYPE_VIDEO]->mMediaStreamContextMutex);
 				const auto& repCodecs = pMediaStreamContext->representation->GetCodecs();
 				if( !repCodecs.empty() )
 				{
@@ -8068,6 +8070,7 @@ std::string StreamAbstractionAAMP_MPD::GetCurrentCodec(AampMediaType mediaType)
 			}
 			if( codec.empty() && pMediaStreamContext->adaptationSet )
 			{
+				std::lock_guard<std::recursive_mutex> lock(mMediaStreamContext[eMEDIATYPE_VIDEO]->mMediaStreamContextMutex);
 				const auto& adapCodecs = pMediaStreamContext->adaptationSet->GetCodecs();
 				if( !adapCodecs.empty() )
 				{
@@ -8246,7 +8249,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 			auto numAdaptationSets = period->GetAdaptationSets().size();
 			if( numAdaptationSets==0 )
 			{
-				AAMPLOG_WARN("empty period");
+				AAMPLOG_WARN("patrick");
 				pMediaStreamContext->adaptationSet = NULL;
 				pMediaStreamContext->representation = NULL;
 				continue;
@@ -8767,6 +8770,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 					  //Player will be able to end the playback gracefully with the fix.
 			if(pMediaStreamContext->representationIndex < pMediaStreamContext->adaptationSet->GetRepresentation().size())
 			{
+				AAMPLOG_INFO("patrick");
 				pMediaStreamContext->representation = pMediaStreamContext->adaptationSet->GetRepresentation().at(pMediaStreamContext->representationIndex);
 			}
 			else
@@ -11712,7 +11716,7 @@ void  StreamAbstractionAAMP_MPD::ResumeSubtitleAfterSeek(bool mute, char *data)
 StreamAbstractionAAMP_MPD::~StreamAbstractionAAMP_MPD()
 {
 	aamp->initialManifestFetchInProgress=false;
-	
+
 	// Unregister the MPD download callback BEFORE deleting tracks.
 	// This ensures the notifier thread cannot fire MPDUpdateCallbackExec()
 
