@@ -1445,7 +1445,7 @@ void AampDRMLicenseManager::setPlaybackSpeedState(bool live, double currentLaten
 		MW_LOG_ERR("[WM_TIMING] id=%llu op=setPlaybackSpeedState phase=task_end operation_us=%lld",
 			timingId, WatermarkElapsedUs(taskStart, WatermarkTimingClock::now()));
 	};
-	const bool queued = EnqueueWatermarkTask(task);
+	const bool queued = EnqueueWatermarkTask("setPlaybackSpeedState", timingId, task);
 	if (!queued)
 	{
 		MW_LOG_ERR("[WM_TIMING] id=%llu op=setPlaybackSpeedState phase=caller_fallback", timingId);
@@ -1470,7 +1470,7 @@ void AampDRMLicenseManager::hideWatermarkOnDetach(void)
 		MW_LOG_ERR("[WM_TIMING] id=%llu op=hideWatermarkOnDetach phase=task_end operation_us=%lld",
 			timingId, WatermarkElapsedUs(taskStart, WatermarkTimingClock::now()));
 	};
-	const bool queued = EnqueueWatermarkTask(task);
+	const bool queued = EnqueueWatermarkTask("hideWatermarkOnDetach", timingId, task);
 	if (!queued)
 	{
 		MW_LOG_ERR("[WM_TIMING] id=%llu op=hideWatermarkOnDetach phase=caller_fallback", timingId);
@@ -1495,7 +1495,7 @@ void AampDRMLicenseManager::setVideoMute(bool live, double currentLatency, bool 
 		MW_LOG_ERR("[WM_TIMING] id=%llu op=setVideoMute phase=task_end operation_us=%lld",
 			timingId, WatermarkElapsedUs(taskStart, WatermarkTimingClock::now()));
 	};
-	const bool queued = EnqueueWatermarkTask(task);
+	const bool queued = EnqueueWatermarkTask("setVideoMute", timingId, task);
 	if (!queued)
 	{
 		MW_LOG_ERR("[WM_TIMING] id=%llu op=setVideoMute phase=caller_fallback", timingId);
@@ -1517,7 +1517,7 @@ void AampDRMLicenseManager::setVideoWindowSize(int width, int height)
 		MW_LOG_ERR("[WM_TIMING] id=%llu op=setVideoWindowSize phase=task_end operation_us=%lld",
 			timingId, WatermarkElapsedUs(taskStart, WatermarkTimingClock::now()));
 	};
-	const bool queued = EnqueueWatermarkTask(task);
+	const bool queued = EnqueueWatermarkTask("setVideoWindowSize", timingId, task);
 	if (!queued)
 	{
 		MW_LOG_ERR("[WM_TIMING] id=%llu op=setVideoWindowSize phase=caller_fallback", timingId);
@@ -1530,17 +1530,20 @@ void AampDRMLicenseManager::setVideoWindowSize(int width, int height)
 /**
  * @brief Queue and process watermarking state updates serially away from caller threads.
  */
-bool AampDRMLicenseManager::EnqueueWatermarkTask(std::function<void()> task)
+bool AampDRMLicenseManager::EnqueueWatermarkTask(const char *operation, unsigned long long timingId, std::function<void()> task)
 {
+	size_t queueDepth;
 	{
 		std::lock_guard<std::mutex> lock(mWatermarkTaskMutex);
 		if (mWatermarkWorkerStopping)
 		{
 			return false;
 		}
-		mWatermarkTaskQueue.emplace_back(std::move(task));
+		mWatermarkTaskQueue.push_back({operation, timingId, WatermarkTimingClock::now(), std::move(task)});
+		queueDepth = mWatermarkTaskQueue.size();
 	}
 	mWatermarkTaskCondition.notify_one();
+	MW_LOG_ERR("[WM_TIMING] id=%llu op=%s phase=enqueue queue_depth=%zu", timingId, operation, queueDepth);
 	return true;
 }
 
@@ -1548,7 +1551,8 @@ void AampDRMLicenseManager::WatermarkWorkerThread()
 {
 	for (;;)
 	{
-		std::function<void()> task;
+		WatermarkTask queuedTask;
+		size_t queueDepth;
 		{
 			std::unique_lock<std::mutex> lock(mWatermarkTaskMutex);
 			mWatermarkTaskCondition.wait(lock, [this]() {
@@ -1562,13 +1566,17 @@ void AampDRMLicenseManager::WatermarkWorkerThread()
 				}
 				continue;
 			}
-			task = std::move(mWatermarkTaskQueue.front());
+			queuedTask = std::move(mWatermarkTaskQueue.front());
 			mWatermarkTaskQueue.pop_front();
+			queueDepth = mWatermarkTaskQueue.size();
 		}
+		MW_LOG_ERR("[WM_TIMING] id=%llu op=%s phase=dequeue queue_depth=%zu queue_wait_us=%lld",
+			queuedTask.timingId, queuedTask.operation, queueDepth,
+			WatermarkElapsedUs(queuedTask.enqueueTime, WatermarkTimingClock::now()));
 
 		try
 		{
-			task();
+			queuedTask.task();
 		}
 		catch (...)
 		{
