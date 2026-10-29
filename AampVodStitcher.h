@@ -58,6 +58,16 @@ std::string BuildStitchedVodManifest(
 	PrivateCDAIObjectMPD   *cdaiObj);
 
 /**
+ * @brief Check that an MPD can be stitched: it has at least one Period, and every
+ *        number the stitcher parses from it (Period/MPD durations, timescale,
+ *        presentationTimeOffset, startNumber, SegmentTimeline t/d/r) is well formed.
+ *        BuildStitchedVodManifest() returns the original MPD if the main MPD fails
+ *        this check, and plays through (skips) any ad whose MPD fails it.
+ *        Never throws.  Exposed for L1 unit tests.
+ */
+bool CanStitchVodMpd(const std::string &mpdText);
+
+/**
  * @brief Snap a period-relative splice time to a segment boundary of the
  *        period's reference track (the first non-trick-play video track with a
  *        SegmentTimeline, else the first track with one): the nearest boundary
@@ -99,5 +109,8 @@ double ResolveVodSplicePoint(const std::string &periodBody, double periodDur, do
  * @param endSec      Window end relative to the period (0 = to the end).
  * @return Trimmed period body XML, or an empty string if the snapped window
  *         contains no segments (the caller should then emit no period).
+ * @throws std::invalid_argument / std::out_of_range for malformed numeric
+ *         attributes (see CanStitchVodMpd()); SnapVodSpliceTime() and
+ *         ResolveVodSplicePoint() likewise.
  */
 std::string TrimPeriod(const std::string &periodBody, double startSec, double endSec);

@@ -46,6 +46,7 @@
 #include <map>
 #include <mutex>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -290,6 +291,20 @@ static size_t GetTimelineIndex(const std::vector<uint64_t> &samples,
 static constexpr double kSpliceEpsilonSec = 1e-6;
 
 /**
+ * @brief Parse SegmentTemplate@timescale (default 1).
+ *        Throws std::invalid_argument / std::out_of_range for a malformed value,
+ *        and std::invalid_argument for 0.
+ */
+static uint64_t ParseTimescale(const std::string &templateTag)
+{
+	std::string tsStr = GetAttr(templateTag, "timescale");
+	uint64_t timescale = tsStr.empty() ? 1 : (uint64_t)std::stoull(tsStr);
+	if (timescale == 0)
+		throw std::invalid_argument("SegmentTemplate timescale is 0");
+	return timescale;
+}
+
+/**
  * @brief SegmentTimeline of the track that drives splice-boundary selection for a period.
  */
 struct ReferenceTimeline
@@ -351,9 +366,8 @@ static ReferenceTimeline FindReferenceTimeline(const std::string &periodBody)
 			if (!ref.valid || isVideo)
 			{
 				std::string tag = periodBody.substr(pos, tagEnd - pos + 1);
-				std::string tsStr = GetAttr(tag, "timescale");
 				std::string ptoStr = GetAttr(tag, "presentationTimeOffset");
-				ref.timescale = tsStr.empty() ? 1 : (uint64_t)std::stoull(tsStr);
+				ref.timescale = ParseTimescale(tag);
 				ref.pto = ptoStr.empty() ? 0 : (uint64_t)std::stoull(ptoStr);
 				ref.samples = std::move(samples);
 				ref.valid = true;
@@ -421,8 +435,7 @@ std::string TrimPeriod(const std::string &periodBody,
 
 		std::string tmplTag = result.substr(tmplPos, tmplEnd - tmplPos + 1);
 
-		std::string tsStr = GetAttr(tmplTag, "timescale");
-		uint64_t timescale = tsStr.empty() ? 1 : (uint64_t)std::stoull(tsStr);
+		uint64_t timescale = ParseTimescale(tmplTag);
 
 		std::string snStr = GetAttr(tmplTag, "startNumber");
 		int startNumber = snStr.empty() ? 1 : std::stoi(snStr);
@@ -603,6 +616,22 @@ static std::vector<PeriodSlice> ExtractPeriods(const std::string &mpdText)
 		pos = bodyEnd + 9; // strlen("</Period>")
 	}
 	return result;
+}
+
+bool CanStitchVodMpd(const std::string &mpdText)
+{
+	try
+	{
+		std::vector<PeriodSlice> periods = ExtractPeriods(mpdText);
+		for (const PeriodSlice &period : periods)
+			(void)TrimPeriod(period.body, 0.0, 0.0);
+		return !periods.empty();
+	}
+	catch (const std::exception &e)
+	{
+		AAMPLOG_ERR("[VodStitcher] Malformed MPD: %s", e.what());
+		return false;
+	}
 }
 
 /* -------------------------------------------------------------------------
@@ -813,7 +842,7 @@ static std::string BuildMPDHeader(const std::string &mainMpdText,
  * Top-level stitcher
  * ---------------------------------------------------------------------- */
 
-std::string BuildStitchedVodManifest(
+static std::string BuildStitchedVodManifestImpl(
 	PrivateInstanceAAMP    *aamp,
 	const std::string      &mainMpdText,
 	const std::string      &mainMpdUrl,
@@ -863,6 +892,12 @@ std::string BuildStitchedVodManifest(
 		}
 	}
 
+	if (!CanStitchVodMpd(mainMpdText))
+	{
+		AAMPLOG_ERR("[VodStitcher] Main MPD cannot be stitched — returning original MPD");
+		return {};
+	}
+
 	// Fetch all ad MPDs in parallel — each download uses its own
 	// AampCurlDownloader (and therefore its own CURL* handle).
 	std::vector<AdFetchResult> adResults = FetchAdMPDsParallel(aamp, cdaiObj);
@@ -870,8 +905,13 @@ std::string BuildStitchedVodManifest(
 	// Build insertion map: insertionPointSec -> [AdFetchResult*, ...]
 	// Ordered by insertion point; multiple ads at the same point are chained.
 	std::map<double, std::vector<const AdFetchResult *>> insertionMap;
-	for (const auto &r : adResults)
+	for (auto &r : adResults)
 	{
+		if (r.ok && !CanStitchVodMpd(r.mpdText))
+		{
+			AAMPLOG_WARN("[VodStitcher] Ad MPD for break=%s cannot be stitched", r.breakId.c_str());
+			r.ok = false;
+		}
 		if (r.ok)
 			insertionMap[r.insertionPointSec].push_back(&r);
 		else
@@ -1062,4 +1102,26 @@ std::string BuildStitchedVodManifest(
 	AAMPLOG_WARN("[VodStitcher] Stitched MPD: %zu periods, total duration=%.3fs, size=%zu bytes",
 	             (size_t)periodId, totalDur, stitched.size());
 	return stitched;
+}
+
+std::string BuildStitchedVodManifest(
+	PrivateInstanceAAMP    *aamp,
+	const std::string      &mainMpdText,
+	const std::string      &mainMpdUrl,
+	PrivateCDAIObjectMPD   *cdaiObj)
+{
+	try
+	{
+		return BuildStitchedVodManifestImpl(aamp, mainMpdText, mainMpdUrl, cdaiObj);
+	}
+	catch (const std::exception &e)
+	{
+		AAMPLOG_ERR("[VodStitcher] Stitching failed (%s) — returning original MPD", e.what());
+		if (cdaiObj)
+		{
+			std::lock_guard<std::recursive_mutex> lock(cdaiObj->mDaiMtx);
+			cdaiObj->mVodAdEventTracker.clear();
+		}
+		return {};
+	}
 }

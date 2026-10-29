@@ -657,3 +657,73 @@ TEST(AampVodStitcherTrimPeriodTests, TwoSplicesSnappingToSameBoundary_EmptyMiddl
 {
 	EXPECT_TRUE(TrimPeriod(MainPeriodBody(), 1189.15, 1189.25).empty());
 }
+
+namespace
+{
+std::string WrapMpd(const std::string &periodBody, const std::string &periodAttrs = "")
+{
+	return "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
+		   "<MPD xmlns=\"urn:mpeg:dash:schema:mpd:2011\" type=\"static\" mediaPresentationDuration=\"PT1198.08S\">\n"
+		   "<Period id=\"p0\" start=\"PT0S\"" + periodAttrs + ">\n" + periodBody + "</Period>\n</MPD>\n";
+}
+
+std::string ReplaceFirst(std::string text, const std::string &from, const std::string &to)
+{
+	size_t pos = text.find(from);
+	EXPECT_NE(pos, std::string::npos) << "fixture does not contain " << from;
+	if (pos != std::string::npos)
+		text.replace(pos, from.size(), to);
+	return text;
+}
+} // namespace
+
+/**
+ * @brief A well-formed MPD can be stitched; an MPD without any Period cannot.
+ */
+TEST(AampVodStitcherTrimPeriodTests, CanStitchVodMpd_WellFormed)
+{
+	EXPECT_TRUE(CanStitchVodMpd(WrapMpd(MainPeriodBody())));
+	EXPECT_TRUE(CanStitchVodMpd(WrapMpd(MainPeriodBody(100000ULL * kTimescale, 100007ULL * kTimescale))));
+	EXPECT_FALSE(CanStitchVodMpd("<MPD type=\"static\" mediaPresentationDuration=\"PT10S\"></MPD>"));
+	EXPECT_FALSE(CanStitchVodMpd(""));
+}
+
+/**
+ * @brief Malformed numbers anywhere the stitcher parses them make the MPD rejected for stitching
+ *        instead of escaping as an exception.
+ */
+TEST(AampVodStitcherTrimPeriodTests, CanStitchVodMpd_MalformedNumbers_ReturnsFalse)
+{
+	const std::string body = MainPeriodBody();
+	const struct
+	{
+		const char *what;
+		std::string mpd;
+	} cases[] = {
+		{"timescale not a number", WrapMpd(ReplaceFirst(body, "timescale=\"48000\"", "timescale=\"abc\""))},
+		{"timescale zero", WrapMpd(ReplaceFirst(body, "timescale=\"48000\"", "timescale=\"0\""))},
+		{"startNumber not a number", WrapMpd(ReplaceFirst(body, "startNumber=\"1\"", "startNumber=\"oops\""))},
+		{"presentationTimeOffset not a number",
+		 WrapMpd(ReplaceFirst(body, "startNumber=\"1\" ", "startNumber=\"1\" presentationTimeOffset=\"oops\" "))},
+		{"S@t out of range", WrapMpd(ReplaceFirst(body, "t=\"0\"", "t=\"99999999999999999999999\""))},
+		{"S@d not a number", WrapMpd(ReplaceFirst(body, "d=\"92160\"", "d=\"x\""))},
+		{"S@r not a number", WrapMpd(ReplaceFirst(body, "r=\"617\"", "r=\"x\""))},
+		{"Period@duration malformed", WrapMpd(body, " duration=\"PT.S\"")},
+	};
+	for (const auto &c : cases)
+	{
+		SCOPED_TRACE(c.what);
+		EXPECT_NO_THROW(EXPECT_FALSE(CanStitchVodMpd(c.mpd)));
+	}
+}
+
+/**
+ * @brief The lower-level helpers report malformed numbers by throwing; the stitcher catches
+ *        them (see CanStitchVodMpd and BuildStitchedVodManifest).
+ */
+TEST(AampVodStitcherTrimPeriodTests, TrimPeriod_MalformedNumber_Throws)
+{
+	const std::string body = ReplaceFirst(MainPeriodBody(), "d=\"92160\"", "d=\"x\"");
+	EXPECT_ANY_THROW(TrimPeriod(body, 0.0, 1189.2));
+	EXPECT_ANY_THROW(SnapVodSpliceTime(body, 1189.2));
+}

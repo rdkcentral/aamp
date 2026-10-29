@@ -77,8 +77,9 @@ machine.
 - **Breaks**: each registered `breakId` carries one ad MPD URL and an
   `insertionPointSec` on the **source content timeline**. Breaks sharing an
   insertion point are chained in registration order.
-- **Ad MPDs**: fetched in parallel. A failed fetch drops that ad ("play through");
-  if every fetch fails, the original MPD is used unchanged.
+- **Ad MPDs**: fetched in parallel. A failed fetch, or an ad MPD that fails
+  validation (section 6.1), drops that ad ("play through"). If no ad remains, the
+  original MPD is used unchanged.
 
 ### 3.2 Period walk
 
@@ -206,14 +207,43 @@ entry so events fire again as breaks are crossed.
 
 ## 6. Assumptions and limitations
 
+> **Content requirements at a glance**
+>
+> | | Requirement | If not met |
+> | --- | --- | --- |
+> | Main content | Every track uses `SegmentTemplate` + `SegmentTimeline` | Tracks with other addressing are not split; after each ad they restart from the start of the period (section 6.1) |
+> | Ad MPDs | Any addressing, but each ad Period's duration must be known: `Period@duration`, else `MPD@mediaPresentationDuration`, else a `SegmentTimeline` span | An ad Period of unknown duration is **silently skipped** |
+> | Ad MPDs | Segment URLs resolve relative to the ad MPD's own location | An ad relying on an MPD-level `<BaseURL>` fails to load (section 6.1) |
+> | All MPDs | Numeric attributes are well formed | The ad is skipped, or for the main MPD stitching is abandoned (section 6.1) |
+>
+> Production main content and ads meet these today. Third-party ad MPDs should be
+> checked against them before they are enabled.
+
 ### 6.1 Manifest and addressing
 
 - **DASH VOD only**, with `client-dai` enabled. Live and HLS are not stitched.
-- **`SegmentTemplate` + `SegmentTimeline` only.** Tracks using
-  `SegmentTemplate@duration` (`$Number$` without a timeline), `SegmentBase`,
+- **Main content: `SegmentTemplate` + `SegmentTimeline` only.** Main-content tracks
+  using `SegmentTemplate@duration` (`$Number$` without a timeline), `SegmentBase`,
   `SegmentList` or single-file `BaseURL` addressing are copied **untrimmed** into
   every content slice. After an ad they would restart from the beginning of the
   period, so such content is not suitable for stitching.
+- **Ads: any addressing, but the duration must be known.** Ad Periods are copied
+  without trimming, so `SegmentTemplate@duration`, `SegmentBase` and `SegmentList`
+  ads play as they are. Each ad Period's duration comes from `Period@duration`,
+  else `MPD@mediaPresentationDuration` (single-Period ads), else the span of its
+  `SegmentTimeline`s. An ad Period whose duration cannot be determined (e.g. a
+  `SegmentBase` ad with no duration attributes) is skipped without an error.
+- **Malformed MPDs.** Before stitching, the main MPD and every ad MPD are checked
+  by `CanStitchVodMpd()`. It verifies that every number the stitcher parses is
+  well formed: Period/MPD durations, `timescale` (non-zero),
+  `presentationTimeOffset`, `startNumber`, and `SegmentTimeline` `t`/`d`/`r`.
+  - A malformed **ad** MPD is skipped (played through, like a failed download).
+  - A malformed **main** MPD abandons stitching, and the original MPD is played
+    without stitched ads.
+  - Any other exception during stitching is also caught and leads to the original
+    MPD.
+- **`SegmentTimeline` `r="-1"`** (repeat until the next `S` or the Period end) is
+  not supported. Such an entry expands to no segments.
 - **Stitching happens once, before playback**, with every ad resolved before
   `load()`. The stitcher waits up to 10 s for outstanding resolutions, which delays
   tune. Breaks cannot be added or removed after tune; `cancelVodAdBreak` only works
@@ -229,6 +259,9 @@ entry so events fire again as breaks are crossed.
     copied.
   - A period that already has its own Period-level `<BaseURL>` ends up with two,
     which DASH treats as alternatives.
+  - Segment URLs become absolute, so query parameters on the manifest URL (e.g.
+    CDN auth tokens) are no longer propagated to segment requests when
+    `propagateUriParameters` is enabled.
 - **Header.** `type` and `mediaPresentationDuration` are rewritten in place. If the
   main MPD lacks either attribute, it is inserted textually and could land in the
   `<?xml?>` declaration. VOD MPDs normally carry both.
@@ -281,6 +314,8 @@ entry so events fire again as breaks are crossed.
 
 - One ad MPD per `breakId`. A pod is several `breakId`s at the same insertion point.
 - Ad MPDs may be multi-period; all their periods are inserted in order.
+- Ad Periods are not trimmed, so their segment addressing is unrestricted, but
+  their duration must be determinable (see the table at the start of section 6).
 - Ad and content periods may differ in codecs, resolution or DRM. AAMP handles these
   as ordinary period transitions, including discontinuity processing and new init
   segments.
@@ -372,8 +407,8 @@ L1 suites (`test/utests/tests/`):
 - `AampVodStitcherTests`: splice resolution and trimming. Covers boundary-aligned
   and mid-segment splices, the snap window, nearest-boundary choice,
   `presentationTimeOffset` mapping, A/V coordination, reference-track selection,
-  empty slices, the Period-duration cap, and every-segment-exactly-once
-  invariants.
+  empty slices, the Period-duration cap, every-segment-exactly-once invariants,
+  and malformed-number handling.
 - `VodStitchedAdEventsTests`: `CheckVodStitchedAdEvents` / `ResetVodAdEventTracker`.
 - `AdManagerMPDTests` (`VodCdai_*`): registration, resolution and cancellation.
 
