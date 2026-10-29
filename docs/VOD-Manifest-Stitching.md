@@ -125,6 +125,10 @@ DASH segments cannot be split, so a splice must fall on a segment boundary.
 5. **Capped at the Period duration.** If the last segment overruns the Period's
    presentation end, the splice stays at the Period duration. This keeps the ad from
    being delayed and the presentation from being extended.
+6. **Period end is terminal.** An insertion point at the Period end (e.g. a
+   postroll) is not snapped, even when a boundary lies just before it. The content
+   slice before it keeps every remaining segment, including one overrunning the
+   Period end, so no content plays after a postroll.
 
 ### 3.4 Per-track trimming
 
@@ -238,15 +242,20 @@ entry so events fire again as breaks are crossed.
   `SegmentBase` ad with no duration attributes) is skipped without an error.
 - **Malformed MPDs.** Before stitching, the main MPD and every ad MPD are checked
   by `CanStitchVodMpd()`. It verifies that every number the stitcher parses is
-  well formed: Period/MPD durations, `timescale` (non-zero),
-  `presentationTimeOffset`, `startNumber`, and `SegmentTimeline` `t`/`d`/`r`.
+  well formed:
+  - Period/MPD durations must be complete ISO 8601 durations
+    (`P[nY][nM][nD][T[nH][nM][n[.n]S]]`, no sign or trailing text, years and
+    months zero).
+  - `timescale` (non-zero), `presentationTimeOffset`, `startNumber`, and
+    `SegmentTimeline` `t`, `d` (non-zero) and `r` must be complete unsigned
+    integers: `"48000junk"` or `"-1"` is rejected.
   - A malformed **ad** MPD is skipped (played through, like a failed download).
   - A malformed **main** MPD abandons stitching, and the original MPD is played
     without stitched ads.
   - Any other exception during stitching is also caught and leads to the original
     MPD.
 - **`SegmentTimeline` `r="-1"`** (repeat until the next `S` or the Period end) is
-  not supported. Such an entry expands to no segments.
+  not supported. An MPD using it fails `CanStitchVodMpd()`.
 - **Stitching happens once, before playback**, with every ad resolved before
   `load()`. The stitcher waits up to 10 s for outstanding resolutions, which delays
   tune. Breaks cannot be added or removed after tune; `cancelVodAdBreak` only works

@@ -43,6 +43,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <future>
+#include <limits>
 #include <map>
 #include <mutex>
 #include <sstream>
@@ -110,31 +111,101 @@ static std::string SetAttr(std::string element, const std::string &attr, const s
  * ISO 8601 duration helpers  (mirrors manifest-genie ParseTime / PackTime)
  * ---------------------------------------------------------------------- */
 
+static bool IsDigit(char c)
+{
+	return std::isdigit(static_cast<unsigned char>(c)) != 0;
+}
+
 /**
  * @brief Parse an ISO 8601 duration string to seconds.
  *        "PT1H2M3.456S" -> 3723.456
+ *        Accepts P[nY][nM][nD][T[nH][nM][n[.n]S]] with non-negative components in
+ *        that order, a fraction only on seconds, and zero years/months.
+ * @throws std::invalid_argument for any other string (signs, trailing text,
+ *         empty components, non-zero years or months).
  */
 static double ParseIsoDuration(const std::string &s)
 {
+	const std::invalid_argument malformed("malformed duration \"" + s + "\"");
+	if (s.size() < 2 || s[0] != 'P' || s.back() == 'T')
+		throw malformed;
+	static const std::string kDateUnits = "YMD";
+	static const std::string kTimeUnits = "HMS";
+	static const double kTimeUnitSec[] = {3600.0, 60.0, 1.0};
+	const std::string *units = &kDateUnits;
+	size_t nextUnit = 0;
 	double result = 0.0;
-	if (s.size() < 2 || s[0] != 'P' || s[1] != 'T')
-		return result;
-	size_t i = 2;
+	size_t i = 1;
 	while (i < s.size())
 	{
+		if (s[i] == 'T')
+		{
+			if (units == &kTimeUnits)
+				throw malformed;
+			units = &kTimeUnits;
+			nextUnit = 0;
+			i++;
+			continue;
+		}
 		size_t j = i;
-		while (j < s.size() && (std::isdigit(static_cast<unsigned char>(s[j])) || s[j] == '.'))
+		while (j < s.size() && IsDigit(s[j]))
 			j++;
+		const bool hasFraction = (j > i && j < s.size() && s[j] == '.');
+		if (hasFraction)
+		{
+			const size_t fracStart = ++j;
+			while (j < s.size() && IsDigit(s[j]))
+				j++;
+			if (j == fracStart)
+				throw malformed;
+		}
 		if (j == i || j >= s.size())
-			break;
-		double val = std::stod(s.substr(i, j - i));
-		char unit = s[j];
-		if      (unit == 'H') result += val * 3600.0;
-		else if (unit == 'M') result += val * 60.0;
-		else if (unit == 'S') result += val;
+			throw malformed;
+		const size_t unitIdx = units->find(s[j], nextUnit);
+		if (unitIdx == std::string::npos)
+			throw malformed;
+		const double val = std::stod(s.substr(i, j - i));
+		if (units == &kTimeUnits)
+		{
+			if (hasFraction && unitIdx != 2)
+				throw malformed;
+			result += val * kTimeUnitSec[unitIdx];
+		}
+		else if (hasFraction || (unitIdx < 2 && val != 0.0))
+			throw malformed;
+		else if (unitIdx == 2)
+			result += val * 86400.0;
+		nextUnit = unitIdx + 1;
 		i = j + 1;
 	}
 	return result;
+}
+
+/* -------------------------------------------------------------------------
+ * Strict numeric attribute parsing
+ * ---------------------------------------------------------------------- */
+
+/**
+ * @brief Parse an unsigned decimal integer attribute; the whole string must be digits.
+ * @throws std::invalid_argument if empty, signed or not entirely digits;
+ *         std::out_of_range if it does not fit in 64 bits.
+ */
+static uint64_t ParseUnsigned(const std::string &s, const char *name)
+{
+	if (s.empty() || !std::all_of(s.begin(), s.end(), IsDigit))
+		throw std::invalid_argument(std::string(name) + " is not an unsigned integer: \"" + s + "\"");
+	return (uint64_t)std::stoull(s);
+}
+
+/**
+ * @brief ParseUnsigned() restricted to the range of int.
+ */
+static int ParseUnsignedInt(const std::string &s, const char *name)
+{
+	uint64_t value = ParseUnsigned(s, name);
+	if (value > (uint64_t)std::numeric_limits<int>::max())
+		throw std::out_of_range(std::string(name) + " is out of range: \"" + s + "\"");
+	return (int)value;
 }
 
 /**
@@ -189,16 +260,20 @@ static std::vector<uint64_t> UncompressTimeline(const std::string &xml)
 
 		std::string tStr = GetAttr(entry, "t");
 		if (!tStr.empty())
-			t = (uint64_t)std::stoull(tStr);
+			t = ParseUnsigned(tStr, "S@t");
 		else if (first)
 			t = 0;
 
 		std::string dStr = GetAttr(entry, "d");
 		if (dStr.empty()) continue;
-		uint64_t d = (uint64_t)std::stoull(dStr);
+		uint64_t d = ParseUnsigned(dStr, "S@d");
+		if (d == 0)
+			throw std::invalid_argument("S@d is 0");
 
 		std::string rStr = GetAttr(entry, "r");
-		int r = rStr.empty() ? 0 : std::stoi(rStr);
+		if (rStr == "-1")
+			throw std::invalid_argument("S@r=\"-1\" is not supported");
+		int r = rStr.empty() ? 0 : ParseUnsignedInt(rStr, "S@r");
 
 		for (int rep = 0; rep <= r; rep++)
 		{
@@ -298,7 +373,7 @@ static constexpr double kSpliceEpsilonSec = 1e-6;
 static uint64_t ParseTimescale(const std::string &templateTag)
 {
 	std::string tsStr = GetAttr(templateTag, "timescale");
-	uint64_t timescale = tsStr.empty() ? 1 : (uint64_t)std::stoull(tsStr);
+	uint64_t timescale = tsStr.empty() ? 1 : ParseUnsigned(tsStr, "SegmentTemplate@timescale");
 	if (timescale == 0)
 		throw std::invalid_argument("SegmentTemplate timescale is 0");
 	return timescale;
@@ -368,7 +443,7 @@ static ReferenceTimeline FindReferenceTimeline(const std::string &periodBody)
 				std::string tag = periodBody.substr(pos, tagEnd - pos + 1);
 				std::string ptoStr = GetAttr(tag, "presentationTimeOffset");
 				ref.timescale = ParseTimescale(tag);
-				ref.pto = ptoStr.empty() ? 0 : (uint64_t)std::stoull(ptoStr);
+				ref.pto = ptoStr.empty() ? 0 : ParseUnsigned(ptoStr, "SegmentTemplate@presentationTimeOffset");
 				ref.samples = std::move(samples);
 				ref.valid = true;
 				if (isVideo)
@@ -387,6 +462,8 @@ double SnapVodSpliceTime(const std::string &periodBody, double sec)
 
 double ResolveVodSplicePoint(const std::string &periodBody, double periodDur, double cursor, double sec)
 {
+	if (sec >= periodDur - kSpliceEpsilonSec)
+		return std::max(cursor, periodDur);
 	return std::min(periodDur, std::max(cursor, SnapVodSpliceTime(periodBody, sec)));
 }
 
@@ -438,10 +515,10 @@ std::string TrimPeriod(const std::string &periodBody,
 		uint64_t timescale = ParseTimescale(tmplTag);
 
 		std::string snStr = GetAttr(tmplTag, "startNumber");
-		int startNumber = snStr.empty() ? 1 : std::stoi(snStr);
+		int startNumber = snStr.empty() ? 1 : ParseUnsignedInt(snStr, "SegmentTemplate@startNumber");
 
 		std::string ptoStr = GetAttr(tmplTag, "presentationTimeOffset");
-		uint64_t origPto = ptoStr.empty() ? 0 : (uint64_t)std::stoull(ptoStr);
+		uint64_t origPto = ptoStr.empty() ? 0 : ParseUnsigned(ptoStr, "SegmentTemplate@presentationTimeOffset");
 
 		const std::string TL_OPEN  = "<SegmentTimeline>";
 		const std::string TL_CLOSE = "</SegmentTimeline>";
@@ -534,7 +611,7 @@ static std::vector<PeriodSlice> ExtractPeriods(const std::string &mpdText)
 
 	// Extract mediaPresentationDuration from the <MPD ...> opening tag only,
 	// not from the entire document (avoids false matches in Period/AdaptationSet text).
-	std::string mpdDur;
+	double mpdDur = 0.0;
 	{
 		size_t mpdTagStart = mpdText.find("<MPD");
 		size_t mpdTagEnd   = (mpdTagStart != std::string::npos)
@@ -542,7 +619,9 @@ static std::vector<PeriodSlice> ExtractPeriods(const std::string &mpdText)
 		if (mpdTagEnd != std::string::npos)
 		{
 			std::string mpdTag = mpdText.substr(mpdTagStart, mpdTagEnd - mpdTagStart + 1);
-			mpdDur = GetAttr(mpdTag, "mediaPresentationDuration");
+			std::string mpdDurStr = GetAttr(mpdTag, "mediaPresentationDuration");
+			if (!mpdDurStr.empty())
+				mpdDur = ParseIsoDuration(mpdDurStr);
 		}
 	}
 
@@ -567,10 +646,7 @@ static std::vector<PeriodSlice> ExtractPeriods(const std::string &mpdText)
 		std::string body = mpdText.substr(bodyStart, bodyEnd - bodyStart);
 
 		std::string durStr = GetAttr(tag, "duration");
-		if (durStr.empty())
-			durStr = mpdDur;
-
-		double dur = ParseIsoDuration(durStr);
+		double dur = durStr.empty() ? mpdDur : ParseIsoDuration(durStr);
 
 		// If duration is still unknown, derive it from the SegmentTimeline
 		// (handles ad MPDs that omit duration on both Period and MPD level).
@@ -594,12 +670,7 @@ static std::vector<PeriodSlice> ExtractPeriods(const std::string &mpdText)
 				{
 					size_t tmplEnd = body.find('>', tmplPos);
 					if (tmplEnd != std::string::npos)
-					{
-						std::string tmplTag = body.substr(tmplPos, tmplEnd - tmplPos + 1);
-						std::string tsStr = GetAttr(tmplTag, "timescale");
-						if (!tsStr.empty())
-							timescale = (uint64_t)std::stoull(tsStr);
-					}
+						timescale = ParseTimescale(body.substr(tmplPos, tmplEnd - tmplPos + 1));
 				}
 
 				if (samples.size() >= 2 && timescale > 0)
@@ -981,8 +1052,10 @@ static std::string BuildStitchedVodManifestImpl(
 			double spliceAt = ResolveVodSplicePoint(mp.body, periodDur, cursor, ins.first); // period-relative splice point, snapped to a segment boundary
 			const std::vector<const AdFetchResult *> &ads = *ins.second;
 
-			// Emit the pre-splice main content slice [cursor, spliceAt), skipping a slice that snapped to nothing
-			std::string trimmed = (spliceAt > cursor) ? TrimPeriod(mp.body, cursor, spliceAt) : std::string();
+			// Emit the pre-splice main content slice [cursor, spliceAt), skipping a slice that snapped to nothing.
+			// A splice at the Period end keeps every remaining segment, including one overrunning the end.
+			const bool atPeriodEnd = (spliceAt >= periodDur - kSpliceEpsilonSec);
+			std::string trimmed = (spliceAt > cursor) ? TrimPeriod(mp.body, cursor, atPeriodEnd ? 0.0 : spliceAt) : std::string();
 			if (!trimmed.empty())
 			{
 				double sliceDur = spliceAt - cursor;

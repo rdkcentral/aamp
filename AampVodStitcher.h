@@ -59,8 +59,10 @@ std::string BuildStitchedVodManifest(
 
 /**
  * @brief Check that an MPD can be stitched: it has at least one Period, and every
- *        number the stitcher parses from it (Period/MPD durations, timescale,
- *        presentationTimeOffset, startNumber, SegmentTimeline t/d/r) is well formed.
+ *        number the stitcher parses from it is well formed: Period/MPD durations
+ *        are complete ISO 8601 durations, and timescale (non-zero),
+ *        presentationTimeOffset, startNumber and SegmentTimeline t, d (non-zero)
+ *        and r are complete unsigned integers (r="-1" is not supported).
  *        BuildStitchedVodManifest() returns the original MPD if the main MPD fails
  *        this check, and plays through (skips) any ad whose MPD fails it.
  *        Never throws.  Exposed for L1 unit tests.
@@ -86,7 +88,11 @@ double SnapVodSpliceTime(const std::string &periodBody, double sec);
  *        SnapVodSpliceTime(), kept at or after the current cursor (so splice
  *        points never move backwards) and capped at the Period duration (a
  *        last segment overrunning the Period end must not delay the ad or
- *        extend the presentation).  Exposed for L1 unit tests.
+ *        extend the presentation).  An insertion at the Period end is kept at
+ *        the Period end without snapping, so a short overrunning last segment
+ *        cannot pull it back and leave content after the ad; the stitcher
+ *        then trims the content before it to the end of the timeline.
+ *        Exposed for L1 unit tests.
  *
  * @param periodBody  Inner XML of the <Period> element.
  * @param periodDur   Declared duration of the Period in seconds.

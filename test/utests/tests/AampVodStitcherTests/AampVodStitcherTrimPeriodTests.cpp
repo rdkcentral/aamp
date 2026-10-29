@@ -598,6 +598,35 @@ TEST(AampVodStitcherTrimPeriodTests, ResolveVodSplicePoint_CappedAtPeriodDuratio
 }
 
 /**
+ * @brief A postroll at the end of a 10s Period whose short last segment overruns it (boundaries
+ *        at 9.950s and 10.150s) stays at the Period end instead of snapping back to 9.950s, and
+ *        the content slice before it (trimmed to the end of the timeline) keeps the straddling
+ *        segment, so no content is left to play after the postroll.  A midroll just before the
+ *        end still snaps to the last boundary.
+ */
+TEST(AampVodStitcherTrimPeriodTests, ResolveVodSplicePoint_PostrollWithShortOverrunningLastSegment)
+{
+	const std::string body = AdaptationSet("video", "", "<S t=\"0\" d=\"1990\" r=\"4\"/><S d=\"200\"/>", 1000);
+	const double periodDur = 10.0;
+
+	EXPECT_NEAR(SnapVodSpliceTime(body, periodDur), 9.95, 1e-9);
+	EXPECT_NEAR(ResolveVodSplicePoint(body, periodDur, 0.0, periodDur), periodDur, 1e-9);
+	EXPECT_NEAR(ResolveVodSplicePoint(body, periodDur, 9.95, periodDur), periodDur, 1e-9);
+	EXPECT_NEAR(ResolveVodSplicePoint(body, periodDur, 0.0, 9.96), 9.95, 1e-9);
+
+	std::vector<Track> pre = TrimBody(body, 0.0, 0.0, 1);
+	ASSERT_EQ(pre.size(), 1u);
+	EXPECT_EQ(pre[0].segments.size(), 6u);
+	EXPECT_EQ(pre[0].End(), 10150u);
+
+	std::vector<Track> tail = TrimBody(body, 9.95, 0.0, 1);
+	ASSERT_EQ(tail.size(), 1u);
+	ASSERT_EQ(tail[0].segments.size(), 1u);
+	EXPECT_EQ(tail[0].Start(), 9950u);
+	EXPECT_EQ(tail[0].End(), 10150u);
+}
+
+/**
  * @brief The resolved splice point never moves before the content already emitted.
  */
 TEST(AampVodStitcherTrimPeriodTests, ResolveVodSplicePoint_NeverBeforeCursor)
@@ -714,6 +743,73 @@ TEST(AampVodStitcherTrimPeriodTests, CanStitchVodMpd_MalformedNumbers_ReturnsFal
 	{
 		SCOPED_TRACE(c.what);
 		EXPECT_NO_THROW(EXPECT_FALSE(CanStitchVodMpd(c.mpd)));
+	}
+}
+
+/**
+ * @brief Numeric attributes must be complete unsigned integers: trailing text and signs are
+ *        rejected rather than partially parsed or wrapped around.
+ */
+TEST(AampVodStitcherTrimPeriodTests, CanStitchVodMpd_PartialOrSignedNumbers_ReturnsFalse)
+{
+	const std::string body = MainPeriodBody();
+	const std::string withPto = ReplaceFirst(body, "startNumber=\"1\" ", "startNumber=\"1\" presentationTimeOffset=\"PTO\" ");
+	const struct
+	{
+		const char *what;
+		std::string mpd;
+	} cases[] = {
+		{"timescale trailing text", WrapMpd(ReplaceFirst(body, "timescale=\"48000\"", "timescale=\"48000junk\""))},
+		{"timescale negative", WrapMpd(ReplaceFirst(body, "timescale=\"48000\"", "timescale=\"-1\""))},
+		{"timescale plus sign", WrapMpd(ReplaceFirst(body, "timescale=\"48000\"", "timescale=\"+48000\""))},
+		{"startNumber negative", WrapMpd(ReplaceFirst(body, "startNumber=\"1\"", "startNumber=\"-1\""))},
+		{"startNumber trailing text", WrapMpd(ReplaceFirst(body, "startNumber=\"1\"", "startNumber=\"1x\""))},
+		{"startNumber beyond int", WrapMpd(ReplaceFirst(body, "startNumber=\"1\"", "startNumber=\"4294967296\""))},
+		{"presentationTimeOffset negative", WrapMpd(ReplaceFirst(withPto, "PTO", "-48000"))},
+		{"presentationTimeOffset trailing text", WrapMpd(ReplaceFirst(withPto, "PTO", "0x"))},
+		{"S@t negative", WrapMpd(ReplaceFirst(body, "t=\"0\"", "t=\"-1\""))},
+		{"S@d trailing text", WrapMpd(ReplaceFirst(body, "d=\"92160\"", "d=\"92160junk\""))},
+		{"S@d negative", WrapMpd(ReplaceFirst(body, "d=\"92160\"", "d=\"-92160\""))},
+		{"S@d zero", WrapMpd(ReplaceFirst(body, "d=\"92160\"", "d=\"0\""))},
+		{"S@r trailing text", WrapMpd(ReplaceFirst(body, "r=\"617\"", "r=\"617junk\""))},
+		{"S@r negative", WrapMpd(ReplaceFirst(body, "r=\"617\"", "r=\"-2\""))},
+		{"S@r -1 unsupported", WrapMpd(ReplaceFirst(body, "r=\"617\"", "r=\"-1\""))},
+	};
+	for (const auto &c : cases)
+	{
+		SCOPED_TRACE(c.what);
+		EXPECT_NO_THROW(EXPECT_FALSE(CanStitchVodMpd(c.mpd)));
+	}
+}
+
+/**
+ * @brief Period and MPD durations must be complete ISO 8601 durations; a malformed one is
+ *        rejected rather than ignored in favour of the SegmentTimeline span.
+ */
+TEST(AampVodStitcherTrimPeriodTests, CanStitchVodMpd_MalformedDurations_ReturnsFalse)
+{
+	const std::string body = MainPeriodBody();
+	for (const char *duration : {"garbage", "1198.08", "PT", "P", "P1DT", "PT-5S", "-PT5S", "PT10Sjunk",
+								 "PT5S10M", "PT1.5M", "PT5.S", "PT.5S", "P1Y", "P1M", "P1.5D", "PT1H1H"})
+	{
+		SCOPED_TRACE(duration);
+		EXPECT_NO_THROW(EXPECT_FALSE(CanStitchVodMpd(WrapMpd(body, std::string(" duration=\"") + duration + "\""))));
+		EXPECT_NO_THROW(EXPECT_FALSE(CanStitchVodMpd(ReplaceFirst(WrapMpd(body, " duration=\"PT1198.08S\""),
+			"mediaPresentationDuration=\"PT1198.08S\"", std::string("mediaPresentationDuration=\"") + duration + "\""))));
+	}
+}
+
+/**
+ * @brief Well-formed ISO 8601 durations in their various spellings are accepted.
+ */
+TEST(AampVodStitcherTrimPeriodTests, CanStitchVodMpd_WellFormedDurations)
+{
+	const std::string body = MainPeriodBody();
+	for (const char *duration : {"PT1198.08S", "PT19M58.08S", "PT0H19M58.080S", "P0Y0M0DT0H19M58.08S", "P0D",
+								 "PT0S", "P1DT1H", "PT1H"})
+	{
+		SCOPED_TRACE(duration);
+		EXPECT_TRUE(CanStitchVodMpd(WrapMpd(body, std::string(" duration=\"") + duration + "\"")));
 	}
 }
 
