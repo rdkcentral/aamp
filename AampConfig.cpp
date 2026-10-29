@@ -388,6 +388,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false, "enableEventProfiling", eAAMPConfig_EnableEventProfiling, false},
 	{false, "enableNetworkPersonaLogging", eAAMPConfig_EnableNetworkPersonaLogging, false},
 	{true, "enableFlightDataRecorder", eAAMPConfig_EnableFlightDataRecorder, false},
+	{false, "disableTTML", eAAMPConfig_DisableTTML, false},
 };
 
 #define CONFIG_INT_ALIAS_COUNT 2
