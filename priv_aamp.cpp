@@ -3311,6 +3311,26 @@ void PrivateInstanceAAMP::LicenseRenewal(DrmHelperPtr drmHelper, void* userData)
 	mDRMLicenseManager->renewLicense(std::move(drmHelper), userData, this);
 }
 
+void PrivateInstanceAAMP::DrmSessionError(
+	DrmSession* session, const std::string& message)
+{
+	AAMPLOG_ERR("DRM session %p reported an error: %s",
+		static_cast<void*>(session),
+		message.empty() ? "(no details)" : message.c_str());
+
+	if (mDRMLicenseManager == nullptr)
+	{
+		AAMPLOG_ERR("Cannot mark DRM session failed: license manager unavailable");
+		return;
+	}
+
+	if (!mDRMLicenseManager->markDrmSessionFailed(session))
+	{
+		AAMPLOG_WARN("Failed DRM session %p is not managed by AAMP",
+			static_cast<void*>(session));
+	}
+}
+
 /**
  * @brief Send event to listeners
  */

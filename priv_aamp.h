@@ -1357,6 +1357,13 @@ public:
 	 */
 	void LicenseRenewal(DrmHelperPtr drmHelper,void* userData) override;
 	/**
+	 * @fn DrmSessionError
+	 * @param[in] session DRM session reported as unusable
+	 * @param[in] message error details from the DRM implementation
+	 * @return void
+	 */
+	void DrmSessionError(DrmSession* session, const std::string& message);
+	/**
 	 * @fn CurlTerm
 	 *
 	 * @param[in] startIdx - First index

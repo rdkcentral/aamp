@@ -59,6 +59,7 @@ public:
 	std::vector<std::thread> mLicenseRenewalThreads;
 	AampLicensePreFetcher* mLicensePrefetcher; /**< DRM license prefetcher instance */
 	PrivateInstanceAAMP *aampInstance; /** AAMP instance **/
+	std::atomic<bool> mDrmSessionCleanupPending{false};
 	/**
 	 * @fn          setLicenseRequestAbort
 	 * @param       isAbort bool flag to curl abort
@@ -135,6 +136,13 @@ public:
 	 * @return	void.
 	 */
 	void clearDrmSession(bool forceClearSession = false);
+
+	/**
+	 * @fn markDrmSessionFailed
+	 * @param[in] session DRM session reported as unusable
+	 * @return true if the session was found and cleanup was scheduled
+	 */
+	bool markDrmSessionFailed(DrmSession* session);
 
 	/**
 	* @fn		clearFailedKeyIds
