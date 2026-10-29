@@ -640,7 +640,7 @@ Returns one of the logical player states as a number.
 | stopped | 10 | eSTATE_STOPPED | Playback has stopped. This state is used only by some input stream types and is planned for deprecation. |
 | complete | 11 | eSTATE_COMPLETE | Playback reached the end of a VOD asset. |
 | error | 12 | eSTATE_ERROR | A fatal playback error occurred and playback stopped. Call `stop()` before reusing the player. |
-| released | 13 | eSTATE_RELEASED | The player has no allocated playback resources. This is also the initial state before the first `load()`; after an explicit `release()`, the instance must not be used again. This state is planned for deprecation. |
+| released | 13 | eSTATE_RELEASED | The player has no allocated playback resources. This is also the initial state before the first `load()`; after an explicit `release()` |
 | blocked | 14 | eSTATE_BLOCKED | Audio/video presentation is blocked by parental-control restrictions. This state is used for ATSC playback. |
 
 **Typical State Transitions:**
