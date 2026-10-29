@@ -193,11 +193,15 @@ On each progress tick, `CheckVodStitchedAdEvents(positionMs)` fires:
 
 | Event | When | `time` field delivered to JS |
 | ----- | ---- | ---------------------------- |
-| `reservationStart` | position ≥ reservation start (once per `breakId`) | ms |
-| `placementStart` | position ≥ ad start | seconds, truncated (see section 7.4) |
+| `reservationStart` | position ≥ reservation start (once per `breakId`) | stitched-timeline ms of the reservation start |
+| `placementStart` | position ≥ ad start | stitched-timeline ms of the ad start (rounded) |
 | `placementProgress` | periodically during the ad | |
-| `placementEnd` | position ≥ ad end | seconds, truncated |
-| `reservationEnd` | all ads of the `breakId` have ended | ms (end of the whole reservation window) |
+| `placementEnd` | position ≥ ad end | stitched-timeline ms of the ad end (rounded) |
+| `reservationEnd` | all ads of the `breakId` have ended | stitched-timeline ms of the end of the whole reservation window |
+
+Before this was aligned, placement events carried whole seconds (truncated).
+Applications that must also work with older AAMP builds can tell the two apart
+by comparing the value with their own estimate of the ad start (as PPJS does).
 
 Events are queued and delivered in order once the playhead reaches each event's
 target position. After a seek or retune, `ResetVodAdEventTracker()` re-arms every
@@ -358,7 +362,7 @@ Recommendations:
 | Capability check | `UveAAMPPlayer.supportsVodManifestStitching()`: `registerVodAdBreak` must exist on the AAMP object |
 | Registration | `UveVODStitchedAdController.registerBreaks()`: for each FreeWheel temporal slot, each ad is registered as its own break `"<slotCustomId>#<index>"` at the slot's insertion point (postroll at content length), then resolved with `setAlternateContent` + `notifyReservationCompletion` |
 | Ad identity | AAMP `adId` = `"<breakId>:<FreeWheel adId>"` |
-| Timing | Estimated `startMs` = insertion point + cumulative prior ad duration. The AAMP-reported placement start is adopted when it differs materially (e.g. 1329.275 s vs FreeWheel 1329.2 s) |
+| Timing | Estimated `startMs` = insertion point + cumulative prior ad duration. The AAMP-reported placement start (ms) replaces the estimate (e.g. 1329275 vs FreeWheel's 1329200). Whole-second values from older AAMP builds are recognised and adopted only when they differ by at least 1 s |
 | Rendering and beacons | `UveStitchedAdRenderer`, driven by placement events, with a position-based fallback when `placementEnd` is late or missing |
 
 Because PPJS registers each ad of a pod as a separate `breakId` at the same point:
@@ -379,10 +383,7 @@ Because PPJS registers each ad of a pod as a separate `breakId` at the same poin
    ad's reservation window to that ad (or fire the reservation end once per
    splice), or deliver queued events whose target has passed without blocking on
    the head of the queue.
-2. **Placement event `time` unit.** Placement events carry their `position` in whole
-   seconds (truncated), while reservation events and the API documentation use
-   milliseconds.
-3. **`getVirtualPosition()`.** It is documented in `AAMP-UVE-API.md` as a JS API
+2. **`getVirtualPosition()`.** It is documented in `AAMP-UVE-API.md` as a JS API
    mapping stitched positions to the source timeline, but no JS binding exists. The
    internal `GetVirtualPosition()` belongs to the non-stitched VOD path and maps
    source to virtual time.
