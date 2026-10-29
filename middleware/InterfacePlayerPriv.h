@@ -260,6 +260,8 @@ struct GstPlayerPriv
 
 	bool filterAudioDemuxBuffers; /**< flag to filter audio demux buffers */
 	double seekPosition;              /**< the position to seek the pipeline to in seconds */
+	std::atomic<bool> seekPrerollPending;   /**< true from a flushing seek until the pipeline completes the resulting preroll; position queries are unreliable meanwhile */
+	std::atomic<long long> seekPrerollStartMs; /**< steady clock timestamp (ms) at which seekPrerollPending was set */
 	GstPlayerPriv();
 	~GstPlayerPriv();
 };

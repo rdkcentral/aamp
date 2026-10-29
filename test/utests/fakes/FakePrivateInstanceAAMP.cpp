@@ -1539,6 +1539,20 @@ bool PrivateInstanceAAMP::IsFirstVideoFrameDisplayedRequired()
 	return false;
 }
 
+bool PrivateInstanceAAMP::CancelPauseOnFirstVideoFrame()
+{
+	return false;
+}
+
+bool PrivateInstanceAAMP::RearmPauseOnFirstVideoFrame()
+{
+	return false;
+}
+
+void PrivateInstanceAAMP::ApplySpeedChangeEffects(float rate)
+{
+}
+
 void PrivateInstanceAAMP::UpdateSubtitleTimestamp()
 {
 }

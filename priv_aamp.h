@@ -1660,6 +1660,16 @@ public:
 	void NotifySpeedChanged(float rate, bool changeState = true);
 
 	/**
+	 * @fn ApplySpeedChangeEffects
+	 * @brief Sidecar subtitle pause/resume and trickplay bookkeeping done by NotifySpeedChanged() when it changes
+	 *        state. Can be used on its own when only the player state transition has to be deferred.
+	 *
+	 * @param[in] rate - New speed
+	 * @return void
+	 */
+	void ApplySpeedChangeEffects(float rate);
+
+	/**
 	 * @fn NotifyBitRateChangeEvent
 	 *
 	 * @param[in] bitrate - New bitrate
@@ -3309,6 +3319,23 @@ public:
 	bool IsFirstVideoFrameDisplayedRequired();
 
 	/**
+	 *   @fn CancelPauseOnFirstVideoFrame
+	 *   @brief Cancel a pending "pause on first video frame" requested by a seek while paused, so that the
+	 *          first video frame displayed notification moves the player out of SEEKING to PLAYING.
+	 *
+	 *   @return bool - true if a seek while paused was still waiting for its first video frame
+	 */
+	bool CancelPauseOnFirstVideoFrame();
+
+	/**
+	 *   @fn RearmPauseOnFirstVideoFrame
+	 *   @brief Restore the pause on first video frame that CancelPauseOnFirstVideoFrame() cancelled, when a new
+	 *          pause request arrives before that first frame is displayed, so the latest pause intent is kept.
+	 *
+	 *   @return bool - true if the pause was re-armed
+	 */
+	bool RearmPauseOnFirstVideoFrame();
+	/**
 	 *   @fn NotifyFirstVideoFrameDisplayed
 	 *
 	 *   @return void
@@ -4311,6 +4338,7 @@ protected:
 	bool mFragmentCachingRequired; 		/**< True if fragment caching is required or ongoing */
 	std::recursive_mutex mFragmentCachingLock; 	/**< To sync fragment initial caching operations */
 	bool mPauseOnFirstVideoFrameDisp; 	/**< True if pause AAMP after displaying first video frame */
+	bool mPauseOnFirstVideoFrameCancelled; /**< True if a resume cancelled mPauseOnFirstVideoFrameDisp before the first frame was displayed */
 //	AudioTrackInfo mPreferredAudioTrack; 	/**< Preferred audio track from available tracks in asset */
 	TextTrackInfo mPreferredTextTrack; 	/**< Preferred text track from available tracks in asset */
 	bool mFirstVideoFrameDisplayedEnabled; 	/**< Set True to enable call to NotifyFirstVideoFrameDisplayed() from Sink */
