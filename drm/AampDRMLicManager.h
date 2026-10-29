@@ -31,6 +31,7 @@
 #include "AampCurlDownloader.h"
 #include "DrmSessionManager.h"
 #include <condition_variable>
+#include <chrono>
 #include <deque>
 #include <functional>
 #include <mutex>
@@ -351,13 +352,21 @@ public:
 	AAMPTuneFailure MapDrmToAampTuneFailure(DrmTuneFailure drmError);
 
 private:
+	struct WatermarkTask
+	{
+		const char *operation;
+		unsigned long long timingId;
+		std::chrono::steady_clock::time_point enqueueTime;
+		std::function<void()> task;
+	};
+
 	void WatermarkWorkerThread();
-	void EnqueueWatermarkTask(const char *operation, std::function<void()> task);
+	bool EnqueueWatermarkTask(const char *operation, unsigned long long timingId, std::function<void()> task);
 	void StopWatermarkWorker();
 
 	std::mutex mWatermarkTaskMutex;
 	std::condition_variable mWatermarkTaskCondition;
-	std::deque<std::function<void()>> mWatermarkTaskQueue;
+	std::deque<WatermarkTask> mWatermarkTaskQueue;
 	bool mWatermarkWorkerStopping{false};
 	std::thread mWatermarkWorker;
 };
