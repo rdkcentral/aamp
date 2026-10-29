@@ -199,9 +199,8 @@ On each progress tick, `CheckVodStitchedAdEvents(positionMs)` fires:
 | `placementEnd` | position ≥ ad end | stitched-timeline ms of the ad end (rounded) |
 | `reservationEnd` | all ads of the `breakId` have ended | stitched-timeline ms of the end of the whole reservation window |
 
-Before this was aligned, placement events carried whole seconds (truncated).
-Applications that must also work with older AAMP builds can tell the two apart
-by comparing the value with their own estimate of the ad start (as PPJS does).
+Earlier builds sent placement times as whole seconds (truncated); all values are
+now milliseconds.
 
 Events are queued and delivered in order once the playhead reaches each event's
 target position. After a seek or retune, `ResetVodAdEventTracker()` re-arms every
@@ -362,7 +361,7 @@ Recommendations:
 | Capability check | `UveAAMPPlayer.supportsVodManifestStitching()`: `registerVodAdBreak` must exist on the AAMP object |
 | Registration | `UveVODStitchedAdController.registerBreaks()`: for each FreeWheel temporal slot, each ad is registered as its own break `"<slotCustomId>#<index>"` at the slot's insertion point (postroll at content length), then resolved with `setAlternateContent` + `notifyReservationCompletion` |
 | Ad identity | AAMP `adId` = `"<breakId>:<FreeWheel adId>"` |
-| Timing | Estimated `startMs` = insertion point + cumulative prior ad duration. The AAMP-reported placement start (ms) replaces the estimate (e.g. 1329275 vs FreeWheel's 1329200). Whole-second values from older AAMP builds are recognised and adopted only when they differ by at least 1 s |
+| Timing | Estimated `startMs` = insertion point + cumulative prior ad duration. The AAMP-reported placement start (ms) replaces the estimate (e.g. 1329275 vs FreeWheel's 1329200) |
 | Rendering and beacons | `UveStitchedAdRenderer`, driven by placement events, with a position-based fallback when `placementEnd` is late or missing |
 
 Because PPJS registers each ad of a pod as a separate `breakId` at the same point:
