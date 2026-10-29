@@ -1754,6 +1754,16 @@ void PrivateInstanceAAMP::SendBufferChangeEvent(bool bufferingStarted)
 {
 }
 
+bool PrivateInstanceAAMP::HandleManifestRefreshFailureOnBuffering()
+{
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		return g_mockPrivateInstanceAAMP->HandleManifestRefreshFailureOnBuffering();
+	}
+
+	return false;
+}
+
 void PrivateInstanceAAMP::NotifyBufferLevelToLatencyMonitor(AampMediaType mediaType, double bufferMs)
 {
 }
