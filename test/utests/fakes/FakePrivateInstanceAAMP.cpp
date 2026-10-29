@@ -330,8 +330,12 @@ bool PrivateInstanceAAMP::SetStateBufferingIfRequired()
 	return false;
 }
 
-void PrivateInstanceAAMP::NotifyFirstBufferProcessed(const std::string&)
+void PrivateInstanceAAMP::NotifyFirstBufferProcessed(const std::string& videoRectangle)
 {
+	if (g_mockPrivateInstanceAAMP)
+	{
+		g_mockPrivateInstanceAAMP->NotifyFirstBufferProcessed(videoRectangle);
+	}
 }
 
 void PrivateInstanceAAMP::StopDownloads()
@@ -1537,6 +1541,32 @@ void PrivateInstanceAAMP::InitializeCC(unsigned long)
 bool PrivateInstanceAAMP::IsFirstVideoFrameDisplayedRequired()
 {
 	return false;
+}
+
+bool PrivateInstanceAAMP::CancelPauseOnFirstVideoFrame()
+{
+	if (g_mockPrivateInstanceAAMP)
+	{
+		return g_mockPrivateInstanceAAMP->CancelPauseOnFirstVideoFrame();
+	}
+	return false;
+}
+
+bool PrivateInstanceAAMP::RearmPauseOnFirstVideoFrame()
+{
+	if (g_mockPrivateInstanceAAMP)
+	{
+		return g_mockPrivateInstanceAAMP->RearmPauseOnFirstVideoFrame();
+	}
+	return false;
+}
+
+void PrivateInstanceAAMP::ApplySpeedChangeEffects(float rate)
+{
+	if (g_mockPrivateInstanceAAMP)
+	{
+		g_mockPrivateInstanceAAMP->ApplySpeedChangeEffects(rate);
+	}
 }
 
 void PrivateInstanceAAMP::UpdateSubtitleTimestamp()

@@ -566,6 +566,7 @@ TEST_F(InterfacePlayerTests, GstFlush_DisableAsyncForTrickplay)
 		.WillOnce(Return(TRUE));
 
 	EXPECT_TRUE(mInterfaceGstPlayer->Flush(position, rate, shouldTearDown, isAppSeek));
+	EXPECT_TRUE(mPlayerContext->seekPrerollPending);
 }
 
 
@@ -680,6 +681,7 @@ TEST_F(InterfacePlayerTests, GstFlush_SeekFailed)
 		.WillOnce(Return(FALSE));
 
 	EXPECT_TRUE(mInterfaceGstPlayer->Flush(position, rate, shouldTearDown, isAppSeek)); //FLUSH is true even if seek is failed , needs to be confirmed TODO.
+	EXPECT_FALSE(mPlayerContext->seekPrerollPending); // no preroll is pending when the seek was not accepted
 
 }
 
@@ -1067,6 +1069,38 @@ TEST_F(InterfacePlayerTests, GstGetPositionMilliseconds)
 		.WillOnce(DoAll(SetArgPointee<2>(pos), Return()));
 	EXPECT_CALL(*g_mockGStreamer, gst_element_query(_,_)).Times(2).WillOnce(Return(FALSE)).WillOnce(Return(TRUE));
 	EXPECT_EQ(mInterfaceGstPlayer->GetPositionMilliseconds(), 5); // (5000000/1000000)  * 4
+}
+
+TEST_F(InterfacePlayerTests, GstGetPositionMilliseconds_SeekPrerollPending)
+{
+	mPlayerContext->pipeline = &gst_element_pipeline;
+	mPlayerContext->positionQuery = &query;
+	mPlayerContext->pipelineState = GST_STATE_PAUSED;
+	mPlayerContext->paused = false;
+	mPlayerContext->segmentStart = 1;
+
+	// Position queries return stale values while preroll is pending, so none must be issued
+	mPlayerContext->seekPrerollStartMs = NOW_STEADY_TS_MS;
+	mPlayerContext->seekPrerollPending = true;
+	EXPECT_CALL(*g_mockGStreamer, gst_element_query(_,_)).Times(0);
+	EXPECT_EQ(mInterfaceGstPlayer->GetPositionMilliseconds(), 0);
+	EXPECT_TRUE(mPlayerContext->seekPrerollPending);
+}
+
+TEST_F(InterfacePlayerTests, GstGetPositionMilliseconds_SeekPrerollTimedOut)
+{
+	mPlayerContext->pipeline = &gst_element_pipeline;
+	mPlayerContext->positionQuery = &query;
+	mPlayerContext->pipelineState = GST_STATE_PLAYING;
+	mPlayerContext->paused = false;
+	mPlayerContext->segmentStart = 1;
+
+	// A preroll that never completes must not block position reporting forever
+	mPlayerContext->seekPrerollStartMs = NOW_STEADY_TS_MS - 60000;
+	mPlayerContext->seekPrerollPending = true;
+	EXPECT_CALL(*g_mockGStreamer, gst_element_query(_,_)).WillOnce(Return(FALSE));
+	EXPECT_EQ(mInterfaceGstPlayer->GetPositionMilliseconds(), 0);
+	EXPECT_FALSE(mPlayerContext->seekPrerollPending);
 }
 
 TEST_F(InterfacePlayerTests, GstGetDurationMilliseconds_PipelineNull)
@@ -1597,6 +1631,27 @@ TEST_F(InterfacePlayerTests, Pause_PipelineNull)
 	mPlayerContext->pipeline = NULL;
 	bool result = mInterfaceGstPlayer->Pause(pause, forceStopGstreamerPreBuffering);
 	EXPECT_FALSE(result);
+}
+
+TEST_F(InterfacePlayerTests, Pause_ResumeDuringSeekPrerollDoesNotWait)
+{
+	mPlayerContext->pipeline = &gst_element_pipeline;
+	mPlayerContext->paused = true;
+	mPlayerContext->seekPrerollPending = true;
+
+	// Only the non-blocking query in SetStateWithWarnings is allowed; the blocking wait must be skipped
+	EXPECT_CALL(*g_mockGStreamer, gst_element_get_state(_, NotNull(), NotNull(), _))
+		.WillRepeatedly(Return(GST_STATE_CHANGE_ASYNC));
+	EXPECT_CALL(*g_mockGStreamer, gst_element_get_state(_, _, _, ::testing::Ne(0))).Times(0);
+	EXPECT_CALL(*g_mockGStreamer, gst_element_set_state(_, GST_STATE_PLAYING))
+		.WillOnce(Return(GST_STATE_CHANGE_ASYNC));
+
+	EXPECT_TRUE(mInterfaceGstPlayer->Pause(false, false));
+	EXPECT_EQ(mPlayerContext->buffering_target_state, GST_STATE_PLAYING);
+	EXPECT_FALSE(mPlayerContext->paused);
+	EXPECT_FALSE(mPlayerContext->pendingPlayState);
+	// Preroll is still in progress; it is cleared by ASYNC_DONE / PLAYING, not by Pause()
+	EXPECT_TRUE(mPlayerContext->seekPrerollPending);
 }
 
 TEST_F(InterfacePlayerTests, Pause_Failure)

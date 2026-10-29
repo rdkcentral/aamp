@@ -91,6 +91,10 @@ public:
 	MOCK_METHOD(bool, GetLLDashChunkMode, ());
 	MOCK_METHOD(void, SetLLDashChunkMode, (bool enable));
 	MOCK_METHOD(void, NotifySpeedChanged, (float rate, bool changeState));
+	MOCK_METHOD(void, NotifyFirstBufferProcessed, (const std::string& videoRectangle));
+	MOCK_METHOD(bool, CancelPauseOnFirstVideoFrame, ());
+	MOCK_METHOD(bool, RearmPauseOnFirstVideoFrame, ());
+	MOCK_METHOD(void, ApplySpeedChangeEffects, (float rate));
 	MOCK_METHOD(void, SetVideoMute, (bool muted));
 	MOCK_METHOD(bool, IsAtLivePoint, ());
 	MOCK_METHOD(bool, IsLiveStream, ());

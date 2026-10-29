@@ -127,6 +127,10 @@ public:
 	MOCK_METHOD(void, SetIsAtLivePoint, (bool isAtLivePoint));
 
 	MOCK_METHOD(void, SetCurrentTextTrackIndex, (const std::string& index));
+
+	MOCK_METHOD(void, MuteSubtitleOnPause, (), (override));
+
+	MOCK_METHOD(void, ResumeSubtitleOnPlay, (bool mute, char *data), (override));
 };
 
 extern MockStreamAbstractionAAMP *g_mockStreamAbstractionAAMP;

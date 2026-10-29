@@ -63,6 +63,7 @@ static const char* GstPluginNameWV = "widevinedecryptor";
 static const char* GstPluginNameCK = "clearkeydecryptor";
 static const char* GstPluginNameVMX = "verimatrixdecryptor";
 #define GST_MIN_PTS_UPDATE_INTERVAL 4000                        /**< Time duration in milliseconds if exceeded and pts has not changed; it is concluded pts is not changing */
+#define GST_SEEK_PREROLL_TIMEOUT_MS 10000                       /**< Safety limit in milliseconds after which seekPrerollPending is considered stale, in case no ASYNC_DONE is ever posted */
 
 #include <assert.h>
 #define GST_NORMAL_PLAY_RATE		1
@@ -136,7 +137,8 @@ decodeErrorMsgTimeMS(0), decodeErrorCBCount(0),
 progressiveBufferingEnabled(false), progressiveBufferingStatus(false), forwardAudioBuffers(false),
 enableSEITimeCode(true), firstVideoFrameReceived(false), firstAudioFrameReceived(false), NumberOfTracks(0), playbackQuality{},
 filterAudioDemuxBuffers(false),
-aSyncControl(), syncControl(), callbackControl(), bufferingTimeoutControl(), seekPosition(0)
+aSyncControl(), syncControl(), callbackControl(), bufferingTimeoutControl(), seekPosition(0),
+seekPrerollPending(false), seekPrerollStartMs(0)
 {
 	memset(videoRectangle, '\0', VIDEO_COORDINATES_SIZE);
 	/* default video scaling should take into account actual graphics
@@ -1546,6 +1548,7 @@ void InterfacePlayerRDK::Stop(bool keepLastFrame)
 	interfacePlayerPriv->gstPrivateContext->lastKnownPTS = 0;
 	interfacePlayerPriv->gstPrivateContext->segmentStart = 0;
 	interfacePlayerPriv->gstPrivateContext->paused = false;
+	interfacePlayerPriv->gstPrivateContext->seekPrerollPending = false;
 	interfacePlayerPriv->gstPrivateContext->pipelineState = GST_STATE_NULL;
 	// Reset mute and volume params
 	interfacePlayerPriv->gstPrivateContext->audioMuted = false;
@@ -1774,10 +1777,14 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 			position = 0;
 		}
 	}
+	// A flushing seek makes the sinks preroll again; position queries are unreliable until that completes (ASYNC_DONE)
+	interfacePlayerPriv->gstPrivateContext->seekPrerollStartMs = NOW_STEADY_TS_MS;
+	interfacePlayerPriv->gstPrivateContext->seekPrerollPending = true;
 	if (!gst_element_seek(interfacePlayerPriv->gstPrivateContext->pipeline, playRate, GST_FORMAT_TIME, GST_SEEK_FLAG_FLUSH, GST_SEEK_TYPE_SET,
 						  position * GST_SECOND, GST_SEEK_TYPE_NONE, GST_CLOCK_TIME_NONE))
 	{
 		MW_LOG_ERR("Seek failed");
+		interfacePlayerPriv->gstPrivateContext->seekPrerollPending = false;
 		SetPendingSeek(true);
 		//Save the updated seek position
 		SetSeekPosition(position);
@@ -2909,6 +2916,17 @@ long long InterfacePlayerRDK::GetPositionMilliseconds(void)
 		MW_LOG_ERR("Position query is NULL");
 		return rc;
 	}
+	// After a flushing seek the sinks report a stale position until the pipeline completes preroll
+	if (interfacePlayerPriv->gstPrivateContext->seekPrerollPending)
+	{
+		if ((NOW_STEADY_TS_MS - interfacePlayerPriv->gstPrivateContext->seekPrerollStartMs) < GST_SEEK_PREROLL_TIMEOUT_MS)
+		{
+			MW_LOG_INFO("Seek preroll pending, returning position as %lld", rc);
+			return rc;
+		}
+		MW_LOG_WARN("Seek preroll not completed within %d ms, resuming position queries", GST_SEEK_PREROLL_TIMEOUT_MS);
+		interfacePlayerPriv->gstPrivateContext->seekPrerollPending = false;
+	}
 	// Perform gstreamer query and related operation only when pipeline is playing or if deliberately put in paused
 	if (interfacePlayerPriv->gstPrivateContext->pipelineState != GST_STATE_PLAYING &&
 		!(interfacePlayerPriv->gstPrivateContext->pipelineState == GST_STATE_PAUSED && interfacePlayerPriv->gstPrivateContext->paused) &&
@@ -3682,10 +3700,16 @@ bool InterfacePlayerRDK::Pause(bool pause , bool forceStopGstreamerPreBuffering)
 		GstStateChangeReturn rc = SetStateWithWarnings(interfacePlayerPriv->gstPrivateContext->pipeline, nextState);
 		if (GST_STATE_CHANGE_ASYNC == rc)
 		{
+			if (GST_STATE_PLAYING == nextState && interfacePlayerPriv->gstPrivateContext->seekPrerollPending)
+			{
+				/* The pipeline is still prerolling after a flushing seek. PLAYING is already the pending target,
+				 * so it will be reached once preroll completes; waiting here would only block the caller. */
+				MW_LOG_MIL("InterfacePlayerRDK_Pause - seek preroll in progress, PLAYING will be reached once preroll completes");
+			}
 			/* CID:330433 Waiting while holding lock. Sleep introduced in validateStateWithMsTimeout to prevent continuous polling when synchronizing pipeline state.
 			 * Too risky to remove mutex lock. It may be replaced if approach is redesigned in future */
 			/* wait a bit longer for the state change to conclude */
-			if (nextState != validateStateWithMsTimeout(this,nextState, 100))
+			else if (nextState != validateStateWithMsTimeout(this,nextState, 100))
 			{
 				MW_LOG_ERR("InterfacePlayerRDK_Pause - validateStateWithMsTimeout - FAILED GstState %d", nextState);
 			}
@@ -5125,6 +5149,12 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, Interfac
 			if (GST_MESSAGE_SRC(msg) == GST_OBJECT(privatePlayer->gstPrivateContext->pipeline))
 			{
 				privatePlayer->gstPrivateContext->pipelineState = new_state;
+				// Handled here, not in the async bus_message(), so that a queued PLAYING message
+				// from before a newer seek cannot clear that seek's pending preroll
+				if (new_state == GST_STATE_PLAYING)
+				{
+					privatePlayer->gstPrivateContext->seekPrerollPending = false;
+				}
 			}
 			/* Moved the below code block from bus_message() async handler to bus_sync_handler()
 			 * to avoid a timing case crash when accessing wrong video_sink element after it got deleted during pipeline reconfigure on codec change in mid of playback.
@@ -5275,6 +5305,11 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, Interfac
 		case GST_MESSAGE_ASYNC_DONE:
 
 			MW_LOG_INFO("Received GST_MESSAGE_ASYNC_DONE message");
+			if (GST_MESSAGE_SRC(msg) == GST_OBJECT(privatePlayer->gstPrivateContext->pipeline) &&
+				privatePlayer->gstPrivateContext->seekPrerollPending.exchange(false))
+			{
+				MW_LOG_MIL("Pipeline completed preroll after seek");
+			}
 			if (privatePlayer->gstPrivateContext->buffering_in_progress)
 			{
 				privatePlayer->gstPrivateContext->bufferingTimeoutTimerId = g_timeout_add_full(BUFFERING_TIMEOUT_PRIORITY, DEFAULT_BUFFERING_TO_MS, buffering_timeout, pInterfacePlayerRDK, NULL);
