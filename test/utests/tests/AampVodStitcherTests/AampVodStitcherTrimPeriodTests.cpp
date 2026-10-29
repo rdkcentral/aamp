@@ -26,8 +26,11 @@
  * --------
  * TrimPeriod(body, startSec, endSec) keeps the segments covering [startSec, endSec).
  * Times are period-relative, mapped onto each timeline via its presentationTimeOffset.
- * Each edge snaps to the nearest segment boundary within
- * AAMP_VOD_SPLICE_SNAP_TOLERANCE_SEC, otherwise up to the next boundary:
+ * Each edge snaps to the nearest boundary of the reference (video) track within
+ * AAMP_VOD_SPLICE_SNAP_TOLERANCE_SEC, otherwise up to its next boundary, and every
+ * track then splits at its own boundary nearest that common time, so audio and
+ * video keep their relative timing.  A window that snaps to nothing yields an
+ * empty result (no content period is emitted for it):
  *   - the content slice before a splice ends at that boundary (a segment
  *     straddling the splice beyond the window is kept, nothing after it);
  *   - the slice after the splice starts at that same boundary;
@@ -477,4 +480,114 @@ TEST(AampVodStitcherTrimPeriodTests, TwoSplices_EverySegmentEmittedExactlyOnce)
 		EXPECT_EQ(middle[i].pto, middle[i].Start());
 		EXPECT_EQ(last[i].pto, last[i].Start());
 	}
+}
+
+/**
+ * @brief Near the snap threshold, where only audio has a boundary within the window
+ *        (1189.31s: video 1189.2s is 110ms back, audio 1189.216s is 94ms back), both tracks
+ *        must still split at the same content position as the video track.
+ */
+TEST(AampVodStitcherTrimPeriodTests, CoordinatedSnap_NearThreshold_TracksSplitTogether)
+{
+	const double splice = 1189.31;
+	std::vector<Track> pre = Trim(0.0, splice);
+	std::vector<Track> post = Trim(splice, 0.0);
+	ASSERT_EQ(pre.size(), 2u);
+	ASSERT_EQ(post.size(), 2u);
+	for (size_t i : {kVideo, kAudio})
+	{
+		SCOPED_TRACE(i == kVideo ? "video" : "audio");
+		EXPECT_EQ(pre[i].segments.size(), 620u);
+		EXPECT_EQ(pre[i].End(), Ticks(1190.4));
+		EXPECT_EQ(post[i].Start(), Ticks(1190.4));
+		EXPECT_EQ(post[i].pto, Ticks(1190.4));
+	}
+}
+
+/**
+ * @brief Across a sweep of splice points around the boundaries, the post-splice audio and
+ *        video resume within the snap window of each other (never a whole segment apart),
+ *        and each track's slices stay contiguous.
+ */
+TEST(AampVodStitcherTrimPeriodTests, CoordinatedSnap_Sweep_AudioVideoResumeTogether)
+{
+	for (int ms = 1188900; ms <= 1190600; ms += 10)
+	{
+		const double splice = ms / 1000.0;
+		SCOPED_TRACE(testing::Message() << "splice=" << std::to_string(splice));
+		std::vector<Track> pre = Trim(0.0, splice);
+		std::vector<Track> post = Trim(splice, 0.0);
+		ASSERT_EQ(pre.size(), 2u);
+		ASSERT_EQ(post.size(), 2u);
+		const double videoResume = (double)post[kVideo].pto / (double)kTimescale;
+		const double audioResume = (double)post[kAudio].pto / (double)kTimescale;
+		EXPECT_LE(std::fabs(videoResume - audioResume), kSnapSec);
+		for (size_t i : {kVideo, kAudio})
+			EXPECT_EQ(pre[i].End(), post[i].Start());
+	}
+}
+
+/**
+ * @brief The reference track is the video track even when audio is listed first; a period
+ *        without video uses its first timeline.
+ */
+TEST(AampVodStitcherTrimPeriodTests, SnapVodSpliceTime_PrefersVideoTrack)
+{
+	const std::string audioFirst = AdaptationSet("audio", "", AudioTimeline()) + AdaptationSet("video", "", VideoTimeline());
+	EXPECT_NEAR(SnapVodSpliceTime(audioFirst, 1189.25), 1189.2, 1e-9);
+	EXPECT_NEAR(SnapVodSpliceTime(audioFirst, 1189.31), 1190.4, 1e-9);
+
+	const std::string audioOnly = AdaptationSet("audio", "", AudioTimeline());
+	EXPECT_NEAR(SnapVodSpliceTime(audioOnly, 1189.25), 1189.216, 1e-9);
+}
+
+/**
+ * @brief A splice just after content start snaps to boundary 0: the pre-splice window is
+ *        empty (no content period), and the post-splice slice starts at the first segment,
+ *        so that segment is not emitted twice.
+ */
+TEST(AampVodStitcherTrimPeriodTests, NearZeroSplice_EmptyPreSlice_FirstSegmentNotDuplicated)
+{
+	for (double splice : {1e-6, 0.05, 0.9 * kSnapSec})
+	{
+		SCOPED_TRACE(testing::Message() << "splice=" << std::to_string(splice));
+		EXPECT_NEAR(SnapVodSpliceTime(MainPeriodBody(), splice), 0.0, 1e-9);
+		EXPECT_TRUE(TrimPeriod(MainPeriodBody(), 0.0, splice).empty());
+
+		std::vector<Track> post = Trim(splice, 0.0);
+		ASSERT_EQ(post.size(), 2u);
+		for (const Track &track : post)
+		{
+			EXPECT_EQ(track.segments.size(), kSegmentCount);
+			EXPECT_EQ(track.Start(), 0u);
+			EXPECT_EQ(track.startNumber, 1);
+		}
+	}
+}
+
+/**
+ * @brief A window starting at (or snapping to) the end of the timeline is empty, so no
+ *        remainder period repeats the last segment after a postroll.
+ */
+TEST(AampVodStitcherTrimPeriodTests, SpliceAtTimelineEnd_EmptyRemainder)
+{
+	for (double splice : {1198.08, 1198.08 - 0.9 * kSnapSec, 2000.0})
+	{
+		SCOPED_TRACE(testing::Message() << "splice=" << std::to_string(splice));
+		EXPECT_TRUE(TrimPeriod(MainPeriodBody(), splice, 0.0).empty());
+
+		std::vector<Track> pre = Trim(0.0, splice);
+		ASSERT_EQ(pre.size(), 2u);
+		for (const Track &track : pre)
+			EXPECT_EQ(track.segments.size(), kSegmentCount);
+	}
+}
+
+/**
+ * @brief Two insertion points that snap to the same boundary leave an empty content window
+ *        between them.
+ */
+TEST(AampVodStitcherTrimPeriodTests, TwoSplicesSnappingToSameBoundary_EmptyMiddleSlice)
+{
+	EXPECT_TRUE(TrimPeriod(MainPeriodBody(), 1189.15, 1189.25).empty());
 }

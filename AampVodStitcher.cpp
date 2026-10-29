@@ -287,6 +287,81 @@ static size_t GetTimelineIndex(const std::vector<uint64_t> &samples,
 	return next;
 }
 
+static constexpr double kSpliceEpsilonSec = 1e-6;
+
+/**
+ * @brief SegmentTimeline of the track that drives splice-boundary selection for a period.
+ */
+struct ReferenceTimeline
+{
+	bool valid = false;
+	uint64_t timescale = 1;
+	uint64_t pto = 0;
+	std::vector<uint64_t> samples;
+
+	double ToSec(size_t idx) const
+	{
+		return std::max(0.0, ((double)samples[idx] - (double)pto) / (double)timescale);
+	}
+	double EndSec() const { return ToSec(samples.size() - 1); }
+	/** @brief Period-relative time of the boundary at which to split for sec. */
+	double Snap(double sec) const
+	{
+		if (!valid || sec <= 0.0)
+			return std::max(sec, 0.0);
+		return ToSec(GetTimelineIndex(samples, timescale, pto, sec));
+	}
+};
+
+/**
+ * @brief Find the reference timeline of a period: the first video track with a
+ *        SegmentTimeline, else the first track with one.  Snapping every track
+ *        around this one track's boundary keeps audio and video splitting at
+ *        the same content position.
+ */
+static ReferenceTimeline FindReferenceTimeline(const std::string &periodBody)
+{
+	const std::string SEG_TMPL = "<SegmentTemplate ";
+	ReferenceTimeline ref;
+	size_t pos = 0;
+	while ((pos = periodBody.find(SEG_TMPL, pos)) != std::string::npos)
+	{
+		size_t tagEnd = periodBody.find('>', pos);
+		size_t tlPos = (tagEnd == std::string::npos) ? std::string::npos : periodBody.find("<SegmentTimeline>", tagEnd);
+		size_t tlEnd = (tlPos == std::string::npos) ? std::string::npos : periodBody.find("</SegmentTimeline>", tlPos);
+		if (tlEnd == std::string::npos)
+			break;
+
+		std::vector<uint64_t> samples = UncompressTimeline(periodBody.substr(tlPos, tlEnd - tlPos));
+		if (samples.size() >= 2)
+		{
+			size_t asPos = periodBody.rfind("<AdaptationSet", pos);
+			std::string scope = (asPos == std::string::npos) ? std::string() : periodBody.substr(asPos, pos - asPos);
+			bool isVideo = scope.find("contentType=\"video\"") != std::string::npos ||
+			               scope.find("mimeType=\"video/") != std::string::npos;
+			if (!ref.valid || isVideo)
+			{
+				std::string tag = periodBody.substr(pos, tagEnd - pos + 1);
+				std::string tsStr = GetAttr(tag, "timescale");
+				std::string ptoStr = GetAttr(tag, "presentationTimeOffset");
+				ref.timescale = tsStr.empty() ? 1 : (uint64_t)std::stoull(tsStr);
+				ref.pto = ptoStr.empty() ? 0 : (uint64_t)std::stoull(ptoStr);
+				ref.samples = std::move(samples);
+				ref.valid = true;
+				if (isVideo)
+					break;
+			}
+		}
+		pos = tlEnd;
+	}
+	return ref;
+}
+
+double SnapVodSpliceTime(const std::string &periodBody, double sec)
+{
+	return FindReferenceTimeline(periodBody).Snap(sec);
+}
+
 /* -------------------------------------------------------------------------
  * Period trimming  (mirrors manifest-genie TrimPeriod)
  * ---------------------------------------------------------------------- */
@@ -302,11 +377,20 @@ static size_t GetTimelineIndex(const std::vector<uint64_t> &samples,
  *                    keep from the beginning).
  * @param endSec      End of the desired window relative to the period (0 =
  *                    keep to the end).
- * @return Trimmed period body XML.
+ * @return Trimmed period body XML, or an empty string if the snapped window
+ *         contains no segments.
  */
 std::string TrimPeriod(const std::string &periodBody,
                               double startSec, double endSec)
 {
+	const ReferenceTimeline ref = FindReferenceTimeline(periodBody);
+	const double snappedStart = ref.Snap(startSec);
+	const double snappedEnd = ref.Snap(endSec);
+	if (ref.valid && startSec > 0.0 && snappedStart >= ref.EndSec() - kSpliceEpsilonSec)
+		return {};
+	if (endSec > 0.0 && snappedEnd <= snappedStart + kSpliceEpsilonSec)
+		return {};
+
 	std::string result = periodBody;
 	const std::string SEG_TMPL = "<SegmentTemplate ";
 
@@ -362,9 +446,9 @@ std::string TrimPeriod(const std::string &periodBody,
 		size_t idx2 = samples.size() - 1; // default: all segments (excluding sentinel)
 
 		if (startSec > 0.0)
-			idx1 = GetTimelineIndex(samples, timescale, origPto, startSec);
+			idx1 = GetTimelineIndex(samples, timescale, origPto, snappedStart);
 		if (endSec > 0.0)
-			idx2 = GetTimelineIndex(samples, timescale, origPto, endSec); // samples[idx2] becomes the sentinel, so a straddling segment is already included
+			idx2 = GetTimelineIndex(samples, timescale, origPto, snappedEnd); // samples[idx2] becomes the sentinel, so a straddling segment is already included
 
 		// Clamp to valid range
 		if (idx1 >= samples.size() - 1)
@@ -840,14 +924,14 @@ std::string BuildStitchedVodManifest(
 
 		for (auto &ins : localInsertions)
 		{
-			double spliceAt = ins.first; // period-relative splice point
+			double spliceAt = std::max(cursor, SnapVodSpliceTime(mp.body, ins.first)); // period-relative splice point, snapped to a segment boundary
 			const std::vector<const AdFetchResult *> &ads = *ins.second;
 
-			// Emit the pre-splice main content slice [cursor, spliceAt)
-			if (spliceAt > cursor)
+			// Emit the pre-splice main content slice [cursor, spliceAt), skipping a slice that snapped to nothing
+			std::string trimmed = (spliceAt > cursor) ? TrimPeriod(mp.body, cursor, spliceAt) : std::string();
+			if (!trimmed.empty())
 			{
 				double sliceDur = spliceAt - cursor;
-				std::string trimmed = TrimPeriod(mp.body, cursor, spliceAt);
 				output << "\n<Period id=\"mc" << periodId++
 				       << "\" start=\"" << PackIsoDuration(totalDur)
 				       << "\" duration=\"" << PackIsoDuration(sliceDur) << "\">\n"
@@ -942,14 +1026,14 @@ std::string BuildStitchedVodManifest(
 
 		// Emit the remainder of the main period [cursor, periodDur)
 		double remainDur = periodDur - cursor;
-		if (remainDur > 0.0)
+		std::string remainder = (remainDur > 0.0) ? TrimPeriod(mp.body, cursor, 0.0) : std::string();
+		if (!remainder.empty())
 		{
-			std::string trimmed = TrimPeriod(mp.body, cursor, 0.0);
 			output << "\n<Period id=\"mc" << periodId++
 			       << "\" start=\"" << PackIsoDuration(totalDur)
 			       << "\" duration=\"" << PackIsoDuration(remainDur) << "\">\n"
 			       << "<BaseURL>" << mainBaseUrl << "</BaseURL>\n"
-			       << trimmed
+			       << remainder
 			       << "\n</Period>\n";
 			totalDur += remainDur;
 		}

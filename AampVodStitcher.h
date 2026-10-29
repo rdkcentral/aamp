@@ -58,15 +58,31 @@ std::string BuildStitchedVodManifest(
 	PrivateCDAIObjectMPD   *cdaiObj);
 
 /**
+ * @brief Snap a period-relative splice time to a segment boundary of the
+ *        period's reference track (the first video track with a
+ *        SegmentTimeline, else the first track with one): the nearest boundary
+ *        within AAMP_VOD_SPLICE_SNAP_TOLERANCE_SEC, otherwise the next one.
+ *        Times are mapped onto the timeline via its presentationTimeOffset.
+ *        Exposed for L1 unit tests.
+ *
+ * @param periodBody  Inner XML of the <Period> element.
+ * @param sec         Splice time relative to the period.
+ * @return Snapped period-relative time; sec unchanged if the period has no SegmentTimeline.
+ */
+double SnapVodSpliceTime(const std::string &periodBody, double sec);
+
+/**
  * @brief Trim a period's SegmentTemplate/SegmentTimeline blocks to the window
- *        [startSec, endSec).  Each edge snaps to the nearest segment boundary
- *        within AAMP_VOD_SPLICE_SNAP_TOLERANCE_SEC, otherwise up to the next
- *        boundary.  Times are period-relative and mapped onto each timeline
- *        via its presentationTimeOffset.  Exposed for L1 unit tests.
+ *        [startSec, endSec).  Both edges are first snapped with
+ *        SnapVodSpliceTime() so every track splits around the same content
+ *        position; each track then uses its own boundary nearest that time
+ *        (within AAMP_VOD_SPLICE_SNAP_TOLERANCE_SEC), otherwise the next one.
+ *        Exposed for L1 unit tests.
  *
  * @param periodBody  Inner XML of the <Period> element.
  * @param startSec    Window start relative to the period (0 = from the beginning).
  * @param endSec      Window end relative to the period (0 = to the end).
- * @return Trimmed period body XML.
+ * @return Trimmed period body XML, or an empty string if the snapped window
+ *         contains no segments (the caller should then emit no period).
  */
 std::string TrimPeriod(const std::string &periodBody, double startSec, double endSec);
