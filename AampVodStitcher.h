@@ -59,7 +59,7 @@ std::string BuildStitchedVodManifest(
 
 /**
  * @brief Snap a period-relative splice time to a segment boundary of the
- *        period's reference track (the first video track with a
+ *        period's reference track (the first non-trick-play video track with a
  *        SegmentTimeline, else the first track with one): the nearest boundary
  *        within AAMP_VOD_SPLICE_SNAP_TOLERANCE_SEC, otherwise the next one.
  *        Times are mapped onto the timeline via its presentationTimeOffset.
@@ -70,6 +70,21 @@ std::string BuildStitchedVodManifest(
  * @return Snapped period-relative time; sec unchanged if the period has no SegmentTimeline.
  */
 double SnapVodSpliceTime(const std::string &periodBody, double sec);
+
+/**
+ * @brief Resolve the period-relative splice point used for the stitched output:
+ *        SnapVodSpliceTime(), kept at or after the current cursor (so splice
+ *        points never move backwards) and capped at the Period duration (a
+ *        last segment overrunning the Period end must not delay the ad or
+ *        extend the presentation).  Exposed for L1 unit tests.
+ *
+ * @param periodBody  Inner XML of the <Period> element.
+ * @param periodDur   Declared duration of the Period in seconds.
+ * @param cursor      Period-relative end of the content already emitted.
+ * @param sec         Requested period-relative insertion point.
+ * @return Splice point in [cursor, periodDur].
+ */
+double ResolveVodSplicePoint(const std::string &periodBody, double periodDur, double cursor, double sec);
 
 /**
  * @brief Trim a period's SegmentTemplate/SegmentTimeline blocks to the window

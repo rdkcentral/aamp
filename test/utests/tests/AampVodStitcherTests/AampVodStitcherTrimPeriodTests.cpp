@@ -542,6 +542,72 @@ TEST(AampVodStitcherTrimPeriodTests, SnapVodSpliceTime_PrefersVideoTrack)
 }
 
 /**
+ * @brief Video declaring its MIME type only on a Representation after the SegmentTemplate,
+ *        listed after audio, is still the reference track.
+ */
+TEST(AampVodStitcherTrimPeriodTests, SnapVodSpliceTime_VideoMimeTypeOnRepresentation)
+{
+	const std::string body = AdaptationSet("audio", "", AudioTimeline()) +
+		"<AdaptationSet>\n"
+		"<SegmentTemplate timescale=\"48000\" media=\"video-$Number$.mp4\" initialization=\"video-init.mp4\">\n"
+		"<SegmentTimeline>\n" + VideoTimeline() + "\n</SegmentTimeline>\n"
+		"</SegmentTemplate>\n"
+		"<Representation id=\"video\" mimeType=\"video/mp4\" bandwidth=\"1000\"/>\n"
+		"</AdaptationSet>\n";
+	EXPECT_NEAR(SnapVodSpliceTime(body, 1189.25), 1189.2, 1e-9);
+	EXPECT_NEAR(SnapVodSpliceTime(body, 1189.31), 1190.4, 1e-9);
+}
+
+/**
+ * @brief A trick-play (I-frame) video AdaptationSet listed first does not drive snapping.
+ */
+TEST(AampVodStitcherTrimPeriodTests, SnapVodSpliceTime_IgnoresTrickPlayVideo)
+{
+	const std::string body =
+		"<AdaptationSet contentType=\"video\" mimeType=\"video/mp4\">\n"
+		"<EssentialProperty schemeIdUri=\"http://dashif.org/guidelines/trickmode\" value=\"1\"/>\n"
+		"<SegmentTemplate timescale=\"48000\" media=\"iframe-$Number$.mp4\" initialization=\"iframe-init.mp4\">\n"
+		"<SegmentTimeline>\n" + AudioTimeline() + "\n</SegmentTimeline>\n"
+		"</SegmentTemplate>\n"
+		"<Representation id=\"iframe\" bandwidth=\"100\"/>\n"
+		"</AdaptationSet>\n" +
+		AdaptationSet("video", "", VideoTimeline());
+	EXPECT_NEAR(SnapVodSpliceTime(body, 1189.25), 1189.2, 1e-9);
+}
+
+/**
+ * @brief The resolved splice point is capped at the Period duration: with a 10s Period whose
+ *        two 6s segments overrun its end, a postroll at 10s (or a splice snapping past the
+ *        end) stays at 10s instead of moving to 12s, while the content slice still carries
+ *        the overrunning segment and no remainder is left.
+ */
+TEST(AampVodStitcherTrimPeriodTests, ResolveVodSplicePoint_CappedAtPeriodDuration)
+{
+	const std::string body = AdaptationSet("video", "", "<S t=\"0\" d=\"6000\" r=\"1\"/>", 1000);
+	const double periodDur = 10.0;
+
+	EXPECT_NEAR(SnapVodSpliceTime(body, 10.0), 12.0, 1e-9);
+	EXPECT_NEAR(ResolveVodSplicePoint(body, periodDur, 0.0, 10.0), 10.0, 1e-9);
+	EXPECT_NEAR(ResolveVodSplicePoint(body, periodDur, 0.0, 9.95), 10.0, 1e-9);
+	EXPECT_NEAR(ResolveVodSplicePoint(body, periodDur, 0.0, 5.95), 6.0, 1e-9);
+
+	std::vector<Track> pre = TrimBody(body, 0.0, periodDur, 1);
+	ASSERT_EQ(pre.size(), 1u);
+	EXPECT_EQ(pre[0].segments.size(), 2u);
+	EXPECT_TRUE(TrimPeriod(body, periodDur, 0.0).empty());
+}
+
+/**
+ * @brief The resolved splice point never moves before the content already emitted.
+ */
+TEST(AampVodStitcherTrimPeriodTests, ResolveVodSplicePoint_NeverBeforeCursor)
+{
+	const std::string body = MainPeriodBody();
+	EXPECT_NEAR(ResolveVodSplicePoint(body, 1198.08, 1189.2, 1189.15), 1189.2, 1e-9);
+	EXPECT_NEAR(ResolveVodSplicePoint(body, 1198.08, 1190.4, 1189.25), 1190.4, 1e-9);
+}
+
+/**
  * @brief A splice just after content start snaps to boundary 0: the pre-splice window is
  *        empty (no content period), and the post-splice slice starts at the first segment,
  *        so that segment is not emitted twice.

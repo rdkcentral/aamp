@@ -314,8 +314,8 @@ struct ReferenceTimeline
 };
 
 /**
- * @brief Find the reference timeline of a period: the first video track with a
- *        SegmentTimeline, else the first track with one.  Snapping every track
+ * @brief Find the reference timeline of a period: the first non-trick-play video
+ *        track with a SegmentTimeline, else the first track with one.  Snapping every track
  *        around this one track's boundary keeps audio and video splitting at
  *        the same content position.
  */
@@ -335,10 +335,19 @@ static ReferenceTimeline FindReferenceTimeline(const std::string &periodBody)
 		std::vector<uint64_t> samples = UncompressTimeline(periodBody.substr(tlPos, tlEnd - tlPos));
 		if (samples.size() >= 2)
 		{
+			// Classify using the whole containing AdaptationSet: contentType/mimeType
+			// may be declared on it or only on a Representation after the template.
+			std::string scope;
 			size_t asPos = periodBody.rfind("<AdaptationSet", pos);
-			std::string scope = (asPos == std::string::npos) ? std::string() : periodBody.substr(asPos, pos - asPos);
-			bool isVideo = scope.find("contentType=\"video\"") != std::string::npos ||
-			               scope.find("mimeType=\"video/") != std::string::npos;
+			if (asPos != std::string::npos)
+			{
+				size_t asClose = periodBody.find("</AdaptationSet>", asPos);
+				if (asClose == std::string::npos || asClose > pos)
+					scope = periodBody.substr(asPos, (asClose == std::string::npos) ? std::string::npos : asClose - asPos);
+			}
+			bool isVideo = (scope.find("contentType=\"video\"") != std::string::npos ||
+			                scope.find("mimeType=\"video/") != std::string::npos) &&
+			               scope.find("dashif.org/guidelines/trickmode") == std::string::npos;
 			if (!ref.valid || isVideo)
 			{
 				std::string tag = periodBody.substr(pos, tagEnd - pos + 1);
@@ -360,6 +369,11 @@ static ReferenceTimeline FindReferenceTimeline(const std::string &periodBody)
 double SnapVodSpliceTime(const std::string &periodBody, double sec)
 {
 	return FindReferenceTimeline(periodBody).Snap(sec);
+}
+
+double ResolveVodSplicePoint(const std::string &periodBody, double periodDur, double cursor, double sec)
+{
+	return std::min(periodDur, std::max(cursor, SnapVodSpliceTime(periodBody, sec)));
 }
 
 /* -------------------------------------------------------------------------
@@ -924,7 +938,7 @@ std::string BuildStitchedVodManifest(
 
 		for (auto &ins : localInsertions)
 		{
-			double spliceAt = std::max(cursor, SnapVodSpliceTime(mp.body, ins.first)); // period-relative splice point, snapped to a segment boundary
+			double spliceAt = ResolveVodSplicePoint(mp.body, periodDur, cursor, ins.first); // period-relative splice point, snapped to a segment boundary
 			const std::vector<const AdFetchResult *> &ads = *ins.second;
 
 			// Emit the pre-splice main content slice [cursor, spliceAt), skipping a slice that snapped to nothing
