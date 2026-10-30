@@ -83,6 +83,9 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 		cachedFragment->absPosition = mActiveDownloadInfo->absolutePosition;
 		cachedFragment->timeScale = mActiveDownloadInfo->timeScale;
 		cachedFragment->PTSOffsetSec = mActiveDownloadInfo->ptsOffset.inSeconds();
+		cachedFragment->codecChanged = mActiveDownloadInfo->isCodecChanged;
+		mActiveDownloadInfo->isCodecChanged = false;
+		AAMPLOG_INFO("[CacheFragment]: CachedFragment->codecChanged %d", cachedFragment->codecChanged);
 	}
 	else
 	{
@@ -265,6 +268,9 @@ bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, const uint
 
 		cachedFragment->absPosition = mActiveDownloadInfo->absolutePosition;
 		cachedFragment->timeScale = mActiveDownloadInfo->timeScale;
+		cachedFragment->codecChanged = mActiveDownloadInfo->isCodecChanged;
+		AAMPLOG_INFO("[CacheFragmentChunk]: cachedFragment->codecChanged %d", cachedFragment->codecChanged);
+		mActiveDownloadInfo->isCodecChanged = false;
 		cachedFragment->duration = (double)durationInTicks / (double)cachedFragment->timeScale;
 		// Position of this chunk, before chunkDurationSec advances past it - required by the
 		// SLD restamping path (RestampPts/TrickModePtsRestamp), which chunk mode now also uses.
@@ -766,6 +772,7 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 	}
 	cachedFragment->duration = dlInfo->fragmentDurationSec;
 	cachedFragment->discontinuity = dlInfo->isDiscontinuity;
+	cachedFragment->codecChanged = dlInfo->isCodecChanged;
 	segDLFailCount = 0;
 	// Update the last downloaded position for buffered duration calculation
 	lastDownloadedPosition.store(dlInfo->absolutePosition + dlInfo->fragmentDurationSec);

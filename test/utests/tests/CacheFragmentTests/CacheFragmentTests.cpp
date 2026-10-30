@@ -358,7 +358,7 @@ TEST_P(MediaStreamContextTest, CacheFragment)
 	URIInfo uriInfo;
 	uriInfo.url = "remoteUrl";
 	URLBitrateMap urlList = { { 0, uriInfo } };
-	mMediaStreamContext->mActiveDownloadInfo = std::make_shared<DownloadInfo>(eMEDIATYPE_VIDEO, eCURLINSTANCE_VIDEO, 10, 2, "", -1, 0, testParam.init, false, false, false, 0.0, 0, 1, 0, 0, urlList);
+	mMediaStreamContext->mActiveDownloadInfo = std::make_shared<DownloadInfo>(eMEDIATYPE_VIDEO, eCURLINSTANCE_VIDEO, 10, 2, "", -1, 0, testParam.init, false, false, false, 0.0, 0, 1, 0, 0, urlList, false);
 	bool retResult = mMediaStreamContext->CacheFragment("remoteUrl", 0, 10, 0, NULL, testParam.init, false, false, 0);
 	if(retResult)
 	{
@@ -440,7 +440,7 @@ static MediaStreamContext *MakeSynthesisTestContext(
         /*playingAd=*/false, /*isLive=*/false,
         /*absolutePosition=*/0.0, /*timeScale=*/0,
         /*ptsOffset=*/1, /*segDLFailCount=*/0, /*nextSegmentPeriod=*/0,
-        urlList);
+		urlList, /*isCodecChanged=*/false);
     return msc;
 }
 
