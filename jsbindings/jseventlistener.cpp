@@ -59,7 +59,7 @@ public:
 		JSStringRef prop;
 
 		prop = JSStringCreateWithUTF8CString("state");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getState()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, JSValueMakeNumber(mContext, evt->getState()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 	}
 
@@ -96,59 +96,59 @@ public:
 		JSStringRef prop;
 
 		prop = JSStringCreateWithUTF8CString("durationMiliseconds"); // FIXME
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getDuration()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, JSValueMakeNumber(mContext, evt->getDuration()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
 		prop = JSStringCreateWithUTF8CString("positionMiliseconds"); // FIXME
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getPosition()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, JSValueMakeNumber(mContext, evt->getPosition()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
 		prop = JSStringCreateWithUTF8CString("playbackSpeed");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getSpeed()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, JSValueMakeNumber(mContext, evt->getSpeed()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
 		prop = JSStringCreateWithUTF8CString("startMiliseconds"); // FIXME
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getStart()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, JSValueMakeNumber(mContext, evt->getStart()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
 		prop = JSStringCreateWithUTF8CString("endMiliseconds"); // FIXME
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getEnd()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, JSValueMakeNumber(mContext, evt->getEnd()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
 		prop = JSStringCreateWithUTF8CString("currentPTS");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getPTS()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, JSValueMakeNumber(mContext, evt->getPTS()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
 		prop = JSStringCreateWithUTF8CString("videoBufferedMiliseconds");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getVideoBufferedDuration()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, JSValueMakeNumber(mContext, evt->getVideoBufferedDuration()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
 		prop = JSStringCreateWithUTF8CString("audioBufferedMiliseconds");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getAudioBufferedDuration()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, JSValueMakeNumber(mContext, evt->getAudioBufferedDuration()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
 		prop = JSStringCreateWithUTF8CString("timecode");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, aamp_CStringToJSValue(p_obj->_ctx, evt->getSEITimeCode()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, aamp_CStringToJSValue(mContext, evt->getSEITimeCode()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
 		prop = JSStringCreateWithUTF8CString("liveLatency");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getLiveLatency()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, JSValueMakeNumber(mContext, evt->getLiveLatency()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
 		prop = JSStringCreateWithUTF8CString("targetLatency");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getTargetLatency()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, JSValueMakeNumber(mContext, evt->getTargetLatency()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
 		prop = JSStringCreateWithUTF8CString("profileBandwidth");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getProfileBandwidth()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, JSValueMakeNumber(mContext, evt->getProfileBandwidth()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
 		prop = JSStringCreateWithUTF8CString("networkBandwidth");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getNetworkBandwidth()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, JSValueMakeNumber(mContext, evt->getNetworkBandwidth()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
 		prop = JSStringCreateWithUTF8CString("currentPlayRate");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getCurrentPlayRate()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, JSValueMakeNumber(mContext, evt->getCurrentPlayRate()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 	
 
@@ -186,11 +186,11 @@ public:
 		JSStringRef prop;
 
 		prop = JSStringCreateWithUTF8CString("speed");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getRate()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, JSValueMakeNumber(mContext, evt->getRate()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
 		prop = JSStringCreateWithUTF8CString("reason");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, aamp_CStringToJSValue(p_obj->_ctx, "unknown"), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, aamp_CStringToJSValue(mContext, "unknown"), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 	}
 };
@@ -226,7 +226,7 @@ public:
 		JSStringRef prop;
 
 		prop = JSStringCreateWithUTF8CString("buffering");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeBoolean(p_obj->_ctx, evt->buffering()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, JSValueMakeBoolean(mContext, evt->buffering()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 	}
 };
@@ -262,39 +262,39 @@ public:
 		JSStringRef prop;
 
 		prop = JSStringCreateWithUTF8CString("code");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getCode()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, JSValueMakeNumber(mContext, evt->getCode()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
 		prop = JSStringCreateWithUTF8CString("subCode");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getSubCode()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, JSValueMakeNumber(mContext, evt->getSubCode()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
 		prop = JSStringCreateWithUTF8CString("description");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, aamp_CStringToJSValue(p_obj->_ctx, evt->getDescription().c_str()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, aamp_CStringToJSValue(mContext, evt->getDescription().c_str()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
 		prop = JSStringCreateWithUTF8CString("shouldRetry");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeBoolean(p_obj->_ctx, evt->shouldRetry()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, JSValueMakeBoolean(mContext, evt->shouldRetry()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
 		if(-1 != evt->getClass()) //Only send verbose error for secclient/secmanager DRM failures
 		{
 			prop = JSStringCreateWithUTF8CString("class");
-			JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getClass()), kJSPropertyAttributeReadOnly, NULL);
+			JSObjectSetProperty(mContext, jsEventObj, prop, JSValueMakeNumber(mContext, evt->getClass()), kJSPropertyAttributeReadOnly, NULL);
 			JSStringRelease(prop);
 			
 			prop = JSStringCreateWithUTF8CString("reason");
-			JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getReason()), kJSPropertyAttributeReadOnly, NULL);
+			JSObjectSetProperty(mContext, jsEventObj, prop, JSValueMakeNumber(mContext, evt->getReason()), kJSPropertyAttributeReadOnly, NULL);
 			JSStringRelease(prop);
 			
 			prop = JSStringCreateWithUTF8CString("businessStatus");
-			JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getBusinessStatus()), kJSPropertyAttributeReadOnly, NULL);
+			JSObjectSetProperty(mContext, jsEventObj, prop, JSValueMakeNumber(mContext, evt->getBusinessStatus()), kJSPropertyAttributeReadOnly, NULL);
 			JSStringRelease(prop);
 		}
 		if(!evt->getResponseData().empty())
 		{
 			prop = JSStringCreateWithUTF8CString("responseData");
-			JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, aamp_CStringToJSValue(p_obj->_ctx, evt->getResponseData().c_str()), kJSPropertyAttributeReadOnly, NULL);
+			JSObjectSetProperty(mContext, jsEventObj, prop, aamp_CStringToJSValue(mContext, evt->getResponseData().c_str()), kJSPropertyAttributeReadOnly, NULL);
 			JSStringRelease(prop);
 		}
 
@@ -331,7 +331,7 @@ public:
 
 		JSStringRef prop;
 		prop = JSStringCreateWithUTF8CString("durationMiliseconds"); // FIXME
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getDuration()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, JSValueMakeNumber(mContext, evt->getDuration()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
 		int count = evt->getLanguagesCount();
@@ -339,14 +339,14 @@ public:
 		JSValueRef* array = new JSValueRef[count];
 		for (int32_t i = 0; i < count; i++)
 		{
-			JSValueRef lang = aamp_CStringToJSValue(p_obj->_ctx, langVect[i].c_str());
+			JSValueRef lang = aamp_CStringToJSValue(mContext, langVect[i].c_str());
 			array[i] = lang;
 		}
-		JSValueRef propValue = JSObjectMakeArray(p_obj->_ctx, count, array, NULL);
+		JSValueRef propValue = JSObjectMakeArray(mContext, count, array, NULL);
 		SAFE_DELETE_ARRAY(array);
 
 		prop = JSStringCreateWithUTF8CString("languages");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, propValue, kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, propValue, kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
 		count = evt->getBitratesCount();
@@ -354,13 +354,13 @@ public:
 		array = new JSValueRef[count];
 		for (int32_t i = 0; i < count; i++)
 		{
-			array[i] = JSValueMakeNumber(p_obj->_ctx, bitrateVect[i]);
+			array[i] = JSValueMakeNumber(mContext, bitrateVect[i]);
 		}
-		propValue = JSObjectMakeArray(p_obj->_ctx, count, array, NULL);
+		propValue = JSObjectMakeArray(mContext, count, array, NULL);
 		SAFE_DELETE_ARRAY(array);
 
 		prop = JSStringCreateWithUTF8CString("bitrates");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, propValue, kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, propValue, kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
 		count = evt->getSupportedSpeedCount();
@@ -368,52 +368,52 @@ public:
 		array = new JSValueRef[count];
 		for (int32_t i = 0; i < count; i++)
 		{
-			array[i] = JSValueMakeNumber(p_obj->_ctx, speedVect[i]);
+			array[i] = JSValueMakeNumber(mContext, speedVect[i]);
 		}
-		propValue = JSObjectMakeArray(p_obj->_ctx, count, array, NULL);
+		propValue = JSObjectMakeArray(mContext, count, array, NULL);
 		SAFE_DELETE_ARRAY(array);
 
 		prop = JSStringCreateWithUTF8CString("playbackSpeeds");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, propValue, kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, propValue, kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
 		prop = JSStringCreateWithUTF8CString("programStartTime");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getProgramStartTime()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, JSValueMakeNumber(mContext, evt->getProgramStartTime()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
 		prop = JSStringCreateWithUTF8CString("producerReferenceClockOffset");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getProducerReferenceClockOffset()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, JSValueMakeNumber(mContext, evt->getProducerReferenceClockOffset()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
 		prop = JSStringCreateWithUTF8CString("width");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getWidth()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, JSValueMakeNumber(mContext, evt->getWidth()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
 		prop = JSStringCreateWithUTF8CString("height");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getHeight()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, JSValueMakeNumber(mContext, evt->getHeight()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
 		prop = JSStringCreateWithUTF8CString("hasDrm");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeBoolean(p_obj->_ctx, evt->hasDrm()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, JSValueMakeBoolean(mContext, evt->hasDrm()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
 		prop = JSStringCreateWithUTF8CString("isLive");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeBoolean(p_obj->_ctx, evt->isLive()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, JSValueMakeBoolean(mContext, evt->isLive()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
 		prop = JSStringCreateWithUTF8CString("DRM");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, aamp_CStringToJSValue(p_obj->_ctx, evt->getDrmType().c_str()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, aamp_CStringToJSValue(mContext, evt->getDrmType().c_str()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
 		prop = JSStringCreateWithUTF8CString("url");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, aamp_CStringToJSValue(p_obj->_ctx, evt->getUrl().c_str()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, aamp_CStringToJSValue(mContext, evt->getUrl().c_str()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
 		//ratings
 		if(!evt->getRatings().empty())
 		{
 			prop = JSStringCreateWithUTF8CString("ratings");
-			JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, aamp_CStringToJSValue(p_obj->_ctx, evt->getRatings().c_str()), kJSPropertyAttributeReadOnly, NULL);
+			JSObjectSetProperty(mContext, jsEventObj, prop, aamp_CStringToJSValue(mContext, evt->getRatings().c_str()), kJSPropertyAttributeReadOnly, NULL);
 			JSStringRelease(prop);
 		}
 
@@ -421,7 +421,7 @@ public:
 		if(evt->getSsi() >= 0 )
 		{
 			prop = JSStringCreateWithUTF8CString("ssi");
-			JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getSsi()), kJSPropertyAttributeReadOnly, NULL);
+			JSObjectSetProperty(mContext, jsEventObj, prop, JSValueMakeNumber(mContext, evt->getSsi()), kJSPropertyAttributeReadOnly, NULL);
 			JSStringRelease(prop);
 		}
 
@@ -429,25 +429,25 @@ public:
 		if(evt->getFrameRate() > 0 )
 		{
 			prop = JSStringCreateWithUTF8CString("framerate");
-			JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getFrameRate()), kJSPropertyAttributeReadOnly, NULL);
+			JSObjectSetProperty(mContext, jsEventObj, prop, JSValueMakeNumber(mContext, evt->getFrameRate()), kJSPropertyAttributeReadOnly, NULL);
 			JSStringRelease(prop);
 		}
 
 		if(eVIDEOSCAN_UNKNOWN != evt->getVideoScanType())
 		{
 			prop = JSStringCreateWithUTF8CString("progressive");
-			JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeBoolean(p_obj->_ctx, ((eVIDEOSCAN_PROGRESSIVE == evt->getVideoScanType())?true:false)), kJSPropertyAttributeReadOnly, NULL);
+			JSObjectSetProperty(mContext, jsEventObj, prop, JSValueMakeBoolean(mContext, ((eVIDEOSCAN_PROGRESSIVE == evt->getVideoScanType())?true:false)), kJSPropertyAttributeReadOnly, NULL);
 			JSStringRelease(prop);
 		}
 		//aspect ratio
 		if((0 != evt->getAspectRatioWidth()) && (0 != evt->getAspectRatioHeight()))
 		{
 			prop = JSStringCreateWithUTF8CString("aspectRatioWidth");
-			JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getAspectRatioWidth()), kJSPropertyAttributeReadOnly, NULL);
+			JSObjectSetProperty(mContext, jsEventObj, prop, JSValueMakeNumber(mContext, evt->getAspectRatioWidth()), kJSPropertyAttributeReadOnly, NULL);
 			JSStringRelease(prop);
 
 			prop = JSStringCreateWithUTF8CString("aspectRatioHeight");
-			JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getAspectRatioHeight()), kJSPropertyAttributeReadOnly, NULL);
+			JSObjectSetProperty(mContext, jsEventObj, prop, JSValueMakeNumber(mContext, evt->getAspectRatioHeight()), kJSPropertyAttributeReadOnly, NULL);
 			JSStringRelease(prop);
 		}
 
@@ -455,7 +455,7 @@ public:
 		if(!evt->getVideoCodec().empty())
 		{
 			prop = JSStringCreateWithUTF8CString("videoCodec");
-			JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, aamp_CStringToJSValue(p_obj->_ctx, evt->getVideoCodec().c_str()), kJSPropertyAttributeReadOnly, NULL);
+			JSObjectSetProperty(mContext, jsEventObj, prop, aamp_CStringToJSValue(mContext, evt->getVideoCodec().c_str()), kJSPropertyAttributeReadOnly, NULL);
 			JSStringRelease(prop);
 		}
 
@@ -463,7 +463,7 @@ public:
 		if(!evt->getHdrType().empty())
 		{
 			prop = JSStringCreateWithUTF8CString("hdrType");
-			JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, aamp_CStringToJSValue(p_obj->_ctx, evt->getHdrType().c_str()), kJSPropertyAttributeReadOnly, NULL);
+			JSObjectSetProperty(mContext, jsEventObj, prop, aamp_CStringToJSValue(mContext, evt->getHdrType().c_str()), kJSPropertyAttributeReadOnly, NULL);
 			JSStringRelease(prop);
 		}
 
@@ -475,13 +475,13 @@ public:
 			array = new JSValueRef[count];
 			for (int32_t i = 0; i < count; i++)
 			{
-				array[i] = JSValueMakeNumber(p_obj->_ctx, audioBitrateVect[i]);
+				array[i] = JSValueMakeNumber(mContext, audioBitrateVect[i]);
 			}
-			propValue = JSObjectMakeArray(p_obj->_ctx, count, array, NULL);
+			propValue = JSObjectMakeArray(mContext, count, array, NULL);
 			delete [] array;
 
 			prop = JSStringCreateWithUTF8CString("audioBitrates");
-			JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, propValue, kJSPropertyAttributeReadOnly, NULL);
+			JSObjectSetProperty(mContext, jsEventObj, prop, propValue, kJSPropertyAttributeReadOnly, NULL);
 			JSStringRelease(prop);
 		}
 
@@ -490,7 +490,7 @@ public:
 		if(!evt->getAudioCodec().empty())
 		{
 			prop = JSStringCreateWithUTF8CString("audioCodec");
-			JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, aamp_CStringToJSValue(p_obj->_ctx, evt->getAudioCodec().c_str()), kJSPropertyAttributeReadOnly, NULL);
+			JSObjectSetProperty(mContext, jsEventObj, prop, aamp_CStringToJSValue(mContext, evt->getAudioCodec().c_str()), kJSPropertyAttributeReadOnly, NULL);
 			JSStringRelease(prop);
 		}
 
@@ -498,23 +498,23 @@ public:
 		if(!evt->getAudioMixType().empty())
 		{
 			prop = JSStringCreateWithUTF8CString("audioMixType");
-			JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, aamp_CStringToJSValue(p_obj->_ctx, evt->getAudioMixType().c_str()), kJSPropertyAttributeReadOnly, NULL);
+			JSObjectSetProperty(mContext, jsEventObj, prop, aamp_CStringToJSValue(mContext, evt->getAudioMixType().c_str()), kJSPropertyAttributeReadOnly, NULL);
 			JSStringRelease(prop);
 		}
 
 		//AtmosInfo
 		prop = JSStringCreateWithUTF8CString("isAtmos");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeBoolean(p_obj->_ctx,evt->getAtmosInfo()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, JSValueMakeBoolean(mContext,evt->getAtmosInfo()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
 		//MediaFormat type
 		prop = JSStringCreateWithUTF8CString("mediaFormat");
-                JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, aamp_CStringToJSValue(p_obj->_ctx, evt->getMediaFormat().c_str()), kJSPropertyAttributeReadOnly, NULL);
+                JSObjectSetProperty(mContext, jsEventObj, prop, aamp_CStringToJSValue(mContext, evt->getMediaFormat().c_str()), kJSPropertyAttributeReadOnly, NULL);
                 JSStringRelease(prop);
         
 		//tsbdepth
 		prop = JSStringCreateWithUTF8CString("tsbDepthMs");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getTsbDepth()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, JSValueMakeNumber(mContext, evt->getTsbDepth()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
 	}
@@ -553,13 +553,13 @@ public:
 		JSValueRef* array = new JSValueRef[count];
 		for (int32_t i = 0; i < count; i++)
 		{
-			array[i] = JSValueMakeNumber(p_obj->_ctx, speedVect[i]);
+			array[i] = JSValueMakeNumber(mContext, speedVect[i]);
 		}
-		JSValueRef propValue = JSObjectMakeArray(p_obj->_ctx, count, array, NULL);
+		JSValueRef propValue = JSObjectMakeArray(mContext, count, array, NULL);
 		SAFE_DELETE_ARRAY(array);
 
 		JSStringRef prop = JSStringCreateWithUTF8CString("playbackSpeeds");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, propValue, kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, propValue, kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 	}
 };
@@ -591,7 +591,7 @@ public:
 	{
 		SeekedEventPtr evt = std::dynamic_pointer_cast<SeekedEvent>(ev);
 		JSStringRef prop = JSStringCreateWithUTF8CString("position");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getPosition()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, JSValueMakeNumber(mContext, evt->getPosition()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 	}
 };
@@ -628,7 +628,7 @@ public:
 
                 LOG_TRACE("AAMP_Listener_TuneProfiling microData %s", microData);
                 prop = JSStringCreateWithUTF8CString("microData");
-                JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, aamp_CStringToJSValue(p_obj->_ctx, microData), kJSPropertyAttributeReadOnly, NULL);
+                JSObjectSetProperty(mContext, jsEventObj, prop, aamp_CStringToJSValue(mContext, microData), kJSPropertyAttributeReadOnly, NULL);
                 JSStringRelease(prop);
 	}
 
@@ -664,7 +664,7 @@ public:
 		JSStringRef prop;
 
 		prop = JSStringCreateWithUTF8CString("decoderHandle");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getCCHandle()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, JSValueMakeNumber(mContext, evt->getCCHandle()), kJSPropertyAttributeReadOnly, NULL);
                 JSStringRelease(prop);
 	}
 
@@ -706,15 +706,15 @@ public:
 		LOG_WARN_EX("AAMP_Listener_DRMMetadata code %d Description %s", code, description);
 		LOG_TRACE("AAMP_Listener_DRMMetadata NetworkMetric %s", networkMetric);
 		prop = JSStringCreateWithUTF8CString("code");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, code), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, JSValueMakeNumber(mContext, code), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
 		prop = JSStringCreateWithUTF8CString("description");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, aamp_CStringToJSValue(p_obj->_ctx, description), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, aamp_CStringToJSValue(mContext, description), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
 		prop = JSStringCreateWithUTF8CString("networkMetrics");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, aamp_CStringToJSValue(p_obj->_ctx, networkMetric), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, aamp_CStringToJSValue(mContext, networkMetric), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
 		const std::vector<std::string> &headerVec = evt->getHeaderResponses();
@@ -724,27 +724,27 @@ public:
 			JSValueRef* array = new JSValueRef[count];
 			for(int i = 0; i < count; i++)
 			{
-				JSValueRef respHeader = aamp_CStringToJSValue(p_obj->_ctx, headerVec[i].c_str());
+				JSValueRef respHeader = aamp_CStringToJSValue(mContext, headerVec[i].c_str());
 				array[i] = respHeader;
 			}
-			JSValueRef propValue = JSObjectMakeArray(p_obj->_ctx, count, array, NULL);
+			JSValueRef propValue = JSObjectMakeArray(mContext, count, array, NULL);
 			SAFE_DELETE_ARRAY(array);
 			prop = JSStringCreateWithUTF8CString("headers");
-			JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, propValue, kJSPropertyAttributeReadOnly, NULL);
+			JSObjectSetProperty(mContext, jsEventObj, prop, propValue, kJSPropertyAttributeReadOnly, NULL);
 			JSStringRelease(prop);
 		}
 
 		const char *pBodyResponse = evt->getBodyResponse().c_str();
 		if( NULL != pBodyResponse )
 		{
-			JSObjectRef bodyResponseObj = aamp_CreateBodyResponseJSObject(p_obj->_ctx, pBodyResponse);
+			JSObjectRef bodyResponseObj = aamp_CreateBodyResponseJSObject(mContext, pBodyResponse);
 			if( bodyResponseObj )
 			{
-				JSValueProtect(p_obj->_ctx, bodyResponseObj);
+				JSValueProtect(mContext, bodyResponseObj);
 				prop = JSStringCreateWithUTF8CString("body");
-				JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, bodyResponseObj, kJSPropertyAttributeReadOnly, NULL);
+				JSObjectSetProperty(mContext, jsEventObj, prop, bodyResponseObj, kJSPropertyAttributeReadOnly, NULL);
 				JSStringRelease(prop);
-				JSValueUnprotect(p_obj->_ctx, bodyResponseObj);	
+				JSValueUnprotect(mContext, bodyResponseObj);	
 			}
 		}
 	}
@@ -785,11 +785,11 @@ public:
 
         	LOG_WARN_EX("AAMP_Listener_AnomalyReport severity %d Description %s", severity, description);
 		prop = JSStringCreateWithUTF8CString("severity");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, severity), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, JSValueMakeNumber(mContext, severity), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
 		prop = JSStringCreateWithUTF8CString("description");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, aamp_CStringToJSValue(p_obj->_ctx, description), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, aamp_CStringToJSValue(mContext, description), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 	}
 
@@ -827,15 +827,15 @@ public:
 		VTTCue *cue = evt->getCueData();
 
 		prop = JSStringCreateWithUTF8CString("start");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, cue->mStart), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, JSValueMakeNumber(mContext, cue->mStart), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
 		prop = JSStringCreateWithUTF8CString("duration");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, cue->mDuration), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, JSValueMakeNumber(mContext, cue->mDuration), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
 		prop = JSStringCreateWithUTF8CString("text");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, aamp_CStringToJSValue(p_obj->_ctx, cue->mText.c_str()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, aamp_CStringToJSValue(mContext, cue->mText.c_str()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 	}
 
@@ -869,14 +869,14 @@ public:
 	{
 		TimedMetadataEventPtr evt = std::dynamic_pointer_cast<TimedMetadataEvent>(ev);
 
-		JSObjectRef timedMetadata = aamp_CreateTimedMetadataJSObject(p_obj->_ctx, evt->getTime(), evt->getName().c_str(), evt->getContent().c_str(), evt->getId().c_str(), evt->getDuration());
+		JSObjectRef timedMetadata = aamp_CreateTimedMetadataJSObject(mContext, evt->getTime(), evt->getName().c_str(), evt->getContent().c_str(), evt->getId().c_str(), evt->getDuration());
 		if (timedMetadata)
 		{
-			JSValueProtect(p_obj->_ctx, timedMetadata);
+			JSValueProtect(mContext, timedMetadata);
 			JSStringRef prop = JSStringCreateWithUTF8CString("timedMetadata");
-			JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, timedMetadata, kJSPropertyAttributeReadOnly, NULL);
+			JSObjectSetProperty(mContext, jsEventObj, prop, timedMetadata, kJSPropertyAttributeReadOnly, NULL);
 			JSStringRelease(prop);
-			JSValueUnprotect(p_obj->_ctx, timedMetadata);
+			JSValueUnprotect(mContext, timedMetadata);
 		}
 	}
 };
@@ -907,7 +907,7 @@ public:
         {
 		BulkTimedMetadataEventPtr evt = std::dynamic_pointer_cast<BulkTimedMetadataEvent>(ev);
 		JSStringRef name = JSStringCreateWithUTF8CString("timedMetadatas");
-		JSObjectSetProperty(p_obj->_ctx, eventObj, name, aamp_CStringToJSValue(p_obj->_ctx, evt->getContent().c_str()),  kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, eventObj, name, aamp_CStringToJSValue(mContext, evt->getContent().c_str()),  kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(name);
         }
 };
@@ -943,27 +943,27 @@ public:
 		JSStringRef prop;
 
 		prop = JSStringCreateWithUTF8CString("resolvedStatus");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeBoolean(p_obj->_ctx, evt->getResolveStatus()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, JSValueMakeBoolean(mContext, evt->getResolveStatus()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
 		prop = JSStringCreateWithUTF8CString("placementId");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, aamp_CStringToJSValue(p_obj->_ctx, evt->getAdId().c_str()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, aamp_CStringToJSValue(mContext, evt->getAdId().c_str()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
 		prop = JSStringCreateWithUTF8CString("placementStartTime");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getStart()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, JSValueMakeNumber(mContext, evt->getStart()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
 		prop = JSStringCreateWithUTF8CString("placementDuration");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getDuration()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, JSValueMakeNumber(mContext, evt->getDuration()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
 		prop = JSStringCreateWithUTF8CString("errorCode");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, aamp_CStringToJSValue(p_obj->_ctx, evt->getErrorCode().c_str()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, aamp_CStringToJSValue(mContext, evt->getErrorCode().c_str()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
 		prop = JSStringCreateWithUTF8CString("errorDescription");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, aamp_CStringToJSValue(p_obj->_ctx, evt->getErrorDescription().c_str()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, aamp_CStringToJSValue(mContext, evt->getErrorDescription().c_str()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 	}
 };
@@ -999,11 +999,11 @@ public:
 		JSStringRef prop;
 
 		prop = JSStringCreateWithUTF8CString("adbreakId");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, aamp_CStringToJSValue(p_obj->_ctx, evt->getAdBreakId().c_str()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, aamp_CStringToJSValue(mContext, evt->getAdBreakId().c_str()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
 		prop = JSStringCreateWithUTF8CString("time");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getPosition()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, JSValueMakeNumber(mContext, evt->getPosition()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 	}
 };
@@ -1039,15 +1039,15 @@ public:
 		JSStringRef prop;
 
 		prop = JSStringCreateWithUTF8CString("adbreakId");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, aamp_CStringToJSValue(p_obj->_ctx, evt->getAdBreakId().c_str()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, aamp_CStringToJSValue(mContext, evt->getAdBreakId().c_str()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
 		prop = JSStringCreateWithUTF8CString("time");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getPosition()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, JSValueMakeNumber(mContext, evt->getPosition()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
 		prop = JSStringCreateWithUTF8CString("reason");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, aamp_CStringToJSValue(p_obj->_ctx, evt->getReason().c_str()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, aamp_CStringToJSValue(mContext, evt->getReason().c_str()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 	}
 };
@@ -1083,11 +1083,11 @@ public:
 		JSStringRef prop;
 
 		prop = JSStringCreateWithUTF8CString("adId");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, aamp_CStringToJSValue(p_obj->_ctx, evt->getAdId().c_str()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, aamp_CStringToJSValue(mContext, evt->getAdId().c_str()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
 		prop = JSStringCreateWithUTF8CString("time");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getPosition()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, JSValueMakeNumber(mContext, evt->getPosition()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 	}
 };
@@ -1123,11 +1123,11 @@ public:
 		JSStringRef prop;
 
 		prop = JSStringCreateWithUTF8CString("adId");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, aamp_CStringToJSValue(p_obj->_ctx, evt->getAdId().c_str()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, aamp_CStringToJSValue(mContext, evt->getAdId().c_str()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
 		prop = JSStringCreateWithUTF8CString("time");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getPosition()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, JSValueMakeNumber(mContext, evt->getPosition()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 	}
 };
@@ -1163,11 +1163,11 @@ public:
 		JSStringRef prop;
 
 		prop = JSStringCreateWithUTF8CString("adId");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, aamp_CStringToJSValue(p_obj->_ctx, evt->getAdId().c_str()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, aamp_CStringToJSValue(mContext, evt->getAdId().c_str()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
 		prop = JSStringCreateWithUTF8CString("time");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getPosition()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, JSValueMakeNumber(mContext, evt->getPosition()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 	}
 };
@@ -1203,15 +1203,15 @@ public:
 		JSStringRef prop;
 
 		prop = JSStringCreateWithUTF8CString("adId");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, aamp_CStringToJSValue(p_obj->_ctx, evt->getAdId().c_str()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, aamp_CStringToJSValue(mContext, evt->getAdId().c_str()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
 		prop = JSStringCreateWithUTF8CString("time");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getPosition()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, JSValueMakeNumber(mContext, evt->getPosition()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
 		prop = JSStringCreateWithUTF8CString("error");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getErrorCode()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, JSValueMakeNumber(mContext, evt->getErrorCode()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 	}
 };
@@ -1245,60 +1245,60 @@ public:
 		BitrateChangeEventPtr evt = std::dynamic_pointer_cast<BitrateChangeEvent>(ev);
 		JSStringRef name;
 		name = JSStringCreateWithUTF8CString("time");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, name, JSValueMakeNumber(p_obj->_ctx, evt->getTime()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, name, JSValueMakeNumber(mContext, evt->getTime()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(name);
 
 		name = JSStringCreateWithUTF8CString("bitRate");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, name, JSValueMakeNumber(p_obj->_ctx, evt->getBitrate()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, name, JSValueMakeNumber(mContext, evt->getBitrate()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(name);
 
 		name = JSStringCreateWithUTF8CString("description");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, name, aamp_CStringToJSValue(p_obj->_ctx, evt->getDescription().c_str()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, name, aamp_CStringToJSValue(mContext, evt->getDescription().c_str()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(name);
 
 		name = JSStringCreateWithUTF8CString("width");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, name, JSValueMakeNumber(p_obj->_ctx, evt->getWidth()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, name, JSValueMakeNumber(mContext, evt->getWidth()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(name);
 
 		name = JSStringCreateWithUTF8CString("height");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, name, JSValueMakeNumber(p_obj->_ctx, evt->getHeight()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, name, JSValueMakeNumber(mContext, evt->getHeight()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(name);
 
 		name = JSStringCreateWithUTF8CString("framerate");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, name, JSValueMakeNumber(p_obj->_ctx, evt->getFrameRate()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, name, JSValueMakeNumber(mContext, evt->getFrameRate()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(name);
 
 		name = JSStringCreateWithUTF8CString("position");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, name, JSValueMakeNumber(p_obj->_ctx, evt->getPosition()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, name, JSValueMakeNumber(mContext, evt->getPosition()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(name);
 
 		name = JSStringCreateWithUTF8CString("cappedProfile");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, name, JSValueMakeNumber(p_obj->_ctx, evt->getCappedProfileStatus()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, name, JSValueMakeNumber(mContext, evt->getCappedProfileStatus()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(name);
 
 		name = JSStringCreateWithUTF8CString("displayWidth");
-                JSObjectSetProperty(p_obj->_ctx, jsEventObj, name, JSValueMakeNumber(p_obj->_ctx, evt->getDisplayWidth()), kJSPropertyAttributeReadOnly, NULL);
+                JSObjectSetProperty(mContext, jsEventObj, name, JSValueMakeNumber(mContext, evt->getDisplayWidth()), kJSPropertyAttributeReadOnly, NULL);
                 JSStringRelease(name);
 
 		name = JSStringCreateWithUTF8CString("displayHeight");
-                JSObjectSetProperty(p_obj->_ctx, jsEventObj, name, JSValueMakeNumber(p_obj->_ctx, evt->getDisplayHeight()), kJSPropertyAttributeReadOnly, NULL);
+                JSObjectSetProperty(mContext, jsEventObj, name, JSValueMakeNumber(mContext, evt->getDisplayHeight()), kJSPropertyAttributeReadOnly, NULL);
                 JSStringRelease(name);
 
 		if(eVIDEOSCAN_UNKNOWN != evt->getScanType())
 		{
 			name = JSStringCreateWithUTF8CString("progressive");
-			JSObjectSetProperty(p_obj->_ctx, jsEventObj, name, JSValueMakeBoolean(p_obj->_ctx, ((eVIDEOSCAN_PROGRESSIVE == evt->getScanType())?true:false)), kJSPropertyAttributeReadOnly, NULL);
+			JSObjectSetProperty(mContext, jsEventObj, name, JSValueMakeBoolean(mContext, ((eVIDEOSCAN_PROGRESSIVE == evt->getScanType())?true:false)), kJSPropertyAttributeReadOnly, NULL);
 			JSStringRelease(name);
 		}
 
 		if((0 != evt->getAspectRatioWidth()) && (0 != evt->getAspectRatioHeight()))
 		{
 			name = JSStringCreateWithUTF8CString("aspectRatioWidth");
-			JSObjectSetProperty(p_obj->_ctx, jsEventObj, name, JSValueMakeNumber(p_obj->_ctx, evt->getAspectRatioWidth()), kJSPropertyAttributeReadOnly, NULL);
+			JSObjectSetProperty(mContext, jsEventObj, name, JSValueMakeNumber(mContext, evt->getAspectRatioWidth()), kJSPropertyAttributeReadOnly, NULL);
 			JSStringRelease(name);
 
 			name = JSStringCreateWithUTF8CString("aspectRatioHeight");
-			JSObjectSetProperty(p_obj->_ctx, jsEventObj, name, JSValueMakeNumber(p_obj->_ctx, evt->getAspectRatioHeight()), kJSPropertyAttributeReadOnly, NULL);
+			JSObjectSetProperty(mContext, jsEventObj, name, JSValueMakeNumber(mContext, evt->getAspectRatioHeight()), kJSPropertyAttributeReadOnly, NULL);
 			JSStringRelease(name);
 		}
 
@@ -1338,43 +1338,43 @@ public:
 		JSValueRef* array = new JSValueRef[len];
 		for (int32_t i = 0; i < len; i++)
 		{
-			array[i] = JSValueMakeNumber(p_obj->_ctx, data[i]);
+			array[i] = JSValueMakeNumber(mContext, data[i]);
 		}
 		prop = JSStringCreateWithUTF8CString("schemeIdUri");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, aamp_CStringToJSValue(p_obj->_ctx, evt->getSchemeIdUri().c_str()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, aamp_CStringToJSValue(mContext, evt->getSchemeIdUri().c_str()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
 		prop = JSStringCreateWithUTF8CString("value");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, aamp_CStringToJSValue(p_obj->_ctx, evt->getValue().c_str()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, aamp_CStringToJSValue(mContext, evt->getValue().c_str()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
 		prop = JSStringCreateWithUTF8CString("timeScale");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getTimeScale()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, JSValueMakeNumber(mContext, evt->getTimeScale()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
 		prop = JSStringCreateWithUTF8CString("presentationTime");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getPresentationTime()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, JSValueMakeNumber(mContext, evt->getPresentationTime()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
 		prop = JSStringCreateWithUTF8CString("eventDuration");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getEventDuration()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, JSValueMakeNumber(mContext, evt->getEventDuration()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
 		prop = JSStringCreateWithUTF8CString("id");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getId()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, JSValueMakeNumber(mContext, evt->getId()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
 		prop = JSStringCreateWithUTF8CString("timestampOffset");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getTimestampOffset()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, JSValueMakeNumber(mContext, evt->getTimestampOffset()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
 		prop = JSStringCreateWithUTF8CString("data");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSObjectMakeArray(p_obj->_ctx, len, array, NULL), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, JSObjectMakeArray(mContext, len, array, NULL), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 		SAFE_DELETE_ARRAY(array);
 
 		prop = JSStringCreateWithUTF8CString("length");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, len), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, JSValueMakeNumber(mContext, len), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 	}
 };
@@ -1408,10 +1408,10 @@ public:
 		JSStringRef prop;
 
 		prop = JSStringCreateWithUTF8CString("reason");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, aamp_CStringToJSValue(p_obj->_ctx, evt->getReason().c_str()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, aamp_CStringToJSValue(mContext, evt->getReason().c_str()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 		prop = JSStringCreateWithUTF8CString("locator");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, aamp_CStringToJSValue(p_obj->_ctx, evt->getLocator().c_str()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, aamp_CStringToJSValue(mContext, evt->getLocator().c_str()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 	}
 };
@@ -1448,13 +1448,13 @@ public:
 		double durationMs = evt->getDuration();
 
 		prop = JSStringCreateWithUTF8CString("time");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, std::round(time)), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, JSValueMakeNumber(mContext, std::round(time)), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
 		if (durationMs >= 0)
 		{
 			prop = JSStringCreateWithUTF8CString("duration");
-			JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, (int)durationMs), kJSPropertyAttributeReadOnly, NULL);
+			JSObjectSetProperty(mContext, jsEventObj, prop, JSValueMakeNumber(mContext, (int)durationMs), kJSPropertyAttributeReadOnly, NULL);
 			JSStringRelease(prop);
 		}
 	}
@@ -1491,11 +1491,11 @@ public:
 		JSStringRef prop;
 
 		prop = JSStringCreateWithUTF8CString("header");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, aamp_CStringToJSValue(p_obj->_ctx, evt->getHeader().c_str()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, aamp_CStringToJSValue(mContext, evt->getHeader().c_str()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
 		prop = JSStringCreateWithUTF8CString("response");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, aamp_CStringToJSValue(p_obj->_ctx, evt->getResponse().c_str()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, aamp_CStringToJSValue(mContext, evt->getResponse().c_str()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 	}
 };
@@ -1529,15 +1529,15 @@ public:
                 JSStringRef prop;
 
 		prop = JSStringCreateWithUTF8CString("sessionHandle");
-                JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getSessionHandle()), kJSPropertyAttributeReadOnly, NULL);
+                JSObjectSetProperty(mContext, jsEventObj, prop, JSValueMakeNumber(mContext, evt->getSessionHandle()), kJSPropertyAttributeReadOnly, NULL);
                 JSStringRelease(prop);
 
 		prop = JSStringCreateWithUTF8CString("status");
-                JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getStatus()), kJSPropertyAttributeReadOnly, NULL);
+                JSObjectSetProperty(mContext, jsEventObj, prop, JSValueMakeNumber(mContext, evt->getStatus()), kJSPropertyAttributeReadOnly, NULL);
                 JSStringRelease(prop);
 
                 prop = JSStringCreateWithUTF8CString("system");
-                JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, aamp_CStringToJSValue(p_obj->_ctx, evt->getSystem().c_str()), kJSPropertyAttributeReadOnly, NULL);
+                JSObjectSetProperty(mContext, jsEventObj, prop, aamp_CStringToJSValue(mContext, evt->getSystem().c_str()), kJSPropertyAttributeReadOnly, NULL);
                 JSStringRelease(prop);
         }
 };
@@ -1575,16 +1575,16 @@ public:
 		JSValueRef* array = new JSValueRef[len];
 		for (int32_t i = 0; i < len; i++)
 		{
-			array[i] = JSValueMakeNumber(p_obj->_ctx, keyId[i]);
+			array[i] = JSValueMakeNumber(mContext, keyId[i]);
 		}
 
 		prop = JSStringCreateWithUTF8CString("keyID");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSObjectMakeArray(p_obj->_ctx, len, array, NULL), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, JSObjectMakeArray(mContext, len, array, NULL), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 		SAFE_DELETE_ARRAY(array);
 
 		prop = JSStringCreateWithUTF8CString("streamType");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, aamp_CStringToJSValue(p_obj->_ctx, evt->getStreamType().c_str()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, aamp_CStringToJSValue(mContext, evt->getStreamType().c_str()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 	}
 
@@ -1619,19 +1619,19 @@ public:
 		JSStringRef prop;
 		
 		prop = JSStringCreateWithUTF8CString("manifestDuration");
-        JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getManifestDuration()), kJSPropertyAttributeReadOnly, NULL);
+        JSObjectSetProperty(mContext, jsEventObj, prop, JSValueMakeNumber(mContext, evt->getManifestDuration()), kJSPropertyAttributeReadOnly, NULL);
         JSStringRelease(prop);
 		
 		prop = JSStringCreateWithUTF8CString("manifestPublishedTime");
-        JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getManifestPublishedTime()), kJSPropertyAttributeReadOnly, NULL);
+        JSObjectSetProperty(mContext, jsEventObj, prop, JSValueMakeNumber(mContext, evt->getManifestPublishedTime()), kJSPropertyAttributeReadOnly, NULL);
         JSStringRelease(prop);
 		
 		prop = JSStringCreateWithUTF8CString("noOfPeriods");
-        JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getNoOfPeriods()), kJSPropertyAttributeReadOnly, NULL);
+        JSObjectSetProperty(mContext, jsEventObj, prop, JSValueMakeNumber(mContext, evt->getNoOfPeriods()), kJSPropertyAttributeReadOnly, NULL);
         JSStringRelease(prop);
 
 		prop = JSStringCreateWithUTF8CString("manifestType");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, aamp_CStringToJSValue(p_obj->_ctx, evt->getManifestType().c_str()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, aamp_CStringToJSValue(mContext, evt->getManifestType().c_str()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 	}
 
@@ -1668,7 +1668,7 @@ public:
 
 		prop = JSStringCreateWithUTF8CString("tuneMetricsData");
 		LOG_TRACE("AAMP_Listener_TuneMetricData Tunemetric data %s", tuneMetricData);
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, aamp_CStringToJSValue(p_obj->_ctx, tuneMetricData), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, aamp_CStringToJSValue(mContext, tuneMetricData), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 	}
 
@@ -1690,23 +1690,23 @@ public:
 
 		prop = JSStringCreateWithUTF8CString("currentState");
 		LOG_TRACE("AAMP_Listener_MonitorAVStatus MonitorAVStatus data %s", monitorAVStatus);
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, aamp_CStringToJSValue(p_obj->_ctx, monitorAVStatus), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, aamp_CStringToJSValue(mContext, monitorAVStatus), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
 		prop = JSStringCreateWithUTF8CString("videoPosMs");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getVideoPositionMS()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, JSValueMakeNumber(mContext, evt->getVideoPositionMS()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
 		prop = JSStringCreateWithUTF8CString("audioPosMs");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getAudioPositionMS()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, JSValueMakeNumber(mContext, evt->getAudioPositionMS()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
 		prop = JSStringCreateWithUTF8CString("timeInStateMs");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getTimeInStateMS()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, JSValueMakeNumber(mContext, evt->getTimeInStateMS()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
 		prop = JSStringCreateWithUTF8CString("droppedFrames");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getDroppedFrames()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, JSValueMakeNumber(mContext, evt->getDroppedFrames()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 	}
 };
@@ -1729,19 +1729,19 @@ public:
 		JSStringRef prop;
 
 		prop = JSStringCreateWithUTF8CString("breakId");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, aamp_CStringToJSValue(p_obj->_ctx, e->getBreakId().c_str()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, aamp_CStringToJSValue(mContext, e->getBreakId().c_str()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
 		prop = JSStringCreateWithUTF8CString("insertionPointSec");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, e->getInsertionPointSec()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, JSValueMakeNumber(mContext, e->getInsertionPointSec()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
 		prop = JSStringCreateWithUTF8CString("breakDurationSec");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, e->getBreakDurationSec()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, JSValueMakeNumber(mContext, e->getBreakDurationSec()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
 		prop = JSStringCreateWithUTF8CString("breakType");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, aamp_CStringToJSValue(p_obj->_ctx, e->getBreakType().c_str()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(mContext, jsEventObj, prop, aamp_CStringToJSValue(mContext, e->getBreakType().c_str()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 	}
 };
@@ -1781,10 +1781,15 @@ AAMP_JSEventListener::AAMP_JSEventListener(PrivAAMPStruct_JS *obj, AAMPEventType
 	: p_obj(obj)
 	, p_type(type)
 	, p_jsCallback(jsCallback)
+	, mContext(obj != NULL ? obj->_ctx : NULL)
+	, mDispatchCount(0)
+	, mDetached(false)
+	, mCallbackProtected(jsCallback != NULL)
+	, mProtectedCallback(jsCallback)
 {
 	if (p_jsCallback != NULL)
 	{
-		JSValueProtect(p_obj->_ctx, p_jsCallback);
+		JSValueProtect(mContext, p_jsCallback);
 	}
 }
 
@@ -1793,9 +1798,11 @@ AAMP_JSEventListener::AAMP_JSEventListener(PrivAAMPStruct_JS *obj, AAMPEventType
  */
 AAMP_JSEventListener::~AAMP_JSEventListener()
 {
-	if (p_jsCallback != NULL)
+	std::lock_guard<std::mutex> lock(mStateMutex);
+	if (mCallbackProtected)
 	{
-		JSValueUnprotect(p_obj->_ctx, p_jsCallback);
+		JSValueUnprotect(mContext, mProtectedCallback);
+		mCallbackProtected = false;
 	}
 }
 
@@ -1805,46 +1812,95 @@ AAMP_JSEventListener::~AAMP_JSEventListener()
 void AAMP_JSEventListener::Event(const AAMPEventPtr& e)
 {
 	AAMPEventType evtType = e->getType();
-        LOG_TRACE("type=%d, jsCallback=%p", evtType, p_jsCallback);
 
 	if (evtType < 0 || evtType >= AAMP_MAX_NUM_EVENTS)
 	{
 		return;
 	}
-	JSObjectRef event = createNewAAMPJSEvent(p_obj->_ctx, aampPlayer_getNameFromEventType(evtType), false, false);
-	if (event)
+
+	JSGlobalContextRef ctx = mContext;
+	JSObjectRef callback = NULL;
+	JSObjectRef promiseCallback = NULL;
+
+	// Register the dispatch so teardown keeps the callback protected until it completes.
+	// No JavaScriptCore allocation may happen under mStateMutex: it can run GC, and a
+	// finalized player re-enters RemoveAllEventListener(), which takes this lock.
 	{
-		JSGlobalContextRef ctx = p_obj->_ctx;
-		JSValueProtect(ctx, event);
-
-		AAMP_JSEventListener::SetEventProperties(e, event);
-		SetEventProperties(e, event);
-
-		//send this event through promise callback if an event listener is not registered
-		if (p_type == AAMP_EVENT_AD_RESOLVED && p_jsCallback == NULL)
+		std::lock_guard<std::mutex> lock(mStateMutex);
+		if (mDetached || p_obj == NULL)
 		{
-			AdResolvedEventPtr evt = std::dynamic_pointer_cast<AdResolvedEvent>(e);
-			std::string adId = evt->getAdId();
-			JSObjectRef cbObj = p_obj->getCallbackForAdId(adId);
-			if (cbObj != NULL)
+			return;
+		}
+		++mDispatchCount;
+		callback = p_jsCallback;
+	}
+
+	// Event construction uses only mContext, never p_obj, as the owner may be finalized
+	// by GC during these allocations.
+	JSObjectRef event = createNewAAMPJSEvent(ctx, aampPlayer_getNameFromEventType(evtType), false, false);
+	if (event == NULL)
+	{
+		FinishEventDispatch();
+		return;
+	}
+	JSValueProtect(ctx, event);
+	AAMP_JSEventListener::SetEventProperties(e, event);
+	SetEventProperties(e, event);
+
+	// Take the single-use promise from the owner, protecting it ourselves before the
+	// owner releases its protection, so it stays alive after a callback releases the JS player.
+	if (p_type == AAMP_EVENT_AD_RESOLVED && callback == NULL)
+	{
+		AdResolvedEventPtr evt = std::dynamic_pointer_cast<AdResolvedEvent>(e);
+		std::string adId = evt->getAdId();
+		std::lock_guard<std::mutex> lock(mStateMutex);
+		if (!mDetached && p_obj != NULL)
+		{
+			promiseCallback = p_obj->getCallbackForAdId(adId);
+			if (promiseCallback != NULL)
 			{
-				aamp_dispatchEventToJS(ctx, cbObj, event);
-				p_obj->removeCallbackForAdId(adId); //promise callbacks are intended for a single-time use for an ad id
-			}
-			else
-			{
-				LOG_ERROR_EX("No promise callback registered ctx=%p, jsCallback=%p", ctx, cbObj);
+				JSValueProtect(ctx, promiseCallback);
+				p_obj->removeCallbackForAdId(adId);
 			}
 		}
-		else if (p_jsCallback != NULL)
+	}
+
+	if (p_type == AAMP_EVENT_AD_RESOLVED && callback == NULL)
+	{
+		if (promiseCallback != NULL)
 		{
-			aamp_dispatchEventToJS(ctx, p_jsCallback, event);
+			aamp_dispatchEventToJS(ctx, promiseCallback, event);
+			JSValueUnprotect(ctx, promiseCallback);
 		}
 		else
 		{
-			LOG_WARN_EX("Callback registered is (%p) for event=%d", p_jsCallback, p_type);
+			LOG_ERROR_EX("No promise callback registered ctx=%p, jsCallback=%p", ctx, promiseCallback);
 		}
-		JSValueUnprotect(ctx, event);
+	}
+	else if (callback != NULL)
+	{
+		aamp_dispatchEventToJS(ctx, callback, event);
+	}
+	else
+	{
+		LOG_WARN_EX("Callback registered is (%p) for event=%d", callback, p_type);
+	}
+
+	JSValueUnprotect(ctx, event);
+	FinishEventDispatch();
+}
+
+void AAMP_JSEventListener::FinishEventDispatch()
+{
+	std::lock_guard<std::mutex> lock(mStateMutex);
+	if (mDispatchCount > 0)
+	{
+		--mDispatchCount;
+	}
+	if (mDispatchCount == 0 && mDetached && mCallbackProtected)
+	{
+		JSValueUnprotect(mContext, mProtectedCallback);
+		mCallbackProtected = false;
 	}
 }
 
@@ -1853,7 +1909,7 @@ void AAMP_JSEventListener::SetEventProperties(const AAMPEventPtr& evt, JSObjectR
 	JSStringRef prop;
 
 	prop = JSStringCreateWithUTF8CString("sessionId");
-	JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, aamp_CStringToJSValue(p_obj->_ctx, evt->GetSessionId().c_str()), kJSPropertyAttributeReadOnly, NULL);
+	JSObjectSetProperty(mContext, jsEventObj, prop, aamp_CStringToJSValue(mContext, evt->GetSessionId().c_str()), kJSPropertyAttributeReadOnly, NULL);
 	JSStringRelease(prop);
 }
 
@@ -1871,6 +1927,7 @@ void AAMP_JSEventListener::AddEventListener(PrivAAMPStruct_JS* obj, AAMPEventTyp
 		for (auto iter = range.first; iter != range.second; ++iter)
 		{
 			auto listener = std::static_pointer_cast<AAMP_JSEventListener>(iter->second);
+			std::lock_guard<std::mutex> lock(listener->mStateMutex);
 			if (listener->p_jsCallback == jsCallback)
 			{
 				// Listener already registered for this type and callback, ignore registration
@@ -2013,12 +2070,22 @@ void AAMP_JSEventListener::RemoveEventListener(PrivAAMPStruct_JS* obj, AAMPEvent
 		for(listenerIter_t iter = range.first; iter != range.second; )
 		{
 			auto listener = std::static_pointer_cast<AAMP_JSEventListener>((iter->second));
+			std::lock_guard<std::mutex> lock(listener->mStateMutex);
 			if (listener->p_jsCallback == jsCallback)
 			{
 				if (obj->_aamp != NULL)
 				{
 					obj->_aamp->RemoveEventListener(iter->first, listener);
 				}
+				listener->mDetached = true;
+				listener->p_obj = NULL;
+				if (listener->mDispatchCount == 0 && listener->mCallbackProtected)
+				{
+					JSValueUnprotect(listener->mContext, listener->mProtectedCallback);
+					listener->mCallbackProtected = false;
+				}
+				listener->p_jsCallback = NULL;
+
 				iter = obj->_listeners.erase(iter);
 			}
 			else
@@ -2045,6 +2112,19 @@ void AAMP_JSEventListener::RemoveAllEventListener(PrivAAMPStruct_JS * obj)
 		{
 			obj->_aamp->RemoveEventListener(listenerIter->first, listener);
 		}
+
+		{
+			std::lock_guard<std::mutex> lock(listener->mStateMutex);
+			listener->mDetached = true;
+			listener->p_obj = NULL;
+			if (listener->mDispatchCount == 0 && listener->mCallbackProtected)
+			{
+				JSValueUnprotect(listener->mContext, listener->mProtectedCallback);
+				listener->mCallbackProtected = false;
+			}
+			listener->p_jsCallback = NULL;
+		}
+
 		listenerIter = obj->_listeners.erase(listenerIter);
 	}
 
