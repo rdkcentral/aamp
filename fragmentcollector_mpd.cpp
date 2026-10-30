@@ -4675,8 +4675,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 					aamp->mPipelineIsClear = false;
 					aamp->mEncryptedPeriodFound = false;
 				}
-				else if (ISCONFIGSET(eAAMPConfig_UseMp4Demux) &&
-					AampStreamSinkManager::GetInstance().IsEncryptedHeadersCached())
+				else if (AampStreamSinkManager::GetInstance().IsEncryptedHeadersCached())
 				{
 					AAMPLOG_WARN("Encrypted headers were previously cached, forcing encrypted track state before init fetch");
 					for (int track = 0; track < mNumberOfTracks; track++)
