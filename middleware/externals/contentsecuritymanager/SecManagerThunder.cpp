@@ -36,9 +36,10 @@
 /**
  * @brief SecManagerThunder Constructor
  */
-SecManagerThunder::SecManagerThunder() : mSecManagerObj(SECMANAGER_CALL_SIGN), mSecMutex(), mSchedulerStarted(false),
-	mRegisteredEvents(), mWatermarkPluginObj(WATERMARK_PLUGIN_CALLSIGN), mWatMutex(), mSpeedStateMutex(),
-	mLoadClutMutex(), mLoadClutInFlight()
+SecManagerThunder::SecManagerThunder() : mSecManagerObj(SECMANAGER_CALL_SIGN),
+	mWatermarkPluginObj(WATERMARK_PLUGIN_CALLSIGN), mSecMutex(), mWatMutex(), mSpeedStateMutex(),
+	mLoadClutMutex(), mLoadClutInFlight(), mWatermarkOpMutex(), mWatermarkGeneration(),
+	mWatermarkActive(), mRegisteredEvents(), mSchedulerStarted(false)
 {
 	std::lock_guard<std::mutex> lock(mSecMutex);
 	mSecManagerObj.ActivatePlugin();	
@@ -630,28 +631,42 @@ void SecManagerThunder::addWatermarkHandler(const JsonObject& parameters)
 	{
 		int graphicId = parameters["graphicId"].Number();
 		int zIndex = parameters["zIndex"].Number();
-		MW_LOG_WARN("ContentSecurityManager::%s:%d graphicId : %d index : %d ", __FUNCTION__, __LINE__, graphicId, zIndex);
-		ScheduleTask(PlayerAsyncTaskObj([graphicId, zIndex](void *data)
-					{
-					SecManagerThunder *instance = static_cast<SecManagerThunder *>(data);
-					instance->CreateWatermark(graphicId, zIndex);
-					}, (void *) ContentSecurityManager::GetInstance()));
-
 		int smKey = parameters["graphicImageBufferKey"].Number();
 		int smSize = parameters["graphicImageSize"].Number();/*ToDo : graphicImageSize (long) long conversion*/
 		bool adjustVisibility = parameters["adjustVisibilityRequired"].Boolean();
 		int sessionId = parameters["sessionId"].Number();
+		MW_LOG_WARN("ContentSecurityManager::%s:%d graphicId : %d index : %d ", __FUNCTION__, __LINE__, graphicId, zIndex);
 		MW_LOG_WARN("ContentSecurityManager::%s:%d graphicId : %d smKey: %d smSize: %d", __FUNCTION__, __LINE__, graphicId, smKey, smSize);
-		ContentSecurityManager::GetInstance()->ScheduleTask(PlayerAsyncTaskObj([graphicId, smKey, smSize, adjustVisibility, sessionId](void *data)
+		int taskId = PLAYER_TASK_ID_INVALID;
+		{
+			std::lock_guard<std::mutex> lock(mWatermarkOpMutex);
+			const std::uint64_t generation = ++mWatermarkGeneration[graphicId];
+			mWatermarkActive.insert(graphicId);
+			// Keep each add lifecycle contiguous on the scheduler's FIFO worker.
+			taskId = ScheduleTask(PlayerAsyncTaskObj([graphicId, zIndex, smKey, smSize, adjustVisibility, sessionId, generation](void *data)
 					{
 					SecManagerThunder *instance = static_cast<SecManagerThunder *>(data);
-					instance->UpdateWatermark(graphicId, smKey, smSize);
-					if (adjustVisibility)
+					if (!instance->IsWatermarkOpCurrent(graphicId, generation))
 					{
-					    MW_LOG_WARN("ContentSecurityManager::addWatermarkHandler adjustVisibilityRequired is true, invoking GetWaterMarkPalette after UpdateWatermark. graphicId : %d", graphicId);
-					    instance->GetWaterMarkPalette(sessionId, graphicId);
+						return;
 					}
-					}, (void *)ContentSecurityManager::GetInstance()));
+					instance->CreateWatermark(graphicId, zIndex);
+					if (!instance->IsWatermarkOpCurrent(graphicId, generation))
+					{
+						return;
+					}
+					instance->UpdateWatermark(graphicId, smKey, smSize);
+					if (adjustVisibility && instance->IsWatermarkOpCurrent(graphicId, generation))
+					{
+						MW_LOG_WARN("ContentSecurityManager::addWatermarkHandler adjustVisibilityRequired is true, invoking GetWaterMarkPalette after UpdateWatermark. graphicId : %d", graphicId);
+						instance->GetWaterMarkPalette(sessionId, graphicId, generation);
+					}
+					}, (void *)ContentSecurityManager::GetInstance(), "WatermarkAdd"));
+		}
+		if (taskId == PLAYER_TASK_ID_INVALID)
+		{
+			MW_LOG_ERR("ContentSecurityManager::%s failed to schedule add operations for graphicId %d", __FUNCTION__, graphicId);
+		}
 
 		if (!adjustVisibility)
 		{
@@ -681,11 +696,32 @@ void SecManagerThunder::updateWatermarkHandler(const JsonObject& parameters)
 		int clutKey = parameters["watermarkClutBufferKey"].Number();
 		int imageKey = parameters["watermarkImageBufferKey"].Number();
 		MW_LOG_TRACE("graphicId : %d ",graphicId);
-		ContentSecurityManager::GetInstance()->ScheduleTask(PlayerAsyncTaskObj([graphicId, clutKey, imageKey](void *data)
+		int taskId = PLAYER_TASK_ID_INVALID;
+		bool watermarkActive = false;
+		{
+			std::lock_guard<std::mutex> lock(mWatermarkOpMutex);
+			watermarkActive = (mWatermarkActive.count(graphicId) > 0);
+			if (watermarkActive)
+			{
+				const std::uint64_t generation = mWatermarkGeneration[graphicId];
+				taskId = ScheduleTask(PlayerAsyncTaskObj([graphicId, clutKey, imageKey, generation](void *data)
 					{
 					SecManagerThunder *instance = static_cast<SecManagerThunder *>(data);
-					instance->ModifyWatermarkPalette(graphicId, clutKey, imageKey);
-					}, (void *) ContentSecurityManager::GetInstance()));
+					if (instance->IsWatermarkOpCurrent(graphicId, generation))
+					{
+						instance->ModifyWatermarkPalette(graphicId, clutKey, imageKey);
+					}
+					}, (void *) ContentSecurityManager::GetInstance(), "WatermarkModifyPalette"));
+			}
+		}
+		if (!watermarkActive)
+		{
+			MW_LOG_INFO("ContentSecurityManager::%s ignored palette modification for inactive graphicId %d", __FUNCTION__, graphicId);
+		}
+		else if (taskId == PLAYER_TASK_ID_INVALID)
+		{
+			MW_LOG_ERR("ContentSecurityManager::%s failed to schedule palette modification for graphicId %d", __FUNCTION__, graphicId);
+		}
 	}
 	return;
 }
@@ -704,15 +740,25 @@ void SecManagerThunder::removeWatermarkHandler(const JsonObject& parameters)
 	{
 		int graphicId = parameters["graphicId"].Number();
 		MW_LOG_WARN("ContentSecurityManager::%s:%d graphicId : %d ", __FUNCTION__, __LINE__, graphicId);
+		int taskId = PLAYER_TASK_ID_INVALID;
 		{
-			std::lock_guard<std::mutex> lock(mLoadClutMutex);
-			mLoadClutInFlight.erase(graphicId);
-		}
-		ContentSecurityManager::GetInstance()->ScheduleTask(PlayerAsyncTaskObj([graphicId](void *data)
+			std::lock_guard<std::mutex> lock(mWatermarkOpMutex);
+			++mWatermarkGeneration[graphicId];
+			mWatermarkActive.erase(graphicId);
+			{
+				std::lock_guard<std::mutex> clutLock(mLoadClutMutex);
+				mLoadClutInFlight.erase(graphicId);
+			}
+			taskId = ScheduleTask(PlayerAsyncTaskObj([graphicId](void *data)
 					{
 					SecManagerThunder *instance = static_cast<SecManagerThunder *>(data);
 					instance->DeleteWatermark(graphicId);
-					}, (void *) ContentSecurityManager::GetInstance()));
+					}, (void *) ContentSecurityManager::GetInstance(), "WatermarkDelete"));
+		}
+		if (taskId == PLAYER_TASK_ID_INVALID)
+		{
+			MW_LOG_ERR("ContentSecurityManager::%s failed to schedule delete for graphicId %d", __FUNCTION__, graphicId);
+		}
 #if 0
 		/*Method to be called only if RDKShell is used for rendering*/
 		ContentSecurityManager::GetInstance()->ScheduleTask(PlayerAsyncTaskObj([show](void *data)
@@ -905,11 +951,36 @@ void SecManagerThunder::AlwaysShowWatermarkOnTop(bool show)
 	}
 }
 
+bool SecManagerThunder::IsWatermarkOpCurrent(int graphicId, std::uint64_t generation)
+{
+	std::uint64_t currentGeneration = 0;
+	bool current = false;
+	{
+		std::lock_guard<std::mutex> lock(mWatermarkOpMutex);
+		auto it = mWatermarkGeneration.find(graphicId);
+		if (it != mWatermarkGeneration.end() && mWatermarkActive.count(graphicId) > 0)
+		{
+			currentGeneration = it->second;
+			current = (currentGeneration == generation);
+		}
+	}
+	if (!current)
+	{
+		MW_LOG_INFO("ContentSecurityManager dropping stale watermark operation for graphicId %d (generation %llu, current %llu)",
+				graphicId, static_cast<unsigned long long>(generation), static_cast<unsigned long long>(currentGeneration));
+	}
+	return current;
+}
+
 /**
  * @brief GetWaterMarkPalette
  */
-void SecManagerThunder::GetWaterMarkPalette(int sessionId, int graphicId)
+void SecManagerThunder::GetWaterMarkPalette(int sessionId, int graphicId, std::uint64_t generation)
 {
+	if (!IsWatermarkOpCurrent(graphicId, generation))
+	{
+		return;
+	}
 	{
 		std::lock_guard<std::mutex> lock(mLoadClutMutex);
 		if (mLoadClutInFlight.count(graphicId) > 0)
@@ -927,6 +998,14 @@ void SecManagerThunder::GetWaterMarkPalette(int sessionId, int graphicId)
 	{
 		std::lock_guard<std::mutex> lock(mWatMutex);
 		rpcResult =  mWatermarkPluginObj.InvokeJSONRPC("getPalettedWatermark", param, result);
+	}
+
+	if (!IsWatermarkOpCurrent(graphicId, generation))
+	{
+		MW_LOG_INFO("ContentSecurityManager suppressing stale palette result for graphicId %d", graphicId);
+		std::lock_guard<std::mutex> lock(mLoadClutMutex);
+		mLoadClutInFlight.erase(graphicId);
+		return;
 	}
 
 	if (rpcResult)
@@ -997,4 +1076,3 @@ void SecManagerThunder::ModifyWatermarkPalette(int graphicId, int clutKey, int i
 		MW_LOG_ERR("ContentSecurityManager Thunder invocation for modifyPalettedWatermark failed!, graphic id: %d", graphicId);
 	}
 }
-
