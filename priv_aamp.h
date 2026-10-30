@@ -532,6 +532,7 @@ typedef struct BlacklistProfileInfo_t
 class AampCacheHandler;
 
 class AampDRMLicenseManager;
+class DrmSession;
 /**
  * @brief
  *
@@ -1356,6 +1357,14 @@ public:
 	 * @return void
 	 */
 	void LicenseRenewal(DrmHelperPtr drmHelper,void* userData) override;
+	/**
+	 * @brief Handle an unusable DRM session reported by middleware.
+	 *
+	 * @param[in] session Session that reported the error.
+	 * @param[in] message Error details supplied by middleware.
+	 */
+	void DrmSessionError(
+		DrmSession* session, const std::string& message);
 	/**
 	 * @fn CurlTerm
 	 *
