@@ -1493,7 +1493,18 @@ void AampDRMLicenseManager::clearDrmSession(bool forceClearSession)
  */
 void AampDRMLicenseManager::clearFailedKeyIds()
 {
+	std::lock_guard<std::mutex> lock(mSessionFailureMutex);
 	mDrmSessionManager->clearFailedKeyIds();
+	mDecryptFailureFlagged = false;
+}
+
+/**
+ * @brief Evict only the failed sessions
+ */
+void AampDRMLicenseManager::clearFailedSessions()
+{
+	clearDrmSession(false);
+	mDrmSessionManager->clearFailedSlots();
 }
 
 /**
@@ -1539,7 +1550,57 @@ DrmSession* AampDRMLicenseManager::createDrmSession( std::shared_ptr<DrmHelper> 
 		eventHandle->setFailure(MapDrmToAampTuneFailure(static_cast<DrmTuneFailure>(err)));
 		AAMPLOG_ERR("DRM session creation failed with middleware error: %d", err);
 	}
+	// Problem 1: a DRM setup error left the failed session cached and reusable.
+	// Fix 1: evict the failed session slot right away (see invalidateFailedDrmSession).
+	invalidateFailedDrmSession(session, err);
 	return session;
+}
+
+/**
+ * @brief Problem 2/3: a decrypt failure did not invalidate the cached session.
+ *        Fix 2/3: flag the sessions created for the tracks (without deleting them, as a running
+ *        pipeline may still use them); the tune-start clearDrmSession() evicts the flagged slots.
+ */
+int AampDRMLicenseManager::markActiveSessionsFailed()
+{
+	// Sessions are tracked by DrmSessionManager, as the gst decryptor plugin creates them
+	// without going through this class.
+	size_t total = 0;
+	// Marking and publishing the deferral flag must be atomic w.r.t. invalidateFailedDrmSession,
+	// otherwise a concurrent failed creation could evict a session the pipeline still uses.
+	std::lock_guard<std::mutex> lock(mSessionFailureMutex);
+	int flagged = mDrmSessionManager->markActiveSessionsFailed(total);
+	if (flagged > 0)
+	{
+		mDecryptFailureFlagged = true;
+	}
+	AAMPLOG_WARN("Flagged %d of %zu tracked DRM sessions as failed", flagged, total);
+	return flagged;
+}
+
+/**
+ * @brief Problem 1: a failed DRM session setup left the broken session cached.
+ *        Fix 1: evict only the slot(s) flagged failed; valid sessions are untouched.
+ */
+void AampDRMLicenseManager::invalidateFailedDrmSession(const DrmSession* session, int err)
+{
+	// License acquisition and multi-key validation failures return a null session without setting err
+	if (err != -1 || session == nullptr)
+	{
+		// Held across the flag check and the eviction so both are one atomic step
+		std::lock_guard<std::mutex> lock(mSessionFailureMutex);
+		if (mDecryptFailureFlagged)
+		{
+			// A session in use by the pipeline is flagged after a decrypt failure; evicting now
+			// would delete it. It is evicted at the next tune start instead.
+			AAMPLOG_WARN("DRM session creation failed, deferring eviction until the next tune start");
+			return;
+		}
+		AAMPLOG_WARN("DRM session creation failed (err=%d, session=%p), clearing failed session", err, session);
+		// Only the slot flagged as failed is evicted and reset; valid sessions and the
+		// primary key markers of other slots are left untouched.
+		clearFailedSessions();
+	}
 }
 
 /**
@@ -1567,6 +1628,8 @@ DrmSession * AampDRMLicenseManager::createDrmSession(
 		eventHandle->setFailure(MapDrmToAampTuneFailure(static_cast<DrmTuneFailure>(err)));
 		AAMPLOG_ERR("DRM session creation failed with middleware error: %d", err);
 	}
+	// Problem 1 / Fix 1: same eviction of the failed session for the PSSH based overload
+	invalidateFailedDrmSession(session, err);
 	return session;
 }
 

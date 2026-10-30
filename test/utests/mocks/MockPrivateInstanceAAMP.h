@@ -48,6 +48,7 @@ public:
 	MOCK_METHOD(std::string, GetAvailableAudioTracks, (bool allTrack));
 	MOCK_METHOD(int,GetAudioTrack,());
 	MOCK_METHOD(void, SendErrorEvent, (AAMPTuneFailure, const char *, bool, int32_t, int32_t, int32_t, const std::string &));
+	MOCK_METHOD(void, ScheduleRetune, (PlaybackErrorType, AampMediaType));
 	MOCK_METHOD(void, SendDownloadErrorEvent, (AAMPTuneFailure, long));
 	MOCK_METHOD(void, SendStreamTransfer, (AampMediaType, std::vector<uint8_t>&, double, double, double, double, bool, bool));
 	MOCK_METHOD(void, SendStreamTransfer, (AampMediaType, AampMediaSample&&, bool));

@@ -464,6 +464,188 @@ TEST_F(AampDRMLicManagerTests, ValidateDRMSessionIdEmpty)
 }
 
 /**
+ * @brief A middleware session-creation error evicts only the failed session.
+ *
+ * clearDrmSession(false) must be invoked before clearFailedSlots(), and neither the
+ * force-clear variant (which would drop valid sessions) nor clearFailedKeyIds() (which resets the primary
+ * key marker of every slot) may be used.
+ */
+TEST_F(AampDRMLicManagerTests, CreateDrmSessionFailureClearsFailedSessionOnly)
+{
+	std::shared_ptr<MockDrmHelper> drmHelper = std::make_shared<MockDrmHelper>();
+	std::string systemId = "com.widevine.alpha";
+	EXPECT_CALL(*drmHelper, ocdmSystemId()).WillRepeatedly(testing::ReturnRef(systemId));
+
+	g_mockDrmMetaDataEvent = std::make_shared<NiceMock<MockDrmMetaDataEvent>>(
+		AAMP_TUNE_FAILURE_UNKNOWN, "", 0, 0, false, "");
+
+	EXPECT_CALL(*g_mockDRMSessionManager, createDrmSession(_, _, _, _, _, _))
+		.WillOnce(DoAll(SetArgReferee<1>(MW_DRM_SESSION_CREATE_FAILED), Return(nullptr)));
+
+	testing::Sequence seq;
+	EXPECT_CALL(*g_mockDRMSessionManager, clearDrmSession(false)).InSequence(seq);
+	EXPECT_CALL(*g_mockDRMSessionManager, clearFailedSlots()).InSequence(seq);
+	EXPECT_CALL(*g_mockDRMSessionManager, clearFailedKeyIds()).Times(0);
+	EXPECT_CALL(*g_mockDRMSessionManager, clearDrmSession(true)).Times(0);
+
+	DrmSession* result = mTestableDRMLicenseManager->createDrmSession(
+		drmHelper, mPrivateInstanceAAMP.get(), g_mockDrmMetaDataEvent, (int)eMEDIATYPE_VIDEO);
+	EXPECT_EQ(result, nullptr);
+
+	g_mockDrmMetaDataEvent.reset();
+}
+
+/**
+ * @brief A null session without a middleware error code (e.g. license acquisition
+ *        failure) must also evict the failed session, and must not report a new failure.
+ */
+TEST_F(AampDRMLicManagerTests, CreateDrmSessionNullSessionWithoutErrorClearsFailedSession)
+{
+	std::shared_ptr<MockDrmHelper> drmHelper = std::make_shared<MockDrmHelper>();
+	std::string systemId = "com.widevine.alpha";
+	EXPECT_CALL(*drmHelper, ocdmSystemId()).WillRepeatedly(testing::ReturnRef(systemId));
+
+	g_mockDrmMetaDataEvent = std::make_shared<NiceMock<MockDrmMetaDataEvent>>(
+		AAMP_TUNE_FAILURE_UNKNOWN, "", 0, 0, false, "");
+	EXPECT_CALL(*g_mockDrmMetaDataEvent, setFailure(_)).Times(0);
+
+	EXPECT_CALL(*g_mockDRMSessionManager, createDrmSession(_, _, _, _, _, _))
+		.WillOnce(DoAll(SetArgReferee<1>(-1), Return(nullptr)));
+
+	EXPECT_CALL(*g_mockDRMSessionManager, clearDrmSession(false)).Times(1);
+	EXPECT_CALL(*g_mockDRMSessionManager, clearFailedSlots()).Times(1);
+	EXPECT_CALL(*g_mockDRMSessionManager, clearFailedKeyIds()).Times(0);
+	EXPECT_CALL(*g_mockDRMSessionManager, clearDrmSession(true)).Times(0);
+
+	DrmSession* result = mTestableDRMLicenseManager->createDrmSession(
+		drmHelper, mPrivateInstanceAAMP.get(), g_mockDrmMetaDataEvent, (int)eMEDIATYPE_VIDEO);
+	EXPECT_EQ(result, nullptr);
+
+	g_mockDrmMetaDataEvent.reset();
+}
+
+/**
+ * @brief Regression: the success path must not touch the session cache.
+ */
+TEST_F(AampDRMLicManagerTests, CreateDrmSessionSuccessDoesNotClearSessions)
+{
+	std::shared_ptr<MockDrmHelper> drmHelper = std::make_shared<MockDrmHelper>();
+	std::string systemId = "com.widevine.alpha";
+	EXPECT_CALL(*drmHelper, ocdmSystemId()).WillRepeatedly(testing::ReturnRef(systemId));
+
+	g_mockDrmMetaDataEvent = std::make_shared<NiceMock<MockDrmMetaDataEvent>>(
+		AAMP_TUNE_FAILURE_UNKNOWN, "", 0, 0, false, "");
+
+	// Identity only; never dereferenced.
+	DrmSession* mockSession = reinterpret_cast<DrmSession*>(0xDEADBEEF);
+	EXPECT_CALL(*g_mockDRMSessionManager, createDrmSession(_, _, _, _, _, _))
+		.WillOnce(DoAll(SetArgReferee<1>(-1), Return(mockSession)));
+
+	EXPECT_CALL(*g_mockDRMSessionManager, clearDrmSession(_)).Times(0);
+	EXPECT_CALL(*g_mockDRMSessionManager, clearFailedSlots()).Times(0);
+	EXPECT_CALL(*g_mockDRMSessionManager, clearFailedKeyIds()).Times(0);
+
+	DrmSession* result = mTestableDRMLicenseManager->createDrmSession(
+		drmHelper, mPrivateInstanceAAMP.get(), g_mockDrmMetaDataEvent, (int)eMEDIATYPE_VIDEO);
+	EXPECT_EQ(result, mockSession);
+
+	g_mockDrmMetaDataEvent.reset();
+}
+
+/**
+ * @brief The PSSH-based overload shares the same eviction behaviour
+ *        (the fake DrmSessionManager returns a null session for it).
+ */
+TEST_F(AampDRMLicManagerTests, CreateDrmSessionFromPsshFailureClearsFailedSession)
+{
+	g_mockDrmMetaDataEvent = std::make_shared<NiceMock<MockDrmMetaDataEvent>>(
+		AAMP_TUNE_FAILURE_UNKNOWN, "", 0, 0, false, "");
+
+	EXPECT_CALL(*g_mockDRMSessionManager, clearDrmSession(false)).Times(1);
+	EXPECT_CALL(*g_mockDRMSessionManager, clearFailedSlots()).Times(1);
+	EXPECT_CALL(*g_mockDRMSessionManager, clearFailedKeyIds()).Times(0);
+	EXPECT_CALL(*g_mockDRMSessionManager, clearDrmSession(true)).Times(0);
+
+	const unsigned char initData[] = {0x00};
+	DrmSession* result = mTestableDRMLicenseManager->createDrmSession(
+		"edef8ba9-79d6-4ace-a3c8-27dcd51d21ed", eMEDIAFORMAT_DASH, initData, sizeof(initData),
+		(int)eMEDIATYPE_VIDEO, mPrivateInstanceAAMP.get(), g_mockDrmMetaDataEvent);
+	EXPECT_EQ(result, nullptr);
+
+	g_mockDrmMetaDataEvent.reset();
+}
+
+/**
+ * @brief Session tracking lives in DrmSessionManager (the gst decryptor plugin creates sessions
+ *        without going through the license manager); the license manager delegates to it.
+ */
+TEST_F(AampDRMLicManagerTests, MarkActiveSessionsFailedDelegatesToSessionManager)
+{
+	EXPECT_CALL(*g_mockDRMSessionManager, markActiveSessionsFailed(_))
+		.WillOnce(DoAll(SetArgReferee<0>(2), Return(1)));
+	EXPECT_CALL(*g_mockDRMSessionManager, clearDrmSession(_)).Times(0);
+	EXPECT_CALL(*g_mockDRMSessionManager, clearFailedSlots()).Times(0);
+
+	EXPECT_EQ(mTestableDRMLicenseManager->markActiveSessionsFailed(), 1);
+}
+
+/**
+ * @brief Nothing flagged (e.g. no tracked sessions): the deferral flag stays unset so a failed
+ *        creation still evicts immediately.
+ */
+TEST_F(AampDRMLicManagerTests, MarkActiveSessionsFailedNothingFlaggedKeepsImmediateEviction)
+{
+	g_mockDrmMetaDataEvent = std::make_shared<NiceMock<MockDrmMetaDataEvent>>(
+		AAMP_TUNE_FAILURE_UNKNOWN, "", 0, 0, false, "");
+	auto helper = std::make_shared<NiceMock<MockDrmHelper>>();
+
+	EXPECT_CALL(*g_mockDRMSessionManager, markActiveSessionsFailed(_)).WillOnce(Return(0));
+	EXPECT_EQ(mTestableDRMLicenseManager->markActiveSessionsFailed(), 0);
+
+	EXPECT_CALL(*g_mockDRMSessionManager, createDrmSession(_, _, _, _, _, _))
+		.WillOnce(DoAll(SetArgReferee<1>(MW_DRM_SESSION_CREATE_FAILED), Return(nullptr)));
+	EXPECT_CALL(*g_mockDRMSessionManager, clearDrmSession(false)).Times(1);
+	EXPECT_CALL(*g_mockDRMSessionManager, clearFailedSlots()).Times(1);
+	mTestableDRMLicenseManager->createDrmSession(helper, mPrivateInstanceAAMP.get(), g_mockDrmMetaDataEvent, (int)eMEDIATYPE_VIDEO);
+
+	g_mockDrmMetaDataEvent.reset();
+}
+
+/**
+ * @brief After active sessions were flagged for a decrypt failure, a later failed creation must not
+ *        evict immediately (the flagged session may still be used by the pipeline). The eviction is
+ *        deferred to the next tune start, which re-enables the immediate eviction.
+ */
+TEST_F(AampDRMLicManagerTests, FailedCreationDefersEvictionAfterDecryptFailureFlagged)
+{
+	auto helper = std::make_shared<NiceMock<MockDrmHelper>>();
+	g_mockDrmMetaDataEvent = std::make_shared<NiceMock<MockDrmMetaDataEvent>>(
+		AAMP_TUNE_FAILURE_UNKNOWN, "", 0, 0, false, "");
+
+	EXPECT_CALL(*g_mockDRMSessionManager, markActiveSessionsFailed(_)).WillOnce(Return(1));
+	EXPECT_EQ(mTestableDRMLicenseManager->markActiveSessionsFailed(), 1);
+	testing::Mock::VerifyAndClearExpectations(g_mockDRMSessionManager.get());
+
+	// Failed creation while a flagged session may still be in use: nothing is evicted now
+	EXPECT_CALL(*g_mockDRMSessionManager, createDrmSession(_, _, _, _, _, _))
+		.WillOnce(DoAll(SetArgReferee<1>(MW_DRM_SESSION_CREATE_FAILED), Return(nullptr)));
+	EXPECT_CALL(*g_mockDRMSessionManager, clearDrmSession(_)).Times(0);
+	EXPECT_CALL(*g_mockDRMSessionManager, clearFailedSlots()).Times(0);
+	mTestableDRMLicenseManager->createDrmSession(helper, mPrivateInstanceAAMP.get(), g_mockDrmMetaDataEvent, (int)eMEDIATYPE_VIDEO);
+	testing::Mock::VerifyAndClearExpectations(g_mockDRMSessionManager.get());
+
+	// Next tune start re-enables the immediate eviction of failed creations
+	mTestableDRMLicenseManager->clearFailedKeyIds();
+	EXPECT_CALL(*g_mockDRMSessionManager, createDrmSession(_, _, _, _, _, _))
+		.WillOnce(DoAll(SetArgReferee<1>(MW_DRM_SESSION_CREATE_FAILED), Return(nullptr)));
+	EXPECT_CALL(*g_mockDRMSessionManager, clearDrmSession(false)).Times(1);
+	EXPECT_CALL(*g_mockDRMSessionManager, clearFailedSlots()).Times(1);
+	mTestableDRMLicenseManager->createDrmSession(helper, mPrivateInstanceAAMP.get(), g_mockDrmMetaDataEvent, (int)eMEDIATYPE_VIDEO);
+
+	g_mockDrmMetaDataEvent.reset();
+}
+
+/**
  * @brief Validates all networkMetrics JSON keys produced by UpdateLicenseMetrics
  *
  * Verifies that all expected keys (req, res, tot, url, con, str, dns, acn, ptr, rdt, dls, rqs)
