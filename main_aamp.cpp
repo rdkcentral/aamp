@@ -758,6 +758,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 				}
 			}
 			bool retValue = true;
+			bool seekWhilePausedFramePending = false;
 
 			if (rate >= AAMP_NORMAL_PLAY_RATE &&
 				aamp->IsAtLivePoint() &&
@@ -921,6 +922,10 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 						// check if unpausing in the middle of fragments caching
 						if(!aamp->SetStateBufferingIfRequired())
 						{
+							// A seek while paused may still be waiting for its first video frame (pipeline prerolling).
+							// Forcing PLAYING now would end the SEEKING state before the pipeline can report a valid position,
+							// so let NotifyFirstVideoFrameDisplayed() move to PLAYING instead.
+							seekWhilePausedFramePending = aamp->CancelPauseOnFirstVideoFrame();
 							aamp->mpStreamAbstractionAAMP->NotifyPlaybackPaused(false);
 							StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(aamp);
 							if (sink)
@@ -939,6 +944,9 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 			{
 				if (!aamp->pipeline_paused)
 				{
+					// A resume may have cancelled the pause on first frame of a seek while paused; keep the latest pause intent.
+					// The state stays SEEKING in that case and NotifyFirstVideoFrameDisplayed() will move it to PAUSED.
+					seekWhilePausedFramePending = aamp->RearmPauseOnFirstVideoFrame();
 					aamp->mpStreamAbstractionAAMP->NotifyPlaybackPaused(true);
 					if (!aamp->IsLocalAAMPTsb())
 					{
@@ -1008,9 +1016,16 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 			if(retValue)
 			{
 				// Do not update state if fragments caching is ongoing and pipeline not paused,
-				// target state will be updated once caching completed
-				aamp->NotifySpeedChanged(aamp->pipeline_paused ? 0 : aamp->rate,
-										 (!aamp->IsFragmentCachingRequired() || aamp->pipeline_paused));
+				// target state will be updated once caching completed.
+				// Likewise leave the state to NotifyFirstVideoFrameDisplayed() if a seek while paused is still prerolling.
+				const float notifyRate = aamp->pipeline_paused ? 0 : aamp->rate;
+				if (seekWhilePausedFramePending)
+				{
+					// Only the player state transition is deferred; subtitle pause/resume must still follow the request
+					aamp->ApplySpeedChangeEffects(notifyRate);
+				}
+				aamp->NotifySpeedChanged(notifyRate,
+										 !seekWhilePausedFramePending && (!aamp->IsFragmentCachingRequired() || aamp->pipeline_paused));
 			}
 		}
 		else
