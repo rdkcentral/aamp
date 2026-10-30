@@ -31,8 +31,10 @@
 #include "MockJavaScriptCore.h"
 
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <condition_variable>
+#include <future>
 #include <memory>
 #include <mutex>
 #include <thread>
@@ -286,13 +288,25 @@ TEST_F(JsBindingTests, EventOnDetachedListenerIsNoOp)
 
 TEST_F(JsBindingTests, TeardownDuringEventDispatchDoesNotTouchOwner)
 {
+	JSGlobalContextRef ctx = reinterpret_cast<JSGlobalContextRef>(0x1234);
+	JSObjectRef jsCallback = reinterpret_cast<JSObjectRef>(0x5678);
+	std::atomic<int> callbackProtectCount{0};
+	std::atomic<int> callbackUnprotectCount{0};
+
+	EXPECT_CALL(*g_mockJavaScriptCore, JSValueProtect(_, _)).Times(testing::AnyNumber());
+	EXPECT_CALL(*g_mockJavaScriptCore, JSValueUnprotect(_, _)).Times(testing::AnyNumber());
+	EXPECT_CALL(*g_mockJavaScriptCore, JSValueProtect(ctx, jsCallback))
+		.WillRepeatedly(testing::InvokeWithoutArgs([&]() { callbackProtectCount++; }));
+	EXPECT_CALL(*g_mockJavaScriptCore, JSValueUnprotect(ctx, jsCallback))
+		.WillRepeatedly(testing::InvokeWithoutArgs([&]() { callbackUnprotectCount++; }));
+
 	PrivAAMPStruct_JS *obj = new PrivAAMPStruct_JS();
 	obj->_aamp = playerInstanceAAMP;
-	obj->_ctx = reinterpret_cast<JSGlobalContextRef>(0x1234);
+	obj->_ctx = ctx;
 
-	JSObjectRef jsCallback = reinterpret_cast<JSObjectRef>(0x5678);
 	AAMP_JSEventListener::AddEventListener(obj, AAMP_EVENT_STATE_CHANGED, jsCallback);
 	ASSERT_EQ(obj->_listeners.size(), 1u);
+	EXPECT_EQ(callbackProtectCount, 1);
 	auto inFlightRef = std::static_pointer_cast<AAMP_JSEventListener>(obj->_listeners.begin()->second);
 
 	std::mutex callbackMutex;
@@ -305,7 +319,11 @@ TEST_F(JsBindingTests, TeardownDuringEventDispatchDoesNotTouchOwner)
 			std::unique_lock<std::mutex> lock(callbackMutex);
 			callbackEntered = true;
 			callbackCondition.notify_one();
-			callbackCondition.wait(lock, [&]() { return releaseCallback; });
+			// Bounded so that teardown blocking behind dispatch fails instead of hanging.
+			bool released = callbackCondition.wait_for(lock, std::chrono::seconds(5), [&]() {
+				return releaseCallback;
+			});
+			EXPECT_TRUE(released) << "Teardown blocked behind in-flight event dispatch";
 			return nullptr;
 		}));
 
@@ -336,12 +354,64 @@ TEST_F(JsBindingTests, TeardownDuringEventDispatchDoesNotTouchOwner)
 	delete obj;
 	obj = nullptr;
 
+	// The callback is still executing, so removal must not release it.
+	EXPECT_EQ(callbackUnprotectCount, 0);
+
 	{
 		std::lock_guard<std::mutex> lock(callbackMutex);
 		releaseCallback = true;
 	}
 	callbackCondition.notify_one();
 	dispatchThread.join();
+
+	// Finishing the in-flight dispatch releases the callback exactly once...
+	EXPECT_EQ(callbackUnprotectCount, 1);
+
+	// ...and dropping the last listener reference must not release it again.
+	inFlightRef.reset();
+	EXPECT_EQ(callbackUnprotectCount, 1);
+	EXPECT_EQ(callbackProtectCount, 1);
+}
+
+// Building the JS event object allocates on the JS heap, which can run GC and finalize
+// the owning player (RemoveAllEventListener() followed by delete). That must neither
+// deadlock on listener state nor leave event construction touching the freed owner.
+TEST_F(JsBindingTests, OwnerFinalizedDuringEventConstruction)
+{
+	PrivAAMPStruct_JS *obj = new PrivAAMPStruct_JS();
+	obj->_aamp = playerInstanceAAMP;
+	obj->_ctx = reinterpret_cast<JSGlobalContextRef>(0x1234);
+
+	JSObjectRef jsCallback = reinterpret_cast<JSObjectRef>(0x5678);
+	AAMP_JSEventListener::AddEventListener(obj, AAMP_EVENT_STATE_CHANGED, jsCallback);
+	ASSERT_EQ(obj->_listeners.size(), 1u);
+	auto inFlightRef = std::static_pointer_cast<AAMP_JSEventListener>(obj->_listeners.begin()->second);
+
+	std::future<void> finalizer;
+	EXPECT_CALL(*g_mockJavaScriptCore, JSObjectSetProperty(_, _, _, _, _, _))
+		.WillOnce(testing::InvokeWithoutArgs([&]() {
+			// Finalize from another thread so a listener lock held across event
+			// construction shows up as a timeout rather than a self-deadlock.
+			finalizer = std::async(std::launch::async, [obj]() {
+				AAMP_JSEventListener::RemoveAllEventListener(obj);
+			});
+			bool finalized = (finalizer.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
+			EXPECT_TRUE(finalized) << "Owner teardown blocked during event construction";
+			if (finalized)
+			{
+				delete obj;
+				obj = nullptr;
+			}
+		}))
+		.WillRepeatedly(testing::Return());
+	EXPECT_CALL(*g_mockJavaScriptCore, JSObjectCallAsFunction(_, jsCallback, _, _, _, _)).Times(testing::AtMost(1));
+
+	inFlightRef->Event(std::make_shared<StateChangedEvent>(eSTATE_PLAYING, ""));
+
+	ASSERT_TRUE(finalizer.valid());
+	finalizer.wait();
+	EXPECT_EQ(inFlightRef->p_obj, nullptr);
+	delete obj;
 	inFlightRef.reset();
 }
 
@@ -357,10 +427,12 @@ struct AdPromiseOwner : public PrivAAMPStruct_JS
 
 TEST_F(JsBindingTests, AdResolvedPromiseHandlerCanReleasePlayer)
 {
+	JSGlobalContextRef ctx = reinterpret_cast<JSGlobalContextRef>(0x1234);
+	JSObjectRef promiseCallback = reinterpret_cast<JSObjectRef>(0x5678);
 	AdPromiseOwner *obj = new AdPromiseOwner();
 	obj->_aamp = playerInstanceAAMP;
-	obj->_ctx = reinterpret_cast<JSGlobalContextRef>(0x1234);
-	obj->promiseCallback = reinterpret_cast<JSObjectRef>(0x5678);
+	obj->_ctx = ctx;
+	obj->promiseCallback = promiseCallback;
 
 	// Promise-style listener: no JS callback, dispatched through getCallbackForAdId().
 	AAMP_JSEventListener::AddEventListener(obj, AAMP_EVENT_AD_RESOLVED, NULL);
@@ -368,12 +440,25 @@ TEST_F(JsBindingTests, AdResolvedPromiseHandlerCanReleasePlayer)
 	// Mirrors the shared_ptr copy SendEventSync() holds for the duration of dispatch.
 	auto inFlightRef = std::static_pointer_cast<AAMP_JSEventListener>(obj->_listeners.begin()->second);
 
+	// The owner drops its reference to the single-use promise callback before dispatch,
+	// so the listener must keep it protected until the call has returned.
+	testing::Sequence promiseLifetime;
+	EXPECT_CALL(*g_mockJavaScriptCore, JSValueProtect(_, _)).Times(testing::AnyNumber());
+	EXPECT_CALL(*g_mockJavaScriptCore, JSValueUnprotect(_, _)).Times(testing::AnyNumber());
+	EXPECT_CALL(*g_mockJavaScriptCore, JSValueProtect(ctx, promiseCallback))
+		.Times(1)
+		.InSequence(promiseLifetime);
 	// The JS promise handler calls player.release(), which detaches every listener.
-	EXPECT_CALL(*g_mockJavaScriptCore, JSObjectCallAsFunction(_, obj->promiseCallback, _, _, _, _))
+	EXPECT_CALL(*g_mockJavaScriptCore, JSObjectCallAsFunction(_, promiseCallback, _, _, _, _))
+		.InSequence(promiseLifetime)
 		.WillOnce(testing::InvokeWithoutArgs([obj]() -> JSValueRef {
+			EXPECT_EQ(obj->removeCallbackCount, 1);
 			AAMP_JSEventListener::RemoveAllEventListener(obj);
 			return nullptr;
 		}));
+	EXPECT_CALL(*g_mockJavaScriptCore, JSValueUnprotect(ctx, promiseCallback))
+		.Times(1)
+		.InSequence(promiseLifetime);
 
 	// Without the p_obj re-check in Event(), this dereferences NULL after the handler returns.
 	inFlightRef->Event(std::make_shared<AdResolvedEvent>(true, "ad1", 0, 30000, "", "", ""));

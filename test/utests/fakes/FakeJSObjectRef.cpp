@@ -160,6 +160,10 @@ bool JSObjectSetPrivate(JSObjectRef object, void* data)
 }
 void JSObjectSetProperty(JSContextRef ctx, JSObjectRef object, JSStringRef propertyName, JSValueRef value, JSPropertyAttributes attributes, JSValueRef* exception)
 {
+	if (g_mockJavaScriptCore != nullptr)
+	{
+		g_mockJavaScriptCore->JSObjectSetProperty(ctx, object, propertyName, value, attributes, exception);
+	}
 }
 
 JSStringRef JSStringCreateWithUTF8CString(const char* string)
@@ -232,6 +236,10 @@ JSValueRef JSValueMakeUndefined(JSContextRef ctx)
 
 void JSValueProtect(JSContextRef ctx, JSValueRef value)
 {
+	if (g_mockJavaScriptCore != nullptr)
+	{
+		g_mockJavaScriptCore->JSValueProtect(ctx, value);
+	}
 }
 
 bool JSValueToBoolean(JSContextRef ctx, JSValueRef value)
@@ -260,6 +268,10 @@ JSStringRef JSValueToStringCopy(JSContextRef ctx, JSValueRef value, JSValueRef* 
 
 void JSValueUnprotect(JSContextRef ctx, JSValueRef value)
 {
+	if (g_mockJavaScriptCore != nullptr)
+	{
+		g_mockJavaScriptCore->JSValueUnprotect(ctx, value);
+	}
 }
 
 std::string GetBrowserUA(JSContextRef ctx)

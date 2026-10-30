@@ -90,19 +90,21 @@ public:
 	virtual void SetEventProperties(const AAMPEventPtr& ev, JSObjectRef jsEventObj);
 
 private:
-	void FinishEventDispatch(JSGlobalContextRef ctx);
+	void FinishEventDispatch();
 
 public:
 	PrivAAMPStruct_JS* p_obj;   /**< JS execution context to use */
 	AAMPEventType p_type;       /**< event type */
 	JSObjectRef p_jsCallback;   /**< callback registered for event */
 
+protected:
+	const JSGlobalContextRef mContext; /**< JS context captured at registration; usable without p_obj */
+
 private:
 	std::mutex mStateMutex;
 	size_t mDispatchCount;
 	bool mDetached;
 	bool mCallbackProtected;
-	JSGlobalContextRef mCallbackContext;
 	JSObjectRef mProtectedCallback;
 };
 
