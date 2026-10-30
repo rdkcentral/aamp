@@ -2125,3 +2125,8 @@ bool PrivateInstanceAAMP::IsLatencyMonitorEnabled() const
 void PrivateInstanceAAMP::EnableEventProfiling()
 {
 }
+
+void PrivateInstanceAAMP::DrmSessionError(
+    DrmSession*, const std::string&)
+{
+}
