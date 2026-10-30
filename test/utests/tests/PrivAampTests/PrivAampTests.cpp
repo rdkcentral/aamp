@@ -7428,3 +7428,40 @@ TEST_F(PrivAampPrivTests, StartLatencyMonitor_LiveLatencyCorrectionDisabled_Does
 	testp_aamp->CallStartLatencyMonitor();
 	testp_aamp->mpStreamAbstractionAAMP = nullptr;
 }
+
+/**
+ * @brief Forward the session through the DRM callback interface,
+ *        regardless of whether the manager accepts cleanup.
+ */
+TEST_F(PrivAampTests, DrmSessionError_ForwardsSessionThroughCallback)
+{
+    int sessionToken{};
+    auto* session = reinterpret_cast<DrmSession*>(&sessionToken);
+    DrmCallbacks* callbacks = p_aamp;
+
+    for (bool accepted : {true, false})
+    {
+        EXPECT_CALL(*g_mockAampLicenseManager,
+            scheduleDrmSessionCleanup(session))
+            .Times(1)
+            .WillOnce(Return(accepted));
+
+        callbacks->DrmSessionError(session, "Session unusable");
+    }
+}
+
+/**
+ * @brief An unavailable license manager causes no cleanup call or crash.
+ */
+TEST_F(PrivAampTests, DrmSessionError_NoManager_SkipsCleanup)
+{
+    std::unique_ptr<AampDRMLicenseManager> manager{
+        p_aamp->mDRMLicenseManager};
+    p_aamp->mDRMLicenseManager = nullptr;
+
+    EXPECT_CALL(*g_mockAampLicenseManager,
+        scheduleDrmSessionCleanup(_)).Times(0);
+
+    DrmCallbacks* callbacks = p_aamp;
+    callbacks->DrmSessionError(nullptr, "");
+}

@@ -170,3 +170,12 @@ void AampDRMLicenseManager::SetLicenseFetcher( AampLicenseFetcher* )
 {
 
 }
+
+bool AampDRMLicenseManager::scheduleDrmSessionCleanup(DrmSession* session)
+{
+    if (g_mockAampLicenseManager)
+    {
+        return g_mockAampLicenseManager->scheduleDrmSessionCleanup(session);
+    }
+    return session != nullptr;
+}
