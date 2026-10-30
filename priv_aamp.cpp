@@ -3312,6 +3312,32 @@ void PrivateInstanceAAMP::LicenseRenewal(DrmHelperPtr drmHelper, void* userData)
 }
 
 /**
+ * @brief Handle an unusable DRM session reported by middleware.
+ */
+void PrivateInstanceAAMP::DrmSessionError(
+	DrmSession* session, const std::string& message)
+{
+	AAMPLOG_ERR(
+		"DRM session %p reported an error: %s",
+		static_cast<void*>(session),
+		message.empty() ? "(no details)" : message.c_str());
+
+	if (mDRMLicenseManager == nullptr)
+	{
+		AAMPLOG_ERR(
+			"Cannot schedule DRM cleanup: license manager unavailable");
+		return;
+	}
+
+	if (!mDRMLicenseManager->scheduleDrmSessionCleanup(session))
+	{
+		AAMPLOG_WARN(
+			"DRM cleanup was not scheduled for session %p",
+			static_cast<void*>(session));
+	}
+}
+
+/**
  * @brief Send event to listeners
  */
 void PrivateInstanceAAMP::SendEvent(AAMPEventPtr eventData, AAMPEventMode eventMode)

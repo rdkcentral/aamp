@@ -1467,19 +1467,50 @@ void AampDRMLicenseManager::UpdateMaxDRMSessions(int maxSessions)
  */
 void AampDRMLicenseManager::clearDrmSession(bool forceClearSession)
 {
-	mDrmSessionManager->clearDrmSession(forceClearSession);
+	const bool cleanupPending =
+		mDrmSessionCleanupPending.exchange(false, std::memory_order_acq_rel);
+	const bool clearAllSessions = forceClearSession || cleanupPending;
+
+	if (cleanupPending)
+	{
+		AAMPLOG_WARN("Clearing cached DRM sessions after middleware session error");
+	}
+
+	mDrmSessionManager->clearDrmSession(clearAllSessions);
 	for (int i = 0; i < mMaxDRMSessions; i++)
 	{
-		bool isFailedKeyEntries = mDrmSessionManager->getFailedKeyIdStatus(i);
-		if ((mDrmSessionManager->drmSessionContexts != NULL && (isFailedKeyEntries || forceClearSession)))
+		const bool isFailedKeyEntries =
+			mDrmSessionManager->getFailedKeyIdStatus(i);
+		if ((mDrmSessionManager->drmSessionContexts != nullptr &&
+			(isFailedKeyEntries || clearAllSessions)))
 		{
-			if (mDrmSessionManager->drmSessionContexts[i].drmSession != NULL)
+			if (mDrmSessionManager->drmSessionContexts[i].drmSession != nullptr)
 			{
-				AAMPLOG_INFO("Clearing Session %d, isFailedKeyEntries=%d, forceClearSession=%d", i, isFailedKeyEntries, forceClearSession);
+				AAMPLOG_INFO(
+					"Clearing Session %d, isFailedKeyEntries=%d, forceClearSession=%d",
+					i, isFailedKeyEntries, clearAllSessions);
 				mLicenseDownloader[i].Clear();
 			}
 		}
 	}
+}
+
+/**
+ * @brief Schedule cached DRM sessions for cleanup during the next tune.
+ */
+bool AampDRMLicenseManager::scheduleDrmSessionCleanup(DrmSession* session)
+{
+	if (session == nullptr)
+	{
+		AAMPLOG_ERR("Cannot schedule DRM cleanup for a null session");
+		return false;
+	}
+
+	mDrmSessionCleanupPending.store(true, std::memory_order_release);
+	AAMPLOG_WARN(
+		"Scheduled cached DRM session cleanup after error from session %p",
+		static_cast<void*>(session));
+	return true;
 }
 
 /**

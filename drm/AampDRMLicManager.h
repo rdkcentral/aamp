@@ -55,6 +55,7 @@ public:
 	std::mutex accessTokenMutex;
 	std::mutex cachedKeyMutex;
 	std::atomic<bool> licenseRequestAbort{ false };
+	std::atomic<bool> mDrmSessionCleanupPending{ false };
 	int mMaxDRMSessions;
 	std::vector<std::thread> mLicenseRenewalThreads;
 	AampLicensePreFetcher* mLicensePrefetcher; /**< DRM license prefetcher instance */
@@ -135,6 +136,14 @@ public:
 	 * @return	void.
 	 */
 	void clearDrmSession(bool forceClearSession = false);
+
+	/**
+	 * @brief Schedule cached DRM sessions for cleanup during the next tune.
+	 *
+	 * @param[in] session Session that reported the error.
+	 * @return true when cleanup was scheduled; false for an invalid session.
+	 */
+	bool scheduleDrmSessionCleanup(DrmSession* session);
 
 	/**
 	* @fn		clearFailedKeyIds
