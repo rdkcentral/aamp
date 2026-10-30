@@ -178,7 +178,7 @@ TEST_F(VodStitchedAdEventsTests, SingleAd_FullLifecycle_EventsInOrder)
         EXPECT_CALL(*g_mockPrivateInstanceAAMP,
             SendAdPlacementEvent(AAMP_EVENT_AD_PLACEMENT_START,
                                   std::string("ad1"),
-                                  static_cast<uint32_t>(10),
+                                  static_cast<uint32_t>(10000),
                                   static_cast<uint64_t>(10000),
                                   static_cast<uint32_t>(0),
                                   static_cast<uint32_t>(10000),
@@ -190,7 +190,7 @@ TEST_F(VodStitchedAdEventsTests, SingleAd_FullLifecycle_EventsInOrder)
         EXPECT_CALL(*g_mockPrivateInstanceAAMP,
             SendAdPlacementEvent(AAMP_EVENT_AD_PLACEMENT_END,
                                   std::string("ad1"),
-                                  static_cast<uint32_t>(20),
+                                  static_cast<uint32_t>(20000),
                                   static_cast<uint64_t>(20000),
                                   static_cast<uint32_t>(0),
                                   static_cast<uint32_t>(10000),
@@ -407,7 +407,7 @@ TEST_F(VodStitchedAdEventsTests, PlacementDurationPassedCorrectly)
     EXPECT_CALL(*g_mockPrivateInstanceAAMP,
         SendAdPlacementEvent(AAMP_EVENT_AD_PLACEMENT_START,
                               std::string("ad1"),
-                              static_cast<uint32_t>(5),      // posSec
+                              static_cast<uint32_t>(5000),   // position (ms)
                               static_cast<uint64_t>(5000),   // absolutePositionMs
                               static_cast<uint32_t>(0),      // adOffset
                               static_cast<uint32_t>(30000),  // durMs
@@ -417,7 +417,7 @@ TEST_F(VodStitchedAdEventsTests, PlacementDurationPassedCorrectly)
     EXPECT_CALL(*g_mockPrivateInstanceAAMP,
         SendAdPlacementEvent(AAMP_EVENT_AD_PLACEMENT_END,
                               std::string("ad1"),
-                              static_cast<uint32_t>(35),     // posSec
+                              static_cast<uint32_t>(35000),  // position (ms)
                               static_cast<uint64_t>(35000),  // absolutePositionMs
                               static_cast<uint32_t>(0),
                               static_cast<uint32_t>(30000),
@@ -430,6 +430,60 @@ TEST_F(VodStitchedAdEventsTests, PlacementDurationPassedCorrectly)
 
     mCdai->CheckVodStitchedAdEvents(5000.0);
     mCdai->CheckVodStitchedAdEvents(35000.0);
+}
+
+// ===========================================================================
+// 9b. Placement position is the stitched-timeline time in ms, keeping the
+//     sub-second part (e.g. an ad starting at 1329.275 s reports 1329275)
+// ===========================================================================
+TEST_F(VodStitchedAdEventsTests, PlacementPositionIsMillisecondsWithSubSecondPrecision)
+{
+    AddEntry("brk1", "ad1", 1329.275, 10.027, 1329.275, 10.027);
+
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+        SendAdReservationEvent(AAMP_EVENT_AD_RESERVATION_START, _, _, _, false, _))
+        .Times(1);
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+        SendAdPlacementEvent(AAMP_EVENT_AD_PLACEMENT_START, std::string("ad1"),
+                              static_cast<uint32_t>(1329275), _, _, _, false, _))
+        .Times(1);
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+        SendAdPlacementEvent(AAMP_EVENT_AD_PLACEMENT_END, std::string("ad1"),
+                              static_cast<uint32_t>(1339302), _, _, _, false, _))
+        .Times(1);
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+        SendAdReservationEvent(AAMP_EVENT_AD_RESERVATION_END, _, _, _, false, _))
+        .Times(1);
+
+    mCdai->CheckVodStitchedAdEvents(1329532.0);
+    mCdai->CheckVodStitchedAdEvents(1339405.0);
+}
+
+// ===========================================================================
+// 9c. Placement position is rounded, not truncated (1.005 s * 1000 is
+//     1004.999... in floating point)
+// ===========================================================================
+TEST_F(VodStitchedAdEventsTests, PlacementPositionIsRoundedToNearestMillisecond)
+{
+    AddEntry("brk1", "ad1", 1.005, 10.027, 1.005, 10.027);
+
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+        SendAdReservationEvent(AAMP_EVENT_AD_RESERVATION_START, _, _, _, false, _))
+        .Times(1);
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+        SendAdPlacementEvent(AAMP_EVENT_AD_PLACEMENT_START, std::string("ad1"),
+                              static_cast<uint32_t>(1005), _, _, _, false, _))
+        .Times(1);
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+        SendAdPlacementEvent(AAMP_EVENT_AD_PLACEMENT_END, std::string("ad1"),
+                              static_cast<uint32_t>(11032), _, _, _, false, _))
+        .Times(1);
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+        SendAdReservationEvent(AAMP_EVENT_AD_RESERVATION_END, _, _, _, false, _))
+        .Times(1);
+
+    mCdai->CheckVodStitchedAdEvents(1005.0);
+    mCdai->CheckVodStitchedAdEvents(11032.0);
 }
 
 // ===========================================================================
