@@ -243,6 +243,13 @@ private:
 	 */
 	StreamSink* CreateSinkInstance(PrivateInstanceAAMP *aamp, id3_callback_t id3HandlerCallback, std::function<void(const unsigned char *, int, int, int)> exportFrames);
 
+	/**
+	 *  @fn ClearMediaHeaders
+	 *  @brief Releases the cached media header of every track.
+	 *         Caller must hold mStreamSinkMutex where applicable.
+	 */
+	void ClearMediaHeaders();
+
 	StreamSink *mStreamPlayer;
 
 	std::map<PrivateInstanceAAMP*, StreamSink*> mClientStreamSinkMap;						/**< To maintain information on client supplied StreamSink for PrivateInstanceAAMP */

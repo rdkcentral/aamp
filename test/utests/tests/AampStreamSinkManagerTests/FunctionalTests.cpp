@@ -739,6 +739,113 @@ TEST_F(AampStreamSinkManagerTests, DeleteStreamSink_MultiPipeline_ClearsMediaHea
     EXPECT_EQ(manager.GetMediaHeader(trackId), nullptr);
 }
 
+/**
+ * @brief Stopping the active single-pipeline player clears cached media headers.
+ *
+ * Two players share the pipeline; player 1 is active, player 2 is inactive.
+ */
+TEST_F(AampStreamSinkManagerTests, DeactivatePlayer_SinglePipelineStop_ClearsMediaHeaders)
+{
+    auto& manager = AampStreamSinkManager::GetInstance();
+    const unsigned trackId = eMEDIATYPE_SUBTITLE;
+
+    manager.CreateStreamSink(mPrivateInstanceAAMP1, mId3HandlerCallback1);
+    manager.SetSinglePipelineMode(mPrivateInstanceAAMP1);
+    manager.CreateStreamSink(mPrivateInstanceAAMP2, mId3HandlerCallback2);
+    manager.AddMediaHeader(trackId, std::make_shared<AampStreamSinkManager::MediaHeader>(
+        "http://test.url/init.mp4", "application/mp4"));
+
+    manager.DeactivatePlayer(mPrivateInstanceAAMP1, true);
+
+    EXPECT_EQ(manager.GetMediaHeader(trackId), nullptr);
+}
+
+/**
+ * @brief Deactivating the active single-pipeline player without stop preserves
+ *        cached media headers.
+ */
+TEST_F(AampStreamSinkManagerTests, DeactivatePlayer_SinglePipelineWithoutStop_PreservesMediaHeaders)
+{
+    auto& manager = AampStreamSinkManager::GetInstance();
+    const unsigned trackId = eMEDIATYPE_SUBTITLE;
+    auto header = std::make_shared<AampStreamSinkManager::MediaHeader>(
+        "http://test.url/init.mp4", "application/mp4");
+
+    manager.CreateStreamSink(mPrivateInstanceAAMP1, mId3HandlerCallback1);
+    manager.SetSinglePipelineMode(mPrivateInstanceAAMP1);
+    manager.CreateStreamSink(mPrivateInstanceAAMP2, mId3HandlerCallback2);
+    manager.AddMediaHeader(trackId, header);
+
+    manager.DeactivatePlayer(mPrivateInstanceAAMP1, false);
+
+    EXPECT_EQ(manager.GetMediaHeader(trackId), header);
+}
+
+/**
+ * @brief A stop request from a player that is not the active one must not clear
+ *        the media headers owned by the active player.
+ */
+TEST_F(AampStreamSinkManagerTests, DeactivatePlayer_SinglePipelineStopByNonActivePlayer_PreservesMediaHeaders)
+{
+    auto& manager = AampStreamSinkManager::GetInstance();
+    const unsigned trackId = eMEDIATYPE_SUBTITLE;
+    auto header = std::make_shared<AampStreamSinkManager::MediaHeader>(
+        "http://test.url/init.mp4", "application/mp4");
+
+    manager.CreateStreamSink(mPrivateInstanceAAMP1, mId3HandlerCallback1);
+    manager.SetSinglePipelineMode(mPrivateInstanceAAMP1);
+    manager.CreateStreamSink(mPrivateInstanceAAMP2, mId3HandlerCallback2);
+    manager.AddMediaHeader(trackId, header);
+
+    manager.DeactivatePlayer(mPrivateInstanceAAMP2, true);
+
+    EXPECT_EQ(manager.GetMediaHeader(trackId), header);
+}
+
+/**
+ * @brief Deleting one of two single-pipeline players keeps the pipeline, so
+ *        cached media headers are preserved.
+ */
+TEST_F(AampStreamSinkManagerTests, DeleteStreamSink_SinglePipelineOtherPlayerRemains_PreservesMediaHeaders)
+{
+    auto& manager = AampStreamSinkManager::GetInstance();
+    const unsigned trackId = eMEDIATYPE_SUBTITLE;
+    auto header = std::make_shared<AampStreamSinkManager::MediaHeader>(
+        "http://test.url/init.mp4", "application/mp4");
+
+    manager.CreateStreamSink(mPrivateInstanceAAMP1, mId3HandlerCallback1);
+    manager.SetSinglePipelineMode(mPrivateInstanceAAMP1);
+    manager.CreateStreamSink(mPrivateInstanceAAMP2, mId3HandlerCallback2);
+    manager.AddMediaHeader(trackId, header);
+
+    manager.DeleteStreamSink(mPrivateInstanceAAMP2);
+
+    EXPECT_EQ(manager.GetMediaHeader(trackId), header);
+}
+
+/**
+ * @brief Deleting the last single-pipeline player destroys the pipeline and
+ *        clears cached media headers.
+ */
+TEST_F(AampStreamSinkManagerTests, DeleteStreamSink_SinglePipelineLastPlayer_ClearsMediaHeaders)
+{
+    auto& manager = AampStreamSinkManager::GetInstance();
+    const unsigned trackId = eMEDIATYPE_SUBTITLE;
+
+    manager.CreateStreamSink(mPrivateInstanceAAMP1, mId3HandlerCallback1);
+    manager.SetSinglePipelineMode(mPrivateInstanceAAMP1);
+    manager.CreateStreamSink(mPrivateInstanceAAMP2, mId3HandlerCallback2);
+    manager.AddMediaHeader(trackId, std::make_shared<AampStreamSinkManager::MediaHeader>(
+        "http://test.url/init.mp4", "application/mp4"));
+
+    manager.DeleteStreamSink(mPrivateInstanceAAMP2);
+    ASSERT_NE(manager.GetMediaHeader(trackId), nullptr);
+
+    manager.DeleteStreamSink(mPrivateInstanceAAMP1);
+
+    EXPECT_EQ(manager.GetMediaHeader(trackId), nullptr);
+}
+
 /*  @brief : - Specific error case leading to invalid encrypted headers
 */
 TEST_F(AampStreamSinkManagerTests, CheckEncryptedHeaders_PlayerNotDeactivated)
