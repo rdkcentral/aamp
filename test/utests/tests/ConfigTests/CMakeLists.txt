@@ -28,10 +28,12 @@ include(${CMAKE_CURRENT_LIST_DIR}/../CommonTestIncludes.cmake)
 set(TEST_SOURCES ConfigTests.cpp
                  ConfigRun.cpp)
 set(FAKE_SOURCE ${UTESTS_ROOT}/fakes/FakeAampRfc.cpp)
+set(FDR_SOURCE ${AAMP_ROOT}/AampFlightDataRecorder.cpp)
 					 
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}
-               ${FAKE_SOURCE})
+               ${FAKE_SOURCE}
+               ${FDR_SOURCE})
 target_link_directories(${EXEC_NAME} PUBLIC ${LIBCJSON_LIBRARY_DIRS})
 
 if (CMAKE_XCODE_BUILD_SYSTEM)
