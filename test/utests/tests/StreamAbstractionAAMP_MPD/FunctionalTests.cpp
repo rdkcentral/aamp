@@ -4521,7 +4521,8 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _))
 		.WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
-	EXPECT_CALL(*g_mockAampStreamSinkManager, AddMediaHeader(_, 2, _))
+	EXPECT_CALL(*g_mockAampStreamSinkManager,
+		AddMediaHeader(mPrivateInstanceAAMP, 2, _))
 		.Times(2);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, ResumeTrackDownloads(eMEDIATYPE_SUBTITLE))
 		.Times(AnyNumber());
