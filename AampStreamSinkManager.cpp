@@ -80,10 +80,15 @@ void AampStreamSinkManager::Clear(void)
 	mPipelineMode = ePIPELINEMODE_UNDEFINED;
 	mEncryptedHeaders.clear();
 	mEncryptedHeadersInjected = false;
-	for (auto& header : mMediaHeaders)
+	ClearMediaHeaders();
+}
+
+void AampStreamSinkManager::ClearMediaHeaders()
+{
+	for (size_t track = 0; track < mMediaHeaders.size(); track++)
 	{
-		header.reset();
-		AAMPLOG_MIL("cleared mMediaHeaders");
+		AAMPLOG_MIL("clearing mMediaHeaders for track %zu", track);
+		mMediaHeaders[track].reset();
 	}
 }
 
@@ -270,11 +275,15 @@ void AampStreamSinkManager::DeleteStreamSink(PrivateInstanceAAMP *aamp)
 				mStreamPlayer = nullptr;
 				mPipelineMode = ePIPELINEMODE_UNDEFINED;
 				mEncryptedHeadersInjected = false;
+<<<<<<< HEAD
 				for (auto& header : mMediaHeaders)
 				{
 					header.reset();
 					AAMPLOG_MIL("cleared mMediaHeaders");
 				}
+=======
+				ClearMediaHeaders();
+>>>>>>> a76369a1 (VPAAMP-1489 [Direct Rialto] Black screen after returning from mid-roll Ads (#2142))
 			}
 		}
 		break;
@@ -283,11 +292,15 @@ void AampStreamSinkManager::DeleteStreamSink(PrivateInstanceAAMP *aamp)
 		case ePIPELINEMODE_MULTI:
 		{
 			mEncryptedHeadersInjected = false;
+<<<<<<< HEAD
 			for (auto& header : mMediaHeaders)
 			{
 				header.reset();
 				AAMPLOG_MIL("Multi Pipeline mode, cleared mMediaHeaders");
 			}
+=======
+			ClearMediaHeaders();
+>>>>>>> a76369a1 (VPAAMP-1489 [Direct Rialto] Black screen after returning from mid-roll Ads (#2142))
 
 			if (mInactivePlayersMap.count(aamp))
 			{
@@ -395,11 +408,15 @@ void AampStreamSinkManager::DeactivatePlayer(PrivateInstanceAAMP *aamp, bool sto
 				AAMPLOG_WARN("AampStreamSinkManager(%p) Multi Pipeline mode, deactivating and stopping active PLAYER[%d]", this, aamp->mPlayerId);
 				mEncryptedHeadersInjected = false;
 				mEncryptedHeaders.clear();
+<<<<<<< HEAD
 				for (auto& header : mMediaHeaders)
 				{
 					header.reset();
 					AAMPLOG_MIL("Multi Pipeline mode, cleared mMediaHeaders");
 				}
+=======
+				ClearMediaHeaders();
+>>>>>>> a76369a1 (VPAAMP-1489 [Direct Rialto] Black screen after returning from mid-roll Ads (#2142))
 			}
 			else
 			{
@@ -422,11 +439,15 @@ void AampStreamSinkManager::DeactivatePlayer(PrivateInstanceAAMP *aamp, bool sto
 					AAMPLOG_WARN("AampStreamSinkManager(%p) Single Pipeline mode, deactivating and stopping active PLAYER[%d]", this, aamp->mPlayerId);
 					mEncryptedHeadersInjected = false;
 					mEncryptedHeaders.clear();
+<<<<<<< HEAD
 					for (auto& header : mMediaHeaders)
 					{
 						header.reset();
 						AAMPLOG_MIL("cleared mMediaHeaders");
 					}
+=======
+					ClearMediaHeaders();
+>>>>>>> a76369a1 (VPAAMP-1489 [Direct Rialto] Black screen after returning from mid-roll Ads (#2142))
 				}
 				else
 				{
