@@ -389,6 +389,7 @@ void AampMPDDownloader::downloadMPDThread1()
 	std::string tuneUrl = mMPDDnldCfg->mTuneUrl;
 	bool firstDownload	=	true;
 	bool downloadFailed = false; // set when a refresh attempt fails; cleared on recovery to log the transition
+	double lastLiveAvailabilityStartTime = 0.0; // AST of the last dynamic manifest, carried over on dynamic->static transition
 	ManifestDownloadResponsePtr cachedBackupData = nullptr;
 	do
 	{
@@ -572,6 +573,29 @@ void AampMPDDownloader::downloadMPDThread1()
 			}
 			mManifestRefreshErrorType.store(mMPDData->mMPDStatus);
 			mManifestRefreshErrorCode.store(errorCode);
+		}
+
+		if(mMPDData->mMPDStatus == AAMPStatusType::eAAMPSTATUS_OK && mMPDData->mMPDInstance)
+		{
+			AampMPDParseHelperPtr parseHelper = (mCachedMPDData != nullptr) ? mCachedMPDData->GetMPDParseHelper() : mMPDData->GetMPDParseHelper();
+			if(mMPDData->mIsLiveManifest)
+			{
+				lastLiveAvailabilityStartTime = parseHelper->GetAvailabilityStartTime();
+			}
+			else if(!firstDownload)
+			{
+				// dynamic -> static transition (e.g. HOT CDVR -> COLD CDVR): keep the availabilityStartTime
+				// of the last dynamic manifest, so positions stay on the same timeline. No further refresh
+				// is done for a static manifest, so the download loop exits after this push.
+				if(lastLiveAvailabilityStartTime > 0)
+				{
+					AAMPLOG_WARN("Manifest changed from dynamic to static, preserving availabilityStartTime %lf (static manifest value %lf)",
+								 lastLiveAvailabilityStartTime, parseHelper->GetAvailabilityStartTime());
+					parseHelper->SetAvailabilityStartTime(lastLiveAvailabilityStartTime);
+				}
+				// Final manifest; must reach the consumer even if publishTime is unchanged
+				doPush = true;
+			}
 		}
 
 		if(doPush)
