@@ -30,6 +30,7 @@
 #include <inttypes.h>
 
 #include <algorithm>
+#include <cmath>
 #include <limits>
 
 /**
@@ -2680,13 +2681,13 @@ void PrivateCDAIObjectMPD::CheckVodStitchedAdEvents(double positionMs)
 		if (!entry.placementStartFired && positionMs >= adStartMs)
 		{
 			entry.placementStartFired = true;
-			uint32_t posSec   = static_cast<uint32_t>(entry.adStartSec);
 			uint32_t durMs    = static_cast<uint32_t>(entry.adDurationSec * 1000.0);
 			AAMPLOG_MIL("[CDAI-VOD] Sending AD_PLACEMENT_START adId=%s pos=%.3fs dur=%.3fs",
 			            entry.adId.c_str(), entry.adStartSec, entry.adDurationSec);
+			// position (JS "time") is the stitched-timeline position in ms, matching reservation events
 			mAamp->SendAdPlacementEvent(AAMP_EVENT_AD_PLACEMENT_START,
 			                            entry.adId,
-			                            posSec,
+			                            static_cast<uint32_t>(std::llround(adStartMs)),
 			                            static_cast<uint64_t>(adStartMs),
 			                            /*adOffset=*/0,
 			                            durMs,
@@ -2697,13 +2698,12 @@ void PrivateCDAIObjectMPD::CheckVodStitchedAdEvents(double positionMs)
 		if (!entry.placementEndFired && entry.placementStartFired && positionMs >= adEndMs)
 		{
 			entry.placementEndFired = true;
-			uint32_t posSec = static_cast<uint32_t>(entry.adStartSec + entry.adDurationSec);
 			uint32_t durMs  = static_cast<uint32_t>(entry.adDurationSec * 1000.0);
 			AAMPLOG_MIL("[CDAI-VOD] Sending AD_PLACEMENT_END adId=%s pos=%.3fs",
 			            entry.adId.c_str(), positionMs / 1000.0);
 			mAamp->SendAdPlacementEvent(AAMP_EVENT_AD_PLACEMENT_END,
 			                            entry.adId,
-			                            posSec,
+			                            static_cast<uint32_t>(std::llround(adEndMs)),
 			                            static_cast<uint64_t>(adEndMs),
 			                            /*adOffset=*/0,
 			                            durMs,

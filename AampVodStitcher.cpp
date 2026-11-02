@@ -34,6 +34,7 @@
 #include "priv_aamp.h"
 #include "AampEvent.h"
 #include "AampLogManager.h"
+#include "AampDefine.h"
 
 #include <algorithm>
 #include <chrono>
@@ -42,9 +43,11 @@
 #include <cstdint>
 #include <cstdio>
 #include <future>
+#include <limits>
 #include <map>
 #include <mutex>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -108,31 +111,101 @@ static std::string SetAttr(std::string element, const std::string &attr, const s
  * ISO 8601 duration helpers  (mirrors manifest-genie ParseTime / PackTime)
  * ---------------------------------------------------------------------- */
 
+static bool IsDigit(char c)
+{
+	return std::isdigit(static_cast<unsigned char>(c)) != 0;
+}
+
 /**
  * @brief Parse an ISO 8601 duration string to seconds.
  *        "PT1H2M3.456S" -> 3723.456
+ *        Accepts P[nY][nM][nD][T[nH][nM][n[.n]S]] with non-negative components in
+ *        that order, a fraction only on seconds, and zero years/months.
+ * @throws std::invalid_argument for any other string (signs, trailing text,
+ *         empty components, non-zero years or months).
  */
 static double ParseIsoDuration(const std::string &s)
 {
+	const std::invalid_argument malformed("malformed duration \"" + s + "\"");
+	if (s.size() < 2 || s[0] != 'P' || s.back() == 'T')
+		throw malformed;
+	static const std::string kDateUnits = "YMD";
+	static const std::string kTimeUnits = "HMS";
+	static const double kTimeUnitSec[] = {3600.0, 60.0, 1.0};
+	const std::string *units = &kDateUnits;
+	size_t nextUnit = 0;
 	double result = 0.0;
-	if (s.size() < 2 || s[0] != 'P' || s[1] != 'T')
-		return result;
-	size_t i = 2;
+	size_t i = 1;
 	while (i < s.size())
 	{
+		if (s[i] == 'T')
+		{
+			if (units == &kTimeUnits)
+				throw malformed;
+			units = &kTimeUnits;
+			nextUnit = 0;
+			i++;
+			continue;
+		}
 		size_t j = i;
-		while (j < s.size() && (std::isdigit(static_cast<unsigned char>(s[j])) || s[j] == '.'))
+		while (j < s.size() && IsDigit(s[j]))
 			j++;
+		const bool hasFraction = (j > i && j < s.size() && s[j] == '.');
+		if (hasFraction)
+		{
+			const size_t fracStart = ++j;
+			while (j < s.size() && IsDigit(s[j]))
+				j++;
+			if (j == fracStart)
+				throw malformed;
+		}
 		if (j == i || j >= s.size())
-			break;
-		double val = std::stod(s.substr(i, j - i));
-		char unit = s[j];
-		if      (unit == 'H') result += val * 3600.0;
-		else if (unit == 'M') result += val * 60.0;
-		else if (unit == 'S') result += val;
+			throw malformed;
+		const size_t unitIdx = units->find(s[j], nextUnit);
+		if (unitIdx == std::string::npos)
+			throw malformed;
+		const double val = std::stod(s.substr(i, j - i));
+		if (units == &kTimeUnits)
+		{
+			if (hasFraction && unitIdx != 2)
+				throw malformed;
+			result += val * kTimeUnitSec[unitIdx];
+		}
+		else if (hasFraction || (unitIdx < 2 && val != 0.0))
+			throw malformed;
+		else if (unitIdx == 2)
+			result += val * 86400.0;
+		nextUnit = unitIdx + 1;
 		i = j + 1;
 	}
 	return result;
+}
+
+/* -------------------------------------------------------------------------
+ * Strict numeric attribute parsing
+ * ---------------------------------------------------------------------- */
+
+/**
+ * @brief Parse an unsigned decimal integer attribute; the whole string must be digits.
+ * @throws std::invalid_argument if empty, signed or not entirely digits;
+ *         std::out_of_range if it does not fit in 64 bits.
+ */
+static uint64_t ParseUnsigned(const std::string &s, const char *name)
+{
+	if (s.empty() || !std::all_of(s.begin(), s.end(), IsDigit))
+		throw std::invalid_argument(std::string(name) + " is not an unsigned integer: \"" + s + "\"");
+	return (uint64_t)std::stoull(s);
+}
+
+/**
+ * @brief ParseUnsigned() restricted to the range of int.
+ */
+static int ParseUnsignedInt(const std::string &s, const char *name)
+{
+	uint64_t value = ParseUnsigned(s, name);
+	if (value > (uint64_t)std::numeric_limits<int>::max())
+		throw std::out_of_range(std::string(name) + " is out of range: \"" + s + "\"");
+	return (int)value;
 }
 
 /**
@@ -187,16 +260,20 @@ static std::vector<uint64_t> UncompressTimeline(const std::string &xml)
 
 		std::string tStr = GetAttr(entry, "t");
 		if (!tStr.empty())
-			t = (uint64_t)std::stoull(tStr);
+			t = ParseUnsigned(tStr, "S@t");
 		else if (first)
 			t = 0;
 
 		std::string dStr = GetAttr(entry, "d");
 		if (dStr.empty()) continue;
-		uint64_t d = (uint64_t)std::stoull(dStr);
+		uint64_t d = ParseUnsigned(dStr, "S@d");
+		if (d == 0)
+			throw std::invalid_argument("S@d is 0");
 
 		std::string rStr = GetAttr(entry, "r");
-		int r = rStr.empty() ? 0 : std::stoi(rStr);
+		if (rStr == "-1")
+			throw std::invalid_argument("S@r=\"-1\" is not supported");
+		int r = rStr.empty() ? 0 : ParseUnsignedInt(rStr, "S@r");
 
 		for (int rep = 0; rep <= r; rep++)
 		{
@@ -252,19 +329,142 @@ static std::string CompressTimeline(const std::vector<uint64_t> &samples)
 }
 
 /**
- * @brief Return the index of the first sample whose start time >= sec*timescale.
+ * @brief Return the index of the segment boundary at which to split for a
+ *        period-relative time.
+ *
+ *        sec is mapped onto the timeline as pto + sec*timescale.  The nearest
+ *        boundary within AAMP_VOD_SPLICE_SNAP_TOLERANCE_SEC is used, so a splice
+ *        slightly either side of a boundary does not straddle a segment;
+ *        otherwise the first boundary after the target is used.
  *        Returns samples.size()-1 (the sentinel index) if sec is beyond the end.
  */
 static size_t GetTimelineIndex(const std::vector<uint64_t> &samples,
-                               uint64_t timescale, double sec)
+                               uint64_t timescale, uint64_t pto, double sec)
 {
-	uint64_t pts = (uint64_t)(sec * (double)timescale);
+	if (samples.empty())
+		return 0;
+	const double target = (double)pto + sec * (double)timescale;
+	const double tolerance = AAMP_VOD_SPLICE_SNAP_TOLERANCE_SEC * (double)timescale;
+	size_t next = samples.size() - 1;
 	for (size_t i = 0; i < samples.size(); i++)
 	{
-		if (samples[i] >= pts)
-			return i;
+		if ((double)samples[i] >= target)
+		{
+			next = i;
+			break;
+		}
 	}
-	return samples.size() > 0 ? samples.size() - 1 : 0;
+	if (next > 0)
+	{
+		const double pastPrev = target - (double)samples[next - 1];
+		if (pastPrev <= tolerance && pastPrev < (double)samples[next] - target)
+			return next - 1;
+	}
+	return next;
+}
+
+static constexpr double kSpliceEpsilonSec = 1e-6;
+
+/**
+ * @brief Parse SegmentTemplate@timescale (default 1).
+ *        Throws std::invalid_argument / std::out_of_range for a malformed value,
+ *        and std::invalid_argument for 0.
+ */
+static uint64_t ParseTimescale(const std::string &templateTag)
+{
+	std::string tsStr = GetAttr(templateTag, "timescale");
+	uint64_t timescale = tsStr.empty() ? 1 : ParseUnsigned(tsStr, "SegmentTemplate@timescale");
+	if (timescale == 0)
+		throw std::invalid_argument("SegmentTemplate timescale is 0");
+	return timescale;
+}
+
+/**
+ * @brief SegmentTimeline of the track that drives splice-boundary selection for a period.
+ */
+struct ReferenceTimeline
+{
+	bool valid = false;
+	uint64_t timescale = 1;
+	uint64_t pto = 0;
+	std::vector<uint64_t> samples;
+
+	double ToSec(size_t idx) const
+	{
+		return std::max(0.0, ((double)samples[idx] - (double)pto) / (double)timescale);
+	}
+	double EndSec() const { return ToSec(samples.size() - 1); }
+	/** @brief Period-relative time of the boundary at which to split for sec. */
+	double Snap(double sec) const
+	{
+		if (!valid || sec <= 0.0)
+			return std::max(sec, 0.0);
+		return ToSec(GetTimelineIndex(samples, timescale, pto, sec));
+	}
+};
+
+/**
+ * @brief Find the reference timeline of a period: the first non-trick-play video
+ *        track with a SegmentTimeline, else the first track with one.  Snapping every track
+ *        around this one track's boundary keeps audio and video splitting at
+ *        the same content position.
+ */
+static ReferenceTimeline FindReferenceTimeline(const std::string &periodBody)
+{
+	const std::string SEG_TMPL = "<SegmentTemplate ";
+	ReferenceTimeline ref;
+	size_t pos = 0;
+	while ((pos = periodBody.find(SEG_TMPL, pos)) != std::string::npos)
+	{
+		size_t tagEnd = periodBody.find('>', pos);
+		size_t tlPos = (tagEnd == std::string::npos) ? std::string::npos : periodBody.find("<SegmentTimeline>", tagEnd);
+		size_t tlEnd = (tlPos == std::string::npos) ? std::string::npos : periodBody.find("</SegmentTimeline>", tlPos);
+		if (tlEnd == std::string::npos)
+			break;
+
+		std::vector<uint64_t> samples = UncompressTimeline(periodBody.substr(tlPos, tlEnd - tlPos));
+		if (samples.size() >= 2)
+		{
+			// Classify using the whole containing AdaptationSet: contentType/mimeType
+			// may be declared on it or only on a Representation after the template.
+			std::string scope;
+			size_t asPos = periodBody.rfind("<AdaptationSet", pos);
+			if (asPos != std::string::npos)
+			{
+				size_t asClose = periodBody.find("</AdaptationSet>", asPos);
+				if (asClose == std::string::npos || asClose > pos)
+					scope = periodBody.substr(asPos, (asClose == std::string::npos) ? std::string::npos : asClose - asPos);
+			}
+			bool isVideo = (scope.find("contentType=\"video\"") != std::string::npos ||
+			                scope.find("mimeType=\"video/") != std::string::npos) &&
+			               scope.find("dashif.org/guidelines/trickmode") == std::string::npos;
+			if (!ref.valid || isVideo)
+			{
+				std::string tag = periodBody.substr(pos, tagEnd - pos + 1);
+				std::string ptoStr = GetAttr(tag, "presentationTimeOffset");
+				ref.timescale = ParseTimescale(tag);
+				ref.pto = ptoStr.empty() ? 0 : ParseUnsigned(ptoStr, "SegmentTemplate@presentationTimeOffset");
+				ref.samples = std::move(samples);
+				ref.valid = true;
+				if (isVideo)
+					break;
+			}
+		}
+		pos = tlEnd;
+	}
+	return ref;
+}
+
+double SnapVodSpliceTime(const std::string &periodBody, double sec)
+{
+	return FindReferenceTimeline(periodBody).Snap(sec);
+}
+
+double ResolveVodSplicePoint(const std::string &periodBody, double periodDur, double cursor, double sec)
+{
+	if (sec >= periodDur - kSpliceEpsilonSec)
+		return std::max(cursor, periodDur);
+	return std::min(periodDur, std::max(cursor, SnapVodSpliceTime(periodBody, sec)));
 }
 
 /* -------------------------------------------------------------------------
@@ -282,11 +482,20 @@ static size_t GetTimelineIndex(const std::vector<uint64_t> &samples,
  *                    keep from the beginning).
  * @param endSec      End of the desired window relative to the period (0 =
  *                    keep to the end).
- * @return Trimmed period body XML.
+ * @return Trimmed period body XML, or an empty string if the snapped window
+ *         contains no segments.
  */
-static std::string TrimPeriod(const std::string &periodBody,
+std::string TrimPeriod(const std::string &periodBody,
                               double startSec, double endSec)
 {
+	const ReferenceTimeline ref = FindReferenceTimeline(periodBody);
+	const double snappedStart = ref.Snap(startSec);
+	const double snappedEnd = ref.Snap(endSec);
+	if (ref.valid && startSec > 0.0 && snappedStart >= ref.EndSec() - kSpliceEpsilonSec)
+		return {};
+	if (endSec > 0.0 && snappedEnd <= snappedStart + kSpliceEpsilonSec)
+		return {};
+
 	std::string result = periodBody;
 	const std::string SEG_TMPL = "<SegmentTemplate ";
 
@@ -303,11 +512,13 @@ static std::string TrimPeriod(const std::string &periodBody,
 
 		std::string tmplTag = result.substr(tmplPos, tmplEnd - tmplPos + 1);
 
-		std::string tsStr = GetAttr(tmplTag, "timescale");
-		uint64_t timescale = tsStr.empty() ? 1 : (uint64_t)std::stoull(tsStr);
+		uint64_t timescale = ParseTimescale(tmplTag);
 
 		std::string snStr = GetAttr(tmplTag, "startNumber");
-		int startNumber = snStr.empty() ? 1 : std::stoi(snStr);
+		int startNumber = snStr.empty() ? 1 : ParseUnsignedInt(snStr, "SegmentTemplate@startNumber");
+
+		std::string ptoStr = GetAttr(tmplTag, "presentationTimeOffset");
+		uint64_t origPto = ptoStr.empty() ? 0 : ParseUnsigned(ptoStr, "SegmentTemplate@presentationTimeOffset");
 
 		const std::string TL_OPEN  = "<SegmentTimeline>";
 		const std::string TL_CLOSE = "</SegmentTimeline>";
@@ -339,13 +550,9 @@ static std::string TrimPeriod(const std::string &periodBody,
 		size_t idx2 = samples.size() - 1; // default: all segments (excluding sentinel)
 
 		if (startSec > 0.0)
-			idx1 = GetTimelineIndex(samples, timescale, startSec);
+			idx1 = GetTimelineIndex(samples, timescale, origPto, snappedStart);
 		if (endSec > 0.0)
-		{
-			idx2 = GetTimelineIndex(samples, timescale, endSec);
-			if (idx2 < samples.size() - 1)
-				idx2++; // include the segment that straddles the boundary
-		}
+			idx2 = GetTimelineIndex(samples, timescale, origPto, snappedEnd); // samples[idx2] becomes the sentinel, so a straddling segment is already included
 
 		// Clamp to valid range
 		if (idx1 >= samples.size() - 1)
@@ -404,7 +611,7 @@ static std::vector<PeriodSlice> ExtractPeriods(const std::string &mpdText)
 
 	// Extract mediaPresentationDuration from the <MPD ...> opening tag only,
 	// not from the entire document (avoids false matches in Period/AdaptationSet text).
-	std::string mpdDur;
+	double mpdDur = 0.0;
 	{
 		size_t mpdTagStart = mpdText.find("<MPD");
 		size_t mpdTagEnd   = (mpdTagStart != std::string::npos)
@@ -412,7 +619,9 @@ static std::vector<PeriodSlice> ExtractPeriods(const std::string &mpdText)
 		if (mpdTagEnd != std::string::npos)
 		{
 			std::string mpdTag = mpdText.substr(mpdTagStart, mpdTagEnd - mpdTagStart + 1);
-			mpdDur = GetAttr(mpdTag, "mediaPresentationDuration");
+			std::string mpdDurStr = GetAttr(mpdTag, "mediaPresentationDuration");
+			if (!mpdDurStr.empty())
+				mpdDur = ParseIsoDuration(mpdDurStr);
 		}
 	}
 
@@ -437,10 +646,7 @@ static std::vector<PeriodSlice> ExtractPeriods(const std::string &mpdText)
 		std::string body = mpdText.substr(bodyStart, bodyEnd - bodyStart);
 
 		std::string durStr = GetAttr(tag, "duration");
-		if (durStr.empty())
-			durStr = mpdDur;
-
-		double dur = ParseIsoDuration(durStr);
+		double dur = durStr.empty() ? mpdDur : ParseIsoDuration(durStr);
 
 		// If duration is still unknown, derive it from the SegmentTimeline
 		// (handles ad MPDs that omit duration on both Period and MPD level).
@@ -464,12 +670,7 @@ static std::vector<PeriodSlice> ExtractPeriods(const std::string &mpdText)
 				{
 					size_t tmplEnd = body.find('>', tmplPos);
 					if (tmplEnd != std::string::npos)
-					{
-						std::string tmplTag = body.substr(tmplPos, tmplEnd - tmplPos + 1);
-						std::string tsStr = GetAttr(tmplTag, "timescale");
-						if (!tsStr.empty())
-							timescale = (uint64_t)std::stoull(tsStr);
-					}
+						timescale = ParseTimescale(body.substr(tmplPos, tmplEnd - tmplPos + 1));
 				}
 
 				if (samples.size() >= 2 && timescale > 0)
@@ -486,6 +687,22 @@ static std::vector<PeriodSlice> ExtractPeriods(const std::string &mpdText)
 		pos = bodyEnd + 9; // strlen("</Period>")
 	}
 	return result;
+}
+
+bool CanStitchVodMpd(const std::string &mpdText)
+{
+	try
+	{
+		std::vector<PeriodSlice> periods = ExtractPeriods(mpdText);
+		for (const PeriodSlice &period : periods)
+			(void)TrimPeriod(period.body, 0.0, 0.0);
+		return !periods.empty();
+	}
+	catch (const std::exception &e)
+	{
+		AAMPLOG_ERR("[VodStitcher] Malformed MPD: %s", e.what());
+		return false;
+	}
 }
 
 /* -------------------------------------------------------------------------
@@ -696,7 +913,7 @@ static std::string BuildMPDHeader(const std::string &mainMpdText,
  * Top-level stitcher
  * ---------------------------------------------------------------------- */
 
-std::string BuildStitchedVodManifest(
+static std::string BuildStitchedVodManifestImpl(
 	PrivateInstanceAAMP    *aamp,
 	const std::string      &mainMpdText,
 	const std::string      &mainMpdUrl,
@@ -746,6 +963,12 @@ std::string BuildStitchedVodManifest(
 		}
 	}
 
+	if (!CanStitchVodMpd(mainMpdText))
+	{
+		AAMPLOG_ERR("[VodStitcher] Main MPD cannot be stitched — returning original MPD");
+		return {};
+	}
+
 	// Fetch all ad MPDs in parallel — each download uses its own
 	// AampCurlDownloader (and therefore its own CURL* handle).
 	std::vector<AdFetchResult> adResults = FetchAdMPDsParallel(aamp, cdaiObj);
@@ -753,8 +976,13 @@ std::string BuildStitchedVodManifest(
 	// Build insertion map: insertionPointSec -> [AdFetchResult*, ...]
 	// Ordered by insertion point; multiple ads at the same point are chained.
 	std::map<double, std::vector<const AdFetchResult *>> insertionMap;
-	for (const auto &r : adResults)
+	for (auto &r : adResults)
 	{
+		if (r.ok && !CanStitchVodMpd(r.mpdText))
+		{
+			AAMPLOG_WARN("[VodStitcher] Ad MPD for break=%s cannot be stitched", r.breakId.c_str());
+			r.ok = false;
+		}
 		if (r.ok)
 			insertionMap[r.insertionPointSec].push_back(&r);
 		else
@@ -821,14 +1049,16 @@ std::string BuildStitchedVodManifest(
 
 		for (auto &ins : localInsertions)
 		{
-			double spliceAt = ins.first; // period-relative splice point
+			double spliceAt = ResolveVodSplicePoint(mp.body, periodDur, cursor, ins.first); // period-relative splice point, snapped to a segment boundary
 			const std::vector<const AdFetchResult *> &ads = *ins.second;
 
-			// Emit the pre-splice main content slice [cursor, spliceAt)
-			if (spliceAt > cursor)
+			// Emit the pre-splice main content slice [cursor, spliceAt), skipping a slice that snapped to nothing.
+			// A splice at the Period end keeps every remaining segment, including one overrunning the end.
+			const bool atPeriodEnd = (spliceAt >= periodDur - kSpliceEpsilonSec);
+			std::string trimmed = (spliceAt > cursor) ? TrimPeriod(mp.body, cursor, atPeriodEnd ? 0.0 : spliceAt) : std::string();
+			if (!trimmed.empty())
 			{
 				double sliceDur = spliceAt - cursor;
-				std::string trimmed = TrimPeriod(mp.body, cursor, spliceAt);
 				output << "\n<Period id=\"mc" << periodId++
 				       << "\" start=\"" << PackIsoDuration(totalDur)
 				       << "\" duration=\"" << PackIsoDuration(sliceDur) << "\">\n"
@@ -923,14 +1153,14 @@ std::string BuildStitchedVodManifest(
 
 		// Emit the remainder of the main period [cursor, periodDur)
 		double remainDur = periodDur - cursor;
-		if (remainDur > 0.0)
+		std::string remainder = (remainDur > 0.0) ? TrimPeriod(mp.body, cursor, 0.0) : std::string();
+		if (!remainder.empty())
 		{
-			std::string trimmed = TrimPeriod(mp.body, cursor, 0.0);
 			output << "\n<Period id=\"mc" << periodId++
 			       << "\" start=\"" << PackIsoDuration(totalDur)
 			       << "\" duration=\"" << PackIsoDuration(remainDur) << "\">\n"
 			       << "<BaseURL>" << mainBaseUrl << "</BaseURL>\n"
-			       << trimmed
+			       << remainder
 			       << "\n</Period>\n";
 			totalDur += remainDur;
 		}
@@ -945,4 +1175,26 @@ std::string BuildStitchedVodManifest(
 	AAMPLOG_WARN("[VodStitcher] Stitched MPD: %zu periods, total duration=%.3fs, size=%zu bytes",
 	             (size_t)periodId, totalDur, stitched.size());
 	return stitched;
+}
+
+std::string BuildStitchedVodManifest(
+	PrivateInstanceAAMP    *aamp,
+	const std::string      &mainMpdText,
+	const std::string      &mainMpdUrl,
+	PrivateCDAIObjectMPD   *cdaiObj)
+{
+	try
+	{
+		return BuildStitchedVodManifestImpl(aamp, mainMpdText, mainMpdUrl, cdaiObj);
+	}
+	catch (const std::exception &e)
+	{
+		AAMPLOG_ERR("[VodStitcher] Stitching failed (%s) — returning original MPD", e.what());
+		if (cdaiObj)
+		{
+			std::lock_guard<std::recursive_mutex> lock(cdaiObj->mDaiMtx);
+			cdaiObj->mVodAdEventTracker.clear();
+		}
+		return {};
+	}
 }
