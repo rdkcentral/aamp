@@ -2674,7 +2674,11 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 			}
 		}
 
-		if (trickStartUTCMS >= 0 && (bProcessEvent || mFirstProgress))
+		// trickStartUTCMS is re-armed when the first buffer reaches the sink. When paused that
+		// may never happen (e.g. seek-while-paused superseded by a newer seek), but the position
+		// is then fixed at seek_pos_seconds, so it is still valid to report.
+		const bool positionValid = (trickStartUTCMS >= 0) || (state == eSTATE_PAUSED);
+		if (positionValid && (bProcessEvent || mFirstProgress))
 		{
 			ProgressEventPtr evt = std::make_shared<ProgressEvent>(duration, reportFormattedCurrPos, start, end, speed, videoPTS, videoBufferedDuration, audioBufferedDuration, seiTimecode.c_str(), latency, targetLatencyMs, bps, networkBandwidth, currentRate, GetSessionId());
 

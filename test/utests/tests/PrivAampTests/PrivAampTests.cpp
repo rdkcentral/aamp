@@ -2094,6 +2094,73 @@ TEST_F(PrivAampTests, MonitorProgress_TsbLessLinearHLS_LatencyNonNegative)
 	EXPECT_GE(p_aamp->GetCurrentLatencyMs(), 0L);
 }
 
+/**
+ * @brief Paused player reports progress even if trickStartUTCMS was not re-armed.
+ *
+ * Regression for seek-while-paused scrubbing: when a seek is superseded before its
+ * first buffer reaches the sink, trickStartUTCMS stays -1 while the player sits in
+ * PAUSED at seek_pos_seconds. Progress must still report that settled position,
+ * otherwise the UI keeps a stale position and its progress bar jumps.
+ */
+TEST_F(PrivAampTests, MonitorProgress_PausedWithoutTrickStart_ReportsSeekPosition)
+{
+	constexpr double CULLED_SECONDS = 0.0;
+	constexpr double DURATION_SECONDS = 3600.0;
+	constexpr double SEEK_POS_SECONDS = 1786.0;
+
+	p_aamp->SetState(eSTATE_PAUSED, true);
+	p_aamp->mDownloadsEnabled = true;
+	p_aamp->rate = AAMP_NORMAL_PLAY_RATE;
+	p_aamp->mSinkPaused = true;
+	p_aamp->mMediaFormat = eMEDIAFORMAT_DASH;
+	p_aamp->durationSeconds = DURATION_SECONDS;
+	p_aamp->culledSeconds = CULLED_SECONDS;
+	p_aamp->seek_pos_seconds = SEEK_POS_SECONDS;
+	p_aamp->trickStartUTCMS = -1;
+	p_aamp->mReportProgressPosn = -1.0;
+
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer.get()));
+
+	EXPECT_CALL(*g_mockAampEventManager, SendEvent(_, _)).Times(testing::AnyNumber());
+	EXPECT_CALL(*g_mockAampEventManager, SendEvent(AnEventOfType(AAMP_EVENT_PROGRESS), _)).Times(1);
+
+	p_aamp->MonitorProgress(true, false);
+
+	// mReportProgressPosn records the position carried by the emitted progress event.
+	EXPECT_DOUBLE_EQ(p_aamp->mReportProgressPosn, SEEK_POS_SECONDS * 1000.0);
+}
+
+/**
+ * @brief Non-paused player with trickStartUTCMS unset does not report progress.
+ *
+ * Guards the existing gate: outside PAUSED, trickStartUTCMS == -1 means the position
+ * is not yet established (first buffer pending), so no progress event is sent.
+ */
+TEST_F(PrivAampTests, MonitorProgress_PlayingWithoutTrickStart_NoProgress)
+{
+	p_aamp->SetState(eSTATE_PLAYING, true);
+	p_aamp->mDownloadsEnabled = true;
+	p_aamp->rate = AAMP_NORMAL_PLAY_RATE;
+	p_aamp->mSinkPaused = false;
+	p_aamp->mMediaFormat = eMEDIAFORMAT_DASH;
+	p_aamp->durationSeconds = 3600.0;
+	p_aamp->culledSeconds = 0.0;
+	p_aamp->seek_pos_seconds = 1786.0;
+	p_aamp->trickStartUTCMS = -1;
+	p_aamp->mReportProgressPosn = -1.0;
+
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer.get()));
+
+	EXPECT_CALL(*g_mockAampEventManager, SendEvent(_, _)).Times(testing::AnyNumber());
+	EXPECT_CALL(*g_mockAampEventManager, SendEvent(AnEventOfType(AAMP_EVENT_PROGRESS), _)).Times(0);
+
+	p_aamp->MonitorProgress(true, false);
+
+	EXPECT_DOUBLE_EQ(p_aamp->mReportProgressPosn, -1.0);
+}
+
 TEST_F(PrivAampTests,UpdateDurationTest)
 {
 	p_aamp->UpdateDuration(232.436);
