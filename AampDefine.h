@@ -112,6 +112,7 @@
 #define MIN_SEG_DURATION_THRESHOLD	(0.25)			/**< Min Segment Duration threshold for pushing to pipeline at period End*/
 #define AAMP_DASH_PERIOD_TAIL_START_TOLERANCE_SEC (0.3)	/**< Segments starting within this of the Period end, or after it, are tail-drop candidates */
 #define AAMP_DASH_PERIOD_TAIL_MIN_OVERHANG_SEC (0.2)	/**< Tail candidates ending no more than this past the Period end are kept as valid tiny final segments */
+#define AAMP_VOD_SPLICE_SNAP_TOLERANCE_SEC (0.1)	/**< VOD ad splice points within this of a segment boundary snap to the nearest such boundary */
 #define MAX_CURL_SOCK_STORE		10			/**< Maximum no of host to be maintained in curl store*/
 #define DEFAULT_AD_FULFILLMENT_TIMEOUT 2000	/**< Default Ad fulfillment timeout in milliseconds */
 #define MAX_AD_FULFILLMENT_TIMEOUT 5000	/**< Max Ad fulfillment timeout in milliseconds */
@@ -135,6 +136,7 @@
 #define MAX_DELAY_BETWEEN_PLAYLIST_UPDATE_MS (6000)
 #define MIN_DELAY_BETWEEN_PLAYLIST_UPDATE_MS (500) // 500mSec
 #define MIN_DELAY_BETWEEN_MANIFEST_UPDATE_FOR_502_MS (1000) // 1000mSec
+#define MANIFEST_REFRESH_FAILURE_GRACE_MS (5000) /**< How long a live manifest refresh may keep failing, with the buffer already dry, before a fatal error is sent */
 #define STEADYSTATE_RAMPDOWN_DELTA 2000000 //2000 kbps
 #define DEFAULT_TELEMETRY_REPORT_INTERVAL (300) 	/**< time interval for the telemetry reporting 300sec*/
 #define MIN_MONITOR_AVSYNC_POSITIVE_DELTA_MS 1 /*< minimum positive delta to trigger AVSync reporting */

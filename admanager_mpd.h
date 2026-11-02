@@ -476,6 +476,7 @@ public:
 	std::condition_variable                        mVodAllAdsResolvedCV;  /**< Signalled when all registered VOD ads are resolved/failed; manifest thread waits on this */
 	AampMPDParseHelperPtr                          mBaseMPDParseHelper;   /**< Latest base-stream MPD parse helper; used by FulFillAdObject to call PlaceAds immediately for static manifest */
 	std::mutex                                     mBaseMPDHelperMtx;     /**< Mutex protecting mBaseMPDParseHelper */
+	std::mutex                                     mDaiDownloadMtx;       /**< Serialises GetFile on eCURLINSTANCE_DAI; taken only in GetDaiFile, never held while taking mDaiMtx or a waiter mutex */
 
 	/**
 	 * @fn PrivateCDAIObjectMPD
@@ -624,6 +625,15 @@ public:
 	bool isAdBreakObjectExist(const std::string &adBrkId);
 
 	/**
+	 * @brief Lock mDaiMtx and check the existence of Adbreak object in the AdbreakObject map.
+	 *        Safe to call with or without mDaiMtx already held.
+	 *
+	 * @param[in]  adBrkId - Adbreak id to be checked.
+	 * @return bool true or false
+	 */
+	bool isAdBreakObjectExistWithDaiMtx(const std::string &adBrkId);
+
+	/**
 	 * @fn PrunePeriodMaps
 	 *
 	 * @param[in]  newPeriodIds - Period ids from the latest manifest
@@ -763,8 +773,46 @@ public:
 
 	/**
 	 * @fn AbortWaitForNextAdResolved
+	 *     Caller must NOT hold mDaiMtx (lock order is mAdPlacementMtx then mDaiMtx).
 	 */
 	void AbortWaitForNextAdResolved();
+
+	/**
+	 * @brief Lock mDaiMtx and read an ad's resolved state.
+	 *        Safe to call with or without mDaiMtx already held.
+	 * @param[in] periodId Ad break id
+	 * @param[in] adId Ad id
+	 * @param[out] resolved Set to the ad's resolved flag when found
+	 * @return true if the ad exists
+	 */
+	bool TryGetAdResolved(const std::string &periodId, const std::string &adId, bool &resolved);
+
+	/**
+	 * @brief Lock mDaiMtx and read an ad break's resolved state.
+	 *        Safe to call with or without mDaiMtx already held.
+	 * @param[in] periodId Ad break id
+	 * @return true if the ad break exists and is resolved; false if unresolved or absent
+	 */
+	bool IsAdBreakResolved(const std::string &periodId);
+
+	/**
+	 * @brief Wake the VOD stitcher waiting on mVodAllAdsResolvedCV.
+	 *        Caller must NOT hold mDaiMtx (lock order is mVodAllAdsResolvedMtx then mDaiMtx).
+	 */
+	void NotifyVodAllAdsResolved();
+
+	/**
+	 * @brief GetFile on the shared DAI curl handle, serialised against other DAI downloads.
+	 * @param[in] remoteUrl URL to download
+	 * @param[in] mediaType Media type of the download
+	 * @param[out] buffer Downloaded data
+	 * @param[out] effectiveUrl URL after redirects
+	 * @param[out] http_error HTTP/curl error code
+	 * @param[out] downloadTimeS Download time in seconds
+	 * @return true on success
+	 */
+	bool GetDaiFile(std::string remoteUrl, AampMediaType mediaType, std::vector<uint8_t> &buffer,
+					std::string &effectiveUrl, int &http_error, double *downloadTimeS);
 
 	/**
 	 * @brief Get the ad duration of remaining ads to be placed in an adbreak
@@ -836,6 +884,13 @@ public:
 	 * @param[in] reservationId Reservation/ad break ID
 	 */
 	void PlaceAdsForStaticManifest(const std::string& reservationId);
+
+	/**
+	 * @brief Wake the VOD stitcher if every registered VOD ad is now resolved/failed.
+	 *        Caller must NOT hold mDaiMtx.
+	 * @param[in] reservationId Reservation/ad break ID, for logging
+	 */
+	void NotifyIfAllVodAdsResolved(const std::string& reservationId);
 
 	/**
 	 * @brief Check whether every non-cancelled registered VOD break has a resolved or failed ad.

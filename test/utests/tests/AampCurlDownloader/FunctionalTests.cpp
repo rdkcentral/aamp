@@ -674,6 +674,65 @@ TEST_F(FunctionalTests, AampCurlDownloader_Retry_RecvError)
 }
 
 /**
+ * @brief Verifies that a partial body received before CURLE_RECV_ERROR is discarded on retry.
+ *
+ * The first attempt delivers some body bytes and then fails with CURLE_RECV_ERROR
+ * (connection reset mid-transfer). The retry succeeds with the full body, which must be
+ * the only content in the response. Otherwise a manifest parser would see the stale
+ * bytes followed by the real manifest.
+ */
+TEST_F(FunctionalTests, AampCurlDownloader_Retry_RecvError_DiscardsPartialBody)
+{
+	DownloadResponsePtr respData = std::make_shared<DownloadResponse>();
+	DownloadConfigPtr inpData = std::make_shared<DownloadConfig>();
+	inpData->bNeedDownloadMetrics = true;
+	inpData->bIgnoreResponseHeader = true;
+	inpData->iDownloadRetryCount = 1;
+
+	EXPECT_CALL(*g_mockCurl, curl_easy_init()).WillOnce(Return(mCurlEasyHandle));
+	/* The curl easy handle will be cleaned when AampCurlDownloader is destroyed. */
+	EXPECT_CALL(*g_mockCurl, curl_easy_cleanup(mCurlEasyHandle));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_ptr(mCurlEasyHandle, CURLOPT_PROGRESSDATA, mAampCurlDownloader))
+		.WillOnce(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_func_xferinfo(mCurlEasyHandle, CURLOPT_XFERINFOFUNCTION, NotNull()))
+		.WillOnce(DoAll(SaveArgPointee<2>(&mCurlProgressCallback), Return(CURLE_OK)));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_ptr(mCurlEasyHandle, CURLOPT_WRITEDATA, mAampCurlDownloader))
+		.WillOnce(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_func_write(mCurlEasyHandle, CURLOPT_WRITEFUNCTION, NotNull()))
+		.WillOnce(DoAll(SaveArgPointee<2>(&mCurlWriteFunc), Return(CURLE_OK)));
+	mAampCurlDownloader->Initialize(inpData);
+
+	ASSERT_NE(mCurlProgressCallback, nullptr);
+	ASSERT_NE(mCurlWriteFunc, nullptr);
+
+	std::string partialBody = "<MPD partial";
+	std::string fullBody = "<MPD>full manifest</MPD>";
+
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_str(mCurlEasyHandle, CURLOPT_URL, mUrl.c_str()))
+		.WillOnce(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_perform(mCurlEasyHandle))
+		.WillOnce(DoAll(
+			InvokeWithoutArgs([&]()
+			{
+				mCurlWriteFunc(partialBody.data(), 1, partialBody.size(), mAampCurlDownloader);
+			}),
+			Return(CURLE_RECV_ERROR)))
+		.WillOnce(DoAll(
+			InvokeWithoutArgs([&]()
+			{
+				mCurlWriteFunc(fullBody.data(), 1, fullBody.size(), mAampCurlDownloader);
+			}),
+			Return(CURLE_OK)));
+	EXPECT_CALL(*g_mockCurl, curl_easy_getinfo_int(mCurlEasyHandle, CURLINFO_RESPONSE_CODE, NotNull()))
+		.WillOnce(DoAll(SetArgPointee<2>(200), Return(CURLE_OK)));
+
+	mAampCurlDownloader->Download(mUrl, respData);
+
+	EXPECT_EQ(200, respData->iHttpRetValue);
+	EXPECT_EQ(fullBody, respData->getString());
+}
+
+/**
  * @brief Verifies that AampCurlDownloader retries the download after CURLE_COULDNT_RESOLVE_HOST.
  *
  * CURLE_COULDNT_RESOLVE_HOST (DNS resolution failure) is a retry-worthy error.
