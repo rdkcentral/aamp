@@ -8058,6 +8058,7 @@ std::string StreamAbstractionAAMP_MPD::GetCurrentCodec(AampMediaType mediaType)
 		auto pMediaStreamContext = mMediaStreamContext[mediaType];
 		if( pMediaStreamContext )
 		{
+			std::lock_guard<std::recursive_mutex> lock(pMediaStreamContext->mMediaStreamContextMutex);
 			if( pMediaStreamContext->representation )
 			{
 				const auto& repCodecs = pMediaStreamContext->representation->GetCodecs();
@@ -11712,7 +11713,7 @@ void  StreamAbstractionAAMP_MPD::ResumeSubtitleAfterSeek(bool mute, char *data)
 StreamAbstractionAAMP_MPD::~StreamAbstractionAAMP_MPD()
 {
 	aamp->initialManifestFetchInProgress=false;
-	
+
 	// Unregister the MPD download callback BEFORE deleting tracks.
 	// This ensures the notifier thread cannot fire MPDUpdateCallbackExec()
 
