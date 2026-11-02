@@ -21,9 +21,7 @@
 #include "AampBoxReader.h"
 #include <inttypes.h>
 #include <cctype>
-#include <iomanip>
-#include <locale>
-#include <sstream>
+#include <cstdio>
 
 /**
  * @brief Get xml node form reader
@@ -308,6 +306,8 @@ bool ParseSegmentIndexBox( const uint8_t *start, size_t size, int segmentIndex, 
 	return false;
 }
 
+static constexpr int kMaxTemplateWidth = 64;
+
 /**
  * @brief Parse a SegmentTemplate identifier format tag of the form %0[width]d (ISO/IEC 23009-1),
  *        also accepting x and X conversions. A width requires the '0' flag; bare
@@ -319,7 +319,6 @@ bool ParseSegmentIndexBox( const uint8_t *start, size_t size, int segmentIndex, 
  */
 static bool ParseTemplateFormatTag(const std::string &tag, int &width, char &type)
 {
-	constexpr int kMaxTemplateWidth = 64;
 	size_t i = 0;
 	if (tag.size() < 2 || tag[i++] != '%')
 	{
@@ -377,20 +376,11 @@ int replace(std::string &str, const std::string &from, uint64_t toNumber)
 			char type = 'd';
 			if (tag.empty() || ParseTemplateFormatTag(tag, width, type))
 			{
-				std::ostringstream oss;
-				oss.imbue(std::locale::classic());
-				if (type != 'd')
-				{
-					oss << std::hex;
-				}
-				if (type == 'X')
-				{
-					oss << std::uppercase;
-				}
-				oss << std::setfill('0') << std::setw(width) << toNumber;
-				const std::string value = oss.str();
-				str.replace(pos, next - pos + 1, value);
-				pos += value.length();
+				char buf[kMaxTemplateWidth + 21]; // padding + up to 20 digits + NUL
+				const char *fmt = (type == 'd') ? "%0*" PRIu64 : (type == 'x') ? "%0*" PRIx64 : "%0*" PRIX64;
+				const int len = snprintf(buf, sizeof(buf), fmt, width, toNumber);
+				str.replace(pos, next - pos + 1, buf, len);
+				pos += len;
 				rc++;
 				continue;
 			}
