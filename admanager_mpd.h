@@ -460,6 +460,7 @@ public:
 	std::vector<PlacementObj>                      mAdtoInsertInNextBreakVec;/**<Stores the PlacementObj yet to be placed*/
 	std::mutex                                     mAdBrkVecMtx;        /**< Mutex protecting DAI critical section */
 	std::mutex                                     mAdFulfillMtx;        /**< Mutex protecting Ad fulfillment */
+	std::mutex                                     mAdFulfillInFlightMtx;/**< Held by FulFillAdObject() for its whole run; taken before mDaiMtx */
 	std::condition_variable                        mAdFulfillCV;         /**< Condition variable for AdBreak vector */
 	std::queue<AdFulfillObj>                       mAdFulfillQ;            /**< Queue for Ad events */
 	bool                                           mExitFulfillAdLoop;    /**< Flag to exit the Ad fulfillment loop */
@@ -776,6 +777,14 @@ public:
 	 *     Caller must NOT hold mDaiMtx (lock order is mAdPlacementMtx then mDaiMtx).
 	 */
 	void AbortWaitForNextAdResolved();
+
+	/**
+	 * @brief Block until any in-flight FulFillAdObject() has finished, so the caller
+	 *        sees the resolved ad and its placement state. An ad queued but not yet started is not waited for.
+	 *        Caller must NOT hold mDaiMtx, mAdPlacementMtx, mVodAllAdsResolvedMtx or mAdFulfillMtx.
+	 *        The call in GetMPDFromManifest is the accepted exception for mMediaStreamContextMutex, held by UpdateMPD.
+	 */
+	void WaitForAdFulfilmentIdle();
 
 	/**
 	 * @brief Lock mDaiMtx and read an ad's resolved state.

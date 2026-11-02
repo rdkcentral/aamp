@@ -5775,3 +5775,100 @@ TEST_F(AdManagerMPDTests, GetAdMPD_ConcurrentDownloadsAreSerialised)
   ASSERT_EQ(second.wait_for(std::chrono::seconds(10)), std::future_status::ready);
   EXPECT_GT(getFileCalls.load(), 1);
 }
+
+/**
+ * @brief WaitForAdFulfilmentIdle blocks while an ad fulfilment is in flight and
+ *        returns only once the ad is resolved, without mDaiMtx being held
+ *        across the download.
+ */
+TEST_F(AdManagerMPDTests, WaitForAdFulfilmentIdle_BlocksUntilInFlightAdResolved)
+{
+  const std::string periodId = "brk-inflight";
+  const std::string adId = "ad-inflight";
+  mManifest = kSharedTenSecondAdManifest;
+  mPrivateCDAIObjectMPD->SetAlternateContents(periodId, "", "", 0, 10000);
+
+  std::promise<void> downloadEntered;
+  std::atomic<bool> downloadEnteredSet{false};
+  std::promise<void> releaseDownload;
+  std::shared_future<void> gate = releaseDownload.get_future().share();
+  std::atomic<bool> gateReleased{false};
+  auto release = [&]() {
+    if (!gateReleased.exchange(true))
+    {
+      releaseDownload.set_value();
+    }
+  };
+  struct GateGuard
+  {
+    std::function<void()> release;
+    ~GateGuard() { release(); }
+  } guard{release};
+
+  auto adResolvedPromise = std::make_shared<std::promise<void>>();
+  auto adResolvedFuture = adResolvedPromise->get_future();
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, true, _, _, eCDAI_ERROR_NONE))
+      .WillOnce(InvokeWithoutArgs([adResolvedPromise]{ adResolvedPromise->set_value(); }));
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _))
+      .WillRepeatedly(WithArgs<0, 2, 3, 4>(Invoke([&](std::string remoteUrl, std::vector<uint8_t> &buffer,
+                                                       std::string &effectiveUrl, int &httpError) {
+        if (remoteUrl == TEST_AD_MANIFEST_URL)
+        {
+          if (!downloadEnteredSet.exchange(true))
+          {
+            downloadEntered.set_value();
+          }
+          gate.wait_for(std::chrono::seconds(5));
+          buffer.assign(mManifest, mManifest + strlen(mManifest));
+        }
+        effectiveUrl = remoteUrl;
+        httpError = 200;
+        return true;
+      })));
+
+  mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, TEST_AD_MANIFEST_URL, 0, 10000);
+  ASSERT_EQ(downloadEntered.get_future().wait_for(std::chrono::seconds(5)), std::future_status::ready);
+
+  {
+    // mDaiMtx must stay available to other threads while the ad MPD downloads.
+    std::unique_lock<std::recursive_mutex> daiProbe(mPrivateCDAIObjectMPD->mDaiMtx, std::try_to_lock);
+    EXPECT_TRUE(daiProbe.owns_lock()) << "mDaiMtx held across the ad MPD download";
+  }
+  {
+    // The fulfilment is inside the download, so the in-flight mutex must be held.
+    std::unique_lock<std::mutex> inFlightProbe(mPrivateCDAIObjectMPD->mAdFulfillInFlightMtx, std::try_to_lock);
+    EXPECT_FALSE(inFlightProbe.owns_lock()) << "ad fulfilment ran without the in-flight mutex";
+  }
+
+  std::atomic<bool> idleReturned{false};
+  auto idle = std::async(std::launch::async, [&]() {
+    mPrivateCDAIObjectMPD->WaitForAdFulfilmentIdle();
+    idleReturned = true;
+  });
+  // Negative assertion, bounded to 50 ms: nothing observable signals that a thread is blocked on a mutex.
+  const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(50);
+  while (!idleReturned && std::chrono::steady_clock::now() < deadline)
+  {
+    std::this_thread::yield();
+  }
+  EXPECT_FALSE(idleReturned) << "WaitForAdFulfilmentIdle returned while the ad was still downloading";
+
+  release();
+  ASSERT_EQ(idle.wait_for(std::chrono::seconds(10)), std::future_status::ready);
+  ASSERT_EQ(adResolvedFuture.wait_for(std::chrono::seconds(5)), std::future_status::ready);
+
+  bool resolved = false;
+  ASSERT_TRUE(mPrivateCDAIObjectMPD->TryGetAdResolved(periodId, adId, resolved));
+  EXPECT_TRUE(resolved);
+}
+
+/**
+ * @brief WaitForAdFulfilmentIdle returns immediately when no ad is being fulfilled.
+ */
+TEST_F(AdManagerMPDTests, WaitForAdFulfilmentIdle_ReturnsImmediatelyWhenIdle)
+{
+  auto idle = std::async(std::launch::async, [&]() {
+    mPrivateCDAIObjectMPD->WaitForAdFulfilmentIdle();
+  });
+  EXPECT_EQ(idle.wait_for(std::chrono::seconds(5)), std::future_status::ready);
+}
