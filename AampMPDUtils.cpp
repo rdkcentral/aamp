@@ -22,6 +22,7 @@
 #include <inttypes.h>
 #include <cctype>
 #include <iomanip>
+#include <locale>
 #include <sstream>
 
 /**
@@ -309,14 +310,14 @@ bool ParseSegmentIndexBox( const uint8_t *start, size_t size, int segmentIndex, 
 
 /**
  * @brief Parse a SegmentTemplate identifier format tag of the form %0[width]d (ISO/IEC 23009-1),
- *        also accepting x and X conversions
+ *        also accepting x and X conversions. A width requires the '0' flag; bare
+ *        conversions without flag or width (e.g. %d) are also accepted
  * @param[in] tag format tag including the leading '%'
- * @param[out] zeroPad true if the '0' flag is present
- * @param[out] width minimum field width
+ * @param[out] width minimum field width (zero-padded)
  * @param[out] type conversion type ('d', 'x' or 'X')
  * @retval true if the tag is well-formed
  */
-static bool ParseTemplateFormatTag(const std::string &tag, bool &zeroPad, int &width, char &type)
+static bool ParseTemplateFormatTag(const std::string &tag, int &width, char &type)
 {
 	constexpr int kMaxTemplateWidth = 64;
 	size_t i = 0;
@@ -324,11 +325,12 @@ static bool ParseTemplateFormatTag(const std::string &tag, bool &zeroPad, int &w
 	{
 		return false;
 	}
-	zeroPad = (tag[i] == '0');
+	const bool zeroPad = (tag[i] == '0');
 	if (zeroPad)
 	{
 		i++;
 	}
+	const size_t widthStart = i;
 	width = 0;
 	while (i < tag.size() && isdigit(static_cast<unsigned char>(tag[i])))
 	{
@@ -338,7 +340,7 @@ static bool ParseTemplateFormatTag(const std::string &tag, bool &zeroPad, int &w
 			return false;
 		}
 	}
-	if (i + 1 != tag.size())
+	if ((i != widthStart && !zeroPad) || i + 1 != tag.size())
 	{
 		return false;
 	}
@@ -371,12 +373,12 @@ int replace(std::string &str, const std::string &from, uint64_t toNumber)
 		{
 			// The format tag comes from the manifest; never pass it to a printf-family function
 			const std::string tag = str.substr(pos + 1 + tokenLength, identifierLength - tokenLength);
-			bool zeroPad = false;
 			int width = 0;
 			char type = 'd';
-			if (tag.empty() || ParseTemplateFormatTag(tag, zeroPad, width, type))
+			if (tag.empty() || ParseTemplateFormatTag(tag, width, type))
 			{
 				std::ostringstream oss;
+				oss.imbue(std::locale::classic());
 				if (type != 'd')
 				{
 					oss << std::hex;
@@ -385,7 +387,7 @@ int replace(std::string &str, const std::string &from, uint64_t toNumber)
 				{
 					oss << std::uppercase;
 				}
-				oss << std::setfill(zeroPad ? '0' : ' ') << std::setw(width) << toNumber;
+				oss << std::setfill('0') << std::setw(width) << toNumber;
 				const std::string value = oss.str();
 				str.replace(pos, next - pos + 1, value);
 				pos += value.length();

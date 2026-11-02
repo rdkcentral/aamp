@@ -20,6 +20,7 @@
 #include <cstdlib>
 #include <cstdint>
 #include <iostream>
+#include <locale>
 #include <string>
 #include <string.h>
 #include <vector>
@@ -705,6 +706,9 @@ TEST(AampMPDUtils, ReplaceNumber_MaliciousFormatTagsRejected)
 		"%*d",
 		"%.5d",
 		"%-5d",
+		"%5d",
+		"%5x",
+		"%12X",
 		"%+d",
 		"%u",
 		"%",
@@ -742,4 +746,39 @@ TEST(AampMPDUtils, ReplaceNumber_RejectedTagThenValid)
 	std::string url = "$Number%n$/$Number%02d$";
 	EXPECT_EQ(replace(url, "Number", 3), 1);
 	EXPECT_EQ(url, "$Number%n$/03");
+}
+
+namespace
+{
+struct GroupingNumpunct : std::numpunct<char>
+{
+	char do_thousands_sep() const override { return ','; }
+	std::string do_grouping() const override { return "\3"; }
+};
+
+struct GlobalLocaleGuard
+{
+	explicit GlobalLocaleGuard(const std::locale &loc) : saved(std::locale::global(loc)) {}
+	~GlobalLocaleGuard() { std::locale::global(saved); }
+	std::locale saved;
+};
+}
+
+/**
+ * @brief Formatting is independent of the global C++ locale.
+ *
+ * An embedding application may install a global locale with digit grouping;
+ * segment numbers must still be emitted without thousands separators.
+ */
+TEST(AampMPDUtils, ReplaceNumber_IgnoresGlobalGroupingLocale)
+{
+	GlobalLocaleGuard guard(std::locale(std::locale::classic(), new GroupingNumpunct));
+
+	std::string padded = "$Number%05d$";
+	EXPECT_EQ(replace(padded, "Number", 1234), 1);
+	EXPECT_EQ(padded, "01234");
+
+	std::string bare = "$Time$";
+	EXPECT_EQ(replace(bare, "Time", 1234567), 1);
+	EXPECT_EQ(bare, "1234567");
 }
