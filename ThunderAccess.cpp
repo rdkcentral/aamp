@@ -33,7 +33,7 @@
 
 
 using namespace std;
-using namespace WPEFramework;
+using namespace Thunder;
 
 #define SERVER_DETAILS  "127.0.0.1:9998"
 #define MAX_LENGTH 1024
@@ -159,7 +159,7 @@ bool ThunderAccessAAMP::ActivatePlugin()
 /**
  * @brief  subscribeEvent
  */
-bool ThunderAccessAAMP::SubscribeEvent (string eventName, std::function<void(const WPEFramework::Core::JSON::VariantContainer&)> functionHandler)
+bool ThunderAccessAAMP::SubscribeEvent (string eventName, std::function<void(const Thunder::Core::JSON::VariantContainer&)> functionHandler)
 {
     bool ret = true;
     uint32_t status = Core::ERROR_NONE;

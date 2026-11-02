@@ -30,7 +30,7 @@ The following CMAKE defines enable mocks and stubs when building AAMP:
 CMAKE_USE_OPENCDM_ADAPTER_MOCKS
 
 Use with CMAKE_USE_OPENCDM_ADAPTER and CMAKE_USE_THUNDER_OCDM_API_0_2 for mock
-WPEFramework/Thunder Open CDM DRM support.
+Thunder Open CDM DRM support.
 
 CMAKE_IARM_MGR_MOCKS
 
@@ -69,7 +69,7 @@ Building AAMP
 When building AAMP using the build host compiler, library header files from an
 RDK build or SDK can be used. The root directory of the header files is
 specified using STAGING_INCDIR. For example, to build AAMP with mock IARM Bus
-and WPEFramework/Thunder Open CDM support on Ubuntu using header files from a
+and Thunder Open CDM support on Ubuntu using header files from a
 skyxione platform RDK build in directory ~/rdk:
 
 PKG_CONFIG_PATH=$PWD/Linux/lib/pkgconfig /usr/bin/cmake \
