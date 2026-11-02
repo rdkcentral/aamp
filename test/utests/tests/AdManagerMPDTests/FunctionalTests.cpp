@@ -5814,10 +5814,11 @@ TEST_F(AdManagerMPDTests, WaitForAdFulfilmentIdle_BlocksUntilInFlightAdResolved)
   {
     std::function<void()> release;
     ~GateGuard() { release(); }
-  } guard{[&]() {
-    releaseDownloadGate();
-    releaseEventGate();
-  }};
+	} guard{[&]() {
+		releaseDownloadGate();
+		releaseEventGate();
+		mPrivateCDAIObjectMPD->StopFulfillAdLoop();
+	}};
 
   // The fulfilment is held inside SendAdResolvedEvent, after the ad is resolved, until the test releases it.
   EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, true, _, _, eCDAI_ERROR_NONE))
