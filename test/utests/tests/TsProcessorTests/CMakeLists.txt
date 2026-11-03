@@ -23,7 +23,8 @@ set(EXEC_NAME TsProcessorTests)
 include(${CMAKE_CURRENT_LIST_DIR}/../CommonTestIncludes.cmake)
 
 set(TEST_SOURCES TsProcessorTests.cpp
-                 sendSegmentTests.cpp)
+                 sendSegmentTests.cpp
+                 PmtCollectionTests.cpp)
 
 set(AAMP_SOURCES ${AAMP_ROOT}/tsprocessor.cpp ${AAMP_ROOT}/tsDemuxer.cpp )
 
