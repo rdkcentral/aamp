@@ -8058,7 +8058,9 @@ std::string StreamAbstractionAAMP_MPD::GetCurrentCodec(AampMediaType mediaType)
 		auto pMediaStreamContext = mMediaStreamContext[mediaType];
 		if( pMediaStreamContext )
 		{
-			std::lock_guard<std::recursive_mutex> lock(pMediaStreamContext->mMediaStreamContextMutex);
+			// UpdateMPD() holds mMediaStreamContext[eMEDIATYPE_VIDEO]->mMediaStreamContextMutex and we do
+			// not want to access representation at the same time as it is being updated by UpdateMPD()
+			std::lock_guard<std::recursive_mutex> lock(mMediaStreamContext[eMEDIATYPE_VIDEO]->mMediaStreamContextMutex);
 			if( pMediaStreamContext->representation )
 			{
 				const auto& repCodecs = pMediaStreamContext->representation->GetCodecs();
