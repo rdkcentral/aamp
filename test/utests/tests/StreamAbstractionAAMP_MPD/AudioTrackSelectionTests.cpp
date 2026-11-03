@@ -450,6 +450,57 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	EXPECT_EQ(audioTracks[0].codec, "ac-4.02.01.00");
 }
 
+/**
+ * @brief Verify DASH audio codec priority ordering.
+ *
+ * DASH selection must prefer AC4 over Atmos, EC3, AC3, and AAC. The
+ * representations are intentionally listed in the reverse priority order so
+ * the selected representation proves that codec priority is applied.
+ */
+TEST_F(SelectAudioTrackTests, PreferredAudioCodecPriorityFollowsDashSpec)
+{
+	static const char *manifest =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="static" mediaPresentationDuration="PT2M0.0S" minBufferTime="PT4.0S">
+	<Period id="0" start="PT0.0S">
+		<AdaptationSet id="3" contentType="audio">
+			<Representation id="aac" mimeType="audio/mp4" codecs="aac" bandwidth="64000">
+				<SegmentTemplate timescale="48000" initialization="aac/audio_init.mp4" media="aac/audio_$Number$.mp4" startNumber="1"/>
+			</Representation>
+			<Representation id="ac3" mimeType="audio/mp4" codecs="ac-3" bandwidth="64000">
+				<SegmentTemplate timescale="48000" initialization="ac3/audio_init.mp4" media="ac3/audio_$Number$.mp4" startNumber="1"/>
+			</Representation>
+			<Representation id="ec3" mimeType="audio/mp4" codecs="ec-3" bandwidth="64000">
+				<SegmentTemplate timescale="48000" initialization="ec3/audio_init.mp4" media="ec3/audio_$Number$.mp4" startNumber="1"/>
+			</Representation>
+			<Representation id="atmos" mimeType="audio/mp4" codecs="ec+3" bandwidth="64000">
+				<SegmentTemplate timescale="48000" initialization="atmos/audio_init.mp4" media="atmos/audio_$Number$.mp4" startNumber="1"/>
+			</Representation>
+			<Representation id="ac4" mimeType="audio/mp4" codecs="ac-4.02.01.00" bandwidth="64000">
+				<SegmentTemplate timescale="48000" initialization="ac4/audio_init.mp4" media="ac4/audio_$Number$.mp4" startNumber="1"/>
+			</Representation>
+		</AdaptationSet>
+	</Period>
+</MPD>
+)";
+
+	const std::string fragmentUrl = std::string(TEST_BASE_URL) + "ac4/audio_init.mp4";
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
+		.WillOnce(Return(true));
+
+	ASSERT_EQ(InitializeMPD(manifest), eAAMPSTATUS_OK);
+
+	std::vector<AudioTrackInfo> audioTracks;
+	std::string audioTrackIndex;
+	int audioAdaptationSetIndex = -1;
+	int audioRepresentationIndex = -1;
+	mStreamAbstractionAAMP_MPD->SelectAudioTrack(audioTracks, audioTrackIndex,
+		audioAdaptationSetIndex, audioRepresentationIndex);
+
+	EXPECT_EQ(audioAdaptationSetIndex, 0);
+	EXPECT_EQ(audioRepresentationIndex, 4);
+}
+
 TEST_F(SelectAudioTrackTests, MultiAudio)
 {
 	AAMPStatusType status;
