@@ -5002,33 +5002,65 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 	ResetTrackDiscontinuityIgnoredStatus();
 	lock.unlock();
 	auto streamStopStartTime = NOW_STEADY_TS_MS;
+	std::thread streamCleanupThread;
 	if (mpStreamAbstractionAAMP)
 	{
 		// Using StreamLock to make sure this is not interfering with GetFile() from PreCachePlaylistDownloadTask
 		AcquireStreamLock();
+		auto streamAbstractionStopStartTime = NOW_STEADY_TS_MS;
 		mpStreamAbstractionAAMP->Stop(disableDownloads);
+		AAMPLOG_WARN("TeardownStream: StreamAbstraction::Stop took %u ms",
+			(unsigned int)(NOW_STEADY_TS_MS - streamAbstractionStopStartTime));
+		ReleaseStreamLock();
 
-		if(mContentType == ContentType_HDMIIN)
+		try
 		{
-			StreamAbstractionAAMP_HDMIIN::ResetInstance();
-			mpStreamAbstractionAAMP = NULL;
+			streamCleanupThread = std::thread([this]()
+			{
+				auto streamCleanupStartTime = NOW_STEADY_TS_MS;
+				AcquireStreamLock();
+				if(mContentType == ContentType_HDMIIN)
+				{
+					StreamAbstractionAAMP_HDMIIN::ResetInstance();
+					mpStreamAbstractionAAMP = NULL;
+				}
+				else if(mContentType == ContentType_COMPOSITEIN)
+				{
+					StreamAbstractionAAMP_COMPOSITEIN::ResetInstance();
+					mpStreamAbstractionAAMP = NULL;
+				}
+				else if(!IsLocalAAMPTsb())
+				{
+					SAFE_DELETE(mpStreamAbstractionAAMP);
+				}
+				ReleaseStreamLock();
+				AAMPLOG_WARN("TeardownStream: StreamAbstraction cleanup/deletion took %u ms",
+					(unsigned int)(NOW_STEADY_TS_MS - streamCleanupStartTime));
+			});
 		}
-		else if(mContentType == ContentType_COMPOSITEIN)
+		catch (const std::system_error& e)
 		{
-			StreamAbstractionAAMP_COMPOSITEIN::ResetInstance();
-			mpStreamAbstractionAAMP = NULL;
-		}
-		else
-		{
-			if(!IsLocalAAMPTsb())
+			AAMPLOG_ERR("TeardownStream: failed to start StreamAbstraction cleanup thread: %s", e.what());
+			AcquireStreamLock();
+			if(mContentType == ContentType_HDMIIN)
+			{
+				StreamAbstractionAAMP_HDMIIN::ResetInstance();
+				mpStreamAbstractionAAMP = NULL;
+			}
+			else if(mContentType == ContentType_COMPOSITEIN)
+			{
+				StreamAbstractionAAMP_COMPOSITEIN::ResetInstance();
+				mpStreamAbstractionAAMP = NULL;
+			}
+			else if(!IsLocalAAMPTsb())
 			{
 				SAFE_DELETE(mpStreamAbstractionAAMP);
 			}
+			ReleaseStreamLock();
 		}
-		ReleaseStreamLock();
 	}
 	auto streamStopDuration = NOW_STEADY_TS_MS - streamStopStartTime;
-	AAMPLOG_WARN("TeardownStream: StreamAbstraction stop and cleanup took %u ms",
+	AAMPLOG_WARN("TeardownStream: StreamAbstraction stop and cleanup phase started, stop took %u ms",
 		(unsigned int)streamStopDuration);
 	m_lastSubClockSyncTime = std::chrono::system_clock::time_point();
 
@@ -5088,6 +5120,11 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 			mbTrackDownloadsBlocked[iTrack] = true;
 		}
 		streamerIsActive = true;
+	}
+	if (streamCleanupThread.joinable())
+	{
+		streamCleanupThread.join();
+		AAMPLOG_WARN("TeardownStream: StreamAbstraction cleanup thread joined");
 	}
 	mAdProgressId = "";
 	std::queue<AAMPEventPtr> emptyEvQ;
