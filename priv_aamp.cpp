@@ -5013,6 +5013,7 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 	UnblockWaitForDiscontinuityProcessToComplete();
 	ResetTrackDiscontinuityIgnoredStatus();
 	lock.unlock();
+	auto streamStopStartTime = NOW_STEADY_TS_MS;
 	if (mpStreamAbstractionAAMP)
 	{
 		// Using StreamLock to make sure this is not interfering with GetFile() from PreCachePlaylistDownloadTask
@@ -5038,6 +5039,9 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 		}
 		ReleaseStreamLock();
 	}
+	auto streamStopDuration = NOW_STEADY_TS_MS - streamStopStartTime;
+	AAMPLOG_WARN("TeardownStream: StreamAbstraction stop and cleanup took %u ms",
+		(unsigned int)streamStopDuration);
 	m_lastSubClockSyncTime = std::chrono::system_clock::time_point();
 
 	lock.lock();
@@ -5081,7 +5085,10 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 				StreamSink *sink = AampStreamSinkManager::GetInstance().GetStoppingStreamSink(this);
 				if (sink)
 				{
+					auto sinkStopStartTime = NOW_STEADY_TS_MS;
 					sink->Stop(!newTune);
+					AAMPLOG_WARN("TeardownStream: StreamSink stop took %u ms",
+						(unsigned int)(NOW_STEADY_TS_MS - sinkStopStartTime));
 				}
 			}
 		}
@@ -7901,8 +7908,17 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 		streamLockStopTime = NOW_STEADY_TS_MS;
 		if (mDRMLicenseManager)
 		{
+			auto drmPreparationStartTime = NOW_STEADY_TS_MS;
+			auto dynamicDrmWaitStartTime = NOW_STEADY_TS_MS;
 			ReleaseDynamicDRMToUpdateWait();
+			AAMPLOG_WARN("AAMP Stop: dynamic DRM update wait release took %u ms",
+				(unsigned int)(NOW_STEADY_TS_MS - dynamicDrmWaitStartTime));
+
+			auto licenseAbortStartTime = NOW_STEADY_TS_MS;
 			mDRMLicenseManager->setLicenseRequestAbort(true);
+			AAMPLOG_WARN("AAMP Stop: DRM license request abort took %u ms",
+				(unsigned int)(NOW_STEADY_TS_MS - licenseAbortStartTime));
+
 			// Reset the mFetchInstance in AampLicensePreFetcher as we are going to delete
 			// StreamAbstractionAamp object from TeardownStream(). Otherwise it can
 			// lead to crash as PreFetchThread can call UpdateFailedDRMStatus
@@ -7910,6 +7926,10 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 			licenseAquisitionLockStartTime = NOW_STEADY_TS_MS;
 			mDRMLicenseManager->SetLicenseFetcher(nullptr);
 			licenseAquisitionLockStopTime = NOW_STEADY_TS_MS;
+			AAMPLOG_WARN("AAMP Stop: license fetcher detach took %u ms",
+				(unsigned int)(licenseAquisitionLockStopTime - licenseAquisitionLockStartTime));
+			AAMPLOG_WARN("AAMP Stop: DRM pre-stop preparation took %u ms",
+				(unsigned int)(NOW_STEADY_TS_MS - drmPreparationStartTime));
 		}
 		if (HasSidecarData())
 		{ // has sidecar data
@@ -7924,12 +7944,18 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 	// stop the mpd update immediately after Stream abstraction delete
 	if(mMPDDownloaderInstance != nullptr)
 	{
+		auto mpdCleanupStartTime = NOW_STEADY_TS_MS;
 		mMPDDownloaderInstance->Release();
+		AAMPLOG_WARN("AAMP Stop: MPD downloader release took %u ms",
+			(unsigned int)(NOW_STEADY_TS_MS - mpdCleanupStartTime));
 	}
 	if(mTSBSessionManager)
 	{
+		auto tsbFlushStartTime = NOW_STEADY_TS_MS;
 		// Clear all the local TSB data
 		mTSBSessionManager->Flush();
+		AAMPLOG_WARN("AAMP Stop: TSB flush took %u ms",
+			(unsigned int)(NOW_STEADY_TS_MS - tsbFlushStartTime));
 	}
 
 	mId3MetadataCache.Reset();
@@ -8008,14 +8034,17 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 	{
 		pipeline_paused = false;
 	}
-	if (mDRMLicenseManager)
+	if(mDRMLicenseManager)
 	{
 		/** Reset the license fetcher only DRM handle is deleting **/
+		auto drmStopStartTime = NOW_STEADY_TS_MS;
 		mDRMLicenseManager->Stop();
 
 		// Set Session Manager State to Inactive after StreamSink has been stopped
 		// to avoid any race condition between data still being streamed and DRM session manager
 		mDRMLicenseManager->setSessionMgrState(SessionMgrState::eSESSIONMGR_INACTIVE);
+		AAMPLOG_WARN("AAMP Stop: DRM prefetch stop and session state update took %u ms",
+			(unsigned int)(NOW_STEADY_TS_MS - drmStopStartTime));
 	}
 
 	SAFE_DELETE(mCdaiObject);
@@ -8042,7 +8071,10 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 	SetFlushFdsNeededInCurlStore(false);
 	EnableDownloads();
 
+	auto deactivatePlayerStartTime = NOW_STEADY_TS_MS;
 	AampStreamSinkManager::GetInstance().DeactivatePlayer(this, true);
+	AAMPLOG_WARN("AAMP Stop: stream sink manager deactivation took %u ms",
+		(unsigned int)(NOW_STEADY_TS_MS - deactivatePlayerStartTime));
 	unsigned int mLastStopDurationMs = (unsigned)(NOW_STEADY_TS_MS - stopStartTime);
 	AAMPLOG_WARN("AAMP Stop took %u ms; streamLock %u, SetLicenceFetcher %u, Teardown %u",
 		mLastStopDurationMs,
