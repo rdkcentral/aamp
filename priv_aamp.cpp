@@ -66,9 +66,11 @@
 #include <cmath>
 #include <regex>
 #include <fstream>
+#include <system_error>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <thread>
 #include <uuid/uuid.h>
 #include <string.h>
 #include "AampCurlDownloader.h"
@@ -7926,6 +7928,33 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 	TeardownStream(true,true); //disable download as well
 	auto tearDownEndTime = NOW_STEADY_TS_MS;
 
+	std::thread drmStopThread;
+	if (mDRMLicenseManager)
+	{
+		try
+		{
+			drmStopThread = std::thread([this]()
+			{
+				auto drmStopStartTime = NOW_STEADY_TS_MS;
+				/** Reset the license fetcher only DRM handle is deleting **/
+				mDRMLicenseManager->Stop();
+				mDRMLicenseManager->setSessionMgrState(SessionMgrState::eSESSIONMGR_INACTIVE);
+				AAMPLOG_WARN("AAMP Stop: DRM prefetch stop and session state update took %u ms",
+					(unsigned int)(NOW_STEADY_TS_MS - drmStopStartTime));
+			});
+		}
+		catch (const std::system_error& e)
+		{
+			AAMPLOG_ERR("AAMP Stop: failed to start DRM cleanup thread: %s", e.what());
+			/** Reset the license fetcher only DRM handle is deleting **/
+			auto drmStopStartTime = NOW_STEADY_TS_MS;
+			mDRMLicenseManager->Stop();
+			mDRMLicenseManager->setSessionMgrState(SessionMgrState::eSESSIONMGR_INACTIVE);
+			AAMPLOG_WARN("AAMP Stop: DRM prefetch stop and session state update took %u ms",
+				(unsigned int)(NOW_STEADY_TS_MS - drmStopStartTime));
+		}
+	}
+
 	// stop the mpd update immediately after Stream abstraction delete
 	if(mMPDDownloaderInstance != nullptr)
 	{
@@ -7941,6 +7970,11 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 		mTSBSessionManager->Flush();
 		AAMPLOG_WARN("AAMP Stop: TSB flush took %u ms",
 			(unsigned int)(NOW_STEADY_TS_MS - tsbFlushStartTime));
+	}
+	if (drmStopThread.joinable())
+	{
+		drmStopThread.join();
+		AAMPLOG_WARN("AAMP Stop: DRM cleanup thread joined");
 	}
 
 	mId3MetadataCache.Reset();
@@ -8018,18 +8052,6 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 	if (pipeline_paused)
 	{
 		pipeline_paused = false;
-	}
-	if(mDRMLicenseManager)
-	{
-		/** Reset the license fetcher only DRM handle is deleting **/
-		auto drmStopStartTime = NOW_STEADY_TS_MS;
-		mDRMLicenseManager->Stop();
-
-		// Set Session Manager State to Inactive after StreamSink has been stopped
-		// to avoid any race condition between data still being streamed and DRM session manager
-		mDRMLicenseManager->setSessionMgrState(SessionMgrState::eSESSIONMGR_INACTIVE);
-		AAMPLOG_WARN("AAMP Stop: DRM prefetch stop and session state update took %u ms",
-			(unsigned int)(NOW_STEADY_TS_MS - drmStopStartTime));
 	}
 
 	SAFE_DELETE(mCdaiObject);
