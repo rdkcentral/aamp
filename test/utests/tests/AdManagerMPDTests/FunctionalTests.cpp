@@ -5566,6 +5566,33 @@ bool WaitForFlag(const std::atomic<bool> &flag)
   }
   return flag;
 }
+
+// Holds a worker open until Release(); Release() is idempotent.
+class OneShotGate
+{
+public:
+  OneShotGate() : mFuture(mPromise.get_future().share()) {}
+  void Release()
+  {
+    if (!mReleased.exchange(true))
+    {
+      mPromise.set_value();
+    }
+  }
+  void Wait() const { mFuture.wait_for(std::chrono::seconds(5)); }
+
+private:
+  std::promise<void> mPromise;
+  std::shared_future<void> mFuture;
+  std::atomic<bool> mReleased{false};
+};
+
+// Runs the callable on scope exit, so gates open on every exit path.
+struct ScopedRelease
+{
+  std::function<void()> release;
+  ~ScopedRelease() { release(); }
+};
 }
 
 /**
@@ -5698,18 +5725,9 @@ TEST_F(AdManagerMPDTests, GetAdMPD_ConcurrentDownloadsAreSerialised)
   mManifest = kSharedTenSecondAdManifest;
   const std::string manifestUrl = "http://origin.example.com/ad/manifest.mpd";
   std::promise<void> firstEntered;
-  std::promise<void> releaseFirst;
-  std::shared_future<void> gate = releaseFirst.get_future().share();
+  OneShotGate gate;
   std::atomic<int> getFileCalls{0};
   std::atomic<bool> secondAboutToDownload{false};
-  bool released = false;
-  auto release = [&]() {
-    if (!released)
-    {
-      released = true;
-      releaseFirst.set_value();
-    }
-  };
 
   // The first GetFile call is held open until the gate is released.
   EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _))
@@ -5718,7 +5736,7 @@ TEST_F(AdManagerMPDTests, GetAdMPD_ConcurrentDownloadsAreSerialised)
         if (getFileCalls.fetch_add(1) == 0)
         {
           firstEntered.set_value();
-          gate.wait_for(std::chrono::seconds(5));
+          gate.Wait();
         }
         if (remoteUrl == manifestUrl)
         {
@@ -5742,11 +5760,7 @@ TEST_F(AdManagerMPDTests, GetAdMPD_ConcurrentDownloadsAreSerialised)
   std::future<void> first;
   std::future<void> second;
   // Declared after the futures so the gate is released before they are joined on any exit path.
-  struct GateGuard
-  {
-    std::function<void()> release;
-    ~GateGuard() { release(); }
-  } guard{release};
+  ScopedRelease guard{[&]() { gate.Release(); }};
 
   first = std::async(std::launch::async, download);
   ASSERT_EQ(firstEntered.get_future().wait_for(std::chrono::seconds(5)), std::future_status::ready);
@@ -5770,7 +5784,7 @@ TEST_F(AdManagerMPDTests, GetAdMPD_ConcurrentDownloadsAreSerialised)
   }
   EXPECT_EQ(getFileCalls.load(), 1) << "second download entered GetFile while the first was in flight";
 
-  release();
+  gate.Release();
   ASSERT_EQ(first.wait_for(std::chrono::seconds(10)), std::future_status::ready);
   ASSERT_EQ(second.wait_for(std::chrono::seconds(10)), std::future_status::ready);
   EXPECT_GT(getFileCalls.load(), 1);
@@ -5790,41 +5804,21 @@ TEST_F(AdManagerMPDTests, WaitForAdFulfilmentIdle_BlocksUntilInFlightAdResolved)
 
   std::promise<void> downloadEntered;
   std::atomic<bool> downloadEnteredSet{false};
-  std::promise<void> releaseDownload;
-  std::shared_future<void> downloadGate = releaseDownload.get_future().share();
-  std::atomic<bool> downloadReleased{false};
-  std::promise<void> releaseEvent;
-  std::shared_future<void> eventGate = releaseEvent.get_future().share();
-  std::atomic<bool> eventReleased{false};
+  OneShotGate downloadGate;
+  OneShotGate eventGate;
   std::atomic<bool> eventEntered{false};
   std::atomic<bool> eventCompleted{false};
-  auto releaseDownloadGate = [&]() {
-    if (!downloadReleased.exchange(true))
-    {
-      releaseDownload.set_value();
-    }
-  };
-  auto releaseEventGate = [&]() {
-    if (!eventReleased.exchange(true))
-    {
-      releaseEvent.set_value();
-    }
-  };
-  struct GateGuard
-  {
-    std::function<void()> release;
-    ~GateGuard() { release(); }
-	} guard{[&]() {
-		releaseDownloadGate();
-		releaseEventGate();
-		mPrivateCDAIObjectMPD->StopFulfillAdLoop();
-	}};
+  ScopedRelease guard{[&]() {
+    downloadGate.Release();
+    eventGate.Release();
+    mPrivateCDAIObjectMPD->StopFulfillAdLoop();
+  }};
 
   // The fulfilment is held inside SendAdResolvedEvent, after the ad is resolved, until the test releases it.
   EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, true, _, _, eCDAI_ERROR_NONE))
       .WillOnce(InvokeWithoutArgs([&]() {
         eventEntered = true;
-        eventGate.wait_for(std::chrono::seconds(5));
+        eventGate.Wait();
         eventCompleted = true;
       }));
   EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _))
@@ -5836,7 +5830,7 @@ TEST_F(AdManagerMPDTests, WaitForAdFulfilmentIdle_BlocksUntilInFlightAdResolved)
           {
             downloadEntered.set_value();
           }
-          downloadGate.wait_for(std::chrono::seconds(5));
+          downloadGate.Wait();
           buffer.assign(mManifest, mManifest + strlen(mManifest));
         }
         effectiveUrl = remoteUrl;
@@ -5859,7 +5853,6 @@ TEST_F(AdManagerMPDTests, WaitForAdFulfilmentIdle_BlocksUntilInFlightAdResolved)
   }
 
   std::atomic<bool> idleStarted{false};
-  std::atomic<bool> idleReturned{false};
   std::atomic<bool> resolvedOnReturn{false};
   std::atomic<bool> eventCompletedOnReturn{false};
   auto idle = std::async(std::launch::async, [&]() {
@@ -5869,27 +5862,20 @@ TEST_F(AdManagerMPDTests, WaitForAdFulfilmentIdle_BlocksUntilInFlightAdResolved)
     bool resolved = false;
     resolvedOnReturn = mPrivateCDAIObjectMPD->TryGetAdResolved(periodId, adId, resolved) && resolved;
     eventCompletedOnReturn = eventCompleted.load();
-    idleReturned = true;
   });
   ASSERT_TRUE(WaitForFlag(idleStarted));
 
   // Negative assertion, bounded to 50 ms: nothing observable signals that a thread is blocked on a mutex.
-  auto blockedFor50Ms = [&]() {
-    const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(50);
-    while (!idleReturned && std::chrono::steady_clock::now() < deadline)
-    {
-      std::this_thread::yield();
-    }
-    return !idleReturned;
-  };
-  EXPECT_TRUE(blockedFor50Ms()) << "WaitForAdFulfilmentIdle returned while the ad was still downloading";
+  EXPECT_EQ(idle.wait_for(std::chrono::milliseconds(50)), std::future_status::timeout)
+      << "WaitForAdFulfilmentIdle returned while the ad was still downloading";
 
-  releaseDownloadGate();
+  downloadGate.Release();
   // The ad is now resolved but the fulfilment is still running, held inside SendAdResolvedEvent.
   ASSERT_TRUE(WaitForFlag(eventEntered)) << "ad fulfilment never reached SendAdResolvedEvent";
-  EXPECT_TRUE(blockedFor50Ms()) << "WaitForAdFulfilmentIdle returned before the fulfilment completed";
+  EXPECT_EQ(idle.wait_for(std::chrono::milliseconds(50)), std::future_status::timeout)
+      << "WaitForAdFulfilmentIdle returned before the fulfilment completed";
 
-  releaseEventGate();
+  eventGate.Release();
   ASSERT_EQ(idle.wait_for(std::chrono::seconds(10)), std::future_status::ready);
   EXPECT_TRUE(resolvedOnReturn);
   EXPECT_TRUE(eventCompletedOnReturn);

@@ -459,7 +459,7 @@ public:
 	bool                                           currentAdPeriodClosed;/**< The very next open period should be processed only when the flag is true*/
 	std::vector<PlacementObj>                      mAdtoInsertInNextBreakVec;/**<Stores the PlacementObj yet to be placed*/
 	std::mutex                                     mAdBrkVecMtx;        /**< Mutex protecting DAI critical section */
-	std::mutex                                     mAdFulfillMtx;        /**< Mutex protecting Ad fulfillment */
+	std::mutex                                     mAdFulfillMtx;        /**< Mutex protecting mAdFulfillQ and mAdFulfillCV; not held while FulFillAdObject() runs (see mAdFulfillInFlightMtx) */
 	std::mutex                                     mAdFulfillInFlightMtx;/**< Held by FulFillAdObject() for its whole run; taken before mDaiMtx */
 	std::condition_variable                        mAdFulfillCV;         /**< Condition variable for AdBreak vector */
 	std::queue<AdFulfillObj>                       mAdFulfillQ;            /**< Queue for Ad events */
