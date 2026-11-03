@@ -33,7 +33,7 @@ static int PLAYERID_CNTR = 0;
 PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) :
 	profiler(),
 	licenceFromManifest(false),
-	previousAudioType(eAUDIO_UNKNOWN),
+	previousAudioType(FORMAT_UNKNOWN),
 	isPreferredDRMConfigured(false),
 	mFogTSBEnabled(false),
 	mLiveOffset(AAMP_LIVE_OFFSET),

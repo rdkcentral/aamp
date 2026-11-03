@@ -137,7 +137,7 @@ StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(class PrivateInstanceAAMP *
 	mpd(NULL), mNumberOfTracks(0), mCurrentPeriodIdx(0), mEndPosition(0), mIsLiveStream(true), mIsLiveManifest(true),mManifestDnldRespPtr(nullptr),mManifestUpdateHandleFlag(false), mUpdateManifestState(false),
 	mStreamInfo(), mPrevStartTimeSeconds(0), mPrevLastSegurlMedia(""), mPrevLastSegurlOffset(0),
 	mPeriodEndTime(0), mPeriodStartTime(0), mPeriodDuration(0), mMinUpdateDurationMs(DEFAULT_INTERVAL_BETWEEN_MPD_UPDATES_MS),
-	mLastPlaylistDownloadTimeMs(0), mFirstPTS(0), mStartTimeOfFirstPTS(0), mAudioType(eAUDIO_UNKNOWN),
+	mLastPlaylistDownloadTimeMs(0), mFirstPTS(0), mStartTimeOfFirstPTS(0), mAudioType(FORMAT_UNKNOWN),
 	mPrevAdaptationSetCount(0), mBitrateIndexVector(), mProfileMaps(), mIsFogTSB(false),
 	mCurrentPeriod(NULL), mBasePeriodId(""), mBasePeriodOffset(0), mCdaiObject(NULL), mLiveEndPosition(0), mCulledSeconds(0)
 	,mAdPlayingFromCDN(false)
@@ -296,44 +296,44 @@ static bool IsAtmosAudio(const IMPDElement *nodePtr)
  * @param[in] rep - representation node for atmos audio check
  * @retval audio type as per aamp code from string value
  */
-static AudioType getCodecType(string & codecValue, const IMPDElement *rep)
+static StreamOutputFormat getCodecType(string & codecValue, const IMPDElement *rep)
 {
-	AudioType audioType = eAUDIO_UNSUPPORTED;
+	StreamOutputFormat audioType = FORMAT_INVALID;
 	if (codecValue == "ec+3")
 	{
-		audioType = eAUDIO_ATMOS;
+		audioType = FORMAT_AUDIO_ES_ATMOS;
 	}
 	else if ( codecValue.rfind("ac-4",0)==0 )
 	{
-		audioType = eAUDIO_DOLBYAC4;
+		audioType = FORMAT_AUDIO_ES_AC4;
 	}
 	else if ((codecValue == "ac-3"))
 	{
-		audioType = eAUDIO_DOLBYAC3;
+		audioType = FORMAT_AUDIO_ES_AC3;
 	}
 	else if ((codecValue == "ec-3"))
 	{
-		audioType = eAUDIO_DDPLUS;
+		audioType = FORMAT_AUDIO_ES_EC3;
 		/*
 		* check whether ATMOS Flag is set as per ETSI TS 103 420
 		*/
 		if (IsAtmosAudio(rep))
 		{
-			AAMPLOG_INFO("Setting audio codec as eAUDIO_ATMOS as per ETSI TS 103 420");
-			audioType = eAUDIO_ATMOS;
+			AAMPLOG_INFO("Setting audio codec as FORMAT_AUDIO_ES_ATMOS as per ETSI TS 103 420");
+			audioType = FORMAT_AUDIO_ES_ATMOS;
 		}
 	}
 	else if( codecValue.find("vorbis") != std::string::npos )
 	{
-		audioType = eAUDIO_VORBIS;
+		audioType = FORMAT_UNKNOWN;
 	}
 	else if( codecValue == "opus" )
 	{
-		audioType = eAUDIO_OPUS;
+		audioType = FORMAT_UNKNOWN;
 	}
 	else if( codecValue == "aac" || codecValue.find("mp4") != std::string::npos )
 	{
-		audioType = eAUDIO_AAC;
+		audioType = FORMAT_AUDIO_ES_AAC;
 	}
 	return audioType;
 }
@@ -342,7 +342,7 @@ static AudioType getCodecType(string & codecValue, const IMPDElement *rep)
  * @brief Get representation index from preferred codec list
  * @retval whether track selected or not
  */
-bool StreamAbstractionAAMP_MPD::GetPreferredCodecIndex(IAdaptationSet *adaptationSet, int &selectedRepIdx, AudioType &selectedCodecType,
+bool StreamAbstractionAAMP_MPD::GetPreferredCodecIndex(IAdaptationSet *adaptationSet, int &selectedRepIdx, StreamOutputFormat &selectedCodecType,
 	uint32_t &selectedRepBandwidth, long &bestScore, bool disableEC3, bool disableATMOS, bool disableAC4, bool disableAC3, bool& disabled)
 {
 	bool isTrackSelected = false;
@@ -378,12 +378,12 @@ bool StreamAbstractionAAMP_MPD::GetPreferredCodecIndex(IAdaptationSet *adaptatio
 					int distance = (int)std::distance(aamp->preferredCodecList.begin(),iter);
 					score = ((aamp->preferredCodecList.size()-distance)) * AAMP_CODEC_SCORE; /* bonus for codec match */
 				}
-				AudioType codecType = getCodecType(codecValue, rep);
+				StreamOutputFormat codecType = getCodecType(codecValue, rep);
 				score += (uint32_t)codecType;
-				if (((codecType == eAUDIO_ATMOS) && (disableATMOS || disableEC3)) || /*ATMOS audio disable by config */
-					((codecType == eAUDIO_DDPLUS) && disableEC3) || /* EC3 disable neglect it that case */
-					((codecType == eAUDIO_DOLBYAC4) && disableAC4) || /** Disable AC4 **/
-					((codecType == eAUDIO_DOLBYAC3) && disableAC3) ) /**< Disable AC3 **/
+				if (((codecType == FORMAT_AUDIO_ES_ATMOS) && (disableATMOS || disableEC3)) || /*ATMOS audio disable by config */
+					((codecType == FORMAT_AUDIO_ES_EC3) && disableEC3) || /* EC3 disable neglect it that case */
+					((codecType == FORMAT_AUDIO_ES_AC4) && disableAC4) || /** Disable AC4 **/
+					((codecType == FORMAT_AUDIO_ES_AC3) && disableAC3) ) /**< Disable AC3 **/
 				{
 					//Reduce score to 0 since ATMOS and/or DDPLUS is disabled;
 					score = 0;
@@ -454,7 +454,7 @@ void StreamAbstractionAAMP_MPD::GetPreferredTextRepresentation(IAdaptationSet *a
 	AAMPLOG_INFO("StreamAbstractionAAMP_MPD: SelectedRepIndex : %d selectedRepBandwidth: %d", selectedRepIdx, selectedRepBandwidth);
 }
 
-static int GetDesiredCodecIndex(IAdaptationSet *adaptationSet, AudioType &selectedCodecType, uint32_t &selectedRepBandwidth,
+static int GetDesiredCodecIndex(IAdaptationSet *adaptationSet, StreamOutputFormat &selectedCodecType, uint32_t &selectedRepBandwidth,
 				bool disableEC3,bool disableATMOS, bool disableAC4,bool disableAC3,  bool &disabled)
 {
 	int selectedRepIdx = -1;
@@ -468,7 +468,7 @@ static int GetDesiredCodecIndex(IAdaptationSet *adaptationSet, AudioType &select
 			const dash::mpd::IRepresentation *rep = representation.at(representationIndex);
 			uint32_t bandwidth = rep->GetBandwidth();
 			const std::vector<string> codecs = rep->GetCodecs();
-			AudioType audioType = eAUDIO_UNKNOWN;
+			StreamOutputFormat audioType = FORMAT_UNKNOWN;
 			string codecValue="";
 			// check if Representation included codec
 			if(codecs.size())
@@ -485,13 +485,13 @@ static int GetDesiredCodecIndex(IAdaptationSet *adaptationSet, AudioType &select
 			* disableEC3: avoid use of DDPLUS and ATMOS tracks
 			* disableAC4: avoid use if ATMOS AC4 tracks
 			*/
-			if ((selectedCodecType == eAUDIO_UNKNOWN && (audioType != eAUDIO_UNSUPPORTED || selectedRepBandwidth == 0)) || // Select any profile for the first time, reject unsupported streams then
+			if ((selectedCodecType == FORMAT_UNKNOWN && (audioType != FORMAT_INVALID || selectedRepBandwidth == 0)) || // Select any profile for the first time, reject unsupported streams then
 				(selectedCodecType == audioType && bandwidth>selectedRepBandwidth) || // same type but better quality
-				(selectedCodecType < eAUDIO_DOLBYAC4 && audioType == eAUDIO_DOLBYAC4 && !disableAC4 ) || // promote to AC4
-				(selectedCodecType < eAUDIO_ATMOS && audioType == eAUDIO_ATMOS && !disableATMOS && !disableEC3) || // promote to atmos
-				(selectedCodecType < eAUDIO_DDPLUS && audioType == eAUDIO_DDPLUS && !disableEC3) || // promote to ddplus
-				(selectedCodecType != eAUDIO_AAC && audioType == eAUDIO_AAC && disableEC3) || // force AAC
-				(selectedCodecType == eAUDIO_UNSUPPORTED) // anything better than nothing
+				(selectedCodecType < FORMAT_AUDIO_ES_AC4 && audioType == FORMAT_AUDIO_ES_AC4 && !disableAC4 ) || // promote to AC4
+				(selectedCodecType < FORMAT_AUDIO_ES_ATMOS && audioType == FORMAT_AUDIO_ES_ATMOS && !disableATMOS && !disableEC3) || // promote to atmos
+				(selectedCodecType < FORMAT_AUDIO_ES_EC3 && audioType == FORMAT_AUDIO_ES_EC3 && !disableEC3) || // promote to ddplus
+				(selectedCodecType != FORMAT_AUDIO_ES_AAC && audioType == FORMAT_AUDIO_ES_AAC && disableEC3) || // force AAC
+				(selectedCodecType == FORMAT_INVALID) // anything better than nothing
 				)
 			{
 				selectedRepIdx = representationIndex;
@@ -4371,7 +4371,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 		//calling ReportTimedMetadata function after drm creation in order
 		//to reduce the delay caused
 		aamp->ReportTimedMetadata(true);
-		if(mAudioType == eAUDIO_UNSUPPORTED)
+		if(mAudioType == FORMAT_INVALID)
 		{
 			retval = eAAMPSTATUS_MANIFEST_CONTENT_ERROR;
 			aamp->SendErrorEvent(AAMP_TUNE_UNSUPPORTED_AUDIO_TYPE);
@@ -6039,7 +6039,7 @@ void StreamAbstractionAAMP_MPD::UpdateLanguageList()
  * @brief Get the best Audio track by Language, role, and/or codec type
  * @return int selected representation index
  */
-int StreamAbstractionAAMP_MPD::GetBestAudioTrackByLanguage( int &desiredRepIdx, AudioType &CodecType,
+int StreamAbstractionAAMP_MPD::GetBestAudioTrackByLanguage( int &desiredRepIdx, StreamOutputFormat &CodecType,
 std::vector<AudioTrackInfo> &ac4Tracks, std::string &audioTrackIndex)
 {
 	int bestTrack = -1;
@@ -6132,7 +6132,7 @@ std::vector<AudioTrackInfo> &ac4Tracks, std::string &audioTrackIndex)
 				}
 			}
 
-			AudioType selectedCodecType = eAUDIO_UNKNOWN;
+			StreamOutputFormat selectedCodecType = FORMAT_UNKNOWN;
 			unsigned int selRepBandwidth = 0;
 			bool disableEC3 = ISCONFIGSET(eAAMPConfig_DisableEC3);
 			// if EC3 disabled, implicitly disable ATMOS
@@ -6147,41 +6147,39 @@ std::vector<AudioTrackInfo> &ac4Tracks, std::string &audioTrackIndex)
 				audioRepresentationIndex = GetDesiredCodecIndex(adaptationSet, selectedCodecType, selRepBandwidth, disableEC3 , disableATMOS, disableAC4, disableAC3, disabled);
 				switch( selectedCodecType )
 				{
-					case eAUDIO_DOLBYAC4:
+					case FORMAT_AUDIO_ES_AC4:
 						if( !disableAC4 )
 						{
 							score += 10;
 						}
 						break;
 
-					case eAUDIO_ATMOS:
+					case FORMAT_AUDIO_ES_ATMOS:
 						if( !disableATMOS )
 						{
 							score += 8;
 						}
 						break;
 
-					case eAUDIO_DDPLUS:
+					case FORMAT_AUDIO_ES_EC3:
 						if( !disableEC3 )
 						{
 							score += 6;
 						}
 						break;
 
-					case eAUDIO_DOLBYAC3:
+					case FORMAT_AUDIO_ES_AC3:
 						if( !disableAC3 )
 						{
 							score += 4;
 						}
 						break;
 
-					case eAUDIO_AAC:
+					case FORMAT_AUDIO_ES_AAC:
 						score += 2;
 						break;
-
-					case eAUDIO_VORBIS:
-					case eAUDIO_OPUS:
-					case eAUDIO_UNKNOWN:
+						
+					case FORMAT_UNKNOWN:
 						score += 1;
 						break;
 
@@ -6195,7 +6193,7 @@ std::vector<AudioTrackInfo> &ac4Tracks, std::string &audioTrackIndex)
 			}
 
 			/**Add score for language , role and type matching from preselection node for AC4 tracks */
-			if ((selectedCodecType == eAUDIO_DOLBYAC4) && isMuxedAudio)
+			if ((selectedCodecType == FORMAT_AUDIO_ES_AC4) && isMuxedAudio)
 			{
 				AAMPLOG_INFO("AC4 Track Selected, get the priority based on language and role" );
 				unsigned long long ac4CurrentScore = 0;
@@ -6262,7 +6260,7 @@ std::vector<AudioTrackInfo> &ac4Tracks, std::string &audioTrackIndex)
 			}
 		} // IsContentType(adaptationSet, eMEDIATYPE_AUDIO)
 	} // next iAdaptationSet
-	if (CodecType == eAUDIO_DOLBYAC4)
+	if (CodecType == FORMAT_AUDIO_ES_AC4)
 	{
 		/* TODO: Currently current Audio track is updating only for AC4 need mechanism to update for other tracks also */
 		AAMPLOG_INFO( "Audio Track selected index - %s - language : %s rendition : %s - codec - %s  score = %llu", selectedAudioTrack.index.c_str(),
@@ -7052,7 +7050,7 @@ void StreamAbstractionAAMP_MPD::SelectAudioTrack(std::vector<AudioTrackInfo> &aT
 {
 	IPeriod *period = mCurrentPeriod;
 	int desiredRepIdx = -1;
-	AudioType selectedCodecType = eAUDIO_UNKNOWN;
+	StreamOutputFormat selectedCodecType = FORMAT_UNKNOWN;
 	bool disableAC4 = ISCONFIGSET(eAAMPConfig_DisableAC4);
 
 	if (!period)
@@ -7738,10 +7736,10 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 					}
 				}
 			}// next iAdaptationSet
-			if ((eAUDIO_UNKNOWN == mAudioType) && (AAMP_NORMAL_PLAY_RATE == mPlayRate) && (eMEDIATYPE_VIDEO != i) && (selAdaptationSetIndex >= 0))
+			if ((FORMAT_UNKNOWN == mAudioType) && (AAMP_NORMAL_PLAY_RATE == mPlayRate) && (eMEDIATYPE_VIDEO != i) && (selAdaptationSetIndex >= 0))
 			{
 				AAMPLOG_WARN("StreamAbstractionAAMP_MPD: Selected Audio Track codec is unknown");
-				mAudioType = eAUDIO_AAC; // assuming content is still playable
+				mAudioType = FORMAT_AUDIO_ES_AAC; // assuming content is still playable
 			}
 			if ((AAMP_NORMAL_PLAY_RATE == mPlayRate) && (pMediaStreamContext->enabled == false) && (selAdaptationSetIndex >= 0))
 			{
@@ -9612,9 +9610,9 @@ bool StreamAbstractionAAMP_MPD::GetEncryptedHeaders(std::map<int, std::string>& 
 										representationIndex = representationCount - 1;
 									}
 								}
-								else if (mAudioType != eAUDIO_UNKNOWN)
+								else if (mAudioType != FORMAT_UNKNOWN)
 								{
-									AudioType selectedAudioType = eAUDIO_UNKNOWN;
+									StreamOutputFormat selectedAudioType = FORMAT_UNKNOWN;
 									uint32_t selectedRepBandwidth = 0;
 									bool disableEC3 = ISCONFIGSET(eAAMPConfig_DisableEC3);
 									// if EC3 disabled, implicitly disable ATMOS
@@ -9631,7 +9629,7 @@ bool StreamAbstractionAAMP_MPD::GetEncryptedHeaders(std::map<int, std::string>& 
 								}
 								else
 								{
-									AAMPLOG_WARN("Audio type eAUDIO_UNKNOWN");
+									AAMPLOG_WARN("Audio type FORMAT_UNKNOWN");
 								}
 								representation = adaptationSet->GetRepresentation().at(representationIndex);
 
