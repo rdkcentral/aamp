@@ -8020,6 +8020,9 @@ std::string StreamAbstractionAAMP_MPD::GetCurrentMimeType(AampMediaType mediaTyp
 		auto pMediaStreamContext = mMediaStreamContext[mediaType];
 		if( pMediaStreamContext )
 		{
+			// UpdateMPD() holds mMediaStreamContext[eMEDIATYPE_VIDEO]->mMediaStreamContextMutex and we do
+			// not want to access representation at the same time as it is being updated by UpdateMPD()
+			std::lock_guard<std::recursive_mutex> lock(mMediaStreamContext[eMEDIATYPE_VIDEO]->mMediaStreamContextMutex);
 			if( pMediaStreamContext->representation )
 			{
 				mimeType = pMediaStreamContext->representation->GetMimeType();
