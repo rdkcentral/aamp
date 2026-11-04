@@ -4714,9 +4714,9 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 		// Rialto does not support dynamic streams, so we need to extract and save the
 		// subtitle init fragment from the main vod asset, so that it can be injected
 		// later if a pre-roll advert is played that does not contain subtitles.
-		if (aamp->UsingRialto() &&
+		if (aamp->UsingRialto() && !ISCONFIGSET(eAAMPConfig_DisableTTML) &&
 		   !mIsLiveStream &&
-		   (!(AampStreamSinkManager::GetInstance().GetMediaHeader(aamp, eMEDIATYPE_SUBTITLE))))
+		   (!(AampStreamSinkManager::GetInstance().GetMediaHeader(eMEDIATYPE_SUBTITLE))))
 		{
 			AAMPLOG_MIL("StreamAbstractionAAMP_MPD: extract and add subtitleMedia header");
 			ExtractAndAddSubtitleMediaHeader();
@@ -5158,6 +5158,13 @@ void StreamAbstractionAAMP_MPD::MPDUpdateCallbackExec()
 			AAMPLOG_INFO( "Send RefreshNotify Dur[%" PRIu64 "] NoOfPeriods[%d] PubTime[%u] ManifestType[%s]", manifestDuration, mMPDParser->GetNumberOfPeriods(), tmpManifestDnldRespPtr->mMPDInstance->GetFetchTime(), manifestType.c_str());
 			aamp->SendEvent(std::make_shared<ManifestRefreshEvent>(manifestDuration, mMPDParser->GetNumberOfPeriods(), tmpManifestDnldRespPtr->mMPDInstance->GetFetchTime(), manifestType, aamp->GetSessionId()), AAMP_EVENT_ASYNC_MODE);
 		}
+		// With MPD stitching a failed refresh pushes the last valid cached manifest (status OK)
+		// so tmpManifestDnldRespPtr->mMPDStatus is OK even though the underlying refresh failed.
+		// Re-check the grace policy now so a sustained failure is not silently swallowed.
+		if (aamp->DownloadsAreEnabled() && aamp->GetBufUnderFlowStatus())
+		{
+			aamp->HandleManifestRefreshFailureOnBuffering();
+		}
 	}
 	else
 	{
@@ -5195,6 +5202,11 @@ void StreamAbstractionAAMP_MPD::MPDUpdateCallbackExec()
 				}
 			}
 			AAMPLOG_ERR("manifest download failed [status:%d][http:%d], re-using old manifest", tmpManifestDnldRespPtr->mMPDStatus, http_error);
+			if (aamp->GetBufUnderFlowStatus())
+			{
+				// The buffering-start check allows a grace period; re-check now that this refresh has also failed
+				aamp->HandleManifestRefreshFailureOnBuffering();
+			}
 		}
 		else
 		{
@@ -6852,7 +6864,14 @@ void StreamAbstractionAAMP_MPD::SwitchSubtitleTrack(bool newTune)
 		PushNextFragment(pMediaStreamContext, getCurlInstanceByMediaType(static_cast<AampMediaType>(eMEDIATYPE_SUBTITLE)),true);
 	}
 	/* Switching to selected Subtitle Track */
-	SelectSubtitleTrack(newTune,mTextTracks,tTrackIdx);
+	if (!ISCONFIGSET(eAAMPConfig_DisableTTML))
+	{
+		SelectSubtitleTrack(newTune,mTextTracks,tTrackIdx);
+	}
+	else
+	{
+		AAMPLOG_INFO("TTML is disabled");
+	}
 	SetTextTrackInfo(mTextTracks, tTrackIdx);
 	printSelectedTrack(tTrackIdx, eMEDIATYPE_SUBTITLE);
 	/* Caching the oldPlaylistPosition and oldMediaSequenceNumber */
@@ -7707,7 +7726,15 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 
 		if (eMEDIATYPE_SUBTITLE == i)
 		{
-			SelectSubtitleTrack(newTune,tTracks,tTrackIdx);
+			if (!ISCONFIGSET(eAAMPConfig_DisableTTML))
+			{
+				SelectSubtitleTrack(newTune,tTracks,tTrackIdx);
+			}
+			else
+			{
+				aamp->mIsInbandCC = true;
+				AAMPLOG_WARN("TTML is disabled, so not selecting any subtitle track");
+			}
 			if(mMediaStreamContext[eMEDIATYPE_SUBTITLE]->enabled)
 			{
 				mNumberOfTracks++;
@@ -7993,6 +8020,9 @@ std::string StreamAbstractionAAMP_MPD::GetCurrentMimeType(AampMediaType mediaTyp
 		auto pMediaStreamContext = mMediaStreamContext[mediaType];
 		if( pMediaStreamContext )
 		{
+			// UpdateMPD() holds mMediaStreamContext[eMEDIATYPE_VIDEO]->mMediaStreamContextMutex and we do
+			// not want to access representation at the same time as it is being updated by UpdateMPD()
+			std::lock_guard<std::recursive_mutex> lock(mMediaStreamContext[eMEDIATYPE_VIDEO]->mMediaStreamContextMutex);
 			if( pMediaStreamContext->representation )
 			{
 				mimeType = pMediaStreamContext->representation->GetMimeType();
@@ -8031,6 +8061,9 @@ std::string StreamAbstractionAAMP_MPD::GetCurrentCodec(AampMediaType mediaType)
 		auto pMediaStreamContext = mMediaStreamContext[mediaType];
 		if( pMediaStreamContext )
 		{
+			// UpdateMPD() holds mMediaStreamContext[eMEDIATYPE_VIDEO]->mMediaStreamContextMutex and we do
+			// not want to access representation at the same time as it is being updated by UpdateMPD()
+			std::lock_guard<std::recursive_mutex> lock(mMediaStreamContext[eMEDIATYPE_VIDEO]->mMediaStreamContextMutex);
 			if( pMediaStreamContext->representation )
 			{
 				const auto& repCodecs = pMediaStreamContext->representation->GetCodecs();
@@ -9857,7 +9890,7 @@ bool StreamAbstractionAAMP_MPD::ExtractAndAddSubtitleMediaHeader()
 								AAMPLOG_MIL("[SUBTITLE]: mimeType:%s, init url %s", subtitleMimeType.c_str(), fragmentUrl.c_str());
 								subtitleHeader->url = std::move(fragmentUrl);
 								subtitleHeader->mimeType =  std::move(subtitleMimeType);
-								AampStreamSinkManager::GetInstance().AddMediaHeader(aamp, eMEDIATYPE_SUBTITLE, std::move(subtitleHeader));
+								AampStreamSinkManager::GetInstance().AddMediaHeader(eMEDIATYPE_SUBTITLE, std::move(subtitleHeader));
 								AAMPLOG_MIL("Saved subtitleHeader");
 								ret = true;
 								SAFE_DELETE(fragmentDescriptor);
@@ -11685,7 +11718,7 @@ void  StreamAbstractionAAMP_MPD::ResumeSubtitleAfterSeek(bool mute, char *data)
 StreamAbstractionAAMP_MPD::~StreamAbstractionAAMP_MPD()
 {
 	aamp->initialManifestFetchInProgress=false;
-	
+
 	// Unregister the MPD download callback BEFORE deleting tracks.
 	// This ensures the notifier thread cannot fire MPDUpdateCallbackExec()
 
@@ -12072,7 +12105,7 @@ void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutpu
 		// a complete pipeline cannot be created; and Rialto will not start playing video
 		if (!mMediaStreamContext[eMEDIATYPE_SUBTITLE]->enabled && aamp->UsingRialto())
 		{
-			auto subtitleHeader = AampStreamSinkManager::GetInstance().GetMediaHeader(aamp, eMEDIATYPE_SUBTITLE);
+			auto subtitleHeader = AampStreamSinkManager::GetInstance().GetMediaHeader(eMEDIATYPE_SUBTITLE);
 			if(subtitleHeader && !subtitleHeader->mimeType.empty())
 			{
 				subtitleOutputFormat = GetSubtitleFormat(subtitleHeader->mimeType);
@@ -12786,7 +12819,7 @@ void StreamAbstractionAAMP_MPD::SendMediaHeaders()
 		MediaStreamContext *track = mMediaStreamContext[iTrack];
 		if(track && !track->Enabled())
 		{
-			auto header = AampStreamSinkManager::GetInstance().GetMediaHeader(aamp, iTrack);
+			auto header = AampStreamSinkManager::GetInstance().GetMediaHeader(iTrack);
 			if(header)
 			{
 				AAMPLOG_INFO("Track is disabled; url for init segment found: %s", header->url.c_str());
@@ -12801,11 +12834,11 @@ void StreamAbstractionAAMP_MPD::SendMediaHeaders()
 				{
 					AAMPLOG_ERR("Failed to download init segment: %s", header->url.c_str());
 				}
-				AampStreamSinkManager::GetInstance().RemoveMediaHeader(aamp, iTrack);
+				AampStreamSinkManager::GetInstance().RemoveMediaHeader(iTrack);
 
 				// Update the header with injected set
 				header->injected = true;
-				AampStreamSinkManager::GetInstance().AddMediaHeader(aamp, iTrack, std::move(header));
+				AampStreamSinkManager::GetInstance().AddMediaHeader(iTrack, std::move(header));
 			}
 		}
 	}
@@ -13144,9 +13177,10 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 						//Dai ad playback should start from first fragment.
 						mCdaiObject->mContentSeekOffset = 0;
 
+						AdNodeVectorPtr adsToCheck = mCdaiObject->mAdBreaks[brkId].ads;
 						lock.unlock();
 						// Check if ad is resolved, if not wait
-						CheckAdResolvedStatus(mCdaiObject->mAdBreaks[brkId].ads, adIdx);
+						CheckAdResolvedStatus(adsToCheck, adIdx);
 						lock.lock();
 
 						// If the ad is not invalid (failed to reserve), start the ad playback
@@ -13211,9 +13245,10 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 								}
 								else
 								{
+									AdNodeVectorPtr noAds;	// Only the break id is needed for the wait
 									lock.unlock();
 									// Wait for some time for the ads to be added
-									CheckAdResolvedStatus(mCdaiObject->mAdBreaks[mBasePeriodId].ads, -1, mBasePeriodId);
+									CheckAdResolvedStatus(noAds, -1, mBasePeriodId);
 									lock.lock();
 								}
 							}
@@ -13254,8 +13289,9 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 					if (mPlayRate >= AAMP_NORMAL_PLAY_RATE)
 					{
 						// Wait for some time if the ad is not ready yet.
+						AdNodeVectorPtr adsToCheck = mCdaiObject->mAdBreaks[brkId].ads;
 						lock.unlock();
-						CheckAdResolvedStatus(mCdaiObject->mAdBreaks[brkId].ads, adIdx);
+						CheckAdResolvedStatus(adsToCheck, adIdx);
 						lock.lock();
 					}
 					if(!(mCdaiObject->mAdBreaks[brkId].ads->at(adIdx).invalid))
@@ -13370,8 +13406,9 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 				if(mCdaiObject->mCurAdIdx >= 0 && mCdaiObject->mCurAdIdx < mCdaiObject->mCurAds->size())
 				{
 					// Wait for some time if the ad is not ready yet.
+					AdNodeVectorPtr adsToCheck = mCdaiObject->mCurAds;
 					lock.unlock();
-					CheckAdResolvedStatus(mCdaiObject->mCurAds, mCdaiObject->mCurAdIdx);
+					CheckAdResolvedStatus(adsToCheck, mCdaiObject->mCurAdIdx);
 					lock.lock();
 					if(mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).invalid)
 					{

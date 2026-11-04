@@ -121,6 +121,7 @@ public:
 	MOCK_METHOD(void, UpdateUseSinglePipeline, ());
 	MOCK_METHOD(void, ResumeTrackDownloads, (AampMediaType type));
 	MOCK_METHOD(void, StopTrackDownloads, (AampMediaType type));
+	MOCK_METHOD(bool, HandleManifestRefreshFailureOnBuffering, ());
 };
 
 extern std::shared_ptr<MockPrivateInstanceAAMP> g_mockPrivateInstanceAAMP;

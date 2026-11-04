@@ -346,6 +346,7 @@ void AampMPDDownloader::Release()
 		mMinimalRefreshRetryCount = 0; //Reset the refresh interval retry counter
 		mManifestRefreshErrorType.store(AAMPStatusType::eAAMPSTATUS_OK);
 		mManifestRefreshErrorCode.store(0);
+		mManifestRefreshFailureStartMs.store(-1);
 		AAMPLOG_INFO("Release Called in MPD Downloader - Exit %ld %ld", mMPDData.use_count(),mMPDDnldCfg.use_count());
 	}
 }
@@ -388,6 +389,7 @@ void AampMPDDownloader::downloadMPDThread1()
 	std::string tuneUrl = mMPDDnldCfg->mTuneUrl;
 	bool firstDownload	=	true;
 	bool downloadFailed = false; // set when a refresh attempt fails; cleared on recovery to log the transition
+	double lastLiveAvailabilityStartTime = 0.0; // AST of the last dynamic manifest, carried over on dynamic->static transition
 	ManifestDownloadResponsePtr cachedBackupData = nullptr;
 	do
 	{
@@ -550,8 +552,50 @@ void AampMPDDownloader::downloadMPDThread1()
 			{
 				errorCode = mMPDData->mMPDDownloadResponse->iHttpRetValue;
 			}
+			// Update the outage timer first so a reader never sees an OK status with a stale timer
+			if (mMPDData->mMPDStatus == AAMPStatusType::eAAMPSTATUS_OK)
+			{
+				mManifestRefreshFailureStartMs.store(-1);
+			}
+			else if (mMPDData->mMPDDownloadResponse->iHttpRetValue == 404)
+			{
+				// HTTP 404 is not retried; the download loop exits after this attempt.
+				// Force failingForMs >= MANIFEST_REFRESH_FAILURE_GRACE_MS so
+				// HandleManifestRefreshFailureOnBuffering() sends the fatal error immediately
+				// rather than waiting for a grace period that can never complete.
+				mManifestRefreshFailureStartMs.store(tStartTime - MANIFEST_REFRESH_FAILURE_GRACE_MS);
+			}
+			else
+			{
+				// Outage starts when the first failed attempt began, so slow failures count their full duration
+				long long expected = -1;
+				mManifestRefreshFailureStartMs.compare_exchange_strong(expected, tStartTime);
+			}
 			mManifestRefreshErrorType.store(mMPDData->mMPDStatus);
 			mManifestRefreshErrorCode.store(errorCode);
+		}
+
+		if(mMPDData->mMPDStatus == AAMPStatusType::eAAMPSTATUS_OK && mMPDData->mMPDInstance)
+		{
+			AampMPDParseHelperPtr parseHelper = (mCachedMPDData != nullptr) ? mCachedMPDData->GetMPDParseHelper() : mMPDData->GetMPDParseHelper();
+			if(mMPDData->mIsLiveManifest)
+			{
+				lastLiveAvailabilityStartTime = parseHelper->GetAvailabilityStartTime();
+			}
+			else if(!firstDownload)
+			{
+				// dynamic -> static transition (e.g. HOT CDVR -> COLD CDVR): keep the availabilityStartTime
+				// of the last dynamic manifest, so positions stay on the same timeline. No further refresh
+				// is done for a static manifest, so the download loop exits after this push.
+				if(lastLiveAvailabilityStartTime > 0)
+				{
+					AAMPLOG_WARN("Manifest changed from dynamic to static, preserving availabilityStartTime %lf (static manifest value %lf)",
+								 lastLiveAvailabilityStartTime, parseHelper->GetAvailabilityStartTime());
+					parseHelper->SetAvailabilityStartTime(lastLiveAvailabilityStartTime);
+				}
+				// Final manifest; must reach the consumer even if publishTime is unchanged
+				doPush = true;
+			}
 		}
 
 		if(doPush)
@@ -1199,9 +1243,12 @@ void AampMPDDownloader::RegisterCallback(ManifestUpdateCallbackFunc fnPtr, void 
 
 ManifestRefreshStatus AampMPDDownloader::GetManifestRefreshStatus() const
 {
+	const long long failureStartMs = mManifestRefreshFailureStartMs.load();
+	const long long failingForMs = (failureStartMs >= 0) ? (NOW_STEADY_TS_MS - failureStartMs) : 0;
 	return ManifestRefreshStatus(
 		mManifestRefreshErrorType.load(),
-		mManifestRefreshErrorCode.load());
+		mManifestRefreshErrorCode.load(),
+		failingForMs);
 }
 
 /**
