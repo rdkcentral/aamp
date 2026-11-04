@@ -182,7 +182,7 @@ protected:
 							</AdaptationSet>
 					</Period>
 					<Period id="p1" start="PT30S">
-							<AdaptationSet id="1" contentType="video">
+							<AdaptationSet id="0" contentType="video">
 									<Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
 											<SegmentTemplate timescale="2500" initialization="video_p1_init.mp4" media="video_p1_$Number$.m4s" startNumber="16">
 													<SegmentTimeline>
@@ -209,7 +209,7 @@ protected:
 								</AdaptationSet>
 						</Period>
 						<Period id="p1" start="PT30S">
-								<AdaptationSet id="1" contentType="video">
+								<AdaptationSet id="0" contentType="video">
 										<Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
 												<SegmentTemplate timescale="2500" initialization="video_p1_init.mp4" media="video_p1_$Number$.m4s" startNumber="1">
 														<SegmentTimeline>

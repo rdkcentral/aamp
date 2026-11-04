@@ -3815,7 +3815,7 @@ TEST_F(PrivAampTests,SetCCStatusPreTune)
 
 	// Now call TuneHelper to create the StreamAbstraction object
 	// SetStatus(true) should be called to apply the stored CC status
-	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(true)).WillOnce(Return(0));
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(true)).Times(2).WillRepeatedly(Return(0));
 	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
 	p_aamp->TuneHelper(eTUNETYPE_NEW_NORMAL, false);
 
@@ -3877,7 +3877,7 @@ TEST_F(PrivAampTests,SetCCStatusPreTuneWithVideoMute01)
 
 	// Now call TuneHelper to create the StreamAbstraction object
 	// SetStatus(false) should be called due to video being muted, overriding the stored CC status
-	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(false)).WillOnce(Return(0));
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(false)).Times(2).WillRepeatedly(Return(0));
 	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
 	p_aamp->TuneHelper(eTUNETYPE_NEW_NORMAL, false);
 	EXPECT_TRUE(p_aamp->GetCCStatus());
@@ -3911,7 +3911,7 @@ TEST_F(PrivAampTests,SetCCStatusPreTuneWithVideoMute02)
 
 	// Now call TuneHelper to create the StreamAbstraction object
 	// SetStatus(false) should be called due to video being muted, overriding the stored CC status
-	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(false)).WillOnce(Return(0));
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(false)).Times(2).WillRepeatedly(Return(0));
 	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
 	p_aamp->TuneHelper(eTUNETYPE_NEW_NORMAL, false);
 	EXPECT_TRUE(p_aamp->GetCCStatus());
@@ -3939,7 +3939,7 @@ TEST_F(PrivAampTests,SetCCStatusPostTuneWithVideoMute)
 
 	// Now call TuneHelper to create the StreamAbstraction object
 	// SetStatus(false) should be called due to video being muted
-	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(false)).WillOnce(Return(0));
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(false)).Times(2).WillRepeatedly(Return(0));
 	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
 	p_aamp->TuneHelper(eTUNETYPE_NEW_NORMAL, false);
 	EXPECT_FALSE(p_aamp->GetCCStatus());
