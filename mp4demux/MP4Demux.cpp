@@ -1231,6 +1231,11 @@ void Mp4Demux::ParseCodecConfigurationBox(uint32_t type, const uint8_t *next)
 		{
 			codecInfo.mCodecData = std::vector<uint8_t>(ptr, ptr + codecDataLen);
 		}
+		else
+		{
+			codecInfo.mCodecData.clear();
+		}
+
 		// Update ptr to next box
 		SkipBytes(codecDataLen);
 	}
