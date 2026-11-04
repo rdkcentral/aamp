@@ -32,6 +32,7 @@
 #include "PlayerMemoryUtils.h"
 #include "ThunderAccessPlayer.h"
 #include <inttypes.h>
+#include <cstdint>
 #include <memory>
 #include <list>
 #include <map>
@@ -154,6 +155,11 @@ protected:
 	 */
 	void removeWatermarkHandler(const JsonObject& parameters);
 	/**
+	 * @brief Returns whether a queued watermark operation belongs to the
+	 *        latest lifecycle for its graphic ID.
+	 */
+	bool IsWatermarkOpCurrent(int graphicId, std::uint64_t generation);
+	/**
 	 *   @fn showWatermarkHandler
 	 *   @param parameters - i/p JsonObject params	 
 	 */
@@ -175,7 +181,7 @@ protected:
 	/**
 	 *   @fn GetWaterMarkPalette
 	 */
-	void GetWaterMarkPalette(int sessionId, int graphicId);
+	void GetWaterMarkPalette(int sessionId, int graphicId, std::uint64_t generation);
 	/**
 	 *   @fn ModifyWatermarkPalette
 	 */
@@ -204,6 +210,9 @@ protected:
 	std::mutex mSpeedStateMutex;		/**< mutex for setPlaybackSpeedState()*/
 	std::mutex mLoadClutMutex;		/**< mutex for mLoadClutInFlight set*/
 	std::set<int> mLoadClutInFlight;	/**< graphicIds currently in loadClutWatermark*/
+	std::mutex mWatermarkOpMutex;		/**< protects watermark generations and event scheduling */
+	std::map<int, std::uint64_t> mWatermarkGeneration;	/**< latest lifecycle generation per graphic ID */
+	std::set<int> mWatermarkActive;		/**< graphic IDs with a live watermark lifecycle */
 	std::list<std::string> mRegisteredEvents;
 	bool mSchedulerStarted;
 };
