@@ -547,6 +547,10 @@ document.documentElement = __inertElement__("html");
 // falls back to native promises; with those polyfilled its promise jobs spin forever.
 var self = window;
 
+// Node-style `global` alias. Some libraries (e.g. NitroJs's AAMP engine referencing `global.AAMPMediaPlayer`)
+// look up the global object via `global`; in this CLI the global object is `window`.
+if (typeof global === "undefined") { var global = window; }
+
 if (typeof performance === "undefined") {
     var __perfOrigin__ = Date.now();
     var performance = {
@@ -664,6 +668,27 @@ if (typeof XMLHttpRequest === "undefined") {
 navigator.platform = navigator.platform || "MacIntel";
 navigator.onLine = true;
 
+// window.getComputedStyle — some bundles read computed styles at module load (e.g. to measure the document
+// element). Return an inert style object whose every property / getPropertyValue is an empty string.
+if (typeof window.getComputedStyle === "undefined") {
+    window.getComputedStyle = function() {
+        return new Proxy({ getPropertyValue: function() { return ""; } }, {
+            get: function(target, prop) { return (prop in target) ? target[prop] : ""; }
+        });
+    };
+}
+
+// window.matchMedia — inert, always-non-matching media query list with add/removeListener no-ops.
+if (typeof window.matchMedia === "undefined") {
+    window.matchMedia = function(query) {
+        return {
+            matches: false, media: String(query || ""), onchange: null,
+            addListener: function() {}, removeListener: function() {},
+            addEventListener: function() {}, removeEventListener: function() {}, dispatchEvent: function() { return false; }
+        };
+    };
+}
+
 // Minimal fetch() over native __httpRequest__: method, plain-object headers and
 // string body in; ok, status, url, text() and json() out.  Text bodies only.
 function fetch(input, init) {
@@ -692,6 +717,93 @@ function fetch(input, init) {
             });
         });
     });
+}
+
+// crypto.getRandomValues / randomUUID — required by browser SDKs and libraries such as `uuid`
+// (used by e.g. the NitroJs player). Not cryptographically strong; adequate for the CLI test harness.
+if (typeof window.crypto === "undefined") { window.crypto = {}; }
+if (typeof crypto === "undefined") { var crypto = window.crypto; }
+if (typeof crypto.getRandomValues !== "function") {
+    crypto.getRandomValues = function(typedArray) {
+        for (var i = 0; i < typedArray.length; i++) { typedArray[i] = Math.floor(Math.random() * 256); }
+        return typedArray;
+    };
+}
+if (typeof crypto.randomUUID !== "function") {
+    crypto.randomUUID = function() {
+        var bytes = new Uint8Array(16);
+        crypto.getRandomValues(bytes);
+        bytes[6] = (bytes[6] & 0x0f) | 0x40;
+        bytes[8] = (bytes[8] & 0x3f) | 0x80;
+        var hex = [];
+        for (var i = 0; i < 16; i++) { hex.push((bytes[i] + 0x100).toString(16).slice(1)); }
+        return hex.slice(0, 4).join("") + "-" + hex.slice(4, 6).join("") + "-" +
+            hex.slice(6, 8).join("") + "-" + hex.slice(8, 10).join("") + "-" + hex.slice(10, 16).join("");
+    };
+}
+
+// btoa / atob — base64 used when decoding protection-system specific headers and similar.
+if (typeof btoa === "undefined") {
+    var __B64__ = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    var btoa = function(input) {
+        var str = String(input), out = "";
+        for (var block = 0, charCode, idx = 0, map = __B64__;
+            str.charAt(idx | 0) || (map = "=", idx % 1);
+            out += map.charAt(63 & (block >> (8 - (idx % 1) * 8)))) {
+            charCode = str.charCodeAt(idx += 3 / 4);
+            if (charCode > 0xff) { throw new Error("btoa: character out of range"); }
+            block = (block << 8) | charCode;
+        }
+        return out;
+    };
+    var atob = function(input) {
+        var str = String(input).replace(/=+$/, ""), out = "";
+        if (str.length % 4 === 1) { throw new Error("atob: invalid input"); }
+        for (var bc = 0, bs = 0, buffer, idx = 0;
+            (buffer = str.charAt(idx++));
+            ~buffer && (bs = bc % 4 ? bs * 64 + buffer : buffer, bc++ % 4)
+                ? (out += String.fromCharCode(255 & (bs >> (-2 * bc & 6)))) : 0) {
+            buffer = __B64__.indexOf(buffer);
+        }
+        return out;
+    };
+}
+
+// TextEncoder / TextDecoder — UTF-8 only, enough for manifest/ID3 helpers.
+if (typeof TextEncoder === "undefined") {
+    var TextEncoder = function TextEncoder() {};
+    TextEncoder.prototype.encode = function(str) {
+        str = String(str);
+        var bytes = [];
+        for (var i = 0; i < str.length; i++) {
+            var c = str.charCodeAt(i);
+            if (c < 0x80) { bytes.push(c); }
+            else if (c < 0x800) { bytes.push(0xc0 | (c >> 6), 0x80 | (c & 0x3f)); }
+            else { bytes.push(0xe0 | (c >> 12), 0x80 | ((c >> 6) & 0x3f), 0x80 | (c & 0x3f)); }
+        }
+        return new Uint8Array(bytes);
+    };
+}
+if (typeof TextDecoder === "undefined") {
+    var TextDecoder = function TextDecoder() {};
+    TextDecoder.prototype.decode = function(buf) {
+        if (!buf) { return ""; }
+        var bytes = buf instanceof Uint8Array ? buf : new Uint8Array(buf.buffer || buf);
+        var out = "", i = 0;
+        while (i < bytes.length) {
+            var c = bytes[i++];
+            if (c < 0x80) { out += String.fromCharCode(c); }
+            else if (c < 0xe0) { out += String.fromCharCode(((c & 0x1f) << 6) | (bytes[i++] & 0x3f)); }
+            else { out += String.fromCharCode(((c & 0x0f) << 12) | ((bytes[i++] & 0x3f) << 6) | (bytes[i++] & 0x3f)); }
+        }
+        return out;
+    };
+}
+
+// requestAnimationFrame / cancelAnimationFrame — fall back to a timer; nothing visual depends on frame timing.
+if (typeof requestAnimationFrame === "undefined") {
+    var requestAnimationFrame = function(cb) { return setTimeout(function() { cb(Date.now()); }, 16); };
+    var cancelAnimationFrame = function(id) { return clearTimeout(id); };
 }
 
 // Wrap setTimeout so the returned handle has a .clear() method.
