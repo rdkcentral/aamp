@@ -249,6 +249,16 @@ public :
 	*/
 	double GetAvailabilityStartTime() { return mAvailabilityStartTime;}
 	/**
+	*   @fn SetAvailabilityStartTime
+	*   @brief  Sets AvailabilityStartTime in the helper
+	* 	@retval None
+	*/
+	void SetAvailabilityStartTime(double availabilityStartTime)
+	{
+		mAvailabilityStartTime = availabilityStartTime;
+		mMPDPeriodDetails.clear();
+	}
+	/**
 	*
 	*   @fn GetPublishTime
 	*   @brief  Returns PublishTime from the manifest

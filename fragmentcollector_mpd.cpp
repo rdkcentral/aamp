@@ -4715,7 +4715,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 		// later if a pre-roll advert is played that does not contain subtitles.
 		if (aamp->UsingRialto() && !ISCONFIGSET(eAAMPConfig_DisableTTML) &&
 		   !mIsLiveStream &&
-		   (!(AampStreamSinkManager::GetInstance().GetMediaHeader(aamp, eMEDIATYPE_SUBTITLE))))
+		   (!(AampStreamSinkManager::GetInstance().GetMediaHeader(eMEDIATYPE_SUBTITLE))))
 		{
 			AAMPLOG_MIL("StreamAbstractionAAMP_MPD: extract and add subtitleMedia header");
 			ExtractAndAddSubtitleMediaHeader();
@@ -8019,6 +8019,9 @@ std::string StreamAbstractionAAMP_MPD::GetCurrentMimeType(AampMediaType mediaTyp
 		auto pMediaStreamContext = mMediaStreamContext[mediaType];
 		if( pMediaStreamContext )
 		{
+			// UpdateMPD() holds mMediaStreamContext[eMEDIATYPE_VIDEO]->mMediaStreamContextMutex and we do
+			// not want to access representation at the same time as it is being updated by UpdateMPD()
+			std::lock_guard<std::recursive_mutex> lock(mMediaStreamContext[eMEDIATYPE_VIDEO]->mMediaStreamContextMutex);
 			if( pMediaStreamContext->representation )
 			{
 				mimeType = pMediaStreamContext->representation->GetMimeType();
@@ -8057,6 +8060,9 @@ std::string StreamAbstractionAAMP_MPD::GetCurrentCodec(AampMediaType mediaType)
 		auto pMediaStreamContext = mMediaStreamContext[mediaType];
 		if( pMediaStreamContext )
 		{
+			// UpdateMPD() holds mMediaStreamContext[eMEDIATYPE_VIDEO]->mMediaStreamContextMutex and we do
+			// not want to access representation at the same time as it is being updated by UpdateMPD()
+			std::lock_guard<std::recursive_mutex> lock(mMediaStreamContext[eMEDIATYPE_VIDEO]->mMediaStreamContextMutex);
 			if( pMediaStreamContext->representation )
 			{
 				const auto& repCodecs = pMediaStreamContext->representation->GetCodecs();
@@ -9883,7 +9889,7 @@ bool StreamAbstractionAAMP_MPD::ExtractAndAddSubtitleMediaHeader()
 								AAMPLOG_MIL("[SUBTITLE]: mimeType:%s, init url %s", subtitleMimeType.c_str(), fragmentUrl.c_str());
 								subtitleHeader->url = std::move(fragmentUrl);
 								subtitleHeader->mimeType =  std::move(subtitleMimeType);
-								AampStreamSinkManager::GetInstance().AddMediaHeader(aamp, eMEDIATYPE_SUBTITLE, std::move(subtitleHeader));
+								AampStreamSinkManager::GetInstance().AddMediaHeader(eMEDIATYPE_SUBTITLE, std::move(subtitleHeader));
 								AAMPLOG_MIL("Saved subtitleHeader");
 								ret = true;
 								SAFE_DELETE(fragmentDescriptor);
@@ -11711,7 +11717,7 @@ void  StreamAbstractionAAMP_MPD::ResumeSubtitleAfterSeek(bool mute, char *data)
 StreamAbstractionAAMP_MPD::~StreamAbstractionAAMP_MPD()
 {
 	aamp->initialManifestFetchInProgress=false;
-	
+
 	// Unregister the MPD download callback BEFORE deleting tracks.
 	// This ensures the notifier thread cannot fire MPDUpdateCallbackExec()
 
@@ -12098,7 +12104,7 @@ void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutpu
 		// a complete pipeline cannot be created; and Rialto will not start playing video
 		if (!mMediaStreamContext[eMEDIATYPE_SUBTITLE]->enabled && aamp->UsingRialto())
 		{
-			auto subtitleHeader = AampStreamSinkManager::GetInstance().GetMediaHeader(aamp, eMEDIATYPE_SUBTITLE);
+			auto subtitleHeader = AampStreamSinkManager::GetInstance().GetMediaHeader(eMEDIATYPE_SUBTITLE);
 			if(subtitleHeader && !subtitleHeader->mimeType.empty())
 			{
 				subtitleOutputFormat = GetSubtitleFormat(subtitleHeader->mimeType);
@@ -12812,7 +12818,7 @@ void StreamAbstractionAAMP_MPD::SendMediaHeaders()
 		MediaStreamContext *track = mMediaStreamContext[iTrack];
 		if(track && !track->Enabled())
 		{
-			auto header = AampStreamSinkManager::GetInstance().GetMediaHeader(aamp, iTrack);
+			auto header = AampStreamSinkManager::GetInstance().GetMediaHeader(iTrack);
 			if(header)
 			{
 				AAMPLOG_INFO("Track is disabled; url for init segment found: %s", header->url.c_str());
@@ -12827,11 +12833,11 @@ void StreamAbstractionAAMP_MPD::SendMediaHeaders()
 				{
 					AAMPLOG_ERR("Failed to download init segment: %s", header->url.c_str());
 				}
-				AampStreamSinkManager::GetInstance().RemoveMediaHeader(aamp, iTrack);
+				AampStreamSinkManager::GetInstance().RemoveMediaHeader(iTrack);
 
 				// Update the header with injected set
 				header->injected = true;
-				AampStreamSinkManager::GetInstance().AddMediaHeader(aamp, iTrack, std::move(header));
+				AampStreamSinkManager::GetInstance().AddMediaHeader(iTrack, std::move(header));
 			}
 		}
 	}
