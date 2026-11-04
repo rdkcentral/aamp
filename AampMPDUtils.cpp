@@ -20,6 +20,8 @@
 #include "AampMPDUtils.h"
 #include "AampBoxReader.h"
 #include <inttypes.h>
+#include <cctype>
+#include <cstdio>
 
 /**
  * @brief Get xml node form reader
@@ -304,6 +306,47 @@ bool ParseSegmentIndexBox( const uint8_t *start, size_t size, int segmentIndex, 
 	return false;
 }
 
+static constexpr int kMaxTemplateWidth = 64;
+
+/**
+ * @brief Parse a SegmentTemplate identifier format tag of the form %0[width]d (ISO/IEC 23009-1),
+ *        also accepting x and X conversions. A width requires the '0' flag; bare
+ *        conversions without flag or width (e.g. %d) are also accepted
+ * @param[in] tag format tag including the leading '%'
+ * @param[out] width minimum field width (zero-padded)
+ * @param[out] type conversion type ('d', 'x' or 'X')
+ * @retval true if the tag is well-formed
+ */
+static bool ParseTemplateFormatTag(const std::string &tag, int &width, char &type)
+{
+	size_t i = 0;
+	if (tag.size() < 2 || tag[i++] != '%')
+	{
+		return false;
+	}
+	const bool zeroPad = (tag[i] == '0');
+	if (zeroPad)
+	{
+		i++;
+	}
+	const size_t widthStart = i;
+	width = 0;
+	while (i < tag.size() && isdigit(static_cast<unsigned char>(tag[i])))
+	{
+		width = width * 10 + (tag[i++] - '0');
+		if (width > kMaxTemplateWidth)
+		{
+			return false;
+		}
+	}
+	if ((i != widthStart && !zeroPad) || i + 1 != tag.size())
+	{
+		return false;
+	}
+	type = tag[i];
+	return (type == 'd' || type == 'x' || type == 'X');
+}
+
 /**
  * @brief Replace matching token with given number
  * @param str String in which operation to be performed
@@ -314,69 +357,39 @@ bool ParseSegmentIndexBox( const uint8_t *start, size_t size, int segmentIndex, 
 int replace(std::string &str, const std::string &from, uint64_t toNumber)
 {
 	int rc = 0;
-	size_t tokenLength = from.length();
+	const size_t tokenLength = from.length();
+	size_t pos = 0;
 
-	for (;;)
+	while ((pos = str.find('$', pos)) != std::string::npos)
 	{
-		bool done = true;
-		size_t pos = 0;
-		for (;;)
+		size_t next = str.find('$', pos + 1);
+		if (next == std::string::npos)
 		{
-			pos = str.find('$', pos);
-			if (pos == std::string::npos)
+			break;
+		}
+		const size_t identifierLength = next - pos - 1;
+		if (identifierLength >= tokenLength && str.compare(pos + 1, tokenLength, from) == 0)
+		{
+			// The format tag comes from the manifest; never pass it to a printf-family function
+			const std::string tag = str.substr(pos + 1 + tokenLength, identifierLength - tokenLength);
+			int width = 0;
+			char type = 'd';
+			if (tag.empty() || ParseTemplateFormatTag(tag, width, type))
 			{
-				break;
+				char buf[kMaxTemplateWidth + 21]; // padding + up to 20 digits + NUL
+				const char *fmt = (type == 'd') ? "%0*" PRIu64 : (type == 'x') ? "%0*" PRIx64 : "%0*" PRIX64;
+				const int len = snprintf(buf, sizeof(buf), fmt, width, toNumber);
+				str.replace(pos, next - pos + 1, buf, len);
+				pos += len;
+				rc++;
+				continue;
 			}
-			size_t next = str.find('$', pos + 1);
-			if (next != 0)
+			if (tag[0] == '%')
 			{
-				if (str.substr(pos + 1, tokenLength) == from)
-				{
-					size_t formatLen = next - pos - tokenLength - 1;
-					char buf[256];
-					if (formatLen > 0)
-					{
-						std::string format = str.substr(pos + tokenLength + 1, formatLen - 1);
-						char type = str[pos + tokenLength + formatLen];
-						switch (type)
-						{ // don't use the number-formatting string from dash manifest as-is; map to uint64_t equivalent
-						case 'd':
-							format += PRIu64;
-							break;
-						case 'x':
-							format += PRIx64;
-							break;
-						case 'X':
-							format += PRIX64;
-							break;
-						default:
-							AAMPLOG_WARN("unsupported template format: %s%c", format.c_str(), type);
-							format += type;
-							break;
-						}
-
-						snprintf(buf, sizeof(buf), format.c_str(), toNumber);
-						tokenLength += formatLen;
-					}
-					else
-					{
-						snprintf(buf, sizeof(buf), "%" PRIu64 "", toNumber);
-					}
-					str.replace(pos, tokenLength + 2, buf);
-					done = false;
-					rc++;
-					break;
-				}
-				pos = next + 1;
-			}
-			else
-			{
-				AAMPLOG_WARN("next is not found "); // CID:81252 - checked return
-				break;
+				AAMPLOG_WARN("ignoring unsupported template format tag for %s: %s", from.c_str(), tag.c_str());
 			}
 		}
-		if (done)
-			break;
+		pos = next + 1;
 	}
 
 	return rc;

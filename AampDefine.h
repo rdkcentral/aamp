@@ -112,6 +112,7 @@
 #define MIN_SEG_DURATION_THRESHOLD	(0.25)			/**< Min Segment Duration threshold for pushing to pipeline at period End*/
 #define AAMP_DASH_PERIOD_TAIL_START_TOLERANCE_SEC (0.3)	/**< Segments starting within this of the Period end, or after it, are tail-drop candidates */
 #define AAMP_DASH_PERIOD_TAIL_MIN_OVERHANG_SEC (0.2)	/**< Tail candidates ending no more than this past the Period end are kept as valid tiny final segments */
+#define AAMP_VOD_SPLICE_SNAP_TOLERANCE_SEC (0.1)	/**< VOD ad splice points within this of a segment boundary snap to the nearest such boundary */
 #define MAX_CURL_SOCK_STORE		10			/**< Maximum no of host to be maintained in curl store*/
 #define DEFAULT_AD_FULFILLMENT_TIMEOUT 2000	/**< Default Ad fulfillment timeout in milliseconds */
 #define MAX_AD_FULFILLMENT_TIMEOUT 5000	/**< Max Ad fulfillment timeout in milliseconds */

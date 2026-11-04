@@ -56,3 +56,67 @@ std::string BuildStitchedVodManifest(
 	const std::string      &mainMpdText,
 	const std::string      &mainMpdUrl,
 	PrivateCDAIObjectMPD   *cdaiObj);
+
+/**
+ * @brief Check that an MPD can be stitched: it has at least one Period, and every
+ *        number the stitcher parses from it is well formed: Period/MPD durations
+ *        are complete ISO 8601 durations, and timescale (non-zero),
+ *        presentationTimeOffset, startNumber and SegmentTimeline t, d (non-zero)
+ *        and r are complete unsigned integers (r="-1" is not supported).
+ *        BuildStitchedVodManifest() returns the original MPD if the main MPD fails
+ *        this check, and plays through (skips) any ad whose MPD fails it.
+ *        Never throws.  Exposed for L1 unit tests.
+ */
+bool CanStitchVodMpd(const std::string &mpdText);
+
+/**
+ * @brief Snap a period-relative splice time to a segment boundary of the
+ *        period's reference track (the first non-trick-play video track with a
+ *        SegmentTimeline, else the first track with one): the nearest boundary
+ *        within AAMP_VOD_SPLICE_SNAP_TOLERANCE_SEC, otherwise the next one.
+ *        Times are mapped onto the timeline via its presentationTimeOffset.
+ *        Exposed for L1 unit tests.
+ *
+ * @param periodBody  Inner XML of the <Period> element.
+ * @param sec         Splice time relative to the period.
+ * @return Snapped period-relative time; sec unchanged if the period has no SegmentTimeline.
+ */
+double SnapVodSpliceTime(const std::string &periodBody, double sec);
+
+/**
+ * @brief Resolve the period-relative splice point used for the stitched output:
+ *        SnapVodSpliceTime(), kept at or after the current cursor (so splice
+ *        points never move backwards) and capped at the Period duration (a
+ *        last segment overrunning the Period end must not delay the ad or
+ *        extend the presentation).  An insertion at the Period end is kept at
+ *        the Period end without snapping, so a short overrunning last segment
+ *        cannot pull it back and leave content after the ad; the stitcher
+ *        then trims the content before it to the end of the timeline.
+ *        Exposed for L1 unit tests.
+ *
+ * @param periodBody  Inner XML of the <Period> element.
+ * @param periodDur   Declared duration of the Period in seconds.
+ * @param cursor      Period-relative end of the content already emitted.
+ * @param sec         Requested period-relative insertion point.
+ * @return Splice point in [cursor, periodDur].
+ */
+double ResolveVodSplicePoint(const std::string &periodBody, double periodDur, double cursor, double sec);
+
+/**
+ * @brief Trim a period's SegmentTemplate/SegmentTimeline blocks to the window
+ *        [startSec, endSec).  Both edges are first snapped with
+ *        SnapVodSpliceTime() so every track splits around the same content
+ *        position; each track then uses its own boundary nearest that time
+ *        (within AAMP_VOD_SPLICE_SNAP_TOLERANCE_SEC), otherwise the next one.
+ *        Exposed for L1 unit tests.
+ *
+ * @param periodBody  Inner XML of the <Period> element.
+ * @param startSec    Window start relative to the period (0 = from the beginning).
+ * @param endSec      Window end relative to the period (0 = to the end).
+ * @return Trimmed period body XML, or an empty string if the snapped window
+ *         contains no segments (the caller should then emit no period).
+ * @throws std::invalid_argument / std::out_of_range for malformed numeric
+ *         attributes (see CanStitchVodMpd()); SnapVodSpliceTime() and
+ *         ResolveVodSplicePoint() likewise.
+ */
+std::string TrimPeriod(const std::string &periodBody, double startSec, double endSec);
