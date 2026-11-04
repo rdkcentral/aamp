@@ -1878,13 +1878,17 @@ long long AampRialtoPlayer::GetPositionMilliseconds()
 
 	long long result = 0LL;
 
-	if (m_stateMachine.currentState() == PlayerStateId::FLUSHING)
+	const PlayerStateId state = m_stateMachine.currentState();
+	if (state == PlayerStateId::FLUSHING || state == PlayerStateId::FLUSHED)
 	{
-		// Seek in progress - the pipeline hasn't confirmed the new position
-		// via SEEK_DONE yet, so report the requested target directly rather
-		// than a stale pre-seek value.
-		result = m_segmentPosition.StagedPositionNs() / kNsPerMs;
-		AAMPLOG_TRACE("EXIT FLUSHING - pending flush position=%lld ms", result);
+		// The position reported here is relative to the segment start (the
+		// caller adds it to its own seek position), so right after a flush
+		// it is 0. Do not return the staged target: it is an absolute
+		// value and would be double-counted by the caller. Until Rialto
+		// sends PLAYING/PAUSED after SEEK_DONE the pipeline may still be
+		// pre-rolling, so getPosition() can fail or return a stale value.
+		AAMPLOG_TRACE("EXIT %s - position not yet valid, reporting 0",
+			m_stateMachine.currentStateName());
 		return result;
 	}
 

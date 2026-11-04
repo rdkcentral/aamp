@@ -455,6 +455,7 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	// commits the rate immediately without touching the segment-start
 	// baseline (still 0 from the attach above).
 	m_player->Flush(12.0, -2, /*shouldTearDown=*/false);
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
 
 	// With PTS restamping the first video sample arrives with PTS = 0 ms.
 	ON_CALL(*m_mockSources[eMEDIATYPE_VIDEO], firstPtsMs())
@@ -497,6 +498,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	// Resume normal play: flush back to 1× forward.
 	m_player->Flush(8.0, 1, /*shouldTearDown=*/false);
 
+	// Rialto's PLAYING notification moves the player out of FLUSHED.
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+
 	// After the second flush, first video sample arrives with PTS = 0 ms.
 	ON_CALL(*m_mockSources[eMEDIATYPE_VIDEO], firstPtsMs())
 		.WillByDefault(Return(0LL));
@@ -510,16 +514,15 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	EXPECT_EQ(m_player->GetPositionMilliseconds(), kExpected);
 }
 
-// During a mid-segment seek, Flush() stages the seek position so that
-// GetPositionMilliseconds() can return it
-// immediately while the pipeline is in FLUSHING state (before SEEK_DONE
-// commits it as the new segment-start baseline).  This prevents position
-// reporting from snapping to zero during the flush window.
+// The reported position is relative to the segment start (the caller adds its
+// own seek position), so while the pipeline is FLUSHING - before SEEK_DONE
+// commits the new segment-start baseline - it must be 0.  Returning the
+// staged absolute seek target would be double-counted by the caller.
 /**
- * @test GetPositionMilliseconds_WhileFlushing_ReturnsSeekPositionWithoutQueryingPipeline
+ * @test GetPositionMilliseconds_WhileFlushing_ReturnsZeroWithoutQueryingPipeline
  */
 TEST_F(AampRialtoPlayerWithDemuxTest,
-	GetPositionMilliseconds_WhileFlushing_ReturnsSeekPositionWithoutQueryingPipeline)
+	GetPositionMilliseconds_WhileFlushing_ReturnsZeroWithoutQueryingPipeline)
 {
 	Configure();
 	SendVideoInitFragment();
@@ -527,8 +530,7 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 
 	// Seek to 30 s mid-segment.  setPosition returning true keeps the
 	// player in FLUSHING so the SEEK_DONE path is not yet taken.
-	constexpr double   kSeekSec   = 30.0;
-	constexpr int64_t  kSeekPosMs = 30'000LL;
+	constexpr double kSeekSec = 30.0;
 	EXPECT_CALL(*m_mockPipelinePtr, setPosition(_)).WillOnce(Return(true));
 	m_player->Flush(kSeekSec, /*rate=*/1, /*shouldTearDown=*/false);
 	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
@@ -536,10 +538,33 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	// getPosition() must not be called while in FLUSHING state.
 	EXPECT_CALL(*m_mockPipelinePtr, getPosition(_)).Times(0);
 
-	EXPECT_EQ(m_player->GetPositionMilliseconds(), kSeekPosMs);
+	EXPECT_EQ(m_player->GetPositionMilliseconds(), 0LL);
 
 	// Exit FLUSHING so TearDown() can clean up without blocking.
 	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
+}
+
+// After SEEK_DONE the player is FLUSHED until Rialto's PLAYING/PAUSED
+// arrives; the pipeline may still be pre-rolling there, so a query could
+// fail or return a stale pre-seek value.  The position must be 0 without
+// querying the pipeline.
+/**
+ * @test GetPositionMilliseconds_WhileFlushed_ReturnsZeroWithoutQueryingPipeline
+ */
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	GetPositionMilliseconds_WhileFlushed_ReturnsZeroWithoutQueryingPipeline)
+{
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(_)).WillOnce(Return(true));
+	m_player->Flush(/*position=*/30.0, /*rate=*/1, /*shouldTearDown=*/false);
+	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHED);
+
+	EXPECT_CALL(*m_mockPipelinePtr, getPosition(_)).Times(0);
+	EXPECT_EQ(m_player->GetPositionMilliseconds(), 0LL);
 }
 
 // After a mid-fragment seek the segment-start baseline is the seek position
@@ -569,8 +594,10 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	// Rialto confirms the seek; player exits FLUSHING and commits the
 	// segment-start baseline to the seek position.
 	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
 
-	// Pipeline reports exactly the seek position immediately after SEEK_DONE.
+	// Pipeline reports exactly the seek position on the first query once
+	// Rialto has reported PLAYING.
 	EXPECT_CALL(*m_mockPipelinePtr, getPosition(_))
 		.WillOnce(DoAll(SetArgReferee<0>(kSeekPosNs), Return(true)));
 

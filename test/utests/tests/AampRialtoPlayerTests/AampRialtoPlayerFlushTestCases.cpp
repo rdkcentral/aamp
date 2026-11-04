@@ -565,8 +565,10 @@ TEST_F(AampRialtoPlayerTest,
 	m_player->Flush(/*position=*/33.0, /*rate=*/-4, /*shouldTearDown=*/false);
 	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
 
-	// Complete second flush cycle.
+	// Complete second flush cycle; Rialto's PLAYING follows SEEK_DONE and
+	// moves the player out of FLUSHED, where position is not yet reported.
 	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
 
 	// GetPositionMilliseconds() must use both the rate and the segment-start
 	// baseline (33000 ms) committed by the second flush's SEEK_DONE:
@@ -585,9 +587,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	/**
 	 * @brief Flush() stages the pending rate, but the rate multiplier must
 	 *        only be applied once SEEK_DONE confirms the flushing seek
-	 *        completed.  While FLUSHING, GetPositionMilliseconds() short-
-	 *        circuits to the staged seek target
-	 *        without querying the pipeline or applying the pending rate.
+	 *        completed.  While FLUSHING or FLUSHED, GetPositionMilliseconds()
+	 *        short-circuits to 0 without querying the pipeline or applying
+	 *        the pending rate.
 	 */
 	Configure();
 	SendVideoInitFragment();
@@ -608,13 +610,24 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	m_player->Flush(/*position=*/12.0, /*rate=*/-4, /*shouldTearDown=*/false);
 	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
 
-	// Still FLUSHING: report the pending flush target (12000 ms) directly,
-	// ignoring both the not-yet-committed rate and the raw pipeline query.
-	EXPECT_EQ(m_player->GetPositionMilliseconds(), 12'000LL);
+	// Still FLUSHING: no valid position yet, so report 0 and ignore both
+	// the not-yet-committed rate and the raw pipeline query.
+	EXPECT_CALL(*m_mockPipelinePtr, getPosition(_)).Times(0);
+	EXPECT_EQ(m_player->GetPositionMilliseconds(), 0LL);
 
-	// SEEK_DONE commits the pending rate AND the segment-start baseline
-	// (12000 ms) as a single event: (500 - 12000) * -4 = 46000 ms.
+	// SEEK_DONE commits the rate and baseline, but the pipeline may still
+	// be pre-rolling so FLUSHED also reports 0.
 	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHED);
+	EXPECT_EQ(m_player->GetPositionMilliseconds(), 0LL);
+	testing::Mock::VerifyAndClearExpectations(m_mockPipelinePtr);
+	ON_CALL(*m_mockPipelinePtr, getPosition(_))
+		.WillByDefault(DoAll(SetArgReferee<0>(500'000'000LL), Return(true)));
+
+	// Rialto's PLAYING leaves FLUSHED; the committed rate AND the
+	// segment-start baseline (12000 ms) now apply:
+	// (500 - 12000) * -4 = 46000 ms.
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
 	EXPECT_EQ(m_player->GetPositionMilliseconds(), 46'000LL);
 }
 
@@ -626,8 +639,8 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 {
 	/**
 	 * @brief 1.001 s is not an exact double, so truncating seconds * 1e9
-	 *        staged 1000999999 ns and the FLUSHING position read back as
-	 *        1000 ms instead of 1001 ms.
+	 *        staged 1000999999 ns and the segment-start baseline committed
+	 *        at SEEK_DONE became 1000 ms instead of 1001 ms.
 	 */
 	Configure();
 	SendVideoInitFragment();
@@ -637,7 +650,13 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	m_player->Flush(/*position=*/1.001, /*rate=*/1, /*shouldTearDown=*/false);
 	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
 
-	EXPECT_EQ(m_player->GetPositionMilliseconds(), 1'001LL);
+	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+
+	// (1002 - 1001) * 1 = 1 ms; a truncated baseline of 1000 ms gives 2 ms.
+	EXPECT_CALL(*m_mockPipelinePtr, getPosition(_))
+		.WillOnce(DoAll(SetArgReferee<0>(1'002'000'000LL), Return(true)));
+	EXPECT_EQ(m_player->GetPositionMilliseconds(), 1LL);
 }
 
 // ===========================================================================
