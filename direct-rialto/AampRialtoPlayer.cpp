@@ -1798,7 +1798,7 @@ long long AampRialtoPlayer::GetPositionMilliseconds()
 		// value and would be double-counted by the caller. Until Rialto
 		// sends PLAYING/PAUSED after SEEK_DONE the pipeline may still be
 		// pre-rolling, so getPosition() can fail or return a stale value.
-		AAMPLOG_TRACE("EXIT %s - position not yet valid, reporting 0",
+		AAMPLOG_INFO("EXIT %s - position not yet valid, reporting 0",
 			m_stateMachine.currentStateName());
 		return result;
 	}
