@@ -30,6 +30,9 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 
+#include <atomic>
+#include <thread>
+
 #include "PrivateInstanceAAMPNotifiable.h"
 #include "MockAampConfig.h"
 #include "MockPrivateInstanceAAMP.h"
@@ -72,6 +75,9 @@ protected:
 // Methods that delegate through g_mockPrivateInstanceAAMP
 // ===========================================================================
 
+/**
+ * @test GetState_ForwardsToAamp_ReturnsMockedValue
+ */
 TEST_F(PrivateInstanceAAMPNotifiableTest,
 	GetState_ForwardsToAamp_ReturnsMockedValue)
 {
@@ -81,6 +87,9 @@ TEST_F(PrivateInstanceAAMPNotifiableTest,
 	EXPECT_EQ(m_notifiable->GetState(), eSTATE_PLAYING);
 }
 
+/**
+ * @test NotifySpeedChanged_SchedulesTaskThatForwardsToAamp
+ */
 TEST_F(PrivateInstanceAAMPNotifiableTest,
 	NotifySpeedChanged_SchedulesTaskThatForwardsToAamp)
 {
@@ -99,6 +108,9 @@ TEST_F(PrivateInstanceAAMPNotifiableTest,
 // Methods that call the fake stub (verify no crash / correct forwarding)
 // ===========================================================================
 
+/**
+ * @test NotifyFirstFrameReceived_SchedulesTaskThatCallsAamp
+ */
 TEST_F(PrivateInstanceAAMPNotifiableTest,
 	NotifyFirstFrameReceived_SchedulesTaskThatCallsAamp)
 {
@@ -117,6 +129,9 @@ TEST_F(PrivateInstanceAAMPNotifiableTest,
 	m_notifiable->NotifyFirstFrameReceived(42);
 }
 
+/**
+ * @test NotifyFirstBufferProcessed_SchedulesTask
+ */
 TEST_F(PrivateInstanceAAMPNotifiableTest,
 	NotifyFirstBufferProcessed_SchedulesTask)
 {
@@ -130,6 +145,9 @@ TEST_F(PrivateInstanceAAMPNotifiableTest,
 	m_notifiable->NotifyFirstBufferProcessed("0,0,1920,1080");
 }
 
+/**
+ * @test LogFirstFrame_SchedulesTask
+ */
 TEST_F(PrivateInstanceAAMPNotifiableTest,
 	LogFirstFrame_SchedulesTask)
 {
@@ -143,6 +161,9 @@ TEST_F(PrivateInstanceAAMPNotifiableTest,
 	m_notifiable->LogFirstFrame();
 }
 
+/**
+ * @test LogTuneComplete_SchedulesTask
+ */
 TEST_F(PrivateInstanceAAMPNotifiableTest,
 	LogTuneComplete_SchedulesTask)
 {
@@ -156,6 +177,9 @@ TEST_F(PrivateInstanceAAMPNotifiableTest,
 	m_notifiable->LogTuneComplete();
 }
 
+/**
+ * @test NotifyEOSReached_SchedulesTask
+ */
 TEST_F(PrivateInstanceAAMPNotifiableTest,
 	NotifyEOSReached_SchedulesTask)
 {
@@ -169,6 +193,9 @@ TEST_F(PrivateInstanceAAMPNotifiableTest,
 	m_notifiable->NotifyEOSReached();
 }
 
+/**
+ * @test MonitorProgress_SchedulesTask
+ */
 TEST_F(PrivateInstanceAAMPNotifiableTest,
 	MonitorProgress_SchedulesTask)
 {
@@ -186,6 +213,9 @@ TEST_F(PrivateInstanceAAMPNotifiableTest,
 // ChangeAamp
 // ===========================================================================
 
+/**
+ * @test ChangeAamp_UpdatesTargetInstance
+ */
 TEST_F(PrivateInstanceAAMPNotifiableTest,
 	ChangeAamp_UpdatesTargetInstance)
 {
@@ -208,6 +238,9 @@ TEST_F(PrivateInstanceAAMPNotifiableTest,
 	EXPECT_DOUBLE_EQ(m_notifiable->GetProgressReportIntervalSeconds(), -1.0);
 }
 
+/**
+ * @test ChangeAamp_AfterChange_OldInstanceNotNotified
+ */
 TEST_F(PrivateInstanceAAMPNotifiableTest,
 	ChangeAamp_AfterChange_OldInstanceNotNotified)
 {
@@ -231,6 +264,9 @@ TEST_F(PrivateInstanceAAMPNotifiableTest,
 // NotifyBufferUnderflow
 // ===========================================================================
 
+/**
+ * @test NotifyBufferUnderflow_SchedulesTaskThatCallsScheduleRetune
+ */
 TEST_F(PrivateInstanceAAMPNotifiableTest,
 	NotifyBufferUnderflow_SchedulesTaskThatCallsScheduleRetune)
 {
@@ -254,6 +290,9 @@ TEST_F(PrivateInstanceAAMPNotifiableTest,
 	notifiable.NotifyBufferUnderflow(eMEDIATYPE_VIDEO);
 }
 
+/**
+ * @test NotifyBufferUnderflow_WhenMonitorEnabled_SchedulesTaskThatChecksConfig
+ */
 TEST_F(PrivateInstanceAAMPNotifiableTest,
 	NotifyBufferUnderflow_WhenMonitorEnabled_SchedulesTaskThatChecksConfig)
 {
@@ -281,6 +320,9 @@ TEST_F(PrivateInstanceAAMPNotifiableTest,
 // NotifyPlaybackError
 // ===========================================================================
 
+/**
+ * @test NotifyPlaybackError_SchedulesTaskThatCallsSendErrorEvent
+ */
 TEST_F(PrivateInstanceAAMPNotifiableTest,
 	NotifyPlaybackError_SchedulesTaskThatCallsSendErrorEvent)
 {
@@ -303,6 +345,9 @@ TEST_F(PrivateInstanceAAMPNotifiableTest,
 // NotifyOutputProtectionRecovered
 // ===========================================================================
 
+/**
+ * @test NotifyOutputProtectionRecovered_SchedulesTaskThatMutesSinkAndRetunes
+ */
 TEST_F(PrivateInstanceAAMPNotifiableTest,
 	NotifyOutputProtectionRecovered_SchedulesTaskThatMutesSinkAndRetunes)
 {
@@ -332,6 +377,9 @@ TEST_F(PrivateInstanceAAMPNotifiableTest,
 // SendMonitorAvEvent
 // ===========================================================================
 
+/**
+ * @test SendMonitorAvEvent_SchedulesTask
+ */
 TEST_F(PrivateInstanceAAMPNotifiableTest,
 	SendMonitorAvEvent_SchedulesTask)
 {
@@ -350,6 +398,9 @@ TEST_F(PrivateInstanceAAMPNotifiableTest,
 // GetProgressReportIntervalSeconds
 // ===========================================================================
 
+/**
+ * @test GetProgressReportIntervalSeconds_WithNullConfig_ReturnsZero
+ */
 TEST_F(PrivateInstanceAAMPNotifiableTest,
 	GetProgressReportIntervalSeconds_WithNullConfig_ReturnsZero)
 {
@@ -360,6 +411,9 @@ TEST_F(PrivateInstanceAAMPNotifiableTest,
 	EXPECT_DOUBLE_EQ(notifiable.GetProgressReportIntervalSeconds(), 0.0);
 }
 
+/**
+ * @test GetProgressReportIntervalSeconds_WithConfig_ForwardsToAampConfig
+ */
 TEST_F(PrivateInstanceAAMPNotifiableTest,
 	GetProgressReportIntervalSeconds_WithConfig_ForwardsToAampConfig)
 {
@@ -382,6 +436,9 @@ TEST_F(PrivateInstanceAAMPNotifiableTest,
 // ScheduleAsyncTask) - see the rationale comment in
 // PrivateInstanceAAMPNotifiable.cpp.
 
+/**
+ * @test CompleteDiscontinuityDataDeliverForPTSRestamp_ForwardsToAampSynchronously
+ */
 TEST_F(PrivateInstanceAAMPNotifiableTest,
 	CompleteDiscontinuityDataDeliverForPTSRestamp_ForwardsToAampSynchronously)
 {
@@ -393,6 +450,9 @@ TEST_F(PrivateInstanceAAMPNotifiableTest,
 	m_notifiable->CompleteDiscontinuityDataDeliverForPTSRestamp(eMEDIATYPE_VIDEO);
 }
 
+/**
+ * @test NotifyPipelinePausedToUnderflowMonitor_NullStreamAbstraction_DoesNotCrash
+ */
 TEST_F(PrivateInstanceAAMPNotifiableTest,
 	NotifyPipelinePausedToUnderflowMonitor_NullStreamAbstraction_DoesNotCrash)
 {
@@ -402,4 +462,137 @@ TEST_F(PrivateInstanceAAMPNotifiableTest,
 		.Times(0);
 
 	EXPECT_NO_THROW(m_notifiable->NotifyPipelinePausedToUnderflowMonitor());
+}
+
+// ===========================================================================
+// M14: the wrapped instance changes while notifications are delivered
+// ===========================================================================
+
+/**
+ * @test NullInstance_NotificationsAreDroppedAndGetStateIsIdle
+ */
+TEST_F(PrivateInstanceAAMPNotifiableTest,
+	NullInstance_NotificationsAreDroppedAndGetStateIsIdle)
+{
+	/**
+	 * @brief Regression (M14): every method but GetProgressReportIntervalSeconds
+	 *        dereferenced the instance without a null check.  With no instance
+	 *        they must do nothing, and GetState() must report IDLE.
+	 */
+	PrivateInstanceAAMPNotifiable notifiable(nullptr);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, ScheduleAsyncTask(_, _, _)).Times(0);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).Times(0);
+
+	notifiable.NotifyFirstFrameReceived(1);
+	notifiable.NotifyFirstBufferProcessed("0,0,1,1");
+	notifiable.NotifyFirstVideoFrameDisplayed();
+	notifiable.LogFirstFrame();
+	notifiable.LogTuneComplete();
+	notifiable.NotifyEOSReached();
+	notifiable.MonitorProgress(true, false);
+	notifiable.NotifySpeedChanged(1.0f, true);
+	notifiable.NotifyBufferUnderflow(eMEDIATYPE_VIDEO);
+	notifiable.NotifyPlaybackError(AAMP_TUNE_FAILURE_UNKNOWN, "x", false);
+	notifiable.NotifyOutputProtectionRecovered();
+	notifiable.CompleteDiscontinuityDataDeliverForPTSRestamp(eMEDIATYPE_VIDEO);
+	notifiable.NotifyPipelinePausedToUnderflowMonitor();
+	notifiable.SendMonitorAvEvent("ok", 1, 2, 3, 4);
+
+	EXPECT_EQ(notifiable.GetState(), eSTATE_IDLE);
+	EXPECT_EQ(notifiable.GetProgressReportIntervalSeconds(), 0.0);
+}
+
+/**
+ * @test ChangeAamp_ToNull_StopsForwarding
+ */
+TEST_F(PrivateInstanceAAMPNotifiableTest,
+	ChangeAamp_ToNull_StopsForwarding)
+{
+	m_notifiable->ChangeAamp(nullptr);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, ScheduleAsyncTask(_, _, _)).Times(0);
+
+	m_notifiable->NotifyEOSReached();
+	EXPECT_EQ(m_notifiable->GetState(), eSTATE_IDLE);
+}
+
+/**
+ * @test ChangeAamp_ConcurrentWithNotifications_IsRaceFree
+ */
+TEST_F(PrivateInstanceAAMPNotifiableTest,
+	ChangeAamp_ConcurrentWithNotifications_IsRaceFree)
+{
+	/**
+	 * @brief Regression (M14): m_aamp was a plain pointer written by
+	 *        ChangeAamp() while callback threads read it, and each method read
+	 *        it more than once.  Under a thread sanitizer the old code is
+	 *        reported as a data race.
+	 */
+	PrivateInstanceAAMP other{};
+	ON_CALL(*g_mockPrivateInstanceAAMP, ScheduleAsyncTask(_, _, _))
+		.WillByDefault(Return(0));  // AAMP_TASK_ID_INVALID: the adapter frees its args
+	ON_CALL(*g_mockPrivateInstanceAAMP, GetState())
+		.WillByDefault(Return(eSTATE_PLAYING));
+
+	std::atomic<bool> done{false};
+	auto deliverer = [&] {
+		while (!done.load())
+		{
+			m_notifiable->NotifyEOSReached();
+			m_notifiable->NotifyFirstBufferProcessed("0,0,1,1");
+			m_notifiable->GetState();
+		}
+	};
+	std::thread t1(deliverer);
+	std::thread t2(deliverer);
+	for (int i = 0; i < 2000; ++i)
+	{
+		m_notifiable->ChangeAamp((i % 2) ? &other : &m_aamp);
+	}
+	done = true;
+	t1.join();
+	t2.join();
+}
+
+// ===========================================================================
+// Arguments survive the hop to the scheduler thread (P1)
+// ===========================================================================
+
+/**
+ * @test NotifyPlaybackError_ForwardsEveryArgumentToTheScheduledTask
+ */
+TEST_F(PrivateInstanceAAMPNotifiableTest,
+	NotifyPlaybackError_ForwardsEveryArgumentToTheScheduledTask)
+{
+	/**
+	 * @brief Characterization (P1): the task state used to be a hand-managed
+	 *        struct and is now owned by the dispatch helper.  The description
+	 *        is copied into the task, so it must still be intact after the
+	 *        caller's string is gone, and both retry values must arrive.
+	 */
+	for (const bool retry : {true, false})
+	{
+		IdleTask scheduled = nullptr;
+		void *scheduledArg = nullptr;
+		EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+			ScheduleAsyncTask(_, _, std::string("NotifyPlaybackError")))
+			.WillOnce([&](IdleTask task, void *arg, std::string) -> int {
+				scheduled = task;
+				scheduledArg = arg;
+				return 1;
+			});
+		{
+			const std::string description = "pipeline broke";
+			m_notifiable->NotifyPlaybackError(
+				AAMP_TUNE_GST_PIPELINE_ERROR, description, retry);
+		}
+
+		EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+			SendErrorEvent(AAMP_TUNE_GST_PIPELINE_ERROR,
+				testing::StrEq("pipeline broke"), retry, _, _, _, _))
+			.Times(1);
+		ASSERT_NE(scheduled, nullptr);
+		scheduled(scheduledArg);
+
+		testing::Mock::VerifyAndClearExpectations(g_mockPrivateInstanceAAMP.get());
+	}
 }

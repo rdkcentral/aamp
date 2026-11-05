@@ -234,7 +234,16 @@ int g_strcmp0(const char *str1, const char *str2)
 
 guint g_timeout_add_full(gint priority, guint interval, GSourceFunc function, gpointer data, GDestroyNotify notify)
 {
-	return 0;
+	// Shares the g_timeout_add expectations; the destroy notify is not
+	// called, as the fake never destroys a source.
+	guint retval = 0;
+
+	if (g_mockGLib != nullptr)
+	{
+		retval = g_mockGLib->g_timeout_add(interval, function, data);
+	}
+
+	return retval;
 }
 
 void g_usleep(gulong microseconds)

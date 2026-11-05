@@ -38,6 +38,7 @@
 
 #include "IStreamSinkNotifiable.h"
 #include "IMediaPipeline.h"
+#include "AampRialtoGlibTimer.h"
 
 #include <functional>
 #include <memory>
@@ -49,13 +50,17 @@
  * @class AampRialtoMonitorAV
  * @brief Periodic AV health classifier and event reporter for direct-Rialto.
  *
- * The caller constructs this object once per stream session (in
- * AampRialtoPlayer::Configure()) and calls start() / stop() around the
- * PLAYING interval.
+ * The player creates one per pipeline (AampRialtoPlayer::CreateMonitorAV(),
+ * after load()) and calls start() / stop() around the PLAYING interval.
  *
  * Ownership of the Rialto pipeline is shared via std::shared_ptr.  All AAMP
  * notifications go through the injected IStreamSinkNotifiable so that the
  * class can be exercised in unit tests without a live AAMP instance.
+ *
+ * Threads: start() runs on the Rialto event thread (PLAYING), stop() and
+ * destruction on the control thread; both ticks run on the GLib main loop.
+ * stop() waits for a tick in progress.  The classification state is only
+ * touched by the ticks.
  */
 class AampRialtoMonitorAV
 {
@@ -121,17 +126,28 @@ public:
 	void stop();
 
 private:
+	/// AV health classification; None until the first sample.
+	enum class AvHealth
+	{
+		None,
+		Ok,
+		Stall,
+		VideoFreeze,
+		AudioDrop,
+		Eos,
+		Trickplay,
+		AvSync,
+		Jump
+	};
+
+	/// Text used in logs and SendMonitorAvEvent() for a classification.
+	static const char *toString(AvHealth health);
+
 	/// Called by the sample timer: queries position and classifies AV state.
 	void onSampleTick();
 
 	/// Called by the report timer: reads getStats() and fires SendMonitorAvEvent().
 	void onReportTick();
-
-	/// GLib timeout callback for the sample timer.
-	static gboolean sampleTimerCb(gpointer data);
-
-	/// GLib timeout callback for the report timer.
-	static gboolean reportTimerCb(gpointer data);
 
 	// -----------------------------------------------------------------------
 	// Dependencies (injected at construction)
@@ -153,8 +169,8 @@ private:
 	/// Wall-clock time (ms) of the last successful position sample.
 	int64_t m_tLastSampled{0};
 
-	/// Current AV health classification string; nullptr until first sample.
-	const char *m_description{nullptr};
+	/// Current AV health classification.
+	AvHealth m_health{AvHealth::None};
 
 	/// Most recently sampled positions: [0]=video, [1]=audio.
 	/// In the direct-Rialto path both entries hold the same pipeline position
@@ -170,10 +186,11 @@ private:
 	bool m_happy{false};
 
 	// -----------------------------------------------------------------------
-	// GLib timer IDs (0 = not running)
+	// Timers.  Stopping one waits for a tick in progress, so the classification
+	// state above is only touched from ticks that cannot outlive stop().
 	// -----------------------------------------------------------------------
-	guint m_sampleTimerId{0};
-	guint m_reportTimerId{0};
+	AampRialtoGlibTimer m_sampleTimer;
+	AampRialtoGlibTimer m_reportTimer;
 };
 
 #endif // AAMP_RIALTO_MONITOR_AV_H

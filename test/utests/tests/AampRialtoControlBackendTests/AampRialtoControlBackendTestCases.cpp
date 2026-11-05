@@ -31,7 +31,7 @@
 
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
-#include <atomic>
+#include <future>
 #include <thread>
 #include <chrono>
 
@@ -43,32 +43,6 @@ using ::testing::Return;
 using ::testing::DoAll;
 using ::testing::SetArgReferee;
 using ::testing::Invoke;
-
-namespace
-{
-	/// Joins the wrapped thread on destruction (or explicit join()) so a
-	/// GoogleTest ASSERT_* early-return can never destroy a still-joinable
-	/// std::thread (which would call std::terminate()).
-	class JoiningThread
-	{
-	public:
-		explicit JoiningThread(std::thread t) : m_thread(std::move(t)) {}
-		~JoiningThread() { join(); }
-		JoiningThread(const JoiningThread &) = delete;
-		JoiningThread &operator=(const JoiningThread &) = delete;
-
-		void join()
-		{
-			if (m_thread.joinable())
-			{
-				m_thread.join();
-			}
-		}
-
-	private:
-		std::thread m_thread;
-	};
-}
 
 // ---------------------------------------------------------------------------
 // Fixture
@@ -96,6 +70,9 @@ protected:
 // Constructor tests
 // ===========================================================================
 
+/**
+ * @test Constructor_NullFactory_DoesNotCrash
+ */
 TEST_F(AampRialtoControlBackendTest,
 	Constructor_NullFactory_DoesNotCrash)
 {
@@ -107,6 +84,9 @@ TEST_F(AampRialtoControlBackendTest,
 	EXPECT_FALSE(backend.waitForRunning(10));
 }
 
+/**
+ * @test Constructor_FactoryReturnsNullControl_DoesNotCrash
+ */
 TEST_F(AampRialtoControlBackendTest,
 	Constructor_FactoryReturnsNullControl_DoesNotCrash)
 {
@@ -117,6 +97,9 @@ TEST_F(AampRialtoControlBackendTest,
 	EXPECT_FALSE(backend.waitForRunning(10));
 }
 
+/**
+ * @test Constructor_RegisterClientFails_DoesNotCrash
+ */
 TEST_F(AampRialtoControlBackendTest,
 	Constructor_RegisterClientFails_DoesNotCrash)
 {
@@ -129,6 +112,9 @@ TEST_F(AampRialtoControlBackendTest,
 	EXPECT_FALSE(backend.waitForRunning(10));
 }
 
+/**
+ * @test Constructor_RegisterClientSucceeds_InitialStateUnknown
+ */
 TEST_F(AampRialtoControlBackendTest,
 	Constructor_RegisterClientSucceeds_InitialStateUnknown)
 {
@@ -148,6 +134,9 @@ TEST_F(AampRialtoControlBackendTest,
 // waitForRunning tests
 // ===========================================================================
 
+/**
+ * @test WaitForRunning_AlreadyRunning_ReturnsImmediately
+ */
 TEST_F(AampRialtoControlBackendTest,
 	WaitForRunning_AlreadyRunning_ReturnsImmediately)
 {
@@ -162,6 +151,9 @@ TEST_F(AampRialtoControlBackendTest,
 	EXPECT_TRUE(backend.waitForRunning(5000));
 }
 
+/**
+ * @test WaitForRunning_StateChangesToRunning_ReturnsTrue
+ */
 TEST_F(AampRialtoControlBackendTest,
 	WaitForRunning_StateChangesToRunning_ReturnsTrue)
 {
@@ -182,24 +174,25 @@ TEST_F(AampRialtoControlBackendTest,
 
 	AampRialtoControlBackend backend;
 
-	// No production test-hook exists to prove waitForRunning() has entered
-	// its blocked wait before this notifies, so this only asserts the
-	// observable contract: a concurrent state change makes it return true,
-	// regardless of which internal path (fast-path or blocked-then-woken)
-	// handled it.
-	std::atomic<bool> waitResult{false};
-	JoiningThread waiter(std::thread([&]() {
-		waitResult.store(backend.waitForRunning(2000));
-	}));
+	auto waiter = std::async(std::launch::async,
+		[&backend] { return backend.waitForRunning(5000); });
+	// Negative check: still waiting while the state is UNKNOWN.
+	ASSERT_EQ(waiter.wait_for(std::chrono::milliseconds(50)),
+		std::future_status::timeout);
 
 	auto client = capturedClient.lock();
 	ASSERT_NE(client, nullptr);
-	client->notifyApplicationState(firebolt::rialto::ApplicationState::RUNNING);
+	client->notifyApplicationState(
+		firebolt::rialto::ApplicationState::RUNNING);
 
-	waiter.join();
-	EXPECT_TRUE(waitResult.load());
+	ASSERT_EQ(waiter.wait_for(std::chrono::seconds(5)),
+		std::future_status::ready);
+	EXPECT_TRUE(waiter.get());
 }
 
+/**
+ * @test WaitForRunning_Timeout_ReturnsFalse
+ */
 TEST_F(AampRialtoControlBackendTest,
 	WaitForRunning_Timeout_ReturnsFalse)
 {
@@ -217,4 +210,112 @@ TEST_F(AampRialtoControlBackendTest,
 	auto elapsed = std::chrono::steady_clock::now() - start;
 	// Should have waited approximately 50ms (allow some slack).
 	EXPECT_GE(elapsed, std::chrono::milliseconds(40));
+}
+
+/**
+ * @test NotificationAfterBackendDestroyed_DoesNotTouchFreedBackend
+ */
+TEST_F(AampRialtoControlBackendTest,
+	NotificationAfterBackendDestroyed_DoesNotTouchFreedBackend)
+{
+	/**
+	 * @brief Regression (M13): the client held a reference to the backend, and
+	 *        the backend's mutex and condition variable were destroyed before
+	 *        the IControl that can still deliver a notification.  A
+	 *        notification arriving after the backend is gone must be harmless.
+	 *        Run under AddressSanitizer to see the old fault.
+	 */
+	std::weak_ptr<firebolt::rialto::IControlClient> capturedClient;
+	EXPECT_CALL(*g_mockControlFactory, createControl())
+		.WillOnce(Return(m_mockControl));
+	EXPECT_CALL(*m_mockControl, registerClient(_, _))
+		.WillOnce(Invoke(
+			[&capturedClient](
+				std::weak_ptr<firebolt::rialto::IControlClient> client,
+				firebolt::rialto::ApplicationState &appState)
+			{
+				capturedClient = client;
+				appState = firebolt::rialto::ApplicationState::UNKNOWN;
+				return true;
+			}));
+
+	auto backend = std::make_unique<AampRialtoControlBackend>();
+	// Rialto's event thread holds the client for the length of a notification.
+	auto heldClient = capturedClient.lock();
+	ASSERT_NE(heldClient, nullptr);
+
+	backend.reset();
+	m_mockControl.reset();
+
+	heldClient->notifyApplicationState(firebolt::rialto::ApplicationState::RUNNING);
+}
+
+/**
+ * @test RegisterClient_NotificationDuringRegistration_IsNotOverwritten
+ */
+TEST_F(AampRialtoControlBackendTest,
+	RegisterClient_NotificationDuringRegistration_IsNotOverwritten)
+{
+	/**
+	 * @brief Regression (M13): registerClient() reports the state at the time
+	 *        it was called and could be delivered after a newer notification;
+	 *        the stale value must not replace it.
+	 */
+	EXPECT_CALL(*g_mockControlFactory, createControl())
+		.WillOnce(Return(m_mockControl));
+	EXPECT_CALL(*m_mockControl, registerClient(_, _))
+		.WillOnce(Invoke(
+			[](std::weak_ptr<firebolt::rialto::IControlClient> client,
+			   firebolt::rialto::ApplicationState &appState)
+			{
+				// Rialto's thread reports RUNNING while registerClient() is
+				// still returning the older UNKNOWN.
+				if (auto c = client.lock())
+				{
+					c->notifyApplicationState(
+						firebolt::rialto::ApplicationState::RUNNING);
+				}
+				appState = firebolt::rialto::ApplicationState::UNKNOWN;
+				return true;
+			}));
+
+	AampRialtoControlBackend backend;
+	EXPECT_TRUE(backend.waitForRunning(50));
+}
+
+/**
+ * @test RegisterClient_ConcurrentNotification_IsRaceFree
+ */
+TEST_F(AampRialtoControlBackendTest,
+	RegisterClient_ConcurrentNotification_IsRaceFree)
+{
+	/**
+	 * @brief Regression (M13): registerClient() wrote the state member that a
+	 *        notification writes under the lock, with no lock.  Under a thread
+	 *        sanitizer the old code is reported as a data race.
+	 */
+	EXPECT_CALL(*g_mockControlFactory, createControl())
+		.WillOnce(Return(m_mockControl));
+	std::thread notifier;
+	EXPECT_CALL(*m_mockControl, registerClient(_, _))
+		.WillOnce(Invoke(
+			[&notifier](std::weak_ptr<firebolt::rialto::IControlClient> client,
+			            firebolt::rialto::ApplicationState &appState)
+			{
+				notifier = std::thread([client]() {
+					if (auto c = client.lock())
+					{
+						c->notifyApplicationState(
+							firebolt::rialto::ApplicationState::RUNNING);
+					}
+				});
+				appState = firebolt::rialto::ApplicationState::UNKNOWN;
+				// Widens the window in which the notification races this write.
+				std::this_thread::sleep_for(std::chrono::milliseconds(5));
+				return true;
+			}));
+
+	AampRialtoControlBackend backend;
+	notifier.join();
+	EXPECT_TRUE(backend.waitForRunning(2000));
 }

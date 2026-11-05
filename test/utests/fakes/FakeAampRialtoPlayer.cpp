@@ -34,9 +34,8 @@ AampRialtoPlayer::AampRialtoPlayer(
 	std::function<void(const unsigned char *, int, int, int)> /*exportFrames*/)
 	: m_aamp(aamp)
 	, m_drmBridge(nullptr)
-	, m_controlBackend(nullptr)
-	, m_client(nullptr)
-	, m_pipeline(nullptr)
+	, m_session(nullptr)
+	, m_playbackController([](const char *) {})
 {
 }
 
@@ -118,8 +117,13 @@ void AampRialtoPlayer::StartProgressTimer() {}
 void AampRialtoPlayer::StopProgressTimer() {}
 void AampRialtoPlayer::OnProgressTimerTick() {}
 
-AampRialtoPlayer::ProgressTimer::~ProgressTimer() {}
+// IAampRialtoPipelineEvents
+void AampRialtoPlayer::OnNeedMediaData(int32_t, size_t, uint32_t) {}
+void AampRialtoPlayer::OnCancelNeedMediaData(int32_t) {}
+void AampRialtoPlayer::OnPlaybackState(firebolt::rialto::PlaybackState) {}
+void AampRialtoPlayer::OnPosition(int64_t) {}
+void AampRialtoPlayer::OnDuration(int64_t) {}
+void AampRialtoPlayer::OnBufferUnderflow(int32_t) {}
+void AampRialtoPlayer::OnPlaybackError(int32_t,
+	firebolt::rialto::PlaybackError) {}
 
-void AampRialtoPlayer::RialtoLogHandler::log(
-	Level, const std::string &, int,
-	const std::string &, const std::string &) {}

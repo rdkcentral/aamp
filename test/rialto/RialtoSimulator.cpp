@@ -408,6 +408,16 @@ public:
 
 	bool setImmediateOutput(int32_t, bool) override { return true; }
 	bool getImmediateOutput(int32_t, bool &io) override { io = false; return true; }
+	bool setReportDecodeErrors(int32_t, bool) override { return true; }
+
+	bool getQueuedFrames(int32_t sourceId, uint32_t &queuedFrames) override
+	{
+		// Refresh first so samples the clock has already passed are popped.
+		refreshAndGetPositionNs();
+		std::lock_guard<std::mutex> lock(m_trackMutex);
+		queuedFrames = queuedFramesLocked(sourceId);
+		return true;
+	}
 
 	bool setVideoWindow(uint32_t x, uint32_t y,
 		uint32_t width, uint32_t height) override
@@ -847,6 +857,32 @@ private:
 				q.pop_front();
 			}
 		}
+	}
+
+	// Frames a non-subtitle source is holding that have not yet been
+	// presented, i.e. what a real decoder reports as its queued frames.
+	// The head stays queued until its successor's PTS passes the clock
+	// (see popMaturedSamplesLocked()), and nothing pops while paused, so
+	// the count rises during pre-roll as data is injected.
+	// Caller must hold m_trackMutex.
+	uint32_t queuedFramesLocked(int32_t sourceId) const
+	{
+		size_t frames = 0;
+		auto typeIt = m_sourceTypes.find(sourceId);
+		if (typeIt != m_sourceTypes.end())
+		{
+			if (typeIt->second == MediaSourceType::VIDEO)
+			{
+				auto it = m_videoQueue.find(sourceId);
+				frames = (it != m_videoQueue.end()) ? it->second.size() : 0;
+			}
+			else if (typeIt->second == MediaSourceType::AUDIO)
+			{
+				auto it = m_fifoQueue.find(sourceId);
+				frames = (it != m_fifoQueue.end()) ? it->second.size() : 0;
+			}
+		}
+		return static_cast<uint32_t>(frames);
 	}
 
 	// True if sourceId is an attached track that participates in the shared

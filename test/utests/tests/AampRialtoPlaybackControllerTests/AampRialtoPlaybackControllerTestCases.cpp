@@ -1,0 +1,731 @@
+/*
+ * If not stated otherwise in this file or this component's license file the
+ * following copyright and licenses apply:
+ *
+ * Copyright 2026 RDK Management
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/**
+ * @file AampRialtoPlaybackControllerTests.cpp
+ * @brief Unit tests for AampRialtoPlaybackController.
+ *
+ * The controller is the single decision point for "may play() be issued
+ * now?".  These tests pin the behaviour that AampRialtoPlayer previously
+ * spread across Stream(), CheckAllSourcesAttached() and the SEEK_DONE
+ * handler, including the guarantee that a play request is consumed exactly
+ * once when two threads race to satisfy it.
+ */
+
+#include <gtest/gtest.h>
+
+#include <atomic>
+#include <chrono>
+#include <condition_variable>
+#include <future>
+#include <mutex>
+#include <string>
+#include <thread>
+#include <vector>
+
+#include "AampRialtoPlaybackController.h"
+
+class AampRialtoPlaybackControllerTest : public ::testing::Test
+{
+protected:
+	void SetUp() override
+	{
+		m_controller = std::make_unique<AampRialtoPlaybackController>(
+			[this](const char *reason)
+			{
+				++m_playCount;
+				m_lastReason = (reason != nullptr) ? reason : "";
+			});
+	}
+
+	void TearDown() override
+	{
+		m_controller.reset();
+	}
+
+	/// Put the controller into the "nothing is holding playback" state that
+	/// a fully attached, non-flushing, position-resolved player reaches.
+	void ReleaseAllHolds()
+	{
+		m_controller->ReleaseHold(PlayHold::SourcesNotAttached, "test");
+		m_controller->ReleaseHold(PlayHold::Flushing, "test");
+		m_controller->ReleaseHold(PlayHold::PositionPending, "test");
+		m_controller->ReleaseHold(PlayHold::FragmentCaching, "test");
+		m_playCount = 0;
+		m_lastReason.clear();
+	}
+
+	std::unique_ptr<AampRialtoPlaybackController> m_controller;
+	std::atomic<int> m_playCount{0};
+	std::string m_lastReason;
+};
+
+/**
+ * @test InitialState_SourcesNotAttachedIsHeld
+ */
+TEST_F(AampRialtoPlaybackControllerTest, InitialState_SourcesNotAttachedIsHeld)
+{
+	/**
+	 * @brief A freshly constructed controller mirrors a player that has not
+	 *        yet attached any source, so play must not be issuable.
+	 */
+	EXPECT_TRUE(m_controller->IsHeld(PlayHold::SourcesNotAttached));
+	EXPECT_FALSE(m_controller->IsHeld(PlayHold::Flushing));
+	EXPECT_FALSE(m_controller->IsHeld(PlayHold::PositionPending));
+	EXPECT_FALSE(m_controller->IsHeld(PlayHold::FragmentCaching));
+	EXPECT_FALSE(m_controller->IsPlayPending());
+	EXPECT_EQ(m_playCount, 0);
+}
+
+/**
+ * @test RequestPlay_NoHolds_FiresImmediately
+ */
+TEST_F(AampRialtoPlaybackControllerTest, RequestPlay_NoHolds_FiresImmediately)
+{
+	/**
+	 * @brief Mirrors Stream() arriving after every precondition is already
+	 *        satisfied: play() is issued synchronously.
+	 */
+	ReleaseAllHolds();
+
+	m_controller->RequestPlay("Stream");
+
+	EXPECT_EQ(m_playCount, 1);
+	EXPECT_EQ(m_lastReason, "Stream");
+	EXPECT_FALSE(m_controller->IsPlayPending());
+}
+
+/**
+ * @test RequestPlay_WhileHeld_DoesNotFire
+ */
+TEST_F(AampRialtoPlaybackControllerTest, RequestPlay_WhileHeld_DoesNotFire)
+{
+	/**
+	 * @brief Mirrors Stream() arriving before allSourcesAttached(): the
+	 *        request is remembered but play() is deferred.
+	 */
+	m_controller->RequestPlay("Stream");
+
+	EXPECT_EQ(m_playCount, 0);
+	EXPECT_TRUE(m_controller->IsPlayPending());
+}
+
+/**
+ * @test ReleaseLastHold_FiresDeferredPlay
+ */
+TEST_F(AampRialtoPlaybackControllerTest, ReleaseLastHold_FiresDeferredPlay)
+{
+	/**
+	 * @brief Mirrors CheckAllSourcesAttached() issuing the play() that
+	 *        Stream() deferred.
+	 */
+	m_controller->RequestPlay("Stream");
+	ASSERT_EQ(m_playCount, 0);
+
+	m_controller->ReleaseHold(PlayHold::SourcesNotAttached,
+		"CheckAllSourcesAttached");
+
+	EXPECT_EQ(m_playCount, 1);
+	EXPECT_EQ(m_lastReason, "CheckAllSourcesAttached");
+	EXPECT_FALSE(m_controller->IsPlayPending());
+}
+
+/**
+ * @test ReleaseHold_OtherHoldsRemaining_DoesNotFire
+ */
+TEST_F(AampRialtoPlaybackControllerTest,
+	ReleaseHold_OtherHoldsRemaining_DoesNotFire)
+{
+	/**
+	 * @brief Mirrors SEEK_DONE arriving while a newer Discontinuity() has
+	 *        already re-armed the position: the request must survive until
+	 *        the remaining hold clears.
+	 */
+	m_controller->AddHold(PlayHold::Flushing, "Flush");
+	m_controller->AddHold(PlayHold::PositionPending, "Discontinuity");
+	m_controller->ReleaseHold(PlayHold::SourcesNotAttached, "attach");
+	m_controller->RequestPlay("Stream");
+	ASSERT_EQ(m_playCount, 0);
+
+	m_controller->ReleaseHold(PlayHold::Flushing, "SEEK_DONE");
+
+	EXPECT_EQ(m_playCount, 0);
+	EXPECT_TRUE(m_controller->IsPlayPending());
+
+	m_controller->ReleaseHold(PlayHold::PositionPending, "Flush");
+
+	EXPECT_EQ(m_playCount, 1);
+	EXPECT_EQ(m_lastReason, "Flush");
+}
+
+/**
+ * @test ReleaseHold_NoPlayRequested_DoesNotFire
+ */
+TEST_F(AampRialtoPlaybackControllerTest,
+	ReleaseHold_NoPlayRequested_DoesNotFire)
+{
+	/**
+	 * @brief Mirrors a seek performed while paused: no Stream() was called,
+	 *        so SEEK_DONE must not start playback.
+	 */
+	m_controller->AddHold(PlayHold::Flushing, "Flush");
+
+	m_controller->ReleaseHold(PlayHold::Flushing, "SEEK_DONE");
+	m_controller->ReleaseHold(PlayHold::SourcesNotAttached, "attach");
+
+	EXPECT_EQ(m_playCount, 0);
+}
+
+/**
+ * @test DeferredPlay_FiresOnlyOnce
+ */
+TEST_F(AampRialtoPlaybackControllerTest, DeferredPlay_FiresOnlyOnce)
+{
+	/**
+	 * @brief A single deferred request must be consumed by whichever site
+	 *        releases the final hold, and must not fire again when an
+	 *        unrelated hold is later released.
+	 */
+	m_controller->AddHold(PlayHold::Flushing, "Flush");
+	m_controller->RequestPlay("Stream");
+
+	m_controller->ReleaseHold(PlayHold::SourcesNotAttached, "attach");
+	ASSERT_EQ(m_playCount, 0);
+	m_controller->ReleaseHold(PlayHold::Flushing, "SEEK_DONE");
+	ASSERT_EQ(m_playCount, 1);
+
+	m_controller->AddHold(PlayHold::Flushing, "Flush");
+	m_controller->ReleaseHold(PlayHold::Flushing, "SEEK_DONE");
+
+	EXPECT_EQ(m_playCount, 1);
+}
+
+/**
+ * @test RequestPlay_WhenUnheld_FiresEachTime
+ */
+TEST_F(AampRialtoPlaybackControllerTest, RequestPlay_WhenUnheld_FiresEachTime)
+{
+	/**
+	 * @brief AAMP treats Stream() as unconditional, so repeated requests
+	 *        must each re-issue play() rather than being deduplicated.
+	 */
+	ReleaseAllHolds();
+
+	m_controller->RequestPlay("Stream");
+	m_controller->RequestPlay("Stream");
+	m_controller->RequestPlay("Stream");
+
+	EXPECT_EQ(m_playCount, 3);
+}
+
+/**
+ * @test CancelPlayRequest_PreventsDeferredPlay
+ */
+TEST_F(AampRialtoPlaybackControllerTest, CancelPlayRequest_PreventsDeferredPlay)
+{
+	/**
+	 * @brief Mirrors Stop() and an explicit Pause(true) discarding a play
+	 *        request that was still deferred.
+	 */
+	m_controller->RequestPlay("Stream");
+	ASSERT_TRUE(m_controller->IsPlayPending());
+
+	m_controller->CancelPlayRequest("Stop");
+	EXPECT_FALSE(m_controller->IsPlayPending());
+
+	m_controller->ReleaseHold(PlayHold::SourcesNotAttached, "attach");
+
+	EXPECT_EQ(m_playCount, 0);
+}
+
+/**
+ * @test Reset_DropsLeakedHoldsAndRequest
+ */
+TEST_F(AampRialtoPlaybackControllerTest, Reset_DropsLeakedHoldsAndRequest)
+{
+	/**
+	 * @brief Mirrors Stop(): holds left behind by the old session (a flush
+	 *        that never completed, fragment caching) must not defer play()
+	 *        in the next one, and the old play request must not survive.
+	 */
+	m_controller->AddHold(PlayHold::Flushing, "Flush");
+	m_controller->AddHold(PlayHold::FragmentCaching, "caching");
+	m_controller->AddHold(PlayHold::PositionPending, "Discontinuity");
+	m_controller->AddHold(PlayHold::PreRollIncomplete, "arm");
+	m_controller->RequestPlay("Stream");
+	ASSERT_TRUE(m_controller->IsPlayPending());
+
+	m_controller->Reset("Stop");
+
+	EXPECT_TRUE(m_controller->IsHeld(PlayHold::SourcesNotAttached));
+	EXPECT_FALSE(m_controller->IsHeld(PlayHold::Flushing));
+	EXPECT_FALSE(m_controller->IsHeld(PlayHold::FragmentCaching));
+	EXPECT_FALSE(m_controller->IsHeld(PlayHold::PositionPending));
+	EXPECT_FALSE(m_controller->IsHeld(PlayHold::PreRollIncomplete));
+	EXPECT_FALSE(m_controller->IsPlayPending());
+	EXPECT_EQ(m_playCount, 0) << "Reset must never issue play()";
+
+	// The next session plays as soon as its sources attach.
+	m_controller->RequestPlay("Stream");
+	m_controller->ReleaseHold(PlayHold::SourcesNotAttached, "attach");
+	EXPECT_EQ(m_playCount, 1);
+}
+
+/**
+ * @test AddHold_IsIdempotent
+ */
+TEST_F(AampRialtoPlaybackControllerTest, AddHold_IsIdempotent)
+{
+	/**
+	 * @brief Adding an already-applied hold must not require a matching
+	 *        extra release; Configure() may re-arm a hold that is already
+	 *        set.
+	 */
+	m_controller->AddHold(PlayHold::PositionPending, "Configure");
+	m_controller->AddHold(PlayHold::PositionPending, "Discontinuity");
+	m_controller->ReleaseHold(PlayHold::SourcesNotAttached, "attach");
+	m_controller->RequestPlay("Stream");
+
+	m_controller->ReleaseHold(PlayHold::PositionPending, "Flush");
+
+	EXPECT_FALSE(m_controller->IsHeld(PlayHold::PositionPending));
+	EXPECT_EQ(m_playCount, 1);
+}
+
+/**
+ * @test ReleaseHold_NotHeld_IsHarmless
+ */
+TEST_F(AampRialtoPlaybackControllerTest, ReleaseHold_NotHeld_IsHarmless)
+{
+	/**
+	 * @brief Releasing a hold that was never applied must neither fire
+	 *        play() nor disturb the remaining holds.
+	 */
+	m_controller->ReleaseHold(PlayHold::FragmentCaching,
+		"NotifyFragmentCachingComplete");
+
+	EXPECT_EQ(m_playCount, 0);
+	EXPECT_TRUE(m_controller->IsHeld(PlayHold::SourcesNotAttached));
+}
+
+/**
+ * @test HoldsAreIndependent
+ */
+TEST_F(AampRialtoPlaybackControllerTest, HoldsAreIndependent)
+{
+	/**
+	 * @brief Each hold must be tracked separately so releasing one cannot
+	 *        clear another.
+	 */
+	m_controller->AddHold(PlayHold::Flushing, "Flush");
+	m_controller->AddHold(PlayHold::PositionPending, "Configure");
+	m_controller->AddHold(PlayHold::FragmentCaching, "caching");
+
+	m_controller->ReleaseHold(PlayHold::PositionPending, "Flush");
+
+	EXPECT_TRUE(m_controller->IsHeld(PlayHold::SourcesNotAttached));
+	EXPECT_TRUE(m_controller->IsHeld(PlayHold::Flushing));
+	EXPECT_FALSE(m_controller->IsHeld(PlayHold::PositionPending));
+	EXPECT_TRUE(m_controller->IsHeld(PlayHold::FragmentCaching));
+}
+
+/**
+ * @test PlayActionMayReenterController
+ */
+TEST_F(AampRialtoPlaybackControllerTest, PlayActionMayReenterController)
+{
+	/**
+	 * @brief The play action performs blocking Rialto IPC and may observe
+	 *        or change controller state, so it must be invoked with the
+	 *        internal mutex released.  A deadlock fails this test by
+	 *        hanging rather than by assertion.
+	 */
+	bool observedHold = true;
+	AampRialtoPlaybackController controller(
+		[&](const char *)
+		{
+			observedHold = controller.IsHeld(PlayHold::SourcesNotAttached);
+			controller.AddHold(PlayHold::FragmentCaching, "reentrant");
+		});
+
+	controller.ReleaseHold(PlayHold::SourcesNotAttached, "attach");
+	controller.RequestPlay("Stream");
+
+	EXPECT_FALSE(observedHold);
+	EXPECT_TRUE(controller.IsHeld(PlayHold::FragmentCaching));
+}
+
+/**
+ * @test ConcurrentRequestAndRelease_FiresOnce
+ */
+TEST_F(AampRialtoPlaybackControllerTest, ConcurrentRequestAndRelease_FiresOnce)
+{
+	/**
+	 * @brief When Stream() and CheckAllSourcesAttached() race, exactly one
+	 *        of them must issue play() — never zero, never two.
+	 */
+	constexpr int kIterations = 2000;
+
+	for (int i = 0; i < kIterations; ++i)
+	{
+		std::atomic<int> plays{0};
+		AampRialtoPlaybackController controller(
+			[&plays](const char *) { ++plays; });
+
+		std::atomic<bool> go{false};
+		std::thread requester([&]
+		{
+			while (!go.load(std::memory_order_acquire)) { }
+			controller.RequestPlay("Stream");
+		});
+		std::thread releaser([&]
+		{
+			while (!go.load(std::memory_order_acquire)) { }
+			controller.ReleaseHold(PlayHold::SourcesNotAttached,
+				"CheckAllSourcesAttached");
+		});
+
+		go.store(true, std::memory_order_release);
+		requester.join();
+		releaser.join();
+
+		ASSERT_EQ(plays.load(), 1) << "iteration " << i;
+		ASSERT_FALSE(controller.IsPlayPending()) << "iteration " << i;
+	}
+}
+
+// ===========================================================================
+// Pre-roll: PlayHold::PreRollIncomplete and the pre-roll-ready action
+// ===========================================================================
+
+class AampRialtoPlaybackControllerPreRollTest : public ::testing::Test
+{
+protected:
+	void SetUp() override
+	{
+		m_controller = std::make_unique<AampRialtoPlaybackController>(
+			[this](const char *) { ++m_playCount; },
+			[this](const char *reason)
+			{
+				++m_preRollCount;
+				m_lastPreRollReason = (reason != nullptr) ? reason : "";
+			});
+	}
+
+	/// Leave only PreRollIncomplete applied, mirroring a fully attached,
+	/// position-resolved player that has armed pre-roll.
+	void HoldOnlyPreRoll()
+	{
+		m_controller->AddHold(PlayHold::PreRollIncomplete, "arm");
+		m_controller->ReleaseHold(PlayHold::SourcesNotAttached, "attach");
+	}
+
+	std::unique_ptr<AampRialtoPlaybackController> m_controller;
+	int m_playCount{0};
+	int m_preRollCount{0};
+	std::string m_lastPreRollReason;
+};
+
+/**
+ * @test PreRollOnlyHold_PlayRequested_FiresPreRollNotPlay
+ */
+TEST_F(AampRialtoPlaybackControllerPreRollTest,
+	PreRollOnlyHold_PlayRequested_FiresPreRollNotPlay)
+{
+	/**
+	 * @brief Once PreRollIncomplete is the only thing holding a play request,
+	 *        the controller signals that data may flow ahead of play(), but
+	 *        does not issue play() itself.
+	 */
+	HoldOnlyPreRoll();
+
+	m_controller->RequestPlay("Stream");
+
+	EXPECT_EQ(m_preRollCount, 1);
+	EXPECT_EQ(m_lastPreRollReason, "Stream");
+	EXPECT_EQ(m_playCount, 0);
+	EXPECT_TRUE(m_controller->IsPlayPending());
+}
+
+/**
+ * @test PreRollOnlyHold_NoPlayRequested_DoesNotFire
+ */
+TEST_F(AampRialtoPlaybackControllerPreRollTest,
+	PreRollOnlyHold_NoPlayRequested_DoesNotFire)
+{
+	/**
+	 * @brief Without a play request (e.g. seek while paused) nothing should
+	 *        start buffering ahead of a play() that is not coming.
+	 */
+	HoldOnlyPreRoll();
+
+	EXPECT_EQ(m_preRollCount, 0);
+	EXPECT_EQ(m_playCount, 0);
+}
+
+/**
+ * @test PreRollWithOtherHolds_FiresOnlyWhenTheyClear
+ */
+TEST_F(AampRialtoPlaybackControllerPreRollTest,
+	PreRollWithOtherHolds_FiresOnlyWhenTheyClear)
+{
+	/**
+	 * @brief Data must not flow while any other hold remains: a flush or an
+	 *        unresolved position would make Rialto treat it as stale.
+	 */
+	m_controller->AddHold(PlayHold::PreRollIncomplete, "arm");
+	m_controller->AddHold(PlayHold::Flushing, "Flush");
+	m_controller->ReleaseHold(PlayHold::SourcesNotAttached, "attach");
+	m_controller->RequestPlay("Stream");
+	ASSERT_EQ(m_preRollCount, 0);
+
+	m_controller->ReleaseHold(PlayHold::Flushing, "SEEK_DONE");
+
+	EXPECT_EQ(m_preRollCount, 1);
+	EXPECT_EQ(m_lastPreRollReason, "SEEK_DONE");
+	EXPECT_EQ(m_playCount, 0);
+}
+
+/**
+ * @test ReleasingPreRoll_IssuesPlay
+ */
+TEST_F(AampRialtoPlaybackControllerPreRollTest, ReleasingPreRoll_IssuesPlay)
+{
+	/**
+	 * @brief Pre-roll completion is the final hold release, so it issues
+	 *        the deferred play().
+	 */
+	HoldOnlyPreRoll();
+	m_controller->RequestPlay("Stream");
+	ASSERT_EQ(m_playCount, 0);
+
+	m_controller->ReleaseHold(PlayHold::PreRollIncomplete, "PreRoll");
+
+	EXPECT_EQ(m_playCount, 1);
+	EXPECT_FALSE(m_controller->IsPlayPending());
+}
+
+/**
+ * @test PreRollReady_RepeatedRequest_FiresOnce
+ */
+TEST_F(AampRialtoPlaybackControllerPreRollTest,
+	PreRollReady_RepeatedRequest_FiresOnce)
+{
+	/**
+	 * @brief A repeated Stream() while already pre-rolling must not restart
+	 *        the pre-roll and reset its timeout.
+	 */
+	HoldOnlyPreRoll();
+
+	m_controller->RequestPlay("Stream");
+	m_controller->RequestPlay("Stream");
+
+	EXPECT_EQ(m_preRollCount, 1);
+}
+
+/**
+ * @test PreRollReady_InterruptedByFlush_FiresAgain
+ */
+TEST_F(AampRialtoPlaybackControllerPreRollTest,
+	PreRollReady_InterruptedByFlush_FiresAgain)
+{
+	/**
+	 * @brief A flush during pre-roll invalidates it; once that flush
+	 *        completes, pre-roll must start again for the new position.
+	 */
+	HoldOnlyPreRoll();
+	m_controller->RequestPlay("Stream");
+	ASSERT_EQ(m_preRollCount, 1);
+
+	m_controller->AddHold(PlayHold::Flushing, "Flush");
+	m_controller->ReleaseHold(PlayHold::Flushing, "SEEK_DONE");
+
+	EXPECT_EQ(m_preRollCount, 2);
+	EXPECT_EQ(m_playCount, 0);
+}
+
+/**
+ * @test Reset_ForgetsPreRollReadiness
+ */
+TEST_F(AampRialtoPlaybackControllerPreRollTest, Reset_ForgetsPreRollReadiness)
+{
+	/**
+	 * @brief After Reset() the next session must get its own pre-roll start,
+	 *        not have it suppressed by the previous session having fired it.
+	 */
+	HoldOnlyPreRoll();
+	m_controller->RequestPlay("Stream");
+	ASSERT_EQ(m_preRollCount, 1);
+
+	m_controller->Reset("Stop");
+
+	HoldOnlyPreRoll();
+	m_controller->RequestPlay("Stream");
+
+	EXPECT_EQ(m_preRollCount, 2);
+	EXPECT_EQ(m_playCount, 0);
+}
+
+/**
+ * @test PreRollReady_CancelledThenRequested_FiresAgain
+ */
+TEST_F(AampRialtoPlaybackControllerPreRollTest,
+	PreRollReady_CancelledThenRequested_FiresAgain)
+{
+	/**
+	 * @brief Pause() discards the request; a later Stream() must start
+	 *        pre-roll afresh rather than waiting on one that was abandoned.
+	 */
+	HoldOnlyPreRoll();
+	m_controller->RequestPlay("Stream");
+	m_controller->CancelPlayRequest("Pause");
+
+	m_controller->RequestPlay("Stream");
+
+	EXPECT_EQ(m_preRollCount, 2);
+}
+
+/**
+ * @test AddPreRollHold_WhilePlayPendingAndUnheld_FiresPreRoll
+ */
+TEST_F(AampRialtoPlaybackControllerPreRollTest,
+	AddPreRollHold_WhilePlayPendingAndUnheld_FiresPreRoll)
+{
+	/**
+	 * @brief Arming pre-roll while a request is otherwise satisfiable is the
+	 *        same condition as requesting play while armed.
+	 */
+	m_controller->AddHold(PlayHold::Flushing, "Flush");
+	m_controller->ReleaseHold(PlayHold::SourcesNotAttached, "attach");
+	m_controller->RequestPlay("Stream");
+	m_controller->AddHold(PlayHold::PreRollIncomplete, "arm");
+	ASSERT_EQ(m_preRollCount, 0);
+
+	m_controller->ReleaseHold(PlayHold::Flushing, "SEEK_DONE");
+
+	EXPECT_EQ(m_preRollCount, 1);
+	EXPECT_EQ(m_playCount, 0);
+}
+
+/**
+ * @test PreRollHold_NoPreRollAction_IsHarmless
+ */
+TEST_F(AampRialtoPlaybackControllerTest, PreRollHold_NoPreRollAction_IsHarmless)
+{
+	/**
+	 * @brief A controller built without a pre-roll action still holds play
+	 *        until the hold is released.
+	 */
+	m_controller->AddHold(PlayHold::PreRollIncomplete, "arm");
+	m_controller->ReleaseHold(PlayHold::SourcesNotAttached, "attach");
+
+	m_controller->RequestPlay("Stream");
+	EXPECT_EQ(m_playCount, 0);
+
+	m_controller->ReleaseHold(PlayHold::PreRollIncomplete, "PreRoll");
+	EXPECT_EQ(m_playCount, 1);
+}
+
+/**
+ * @test AddHold_WaitsForPlayAlreadyDecided
+ */
+TEST(AampRialtoPlaybackControllerDispatchTest,
+	AddHold_WaitsForPlayAlreadyDecided)
+{
+	/**
+	 * @brief Regression (M6): once the last hold is released and play() is
+	 *        decided, a concurrent AddHold(Flushing) must not return while
+	 *        that play() is still running, otherwise the play action (which
+	 *        ungates sources) lands after the flush has gated them.
+	 */
+	std::mutex mu;
+	std::condition_variable cv;
+	bool inPlay = false;
+	bool letPlayFinish = false;
+
+	AampRialtoPlaybackController controller([&](const char *)
+	{
+		std::unique_lock<std::mutex> lock(mu);
+		inPlay = true;
+		cv.notify_all();
+		cv.wait(lock, [&]{ return letPlayFinish; });
+	});
+	controller.RequestPlay("Stream");
+	std::thread releaser([&]{
+		controller.ReleaseHold(PlayHold::SourcesNotAttached, "attach");
+	});
+	{
+		std::unique_lock<std::mutex> lock(mu);
+		ASSERT_TRUE(cv.wait_for(lock, std::chrono::seconds(5),
+			[&]{ return inPlay; }));
+	}
+
+	std::atomic<bool> addHoldReturned{false};
+	std::thread flusher([&]{
+		controller.AddHold(PlayHold::Flushing, "Flush");
+		addHoldReturned = true;
+	});
+
+	std::this_thread::sleep_for(std::chrono::milliseconds(100));
+	EXPECT_FALSE(addHoldReturned.load())
+		<< "AddHold returned while a decided play() was still running";
+
+	{
+		std::lock_guard<std::mutex> lock(mu);
+		letPlayFinish = true;
+	}
+	cv.notify_all();
+	releaser.join();
+	flusher.join();
+	EXPECT_TRUE(addHoldReturned.load());
+	EXPECT_TRUE(controller.IsHeld(PlayHold::Flushing));
+}
+
+/**
+ * @test PreRollAction_MayWaitForAnotherThreadUsingTheController
+ */
+TEST(AampRialtoPlaybackControllerDispatchTest,
+	PreRollAction_MayWaitForAnotherThreadUsingTheController)
+{
+	/**
+	 * @brief The pre-roll action starts a monitor whose Start() waits for a
+	 *        poll still in flight, and that poll releases a hold.  The
+	 *        controller must not hold its play lock across the action.
+	 */
+	std::unique_ptr<AampRialtoPlaybackController> controller;
+	std::atomic<int> plays{0};
+	controller = std::make_unique<AampRialtoPlaybackController>(
+		[&](const char *){ ++plays; },
+		[&](const char *)
+		{
+			std::thread poll([&]{
+				controller->ReleaseHold(PlayHold::PreRollIncomplete, "poll");
+			});
+			poll.join();
+		});
+	controller->AddHold(PlayHold::PreRollIncomplete, "arm");
+	controller->RequestPlay("Stream");
+
+	auto result = std::async(std::launch::async, [&]{
+		controller->ReleaseHold(PlayHold::SourcesNotAttached, "attach");
+	});
+	ASSERT_EQ(result.wait_for(std::chrono::seconds(5)),
+		std::future_status::ready);
+	EXPECT_EQ(plays.load(), 1);
+}

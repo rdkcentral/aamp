@@ -24,16 +24,65 @@
 
 #include "RialtoMediaKeySystem.h"
 #include "AampLogManager.h"
+#include <algorithm>
+#include <optional>
+#include <utility>
 
 // ---------------------------------------------------------------------------
 // RialtoMediaKeySystem::MediaKeysClient
 // ---------------------------------------------------------------------------
 
+RialtoMediaKeySystem::MediaKeysClient::CallbackScope::CallbackScope(
+	MediaKeysClient& client, int32_t keySessionId)
+	: m_client(client)
+	, m_keySessionId(keySessionId)
+{
+	m_client.running[m_keySessionId].push_back(std::this_thread::get_id());
+}
+
+RialtoMediaKeySystem::MediaKeysClient::CallbackScope::~CallbackScope()
+{
+	{
+		std::lock_guard<std::mutex> lock(m_client.mutex);
+		auto it = m_client.running.find(m_keySessionId);
+		if (it != m_client.running.end())
+		{
+			auto& threads = it->second;
+			auto self = std::find(threads.begin(), threads.end(),
+				std::this_thread::get_id());
+			if (self != threads.end())
+			{
+				threads.erase(self);
+			}
+			if (threads.empty())
+			{
+				m_client.running.erase(it);
+			}
+		}
+	}
+	m_client.callbackDone.notify_all();
+}
+
 void RialtoMediaKeySystem::MediaKeysClient::deregisterSession(int32_t keySessionId)
 {
-	std::lock_guard<std::mutex> lock(mutex);
+	std::unique_lock<std::mutex> lock(mutex);
 	callbacks.erase(keySessionId);
 	sessions.erase(keySessionId);
+
+	const auto self = std::this_thread::get_id();
+	const auto onlySelfRunning = [this, keySessionId, self]()
+	{
+		auto it = running.find(keySessionId);
+		return it == running.end() ||
+			std::all_of(it->second.begin(), it->second.end(),
+				[self](std::thread::id id) { return id == self; });
+	};
+	if (!onlySelfRunning())
+	{
+		AAMPLOG_INFO("RialtoMediaKeySystem::MediaKeysClient: session %d "
+			"waiting for a callback in progress", keySessionId);
+		callbackDone.wait(lock, onlySelfRunning);
+	}
 	AAMPLOG_INFO("RialtoMediaKeySystem::MediaKeysClient: deregistered session %d", keySessionId);
 }
 
@@ -45,20 +94,22 @@ void RialtoMediaKeySystem::MediaKeysClient::onLicenseRequest(
 	AAMPLOG_INFO("RialtoMediaKeySystem::MediaKeysClient: onLicenseRequest session=%d url=%s size=%zu",
 	            keySessionId, url.c_str(), licenseRequestMessage.size());
 
-	std::function<void(const char*, const uint8_t*, uint16_t)> onChallenge;
+	std::function<void(const char*, const uint8_t*, size_t)> onChallenge;
+	std::optional<CallbackScope> scope;
 	{
 		std::lock_guard<std::mutex> lock(mutex);
 		auto it = callbacks.find(keySessionId);
 		if (it != callbacks.end())
 		{
 			onChallenge = it->second.onChallenge;
+			scope.emplace(*this, keySessionId);
 		}
 	}
 	if (onChallenge)
 	{
 		onChallenge(url.c_str(),
 		            licenseRequestMessage.data(),
-		            static_cast<uint16_t>(licenseRequestMessage.size()));
+		            licenseRequestMessage.size());
 	}
 	else
 	{
@@ -74,12 +125,14 @@ void RialtoMediaKeySystem::MediaKeysClient::onLicenseRenewal(
 	AAMPLOG_INFO("RialtoMediaKeySystem::MediaKeysClient: onLicenseRenewal session=%d size=%zu",
 	            keySessionId, licenseRenewalMessage.size());
 	std::function<void(const uint8_t*, size_t)> onLicenseRenewal;
+	std::optional<CallbackScope> scope;
 	{
 		std::lock_guard<std::mutex> lock(mutex);
 		auto it = callbacks.find(keySessionId);
 		if (it != callbacks.end())
 		{
 			onLicenseRenewal = it->second.onLicenseRenewal;
+			scope.emplace(*this, keySessionId);
 		}
 	}
 	if (onLicenseRenewal)
@@ -101,39 +154,52 @@ void RialtoMediaKeySystem::MediaKeysClient::onKeyStatusesChanged(
 	AAMPLOG_INFO("RialtoMediaKeySystem::MediaKeysClient: onKeyStatusesChanged session=%d count=%zu",
 	            keySessionId, keyStatuses.size());
 
-	std::lock_guard<std::mutex> lock(mutex);
-
-	auto cbIt = callbacks.find(keySessionId);
-	auto sessIt = sessions.find(keySessionId);
-
-	for (const auto& [keyId, status] : keyStatuses)
+	// Update the session caches under the lock, but run the callbacks without
+	// it: a callback may deregister its own session or take other locks.
+	std::function<void(const uint8_t*, size_t)> onKeyUpdate;
+	std::function<void()> onKeysUpdated;
+	std::optional<CallbackScope> scope;
 	{
-		if (AampLogManager::isLogLevelAllowed(eLOGLEVEL_TRACE))
-		{
-			AAMPLOG_TRACE("RialtoMediaKeySystem::MediaKeysClient: "
-			             "key status=%d keyIdSize=%zu",
-			             static_cast<int>(status), keyId.size());
-			DumpBlob(keyId.data(), keyId.size());
-		}
+		std::lock_guard<std::mutex> lock(mutex);
 
-		// Update the session's own key status cache.
-		if (sessIt != sessions.end())
+		auto cbIt = callbacks.find(keySessionId);
+		if (cbIt != callbacks.end())
 		{
-			sessIt->second->updateKeyStatus(keyId, status);
+			onKeyUpdate = cbIt->second.onKeyUpdate;
+			onKeysUpdated = cbIt->second.onKeysUpdated;
+			scope.emplace(*this, keySessionId);
 		}
+		auto sessIt = sessions.find(keySessionId);
 
-		// Fire the per-key update callback.
-		if (cbIt != callbacks.end() && cbIt->second.onKeyUpdate)
+		for (const auto& [keyId, status] : keyStatuses)
 		{
-			cbIt->second.onKeyUpdate(keyId.data(),
-			                         static_cast<uint8_t>(keyId.size()));
+			if (AampLogManager::isLogLevelAllowed(eLOGLEVEL_TRACE))
+			{
+				AAMPLOG_TRACE("RialtoMediaKeySystem::MediaKeysClient: "
+				             "key status=%d keyIdSize=%zu",
+				             static_cast<int>(status), keyId.size());
+				DumpBlob(keyId.data(), keyId.size());
+			}
+
+			if (sessIt != sessions.end())
+			{
+				sessIt->second->updateKeyStatus(keyId, status);
+			}
+		}
+	}
+
+	if (onKeyUpdate)
+	{
+		for (const auto& entry : keyStatuses)
+		{
+				onKeyUpdate(entry.first.data(), entry.first.size());
 		}
 	}
 
 	// Signal that all key statuses for this update have been delivered.
-	if (cbIt != callbacks.end() && cbIt->second.onKeysUpdated)
+	if (onKeysUpdated)
 	{
-		cbIt->second.onKeysUpdated();
+		onKeysUpdated();
 	}
 }
 

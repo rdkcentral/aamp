@@ -19,7 +19,8 @@
 
 /**
  * @file AampRialtoMediaPipelineClient.cpp
- * @brief Stub implementation of AampRialtoMediaPipelineClient.
+ * @brief IMediaPipelineClient implementation that forwards Rialto events to
+ *        the installed IAampRialtoPipelineEvents sink.
  */
 
 #include "AampRialtoMediaPipelineClient.h"
@@ -43,17 +44,6 @@ AampRialtoMediaPipelineClient::~AampRialtoMediaPipelineClient()
 }
 
 // ---------------------------------------------------------------------------
-// Initialization
-// ---------------------------------------------------------------------------
-
-bool AampRialtoMediaPipelineClient::init()
-{
-	AAMPLOG_INFO("ENTRY");
-	AAMPLOG_INFO("EXIT");
-	return false;
-}
-
-// ---------------------------------------------------------------------------
 // IMediaPipelineClient overrides
 // ---------------------------------------------------------------------------
 
@@ -66,21 +56,21 @@ void AampRialtoMediaPipelineClient::notifyNetworkState(NetworkState state)
 void AampRialtoMediaPipelineClient::notifyPlaybackState(PlaybackState state)
 {
 	AAMPLOG_INFO("ENTRY state=%d", static_cast<int>(state));
-	if (m_playbackStateCallback)
+	if (IAampRialtoPipelineEvents *sink = Sink())
 	{
-		m_playbackStateCallback(state);
+		sink->OnPlaybackState(state);
 	}
 	AAMPLOG_INFO("EXIT");
 }
 
 void AampRialtoMediaPipelineClient::notifyPosition(int64_t position)
 {
-	AAMPLOG_INFO("ENTRY position=%" PRId64, position);
-	if (m_positionCallback)
+	AAMPLOG_TRACE("ENTRY position=%" PRId64, position);
+	if (IAampRialtoPipelineEvents *sink = Sink())
 	{
-		m_positionCallback(position);
+		sink->OnPosition(position);
 	}
-	AAMPLOG_INFO("EXIT");
+	AAMPLOG_TRACE("EXIT");
 }
 
 void AampRialtoMediaPipelineClient::notifyNeedMediaData(
@@ -89,39 +79,40 @@ void AampRialtoMediaPipelineClient::notifyNeedMediaData(
 	uint32_t needDataRequestId,
 	const std::shared_ptr<MediaPlayerShmInfo> &mediaPlayerShmInfo)
 {
-	AAMPLOG_INFO("ENTRY sourceId=%d frameCount=%zu needDataRequestId=%u", sourceId, frameCount, needDataRequestId);
-	if (m_needDataCallback)
+	AAMPLOG_TRACE("ENTRY sourceId=%d frameCount=%zu needDataRequestId=%u",
+		sourceId, frameCount, needDataRequestId);
+	if (IAampRialtoPipelineEvents *sink = Sink())
 	{
-		m_needDataCallback(sourceId, frameCount, needDataRequestId);
+		sink->OnNeedMediaData(sourceId, frameCount, needDataRequestId);
 	}
-	AAMPLOG_INFO("EXIT");
+	AAMPLOG_TRACE("EXIT");
 }
 
 void AampRialtoMediaPipelineClient::notifyQos(
 	int32_t sourceId, const QosInfo &qosInfo)
 {
-	AAMPLOG_INFO("ENTRY sourceId=%d", sourceId);
-	AAMPLOG_INFO("EXIT");
+	AAMPLOG_TRACE("ENTRY sourceId=%d", sourceId);
+	AAMPLOG_TRACE("EXIT");
 }
 
 void AampRialtoMediaPipelineClient::notifyBufferUnderflow(int32_t sourceId)
 {
 	AAMPLOG_INFO("ENTRY sourceId=%d", sourceId);
-	if (m_bufferUnderflowCallback)
+	if (IAampRialtoPipelineEvents *sink = Sink())
 	{
-		m_bufferUnderflowCallback(sourceId);
+		sink->OnBufferUnderflow(sourceId);
 	}
 	AAMPLOG_INFO("EXIT");
 }
 
 void AampRialtoMediaPipelineClient::notifyDuration(int64_t duration)
 {
-	AAMPLOG_INFO("ENTRY duration=%" PRId64, duration);
-	if (m_durationCallback)
+	AAMPLOG_INFO("duration=%" PRId64 " ns", duration);
+	if (IAampRialtoPipelineEvents *sink = Sink())
 	{
-		m_durationCallback(duration);
+		sink->OnDuration(duration);
 	}
-	AAMPLOG_INFO("EXIT");
+	AAMPLOG_TRACE("EXIT");
 }
 
 void AampRialtoMediaPipelineClient::notifyNativeSize(
@@ -146,21 +137,21 @@ void AampRialtoMediaPipelineClient::notifyAudioData(bool hasData)
 void AampRialtoMediaPipelineClient::notifyCancelNeedMediaData(
 	int32_t sourceId)
 {
-	AAMPLOG_INFO("ENTRY sourceId=%d", sourceId);
-	if (m_cancelNeedDataCallback)
+	AAMPLOG_TRACE("ENTRY sourceId=%d", sourceId);
+	if (IAampRialtoPipelineEvents *sink = Sink())
 	{
-		m_cancelNeedDataCallback(sourceId);
+		sink->OnCancelNeedMediaData(sourceId);
 	}
-	AAMPLOG_INFO("EXIT");
+	AAMPLOG_TRACE("EXIT");
 }
 
 void AampRialtoMediaPipelineClient::notifyPlaybackError(
 	int32_t sourceId, PlaybackError error)
 {
 	AAMPLOG_WARN("sourceId=%d error=%d", sourceId, static_cast<int>(error));
-	if (m_playbackErrorCallback)
+	if (IAampRialtoPipelineEvents *sink = Sink())
 	{
-		m_playbackErrorCallback(sourceId, error);
+		sink->OnPlaybackError(sourceId, error);
 	}
 }
 
