@@ -3446,6 +3446,8 @@ AAMPStatusType StreamAbstractionAAMP_MPD::GetMPDFromManifest( ManifestDownloadRe
 				mCdaiObject->SetBaseMPDParseHelper(nullptr);
 			}
 			AAMPLOG_INFO("Placing ads for %s stream", mIsLiveManifest ? "live" : "static manifest");
+			// Place only once any in-flight ad fulfilment has resolved, else the ad is missed for this break.
+			mCdaiObject->WaitForAdFulfilmentIdle();
 			mCdaiObject->PlaceAds(mMPDParseHelper);
 		}
 
@@ -4675,8 +4677,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 					aamp->mPipelineIsClear = false;
 					aamp->mEncryptedPeriodFound = false;
 				}
-				else if (ISCONFIGSET(eAAMPConfig_UseMp4Demux) &&
-					AampStreamSinkManager::GetInstance().IsEncryptedHeadersCached())
+				else if (AampStreamSinkManager::GetInstance().IsEncryptedHeadersCached())
 				{
 					AAMPLOG_WARN("Encrypted headers were previously cached, forcing encrypted track state before init fetch");
 					for (int track = 0; track < mNumberOfTracks; track++)
@@ -8020,6 +8021,9 @@ std::string StreamAbstractionAAMP_MPD::GetCurrentMimeType(AampMediaType mediaTyp
 		auto pMediaStreamContext = mMediaStreamContext[mediaType];
 		if( pMediaStreamContext )
 		{
+			// UpdateMPD() holds mMediaStreamContext[eMEDIATYPE_VIDEO]->mMediaStreamContextMutex and we do
+			// not want to access representation at the same time as it is being updated by UpdateMPD()
+			std::lock_guard<std::recursive_mutex> lock(mMediaStreamContext[eMEDIATYPE_VIDEO]->mMediaStreamContextMutex);
 			if( pMediaStreamContext->representation )
 			{
 				mimeType = pMediaStreamContext->representation->GetMimeType();
@@ -8058,6 +8062,9 @@ std::string StreamAbstractionAAMP_MPD::GetCurrentCodec(AampMediaType mediaType)
 		auto pMediaStreamContext = mMediaStreamContext[mediaType];
 		if( pMediaStreamContext )
 		{
+			// UpdateMPD() holds mMediaStreamContext[eMEDIATYPE_VIDEO]->mMediaStreamContextMutex and we do
+			// not want to access representation at the same time as it is being updated by UpdateMPD()
+			std::lock_guard<std::recursive_mutex> lock(mMediaStreamContext[eMEDIATYPE_VIDEO]->mMediaStreamContextMutex);
 			if( pMediaStreamContext->representation )
 			{
 				const auto& repCodecs = pMediaStreamContext->representation->GetCodecs();
@@ -11506,6 +11513,11 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateMPD(bool init)
 		{
 			if(tmpManifestDnldRespPtr->mMPDInstance != mManifestDnldRespPtr->mMPDInstance)
 			{
+				// Drain before taking the video track mutex to keep it free during the ad download; GetMPDFromManifest waits again for any later fulfilment.
+				if (ISCONFIGSET(eAAMPConfig_EnableClientDai) && mCdaiObject)
+				{
+					mCdaiObject->WaitForAdFulfilmentIdle();
+				}
 				// Acquire lock to update current period to sync with ABR changes on video track
 				std::lock_guard<std::recursive_mutex> lock(mMediaStreamContext[eMEDIATYPE_VIDEO]->mMediaStreamContextMutex);
 				mManifestDnldRespPtr = std::move(tmpManifestDnldRespPtr);
@@ -11712,7 +11724,7 @@ void  StreamAbstractionAAMP_MPD::ResumeSubtitleAfterSeek(bool mute, char *data)
 StreamAbstractionAAMP_MPD::~StreamAbstractionAAMP_MPD()
 {
 	aamp->initialManifestFetchInProgress=false;
-	
+
 	// Unregister the MPD download callback BEFORE deleting tracks.
 	// This ensures the notifier thread cannot fire MPDUpdateCallbackExec()
 
@@ -13136,6 +13148,8 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 	{
 		return false;
 	}
+	// A live ad still being fulfilled must be resolved and placed before the break is evaluated.
+	mCdaiObject->WaitForAdFulfilmentIdle();
 	std::unique_lock<std::recursive_mutex> lock(mCdaiObject->mDaiMtx);
 	bool stateChanged = false;
 	AdState oldState = mCdaiObject->mAdState;
