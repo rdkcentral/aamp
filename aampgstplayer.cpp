@@ -411,7 +411,7 @@ AAMPGstPlayer::AAMPGstPlayer(PrivateInstanceAAMP *aamp, id3_callback_t id3Handle
 
 {
 	privateContext = new AAMPGstPlayerPriv();
-	playerInstance = new InterfacePlayerRDK(ISCONFIGSET(eAAMPConfig_useRialtoSink)); 
+	playerInstance = new InterfacePlayerRDK(); 
 	RegisterBusCb(this, playerInstance);
 	if(privateContext)
 	{
