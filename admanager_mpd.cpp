@@ -1414,6 +1414,8 @@ bool PrivateCDAIObjectMPD::FulFillAdObject()
 	bool finalManifest = false;
 	int http_error = 0;
 	double downloadTime = 0;
+	// Held for the whole run so WaitForAdFulfilmentIdle() can wait for this ad.
+	std::lock_guard<std::mutex> inFlightLock(mAdFulfillInFlightMtx);
 	// Downloads are serialised by mDaiDownloadMtx, not mDaiMtx, so waiters that read ad state under mDaiMtx are not stalled by them.
 	MPD *ad = GetAdMPD(mAdFulfillObj.url, finalManifest, http_error, downloadTime, adErrorCode, true);
 	std::unique_lock<std::recursive_mutex> lock( mDaiMtx );
@@ -2046,6 +2048,14 @@ void PrivateCDAIObjectMPD::AbortWaitForNextAdResolved()
 	std::lock_guard<std::mutex> lock(mAdPlacementMtx);
 	AAMPLOG_INFO("Aborting wait for next ad placement.");
 	mAdPlacementCV.notify_one();
+}
+
+/**
+ * @fn WaitForAdFulfilmentIdle
+ */
+void PrivateCDAIObjectMPD::WaitForAdFulfilmentIdle()
+{
+	std::lock_guard<std::mutex> lock(mAdFulfillInFlightMtx);
 }
 
 /**
