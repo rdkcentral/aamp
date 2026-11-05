@@ -5188,6 +5188,7 @@ void StreamAbstractionAAMP_HLS::Stop(bool clearChannelData)
 
 	if (clearChannelData)
 	{
+		std::lock_guard<std::mutex> drmTeardownLock(aamp->GetDRMTeardownMutex());
 		if (aamp->GetCurrentDRM() != nullptr)
 		{
 			aamp->GetCurrentDRM()->cancelDrmSession();
