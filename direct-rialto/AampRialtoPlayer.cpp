@@ -1169,8 +1169,15 @@ void AampRialtoPlayer::AttachSource(
 	{
 		std::lock_guard<std::mutex> lock(m_pendingProtectionMutex);
 		// AAMP queues protection under its own track type, which differs from
-		// this source's slot when audio is carried in the video slot.
+		// this source's slot when audio is carried in the video slot.  Prefer
+		// the AAMP track's entry (kept current by the demuxer), then the
+		// entry queued under this source's own slot (e.g. by manifest
+		// stream selection).
 		protectionCopy = m_pendingProtection[static_cast<size_t>(toAampTrack(type))];
+		if (!protectionCopy.has_value())
+		{
+			protectionCopy = m_pendingProtection[static_cast<size_t>(type)];
+		}
 		if (codecInfo.mIsEncrypted && !protectionCopy.has_value() &&
 		    type != eMEDIATYPE_VIDEO && m_pendingProtection[eMEDIATYPE_VIDEO].has_value())
 		{

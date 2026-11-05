@@ -576,6 +576,22 @@ protected:
 			0, 0, 0, 0, /*initFragment=*/true);
 	}
 
+	/// Trigger an encrypted audio initFragment on the VIDEO track, which is
+	/// where AAMP delivers audio-only content.
+	void SendEncryptedAudioInitFragmentOnVideoSlot()
+	{
+		ON_CALL(*g_mockMp4Demux, Parse(_)).WillByDefault(Return(true));
+		ON_CALL(*g_mockMp4Demux, GetCodecInfo())
+			.WillByDefault([]() {
+				MediaCodecInfo ci = MakeAudioAacCodecInfo();
+				ci.mIsEncrypted = true;
+				return ci;
+			});
+		std::vector<uint8_t> buf = {0x00, 0x00, 0x00, 0x01};
+		m_player->SendTransfer(eMEDIATYPE_VIDEO, std::move(buf),
+			0, 0, 0, 0, /*initFragment=*/true);
+	}
+
 	void TriggerProgressTimerTick()
 	{
 		// With the new ProgressTimer implementation, we directly invoke
@@ -2145,6 +2161,89 @@ TEST_F(AampRialtoPlayerDrmTest,
 			}));
 	SendVideoInitFragment();
 	SendAudioInitFragment(/*encrypted=*/true);
+}
+
+/**
+ * @test Audio-only content carried in the video slot: protection queued by
+ *       manifest stream selection is stored under AUDIO, so the audio source
+ *       must still create a DRM session from it when nothing was queued
+ *       under VIDEO.
+ */
+TEST_F(AampRialtoPlayerDrmTest,
+	AttachAudioSourceOnVideoSlot_ProtectionQueuedUnderAudio_CreatesSession)
+{
+	const uint8_t initData[] = {0x01, 0x02};
+	Configure(FORMAT_AUDIO_ES_AAC, FORMAT_INVALID);
+	m_player->QueueProtectionEvent(
+		"com.widevine.alpha", initData, sizeof(initData), eMEDIATYPE_AUDIO);
+
+	EXPECT_CALL(*m_mockDrmBridge, createSession(_, _, _, eMEDIATYPE_AUDIO))
+		.WillOnce(Return(10));
+	EXPECT_CALL(*m_mockPipelinePtr, attachSource(_))
+		.WillOnce(Invoke(
+			[this](const std::unique_ptr<
+				firebolt::rialto::IMediaPipeline::MediaSource> &src)
+			{
+				EXPECT_TRUE(src->getHasDrm());
+				const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
+					*src).setId(m_nextSourceId++);
+				return true;
+			}));
+
+	SendEncryptedAudioInitFragmentOnVideoSlot();
+}
+
+/**
+ * @test Audio-only content carried in the video slot: protection forwarded
+ *       by the demuxer is stored under VIDEO, and must be used for the audio
+ *       source.
+ */
+TEST_F(AampRialtoPlayerDrmTest,
+	AttachAudioSourceOnVideoSlot_ProtectionQueuedUnderVideo_CreatesSession)
+{
+	const uint8_t initData[] = {0x01, 0x02};
+	Configure(FORMAT_AUDIO_ES_AAC, FORMAT_INVALID);
+	m_player->QueueProtectionEvent(
+		"com.widevine.alpha", initData, sizeof(initData), eMEDIATYPE_VIDEO);
+
+	EXPECT_CALL(*m_mockDrmBridge, createSession(_, _, _, eMEDIATYPE_VIDEO))
+		.WillOnce(Return(10));
+	EXPECT_CALL(*m_mockPipelinePtr, attachSource(_))
+		.WillOnce(Invoke(
+			[this](const std::unique_ptr<
+				firebolt::rialto::IMediaPipeline::MediaSource> &src)
+			{
+				EXPECT_TRUE(src->getHasDrm());
+				const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
+					*src).setId(m_nextSourceId++);
+				return true;
+			}));
+
+	SendEncryptedAudioInitFragmentOnVideoSlot();
+}
+
+/**
+ * @test When protection exists under both AUDIO (manifest) and VIDEO
+ *       (demuxer), the AAMP track's entry (VIDEO) is used.
+ */
+TEST_F(AampRialtoPlayerDrmTest,
+	AttachAudioSourceOnVideoSlot_ProtectionUnderBoth_PrefersVideoEntry)
+{
+	const uint8_t manifestInitData[] = {0x0A};
+	const uint8_t demuxerInitData[] = {0x0B, 0x0C};
+	Configure(FORMAT_AUDIO_ES_AAC, FORMAT_INVALID);
+	m_player->QueueProtectionEvent(
+		"com.widevine.alpha", manifestInitData, sizeof(manifestInitData), eMEDIATYPE_AUDIO);
+	m_player->QueueProtectionEvent(
+		"com.widevine.alpha", demuxerInitData, sizeof(demuxerInitData), eMEDIATYPE_VIDEO);
+
+	EXPECT_CALL(*m_mockDrmBridge,
+		createSession(_, _, sizeof(demuxerInitData), eMEDIATYPE_VIDEO))
+		.WillOnce(Return(10));
+	EXPECT_CALL(*m_mockDrmBridge, createSession(_, _, _, eMEDIATYPE_AUDIO))
+		.Times(0);
+
+	SendEncryptedAudioInitFragmentOnVideoSlot();
 }
 
 TEST_F(AampRialtoPlayerDrmTest,
