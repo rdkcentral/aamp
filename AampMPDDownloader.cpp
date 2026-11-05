@@ -389,7 +389,9 @@ void AampMPDDownloader::downloadMPDThread1()
 	std::string tuneUrl = mMPDDnldCfg->mTuneUrl;
 	bool firstDownload	=	true;
 	bool downloadFailed = false; // set when a refresh attempt fails; cleared on recovery to log the transition
-	double lastLiveAvailabilityStartTime = 0.0; // AST of the last dynamic manifest, carried over on dynamic->static transition
+	double lastLiveFirstPeriodStart = 0.0;
+	double lastLiveFirstSegmentStart = -1.0;
+	bool hasLiveTimelineAnchor = false;
 	ManifestDownloadResponsePtr cachedBackupData = nullptr;
 	do
 	{
@@ -545,6 +547,61 @@ void AampMPDDownloader::downloadMPDThread1()
 		}
 		showDownloadMetrics(mMPDData->mMPDDownloadResponse, (int)(tEndTime - tStartTime));
 
+		if(mMPDData->mMPDStatus == AAMPStatusType::eAAMPSTATUS_OK && mMPDData->mMPDInstance)
+		{
+			auto manifest = mCachedMPDData ? mCachedMPDData : mMPDData;
+			auto parseHelper = manifest->GetMPDParseHelper();
+			if(mMPDData->mIsLiveManifest)
+			{
+				if (parseHelper->GetNumberOfPeriods() > 0)
+				{
+					// Capture the start time of the first video segment in the live manifest to establish a timeline anchor
+					const auto &periods = manifest->mMPDInstance->GetPeriods();
+					if (!periods.empty() && periods.front())
+					{
+						lastLiveFirstSegmentStart =	parseHelper->GetFirstSegmentScaledStartTime(periods.front(), eMEDIATYPE_VIDEO);
+						if (lastLiveFirstSegmentStart >= 0.0)
+						{
+							lastLiveFirstPeriodStart = parseHelper->GetPeriodStartTime(0, mMPDData->mLastPlaylistDownloadTimeMs);
+							hasLiveTimelineAnchor = true;
+						}
+						else
+						{
+							hasLiveTimelineAnchor = false;
+							AAMPLOG_ERR("Unable to capture first video segment start from live manifest");
+						}
+					}
+				}
+			}
+			else if(!firstDownload)
+			{
+				if (hasLiveTimelineAnchor && parseHelper->GetNumberOfPeriods() > 0)
+				{
+					const auto &periods = manifest->mMPDInstance->GetPeriods();
+					if (!periods.empty() && periods.front())
+					{
+						// Get the start time of the first video segment in the static manifest
+						// Compare it with the first video segment start time from the live manifest to calculate the timeline delta
+						// Rebase the static manifest timeline to align with the live manifest timeline
+						const double staticFirstSegmentStart =	parseHelper->GetFirstSegmentScaledStartTime(periods.front(), eMEDIATYPE_VIDEO);
+						if (staticFirstSegmentStart >= 0.0)
+						{
+							const double timelineDelta = staticFirstSegmentStart - lastLiveFirstSegmentStart;
+							const double adjustedEpochStartTime = lastLiveFirstPeriodStart + timelineDelta;
+							AAMPLOG_WARN("Dynamic to static: setting adjusted timeline origin to %lf (segment start delta %lf)", adjustedEpochStartTime, timelineDelta);
+							parseHelper->SetAvailabilityStartTime(adjustedEpochStartTime);
+						}
+						else
+						{
+							AAMPLOG_WARN("Unable to rebase static manifest without first video segment start");
+						}
+					}
+				}
+				// Publish the final manifest even if publishTime is unchanged.
+				doPush = true;
+			}
+		}
+
 		if (!firstDownload)
 		{
 			int errorCode = 0;
@@ -573,29 +630,6 @@ void AampMPDDownloader::downloadMPDThread1()
 			}
 			mManifestRefreshErrorType.store(mMPDData->mMPDStatus);
 			mManifestRefreshErrorCode.store(errorCode);
-		}
-
-		if(mMPDData->mMPDStatus == AAMPStatusType::eAAMPSTATUS_OK && mMPDData->mMPDInstance)
-		{
-			AampMPDParseHelperPtr parseHelper = (mCachedMPDData != nullptr) ? mCachedMPDData->GetMPDParseHelper() : mMPDData->GetMPDParseHelper();
-			if(mMPDData->mIsLiveManifest)
-			{
-				lastLiveAvailabilityStartTime = parseHelper->GetAvailabilityStartTime();
-			}
-			else if(!firstDownload)
-			{
-				// dynamic -> static transition (e.g. HOT CDVR -> COLD CDVR): keep the availabilityStartTime
-				// of the last dynamic manifest, so positions stay on the same timeline. No further refresh
-				// is done for a static manifest, so the download loop exits after this push.
-				if(lastLiveAvailabilityStartTime > 0)
-				{
-					AAMPLOG_WARN("Manifest changed from dynamic to static, preserving availabilityStartTime %lf (static manifest value %lf)",
-								 lastLiveAvailabilityStartTime, parseHelper->GetAvailabilityStartTime());
-					parseHelper->SetAvailabilityStartTime(lastLiveAvailabilityStartTime);
-				}
-				// Final manifest; must reach the consumer even if publishTime is unchanged
-				doPush = true;
-			}
 		}
 
 		if(doPush)

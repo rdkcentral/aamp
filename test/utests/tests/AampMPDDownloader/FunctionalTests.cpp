@@ -937,8 +937,8 @@ TEST_F(FunctionalTests, RegisterCallback_InvokedWhenManifestPublished)
 	mAampMPDDownloader->Release();
 }
 
-// On a dynamic->static transition the published static manifest keeps the last dynamic availabilityStartTime,
-// and the download loop stops refreshing.
+// The static timeline is anchored to the live first-period start and the
+// download loop stops refreshing.
 TEST_F(FunctionalTests, DynamicToStatic_PreservesAvailabilityStartTimeAndStopsRefresh)
 {
 	// Static (COLD) version of kLongRefreshLiveMpd: no availabilityStartTime and an unchanged publishTime.
@@ -976,6 +976,14 @@ TEST_F(FunctionalTests, DynamicToStatic_PreservesAvailabilityStartTimeAndStopsRe
 	ASSERT_TRUE(live != nullptr);
 	ASSERT_TRUE(live->mIsLiveManifest);
 	const double liveAst = live->GetMPDParseHelper()->GetAvailabilityStartTime();
+	const double livePeriodStart = live->GetMPDParseHelper()->GetPeriodStartTime(
+		0, live->mLastPlaylistDownloadTimeMs);
+	const auto &livePeriods = live->mMPDInstance->GetPeriods();
+	ASSERT_FALSE(livePeriods.empty());
+	const double liveFirstSegmentStart =
+		live->GetMPDParseHelper()->GetFirstSegmentScaledStartTime(
+			livePeriods.front(), eMEDIATYPE_VIDEO);
+	ASSERT_GE(liveFirstSegmentStart, 0.0);
 	ASSERT_GT(liveAst, 0);
 
 	bool staticPublished;
@@ -989,7 +997,14 @@ TEST_F(FunctionalTests, DynamicToStatic_PreservesAvailabilityStartTimeAndStopsRe
 	ASSERT_TRUE(cold != nullptr);
 	EXPECT_FALSE(cold->mIsLiveManifest);
 	EXPECT_FALSE(cold->GetMPDParseHelper()->IsLiveManifest());
-	EXPECT_DOUBLE_EQ(cold->GetMPDParseHelper()->GetAvailabilityStartTime(), liveAst);
+	const auto &staticPeriods = cold->mMPDInstance->GetPeriods();
+	ASSERT_FALSE(staticPeriods.empty());
+	const double staticFirstSegmentStart =
+		cold->GetMPDParseHelper()->GetFirstSegmentScaledStartTime(
+			staticPeriods.front(), eMEDIATYPE_VIDEO);
+	ASSERT_GE(staticFirstSegmentStart, 0.0);
+	EXPECT_DOUBLE_EQ(cold->GetMPDParseHelper()->GetAvailabilityStartTime(),
+		livePeriodStart + staticFirstSegmentStart - liveFirstSegmentStart);
 
 	// No refresh must follow the static manifest (a live refresh would come after ~3s).
 	bool refreshedAgain;
@@ -1002,6 +1017,167 @@ TEST_F(FunctionalTests, DynamicToStatic_PreservesAvailabilityStartTimeAndStopsRe
 
 	mAampMPDDownloader->UnRegisterCallback();
 	mAampMPDDownloader->Release();
+}
+
+struct TimelineRebaseCase
+{
+	const char *name;
+	const char *liveStart;
+	const char *staticStart;
+	uint64_t livePto;
+	uint64_t liveT0;
+	uint64_t staticPto;
+	uint64_t staticT0;
+	double expectedAstDelta;
+};
+
+class TimelineRebaseTests :
+	public FunctionalTests,
+	public WithParamInterface<TimelineRebaseCase>
+{
+protected:
+	/**
+	 * @brief Build a video Period containing a single SegmentTemplate timeline.
+	 * @param id Period identifier.
+	 * @param start Optional Period start value; empty omits the start attribute.
+	 * @param pto SegmentTemplate presentation time offset.
+	 * @param firstTime First timestamp in the segment timeline.
+	 * @return Serialized Period XML.
+	 */
+	std::string MakePeriod(const std::string &id, const std::string &start,
+		uint64_t pto, uint64_t firstTime)
+	{
+		return "<Period id=\"" + id + "\"" +
+			(start.empty() ? "" : " start=\"" + start + "\"") +
+			" duration=\"PT30S\"><AdaptationSet contentType=\"video\" "
+			"mimeType=\"video/mp4\"><SegmentTemplate timescale=\"1000\" "
+			"presentationTimeOffset=\"" + std::to_string(pto) +
+			"\" media=\"$Time$.m4s\" initialization=\"init.mp4\">"
+			"<SegmentTimeline><S t=\"" + std::to_string(firstTime) +
+			"\" d=\"10000" +
+			"\" r=\"2\"/></SegmentTimeline></SegmentTemplate>"
+			"<Representation id=\"r0\" bandwidth=\"100000\"/>"
+			"</AdaptationSet></Period>";
+	}
+
+	/** @brief Build the dynamic or static MPD for the current test parameters.
+	 * @param live True to build the dynamic MPD; false to build the static MPD.
+	 * @return Serialized MPD XML.
+	 */
+	std::string MakeManifest(bool live)
+	{
+		const auto &param = GetParam();
+		const uint64_t pto = live ? param.livePto : param.staticPto;
+		const uint64_t firstTime = live ? param.liveT0 : param.staticT0;
+		const std::string periodStart = live ? param.liveStart : param.staticStart;
+		const std::string periods = MakePeriod("p0", periodStart,
+			pto, firstTime);
+		return "<MPD xmlns=\"urn:mpeg:dash:schema:mpd:2011\" type=\"" +
+			std::string(live ? "dynamic" : "static") +
+			"\" publishTime=\"2024-11-08T12:53:09Z\" " +
+			(live ? "availabilityStartTime=\"2024-11-08T00:00:00Z\" "
+				"minimumUpdatePeriod=\"PT0.1S\"" :
+				"mediaPresentationDuration=\"PT30S\"") +
+			">" + periods + "</MPD>";
+	}
+};
+
+/**
+ * @brief A dynamic-to-static transition rebases the effective AST according
+ * to the periods' normalized first video segment start times.
+ */
+TEST_P(TimelineRebaseTests, DynamicToStatic_RebasesEffectiveAvailabilityStartTime)
+{
+	const auto liveMpd = MakeManifest(true);
+	const auto staticMpd = MakeManifest(false);
+	NotifyContext ctx;
+	auto calls = std::make_shared<std::atomic<int>>(0);
+	auto config = std::make_shared<ManifestDownloadConfig>(-1);
+	config->mTuneUrl = url1;
+	mAampMPDDownloader->Initialize(config, appName,
+		[calls, liveMpd, staticMpd]() -> std::pair<std::string, int>
+		{
+			return {calls->fetch_add(1) == 0 ? liveMpd : staticMpd, 200};
+		});
+	DownloaderReleaseGuard guard{mAampMPDDownloader};
+	mAampMPDDownloader->RegisterCallback(CountingNotifyCallback, &ctx);
+	mAampMPDDownloader->SetBufferAvailability(1);
+	mAampMPDDownloader->Start();
+
+	const auto live = mAampMPDDownloader->GetManifest(true, 5000);
+	ASSERT_NE(live, nullptr);
+	ASSERT_EQ(live->mMPDStatus, AAMPStatusType::eAAMPSTATUS_OK);
+	ASSERT_TRUE(live->mIsLiveManifest);
+	{
+		std::unique_lock<std::mutex> lock(ctx.mtx);
+		ASSERT_TRUE(ctx.cv.wait_for(lock, std::chrono::seconds(10),
+			[&ctx] { return ctx.count >= 2; }));
+	}
+	const auto cold = mAampMPDDownloader->GetManifest(true, 5000);
+	ASSERT_NE(cold, nullptr);
+	ASSERT_EQ(cold->mMPDStatus, AAMPStatusType::eAAMPSTATUS_OK);
+	EXPECT_FALSE(cold->mIsLiveManifest);
+	const auto helper = cold->GetMPDParseHelper();
+	EXPECT_DOUBLE_EQ(helper->GetAvailabilityStartTime(),
+		live->GetMPDParseHelper()->GetAvailabilityStartTime() +
+			GetParam().expectedAstDelta);
+}
+
+/**
+ * @brief Instantiate the parameterized tests for timeline continuity.
+ */
+INSTANTIATE_TEST_SUITE_P(TimelineContinuity, TimelineRebaseTests,
+	::testing::Values(
+		// name, live Period@start, static Period@start, live PTO, live T0,
+		// static PTO, static T0, expected availability-start delta (seconds).
+		// PTO and T0 are ticks at timescale 1000.
+		// Same period starts and segment timing; preserve the live 100-second anchor.
+		TimelineRebaseCase{"UnchangedTiming", "PT100S", "PT100S",
+				510000, 510000, 510000, 510000, 100.0},
+		// An omitted static start follows a live period starting at zero.
+		TimelineRebaseCase{"StaticStartOmitted", "PT0S", "",
+				510000, 510000, 510000, 510000, 0.0},
+		// An omitted live start and explicit static zero start have the same anchor.
+		TimelineRebaseCase{"StaticStartZero", "PT100S", "PT0S",
+				510000, 510000, 510000, 510000, 100.0},
+		// Static T0 moves 20 seconds later; add that to the live 100-second anchor.
+		TimelineRebaseCase{"StaticStartNonZeroAndT0Updated", "PT100S", "PT0S",
+				510000, 510000, 530000, 530000, 120.0},
+		// The static start resets to zero while the nonzero live anchor is retained.
+		TimelineRebaseCase{"StaticStartZeroAndLiveNonZero", "PT100S", "PT0S",
+				510000, 510000, 510000, 510000, 100.0},
+		// Live T0 is 10 seconds ahead of PTO; static T0/PTO move 20 seconds.
+		// Expected delta: 100-second period start + 10-second live offset
+		// + 20-second first-segment shift.
+		TimelineRebaseCase{
+			"StaticStartNonZeroAndT0UpdatedLiveDifferentPTOStaticPTOtoT0WithT0Updated",
+			"PT100S", "PT100S",
+			500000, 510000, 530000, 530000, 130.0}),
+	[](const ::testing::TestParamInfo<TimelineRebaseCase> &info)
+	{
+		return info.param.name;
+	});
+
+/**
+ * @brief A fresh static tune has no previous live timeline to preserve.
+ */
+TEST_F(FunctionalTests, StaticFirstDownload_DoesNotRebaseTimeline)
+{
+	auto config = std::make_shared<ManifestDownloadConfig>(-1);
+	config->mTuneUrl = url1;
+	mAampMPDDownloader->Initialize(config, appName,
+		[]() -> std::pair<std::string, int>
+		{
+			return {kTailOverhangManifest, 200};
+		});
+	DownloaderReleaseGuard guard{mAampMPDDownloader};
+	mAampMPDDownloader->Start();
+
+	const auto manifest = mAampMPDDownloader->GetManifest(true, 5000);
+	ASSERT_NE(manifest, nullptr);
+	ASSERT_EQ(manifest->mMPDStatus, AAMPStatusType::eAAMPSTATUS_OK);
+	EXPECT_FALSE(manifest->mIsLiveManifest);
+	EXPECT_DOUBLE_EQ(manifest->GetMPDParseHelper()->GetAvailabilityStartTime(), 0.0);
 }
 
 // Waking the notifier thread for unregister/release must not be reported to the callback as a manifest update.

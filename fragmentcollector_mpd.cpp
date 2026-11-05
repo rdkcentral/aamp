@@ -9257,10 +9257,6 @@ void StreamAbstractionAAMP_MPD::UpdateCulledAndDurationFromPeriodInfo(std::vecto
 		if (firstPeriodIdx == lastPeriodIdx)
 		{
 			lastPeriodStart = firstPeriodStart;
-			if(!mIsLiveManifest && mIsLiveStream)
-			{
-				lastPeriodStart = aamp->culledSeconds;
-			}
 		}
 		else
 		{
@@ -9269,7 +9265,7 @@ void StreamAbstractionAAMP_MPD::UpdateCulledAndDurationFromPeriodInfo(std::vecto
 			lastPeriodStart = mMPDParseHelper->GetPeriodStartTime(lastPeriodIdx,mLastPlaylistDownloadTimeMs);
 		}
 		double culled = firstPeriodStart - aamp->culledSeconds;
-		if (culled != 0 && mIsLiveManifest)
+		if (culled != 0)
 		{
 			if(!aamp->IsLocalAAMPTsb())
 			{
