@@ -34,6 +34,8 @@
 
 #include "IStreamSinkNotifiable.h"
 
+#include <atomic>
+
 class PrivateInstanceAAMP;
 
 /**
@@ -42,6 +44,10 @@ class PrivateInstanceAAMP;
  *
  * Owns a non-owning pointer to PrivateInstanceAAMP.  The caller is
  * responsible for ensuring the AAMP instance outlives this adapter.
+ *
+ * Threads: called from the control, injector and Rialto event threads.
+ * The AAMP pointer is atomic and each call uses one snapshot of it; a
+ * notification with no instance is dropped with a warning.
  */
 class PrivateInstanceAAMPNotifiable final : public IStreamSinkNotifiable
 {
@@ -98,7 +104,12 @@ public:
 		uint64_t droppedFrames) override;
 
 private:
-	PrivateInstanceAAMP *m_aamp{nullptr};
+	/// Written by ChangeAamp() while Rialto and injector threads read it, so
+	/// each notification takes one snapshot through Target() and uses only
+	/// that; Target() is null (and logged) when there is no instance.
+	PrivateInstanceAAMP *Target(const char *caller) const;
+
+	std::atomic<PrivateInstanceAAMP *> m_aamp{nullptr};
 };
 
 #endif // PRIVATE_INSTANCE_AAMP_NOTIFIABLE_H

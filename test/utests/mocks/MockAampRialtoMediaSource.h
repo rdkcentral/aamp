@@ -76,5 +76,9 @@ public:
 
 	MOCK_METHOD(int64_t, firstPtsMs, (), (const, override));
 
+	MOCK_METHOD(uint32_t, acceptedFrames, (), (const, override));
+
+	MOCK_METHOD(bool, bufferFull, (), (const, override));
+
 	MOCK_METHOD(bool, isInbandCC, (), (const, override));
 };

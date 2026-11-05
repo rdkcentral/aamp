@@ -41,19 +41,18 @@ bool AampRialtoVideoSource::mapCodecToMime(
 	{
 		case GST_FORMAT_VIDEO_ES_H264:
 			mimeType = "video/h264";
-			// Length-prefixed (AVCC) vs Annex-B (byte-stream) is a property
-			// of how the demuxer produced this codecInfo, not of which
-			// object instance happens to own an Mp4Demux.
+			// naluLengthPrefixed (from the demuxed codecInfo) selects the
+			// Rialto format: AVC (length-prefixed, codec data is avcC) or
+			// BYTE_STREAM (Annex-B start codes).
 			streamFormat = naluLengthPrefixed
 				? firebolt::rialto::StreamFormat::AVC
 				: firebolt::rialto::StreamFormat::BYTE_STREAM;
 			result = true;
 			break;
 		case GST_FORMAT_VIDEO_ES_HEVC:
-			mimeType = "video/h265";
-			// Same length-prefixed (HVC1) vs Annex-B (byte-stream) distinction
-			// as H.264 above: HLS-TS ES delivers Annex-B start codes, while
-			// fMP4/DASH hvcC sample entries are length-prefixed.
+			mimeType     = "video/h265";
+			// Same rule as H.264: hvcC samples are length-prefixed (HVC1),
+			// raw ES such as HLS-TS is Annex-B (BYTE_STREAM).
 			streamFormat = naluLengthPrefixed
 				? firebolt::rialto::StreamFormat::HVC1
 				: firebolt::rialto::StreamFormat::BYTE_STREAM;
@@ -115,9 +114,9 @@ std::unique_ptr<firebolt::rialto::IMediaPipeline::MediaSegment>
 AampRialtoVideoSource::createSegment(
 	const AampMediaSample &sample) const
 {
-	const int64_t ptsNs      = static_cast<int64_t>(sample.mPts      * kNsPerSecond);
-	const int64_t durationNs = static_cast<int64_t>(sample.mDuration * kNsPerSecond);
+	const int64_t ptsNs      = SecondsToNs(sample.mPts);
+	const int64_t durationNs = SecondsToNs(sample.mDuration);
 	return std::make_unique<
 		firebolt::rialto::IMediaPipeline::MediaSegmentVideo>(
-		m_sourceId, ptsNs, durationNs, m_width, m_height);
+		sourceId(), ptsNs, durationNs, m_width, m_height);
 }

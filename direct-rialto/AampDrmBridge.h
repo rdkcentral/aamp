@@ -33,7 +33,8 @@
  *       thread, which is acceptable.
  */
 
-#pragma once
+#ifndef AAMP_DRM_BRIDGE_H
+#define AAMP_DRM_BRIDGE_H
 
 #include "IDrmBridge.h"
 
@@ -43,7 +44,9 @@ class PrivateInstanceAAMP;
  * @class AampDrmBridge
  * @brief Concrete IDrmBridge that delegates to AAMP's DrmSessionManager.
  *
- * One instance is owned by AampRialtoPlayer for its lifetime.
+ * The player holds it in a shared_ptr and may replace it (ChangeAamp(),
+ * SetEncryptedAamp()) while an attach still uses the old one, so it must not
+ * depend on being the only bridge alive.
  */
 class AampDrmBridge : public IDrmBridge
 {
@@ -66,7 +69,8 @@ public:
 	 * Internally calls DrmSessionManager::createDrmSession() which drives
 	 * the full OCDM license acquisition flow.  On success the mks_id
 	 * stored inside the OCDMSessionAdapter is returned; on failure -1 is
-	 * returned.
+	 * returned.  Init data longer than 65535 bytes is rejected because the
+	 * DRM session manager takes a 16-bit length.
 	 *
 	 * @param[in] systemId   DRM system UUID string.
 	 * @param[in] initData   PSSH init data blob.
@@ -81,11 +85,8 @@ public:
 		size_t         len,
 		AampMediaType  type) override;
 
-	/**
-	 * @brief Release all DRM sessions via AAMP's DrmSessionManager.
-	 */
-	void clearSessions() override;
-
 private:
 	PrivateInstanceAAMP *m_aamp; ///< Non-owning pointer; lifetime guaranteed by AampRialtoPlayer
 };
+
+#endif // AAMP_DRM_BRIDGE_H

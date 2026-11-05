@@ -31,7 +31,8 @@
  * Rialto session ID assigned by the server during opencdm_construct_session().
  */
 
-#pragma once
+#ifndef AAMP_IDRM_BRIDGE_H
+#define AAMP_IDRM_BRIDGE_H
 
 #include <cstddef>
 #include <cstdint>
@@ -43,6 +44,9 @@
  *
  * Follows the Dependency Inversion Principle: AampRialtoPlayer depends on this
  * abstraction; concrete OCDM/Rialto details live in a separate class.
+ *
+ * There is no teardown method: AAMP's stream abstraction releases sessions
+ * through the license manager (clearDrmSession) with its own force flag.
  */
 class IDrmBridge
 {
@@ -72,12 +76,6 @@ public:
 		const void     *initData,
 		size_t          len,
 		AampMediaType   type) = 0;
-
-	/**
-	 * @brief Release all DRM sessions created by this bridge.
-	 *
-	 * Called from ClearProtectionEvent().  Implementations should release any
-	 * held OCDM sessions and reset internal state.
-	 */
-	virtual void clearSessions() = 0;
 };
+
+#endif // AAMP_IDRM_BRIDGE_H

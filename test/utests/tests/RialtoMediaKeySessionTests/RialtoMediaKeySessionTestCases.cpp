@@ -1,0 +1,244 @@
+/*
+ * If not stated otherwise in this file or this component's license file the
+ * following copyright and licenses apply:
+ *
+ * Copyright 2026 RDK Management
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#include <gtest/gtest.h>
+#include <gmock/gmock.h>
+
+#include "RialtoMediaKeySession.h"
+#include "MockRialtoMediaKeys.h"
+
+using ::testing::_;
+using ::testing::DoAll;
+using ::testing::Return;
+using ::testing::SaveArg;
+using ::testing::NiceMock;
+
+class RialtoMediaKeySessionTest : public ::testing::Test
+{
+protected:
+	static constexpr int32_t TEST_SESSION_ID = 42;
+
+	NiceMock<MockMediaKeys> m_mockMediaKeys;
+	bool m_deregistered = false;
+
+	std::unique_ptr<RialtoMediaKeySession> createSession()
+	{
+		auto deregister = [this](int32_t id)
+		{
+			m_deregistered = true;
+		};
+		return std::make_unique<RialtoMediaKeySession>(
+			TEST_SESSION_ID, m_mockMediaKeys, std::move(deregister));
+	}
+};
+
+/**
+ * @test GetMediaKeySessionId
+ */
+TEST_F(RialtoMediaKeySessionTest, GetMediaKeySessionId)
+{
+	auto session = createSession();
+	EXPECT_EQ(TEST_SESSION_ID, session->getMediaKeySessionId());
+}
+
+/**
+ * @test UpdateSuccess
+ */
+TEST_F(RialtoMediaKeySessionTest, UpdateSuccess)
+{
+	auto session = createSession();
+	const uint8_t keyMsg[] = {0x01, 0x02, 0x03};
+
+	EXPECT_CALL(m_mockMediaKeys, updateSession(TEST_SESSION_ID, _))
+		.WillOnce(Return(firebolt::rialto::MediaKeyErrorStatus::OK));
+
+	EXPECT_TRUE(session->update(keyMsg, sizeof(keyMsg)));
+}
+
+/**
+ * @test UpdateFailure
+ */
+TEST_F(RialtoMediaKeySessionTest, UpdateFailure)
+{
+	auto session = createSession();
+	const uint8_t keyMsg[] = {0x01, 0x02, 0x03};
+
+	EXPECT_CALL(m_mockMediaKeys, updateSession(TEST_SESSION_ID, _))
+		.WillOnce(Return(firebolt::rialto::MediaKeyErrorStatus::FAIL));
+
+	EXPECT_FALSE(session->update(keyMsg, sizeof(keyMsg)));
+}
+
+/**
+ * @test Update_LargeResponse_IsDeliveredWhole
+ */
+TEST_F(RialtoMediaKeySessionTest, Update_LargeResponse_IsDeliveredWhole)
+{
+	/**
+	 * @brief Regression (L5): the response length was narrowed to 16 bits, so a
+	 *        license response over 64 KB reached Rialto truncated.
+	 */
+	auto session = createSession();
+	const std::vector<uint8_t> response(70000, 0x33);
+	std::vector<uint8_t> received;
+
+	EXPECT_CALL(m_mockMediaKeys, updateSession(TEST_SESSION_ID, _))
+		.WillOnce(DoAll(SaveArg<1>(&received),
+		                Return(firebolt::rialto::MediaKeyErrorStatus::OK)));
+
+	EXPECT_TRUE(session->update(response.data(), response.size()));
+	EXPECT_EQ(received.size(), response.size());
+}
+
+/**
+ * @test CloseSuccess
+ */
+TEST_F(RialtoMediaKeySessionTest, CloseSuccess)
+{
+	auto session = createSession();
+
+	EXPECT_CALL(m_mockMediaKeys, closeKeySession(TEST_SESSION_ID))
+		.WillOnce(Return(firebolt::rialto::MediaKeyErrorStatus::OK));
+
+	EXPECT_TRUE(session->close());
+}
+
+/**
+ * @test CloseFailure
+ */
+TEST_F(RialtoMediaKeySessionTest, CloseFailure)
+{
+	auto session = createSession();
+
+	EXPECT_CALL(m_mockMediaKeys, closeKeySession(TEST_SESSION_ID))
+		.WillOnce(Return(firebolt::rialto::MediaKeyErrorStatus::FAIL));
+
+	EXPECT_FALSE(session->close());
+}
+
+/**
+ * @test DestructSuccess
+ */
+TEST_F(RialtoMediaKeySessionTest, DestructSuccess)
+{
+	auto session = createSession();
+
+	EXPECT_CALL(m_mockMediaKeys, releaseKeySession(TEST_SESSION_ID))
+		.WillOnce(Return(firebolt::rialto::MediaKeyErrorStatus::OK));
+
+	EXPECT_TRUE(session->destruct());
+	EXPECT_TRUE(m_deregistered);
+}
+
+/**
+ * @test DestructCallsDeregisterEvenOnFailure
+ */
+TEST_F(RialtoMediaKeySessionTest, DestructCallsDeregisterEvenOnFailure)
+{
+	auto session = createSession();
+
+	EXPECT_CALL(m_mockMediaKeys, releaseKeySession(TEST_SESSION_ID))
+		.WillOnce(Return(firebolt::rialto::MediaKeyErrorStatus::FAIL));
+
+	EXPECT_FALSE(session->destruct());
+	EXPECT_TRUE(m_deregistered);
+}
+
+/**
+ * @test IsKeyUsableInitiallyFalse
+ */
+TEST_F(RialtoMediaKeySessionTest, IsKeyUsableInitiallyFalse)
+{
+	auto session = createSession();
+	const uint8_t keyId[] = {0xAA, 0xBB};
+
+	EXPECT_FALSE(session->isKeyUsable(keyId, sizeof(keyId)));
+}
+
+/**
+ * @test IsKeyUsableAfterUpdate
+ */
+TEST_F(RialtoMediaKeySessionTest, IsKeyUsableAfterUpdate)
+{
+	auto session = createSession();
+	const std::vector<uint8_t> keyId = {0xAA, 0xBB};
+
+	session->updateKeyStatus(keyId, firebolt::rialto::KeyStatus::USABLE);
+
+	EXPECT_TRUE(session->isKeyUsable(keyId.data(), static_cast<uint8_t>(keyId.size())));
+}
+
+/**
+ * @test IsKeyUsable_LongKeyId_IsLookedUpByFullId
+ */
+TEST_F(RialtoMediaKeySessionTest, IsKeyUsable_LongKeyId_IsLookedUpByFullId)
+{
+	/**
+	 * @brief Regression (L5): the key id length was narrowed to 8 bits, so an id
+	 *        over 255 bytes was looked up truncated and missed.
+	 */
+	auto session = createSession();
+	const std::vector<uint8_t> keyId(300, 0x42);
+
+	session->updateKeyStatus(keyId, firebolt::rialto::KeyStatus::USABLE);
+
+	EXPECT_TRUE(session->isKeyUsable(keyId.data(), keyId.size()));
+}
+
+/**
+ * @test IsKeyUsableReturnsFalseForExpired
+ */
+TEST_F(RialtoMediaKeySessionTest, IsKeyUsableReturnsFalseForExpired)
+{
+	auto session = createSession();
+	const std::vector<uint8_t> keyId = {0xAA, 0xBB};
+
+	session->updateKeyStatus(keyId, firebolt::rialto::KeyStatus::EXPIRED);
+
+	EXPECT_FALSE(session->isKeyUsable(keyId.data(), static_cast<uint8_t>(keyId.size())));
+}
+
+/**
+ * @test IsKeyOutputRestricted
+ */
+TEST_F(RialtoMediaKeySessionTest, IsKeyOutputRestricted)
+{
+	auto session = createSession();
+	const std::vector<uint8_t> keyId = {0xCC, 0xDD};
+
+	session->updateKeyStatus(keyId, firebolt::rialto::KeyStatus::OUTPUT_RESTRICTED);
+
+	EXPECT_TRUE(session->isKeyOutputRestricted(keyId.data(), static_cast<uint8_t>(keyId.size())));
+}
+
+/**
+ * @test MultipleKeysTrackedIndependently
+ */
+TEST_F(RialtoMediaKeySessionTest, MultipleKeysTrackedIndependently)
+{
+	auto session = createSession();
+	const std::vector<uint8_t> keyId1 = {0x01};
+	const std::vector<uint8_t> keyId2 = {0x02};
+
+	session->updateKeyStatus(keyId1, firebolt::rialto::KeyStatus::USABLE);
+	session->updateKeyStatus(keyId2, firebolt::rialto::KeyStatus::EXPIRED);
+
+	EXPECT_TRUE(session->isKeyUsable(keyId1.data(), static_cast<uint8_t>(keyId1.size())));
+	EXPECT_FALSE(session->isKeyUsable(keyId2.data(), static_cast<uint8_t>(keyId2.size())));
+}
