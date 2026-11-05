@@ -2954,13 +2954,13 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	EXPECT_EQ(m_player->GetPositionMilliseconds(), kExpected);
 }
 
-// During a mid-segment seek, Flush() stages the seek position in
-// m_pendingPositionNs so that GetPositionMilliseconds() can return it
-// immediately while the pipeline is in FLUSHING state (before SEEK_DONE
-// commits it as the new segment-start baseline).  This prevents position
-// reporting from snapping to zero during the flush window.
+// The reported position is relative to the segment start (the caller adds
+// its own seek position), so while the pipeline is FLUSHING - before
+// SEEK_DONE commits the new segment-start baseline - it must be 0.
+// Returning the staged absolute seek target would be double-counted by the
+// caller.
 TEST_F(AampRialtoPlayerWithDemuxTest,
-	GetPositionMilliseconds_WhileFlushing_ReturnsSeekPositionWithoutQueryingPipeline)
+	GetPositionMilliseconds_WhileFlushing_ReturnsZeroWithoutQueryingPipeline)
 {
 	Configure();
 	SendVideoInitFragment();
@@ -2968,8 +2968,7 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 
 	// Seek to 30 s mid-segment.  setPosition returning true keeps the
 	// player in FLUSHING so the SEEK_DONE path is not yet taken.
-	constexpr double   kSeekSec   = 30.0;
-	constexpr int64_t  kSeekPosMs = 30'000LL;
+	constexpr double kSeekSec = 30.0;
 	EXPECT_CALL(*m_mockPipelinePtr, setPosition(_)).WillOnce(Return(true));
 	m_player->Flush(kSeekSec, /*rate=*/1, /*shouldTearDown=*/false);
 	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
@@ -2977,7 +2976,7 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	// getPosition() must not be called while in FLUSHING state.
 	EXPECT_CALL(*m_mockPipelinePtr, getPosition(_)).Times(0);
 
-	EXPECT_EQ(m_player->GetPositionMilliseconds(), kSeekPosMs);
+	EXPECT_EQ(m_player->GetPositionMilliseconds(), 0LL);
 
 	// Exit FLUSHING so TearDown() can clean up without blocking.
 	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
@@ -4827,8 +4826,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	 * @brief Flush() stages the pending rate, but the rate multiplier must
 	 *        only be applied once SEEK_DONE confirms the flushing seek
 	 *        completed.  While FLUSHING, GetPositionMilliseconds() short-
-	 *        circuits to m_pendingPositionNs (the staged seek target)
-	 *        without querying the pipeline or applying the pending rate.
+	 *        circuits to 0 (the position is relative to the segment start
+	 *        and no valid position exists yet) without querying the
+	 *        pipeline or applying the pending rate.
 	 */
 	Configure();
 	SendVideoInitFragment();
@@ -4849,9 +4849,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	m_player->Flush(/*position=*/12.0, /*rate=*/-4, /*shouldTearDown=*/false);
 	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
 
-	// Still FLUSHING: report the pending flush target (12000 ms) directly,
-	// ignoring both the not-yet-committed rate and the raw pipeline query.
-	EXPECT_EQ(m_player->GetPositionMilliseconds(), 12'000LL);
+	// Still FLUSHING: no valid position yet, so report 0, ignoring both the
+	// not-yet-committed rate and the raw pipeline query (500 ms).
+	EXPECT_EQ(m_player->GetPositionMilliseconds(), 0LL);
 
 	// SEEK_DONE commits the pending rate AND the segment-start baseline
 	// (12000 ms) as a single event: (500 - 12000) * -4 = 46000 ms.
