@@ -476,7 +476,6 @@ void AampRialtoPlayer::Configure(
 		audioInVideoSlot ? FORMAT_INVALID : reportedVideoFormat;
 	const StreamOutputFormat audioFormat =
 		audioInVideoSlot ? reportedVideoFormat : reportedAudioFormat;
-	m_audioInVideoSlot.store(audioInVideoSlot, std::memory_order_relaxed);
 
 	AAMPLOG_INFO("ENTRY videoFormat=%d audioFormat=%d subFormat=%d bESChangeStatus=%d setReadyAfterPipelineCreation=%d audioInVideoSlot=%d", static_cast<int>(videoFormat), static_cast<int>(audioFormat),
 		static_cast<int>(subFormat), bESChangeStatus, setReadyAfterPipelineCreation, audioInVideoSlot);
@@ -541,6 +540,9 @@ void AampRialtoPlayer::Configure(
 		if (!ShouldRecreatePipeline(videoFormat, audioFormat, subFormat,
 		        bESChangeStatus, setReadyAfterPipelineCreation))
 		{
+			// Must precede the ResumeTrackDownloads() loop below.
+			m_audioInVideoSlot.store(audioInVideoSlot, std::memory_order_relaxed);
+
 			// Codec was unknown when the source was created (e.g. muxed
 			// HLS-TS before PMT parsing) and has since been identified -
 			// record it so later stream-caps computation (SendCopy's
@@ -810,6 +812,10 @@ void AampRialtoPlayer::Configure(
 		AAMPLOG_INFO("EXIT - no pipeline created");
 		return;
 	}
+
+	// Must precede source creation: ResumeTrackDownloads() below maps slot to
+	// track via toAampTrack().
+	m_audioInVideoSlot.store(audioInVideoSlot, std::memory_order_relaxed);
 
 	// Create per-source objects based on configured formats.
 	// FORMAT_ISO_BMFF: AampRialtoPlayer demuxes via SendTransfer; the demuxer
@@ -1162,7 +1168,9 @@ void AampRialtoPlayer::AttachSource(
 	std::optional<AampRialtoMediaSource::ProtectionParams> protectionCopy;
 	{
 		std::lock_guard<std::mutex> lock(m_pendingProtectionMutex);
-		protectionCopy = m_pendingProtection[static_cast<size_t>(type)];
+		// AAMP queues protection under its own track type, which differs from
+		// this source's slot when audio is carried in the video slot.
+		protectionCopy = m_pendingProtection[static_cast<size_t>(toAampTrack(type))];
 		if (codecInfo.mIsEncrypted && !protectionCopy.has_value() &&
 		    type != eMEDIATYPE_VIDEO && m_pendingProtection[eMEDIATYPE_VIDEO].has_value())
 		{

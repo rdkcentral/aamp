@@ -718,6 +718,179 @@ TEST_F(AampRialtoPlayerTest, Configure_AudioOnly_CreatesAudioSourceOnly)
 	EXPECT_NE(m_mockSources[eMEDIATYPE_AUDIO], nullptr);
 }
 
+/**
+ * @test AAMP reports audio-only DASH as an audio codec on the video slot with
+ *       no audio track.  Rialto needs an audio source for it, and AAMP must be
+ *       told the VIDEO track (the one it is feeding) is ready to download.
+ */
+TEST_F(AampRialtoPlayerTest, Configure_AudioCodecOnVideoSlot_CreatesAudioSourceOnly)
+{
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, ResumeTrackDownloads(eMEDIATYPE_VIDEO)).Times(1);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, ResumeTrackDownloads(eMEDIATYPE_AUDIO)).Times(0);
+
+	m_createSourceCallCount = 0;
+	Configure(FORMAT_AUDIO_ES_AAC, FORMAT_INVALID);
+
+	EXPECT_EQ(m_createSourceCallCount, 1);
+	EXPECT_NE(m_mockSources[eMEDIATYPE_AUDIO], nullptr);
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_VIDEO], nullptr);
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_SUBTITLE], nullptr);
+}
+
+/**
+ * @test AAMP keeps injecting on the VIDEO track, so samples sent for VIDEO
+ *       must be delivered to the audio source.
+ */
+TEST_F(AampRialtoPlayerTest, SendSample_AudioCodecOnVideoSlot_ReachesAudioSource)
+{
+	Configure(FORMAT_AUDIO_ES_AAC, FORMAT_INVALID);
+	auto *audioSource = m_mockSources[eMEDIATYPE_AUDIO];
+	ASSERT_NE(audioSource, nullptr);
+
+	EXPECT_CALL(*audioSource, injectSingleSample(_, _, _)).Times(1).WillOnce(Return(true));
+
+	EXPECT_TRUE(m_player->SendSample(eMEDIATYPE_VIDEO, MakeSample()));
+}
+
+/**
+ * @test The first VIDEO sample must resolve the pending position through the
+ *       audio source, which is the only source that can supply a PTS.
+ */
+TEST_F(AampRialtoPlayerTest, SendSample_AudioCodecOnVideoSlot_PositionPending_FlushesToSamplePts)
+{
+	Configure(FORMAT_AUDIO_ES_AAC, FORMAT_INVALID);
+	ASSERT_NE(m_mockSources[eMEDIATYPE_AUDIO], nullptr);
+	m_player->SetStreamCaps(eMEDIATYPE_VIDEO, MakeAudioAacCodecInfo());
+
+	const int64_t expectedPosNs = 4'500'000'000LL;
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(expectedPosNs))
+		.WillOnce(Return(true));
+	// The flush leaves the source gated, so the real injector would block.
+	EXPECT_CALL(*m_mockSources[eMEDIATYPE_AUDIO], injectSingleSample(_, _, _))
+		.WillOnce(Return(true));
+
+	m_player->SendSample(eMEDIATYPE_VIDEO, MakeSample(/*pts=*/4.5));
+}
+
+/**
+ * @test The underflow reported by Rialto for the audio source must reach AAMP
+ *       as the VIDEO track, since that is the track AAMP is injecting on.
+ */
+TEST_F(AampRialtoPlayerTest, OnBufferUnderflow_AudioCodecOnVideoSlot_NotifiesVideoTrack)
+{
+	Configure(FORMAT_AUDIO_ES_AAC, FORMAT_INVALID);
+	ASSERT_NE(m_mockSources[eMEDIATYPE_AUDIO], nullptr);
+	m_player->SetStreamCaps(eMEDIATYPE_VIDEO, MakeAudioAacCodecInfo());
+	const int32_t audioSourceId = m_mockSources[eMEDIATYPE_AUDIO]->sourceId();
+	ASSERT_GE(audioSourceId, 0);
+
+	EXPECT_CALL(m_mockNotifiable, NotifyBufferUnderflow(eMEDIATYPE_VIDEO)).Times(1);
+	EXPECT_CALL(m_mockNotifiable, NotifyBufferUnderflow(eMEDIATYPE_AUDIO)).Times(0);
+
+	PostBufferUnderflow(audioSourceId);
+}
+
+/**
+ * @test When audio is the only (primary) track it must keep receiving data at
+ *       trickplay rates, so Flush() must not leave it at EOS.  The player has
+ *       no attached sources here, so this takes the non-flushable path.
+ */
+TEST_F(AampRialtoPlayerTest, Flush_TrickplayRate_AudioCodecOnVideoSlot_AudioNotEos)
+{
+	Configure(FORMAT_AUDIO_ES_AAC, FORMAT_INVALID);
+	auto *audioSource = m_mockSources[eMEDIATYPE_AUDIO];
+	ASSERT_NE(audioSource, nullptr);
+
+	m_player->Flush(/*position=*/12.0, /*rate=*/-2, /*shouldTearDown=*/false);
+
+	EXPECT_FALSE(audioSource->state().eos);
+}
+
+/**
+ * @test As above, with the audio source attached so that Flush() takes the
+ *       flushable path that playback normally uses.
+ */
+TEST_F(AampRialtoPlayerTest, Flush_TrickplayRate_AudioCodecOnVideoSlotAttached_AudioNotEos)
+{
+	Configure(FORMAT_AUDIO_ES_AAC, FORMAT_INVALID);
+	auto *audioSource = m_mockSources[eMEDIATYPE_AUDIO];
+	ASSERT_NE(audioSource, nullptr);
+	m_player->SetStreamCaps(eMEDIATYPE_VIDEO, MakeAudioAacCodecInfo());
+	ASSERT_TRUE(audioSource->isAttached());
+
+	m_player->Flush(/*position=*/12.0, /*rate=*/-2, /*shouldTearDown=*/false);
+
+	EXPECT_FALSE(audioSource->state().eos);
+}
+
+/**
+ * @test Reconfiguring with the same audio-on-video-slot content reuses the
+ *       pipeline and sources, and must still resume downloads for the VIDEO
+ *       track.
+ */
+TEST_F(AampRialtoPlayerTest, Configure_AudioCodecOnVideoSlotTwice_ReusesSourcesAndResumesVideoTrack)
+{
+	EXPECT_CALL(*m_mockFactory, createMediaPipeline(_, _)).Times(1);
+
+	m_createSourceCallCount = 0;
+	Configure(FORMAT_AUDIO_ES_AAC, FORMAT_INVALID);
+	ASSERT_NE(m_mockSources[eMEDIATYPE_AUDIO], nullptr);
+
+	::testing::Mock::VerifyAndClearExpectations(g_mockPrivateInstanceAAMP.get());
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, ResumeTrackDownloads(eMEDIATYPE_VIDEO)).Times(1);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, ResumeTrackDownloads(eMEDIATYPE_AUDIO)).Times(0);
+
+	Configure(FORMAT_AUDIO_ES_AAC, FORMAT_INVALID);
+
+	EXPECT_EQ(m_createSourceCallCount, 1);
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_VIDEO], nullptr);
+}
+
+/**
+ * @test The same audio source is reused when AAMP moves the audio from the
+ *       video slot to the audio slot, and downloads are then resumed for
+ *       AUDIO.
+ */
+TEST_F(AampRialtoPlayerTest, Configure_AudioCodecMovesFromVideoSlotToAudioSlot_ResumesAudioTrack)
+{
+	EXPECT_CALL(*m_mockFactory, createMediaPipeline(_, _)).Times(1);
+
+	m_createSourceCallCount = 0;
+	Configure(FORMAT_AUDIO_ES_AAC, FORMAT_INVALID);
+	ASSERT_NE(m_mockSources[eMEDIATYPE_AUDIO], nullptr);
+
+	::testing::Mock::VerifyAndClearExpectations(g_mockPrivateInstanceAAMP.get());
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, ResumeTrackDownloads(eMEDIATYPE_AUDIO)).Times(1);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, ResumeTrackDownloads(eMEDIATYPE_VIDEO)).Times(0);
+
+	Configure(FORMAT_INVALID, FORMAT_AUDIO_ES_AAC);
+
+	EXPECT_EQ(m_createSourceCallCount, 1);
+}
+
+/**
+ * @test Regression guard: with a real video track the audio source is still
+ *       put at EOS at trickplay rates, and VIDEO still routes to the video
+ *       source.
+ */
+TEST_F(AampRialtoPlayerTest, Configure_VideoAndAudio_KeepsTrackRoutingAndTrickplayAudioEos)
+{
+	Configure(FORMAT_VIDEO_ES_H264, FORMAT_AUDIO_ES_AAC);
+	auto *videoSource = m_mockSources[eMEDIATYPE_VIDEO];
+	auto *audioSource = m_mockSources[eMEDIATYPE_AUDIO];
+	ASSERT_NE(videoSource, nullptr);
+	ASSERT_NE(audioSource, nullptr);
+
+	EXPECT_CALL(*videoSource, injectSingleSample(_, _, _)).Times(1).WillOnce(Return(true));
+	EXPECT_CALL(*audioSource, injectSingleSample(_, _, _)).Times(0);
+	EXPECT_TRUE(m_player->SendSample(eMEDIATYPE_VIDEO, MakeSample()));
+
+	m_player->Flush(/*position=*/12.0, /*rate=*/-2, /*shouldTearDown=*/false);
+
+	EXPECT_TRUE(audioSource->state().eos);
+	EXPECT_FALSE(videoSource->state().eos);
+}
+
 // Reconfiguring with the same audio-only formats must reuse the pipeline
 // without crashing on the (null) subtitle source.
 TEST_F(AampRialtoPlayerTest, Configure_AudioOnlyTwice_ReusesPipelineWithoutCrash)
