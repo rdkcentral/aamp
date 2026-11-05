@@ -17,8 +17,8 @@
  * limitations under the License.
  */
 
-#ifndef RialtoMediaKeySessionAdapter_h
-#define RialtoMediaKeySessionAdapter_h
+#ifndef AAMP_RIALTO_MEDIA_KEY_SESSION_ADAPTER_H
+#define AAMP_RIALTO_MEDIA_KEY_SESSION_ADAPTER_H
 
 /**
  * @file RialtoMediaKeySessionAdapter.h
@@ -51,6 +51,12 @@
  *   generateDRMSession → generateKeyRequest → processDRMKey
  *
  * Internally delegates to RialtoMediaKeySystem/RialtoMediaKeySession
+ *
+ * Threads: AAMP's license thread drives the lifecycle calls; the Rialto key
+ * event thread runs the callbacks installed in generateDRMSession() and
+ * signals the waits in generateKeyRequest()/processDRMKey(), which time out.
+ * Teardown (clearDecryptContext(), the destructor) waits for a callback in
+ * progress on another thread before the adapter can be freed.
  */
 class RialtoMediaKeySessionAdapter : public DrmSession
 {
@@ -90,11 +96,22 @@ public:
 	std::vector<std::vector<uint8_t>> getUsableKeys() const override;
 
 private:
+	/// Snapshot of m_session for use outside m_sessionMutex.
+	std::shared_ptr<RialtoMediaKeySession> getSession() const;
+
+	/// Set the key state and wake waiters.  Stores under m_eventMutex so a
+	/// waitForState() cannot test its predicate, miss this change and then
+	/// sleep until its timeout.
+	void setState(KeyState state);
+
 	/// Owned Rialto key system.
 	std::unique_ptr<RialtoMediaKeySystem> m_system;
 
-	/// Active session — created in generateDRMSession().
-	std::unique_ptr<RialtoMediaKeySession> m_session;
+	/// Active session — created in generateDRMSession().  Shared so that a
+	/// processDRMKey() in progress keeps it alive while clearDecryptContext()
+	/// releases it; read it only through getSession().
+	std::shared_ptr<RialtoMediaKeySession> m_session;
+	mutable std::mutex m_sessionMutex;
 
 	DrmHelperPtr m_drmHelper;
 	DrmCallbacks* m_drmCallbacks;
@@ -122,4 +139,4 @@ private:
 	long long m_timeBeforeCallback;
 };
 
-#endif // RialtoMediaKeySessionAdapter_h
+#endif // AAMP_RIALTO_MEDIA_KEY_SESSION_ADAPTER_H

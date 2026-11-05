@@ -28,10 +28,29 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 
+#include <atomic>
+#include <future>
+#include <memory>
+#include <thread>
+
 #include "AampRialtoMediaPipelineClient.h"
 
 using ::testing::_;
-using ::testing::MockFunction;
+using ::testing::StrictMock;
+using firebolt::rialto::PlaybackError;
+using firebolt::rialto::PlaybackState;
+
+class MockPipelineEvents : public IAampRialtoPipelineEvents
+{
+public:
+	MOCK_METHOD(void, OnNeedMediaData, (int32_t, size_t, uint32_t), (override));
+	MOCK_METHOD(void, OnCancelNeedMediaData, (int32_t), (override));
+	MOCK_METHOD(void, OnPlaybackState, (PlaybackState), (override));
+	MOCK_METHOD(void, OnPosition, (int64_t), (override));
+	MOCK_METHOD(void, OnDuration, (int64_t), (override));
+	MOCK_METHOD(void, OnBufferUnderflow, (int32_t), (override));
+	MOCK_METHOD(void, OnPlaybackError, (int32_t, PlaybackError), (override));
+};
 
 // ---------------------------------------------------------------------------
 // Test fixture
@@ -51,198 +70,278 @@ protected:
 	}
 
 	std::unique_ptr<AampRialtoMediaPipelineClient> m_client;
+	StrictMock<MockPipelineEvents> m_events;
 };
 
 // ---------------------------------------------------------------------------
-// Phase 1 — callback baseline tests
+// Each forwarded event reaches the sink with its arguments
 // ---------------------------------------------------------------------------
 
-TEST_F(AampRialtoMediaPipelineClientTest,
-	notifyNeedMediaData_WithCallback_InvokesCallback)
+/**
+ * @test notifyNeedMediaData_ForwardsToSink
+ */
+TEST_F(AampRialtoMediaPipelineClientTest, notifyNeedMediaData_ForwardsToSink)
 {
-	bool called = false;
-	int32_t gotSource = -1;
-	size_t  gotFrameCount = 0;
-	uint32_t gotRequestId = 0;
+	EXPECT_CALL(m_events, OnNeedMediaData(1, 10u, 42u));
+	m_client->SetEventSink(&m_events);
 
-	m_client->SetNeedDataCallback(
-		[&](int32_t src, size_t fc, uint32_t rid) {
-			called = true;
-			gotSource    = src;
-			gotFrameCount = fc;
-			gotRequestId = rid;
-		});
-
-	m_client->notifyNeedMediaData(
-		/*sourceId=*/1,
-		/*frameCount=*/10,
-		/*needDataRequestId=*/42,
-		/*mediaPlayerShmInfo=*/nullptr);
-
-	EXPECT_TRUE(called);
-	EXPECT_EQ(gotSource, 1);
-	EXPECT_EQ(gotFrameCount, 10u);
-	EXPECT_EQ(gotRequestId, 42u);
+	m_client->notifyNeedMediaData(1, 10, 42, nullptr);
 }
 
-TEST_F(AampRialtoMediaPipelineClientTest,
-	notifyNeedMediaData_WithoutCallback_DoesNotCrash)
+/**
+ * @test notifyCancelNeedMediaData_ForwardsToSink
+ */
+TEST_F(AampRialtoMediaPipelineClientTest, notifyCancelNeedMediaData_ForwardsToSink)
 {
-	// No callback installed — must not crash.
+	EXPECT_CALL(m_events, OnCancelNeedMediaData(2));
+	m_client->SetEventSink(&m_events);
+
+	m_client->notifyCancelNeedMediaData(2);
+}
+
+/**
+ * @test notifyPlaybackState_ForwardsToSink
+ */
+TEST_F(AampRialtoMediaPipelineClientTest, notifyPlaybackState_ForwardsToSink)
+{
+	EXPECT_CALL(m_events, OnPlaybackState(PlaybackState::SEEK_DONE));
+	m_client->SetEventSink(&m_events);
+
+	m_client->notifyPlaybackState(PlaybackState::SEEK_DONE);
+}
+
+/**
+ * @test notifyPosition_ForwardsToSink
+ */
+TEST_F(AampRialtoMediaPipelineClientTest, notifyPosition_ForwardsToSink)
+{
+	EXPECT_CALL(m_events, OnPosition(1'500'000'000LL));
+	m_client->SetEventSink(&m_events);
+
+	m_client->notifyPosition(1'500'000'000LL);
+}
+
+/**
+ * @test notifyDuration_ForwardsToSink
+ */
+TEST_F(AampRialtoMediaPipelineClientTest, notifyDuration_ForwardsToSink)
+{
+	EXPECT_CALL(m_events, OnDuration(123'456'789LL));
+	m_client->SetEventSink(&m_events);
+
+	m_client->notifyDuration(123'456'789LL);
+}
+
+/**
+ * @test notifyBufferUnderflow_ForwardsToSink
+ */
+TEST_F(AampRialtoMediaPipelineClientTest, notifyBufferUnderflow_ForwardsToSink)
+{
+	EXPECT_CALL(m_events, OnBufferUnderflow(2));
+	m_client->SetEventSink(&m_events);
+
+	m_client->notifyBufferUnderflow(2);
+}
+
+/**
+ * @test notifyPlaybackError_ForwardsToSink
+ */
+TEST_F(AampRialtoMediaPipelineClientTest, notifyPlaybackError_ForwardsToSink)
+{
+	EXPECT_CALL(m_events, OnPlaybackError(3, PlaybackError::OUTPUT_PROTECTION));
+	m_client->SetEventSink(&m_events);
+
+	m_client->notifyPlaybackError(3, PlaybackError::OUTPUT_PROTECTION);
+}
+
+/**
+ * @test UnforwardedNotifications_DoNotReachSink
+ */
+TEST_F(AampRialtoMediaPipelineClientTest, UnforwardedNotifications_DoNotReachSink)
+{
+	// StrictMock: any call fails the test.
+	m_client->SetEventSink(&m_events);
+
+	m_client->notifyNativeSize(1280, 720);
+	m_client->notifyVideoData(true);
+	m_client->notifyAudioData(true);
+	m_client->notifyNetworkState(firebolt::rialto::NetworkState::IDLE);
+	m_client->notifySourceFlushed(0);
+	m_client->notifyQos(1, firebolt::rialto::QosInfo{});
+	m_client->notifyFirstFrameReceived(1);
+}
+
+// ---------------------------------------------------------------------------
+// Installing and removing the sink
+// ---------------------------------------------------------------------------
+
+/**
+ * @test NoSink_EventsAreDropped
+ */
+TEST_F(AampRialtoMediaPipelineClientTest, NoSink_EventsAreDropped)
+{
 	EXPECT_NO_THROW(m_client->notifyNeedMediaData(1, 10, 42, nullptr));
-}
-
-TEST_F(AampRialtoMediaPipelineClientTest,
-	notifyCancelNeedMediaData_WithCallback_InvokesCallback)
-{
-	bool called = false;
-	int32_t gotSource = -1;
-
-	m_client->SetCancelNeedDataCallback(
-		[&](int32_t src) {
-			called    = true;
-			gotSource = src;
-		});
-
-	m_client->notifyCancelNeedMediaData(/*sourceId=*/2);
-
-	EXPECT_TRUE(called);
-	EXPECT_EQ(gotSource, 2);
-}
-
-TEST_F(AampRialtoMediaPipelineClientTest,
-	notifyCancelNeedMediaData_WithoutCallback_DoesNotCrash)
-{
-	EXPECT_NO_THROW(m_client->notifyCancelNeedMediaData(2));
-}
-
-TEST_F(AampRialtoMediaPipelineClientTest,
-	SetNeedDataCallback_ReplacesExisting)
-{
-	int callCount = 0;
-
-	// Install first callback.
-	m_client->SetNeedDataCallback([&](int32_t, size_t, uint32_t) {
-		callCount++;
-	});
-
-	// Override with second callback.
-	m_client->SetNeedDataCallback([&](int32_t, size_t, uint32_t) {
-		callCount += 10; // distinct increment so we know which fired
-	});
-
-	m_client->notifyNeedMediaData(1, 1, 1, nullptr);
-
-	// Only the second callback (increment of 10) should have fired.
-	EXPECT_EQ(callCount, 10);
-}
-
-TEST_F(AampRialtoMediaPipelineClientTest,
-	AllOtherNotifications_DoNotCrash)
-{
-	// None of these should crash with default (stub) implementations.
-	EXPECT_NO_THROW(m_client->notifyPlaybackState(
-		firebolt::rialto::PlaybackState::PLAYING));
+	EXPECT_NO_THROW(m_client->notifyCancelNeedMediaData(1));
+	EXPECT_NO_THROW(m_client->notifyPlaybackState(PlaybackState::PLAYING));
 	EXPECT_NO_THROW(m_client->notifyPosition(0));
 	EXPECT_NO_THROW(m_client->notifyDuration(0));
-	EXPECT_NO_THROW(m_client->notifyNativeSize(1280, 720));
-	EXPECT_NO_THROW(m_client->notifyVideoData(true));
-	EXPECT_NO_THROW(m_client->notifyAudioData(true));
-	EXPECT_NO_THROW(m_client->notifyNetworkState(
-		firebolt::rialto::NetworkState::IDLE));
 	EXPECT_NO_THROW(m_client->notifyBufferUnderflow(0));
-	EXPECT_NO_THROW(m_client->notifyPlaybackError(
-		0, firebolt::rialto::PlaybackError::DECRYPTION));
-	EXPECT_NO_THROW(m_client->notifySourceFlushed(0));
+	EXPECT_NO_THROW(m_client->notifyPlaybackError(0, PlaybackError::DECRYPTION));
 }
 
-TEST_F(AampRialtoMediaPipelineClientTest,
-	notifyBufferUnderflow_WithCallback_InvokesCallback)
+/**
+ * @test SetEventSink_ReplacesExisting
+ */
+TEST_F(AampRialtoMediaPipelineClientTest, SetEventSink_ReplacesExisting)
 {
-	bool called = false;
-	int32_t gotSource = -1;
+	StrictMock<MockPipelineEvents> second;
+	EXPECT_CALL(second, OnBufferUnderflow(1));
 
-	m_client->SetBufferUnderflowCallback(
-		[&](int32_t src) {
-			called    = true;
-			gotSource = src;
-		});
-
-	m_client->notifyBufferUnderflow(/*sourceId=*/2);
-
-	EXPECT_TRUE(called);
-	EXPECT_EQ(gotSource, 2);
-}
-
-TEST_F(AampRialtoMediaPipelineClientTest,
-	notifyBufferUnderflow_WithoutCallback_DoesNotCrash)
-{
-	// No callback installed — must not crash.
-	EXPECT_NO_THROW(m_client->notifyBufferUnderflow(2));
-}
-
-TEST_F(AampRialtoMediaPipelineClientTest,
-	SetBufferUnderflowCallback_ReplacesExisting)
-{
-	int callCount = 0;
-
-	m_client->SetBufferUnderflowCallback([&](int32_t) { callCount++;     });
-	m_client->SetBufferUnderflowCallback([&](int32_t) { callCount += 10; });
+	m_client->SetEventSink(&m_events);
+	m_client->SetEventSink(&second);
 
 	m_client->notifyBufferUnderflow(1);
+}
 
-	// Only the second callback should fire.
-	EXPECT_EQ(callCount, 10);
+/**
+ * @test SetEventSinkNull_StopsDelivery
+ */
+TEST_F(AampRialtoMediaPipelineClientTest, SetEventSinkNull_StopsDelivery)
+{
+	m_client->SetEventSink(&m_events);
+	m_client->SetEventSink(nullptr);
+
+	m_client->notifyNeedMediaData(1, 1, 1, nullptr);
+	m_client->notifyPlaybackState(PlaybackState::PLAYING);
+	m_client->notifyBufferUnderflow(1);
+	m_client->notifyPlaybackError(1, PlaybackError::UNKNOWN);
 }
 
 // ---------------------------------------------------------------------------
-// notifyPlaybackError — PlaybackErrorCallback baseline tests
+// Threading
 // ---------------------------------------------------------------------------
 
-TEST_F(AampRialtoMediaPipelineClientTest,
-	notifyPlaybackError_WithCallback_InvokesCallback)
+namespace
 {
-	bool called = false;
-	int32_t gotSource = -1;
-	firebolt::rialto::PlaybackError gotError =
-		firebolt::rialto::PlaybackError::UNKNOWN;
+/// Counts deliveries; counting is enough for the concurrency tests.
+class CountingEvents : public IAampRialtoPipelineEvents
+{
+public:
+	void OnNeedMediaData(int32_t, size_t, uint32_t) override { ++calls; }
+	void OnCancelNeedMediaData(int32_t) override { ++calls; }
+	void OnPlaybackState(PlaybackState) override { ++calls; }
+	void OnPosition(int64_t) override { ++calls; }
+	void OnDuration(int64_t) override { ++calls; }
+	void OnBufferUnderflow(int32_t) override { ++calls; }
+	void OnPlaybackError(int32_t, PlaybackError) override { ++calls; }
 
-	m_client->SetPlaybackErrorCallback(
-		[&](int32_t src, firebolt::rialto::PlaybackError error) {
-			called    = true;
-			gotSource = src;
-			gotError  = error;
+	std::atomic<int> calls{0};
+};
+}
+
+/**
+ * @test ConcurrentSinkChangeAndDelivery_IsRaceFree
+ */
+TEST_F(AampRialtoMediaPipelineClientTest,
+	ConcurrentSinkChangeAndDelivery_IsRaceFree)
+{
+	/**
+	 * @brief Regression (M8): the sink is changed on the control thread while
+	 *        Rialto delivers events on its own thread.  Under a thread
+	 *        sanitizer an unguarded sink pointer is reported as a race.
+	 */
+	CountingEvents first;
+	CountingEvents second;
+	std::atomic<bool> done{false};
+
+	std::thread deliverer([&] {
+		while (!done.load())
+		{
+			m_client->notifyNeedMediaData(1, 1, 1, nullptr);
+			m_client->notifyPlaybackState(PlaybackState::PLAYING);
+		}
+	});
+
+	for (int i = 0; i < 2000; ++i)
+	{
+		m_client->SetEventSink((i % 2) ? &first : &second);
+		if ((i % 7) == 0)
+		{
+			m_client->SetEventSink(nullptr);
+		}
+	}
+	done = true;
+	deliverer.join();
+
+	m_client->SetEventSink(&first);
+	const int before = first.calls.load();
+	m_client->notifyPosition(0);
+	EXPECT_EQ(first.calls.load(), before + 1);
+}
+
+/**
+ * @test Sink_MayReplaceItselfWhileRunning_DoesNotDeadlock
+ */
+TEST_F(AampRialtoMediaPipelineClientTest,
+	Sink_MayReplaceItselfWhileRunning_DoesNotDeadlock)
+{
+	/**
+	 * @brief The sink is called without the client's lock, so a sink that
+	 *        installs another sink (or clears it) must not deadlock.
+	 */
+	CountingEvents second;
+	EXPECT_CALL(m_events, OnNeedMediaData(1, 1u, 1u))
+		.WillOnce([&](int32_t, size_t, uint32_t) {
+			m_client->SetEventSink(&second);
 		});
+	m_client->SetEventSink(&m_events);
 
-	m_client->notifyPlaybackError(
-		/*sourceId=*/3, firebolt::rialto::PlaybackError::OUTPUT_PROTECTION);
-
-	EXPECT_TRUE(called);
-	EXPECT_EQ(gotSource, 3);
-	EXPECT_EQ(gotError, firebolt::rialto::PlaybackError::OUTPUT_PROTECTION);
+	auto result = std::async(std::launch::async, [&] {
+		m_client->notifyNeedMediaData(1, 1, 1, nullptr);
+		m_client->notifyNeedMediaData(1, 1, 2, nullptr);
+	});
+	ASSERT_EQ(result.wait_for(std::chrono::seconds(5)),
+		std::future_status::ready);
+	EXPECT_EQ(second.calls.load(), 1);
 }
 
+// ---------------------------------------------------------------------------
+// Log levels: frequent events stay out of INFO, rare ones keep their value
+// ---------------------------------------------------------------------------
+
+/**
+ * @test FrequentNotifications_DoNotLogAtInfo
+ */
 TEST_F(AampRialtoMediaPipelineClientTest,
-	notifyPlaybackError_WithoutCallback_DoesNotCrash)
+	FrequentNotifications_DoNotLogAtInfo)
 {
-	// No callback installed — must not crash.
-	EXPECT_NO_THROW(m_client->notifyPlaybackError(
-		2, firebolt::rialto::PlaybackError::DECRYPTION));
+	/**
+	 * @brief Position, need-data, cancel-need-data and QoS arrive many times a
+	 *        second, so they must not appear at INFO.
+	 */
+	testing::internal::CaptureStdout();
+	m_client->notifyPosition(1'000'000'000LL);
+	m_client->notifyNeedMediaData(1, 24, 7, nullptr);
+	m_client->notifyCancelNeedMediaData(1);
+	m_client->notifyQos(1, firebolt::rialto::QosInfo{});
+	const std::string log = testing::internal::GetCapturedStdout();
+
+	EXPECT_EQ(log.find("[INFO]"), std::string::npos) << log;
 }
 
+/**
+ * @test notifyDuration_LogsTheDurationAtInfo
+ */
 TEST_F(AampRialtoMediaPipelineClientTest,
-	SetPlaybackErrorCallback_ReplacesExisting)
+	notifyDuration_LogsTheDurationAtInfo)
 {
-	int callCount = 0;
+	/**
+	 * @brief The duration rarely changes, so the value stays visible at INFO.
+	 */
+	testing::internal::CaptureStdout();
+	m_client->notifyDuration(123'456'789LL);
+	const std::string log = testing::internal::GetCapturedStdout();
 
-	m_client->SetPlaybackErrorCallback(
-		[&](int32_t, firebolt::rialto::PlaybackError) { callCount++; });
-	m_client->SetPlaybackErrorCallback(
-		[&](int32_t, firebolt::rialto::PlaybackError) { callCount += 10; });
-
-	m_client->notifyPlaybackError(1, firebolt::rialto::PlaybackError::UNKNOWN);
-
-	// Only the second callback should fire.
-	EXPECT_EQ(callCount, 10);
+	EXPECT_NE(log.find("[INFO]"), std::string::npos) << log;
+	EXPECT_NE(log.find("123456789"), std::string::npos) << log;
 }
-

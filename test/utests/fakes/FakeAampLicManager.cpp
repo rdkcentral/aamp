@@ -148,8 +148,12 @@ void AampDRMLicenseManager::notifyCleanup()
         g_mockAampLicenseManager->notifyCleanup();
     }
 }
-DrmSession* AampDRMLicenseManager::createDrmSession(char const*, MediaFormat, unsigned char const*, unsigned short, int, DrmCallbacks*, std::shared_ptr<DrmMetaDataEvent>, unsigned char const*, bool)
+DrmSession* AampDRMLicenseManager::createDrmSession(char const* systemId, MediaFormat mediaFormat, unsigned char const* initDataPtr, unsigned short initDataLen, int streamType, DrmCallbacks*, std::shared_ptr<DrmMetaDataEvent>, unsigned char const*, bool)
 {
+        if (g_mockAampLicenseManager)
+        {
+                return g_mockAampLicenseManager->createDrmSessionBySystemId(systemId, mediaFormat, initDataPtr, initDataLen, streamType);
+        }
 	return NULL;
 }
 

@@ -47,6 +47,11 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 
+#include <atomic>
+#include <chrono>
+#include <future>
+#include <thread>
+
 #include "AampRialtoMonitorAV.h"
 #include "MockIMediaPipeline.h"
 #include "MockIStreamSinkNotifiable.h"
@@ -174,9 +179,17 @@ protected:
 
 	std::unique_ptr<AampRialtoMonitorAV> makeSUT()
 	{
-		AampRialtoMonitorAV::Config cfg{
+		return makeSUTWithIntervals(
 			static_cast<int>(kSampleIntervalMs),
-			static_cast<int>(kReportIntervalMs),
+			static_cast<int>(kReportIntervalMs));
+	}
+
+	std::unique_ptr<AampRialtoMonitorAV> makeSUTWithIntervals(
+		int sampleIntervalMs, int reportIntervalMs)
+	{
+		AampRialtoMonitorAV::Config cfg{
+			sampleIntervalMs,
+			reportIntervalMs,
 			kSyncPosThreshMs,
 			kSyncNegThreshMs,
 			kJumpThreshMs};
@@ -212,6 +225,9 @@ protected:
 // Timer lifecycle
 // ---------------------------------------------------------------------------
 
+/**
+ * @test start_RegistersSampleAndReportTimers
+ */
 TEST_F(AampRialtoMonitorAVTest, start_RegistersSampleAndReportTimers)
 {
 	EXPECT_CALL(*m_mockGLib,
@@ -222,6 +238,38 @@ TEST_F(AampRialtoMonitorAVTest, start_RegistersSampleAndReportTimers)
 	m_monitor->start();
 }
 
+/**
+ * @test start_NonPositiveInterval_DoesNotRegisterAnyTimer
+ */
+TEST_F(AampRialtoMonitorAVTest, start_NonPositiveInterval_DoesNotRegisterAnyTimer)
+{
+	/**
+	 * @brief Regression (L11): the intervals were passed to g_timeout_add
+	 *        unchecked; zero busy-loops the main loop and a negative value wraps
+	 *        to a huge unsigned interval.  Neither timer may start unless both
+	 *        intervals are positive.
+	 */
+	const struct { int sampleMs; int reportMs; } kCases[] = {
+		{0, static_cast<int>(kReportIntervalMs)},
+		{static_cast<int>(kSampleIntervalMs), 0},
+		{-1, static_cast<int>(kReportIntervalMs)},
+		{static_cast<int>(kSampleIntervalMs), -1},
+	};
+
+	for (const auto &c : kCases)
+	{
+		EXPECT_CALL(*m_mockGLib, g_timeout_add(_, _, _)).Times(0);
+
+		auto monitor = makeSUTWithIntervals(c.sampleMs, c.reportMs);
+		monitor->start();
+
+		::testing::Mock::VerifyAndClearExpectations(m_mockGLib.get());
+	}
+}
+
+/**
+ * @test start_WhenAlreadyRunning_IsIdempotent
+ */
 TEST_F(AampRialtoMonitorAVTest, start_WhenAlreadyRunning_IsIdempotent)
 {
 	EXPECT_CALL(*m_mockGLib, g_timeout_add(_, _, _)).Times(2);
@@ -230,6 +278,9 @@ TEST_F(AampRialtoMonitorAVTest, start_WhenAlreadyRunning_IsIdempotent)
 	m_monitor->start(); // second call must not register more timers
 }
 
+/**
+ * @test stop_RemovesBothTimerIds
+ */
 TEST_F(AampRialtoMonitorAVTest, stop_RemovesBothTimerIds)
 {
 	m_monitor->start();
@@ -240,6 +291,9 @@ TEST_F(AampRialtoMonitorAVTest, stop_RemovesBothTimerIds)
 	m_monitor->stop();
 }
 
+/**
+ * @test stop_WhenNotRunning_IsIdempotent
+ */
 TEST_F(AampRialtoMonitorAVTest, stop_WhenNotRunning_IsIdempotent)
 {
 	// stop() before start() must not call g_source_remove.
@@ -247,6 +301,9 @@ TEST_F(AampRialtoMonitorAVTest, stop_WhenNotRunning_IsIdempotent)
 	m_monitor->stop();
 }
 
+/**
+ * @test destructor_StopsTimersWhenRunning
+ */
 TEST_F(AampRialtoMonitorAVTest, destructor_StopsTimersWhenRunning)
 {
 	m_monitor->start();
@@ -257,10 +314,93 @@ TEST_F(AampRialtoMonitorAVTest, destructor_StopsTimersWhenRunning)
 	m_monitor.reset(); // triggers destructor
 }
 
+/**
+ * @test stop_WaitsForTickInProgress
+ */
+TEST_F(AampRialtoMonitorAVTest, stop_WaitsForTickInProgress)
+{
+	/**
+	 * @brief Regression (M2): stop() must not return while a tick is still
+	 *        running on the GLib thread, or the monitor and the pipeline it
+	 *        holds can be torn down under it.
+	 */
+	m_monitor->start();
+	ASSERT_NE(m_sampleCb, nullptr);
+
+	std::promise<void> tickEntered;
+	std::promise<void> releaseTick;
+	auto released = releaseTick.get_future();
+	EXPECT_CALL(*m_mockPipeline, getPosition(_))
+		.WillOnce(Invoke([&](int64_t &position)
+		{
+			tickEntered.set_value();
+			released.wait();
+			position = 500LL * kNsPerMs;
+			return true;
+		}));
+
+	std::thread tickThread([this] { m_sampleCb(m_sampleData); });
+	tickEntered.get_future().wait();
+
+	std::atomic<bool> stopReturned{false};
+	std::thread stopThread([&] {
+		m_monitor->stop();
+		stopReturned = true;
+	});
+	std::this_thread::sleep_for(std::chrono::milliseconds(100));
+	EXPECT_FALSE(stopReturned.load())
+		<< "stop() returned while a tick was still running";
+
+	releaseTick.set_value();
+	tickThread.join();
+	stopThread.join();
+	EXPECT_TRUE(stopReturned.load());
+}
+
+/**
+ * @test dispatchAfterStop_DoesNothing
+ */
+TEST_F(AampRialtoMonitorAVTest, dispatchAfterStop_DoesNothing)
+{
+	m_monitor->start();
+	ASSERT_NE(m_sampleCb, nullptr);
+	ASSERT_NE(m_reportCb, nullptr);
+	m_monitor->stop();
+
+	EXPECT_CALL(*m_mockPipeline, getPosition(_)).Times(0);
+	EXPECT_CALL(*m_mockPipeline, getStats(_, _, _)).Times(0);
+
+	EXPECT_EQ(m_sampleCb(m_sampleData), G_SOURCE_REMOVE);
+	EXPECT_EQ(m_reportCb(m_reportData), G_SOURCE_REMOVE);
+}
+
+/**
+ * @test dispatchAfterDestruction_IsSafe
+ */
+TEST_F(AampRialtoMonitorAVTest, dispatchAfterDestruction_IsSafe)
+{
+	/**
+	 * @brief Regression (M2): a dispatch GLib had already picked up when the
+	 *        monitor was destroyed must not use the destroyed object.
+	 */
+	m_monitor->start();
+	ASSERT_NE(m_sampleCb, nullptr);
+	GSourceFunc sampleCb = m_sampleCb;
+	gpointer sampleData = m_sampleData;
+
+	m_monitor.reset();
+
+	EXPECT_CALL(*m_mockPipeline, getPosition(_)).Times(0);
+	EXPECT_EQ(sampleCb(sampleData), G_SOURCE_REMOVE);
+}
+
 // ---------------------------------------------------------------------------
 // Sample tick — guard condition
 // ---------------------------------------------------------------------------
 
+/**
+ * @test sampleTick_WhenNotPlaying_SkipsGetPosition
+ */
 TEST_F(AampRialtoMonitorAVTest, sampleTick_WhenNotPlaying_SkipsGetPosition)
 {
 	m_playing = false;
@@ -275,6 +415,9 @@ TEST_F(AampRialtoMonitorAVTest, sampleTick_WhenNotPlaying_SkipsGetPosition)
 // Sample tick — classification
 // ---------------------------------------------------------------------------
 
+/**
+ * @test sampleTick_PositionAdvances_ClassifiesOk
+ */
 TEST_F(AampRialtoMonitorAVTest, sampleTick_PositionAdvances_ClassifiesOk)
 {
 	// After start(), trigger a sample tick.  getPosition returns 500 ms
@@ -291,6 +434,9 @@ TEST_F(AampRialtoMonitorAVTest, sampleTick_PositionAdvances_ClassifiesOk)
 	triggerReportTick();
 }
 
+/**
+ * @test sampleTick_PositionUnchanged_ClassifiesStall
+ */
 TEST_F(AampRialtoMonitorAVTest, sampleTick_PositionUnchanged_ClassifiesStall)
 {
 	// getPosition always returns 0 ns (= 0 ms).  On the first tick both
@@ -310,6 +456,9 @@ TEST_F(AampRialtoMonitorAVTest, sampleTick_PositionUnchanged_ClassifiesStall)
 	triggerReportTick();
 }
 
+/**
+ * @test sampleTick_GetPositionFails_ClassifiesEos
+ */
 TEST_F(AampRialtoMonitorAVTest, sampleTick_GetPositionFails_ClassifiesEos)
 {
 	// When getPosition() returns false the track is skipped → numTracks == 0
@@ -326,6 +475,9 @@ TEST_F(AampRialtoMonitorAVTest, sampleTick_GetPositionFails_ClassifiesEos)
 	triggerReportTick();
 }
 
+/**
+ * @test sampleTick_TrickplayRate_ClassifiesTrickplay
+ */
 TEST_F(AampRialtoMonitorAVTest, sampleTick_TrickplayRate_ClassifiesTrickplay)
 {
 	// When rate != AAMP_NORMAL_PLAY_RATE only the video track is sampled
@@ -341,10 +493,58 @@ TEST_F(AampRialtoMonitorAVTest, sampleTick_TrickplayRate_ClassifiesTrickplay)
 	triggerReportTick();
 }
 
+/**
+ * @test sampleTick_LargeForwardJumpWhenHealthy_ClassifiesJump
+ */
+TEST_F(AampRialtoMonitorAVTest, sampleTick_LargeForwardJumpWhenHealthy_ClassifiesJump)
+{
+	// Tick 1 (500 ms) is "ok".  Tick 2 is one sample interval later but the
+	// position moved by 2000 ms, beyond the interval plus the jump threshold.
+	m_monitor->start();
+	triggerSampleTick();
+
+	ON_CALL(*m_mockPipeline, getPosition(_))
+		.WillByDefault(DoAll(
+			SetArgReferee<0>(2500LL * kNsPerMs),
+			Return(true)));
+	triggerSampleTick();
+
+	EXPECT_CALL(*m_mockNotifiable, SendMonitorAvEvent(
+		std::string{"jump"}, _, _, _, _)).Times(1);
+
+	triggerReportTick();
+}
+
+/**
+ * @test sampleTick_JumpAfterUnhealthyTick_IsNotReportedAsJump
+ */
+TEST_F(AampRialtoMonitorAVTest, sampleTick_JumpAfterUnhealthyTick_IsNotReportedAsJump)
+{
+	// The jump check only applies when the previous tick was "ok", so the
+	// first advance after a stall is reported as "ok" again.
+	m_monitor->start();
+	triggerSampleTick();	// ok at 500 ms
+	triggerSampleTick();	// unchanged -> stall
+
+	ON_CALL(*m_mockPipeline, getPosition(_))
+		.WillByDefault(DoAll(
+			SetArgReferee<0>(2500LL * kNsPerMs),
+			Return(true)));
+	triggerSampleTick();
+
+	EXPECT_CALL(*m_mockNotifiable, SendMonitorAvEvent(
+		std::string{"ok"}, _, _, _, _)).Times(1);
+
+	triggerReportTick();
+}
+
 // ---------------------------------------------------------------------------
 // Report tick — event firing
 // ---------------------------------------------------------------------------
 
+/**
+ * @test reportTick_BeforeFirstSample_SkipsSendEvent
+ */
 TEST_F(AampRialtoMonitorAVTest, reportTick_BeforeFirstSample_SkipsSendEvent)
 {
 	// The report timer fires before any sample tick has been taken.
@@ -356,6 +556,9 @@ TEST_F(AampRialtoMonitorAVTest, reportTick_BeforeFirstSample_SkipsSendEvent)
 	triggerReportTick();
 }
 
+/**
+ * @test reportTick_AfterSample_PassesDroppedFrames
+ */
 TEST_F(AampRialtoMonitorAVTest, reportTick_AfterSample_PassesDroppedFrames)
 {
 	constexpr uint64_t kDropped = 7u;
@@ -375,6 +578,9 @@ TEST_F(AampRialtoMonitorAVTest, reportTick_AfterSample_PassesDroppedFrames)
 	triggerReportTick();
 }
 
+/**
+ * @test reportTick_WhenVideoSourceIdNegative_ReportsZeroDropped
+ */
 TEST_F(AampRialtoMonitorAVTest,
 	reportTick_WhenVideoSourceIdNegative_ReportsZeroDropped)
 {
@@ -391,6 +597,9 @@ TEST_F(AampRialtoMonitorAVTest,
 	triggerReportTick();
 }
 
+/**
+ * @test reportTick_WhenGetStatsFails_ReportsZeroDropped
+ */
 TEST_F(AampRialtoMonitorAVTest,
 	reportTick_WhenGetStatsFails_ReportsZeroDropped)
 {
@@ -406,6 +615,9 @@ TEST_F(AampRialtoMonitorAVTest,
 	triggerReportTick();
 }
 
+/**
+ * @test reportTick_TimeInState_ClampedToReportInterval
+ */
 TEST_F(AampRialtoMonitorAVTest,
 	reportTick_TimeInState_ClampedToReportInterval)
 {
@@ -446,6 +658,9 @@ TEST_F(AampRialtoMonitorAVTest,
 	triggerReportTick();
 }
 
+/**
+ * @test reportTick_PassesCorrectVideoAndAudioPositions
+ */
 TEST_F(AampRialtoMonitorAVTest,
 	reportTick_PassesCorrectVideoAndAudioPositions)
 {

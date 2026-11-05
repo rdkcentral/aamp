@@ -17,8 +17,8 @@
  * limitations under the License.
  */
 
-#ifndef RialtoMediaKeySession_h
-#define RialtoMediaKeySession_h
+#ifndef AAMP_RIALTO_MEDIA_KEY_SESSION_H
+#define AAMP_RIALTO_MEDIA_KEY_SESSION_H
 
 /**
  * @file RialtoMediaKeySession.h
@@ -43,6 +43,10 @@
  *
  * Decryption is performed server-side by the Rialto pipeline — this class
  * only handles key management (update, close, status queries).
+ *
+ * Threads: the key status cache is written by the Rialto key event thread
+ * (updateKeyStatus()) and read by AAMP's license thread, under
+ * m_keyStatusMutex.
  */
 class RialtoMediaKeySession
 {
@@ -60,7 +64,9 @@ public:
 	                      firebolt::rialto::IMediaKeys& mediaKeys,
 	                      std::function<void(int32_t)> deregister);
 
-	~RialtoMediaKeySession() = default;
+	/// Deregisters from the system if destruct() was not called, so the
+	/// system never keeps a pointer to a destroyed session.
+	~RialtoMediaKeySession();
 
 	RialtoMediaKeySession(const RialtoMediaKeySession&) = delete;
 	RialtoMediaKeySession& operator=(const RialtoMediaKeySession&) = delete;
@@ -69,7 +75,7 @@ public:
 	 * @brief Deliver a license response to the Rialto server.
 	 * @return true on success, false on failure.
 	 */
-	bool update(const uint8_t* keyMessage, uint32_t keyMessageLength);
+	bool update(const uint8_t* keyMessage, size_t keyMessageLength);
 
 	/**
 	 * @brief Close the key session on the Rialto server.
@@ -92,7 +98,7 @@ public:
 	 * @param keyIdSize Length of keyId.
 	 * @return true if the key status is USABLE.
 	 */
-	bool isKeyUsable(const uint8_t* keyId, uint8_t keyIdSize) const;
+	bool isKeyUsable(const uint8_t* keyId, size_t keyIdSize) const;
 
 	/**
 	 * @brief Check if a key has OUTPUT_RESTRICTED status.
@@ -101,7 +107,7 @@ public:
 	 * @param keyIdSize Length of keyId.
 	 * @return true if the key status is OUTPUT_RESTRICTED.
 	 */
-	bool isKeyOutputRestricted(const uint8_t* keyId, uint8_t keyIdSize) const;
+	bool isKeyOutputRestricted(const uint8_t* keyId, size_t keyIdSize) const;
 
 	/**
 	 * @brief Get the Rialto media key session ID.
@@ -127,4 +133,4 @@ private:
 	mutable std::mutex m_keyStatusMutex;
 };
 
-#endif // RialtoMediaKeySession_h
+#endif // AAMP_RIALTO_MEDIA_KEY_SESSION_H

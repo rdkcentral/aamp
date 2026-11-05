@@ -24,12 +24,12 @@
  */
 
 #include "AampRialtoPlayer.h"
-#include "AampRialtoMediaPipelineClient.h"
 #include "AampRialtoMediaSource.h"
 #include "AampDrmBridge.h"
 #include "AampLogManager.h"
 #include "PrivateInstanceAAMPNotifiable.h"
 #include "priv_aamp.h"
+#include "AampSegmentInfo.hpp"
 #include "IControl.h"
 #include "AampRialtoControlBackend.h"
 #include "AampRialtoMonitorAV.h"
@@ -38,6 +38,7 @@
 #include <chrono>
 #include <cinttypes>
 #include <algorithm>
+#include <utility>
 
 // Running with real Rialto on Ubuntu locks up intermittently
 // due to no TextTrack sink on Rialto Server, this disables
@@ -45,191 +46,97 @@
 //#define RIALTO_PLAYER_DISABLE_SUBTITLES
 
 // ---------------------------------------------------------------------------
-// Rialto -> AAMP log bridge
+// Constants
 // ---------------------------------------------------------------------------
-
-void AampRialtoPlayer::RialtoLogHandler::log(
-	Level level,
-	const std::string &file,
-	int line,
-	const std::string &function,
-	const std::string &message)
-{
-	const char *tag = "RialtoClient";
-	switch (level)
-	{
-	case Level::Fatal:
-	case Level::Error:
-		AAMPLOG_ERR("%s [%s:%d %s] %s",
-			tag, file.c_str(), line, function.c_str(), message.c_str());
-		break;
-	case Level::Warning:
-		AAMPLOG_WARN("%s [%s:%d %s] %s",
-			tag, file.c_str(), line, function.c_str(), message.c_str());
-		break;
-	case Level::Milestone:
-		AAMPLOG_MIL("%s [%s:%d %s] %s",
-			tag, file.c_str(), line, function.c_str(), message.c_str());
-		break;
-	case Level::Info:
-		AAMPLOG_INFO("%s [%s:%d %s] %s",
-			tag, file.c_str(), line, function.c_str(), message.c_str());
-		break;
-	case Level::Debug:
-	case Level::External:
-	default:
-		AAMPLOG_TRACE("%s [%s:%d %s] %s",
-			tag, file.c_str(), line, function.c_str(), message.c_str());
-		break;
-	}
-}
-
-// ---------------------------------------------------------------------------
-// ProgressTimer implementation
-// ---------------------------------------------------------------------------
-
-AampRialtoPlayer::ProgressTimer::~ProgressTimer()
-{
-	stop();
-}
-
-void AampRialtoPlayer::ProgressTimer::start(guint interval_ms, Callback cb)
-{
-	if (started)
-	{
-		AAMPLOG_INFO("Progress timer already running");
-		return;
-	}
-
-	if (interval_ms == 0)
-	{
-		AAMPLOG_WARN("Invalid interval=%u ms; timer not started", interval_ms);
-		return;
-	}
-
-	interval = interval_ms;
-	callback = std::move(cb);
-	started = true;
-
-	// Run immediately first
-	runOnce();
-
-	// Then schedule periodic timeout
-	source_id = g_timeout_add(interval, &ProgressTimer::timeout_handler, this);
-
-	if (source_id == 0)
-	{
-		AAMPLOG_WARN("Failed to schedule progress timer");
-		started = false;
-		callback = nullptr;
-	}
-	else
-	{
-		AAMPLOG_INFO("Started progress timer (interval=%u ms)", interval);
-	}
-}
-
-void AampRialtoPlayer::ProgressTimer::kick()
-{
-	if (!started)
-	{
-		return;
-	}
-
-	// Remove the existing periodic source first so it cannot fire
-	// concurrently with the immediate runOnce() call below.
-	if (source_id != 0)
-	{
- 		if (!g_source_remove(source_id))
- 		{
- 			AAMPLOG_WARN("Failed to remove progress timer id=%u", source_id);
- 		}
-	}
-
-	// Dispatch immediately.
-	runOnce();
-
-	// Reschedule the periodic timeout, resetting the interval from now.
-	source_id = g_timeout_add(interval, &ProgressTimer::timeout_handler, this);
-	if (source_id == 0)
-	{
-		AAMPLOG_WARN("Failed to reschedule progress timer after kick");
-		started = false;
-	}
-	else
-	{
-		AAMPLOG_INFO("Progress timer kicked (rescheduled)");
-	}
-}
-
-void AampRialtoPlayer::ProgressTimer::stop()
-{
-	if (!started)
-	{
-		return;
-	}
-
-	if (source_id != 0)
-	{
- 		if (!g_source_remove(source_id))
- 		{
- 			AAMPLOG_WARN("Failed to remove progress timer id=%u", source_id);
- 		}
-		source_id = 0;
-	}
-
-	started = false;
-	callback = nullptr;
-	AAMPLOG_INFO("Stopped progress timer");
-}
-
-gboolean AampRialtoPlayer::ProgressTimer::timeout_handler(gpointer data)
-{
-	auto *self = static_cast<ProgressTimer *>(data);
-	self->runOnce();
-	return G_SOURCE_CONTINUE;
-}
-
-void AampRialtoPlayer::ProgressTimer::runOnce()
-{
-	if (callback)
-	{
-		callback();
-	}
-}
 
 namespace {
-	/// Upper bound for the wait on Rialto's application state transitioning
-	/// to RUNNING.  In practice the transition completes in a few milliseconds;
-	/// the timeout exists only to avoid a permanent hang if the Rialto server
-	/// never reports RUNNING.
-	constexpr int kRialtoRunningTimeoutMs = 2000;
-
 	constexpr unsigned int kMsPerSecond = 1000;
+
+	/// Pre-roll target, mirroring the GStreamer reference: the default
+	/// SocInterface queued-frame floor (REQUIRED_QUEUED_FRAMES_DEFAULT),
+	/// polled at DEFAULT_BUFFERING_TO_MS for up to DEFAULT_BUFFERING_MAX_MS.
+	/// The floor is applied to frames Rialto has accepted.
+	constexpr uint32_t kPreRollMinAcceptedFrames = 4;
+	constexpr guint    kPreRollPollIntervalMs    = 10;
+	constexpr int64_t  kPreRollTimeoutMs         = 1000;
+
+	const char *PlaybackStateName(firebolt::rialto::PlaybackState state)
+	{
+		const char *name = "UNKNOWN";
+		switch (state)
+		{
+			case firebolt::rialto::PlaybackState::IDLE:
+				name = "IDLE";
+				break;
+			case firebolt::rialto::PlaybackState::PLAYING:
+				name = "PLAYING";
+				break;
+			case firebolt::rialto::PlaybackState::PAUSED:
+				name = "PAUSED";
+				break;
+			case firebolt::rialto::PlaybackState::SEEKING:
+				name = "SEEKING";
+				break;
+			case firebolt::rialto::PlaybackState::SEEK_DONE:
+				name = "SEEK_DONE";
+				break;
+			case firebolt::rialto::PlaybackState::STOPPED:
+				name = "STOPPED";
+				break;
+			case firebolt::rialto::PlaybackState::END_OF_STREAM:
+				name = "END_OF_STREAM";
+				break;
+			case firebolt::rialto::PlaybackState::FAILURE:
+				name = "FAILURE";
+				break;
+			case firebolt::rialto::PlaybackState::UNKNOWN:
+			default:
+				break;
+		}
+		return name;
+	}
 }
 
 // ---------------------------------------------------------------------------
 // Source lookup helpers
 // ---------------------------------------------------------------------------
 
-AampRialtoMediaSource *AampRialtoPlayer::getSource(AampMediaType type)
+AampRialtoPlayer::SourcePtr AampRialtoPlayer::getSource(AampMediaType type) const
 {
 	auto idx = static_cast<size_t>(type);
 	if (idx < kMaxSourceTypes)
 	{
-		return m_sources[idx].get();
+		std::lock_guard<std::mutex> lock(m_sourcesMutex);
+		return m_sources[idx];
 	}
 	return nullptr;
 }
 
-AampRialtoMediaSource *AampRialtoPlayer::findSourceByRialtoId(
-	int32_t rialtoSourceId)
+std::array<AampRialtoPlayer::SourcePtr, AampRialtoPlayer::kMaxSourceTypes>
+AampRialtoPlayer::SnapshotSources() const
 {
-	for (auto &source : m_sources)
+	std::lock_guard<std::mutex> lock(m_sourcesMutex);
+	return m_sources;
+}
+
+void AampRialtoPlayer::SetSource(AampMediaType type, SourcePtr source)
+{
+	SourcePtr previous;
+	{
+		std::lock_guard<std::mutex> lock(m_sourcesMutex);
+		previous = std::move(m_sources[static_cast<size_t>(type)]);
+		m_sources[static_cast<size_t>(type)] = std::move(source);
+	}
+}
+
+AampRialtoPlayer::SourcePtr AampRialtoPlayer::findSourceByRialtoId(
+	int32_t rialtoSourceId) const
+{
+	for (const auto &source : SnapshotSources())
 	{
 		if (source && source->sourceId() == rialtoSourceId)
 		{
-			return source.get();
+			return source;
 		}
 	}
 	return nullptr;
@@ -246,13 +153,12 @@ SourceCreator makeDefaultSourceCreator();
 AampRialtoPlayer::AampRialtoPlayer(
 	PrivateInstanceAAMP *aamp,
 	id3_callback_t id3HandlerCallback,
-	std::function<void(const unsigned char *, int, int, int)> exportFrames)
+	std::function<void(const unsigned char *, int, int, int)> /*exportFrames*/)
 	: AampRialtoPlayer(
 		aamp,
 		/*notifiable=*/nullptr,
 		/*controlBackend=*/nullptr,  // lazily created in Configure()
 		id3HandlerCallback,
-		std::move(exportFrames),
 		makeDefaultSourceCreator())
 {
 }
@@ -262,15 +168,25 @@ AampRialtoPlayer::AampRialtoPlayer(
 	IStreamSinkNotifiable *notifiable,
 	std::unique_ptr<IRialtoControlBackend> controlBackend,
 	id3_callback_t id3HandlerCallback,
-	std::function<void(const unsigned char *, int, int, int)> exportFrames,
 	SourceCreator sourceCreator)
 	: m_aamp(aamp)
-	, m_controlBackend(std::move(controlBackend))
 	, m_ID3MetadataHandler{std::move(id3HandlerCallback)}
-	, m_sourceCreator(std::move(sourceCreator))
-	, m_client(nullptr)
-	, m_pipeline(nullptr)
+	, m_sourceCreator(sourceCreator ? std::move(sourceCreator)
+	                                : makeDefaultSourceCreator())
+	, m_session(std::move(controlBackend))
+	, m_playbackController(
+		[this](const char *reason) { IssuePlay(reason); },
+		[this](const char *reason) { StartPreRoll(reason); })
 {
+	m_preRollMonitor = std::make_unique<AampRialtoPreRollMonitor>(
+		AampRialtoPreRollMonitor::Config{
+			kPreRollMinAcceptedFrames, kPreRollPollIntervalMs, kPreRollTimeoutMs},
+		[this]()
+		{
+			m_playbackController.ReleaseHold(PlayHold::PreRollIncomplete,
+				"PreRollComplete");
+		});
+
 	if (notifiable == nullptr)
 	{
 		m_notifiableAdapter = std::make_unique<PrivateInstanceAAMPNotifiable>(aamp);
@@ -285,14 +201,25 @@ AampRialtoPlayer::AampRialtoPlayer(
 
 AampRialtoPlayer::~AampRialtoPlayer()
 {
+	m_preRollMonitor->Stop();
 	StopProgressTimer();
-	for (auto &source : m_sources)
 	{
-		if (source)
+		const auto pipeline = GetPipeline();
+		for (const auto &source : SnapshotSources())
 		{
-			source->unblockInjection(m_pipeline.get(), "~AampRialtoPlayer");
+			if (source)
+			{
+				source->unblockInjection(pipeline.get(), "~AampRialtoPlayer");
+			}
 		}
 	}
+	// Members declared after m_session are destroyed before it, so release
+	// the pipeline (and every other holder of it) while they are still valid.
+	SetMonitorAV(nullptr);
+	// The last pipeline release joins Rialto's event thread, so no event can
+	// still be running on this player once the sink is cleared.
+	m_session.SetPipeline(nullptr);
+	m_session.ClearClientEventSink();
 	// The CC manager singleton may still hold this object's IDirectRialtoCC*
 	// (e.g. multi-pipeline mode, where its GetId()/Release() refcount is
 	// shared with other, still-live AampRialtoPlayer instances). Clear it
@@ -320,7 +247,7 @@ bool AampRialtoPlayer::ShouldRecreatePipeline(
 {
 	// No pipeline (never created, creation failed, or torn down by Stop())
 	// and the explicit override flags always force a full recreation.
-	if (!m_pipeline ||
+	if (!GetPipeline() ||
 	    bESChangeStatus ||
 	    setReadyAfterPipelineCreation)
 	{
@@ -328,9 +255,10 @@ bool AampRialtoPlayer::ShouldRecreatePipeline(
 		return true;
 	}
 
-	const auto *videoSrc = m_sources[eMEDIATYPE_VIDEO].get();
-	const auto *audioSrc = m_sources[eMEDIATYPE_AUDIO].get();
-	const auto *subtitleSrc = m_sources[eMEDIATYPE_SUBTITLE].get();
+	const auto sources = SnapshotSources();
+	const auto *videoSrc = sources[eMEDIATYPE_VIDEO].get();
+	const auto *audioSrc = sources[eMEDIATYPE_AUDIO].get();
+	const auto *subtitleSrc = sources[eMEDIATYPE_SUBTITLE].get();
 
 	// Video track: any change  add, remove, or codec change - needs rebuild.
 	if (videoSrc == nullptr)
@@ -381,23 +309,19 @@ bool AampRialtoPlayer::ShouldRecreatePipeline(
 	const int rate = m_rate.load(std::memory_order_relaxed);
 	if(rate == AAMP_NORMAL_PLAY_RATE)
 	{
-		// A missing subtitle source only forces recreation when a sidecar
-		// subtitle format is actually requested - e.g. an audio-only
-		// pipeline has no subtitle source at all and subFormat stays
-		// FORMAT_INVALID, which must not trigger a rebuild.
-		if (subtitleSrc == nullptr)
+		// A missing subtitle source is a change only when a subtitle format is
+		// wanted: audio-only content never creates one, and treating that as
+		// a change would rebuild the pipeline on every Configure().
+		const bool subtitleMissing =
+			(subtitleSrc == nullptr) && (subFormat != FORMAT_INVALID);
+		if (subtitleMissing ||
+		    ((subtitleSrc != nullptr) && (subtitleSrc->format() != subFormat)))
 		{
-			if (subFormat == FORMAT_SUBTITLE_TTML ||
-			    subFormat == FORMAT_SUBTITLE_MP4 ||
-			    subFormat == FORMAT_SUBTITLE_WEBVTT)
-			{
-				AAMPLOG_INFO("Need to add subtitle source: ShouldRecreatePipeline true");
-				return true;
-			}
-		}
-		else if (subtitleSrc->format() != subFormat)
-		{
-			AAMPLOG_INFO("subFormat=%d, subtitleSrc->format()=%d. ShouldRecreatePipeline true", subFormat, subtitleSrc->format());
+			AAMPLOG_INFO("Subtitle %s (subFormat=%d, existing=%d): ShouldRecreatePipeline true",
+				subtitleSrc ? "codec changed" : "source missing",
+				static_cast<int>(subFormat),
+				static_cast<int>(subtitleSrc ? subtitleSrc->format()
+				                             : FORMAT_INVALID));
 			return true;
 		}
 	}
@@ -412,15 +336,383 @@ bool AampRialtoPlayer::ShouldRecreatePipeline(
 
 void AampRialtoPlayer::WaitForFlushToComplete()
 {
-	std::unique_lock<std::mutex> lock(m_flushMutex);
-	// Block until the state machine leaves FLUSHING.  Holds m_flushMutex
-	// while the predicate is evaluated so that the optional claim below is
-	// atomic with the check: no concurrent caller can pass the predicate
-	// and also claim FLUSHING before us.
-	m_flushCv.wait(lock, [this]()
+	// An abandoned flush mirrors the setPosition() failure path in Flush():
+	// commit the staged rate, then release the Flushing hold.
+	const bool abandoned = m_stateMachine.waitForFlushComplete(
+		m_flushCompleteTimeout, [this]()
 	{
-		return m_stateMachine.currentState() != PlayerStateId::FLUSHING;
+		m_rate.store(m_segmentPosition.StagedRate(), std::memory_order_relaxed);
 	});
+	if (abandoned)
+	{
+		m_playbackController.ReleaseHold(PlayHold::Flushing, "FlushTimeout");
+	}
+}
+
+void AampRialtoPlayer::ArmPositionPendingForConfigure()
+{
+	// Configure() cannot tell whether the caller will follow up with an
+	// explicit Flush() carrying the real position (e.g. DASH, or HLS TS)
+	// or not at all (HLS MP4: DoEarlyStreamSinkFlush()/
+	// DoStreamSinkFlushOnDiscontinuity() are both false for ISO BMFF, since
+	// that format historically relied on a media-processor-level delayed
+	// flush that AampMp4Demuxer does not implement). So every Configure()
+	// unconditionally arms the deferred-flush mechanism and gates existing
+	// sources: whichever of Flush() or MaybeFlushForPendingPosition() (via
+	// the first post-Configure() sample) resolves the real position first
+	// clears it. AttachSource() also clears it directly when a fresh
+	// NEWLY_ATTACHED already establishes a definitive baseline, so an
+	// ordinary tune's first sample does not trigger a redundant flush.
+	//
+	// Exception: a same-session teardown flush to a placeholder position
+	// (e.g. TeardownStream()'s Flush(0, rate) ahead of an ordinary seek)
+	// also lands in FLUSHED, but its position is NOT authoritative - the
+	// real target position is only resolved once Configure()'s subsequent
+	// first sample runs MaybeFlushForPendingPosition(), so that case must
+	// still arm normally. Only skip when the Flush() that reached FLUSHED
+	// staged an authoritative position (e.g.
+	// AampStreamSinkManager::SetActive() driving a single-pipeline ad
+	// transition): that position IS authoritative, and no play request may
+	// be outstanding at that point, so re-arming here would leave Stream()
+	// deferring play() forever waiting on a sample that can never be
+	// injected while sources stay gated.
+	const bool skipArm =
+		m_segmentPosition.ConsumeAuthoritative() &&
+		m_stateMachine.currentState() == PlayerStateId::FLUSHED;
+	if (!skipArm)
+	{
+		ArmPositionPending("Configure");
+		const auto pipeline = GetPipeline();
+		for (const auto &source : SnapshotSources())
+		{
+			if (source)
+			{
+				source->gateInjection(pipeline.get(), true,
+					"Configure(position-pending)");
+			}
+		}
+	}
+}
+
+bool AampRialtoPlayer::TryReuseExistingPipeline(
+	StreamOutputFormat videoFormat,
+	StreamOutputFormat audioFormat,
+	StreamOutputFormat subFormat,
+	bool bESChangeStatus,
+	bool setReadyAfterPipelineCreation)
+{
+	// Rialto does not support dynamic source management, so any change to
+	// the source set requires a full rebuild.  The exception is audio going
+	// FORMAT_INVALID (trickplay entry): that is handled by signalling EOS on
+	// the audio source so video continues without interruption.
+	const auto sources = SnapshotSources();
+	const bool audioGoingInvalid =
+		sources[eMEDIATYPE_AUDIO] != nullptr &&
+		audioFormat == FORMAT_INVALID;
+
+	const bool reused = !ShouldRecreatePipeline(videoFormat, audioFormat,
+		subFormat, bESChangeStatus, setReadyAfterPipelineCreation);
+
+	if (reused)
+	{
+		// Codec was unknown when the source was created (e.g. muxed
+		// HLS-TS before PMT parsing) and has since been identified -
+		// record it so later stream-caps computation (SendCopy's
+		// muxed-TS path) uses the real codec instead of FORMAT_UNKNOWN.
+		if (sources[eMEDIATYPE_VIDEO] &&
+		    sources[eMEDIATYPE_VIDEO]->format() == FORMAT_UNKNOWN &&
+		    videoFormat != FORMAT_UNKNOWN)
+		{
+			sources[eMEDIATYPE_VIDEO]->setFormat(videoFormat);
+		}
+		if (sources[eMEDIATYPE_AUDIO] &&
+		    sources[eMEDIATYPE_AUDIO]->format() == FORMAT_UNKNOWN &&
+		    audioFormat != FORMAT_UNKNOWN &&
+		    audioFormat != FORMAT_INVALID)
+		{
+			sources[eMEDIATYPE_AUDIO]->setFormat(audioFormat);
+		}
+
+		if (audioGoingInvalid)
+		{
+			AAMPLOG_INFO("Audio going FORMAT_INVALID (trickplay) - "
+				"signalling EOS on audio source, no pipeline recreation");
+			EndOfStreamReached(eMEDIATYPE_AUDIO);
+			EndOfStreamReached(eMEDIATYPE_SUBTITLE);
+		}
+		else if (sources[eMEDIATYPE_AUDIO] &&
+		         audioFormat != FORMAT_INVALID)
+		{
+			// Trickplay exit: if audio was EOS'd (trickplay), clear it
+			// so the injection path can resume.
+			sources[eMEDIATYPE_AUDIO]->setEos(false,
+				"Configure trickplay-exit");
+		}
+
+		// Resume downloads for all existing sources so AAMP's track
+		// worker threads are unblocked even when the pipeline is reused.
+		for (size_t i = 0; i < kMaxSourceTypes; ++i)
+		{
+			if (sources[i])
+			{
+				Aamp()->ResumeTrackDownloads(
+					static_cast<AampMediaType>(i));
+			}
+		}
+	}
+
+	return reused;
+}
+
+void AampRialtoPlayer::ReleasePipelineForReconfigure()
+{
+	auto pipeline = GetPipeline();
+	if (pipeline)
+	{
+		// Wake injectors still waiting on the old pipeline's requests.
+		for (const auto &source : SnapshotSources())
+		{
+			if (source)
+			{
+				source->unblockInjection(pipeline.get(), "Configure(recreate)");
+			}
+		}
+		// The monitor holds its own reference to the pipeline.
+		SetMonitorAV(nullptr);
+		if (!pipeline->stop())
+		{
+			AAMPLOG_ERR("pipeline stop() failed before recreation");
+		}
+		SetPipeline(nullptr);
+	}
+}
+
+void AampRialtoPlayer::BeginNewSession()
+{
+	// Signal the state machine that Configure() is starting a new session
+	// (re-tune or first tune).  This resets to IDLE from whatever previous
+	// state the player was in.
+	m_stateMachine.onReconfigure();
+
+	// Reset first-frame flag so the new tune session forwards the initial
+	// PLAYING notification correctly.
+	m_firstFrameNotified.store(false, std::memory_order_relaxed);
+
+	m_session.EnsureClient();
+
+	for (const auto &source : SnapshotSources())
+	{
+		if (source)
+		{
+			source->reset();
+		}
+	}
+
+	// NOTE: m_pendingProtection is intentionally NOT reset here.
+	// QueueProtectionEvent() is called by AAMP before Configure() in the
+	// normal playback flow; clearing the stored protection params here would
+	// discard them before AttachSource() can use them to call
+	// createSession().  ClearProtectionEvent() handles teardown.
+	// NOTE: the staged flush position is intentionally NOT cleared here.
+	// Flush() may be called before Configure() to pre-stage the seek position;
+	// clearing it here would discard that staged value before sources attach.
+	// NOTE: a pending play request is intentionally NOT cancelled here.
+	// Configure() may be called mid-session from the injection thread when a
+	// TS demuxer identifies the actual codec (e.g. muxed HLS-TS).  In that
+	// case Stream() has already requested play for this tune session, and
+	// cancelling it here would prevent CheckAllSourcesAttached() from issuing
+	// play() after the new pipeline attaches its sources.  Stop() marks the
+	// end of a session and is what cancels the request.
+	m_playbackController.AddHold(PlayHold::SourcesNotAttached, "Configure");
+	ArmPreRoll(m_rate.load(std::memory_order_relaxed), "Configure");
+	std::lock_guard<std::mutex> lock(m_pendingAttachMutex);
+	for (auto &pa : m_pendingAttach)
+	{
+		pa.reset();
+	}
+}
+
+void AampRialtoPlayer::CreateMonitorAV()
+{
+	PrivateInstanceAAMP *aamp = Aamp();
+	if (aamp->mConfig->IsConfigSet(eAAMPConfig_MonitorAV))
+	{
+		const double progressSec =
+			aamp->mConfig->GetConfigValue(
+				eAAMPConfig_ReportProgressInterval);
+		AampRialtoMonitorAV::Config monCfg{};
+		monCfg.sampleIntervalMs =
+			static_cast<int>(SecondsToMs(progressSec));
+		monCfg.reportIntervalMs =
+			aamp->mConfig->GetConfigValue(
+				eAAMPConfig_MonitorAVReportingInterval);
+		monCfg.syncThresholdPositiveMs =
+			aamp->mConfig->GetConfigValue(
+				eAAMPConfig_MonitorAVSyncThresholdPositive);
+		monCfg.syncThresholdNegativeMs =
+			aamp->mConfig->GetConfigValue(
+				eAAMPConfig_MonitorAVSyncThresholdNegative);
+		monCfg.jumpThresholdMs =
+			aamp->mConfig->GetConfigValue(
+				eAAMPConfig_MonitorAVJumpThreshold);
+
+		SetMonitorAV(std::make_unique<AampRialtoMonitorAV>(
+			GetPipeline(),
+			m_notifiable,
+			[this]() -> int32_t
+			{
+				const auto src = getSource(eMEDIATYPE_VIDEO);
+				return src ? src->sourceId() : -1;
+			},
+			[this]() -> int { return m_rate.load(); },
+			[this]() -> bool
+			{
+				return m_stateMachine.currentState()
+					== PlayerStateId::PLAYING;
+			},
+			monCfg));
+
+		AAMPLOG_MIL("AampRialtoMonitorAV created");
+	}
+}
+
+void AampRialtoPlayer::SetMonitorAV(std::unique_ptr<AampRialtoMonitorAV> monitor)
+{
+	// The old monitor is destroyed outside the lock: its destructor waits for
+	// a tick in progress.
+	std::unique_ptr<AampRialtoMonitorAV> previous;
+	{
+		std::lock_guard<std::mutex> lock(m_monitorMutex);
+		previous = std::move(m_monitorAV);
+		m_monitorAV = std::move(monitor);
+	}
+}
+
+void AampRialtoPlayer::CreateAndLoadPipeline()
+{
+	if (m_session.CreateAndLoad(*this) ==
+	    AampRialtoPipelineSession::CreateResult::Loaded)
+	{
+		// Advance state machine: pipeline is now created and loaded.
+		m_stateMachine.onPipelineLoaded();
+
+		// Re-apply cached audio volume/mute - a freshly created
+		// pipeline defaults to full volume, so any previously
+		// requested value must be re-sent here.
+		applyAudioVolume();
+
+		CreateMonitorAV();
+	}
+}
+
+void AampRialtoPlayer::CreateMediaSource(
+	AampMediaType type, StreamOutputFormat format)
+{
+	SourcePtr src = m_sourceCreator(type);
+	if (src)
+	{
+		src->setFormat(format);
+		SetSource(type, src);
+		// Hold (rather than drop) genuinely-wanted data for this new
+		// session until the playback controller issues play() and clears
+		// the gate via UngateAllSources() — prevents an early needData from
+		// slipping samples through before the pipeline is genuinely ready
+		// (e.g. before a subsequent Flush() in a multi-step trickplay
+		// sequence has staged the correct position).  Must be set before
+		// AttachSource() is ever called for this source.
+		src->gateInjection(GetPipeline().get(), true, "Configure");
+		Aamp()->ResumeTrackDownloads(type);
+		AAMPLOG_INFO("Created mediaType=%d source (format=%d)",
+			static_cast<int>(type), static_cast<int>(format));
+	}
+}
+
+void AampRialtoPlayer::CreateSubtitleSource(
+	StreamOutputFormat subFormat, StreamOutputFormat videoFormat)
+{
+	if (subFormat == FORMAT_SUBTITLE_TTML ||
+	    subFormat == FORMAT_SUBTITLE_MP4 ||
+	    subFormat == FORMAT_SUBTITLE_WEBVTT)
+	{
+		CreateMediaSource(eMEDIATYPE_SUBTITLE, subFormat);
+		if (const auto subtitleSource = getSource(eMEDIATYPE_SUBTITLE))
+		{
+			// For raw subtitle formats (TTML/WebVTT) there is no MP4 init
+			// segment, so no AampMp4Demuxer is created and SetStreamCaps
+			// is never called for subtitle.  Queue the source attachment
+			// here so it fires once video attaches (same deferred path as
+			// audio).  FORMAT_SUBTITLE_MP4 is also handled via the demuxer
+			// updateCachedMetadata → SetStreamCaps path.
+			MediaCodecInfo ci{};
+			ci.mCodecFormat = (subFormat == FORMAT_SUBTITLE_WEBVTT)
+						? GST_FORMAT_SUBTITLE_WEBVTT
+						: GST_FORMAT_SUBTITLE_TTML;
+			AAMPLOG_INFO("Queueing subtitle attachment for format=%d",
+				static_cast<int>(subFormat));
+			std::lock_guard<std::mutex> lock(m_attachMutex);
+			AttachSource(*subtitleSource, ci);
+		}
+	}
+	else if (videoFormat != FORMAT_INVALID)
+	{
+		// No sidecar subtitle track — create an inband CC source that uses
+		// the "application/x-subtitle-cc" MIME type so the Rialto pipeline
+		// can deliver closed-caption data from the video stream.
+		SourcePtr src = m_sourceCreator(eMEDIATYPE_SUBTITLE);
+		if (src)
+		{
+			src->setFormat(FORMAT_INVALID);
+			SetSource(eMEDIATYPE_SUBTITLE, src);
+			src->gateInjection(GetPipeline().get(), true, "Configure");
+			MediaCodecInfo ci{};
+			ci.mCodecFormat = GST_FORMAT_UNKNOWN;
+			{
+				std::lock_guard<std::mutex> lock(m_attachMutex);
+				AttachSource(*src, ci);
+			}
+			AAMPLOG_INFO("Created inband CC subtitle source");
+		}
+	}
+	else
+	{
+		// No video means no inband-CC subtitle either, and no sidecar
+		// format was requested - drop any stale subtitle source left over
+		// from the previous pipeline.
+		SetSource(eMEDIATYPE_SUBTITLE, nullptr);
+	}
+}
+
+void AampRialtoPlayer::CreateSources(
+	StreamOutputFormat videoFormat,
+	StreamOutputFormat audioFormat,
+	StreamOutputFormat subFormat)
+{
+	// FORMAT_ISO_BMFF: AampRialtoPlayer demuxes via SendTransfer; the demuxer
+	//                  is created lazily on the first SendTransfer call.
+	// FORMAT_UNKNOWN:  streamabstraction demuxes externally (SetStreamCaps path).
+	//
+	// Reaching here means the source set changed, so a source for a track
+	// that is no longer present must not survive into the new pipeline -
+	// otherwise CheckAllSourcesAttached() would wait forever on it.
+	if (videoFormat != FORMAT_INVALID)
+	{
+		CreateMediaSource(eMEDIATYPE_VIDEO, videoFormat);
+	}
+	else
+	{
+		SetSource(eMEDIATYPE_VIDEO, nullptr);
+	}
+	if (audioFormat != FORMAT_INVALID)
+	{
+		CreateMediaSource(eMEDIATYPE_AUDIO, audioFormat);
+	}
+	else
+	{
+		SetSource(eMEDIATYPE_AUDIO, nullptr);
+	}
+#if !defined(RIALTO_PLAYER_DISABLE_SUBTITLES)
+	CreateSubtitleSource(subFormat, videoFormat);
+#endif
 }
 
 void AampRialtoPlayer::Configure(
@@ -446,437 +738,26 @@ void AampRialtoPlayer::Configure(
 
 	StopProgressTimer();
 
-	// Configure() cannot tell whether the caller will follow up with an
-	// explicit Flush() carrying the real position (e.g. DASH, or HLS TS)
-	// or not at all (HLS MP4: DoEarlyStreamSinkFlush()/
-	// DoStreamSinkFlushOnDiscontinuity() are both false for ISO BMFF, since
-	// that format historically relied on a media-processor-level delayed
-	// flush that AampMp4Demuxer does not implement). So every Configure()
-	// unconditionally arms the deferred-flush mechanism and gates existing
-	// sources: whichever of Flush() or MaybeFlushForPendingPosition() (via
-	// the first post-Configure() sample) resolves the real position first
-	// clears it. AttachSource() also clears it directly when a fresh
-	// NEWLY_ATTACHED already establishes a definitive baseline, so an
-	// ordinary tune's first sample does not trigger a redundant flush.
-	//
-	// Exception: a same-session teardown flush to a placeholder position
-	// (e.g. TeardownStream()'s Flush(0, rate) ahead of an ordinary seek)
-	// also lands in FLUSHED, but its position is NOT authoritative - the
-	// real target position is only resolved once Configure()'s subsequent
-	// first sample runs MaybeFlushForPendingPosition(), so that case must
-	// still arm normally. Only skip when the Flush() that reached FLUSHED
-	// was called with positionIsAuthoritative=true (e.g.
-	// AampStreamSinkManager::SetActive() driving a single-pipeline ad
-	// transition): that position IS authoritative, and playRequested may
-	// still be false at that point, so re-arming here would leave Stream()
-	// deferring play() forever waiting on a sample that can never be
-	// injected while sources stay gated.
-	const bool skipArm =
-		m_lastFlushPositionAuthoritative.exchange(false, std::memory_order_relaxed) &&
-		m_stateMachine.currentState() == PlayerStateId::FLUSHED;
-	if (!skipArm)
+	ArmPositionPendingForConfigure();
+
+	if (TryReuseExistingPipeline(videoFormat, audioFormat, subFormat,
+			bESChangeStatus, setReadyAfterPipelineCreation))
 	{
-		ArmPositionPending("Configure");
-		for (auto &source : m_sources)
-		{
-			if (source)
-			{
-				source->gateInjection(m_pipeline.get(), true,
-					"Configure(position-pending)");
-			}
-		}
+		AAMPLOG_INFO("EXIT - source set unchanged, skipping pipeline recreation");
 	}
-
-	// Guard: skip teardown and recreation when the pipeline can be reused.
-	// Rialto does not support dynamic source management, so any change to
-	// the source set requires a full rebuild.  The exception is audio going
-	// FORMAT_INVALID (trickplay entry): that is handled by signalling EOS on
-	// the audio source so video continues without interruption.
+	else
 	{
-		const bool audioGoingInvalid =
-			m_sources[eMEDIATYPE_AUDIO] != nullptr &&
-			audioFormat == FORMAT_INVALID;
-
-		if (!ShouldRecreatePipeline(videoFormat, audioFormat, subFormat,
-		        bESChangeStatus, setReadyAfterPipelineCreation))
+		ReleasePipelineForReconfigure();
+		BeginNewSession();
+		CreateAndLoadPipeline();
+		if (!GetPipeline())
 		{
-			// Codec was unknown when the source was created (e.g. muxed
-			// HLS-TS before PMT parsing) and has since been identified -
-			// record it so later stream-caps computation (SendCopy's
-			// muxed-TS path) uses the real codec instead of FORMAT_UNKNOWN.
-			if (m_sources[eMEDIATYPE_VIDEO] &&
-			    m_sources[eMEDIATYPE_VIDEO]->format() == FORMAT_UNKNOWN &&
-			    videoFormat != FORMAT_UNKNOWN)
-			{
-				m_sources[eMEDIATYPE_VIDEO]->setFormat(videoFormat);
-			}
-			if (m_sources[eMEDIATYPE_AUDIO] &&
-			    m_sources[eMEDIATYPE_AUDIO]->format() == FORMAT_UNKNOWN &&
-			    audioFormat != FORMAT_UNKNOWN &&
-			    audioFormat != FORMAT_INVALID)
-			{
-				m_sources[eMEDIATYPE_AUDIO]->setFormat(audioFormat);
-			}
-
-			if (audioGoingInvalid)
-			{
-				AAMPLOG_INFO("Audio going FORMAT_INVALID (trickplay) - "
-					"signalling EOS on audio source, no pipeline recreation");
-				EndOfStreamReached(eMEDIATYPE_AUDIO);
-				EndOfStreamReached(eMEDIATYPE_SUBTITLE);
-			}
-			else if (m_sources[eMEDIATYPE_AUDIO] &&
-			         audioFormat != FORMAT_INVALID)
-			{
-				// Trickplay exit: if audio was EOS'd (trickplay), clear it
-				// so the injection path can resume.
-				m_sources[eMEDIATYPE_AUDIO]->setEos(false,
-					"Configure trickplay-exit");
-			}
-
-			// Resume downloads for all existing sources so AAMP's track
-			// worker threads are unblocked even when the pipeline is reused.
-			for (size_t i = 0; i < kMaxSourceTypes; ++i)
-			{
-				if (m_sources[i])
-				{
-					m_aamp->ResumeTrackDownloads(
-						static_cast<AampMediaType>(i));
-				}
-			}
-
-			AAMPLOG_INFO("EXIT - source set unchanged, skipping pipeline recreation");
+			AAMPLOG_INFO("EXIT - no pipeline created");
 			return;
 		}
+		CreateSources(videoFormat, audioFormat, subFormat);
+		AAMPLOG_INFO("EXIT");
 	}
-
-	// Signal the state machine that Configure() is starting a new session
-	// (re-tune or first tune).  This resets to IDLE from whatever previous
-	// state the player was in.
-	m_stateMachine.onReconfigure();
-
-	// Reset first-frame flag so the new tune session forwards the initial
-	// PLAYING notification correctly.
-	m_firstFrameNotified.store(false, std::memory_order_relaxed);
-
-	if (!m_client)
-	{
-		m_client = std::make_shared<AampRialtoMediaPipelineClient>();
-	}
-
-	// Reset per-source state for a fresh session.
-	for (auto &source : m_sources)
-	{
-		if (source)
-		{
-			source->reset();
-		}
-	}
-
-	// NOTE: m_videoProt / m_audioProt are intentionally NOT reset here.
-	// QueueProtectionEvent() is called by AAMP before Configure() in the
-	// normal playback flow; clearing the stored protection params here would
-	// discard them before AttachVideoSource / AttachAudioSource can use them
-	// to call createSession().  ClearProtectionEvent() handles teardown.
-	// NOTE: m_pendingPositionNs is intentionally NOT reset here.
-	// Flush() may be called before Configure() to pre-stage the seek position;
-	// clearing it here would discard that staged value before sources attach.
-	// NOTE: m_playRequested is intentionally NOT reset here.
-	// Configure() may be called mid-session from the injection thread when a
-	// TS demuxer identifies the actual codec (e.g. muxed HLS-TS).  In that
-	// case Stream() has already set m_playRequested=true for this tune
-	// session, and resetting it here would prevent CheckAllSourcesAttached()
-	// from issuing play() after the new pipeline attaches its sources.
-	// m_playRequested is reset by Stop(), which marks the end of a session.
-	m_allSourcesAttachedFlag.store(false, std::memory_order_relaxed);
-	for (auto &pa : m_pendingAttach)
-	{
-		pa.reset();
-	}
-
-	// Register Rialto -> AAMP log bridge once.
-	if (!m_rialtoLogHandler)
-	{
-		m_rialtoLogHandler = std::make_shared<RialtoLogHandler>();
-		auto logControlFactory =
-			firebolt::rialto::IClientLogControlFactory::createFactory();
-		if (logControlFactory)
-		{
-			logControlFactory->createClientLogControl()
-				.registerLogHandler(m_rialtoLogHandler,
-					/*ignoreLogLevels=*/true);
-		}
-		else
-		{
-			AAMPLOG_WARN("Failed to create IClientLogControlFactory - Rialto logs suppressed");
-		}
-	}
-
-	// Registering with Rialto's IControl is deferred to the first Configure()
-	// call (mirrors rialto-gstreamer's PullModePlaybackDelegate, which creates
-	// its ControlBackend on the NULL->READY state change) rather than at
-	// construction time, so a player instance that is created but never
-	// tuned does not register a client with the Rialto server.
-	if (!m_controlBackend)
-	{
-		m_controlBackend = std::make_unique<AampRialtoControlBackend>();
-	}
-	if (!m_pipelineFactory)
-	{
-		m_pipelineFactory = firebolt::rialto::IMediaPipelineFactory::createFactory();
-	}
-	if (!m_pipelineCapabilities)
-	{
-		auto capFactory =
-			firebolt::rialto::IMediaPipelineCapabilitiesFactory::createFactory();
-		if (capFactory)
-		{
-			m_pipelineCapabilities = capFactory->createMediaPipelineCapabilities();
-		}
-		else
-		{
-			AAMPLOG_WARN("Failed to create IMediaPipelineCapabilitiesFactory");
-		}
-	}
-	auto &factory = m_pipelineFactory;
-	if (!factory)
-	{
-		AAMPLOG_ERR("Failed to create IMediaPipelineFactory - is the Rialto server running?");
-	}
-	else
-	{
-		// Wait for the Rialto server to report ApplicationState::RUNNING before
-		// creating the media pipeline - ensures the proxy ctor sees RUNNING from
-		// its internal registerClient() call, preventing NeedMediaData events
-		// from being silently dropped.
-		if (m_controlBackend && !m_controlBackend->waitForRunning(kRialtoRunningTimeoutMs))
-		{
-			AAMPLOG_WARN(
-				"Proceeding to createMediaPipeline despite Rialto state not RUNNING");
-		}
-
-		constexpr std::uint32_t kWidth{3840};
-		constexpr std::uint32_t kHeight{2160};
-		firebolt::rialto::VideoRequirements kRequirements{kWidth, kHeight};
-		m_pipeline = factory->createMediaPipeline(
-			std::weak_ptr<firebolt::rialto::IMediaPipelineClient>(m_client),
-			kRequirements);
-		if (!m_pipeline)
-		{
-			AAMPLOG_ERR("createMediaPipeline returned nullptr - check Rialto server logs (syslog) for details");
-		}
-		else
-		{
-			AAMPLOG_INFO("Created pipeline %p", m_pipeline.get());
-
-			// TODO: How do we determine value for isLive
-			std::string utf8url = "mse://1";
-			if (!m_pipeline->load(
-					firebolt::rialto::MediaType::MSE,
-					"",
-					/*url=*/utf8url,
-					/*isLive*/false))
-			{
-				AAMPLOG_ERR("load() failed - Rialto will reject attachSource calls");
-			}
-			else
-			{
-				AAMPLOG_INFO("load() succeeded");
-
-				m_client->SetNeedDataCallback(
-					[this](int32_t sid, size_t fc, uint32_t rid) {
-						OnNeedMediaData(sid, fc, rid);
-					});
-				m_client->SetCancelNeedDataCallback(
-					[this](int32_t sid) {
-						OnCancelNeedMediaData(sid);
-					});
-				m_client->SetPlaybackStateCallback(
-					[this](firebolt::rialto::PlaybackState state) {
-						OnPlaybackState(state);
-					});
-				m_client->SetPositionCallback(
-					[this](int64_t posNs) {
-						OnPosition(posNs);
-					});
-				m_client->SetDurationCallback(
-					[this](int64_t durNs) {
-						OnDuration(durNs);
-					});
-				m_client->SetBufferUnderflowCallback(
-					[this](int32_t sid) {
-						OnBufferUnderflow(sid);
-					});
-				m_client->SetPlaybackErrorCallback(
-					[this](int32_t sid, firebolt::rialto::PlaybackError error) {
-						OnPlaybackError(sid, error);
-					});
-
-				// Advance state machine: pipeline is now created and loaded.
-				m_stateMachine.onPipelineLoaded();
-
-				// Re-apply cached audio volume/mute - a freshly created
-				// pipeline defaults to full volume, so any previously
-				// requested value must be re-sent here.
-				applyAudioVolume();
-
-				// Create the AV health monitor when the feature is enabled.
-				if (m_aamp->mConfig->IsConfigSet(eAAMPConfig_MonitorAV))
-				{
-					const double progressSec =
-						m_aamp->mConfig->GetConfigValue(
-							eAAMPConfig_ReportProgressInterval);
-					AampRialtoMonitorAV::Config monCfg{};
-					monCfg.sampleIntervalMs =
-						static_cast<int>(progressSec * 1000.0);
-					monCfg.reportIntervalMs =
-						m_aamp->mConfig->GetConfigValue(
-							eAAMPConfig_MonitorAVReportingInterval);
-					monCfg.syncThresholdPositiveMs =
-						m_aamp->mConfig->GetConfigValue(
-							eAAMPConfig_MonitorAVSyncThresholdPositive);
-					monCfg.syncThresholdNegativeMs =
-						m_aamp->mConfig->GetConfigValue(
-							eAAMPConfig_MonitorAVSyncThresholdNegative);
-					monCfg.jumpThresholdMs =
-						m_aamp->mConfig->GetConfigValue(
-							eAAMPConfig_MonitorAVJumpThreshold);
-
-					m_monitorAV = std::make_unique<AampRialtoMonitorAV>(
-						m_pipeline,
-						m_notifiable,
-						[this]() -> int32_t
-						{
-							auto &src = m_sources[eMEDIATYPE_VIDEO];
-							return src ? src->sourceId() : -1;
-						},
-						[this]() -> int { return m_rate.load(); },
-						[this]() -> bool
-						{
-							return m_stateMachine.currentState()
-								== PlayerStateId::PLAYING;
-						},
-						monCfg);
-
-					AAMPLOG_MIL("AampRialtoMonitorAV created");
-				}
-			}
-		}
-	}
-
-	if (!m_pipeline)
-	{
-		AAMPLOG_INFO("EXIT - no pipeline created");
-		return;
-	}
-
-	// Create per-source objects based on configured formats.
-	// FORMAT_ISO_BMFF: AampRialtoPlayer demuxes via SendTransfer; the demuxer
-	//                  is created lazily on the first SendTransfer call.
-	// FORMAT_UNKNOWN:  streamabstraction demuxes externally (SetStreamCaps path).
-
-	if (videoFormat != FORMAT_INVALID)
-	{
-		auto src = m_sourceCreator(eMEDIATYPE_VIDEO);
-		if (src)
-		{
-			src->setFormat(videoFormat);
-			m_sources[eMEDIATYPE_VIDEO] = std::move(src);
-			// Hold (rather than drop) genuinely-wanted data for this new
-			// session until Stream()/CheckAllSourcesAttached() confirms
-			// play() and clears the gate via UngateAllSources() — prevents
-			// an early needData from slipping samples through before the
-			// pipeline is genuinely ready (e.g. before a subsequent Flush()
-			// in a multi-step trickplay sequence has staged the correct
-			// position).  Must be set before AttachSource() is ever called
-			// for this source.
-			m_sources[eMEDIATYPE_VIDEO]->gateInjection(
-				m_pipeline.get(), true, "Configure");
-			m_aamp->ResumeTrackDownloads(eMEDIATYPE_VIDEO);
-			AAMPLOG_INFO("Created video source (format=%d)", static_cast<int>(videoFormat));
-		}
-	}
-	else
-	{
-		// A reused-pipeline check above only skips teardown/recreation when
-		// the source set is unchanged; reaching here means at least one
-		// track changed, so a stale video source from the previous pipeline
-		// must not survive into this one - otherwise
-		// CheckAllSourcesAttached() would wait forever on it.
-		m_sources[eMEDIATYPE_VIDEO].reset();
-	}
-	if (audioFormat != FORMAT_INVALID)
-	{
-		auto src = m_sourceCreator(eMEDIATYPE_AUDIO);
-		if (src)
-		{
-			src->setFormat(audioFormat);
-			m_sources[eMEDIATYPE_AUDIO] = std::move(src);
-			m_sources[eMEDIATYPE_AUDIO]->gateInjection(
-				m_pipeline.get(), true, "Configure");
-			m_aamp->ResumeTrackDownloads(eMEDIATYPE_AUDIO);
-			AAMPLOG_INFO("Created audio source (format=%d)", static_cast<int>(audioFormat));
-		}
-	}
-	else
-	{
-		m_sources[eMEDIATYPE_AUDIO].reset();
-	}
-#if !defined(RIALTO_PLAYER_DISABLE_SUBTITLES)
-	if (subFormat == FORMAT_SUBTITLE_TTML || subFormat == FORMAT_SUBTITLE_MP4 || subFormat == FORMAT_SUBTITLE_WEBVTT)
-	{
-		auto src = m_sourceCreator(eMEDIATYPE_SUBTITLE);
-		if (src)
-		{
-			src->setFormat(subFormat);
-			m_sources[eMEDIATYPE_SUBTITLE] = std::move(src);
-			m_sources[eMEDIATYPE_SUBTITLE]->gateInjection(
-				m_pipeline.get(), true, "Configure");
-			m_aamp->ResumeTrackDownloads(eMEDIATYPE_SUBTITLE);
-			AAMPLOG_INFO("Created subtitle source (format=%d)", static_cast<int>(subFormat));
-
-			// For raw subtitle formats (TTML/WebVTT) there is no MP4 init
-			// segment, so no AampMp4Demuxer is created and SetStreamCaps
-			// is never called for subtitle.  Queue the source attachment
-			// here so it fires once video attaches (same deferred path as
-			// audio).  FORMAT_SUBTITLE_MP4 is also handled via the demuxer
-			// updateCachedMetadata → SetStreamCaps path.
-			MediaCodecInfo ci{};
-			ci.mCodecFormat = (subFormat == FORMAT_SUBTITLE_WEBVTT)
-						? GST_FORMAT_SUBTITLE_WEBVTT
-						: GST_FORMAT_SUBTITLE_TTML;
-			AAMPLOG_INFO("Queueing subtitle attachment for format=%d",
-				static_cast<int>(subFormat));
-			AttachSource(*m_sources[eMEDIATYPE_SUBTITLE], ci);
-		}
-	}
-	else if (videoFormat != FORMAT_INVALID)
-	{
-		// No sidecar subtitle track — create an inband CC source that uses
-		// the "application/x-subtitle-cc" MIME type so the Rialto pipeline
-		// can deliver closed-caption data from the video stream.
-		auto src = m_sourceCreator(eMEDIATYPE_SUBTITLE);
-		if (src)
-		{
-			src->setFormat(FORMAT_INVALID);
-			m_sources[eMEDIATYPE_SUBTITLE] = std::move(src);
-			m_sources[eMEDIATYPE_SUBTITLE]->gateInjection(
-				m_pipeline.get(), true, "Configure");
-			MediaCodecInfo ci{};
-			ci.mCodecFormat = GST_FORMAT_UNKNOWN;
-			AttachSource(*m_sources[eMEDIATYPE_SUBTITLE], ci);
-			AAMPLOG_INFO("Created inband CC subtitle source");
-		}
-	}
-	else
-	{
-		// No video means no inband-CC subtitle either, and no sidecar
-		// format was requested - drop any stale subtitle source left over
-		// from the previous pipeline.
-		m_sources[eMEDIATYPE_SUBTITLE].reset();
-	}
-#endif
-	AAMPLOG_INFO("EXIT");
 }
 
 static GstStreamOutputFormat toGstStreamOutputFormat(StreamOutputFormat fmt)
@@ -919,6 +800,26 @@ static GstStreamOutputFormat toGstStreamOutputFormat(StreamOutputFormat fmt)
 	return gstFmt;
 }
 
+void AampRialtoPlayer::ReportID3Metadata(AampMediaType mediaType,
+	const uint8_t *data, size_t size, double pts, double dts, double duration)
+{
+	namespace aih = aamp::id3_metadata::helpers;
+	if (data && aih::IsValidMediaType(mediaType) &&
+	    aih::IsValidHeader(data, size))
+	{
+		id3_callback_t handler;
+		{
+			std::lock_guard<std::mutex> lock(m_id3HandlerMutex);
+			handler = m_ID3MetadataHandler;
+		}
+		if (handler)
+		{
+			handler(mediaType, data, size,
+				SegmentInfo_t{pts, dts, duration}, nullptr);
+		}
+	}
+}
+
 bool AampRialtoPlayer::SendCopy(
 	AampMediaType mediaType,
 	std::vector<uint8_t> &&buffer,
@@ -926,10 +827,16 @@ bool AampRialtoPlayer::SendCopy(
 	double fdts,
 	double fDuration)
 {
-	AAMPLOG_INFO("ENTRY mediaType=%d bufferSize=%zu fpts=%f fdts=%f fDuration=%f", static_cast<int>(mediaType), buffer.size(), fpts, fdts, fDuration);
+	AAMPLOG_TRACE("ENTRY mediaType=%d bufferSize=%zu fpts=%f fdts=%f "
+		"fDuration=%f", static_cast<int>(mediaType), buffer.size(),
+		fpts, fdts, fDuration);
 	bool success = false;
+	const auto pipeline = GetPipeline();
 
-	auto *source = getSource(mediaType);
+	ReportID3Metadata(mediaType, buffer.data(), buffer.size(),
+		fpts, fdts, fDuration);
+
+	const auto source = getSource(mediaType);
 	if (!source)
 	{
 		// No source for this track (e.g. subtitle not yet supported).
@@ -941,7 +848,7 @@ bool AampRialtoPlayer::SendCopy(
 		AAMPLOG_WARN("Buffer is empty for mediaType=%d",
 			static_cast<int>(mediaType));
 	}
-	else if (!m_pipeline)
+	else if (!pipeline)
 	{
 		AAMPLOG_WARN("No pipeline - cannot process data fragment");
 	}
@@ -951,7 +858,7 @@ bool AampRialtoPlayer::SendCopy(
 		{
 			// Attaching all sources to avoid deadlock with muxed HLS-TS which uses only one injection thread
 			// For HLS-TS, the codec format is all that Rialto requires to set the stream caps.
-			for (const auto& source2: m_sources)
+			for (const auto& source2: SnapshotSources())
 			{
 				if (source2 && !source2->isAttached())
 				{
@@ -967,7 +874,7 @@ bool AampRialtoPlayer::SendCopy(
 			std::make_shared<std::vector<uint8_t>>(std::move(buffer));
 		MaybeFlushForPendingPosition(mediaType, fpts);
 		if (!source->processDataFragment(
-					*m_pipeline, std::move(sharedBuffer),
+					*pipeline, std::move(sharedBuffer),
 					fpts, fdts, fDuration, 0.0))
 		{
 			AAMPLOG_WARN("processDataFragment failed for mediaType=%d",
@@ -979,7 +886,7 @@ bool AampRialtoPlayer::SendCopy(
 		}
 	}
 
-	AAMPLOG_INFO("EXIT, success=%d", success);
+	AAMPLOG_TRACE("EXIT, success=%d", success);
 	return success;
 }
 
@@ -998,7 +905,10 @@ bool AampRialtoPlayer::SendTransfer(
 				fpts, fdts, fDuration, fragmentPTSoffset,
 				initFragment, discontinuity);
 
-	auto *source = getSource(mediaType);
+	ReportID3Metadata(mediaType, buffer.data(), buffer.size(),
+		fpts, fdts, fDuration);
+
+	const auto source = getSource(mediaType);
 	if (!source)
 	{
 		// No source for this track (e.g. subtitle not yet supported).
@@ -1030,9 +940,12 @@ bool AampRialtoPlayer::SendTransfer(
 		else
 		{
 			std::lock_guard<std::mutex> lock(m_attachMutex);
-			if (m_pipeline)
+			if (GetPipeline())
 			{
-				AttachSource(*source, *codecInfo);
+				if (!AttachSource(*source, *codecInfo))
+				{
+					result = false;
+				}
 			}
 			else
 			{
@@ -1040,11 +953,11 @@ bool AampRialtoPlayer::SendTransfer(
 			}
 		}
 	}
-	else if (m_pipeline)
+	else if (const auto pipeline = GetPipeline())
 	{
 		MaybeFlushForPendingPosition(mediaType, fpts);
 		if (!source->processDataFragment(
-				*m_pipeline, std::move(sharedBuffer),
+				*pipeline, std::move(sharedBuffer),
 				fpts, fdts, fDuration, fragmentPTSoffset))
 		{
 			result = false;
@@ -1059,57 +972,83 @@ bool AampRialtoPlayer::SendTransfer(
 // AttachSource - unified attach via polymorphic source
 // ---------------------------------------------------------------------------
 
-void AampRialtoPlayer::AttachSource(
+void AampRialtoPlayer::ReportAttachFailure(
+	AampRialtoMediaSource &source, const MediaCodecInfo &codecInfo)
+{
+	const auto type = source.mediaType();
+
+	// Wake injectors blocked on a deferred attach; they now discard their frame.
+	{
+		auto &st = source.state();
+		std::lock_guard<std::mutex> lock(st.mu);
+		st.attachPending = false;
+		st.cv.notify_all();
+	}
+
+	// An unidentified codec (muxed HLS-TS before PMT parsing) is expected to be
+	// resolved by a later Configure(), so it is not a playback error.  Inband CC
+	// legitimately uses GST_FORMAT_UNKNOWN, so it is excluded from that case.
+	const bool codecNotYetKnown =
+		(codecInfo.mCodecFormat == GST_FORMAT_UNKNOWN) &&
+		(type != eMEDIATYPE_SUBTITLE);
+	if (codecNotYetKnown)
+	{
+		AAMPLOG_WARN("attach of mediaType=%d skipped: codec not yet identified",
+			static_cast<int>(type));
+	}
+	else
+	{
+		AAMPLOG_ERR("attach failed for mediaType=%d codecFormat=%d",
+			static_cast<int>(type), static_cast<int>(codecInfo.mCodecFormat));
+		m_notifiable->NotifyPlaybackError(
+			AAMP_TUNE_GST_PIPELINE_ERROR,
+			"Rialto attach failed: mediaType=" +
+				std::to_string(static_cast<int>(type)) + " codecFormat=" +
+				std::to_string(static_cast<int>(codecInfo.mCodecFormat)),
+			/*isRetryEnabled=*/false);
+	}
+}
+
+bool AampRialtoPlayer::DeferAttachUntilVideo(
 	AampRialtoMediaSource &source, MediaCodecInfo &codecInfo)
 {
 	const auto type = source.mediaType();
 
-	// THEORY (unproven - revert this block if disproved):
-	// In the failing first-tune log, audio attached first (id=1) and video
-	// second (id=2); the Rialto server then reported:
-	//   "audsrc: not-linked (-1)"
-	// and transitioned SOURCES_ATTACHED -> ERROR.  In the passing second-tune
-	// log, video happened to attach first and no error occurred.  The
-	// hypothesis is that the Rialto server's internal pipeline construction
-	// requires the video source to be attached before the audio source in
-	// order to correctly link the audio sink pad.  This has NOT been
-	// confirmed via Rialto documentation or a controlled experiment (e.g.
-	// forcing audio-first on the second tune to reproduce the failure).
-	// Alternative explanations: cold-start pipeline state, different DRM
-	// latency (mksId=0 vs mksId=1), or a first-pipeline-after-boot race.
-	if (type != eMEDIATYPE_VIDEO &&
-	    m_sources[eMEDIATYPE_VIDEO] &&
-	    !m_sources[eMEDIATYPE_VIDEO]->isAttached())
+	// Non-video sources wait for video to attach first.  Observed, not
+	// root-caused: a first tune that attached audio (id=1) before video
+	// (id=2) made the Rialto server log "audsrc: not-linked (-1)" and go
+	// SOURCES_ATTACHED -> ERROR, while a tune where video attached first did
+	// not.  The order is not confirmed by Rialto documentation or an
+	// audio-first reproduction; a cold-start pipeline, DRM latency (mksId=0
+	// vs mksId=1) or a first-pipeline-after-boot race would explain it too.
+	// If an audio-first run shows no failure, this deferral can be removed.
+	const auto videoSource = getSource(eMEDIATYPE_VIDEO);
+	if (type == eMEDIATYPE_VIDEO || !videoSource || videoSource->isAttached())
 	{
-		AAMPLOG_INFO("Deferring attachment of mediaType=%d until video is attached",
-			static_cast<int>(type));
-		// Signal inject threads to block rather than discard frames.
-		// Without this, media fragments are silently dropped while the
-		// source is unattached, leaving an audio gap that causes
-		// GStreamer's A/V sync to skip video forward at startup.
-		{
-			auto &st = source.state();
-			std::lock_guard<std::mutex> lock(st.mu);
-			st.attachPending = true;
-		}
+		return false;
+	}
+
+	AAMPLOG_INFO("Deferring attachment of mediaType=%d until video is attached",
+		static_cast<int>(type));
+	// Signal inject threads to block rather than discard frames.
+	// Without this, media fragments are silently dropped while the
+	// source is unattached, leaving an audio gap that causes
+	// GStreamer's A/V sync to skip video forward at startup.
+	{
+		auto &st = source.state();
+		std::lock_guard<std::mutex> lock(st.mu);
+		st.attachPending = true;
+	}
+	{
+		std::lock_guard<std::mutex> lock(m_pendingAttachMutex);
 		m_pendingAttach[type] = std::move(codecInfo);
-		return;
 	}
+	return true;
+}
 
-	if (!source.isAttached())
-	{
-		m_stateMachine.onSourceAttaching();
-	}
-
-	// Ensure m_drmBridge is initialized before attaching source.
-	// Lazy initialization supports pre-roll ads: if SetEncryptedAamp was
-	// called, use that player's DRM session manager; otherwise, use m_aamp.
-	if (!m_drmBridge)
-	{
-		m_drmBridge = std::make_shared<AampDrmBridge>(m_aamp);
-		AAMPLOG_INFO("Creating m_drmBridge with m_aamp=%p", m_aamp);
-	}
-
+std::optional<AampRialtoMediaSource::ProtectionParams>
+AampRialtoPlayer::ProtectionFor(AampMediaType type, bool encrypted)
+{
 	// HLS always queues content protection under eMEDIATYPE_VIDEO (see
 	// StreamAbstractionAAMP_HLS::InitiateDrmProcess), even when the
 	// EXT-X-KEY/EXT-X-SESSION-KEY applies to an audio-only track. Fall back
@@ -1118,30 +1057,53 @@ void AampRialtoPlayer::AttachSource(
 	// Take a value copy under lock so attachOrUpdate() (which may block on
 	// DRM session creation) never runs concurrently with a QueueProtectionEvent
 	// write to the same slot.
-	std::optional<AampRialtoMediaSource::ProtectionParams> protectionCopy;
+	std::lock_guard<std::mutex> lock(m_pendingProtectionMutex);
+	auto protection = m_pendingProtection[static_cast<size_t>(type)];
+	if (encrypted && !protection.has_value() &&
+	    type != eMEDIATYPE_VIDEO && m_pendingProtection[eMEDIATYPE_VIDEO].has_value())
 	{
-		std::lock_guard<std::mutex> lock(m_pendingProtectionMutex);
-		protectionCopy = m_pendingProtection[static_cast<size_t>(type)];
-		if (codecInfo.mIsEncrypted && !protectionCopy.has_value() &&
-		    type != eMEDIATYPE_VIDEO && m_pendingProtection[eMEDIATYPE_VIDEO].has_value())
-		{
-			AAMPLOG_WARN("mediaType=%d is encrypted but has no queued protection - "
-				"falling back to eMEDIATYPE_VIDEO protection params (HLS convention)",
-				static_cast<int>(type));
-			protectionCopy = m_pendingProtection[eMEDIATYPE_VIDEO];
-		}
+		AAMPLOG_WARN("mediaType=%d is encrypted but has no queued protection - "
+			"falling back to eMEDIATYPE_VIDEO protection params (HLS convention)",
+			static_cast<int>(type));
+		protection = m_pendingProtection[eMEDIATYPE_VIDEO];
+	}
+	return protection;
+}
+
+bool AampRialtoPlayer::AttachSource(
+	AampRialtoMediaSource &source, MediaCodecInfo &codecInfo)
+{
+	if (DeferAttachUntilVideo(source, codecInfo))
+	{
+		return true;
 	}
 
-	const double appliedRate = computeAppliedRate(
-		m_pendingFlushRate.load(std::memory_order_relaxed), type);
+	const auto type = source.mediaType();
+	const auto pipeline = GetPipeline();
+	if (!pipeline)
+	{
+		AAMPLOG_ERR("pipeline not created - cannot attach mediaType=%d",
+			static_cast<int>(type));
+		return false;
+	}
 
-	const int64_t attachPositionNs =
-		m_pendingPositionNs.load(std::memory_order_relaxed);
+	if (!source.isAttached())
+	{
+		m_stateMachine.onSourceAttaching();
+	}
+
+	// Lazily created for the current AAMP instance unless SetEncryptedAamp()
+	// installed one for the encrypted player (pre-roll ads).
+	const auto drmBridge = GetDrmBridge();
+	const auto protection = ProtectionFor(type, codecInfo.mIsEncrypted);
+	const double appliedRate = computeAppliedRate(
+		m_segmentPosition.StagedRate(), type);
+	const int64_t attachPositionNs = m_segmentPosition.StagedPositionNs();
 
 	auto result = source.attachOrUpdate(
-		*m_pipeline, codecInfo, m_drmBridge.get(),
+		*pipeline, codecInfo, drmBridge.get(),
 		attachPositionNs,
-		protectionCopy,
+		protection,
 		appliedRate);
 
 	if (result == AampRialtoMediaSource::AttachResult::NEWLY_ATTACHED ||
@@ -1157,94 +1119,247 @@ void AampRialtoPlayer::AttachSource(
 		// an early needData slip through with stale-position data. The gate
 		// is cleared only via UngateAllSources(), called at the points that
 		// actually issue play().
-		{
-			auto &st = source.state();
-			std::lock_guard<std::mutex> lock(st.mu);
-			st.attachPending = false;
-			st.cv.notify_all();
-		}
+		auto &st = source.state();
+		std::lock_guard<std::mutex> lock(st.mu);
+		st.attachPending = false;
+		st.cv.notify_all();
 	}
 
 	if (result == AampRialtoMediaSource::AttachResult::NEWLY_ATTACHED)
 	{
+		OnSourceNewlyAttached(source, *pipeline, attachPositionNs);
+	}
+	else if (result == AampRialtoMediaSource::AttachResult::FAILED)
+	{
+		ReportAttachFailure(source, codecInfo);
+	}
+
+	return result != AampRialtoMediaSource::AttachResult::FAILED;
+}
+
+void AampRialtoPlayer::OnSourceNewlyAttached(AampRialtoMediaSource &source,
+	firebolt::rialto::IMediaPipeline &pipeline, int64_t attachPositionNs)
+{
+	const auto type = source.mediaType();
+	if (type == eMEDIATYPE_VIDEO)
+	{
 		// This attach establishes the segment's actual start position -
 		// -1 (no Flush() ever staged one) means the segment starts at 0.
-		if (type == eMEDIATYPE_VIDEO)
-		{
-			m_segmentStartPositionNs.store(
-				std::max<int64_t>(0, attachPositionNs),
-				std::memory_order_relaxed);
+		m_segmentPosition.CommitBaseline(
+			std::max<int64_t>(0, attachPositionNs));
 
-			// A definitive baseline has just been established - clear the
-			// gate Configure() armed unconditionally so an ordinary tune's
-			// first sample does not trigger a redundant deferred flush.
-			m_positionPending.store(false, std::memory_order_relaxed);
-		}
+		// A definitive baseline has just been established - clear the
+		// gate Configure() armed unconditionally so an ordinary tune's
+		// first sample does not trigger a redundant deferred flush.
+		m_playbackController.ReleaseHold(PlayHold::PositionPending,
+			"AttachSource(video attached)");
 
-		// After video attaches, drain any non-video sources that were deferred
-		// by the video-before-audio ordering theory above.
-		if (type == eMEDIATYPE_VIDEO)
+		// Drain any non-video sources that were deferred by the
+		// video-before-audio ordering in DeferAttachUntilVideo().
+		for (size_t i = 0; i < kMaxSourceTypes; ++i)
 		{
-			for (size_t i = 0; i < kMaxSourceTypes; ++i)
+			const auto deferred = getSource(static_cast<AampMediaType>(i));
+			if (i == eMEDIATYPE_VIDEO || !deferred)
 			{
-				if (i != eMEDIATYPE_VIDEO &&
-				    m_pendingAttach[i].has_value() &&
-				    m_sources[i])
-				{
-					AAMPLOG_INFO("Processing deferred attachment for mediaType=%zu", i);
-					AttachSource(*m_sources[i], *m_pendingAttach[i]);
-					m_pendingAttach[i].reset();
-				}
+				continue;
+			}
+			std::optional<MediaCodecInfo> pending;
+			{
+				std::lock_guard<std::mutex> lock(m_pendingAttachMutex);
+				pending = std::move(m_pendingAttach[i]);
+				m_pendingAttach[i].reset();
+			}
+			if (pending.has_value())
+			{
+				AAMPLOG_INFO("Processing deferred attachment for mediaType=%zu", i);
+				AttachSource(*deferred, *pending);
 			}
 		}
-
-		// Re-apply cached subtitle mute state when the subtitle source first
-		// attaches.  SetSubtitleMute() may have been called before the source
-		// was ready (e.g. user muted before playback started, or between period
-		// transitions when the source is detached and re-attached).
-		if (type == eMEDIATYPE_SUBTITLE && m_subtitleMuted)
-		{
-			AAMPLOG_INFO("Applying cached subtitle mute on attach sourceId=%d",
-				source.sourceId());
-			m_pipeline->setMute(source.sourceId(), true);
-		}
-
-		// Re-apply cached video mute state when the video source first attaches -
-		// mirrors the subtitle mute re-apply above (SetVideoMute() may have been
-		// called before the video source was ready).
-		if (type == eMEDIATYPE_VIDEO && m_videoMuted)
-		{
-			AAMPLOG_INFO("Applying cached video mute on attach sourceId=%d",
-				source.sourceId());
-			m_pipeline->setMute(source.sourceId(), true);
-		}
-
-		// Re-apply cached audio volume/mute now that the audio source has
-		// a valid Rialto sourceId - SetAudioVolume() may have been called
-		// (e.g. muting to 0) before this source was attached.
-		if (type == eMEDIATYPE_AUDIO)
-		{
-			applyAudioVolume();
-		}
-
-		CheckAllSourcesAttached();
 	}
+
+	// Re-apply cached subtitle mute state when the subtitle source first
+	// attaches.  SetSubtitleMute() may have been called before the source
+	// was ready (e.g. user muted before playback started, or between period
+	// transitions when the source is detached and re-attached).
+	if (type == eMEDIATYPE_SUBTITLE && m_subtitleMuted)
+	{
+		AAMPLOG_INFO("Applying cached subtitle mute on attach sourceId=%d",
+			source.sourceId());
+		pipeline.setMute(source.sourceId(), true);
+	}
+
+	// Re-apply cached video mute state when the video source first attaches -
+	// mirrors the subtitle mute re-apply above (SetVideoMute() may have been
+	// called before the video source was ready).
+	if (type == eMEDIATYPE_VIDEO && m_videoMuted)
+	{
+		AAMPLOG_INFO("Applying cached video mute on attach sourceId=%d",
+			source.sourceId());
+		pipeline.setMute(source.sourceId(), true);
+	}
+
+	// Re-apply cached audio volume/mute now that the audio source has
+	// a valid Rialto sourceId - SetAudioVolume() may have been called
+	// (e.g. muting to 0) before this source was attached.
+	if (type == eMEDIATYPE_AUDIO)
+	{
+		applyAudioVolume();
+	}
+
+	CheckAllSourcesAttached();
 }
 
 void AampRialtoPlayer::UngateAllSources(const char *reason)
 {
-	for (auto &source : m_sources)
+	const auto pipeline = GetPipeline();
+	for (const auto &source : SnapshotSources())
 	{
 		if (source)
 		{
-			source->gateInjection(m_pipeline.get(), false, reason);
+			source->gateInjection(pipeline.get(), false, reason);
+		}
+	}
+}
+
+void AampRialtoPlayer::LogSourceSnapshot(const char *context)
+{
+	for (const auto &source : SnapshotSources())
+	{
+		if (source && source->isAttached())
+		{
+			const int64_t firstPts = source->firstPtsMs();
+			// firstPtsMs stays unset until Rialto has accepted a segment, so
+			// it distinguishes "injected nothing yet" from "injected at PTS 0".
+			AAMPLOG_INFO("%s mediaType=%d sourceId=%d eos=%d firstPtsMs=%s "
+				"acceptedFrames=%u injected=%lld ms bufferFull=%d",
+				context, static_cast<int>(source->mediaType()),
+				source->sourceId(), source->isEos(),
+				(firstPts == AampRialtoMediaSource::kFirstPtsNotSet)
+					? "none" : std::to_string(firstPts).c_str(),
+				source->acceptedFrames(),
+				static_cast<long long>(source->injectedSpanMs()),
+				source->bufferFull());
+		}
+	}
+}
+
+bool AampRialtoPlayer::IsPreRollEnabled(int rate) const
+{
+	PrivateInstanceAAMP *aamp = Aamp();
+	return (rate == AAMP_NORMAL_PLAY_RATE) && (aamp != nullptr) &&
+		aamp->mConfig->IsConfigSet(eAAMPConfig_GStreamerBufferingBeforePlay);
+}
+
+void AampRialtoPlayer::ArmPreRoll(int rate, const char *reason)
+{
+	m_preRollMonitor->Stop();
+	if (IsPreRollEnabled(rate))
+	{
+		m_playbackController.AddHold(PlayHold::PreRollIncomplete, reason);
+	}
+	else
+	{
+		m_playbackController.ReleaseHold(PlayHold::PreRollIncomplete, reason);
+	}
+}
+
+void AampRialtoPlayer::StartPreRoll(const char *reason)
+{
+	// Video carries the reference timeline; audio only for audio-only content.
+	AampMediaType primaryType = eMEDIATYPE_VIDEO;
+	const auto videoSource = getSource(eMEDIATYPE_VIDEO);
+	if (!videoSource || !videoSource->isAttached())
+	{
+		primaryType = eMEDIATYPE_AUDIO;
+	}
+	const auto primary = getSource(primaryType);
+	const auto pipeline = GetPipeline();
+
+	if (!pipeline || !primary || !primary->isAttached())
+	{
+		AAMPLOG_WARN("pre-roll skipped (%s) - no pipeline or attached "
+			"primary source", reason);
+		m_playbackController.ReleaseHold(PlayHold::PreRollIncomplete,
+			"PreRoll(skipped)");
+	}
+	else
+	{
+		// The Rialto API does not promise data requests before play(); PAUSED
+		// is the documented non-playing state, as in the reference.  If it is
+		// refused, the timeout still bounds the wait.
+		if (!pipeline->pause())
+		{
+			AAMPLOG_WARN("pause() failed for pre-roll (%s)", reason);
+		}
+
+		// Every other hold is clear, so sources are attached, no flush is in
+		// progress and the position is resolved: Rialto will not treat data
+		// sent now as stale.
+		UngateAllSources("PreRoll");
+
+		const int32_t sourceId = primary->sourceId();
+		AampRialtoPreRollMonitor::Probe probe;
+		probe.acceptedFrames = [this, primaryType]()
+		{
+			const auto source = getSource(primaryType);
+			return source ? source->acceptedFrames() : 0u;
+		};
+		probe.endOfStream = [this, primaryType]()
+		{
+			bool eos = false;
+			const auto source = getSource(primaryType);
+			if (source)
+			{
+				std::lock_guard<std::mutex> lock(source->state().mu);
+				eos = source->state().eos;
+			}
+			return eos;
+		};
+		probe.bufferFull = [this, primaryType]()
+		{
+			const auto source = getSource(primaryType);
+			return source ? source->bufferFull() : false;
+		};
+		probe.injectedSpanMs = [this, primaryType]()
+		{
+			const auto source = getSource(primaryType);
+			return source ? source->injectedSpanMs() : int64_t{0};
+		};
+
+		AAMPLOG_MIL("pre-roll started (%s) primary mediaType=%d sourceId=%d",
+			reason, static_cast<int>(primaryType), sourceId);
+		m_preRollMonitor->Start(std::move(probe));
+	}
+}
+
+void AampRialtoPlayer::IssuePlay(const char *reason)
+{
+	const auto pipeline = GetPipeline();
+	if (!pipeline)
+	{
+		AAMPLOG_WARN("pipeline is null - cannot play (%s)", reason);
+	}
+	else
+	{
+		LogSourceSnapshot("pre-play");
+
+		// Ungate unconditionally: this is the point at which playback is
+		// genuinely about to (re)start, regardless of what the state
+		// machine currently reports.
+		UngateAllSources(reason);
+		bool async = false;
+		AAMPLOG_MIL("issuing play() (%s)", reason);
+		if (!pipeline->play(async))
+		{
+			AAMPLOG_ERR("play() failed (%s)", reason);
 		}
 	}
 }
 
 void AampRialtoPlayer::CheckAllSourcesAttached()
 {
-	if (!m_pipeline)
+	const auto pipeline = GetPipeline();
+	if (!pipeline)
 	{
 		return;
 	}
@@ -1258,7 +1373,8 @@ void AampRialtoPlayer::CheckAllSourcesAttached()
 		return;
 	}
 
-	for (auto &source : m_sources)
+	const auto sources = SnapshotSources();
+	for (const auto &source : sources)
 	{
 		if (source && !source->isAttached())
 		{
@@ -1267,32 +1383,27 @@ void AampRialtoPlayer::CheckAllSourcesAttached()
 	}
 
 	AAMPLOG_INFO("All sources attached - calling allSourcesAttached()");
+	for (const auto &source : sources)
+	{
+		if (source)
+		{
+			// needData/haveData logs are keyed on sourceId only, so record
+			// the mapping once here.
+			AAMPLOG_INFO("  sourceId=%d -> mediaType=%d format=%d",
+				source->sourceId(), static_cast<int>(source->mediaType()),
+				static_cast<int>(source->format()));
+		}
+	}
 
-	if (!m_pipeline->allSourcesAttached())
+	if (!pipeline->allSourcesAttached())
 	{
 		AAMPLOG_ERR("allSourcesAttached() failed");
 	}
 	else
 	{
 		m_stateMachine.onAllSourcesAttached();
-		// seq_cst store: pairs with the seq_cst load in Stream() so that
-		// either Stream() sees the flag and calls play() itself, or this
-		// function sees m_playRequested=true and calls it here.  The state
-		// machine transition above uses a mutex (not seq_cst) so it cannot
-		// substitute for this atomic rendezvous.
-		m_allSourcesAttachedFlag.store(true, std::memory_order_seq_cst);
-
-		if (m_playRequested.load(std::memory_order_seq_cst))
-		{
-			AAMPLOG_INFO("play() deferred by Stream() - issuing now");
-			m_playRequested.store(false, std::memory_order_relaxed);
-			UngateAllSources("CheckAllSourcesAttached");
-			bool async = false;
-			if (!m_pipeline->play(async))
-			{
-				AAMPLOG_ERR("play() failed");
-			}
-		}
+		m_playbackController.ReleaseHold(PlayHold::SourcesNotAttached,
+			"CheckAllSourcesAttached");
 	}
 }
 
@@ -1303,7 +1414,10 @@ bool AampRialtoPlayer::SendSample(AampMediaType mediaType, AampMediaSample &&sam
 
 	bool result = false;
 
-	auto *source = getSource(mediaType);
+	ReportID3Metadata(mediaType, sample.mData.get(), sample.mDataSize,
+		sample.mPts, sample.mDts, sample.mDuration);
+
+	const auto source = getSource(mediaType);
 	if (!source)
 	{
 		AAMPLOG_WARN("unsupported mediaType=%d", static_cast<int>(mediaType));
@@ -1311,10 +1425,10 @@ bool AampRialtoPlayer::SendSample(AampMediaType mediaType, AampMediaSample &&sam
 		return result;
 	}
 
-	if (m_pipeline)
+	if (const auto pipeline = GetPipeline())
 	{
 		MaybeFlushForPendingPosition(mediaType, sample.mPts);
-		result = source->injectSingleSample(*m_pipeline, std::move(sample), morePending);
+		result = source->injectSingleSample(*pipeline, std::move(sample), morePending);
 	}
 
 	AAMPLOG_TRACE("EXIT result=%d", result);
@@ -1323,23 +1437,22 @@ bool AampRialtoPlayer::SendSample(AampMediaType mediaType, AampMediaSample &&sam
 
 void AampRialtoPlayer::ArmPositionPending(const char *reason)
 {
-	m_pendingPositionFlushClaimed.store(false, std::memory_order_relaxed);
-	m_positionPending.store(true, std::memory_order_relaxed);
-	AAMPLOG_INFO("armed position-pending: %s", reason);
+	m_segmentPosition.ResetFlushClaim();
+	m_playbackController.AddHold(PlayHold::PositionPending, reason);
 }
 
 void AampRialtoPlayer::MaybeFlushForPendingPosition(
 	AampMediaType mediaType, double position)
 {
-	if (!m_positionPending.load(std::memory_order_relaxed))
+	if (!m_playbackController.IsHeld(PlayHold::PositionPending))
 	{
 		return;
 	}
 
-	// Flush() clears m_positionPending as soon as it commits to a position,
-	// so reaching here with it still true while FLUSHING means a concurrent
-	// Discontinuity() re-armed it for a new period after that flush was
-	// already claimed - its SEEK_DONE is for the earlier position, so avoid
+	// Flush() releases PlayHold::PositionPending as soon as it commits to a
+	// position, so reaching here with it still applied while FLUSHING means a
+	// concurrent Discontinuity() re-armed it for a new period after that flush
+	// was already claimed - its SEEK_DONE is for the earlier position, so avoid
 	// issuing a second, overlapping Flush() for this one until it clears.
 	if (m_stateMachine.currentState() == PlayerStateId::FLUSHING)
 	{
@@ -1348,7 +1461,7 @@ void AampRialtoPlayer::MaybeFlushForPendingPosition(
 
 	// Video carries the reference timeline; fall back to audio only when there
 	// is no attached video source to supply a PTS.
-	const auto *videoSource = m_sources[eMEDIATYPE_VIDEO].get();
+	const auto videoSource = getSource(eMEDIATYPE_VIDEO);
 	const AampMediaType electedType =
 		(videoSource && videoSource->isAttached()) ? eMEDIATYPE_VIDEO
 		                                           : eMEDIATYPE_AUDIO;
@@ -1357,8 +1470,17 @@ void AampRialtoPlayer::MaybeFlushForPendingPosition(
 		return;
 	}
 
+	// Held across Flush() and the Stream() below so a concurrent Stop() sees
+	// either neither or both.  Re-check the hold afterwards: Stop() or a
+	// control-thread Flush() that ran while we waited has already resolved it.
+	std::lock_guard<std::recursive_mutex> serialise(m_flushCallMutex);
+	if (!m_playbackController.IsHeld(PlayHold::PositionPending))
+	{
+		return;
+	}
+
 	// Video and audio inject on separate threads; only one may drive the flush.
-	if (m_pendingPositionFlushClaimed.exchange(true, std::memory_order_acq_rel))
+	if (!m_segmentPosition.ClaimDeferredFlush())
 	{
 		return;
 	}
@@ -1379,7 +1501,7 @@ void AampRialtoPlayer::MaybeFlushForPendingPosition(
 bool AampRialtoPlayer::PipelineConfiguredForMedia(AampMediaType type)
 {
 	AAMPLOG_INFO("ENTRY type=%d", static_cast<int>(type));
-	auto *source = getSource(type);
+	const auto source = getSource(type);
 	bool result = source && source->isAttached();
 	AAMPLOG_INFO("EXIT result=%d", result);
 	return result;
@@ -1388,10 +1510,10 @@ bool AampRialtoPlayer::PipelineConfiguredForMedia(AampMediaType type)
 void AampRialtoPlayer::EndOfStreamReached(AampMediaType type)
 {
 	AAMPLOG_INFO("ENTRY type=%d", static_cast<int>(type));
-	auto *source = getSource(type);
+	const auto source = getSource(type);
 	if (source)
 	{
-		source->signalEos(m_pipeline.get());
+		source->signalEos(GetPipeline().get());
 	}
 
 	// In direct-Rialto mode every attached source must receive haveData(EOS)
@@ -1403,14 +1525,14 @@ void AampRialtoPlayer::EndOfStreamReached(AampMediaType type)
 
 	if (type == eMEDIATYPE_VIDEO)
 	{
-		auto *subtitleSrc = m_sources[eMEDIATYPE_SUBTITLE].get();
+		const auto subtitleSrc = getSource(eMEDIATYPE_SUBTITLE);
 
 		if (subtitleSrc
 		    && subtitleSrc->isAttached()
-		    && !subtitleSrc->state().eos)
+		    && !subtitleSrc->isEos())
 		{
 			AAMPLOG_INFO("auto-signaling subtitle EOS: video at EOS");
-			subtitleSrc->signalEos(m_pipeline.get());
+			subtitleSrc->signalEos(GetPipeline().get());
 		}
 	}
 
@@ -1420,56 +1542,13 @@ void AampRialtoPlayer::EndOfStreamReached(AampMediaType type)
 void AampRialtoPlayer::Stream()
 {
 	AAMPLOG_INFO("ENTRY");
-	if (m_pipeline)
+	if (GetPipeline())
 	{
-		// Signal that play() should be issued.  We use seq_cst ordering so
-		// that CheckAllSourcesAttached() on the injection thread sees this
-		// store before it reads m_playRequested (and vice-versa).
-		m_playRequested.store(true, std::memory_order_seq_cst);
-
-		// If a flush is in progress, play() will be issued by the SEEK_DONE
-		// handler in OnPlaybackState() once onFlushComplete() restores state.
-		// FLUSHING is set inside m_flushMutex in Flush() and cleared by
-		// onFlushComplete() (both protected by the state machine mutex).
-		// m_positionPending defers for the same reason: a position is still
-		// owed (explicit Flush() not yet issued, or awaiting the implicit
-		// one from MaybeFlushForPendingPosition()), so playing now would run
-		// past the pending position at the old one.
-		const PlayerStateId state = m_stateMachine.currentState();
-		if (state == PlayerStateId::FLUSHING ||
-		    m_positionPending.load(std::memory_order_relaxed))
-		{
-			AAMPLOG_INFO("deferring play() - state=%s positionPending=%d",
-				m_stateMachine.currentStateName(),
-				m_positionPending.load(std::memory_order_relaxed));
-		}
-		// seq_cst load: pairs with the seq_cst store in CheckAllSourcesAttached()
-		// to guarantee one side always calls play().
-		else if (m_allSourcesAttachedFlag.load(std::memory_order_seq_cst))
-		{
-			m_playRequested.store(false, std::memory_order_relaxed);
-			// Ungate unconditionally - Stream() is the point at which
-			// playback is genuinely about to (re)start, regardless of
-			// whether the state machine already happens to report
-			// PLAYING.  play() itself is also issued unconditionally
-			// below, rather than relying on the state machine's view of
-			// Rialto's state to decide whether a call is "redundant".
-			UngateAllSources("Stream");
-
-			// allSourcesAttached() already completed before this call -
-			// promote to PLAYING immediately.
-			bool async = false;
-			if (!m_pipeline->play(async))
-			{
-				AAMPLOG_ERR("play() failed");
-			}
-		}
-		else
-		{
-			// Sources are not yet attached; play() will be issued by
-			// CheckAllSourcesAttached() once all sources are registered.
-			AAMPLOG_INFO("deferring play() until allSourcesAttached()");
-		}
+		// AAMP calls Stream() once injection has started, so this only
+		// records that playback is wanted.  The controller issues play()
+		// now if nothing holds it, or defers to whichever site releases
+		// the final hold (CheckAllSourcesAttached(), SEEK_DONE, ...).
+		m_playbackController.RequestPlay("Stream");
 	}
 	AAMPLOG_INFO("EXIT");
 }
@@ -1484,64 +1563,66 @@ void AampRialtoPlayer::StopInternal(bool keepLastFrame, bool preservePendingPosi
 	AAMPLOG_INFO("ENTRY keepLastFrame=%d preservePendingPosition=%d",
 		keepLastFrame, preservePendingPosition);
 
+	// Keep a deferred flush on an injector thread from interleaving with the
+	// teardown (its trailing Stream() would otherwise leave a stale play
+	// request behind the controller reset below).
+	std::lock_guard<std::recursive_mutex> serialise(m_flushCallMutex);
+
 	// Wait for any in-progress flush cycle to complete before stopping.
 	// This ensures the state machine has already exited FLUSHING so that
 	// onStop() transitions from a well-defined state (PLAYING, PAUSED,
-	// SOURCES_ATTACHED, etc.) and the FLUSHING → STOPPED arc is never
-	// reached.
+	// SOURCES_ATTACHED, etc.) and onStop() is never dispatched from FLUSHING.
 	WaitForFlushToComplete();
 
 	StopProgressTimer();
-	if (m_monitorAV)
-	{
-		m_monitorAV->stop();
-		m_monitorAV.reset();
-	}
+	m_preRollMonitor->Stop();
+	SetMonitorAV(nullptr);
 
 	// Wake any in-flight data so it abandons the current batch.  No
 	// follow-up gateInjection(true) here — Stop() ends the session, so
 	// sources remain DROPPED (never blocking a caller thread) until the
 	// next Configure()/Flush() explicitly re-gates them.
-	for (auto &source : m_sources)
+	auto pipeline = GetPipeline();
+	for (const auto &source : SnapshotSources())
 	{
 		if (source)
 		{
-			source->unblockInjection(m_pipeline.get(), "Stop",
+			source->unblockInjection(pipeline.get(), "Stop",
 				/*newEosState=*/false);
 		}
 	}
 
-	if (m_pipeline)
+	if (pipeline)
 	{
-		if (!m_pipeline->stop())
+		if (!pipeline->stop())
 		{
 			AAMPLOG_ERR("pipeline stop() failed");
 		}
 		// Release the pipeline now rather than waiting for the next
 		// Configure() to overwrite it - all other call sites already
-		// null-check m_pipeline before use.
-		m_pipeline.reset();
+		// null-check the pipeline before use.
+		SetPipeline(nullptr);
+		pipeline.reset();
 	}
 	// Deregister from Rialto's IControl now that the session has ended,
 	// mirroring rialto-gstreamer's removeControlBackend() on READY->NULL.
 	// Configure() lazily recreates it on the next tune.
-	m_controlBackend.reset();
-	// Reset play intent so a new tune's Configure() starts clean.
-	// This is the canonical place to reset m_playRequested: Stop() ends the
-	// current session, whereas Configure() may be called mid-session for a
-	// codec change and must not discard a pending Stream() request.
-	m_playRequested.store(false, std::memory_order_relaxed);
+	m_session.ReleaseControlBackend();
+	// Reset play intent and holds so a new tune's Configure() starts clean.
+	// This is the canonical place to discard a pending play request: Stop()
+	// ends the current session, whereas Configure() may be called mid-session
+	// for a codec change and must not discard a pending Stream() request.
+	m_playbackController.Reset("Stop");
 	if (!preservePendingPosition)
 	{
 		// A normal Stop() ends the session outright, so any staged seek
 		// position/baseline from this session must not leak into the next
 		// tune's AttachSource(). Flush()'s internal teardown-recovery call
 		// (preservePendingPosition=true) is the one exception: it has just
-		// staged m_pendingPositionNs for the caller's benefit and Stop()
+		// staged a position for the caller's benefit and Stop()
 		// here is only being used to recover from a non-flushable state,
 		// not to end a session on the caller's behalf.
-		m_pendingPositionNs.store(-1, std::memory_order_relaxed);
-		m_segmentStartPositionNs.store(0, std::memory_order_relaxed);
+		m_segmentPosition.ClearForNewSession();
 	}
 	{
 		std::lock_guard<std::mutex> lock(m_ptsCheckMutex);
@@ -1557,29 +1638,36 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown, boo
 	AAMPLOG_INFO("ENTRY position=%f rate=%d shouldTearDown=%d positionIsAuthoritative=%d",
 		position, rate, shouldTearDown, positionIsAuthoritative);
 
+	// One Flush() at a time: the state check in step 2 and the claim in
+	// step 3 are only atomic with respect to other flushes under this lock.
+	std::lock_guard<std::recursive_mutex> serialise(m_flushCallMutex);
+
 	// Step 1: Wait for any previous flush cycle to complete (no claim yet).
 	// The teardown check below reads the current state AFTER any in-flight
 	// flush has restored it (e.g. a seek from PLAYING restores to PLAYING).
 	WaitForFlushToComplete();
 
-	// Stage the requested position/rate unconditionally, before the
+	// Hold playback for the whole of this call.  Applied before the
+	// PositionPending release below so the two never leave the hold set
+	// momentarily empty: a play request deferred by Stream() must not be
+	// satisfied part-way through Flush().  Released by SEEK_DONE on the
+	// flushable path, or by the early-exit paths below.
+	m_playbackController.AddHold(PlayHold::Flushing, "Flush");
+
+	// Stage the requested position/rate/authority unconditionally, before the
 	// teardown/flushable branching below, so every exit path (including
 	// the Stop(true) teardown path) records the caller's intent.
-	int64_t posNs = static_cast<int64_t>(position * kNsPerSecond);
-	m_pendingPositionNs.store(posNs, std::memory_order_relaxed);
-	m_pendingFlushRate.store(rate, std::memory_order_relaxed);
+	// The position is passed through unclamped; AttachSource() clamps to >= 0
+	// when it applies the value to a newly attached source.
+	int64_t posNs = SecondsToNs(position);
+	m_segmentPosition.StageRequested(posNs, rate, positionIsAuthoritative);
 
 	// The position this call was armed to resolve is now known (staged
-	// above), regardless of which branch below is taken - clear it here,
+	// above), regardless of which branch below is taken - release it here,
 	// synchronously, rather than waiting on an async SEEK_DONE that may not
 	// even happen (teardown / non-flushable paths), so a sample injected
 	// concurrently does not try to resolve an already-resolved position.
-	m_positionPending.store(false, std::memory_order_relaxed);
-
-	// Caller-supplied signal for Configure() below, unconditionally mirrored
-	// (not just set-if-true) so a later non-authoritative Flush() cannot
-	// leave a stale true from an earlier authoritative one still pending.
-	m_lastFlushPositionAuthoritative.store(positionIsAuthoritative, std::memory_order_relaxed);
+	m_playbackController.ReleaseHold(PlayHold::PositionPending, "Flush");
 
 	// Step 2: Decide whether to tear down or flush based on current state.
 	// This check happens BEFORE claiming FLUSHING so that Stop() — which
@@ -1601,74 +1689,100 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown, boo
 
 	if (!isFlushableState && shouldTearDown)
 	{
+		FlushByTeardown(preFlushState);
+		return;
+	}
+	const auto pipeline = GetPipeline();
+	if (!isFlushableState)
+	{
+		FlushWithoutCycle(pipeline.get(), preFlushState, rate);
+		return;
+	}
+
+	// Step 3: Claim FLUSHING atomically so that
+	// any concurrent WaitForFlushToComplete() caller (e.g. Configure()) sees
+	// FLUSHING and blocks until onFlushComplete() signals completion.
+	// Step 2's check and this claim cannot interleave with another Flush()
+	// or Stop(): both hold m_flushCallMutex, including the deferred flush on
+	// an injector thread.  Configure() does not take it; AAMP stops injection
+	// (and so the deferred flush) before calling Configure().
+	m_stateMachine.onFlush();
+
+	// The Flushing hold applied on entry keeps this from issuing play().
+	ArmPreRoll(rate, "Flush");
+
+	// Wake any in-flight data so it abandons the current batch.  Post-seek
+	// data is genuinely wanted once it arrives - hold it (rather than drop
+	// it) until Stream() ungates via UngateAllSources().
+	ResetSourcesForFlush(pipeline.get(), rate, /*gate=*/true, "Flush");
+	IssueFlushSeek(pipeline.get(), posNs);
+
+	AAMPLOG_INFO("EXIT");
+}
+
+void AampRialtoPlayer::FlushByTeardown(PlayerStateId preFlushState)
+{
+	if (preFlushState == PlayerStateId::IDLE && !GetPipeline())
+	{
+		// Typically a pre-Configure() seek pre-stage.  Stop() would only
+		// deregister the control backend again for nothing.
+		AAMPLOG_INFO("Flush() with shouldTearDown=true but nothing to tear "
+			"down (IDLE, no pipeline) - not stopping");
+	}
+	else
+	{
 		// Player is not in a flushable state; recover by stopping.
-		// Stop() will call WaitForFlushToComplete() which returns immediately
-		// since we have not claimed FLUSHING.
-		// preservePendingPosition=true: the position/rate staged above are
-		// for the caller's benefit (typically a pre-Configure() seek
-		// pre-stage) and must survive this recovery Stop(), unlike a normal
-		// caller-initiated Stop() which ends the session outright.
+		// Stop() will call WaitForFlushToComplete() which returns
+		// immediately since we have not claimed FLUSHING.
+		// preservePendingPosition=true: the position/rate staged by Flush()
+		// are for the caller's benefit (typically a pre-Configure() seek
+		// pre-stage) and must survive this recovery Stop(), unlike a
+		// normal caller-initiated Stop() which ends the session outright.
 		AAMPLOG_WARN("Player was not in PLAYING/PAUSED/SOURCES_ATTACHED/FLUSHED "
 			"(pre-flush state=%d) and shouldTearDown=true - calling Stop(true)",
 			static_cast<int>(preFlushState));
 		StopInternal(true, /*preservePendingPosition=*/true);
-		AAMPLOG_INFO("EXIT - teardown requested");
-		return;
 	}
+	m_playbackController.ReleaseHold(PlayHold::Flushing,
+		"Flush(teardown)");
+	AAMPLOG_INFO("EXIT - teardown requested");
+}
 
-	if (!isFlushableState)
-	{
-		// Not in a flushable state and no teardown requested.
-		// Stage the parameters (covers the pre-Configure() seek-position
-		// pre-staging path) and commit the rate, but do not attempt a full
-		// flush cycle — onFlush() would be a no-op on the state machine.
-		//
-		// Still wake any blocked inject threads (sources may exist but not
-		// yet be Rialto-attached in the deferred-attachment path) and, on
-		// trickplay exit (rate == 1), clear any audio EOS set during trickplay
-		// entry so injection can resume once the pipeline is ready.
-		m_rate.store(rate, std::memory_order_relaxed);
+void AampRialtoPlayer::FlushWithoutCycle(
+	firebolt::rialto::IMediaPipeline *pipeline, PlayerStateId preFlushState,
+	int rate)
+{
+	// Not in a flushable state and no teardown requested.
+	// Stage the parameters (covers the pre-Configure() seek-position
+	// pre-staging path) and commit the rate, but do not attempt a full
+	// flush cycle — onFlush() would be a no-op on the state machine.
+	//
+	// Still wake any blocked inject threads (sources may exist but not
+	// yet be Rialto-attached in the deferred-attachment path) and, on
+	// trickplay exit (rate == 1), clear any audio EOS set during trickplay
+	// entry so injection can resume once the pipeline is ready.
+	m_rate.store(rate, std::memory_order_relaxed);
 
-		for (auto &source : m_sources)
-		{
-			if (source)
-			{
-				// Mirror the flushable-path semantics below: video/subtitle
-				// are always cleared, audio keeps EOS during trickplay so
-				// the pipeline clock is not stalled waiting for audio data
-				// that will never arrive.
-				const bool newEos = rate != AAMP_NORMAL_PLAY_RATE &&
-				          ((source.get() == m_sources[eMEDIATYPE_AUDIO].get()) ||
-						   (source.get() == m_sources[eMEDIATYPE_SUBTITLE].get()));
-				source->unblockInjection(m_pipeline.get(),
-					"Flush(non-flushable)", newEos);
-				// Unlike the flushable path below, no Stream() will follow
-				// to ungate — clear the gate immediately so any genuinely
-				// new data is not held indefinitely.
-				source->gateInjection(m_pipeline.get(), false,
-					"Flush(non-flushable)");
-			}
-		}
+	// Unlike the flushable path, no Stream() will follow to ungate — clear
+	// the gate immediately so any genuinely new data is not held
+	// indefinitely.
+	ResetSourcesForFlush(pipeline, rate, /*gate=*/false,
+		"Flush(non-flushable)");
 
-		AAMPLOG_INFO("Flush() in non-flushable state %d (shouldTearDown=false): "
-			"parameters staged, rate=%d committed, no flush cycle started",
-			static_cast<int>(preFlushState), rate);
-		AAMPLOG_INFO("EXIT");
-		return;
-	}
+	AAMPLOG_INFO("Flush() in non-flushable state %d (shouldTearDown=false): "
+		"parameters staged, rate=%d committed, no flush cycle started",
+		static_cast<int>(preFlushState), rate);
+	m_playbackController.ReleaseHold(PlayHold::Flushing,
+		"Flush(non-flushable)");
+	AAMPLOG_INFO("EXIT");
+}
 
-	// Step 3: Claim FLUSHING atomically while holding m_flushMutex so that
-	// any concurrent WaitForFlushToComplete() caller (e.g. Configure()) sees
-	// FLUSHING and blocks until onFlushComplete() signals completion.
-	// Flush() and Stop()/Configure() are always on the AAMP control thread,
-	// so no TOCTOU risk exists between step 2 and step 3.
-	{
-		std::lock_guard<std::mutex> lock(m_flushMutex);
-		m_stateMachine.onFlush();
-	}
-
-	// Wake any in-flight data so it abandons the current batch.
-	for (auto &source : m_sources)
+void AampRialtoPlayer::ResetSourcesForFlush(
+	firebolt::rialto::IMediaPipeline *pipeline, int rate, bool gate,
+	const char *reason)
+{
+	const auto sources = SnapshotSources();
+	for (const auto &source : sources)
 	{
 		if (source)
 		{
@@ -1676,54 +1790,47 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown, boo
 			// Rialto/GStreamer pipeline clock is not stalled waiting
 			// for audio data that will never arrive.
 			const bool newEos = rate != AAMP_NORMAL_PLAY_RATE &&
-					          ((source.get() == m_sources[eMEDIATYPE_AUDIO].get()) ||
-							   (source.get() == m_sources[eMEDIATYPE_SUBTITLE].get()));
-			source->unblockInjection(m_pipeline.get(), "Flush", newEos);
-			// Post-seek data is genuinely wanted once it arrives — hold it
-			// (rather than drop it) until Stream() ungates via
-			// UngateAllSources().
-			source->gateInjection(m_pipeline.get(), true, "Flush");
+				((source == sources[eMEDIATYPE_AUDIO]) ||
+				 (source == sources[eMEDIATYPE_SUBTITLE]));
+			source->unblockInjection(pipeline, reason, newEos);
+			source->gateInjection(pipeline, gate, reason);
 		}
 	}
+}
 
-	if (m_pipeline)
+void AampRialtoPlayer::IssueFlushSeek(
+	firebolt::rialto::IMediaPipeline *pipeline, int64_t posNs)
+{
+	if (pipeline)
 	{
 		// Perform a pipeline-level flushing seek.  Rialto will emit
 		// PlaybackState::SEEK_DONE when the seek completes; OnPlaybackState()
 		// handles rate commit, per-source segment position (for trickplay
 		// applied_rate), state machine restoration, and flush-CV signalling.
 		AAMPLOG_INFO("Issuing pipeline setPosition posNs=%" PRId64, posNs);
-		if (!m_pipeline->setPosition(posNs))
+		if (!pipeline->setPosition(posNs))
 		{
 			AAMPLOG_WARN("setPosition failed for posNs=%" PRId64
 				" - committing rate immediately and exiting FLUSHING", posNs);
-			m_rate.store(
-				m_pendingFlushRate.load(std::memory_order_relaxed),
+			m_rate.store(m_segmentPosition.StagedRate(),
 				std::memory_order_relaxed);
-			{
-				std::lock_guard<std::mutex> lock(m_flushMutex);
-				m_stateMachine.onFlushComplete();
-			}
-			m_flushCv.notify_all();
+			m_stateMachine.onFlushComplete();
+			m_playbackController.ReleaseHold(PlayHold::Flushing,
+				"Flush(setPosition failed)");
 		}
 	}
 	else
 	{
 		// With no pipeline there can be no SEEK_DONE callback, so commit
 		// the pending rate immediately and exit FLUSHING.
-		m_rate.store(
-			m_pendingFlushRate.load(std::memory_order_relaxed),
+		m_rate.store(m_segmentPosition.StagedRate(),
 			std::memory_order_relaxed);
 		AAMPLOG_INFO("No pipeline during flush - committed playback rate=%d",
 			m_rate.load(std::memory_order_relaxed));
-		{
-			std::lock_guard<std::mutex> lock(m_flushMutex);
-			m_stateMachine.onFlushComplete();
-		}
-		m_flushCv.notify_all();
+		m_stateMachine.onFlushComplete();
+		m_playbackController.ReleaseHold(PlayHold::Flushing,
+			"Flush(no pipeline)");
 	}
-
-	AAMPLOG_INFO("EXIT");
 }
 
 void AampRialtoPlayer::FlushTrack(AampMediaType mediaType, double position)
@@ -1736,13 +1843,14 @@ bool AampRialtoPlayer::SetPlayBackRate(double rate)
 {
 	AAMPLOG_INFO("ENTRY rate=%f", rate);
 	bool result = false;
-	if (!m_pipeline)
+	const auto pipeline = GetPipeline();
+	if (!pipeline)
 	{
 		AAMPLOG_WARN("pipeline is null");
 	}
 	else
 	{
-		result = m_pipeline->setPlaybackRate(rate);
+		result = pipeline->setPlaybackRate(rate);
 	}
 	AAMPLOG_INFO("EXIT result=%d", result);
 	return result;
@@ -1752,7 +1860,8 @@ bool AampRialtoPlayer::Pause(bool pause, bool forceStopGstreamerPreBuffering)
 {
 	AAMPLOG_INFO("ENTRY pause=%d forceStopGstreamerPreBuffering=%d", pause, forceStopGstreamerPreBuffering);
 	bool result = false;
-	if (!m_pipeline)
+	const auto pipeline = GetPipeline();
+	if (!pipeline)
 	{
 		AAMPLOG_WARN("pipeline is null");
 	}
@@ -1760,15 +1869,26 @@ bool AampRialtoPlayer::Pause(bool pause, bool forceStopGstreamerPreBuffering)
 	{
 		if (pause)
 		{
-			// Cancel any pending play-after-caching: an explicit pause takes precedence.
-			m_pendingPlayOnFragCaching = false;
-			result = m_pipeline->pause();
+			// Cancel any pending play-after-caching: an explicit pause takes
+			// precedence.
+			m_playbackController.CancelPlayRequest("Pause");
+			m_playbackController.ReleaseHold(PlayHold::FragmentCaching,
+				"Pause");
+			if (forceStopGstreamerPreBuffering)
+			{
+				// Mirrors InterfacePlayerRDK::Pause(): stop pre-buffering so it
+				// cannot later promote this paused pipeline to playing.
+				m_preRollMonitor->Stop();
+				m_playbackController.ReleaseHold(PlayHold::PreRollIncomplete,
+					"Pause(forceStopGstreamerPreBuffering)");
+			}
+			result = pipeline->pause();
 		}
 		else
 		{
 			UngateAllSources("Pause(false)");
 			bool async = false;
-			result = m_pipeline->play(async);
+			result = pipeline->play(async);
 		}
 	}
 	AAMPLOG_INFO("EXIT result=%d", result);
@@ -1777,20 +1897,20 @@ bool AampRialtoPlayer::Pause(bool pause, bool forceStopGstreamerPreBuffering)
 
 long AampRialtoPlayer::GetDurationMilliseconds()
 {
-	AAMPLOG_INFO("ENTRY");
+	AAMPLOG_TRACE("ENTRY");
 	long result = static_cast<long>(m_durationMs.load(std::memory_order_relaxed));
-	AAMPLOG_INFO("EXIT result=%ld", result);
+	AAMPLOG_TRACE("EXIT result=%ld", result);
 	return result;
 }
 
 long long AampRialtoPlayer::GetPositionMilliseconds()
 {
-	AAMPLOG_INFO("ENTRY");
+	AAMPLOG_TRACE("ENTRY");
 
-	constexpr int64_t kNsPerMs = 1'000'000LL;
 	long long result = 0LL;
 
-	if (m_stateMachine.currentState() == PlayerStateId::FLUSHING)
+	const PlayerStateId state = m_stateMachine.currentState();
+	if (state == PlayerStateId::FLUSHING || state == PlayerStateId::FLUSHED)
 	{
 		// The position reported here is relative to the segment start (the
 		// caller adds it to its own seek position), so right after a flush
@@ -1803,25 +1923,24 @@ long long AampRialtoPlayer::GetPositionMilliseconds()
 		return result;
 	}
 
-	if (m_positionPending.load(std::memory_order_relaxed))
+	if (m_playbackController.IsHeld(PlayHold::PositionPending))
 	{
 		// Gated awaiting the deferred Flush() from MaybeFlushForPendingPosition();
 		// no reliable position is known yet.
-		AAMPLOG_INFO("EXIT positionPending - reporting 0");
+		AAMPLOG_TRACE("EXIT positionPending - reporting 0");
 		return result;
 	}
 
-	if (m_pipeline)
+	if (const auto pipeline = GetPipeline())
 	{
 		int64_t queriedNs = 0;
-		if (m_pipeline->getPosition(queriedNs))
+		if (pipeline->getPosition(queriedNs))
 		{
 			// Segment-start: position (ns) the current segment actually
 			// began at (attach-time stage or last SEEK_DONE) - may differ
 			// from the first injected sample's own PTS when a flush/seek
 			// lands mid-fragment.
-			const int64_t startMs =
-				m_segmentStartPositionNs.load(std::memory_order_relaxed) / kNsPerMs;
+			const int64_t startMs = m_segmentPosition.BaselineNs() / kNsPerMs;
 			const int64_t rawMs = queriedNs / kNsPerMs;
 			const int rate = m_rate.load(std::memory_order_relaxed);
 			const int64_t elapsed = rawMs - startMs;
@@ -1833,7 +1952,7 @@ long long AampRialtoPlayer::GetPositionMilliseconds()
 			result = (rate > 0)
 				? std::max(int64_t{0}, elapsed) * rate
 				: elapsed * rate;
-			AAMPLOG_INFO("queried=%" PRId64 " ms  segmentStart=%" PRId64
+			AAMPLOG_TRACE("queried=%" PRId64 " ms  segmentStart=%" PRId64
 				" ms  rate=%d  position=%lld ms", rawMs, startMs, rate, result);
 		}
 		else
@@ -1846,7 +1965,7 @@ long long AampRialtoPlayer::GetPositionMilliseconds()
 		AAMPLOG_WARN("pipeline is null");
 	}
 
-	AAMPLOG_INFO("EXIT result=%lld", result);
+	AAMPLOG_TRACE("EXIT result=%lld", result);
 	return result;
 }
 
@@ -1861,10 +1980,10 @@ long long AampRialtoPlayer::GetVideoPTS()
 	AAMPLOG_INFO("ENTRY");
 	long long result = 0;
 
-	if (m_pipeline)
+	if (const auto pipeline = GetPipeline())
 	{
 		int64_t positionNs = 0;
-		if (m_pipeline->getPosition(positionNs))
+		if (pipeline->getPosition(positionNs))
 		{
 			result = static_cast<long long>(
 				(positionNs / kNsPerConversionUnit) *
@@ -1887,11 +2006,14 @@ long long AampRialtoPlayer::GetVideoPTS()
 void AampRialtoPlayer::SetVideoRectangle(int x, int y, int w, int h)
 {
 	AAMPLOG_INFO("ENTRY x=%d y=%d w=%d h=%d", x, y, w, h);
-	m_videoRectangle = std::to_string(x) + "," + std::to_string(y)
-	                 + "," + std::to_string(w) + "," + std::to_string(h);
-	if (m_pipeline)
 	{
-		m_pipeline->setVideoWindow(
+		std::lock_guard<std::mutex> lock(m_videoRectangleMutex);
+		m_videoRectangle = std::to_string(x) + "," + std::to_string(y)
+		                 + "," + std::to_string(w) + "," + std::to_string(h);
+	}
+	if (const auto pipeline = GetPipeline())
+	{
+		pipeline->setVideoWindow(
 			static_cast<uint32_t>(x), static_cast<uint32_t>(y),
 			static_cast<uint32_t>(w), static_cast<uint32_t>(h));
 	}
@@ -1911,10 +2033,11 @@ void AampRialtoPlayer::SetVideoMute(bool muted)
 	AAMPLOG_INFO("ENTRY muted=%d", muted);
 	std::lock_guard<std::mutex> lock(m_attachMutex);
 	m_videoMuted = muted;
-	auto *videoSource = m_sources[eMEDIATYPE_VIDEO].get();
-	if (m_pipeline && videoSource && videoSource->isAttached())
+	const auto videoSource = getSource(eMEDIATYPE_VIDEO);
+	const auto pipeline = GetPipeline();
+	if (pipeline && videoSource && videoSource->isAttached())
 	{
-		m_pipeline->setMute(videoSource->sourceId(), muted);
+		pipeline->setMute(videoSource->sourceId(), muted);
 	}
 	AAMPLOG_INFO("EXIT");
 }
@@ -1924,10 +2047,11 @@ void AampRialtoPlayer::SetSubtitleMute(bool muted)
 	AAMPLOG_INFO("ENTRY muted=%d", muted);
 	std::lock_guard<std::mutex> lock(m_attachMutex);
 	m_subtitleMuted = muted;
-	auto *subtitleSource = m_sources[eMEDIATYPE_SUBTITLE].get();
-	if (m_pipeline && subtitleSource && subtitleSource->isAttached())
+	const auto subtitleSource = getSource(eMEDIATYPE_SUBTITLE);
+	const auto pipeline = GetPipeline();
+	if (pipeline && subtitleSource && subtitleSource->isAttached())
 	{
-		m_pipeline->setMute(subtitleSource->sourceId(), muted);
+		pipeline->setMute(subtitleSource->sourceId(), muted);
 	}
 	AAMPLOG_INFO("EXIT");
 }
@@ -1940,9 +2064,9 @@ bool AampRialtoPlayer::setTextTrackIdentifier(const std::string &id)
 {
 	AAMPLOG_INFO("ENTRY id=%s", id.c_str());
 	bool result = false;
-	if (m_pipeline)
+	if (const auto pipeline = GetPipeline())
 	{
-		result = m_pipeline->setTextTrackIdentifier(id);
+		result = pipeline->setTextTrackIdentifier(id);
 	}
 	AAMPLOG_INFO("EXIT result=%d", result);
 	return result;
@@ -1953,10 +2077,11 @@ bool AampRialtoPlayer::setCCMute(bool muted)
 	AAMPLOG_INFO("ENTRY muted=%d", muted);
 	bool result = false;
 	std::lock_guard<std::mutex> lock(m_attachMutex);
-	auto *sub = m_sources[eMEDIATYPE_SUBTITLE].get();
-	if (m_pipeline && sub && sub->isAttached())
+	const auto sub = getSource(eMEDIATYPE_SUBTITLE);
+	const auto pipeline = GetPipeline();
+	if (pipeline && sub && sub->isAttached())
 	{
-		result = m_pipeline->setMute(sub->sourceId(), muted);
+		result = pipeline->setMute(sub->sourceId(), muted);
 	}
 	AAMPLOG_INFO("EXIT result=%d", result);
 	return result;
@@ -1978,33 +2103,35 @@ void AampRialtoPlayer::SetAudioVolume(int volume)
 
 void AampRialtoPlayer::applyAudioVolume()
 {
-	if (!m_pipeline)
+	const auto pipeline = GetPipeline();
+	if (!pipeline)
 	{
 		AAMPLOG_INFO("pipeline is null - volume/mute request cached, "
 			"will be applied when the pipeline is created");
 	}
 	else
 	{
-		const auto *audioSource = m_sources[eMEDIATYPE_AUDIO].get();
+		const auto audioSource = getSource(eMEDIATYPE_AUDIO);
 		const int32_t audioSourceId = audioSource ? audioSource->sourceId() : -1;
 		// Mute without touching volume - mirrors InterfacePlayerRDK's
 		// SetVolumeOrMuteUnMute(), which skips the "volume" property write
 		// while muted.
-		const bool muted = (m_audioVolume == 0);
+		const int volume = m_audioVolume.load(std::memory_order_relaxed);
+		const bool muted = (volume == 0);
 
 		if (audioSourceId < 0)
 		{
 			AAMPLOG_INFO("audio source not yet attached - mute request "
 				"will be re-applied on attach");
 		}
-		else if (!m_pipeline->setMute(audioSourceId, muted))
+		else if (!pipeline->setMute(audioSourceId, muted))
 		{
 			AAMPLOG_WARN("setMute(%d) failed for sourceId=%d", muted, audioSourceId);
 		}
 
-		if (!muted && !m_pipeline->setVolume(static_cast<double>(m_audioVolume) / 100.0))
+		if (!muted && !pipeline->setVolume(static_cast<double>(volume) / 100.0))
 		{
-			AAMPLOG_WARN("setVolume(%d) failed", m_audioVolume);
+			AAMPLOG_WARN("setVolume(%d) failed", volume);
 		}
 	}
 }
@@ -2037,7 +2164,7 @@ bool AampRialtoPlayer::Discontinuity(AampMediaType mediaType)
 	// direct Rialto is always fed demuxed ISO-BMFF.  The one divergence
 	// this creates is audio-only content (mVideoFormat == FORMAT_INVALID),
 	// where the reference would fall through to the EOS branch.
-	auto *source = getSource(mediaType);
+	const auto source = getSource(mediaType);
 	if (!source)
 	{
 		AAMPLOG_WARN("unsupported mediaType=%d", static_cast<int>(mediaType));
@@ -2053,9 +2180,10 @@ bool AampRialtoPlayer::Discontinuity(AampMediaType mediaType)
 		return false;
 	}
 
-	const bool esChangePending = m_aamp->ReconfigureForElementaryStreamUpdate();
+	PrivateInstanceAAMP *aamp = Aamp();
+	const bool esChangePending = aamp->ReconfigureForElementaryStreamUpdate();
 	const bool ptsRestampActive =
-		m_aamp->mConfig->IsConfigSet(eAAMPConfig_EnablePTSReStamp) &&
+		aamp->mConfig->IsConfigSet(eAAMPConfig_EnablePTSReStamp) &&
 		!esChangePending;
 
 	if (ptsRestampActive)
@@ -2070,7 +2198,7 @@ bool AampRialtoPlayer::Discontinuity(AampMediaType mediaType)
 		AAMPLOG_INFO("mediaType=%d esChangePending=%d - signalling EOS and "
 			"resuming buffering across discontinuity",
 			static_cast<int>(mediaType), esChangePending);
-		source->signalEos(m_pipeline.get());
+		source->signalEos(GetPipeline().get());
 
 		// Rialto only reports END_OF_STREAM once every attached source has
 		// delivered haveData(EOS), and AAMP drives the rest of the
@@ -2080,18 +2208,18 @@ bool AampRialtoPlayer::Discontinuity(AampMediaType mediaType)
 		// here - the reference does the same from its audio branch.  Keyed
 		// off video because audio may be absent, matching
 		// EndOfStreamReached().
-		auto *subtitleSrc = m_sources[eMEDIATYPE_SUBTITLE].get();
+		const auto subtitleSrc = getSource(eMEDIATYPE_SUBTITLE);
 		if (mediaType == eMEDIATYPE_VIDEO
 		    && subtitleSrc
 		    && subtitleSrc->isAttached()
-		    && !subtitleSrc->state().eos)
+		    && !subtitleSrc->isEos())
 		{
 			AAMPLOG_INFO("auto-signaling subtitle EOS: video discontinuity");
-			subtitleSrc->signalEos(m_pipeline.get());
+			subtitleSrc->signalEos(GetPipeline().get());
 		}
 
 		StopBuffering(true);
-		if (m_aamp->mConfig->IsConfigSet(eAAMPConfig_EnableAampUnderflowMonitor))
+		if (aamp->mConfig->IsConfigSet(eAAMPConfig_EnableAampUnderflowMonitor))
 		{
 			m_notifiable->NotifyPipelinePausedToUnderflowMonitor();
 		}
@@ -2107,7 +2235,7 @@ bool AampRialtoPlayer::Discontinuity(AampMediaType mediaType)
 	// arming would let SendSample() race an early implicit Flush() ahead of
 	// the guaranteed one, which would then redundantly re-flush and discard
 	// whatever was buffered in between.
-	if (!m_aamp->WillFlushOnDiscontinuity())
+	if (!aamp->WillFlushOnDiscontinuity())
 	{
 		ArmPositionPending("Discontinuity");
 	}
@@ -2180,29 +2308,24 @@ void AampRialtoPlayer::ResetEOSSignalledFlag()
 void AampRialtoPlayer::NotifyFragmentCachingComplete()
 {
 	AAMPLOG_INFO("ENTRY");
-
-	if (m_pendingPlayOnFragCaching)
-	{
-		AAMPLOG_MIL("Fragment caching complete — issuing play() to resume pipeline");
-		m_pendingPlayOnFragCaching = false;
-		if (m_pipeline)
-		{
-			bool async = false;
-			m_pipeline->play(async);
-		}
-	}
-
+	m_playbackController.ReleaseHold(PlayHold::FragmentCaching,
+		"NotifyFragmentCachingComplete");
 	AAMPLOG_INFO("EXIT");
 }
 
 void AampRialtoPlayer::NotifyFragmentCachingOngoing()
 {
 	AAMPLOG_INFO("ENTRY");
-	m_pendingPlayOnFragCaching = true;
-	if (m_pipeline && m_stateMachine.currentState() != PlayerStateId::PAUSED)
+	// Hold first, then record the owed resume, so the request cannot be
+	// satisfied before caching completes.
+	m_playbackController.AddHold(PlayHold::FragmentCaching,
+		"NotifyFragmentCachingOngoing");
+	m_playbackController.RequestPlay("NotifyFragmentCachingOngoing");
+	const auto pipeline = GetPipeline();
+	if (pipeline && m_stateMachine.currentState() != PlayerStateId::PAUSED)
 	{
 		AAMPLOG_MIL("Pipeline not paused during fragment caching — issuing pause()");
-		m_pipeline->pause();
+		pipeline->pause();
 	}
 	AAMPLOG_INFO("EXIT");
 }
@@ -2215,7 +2338,7 @@ void AampRialtoPlayer::GetVideoSize(int &w, int &h)
 	int y = 0;
 	int parsedW = 0;
 	int parsedH = 0;
-	if ((sscanf(m_videoRectangle.c_str(), "%d,%d,%d,%d",
+	if ((sscanf(GetVideoRectangle().c_str(), "%d,%d,%d,%d",
 			&x, &y, &parsedW, &parsedH) == 4) &&
 		(parsedW > 0) && (parsedH > 0))
 	{
@@ -2303,6 +2426,7 @@ std::string AampRialtoPlayer::GetVideoRectangle()
 {
 	AAMPLOG_INFO("ENTRY");
 	AAMPLOG_INFO("EXIT");
+	std::lock_guard<std::mutex> lock(m_videoRectangleMutex);
 	return m_videoRectangle;
 }
 
@@ -2312,11 +2436,12 @@ void AampRialtoPlayer::StopBuffering(bool forceStop)
 	//   true  - resume playback unconditionally, regardless of buffer level.
 	//   false - resume only if enough decoded frames are queued in the decoder.
 	//
-	// The Rialto client API does not expose the server-side decoder's queued
-	// frame count, so there is no condition to gate the non-forced path on.
+	// Rialto's getQueuedFrames() reports server-implementation-specific
+	// decoder state, so it is not relied on to gate the non-forced path.
 	// Both cases therefore resume unconditionally via play().
 	AAMPLOG_INFO("ENTRY forceStop=%d", forceStop);
-	if (!m_pipeline)
+	const auto pipeline = GetPipeline();
+	if (!pipeline)
 	{
 		AAMPLOG_WARN("pipeline is null");
 	}
@@ -2324,7 +2449,7 @@ void AampRialtoPlayer::StopBuffering(bool forceStop)
 	{
 		UngateAllSources("StopBuffering");
 		bool async = false;
-		if (!m_pipeline->play(async))
+		if (!pipeline->play(async))
 		{
 			AAMPLOG_ERR("play() failed while stopping buffering");
 		}
@@ -2354,11 +2479,12 @@ PlaybackQualityStruct *AampRialtoPlayer::GetVideoPlaybackQuality()
 	}
 	else
 	{
-		auto *videoSource = m_sources[eMEDIATYPE_VIDEO].get();
+		const auto videoSource = getSource(eMEDIATYPE_VIDEO);
 		uint64_t rendered = 0;
 		uint64_t dropped = 0;
-		if (m_pipeline && videoSource && videoSource->isAttached() &&
-			m_pipeline->getStats(videoSource->sourceId(), rendered, dropped))
+		const auto pipeline = GetPipeline();
+		if (pipeline && videoSource && videoSource->isAttached() &&
+			pipeline->getStats(videoSource->sourceId(), rendered, dropped))
 		{
 			m_playbackQuality.rendered = static_cast<long long>(rendered);
 			m_playbackQuality.dropped = static_cast<long long>(dropped);
@@ -2378,13 +2504,14 @@ bool AampRialtoPlayer::SignalSubtitleClock()
 {
 	AAMPLOG_INFO("ENTRY");
 	bool result = false;
-	auto *subtitleSource = m_sources[eMEDIATYPE_SUBTITLE].get();
-	if (m_pipeline && subtitleSource && subtitleSource->isAttached())
+	const auto subtitleSource = getSource(eMEDIATYPE_SUBTITLE);
+	const auto pipeline = GetPipeline();
+	if (pipeline && subtitleSource && subtitleSource->isAttached())
 	{
 		int64_t position = 0;
-		if (m_pipeline->getPosition(position))
+		if (pipeline->getPosition(position))
 		{
-			result = m_pipeline->setSourcePosition(
+			result = pipeline->setSourcePosition(
 				subtitleSource->sourceId(),
 				position,
 				/*resetTime=*/false);
@@ -2394,9 +2521,15 @@ bool AampRialtoPlayer::SignalSubtitleClock()
 	return result;
 }
 
+// Pause-on-start-playback is not supported: playback starts normally.
 void AampRialtoPlayer::SetPauseOnStartPlayback(bool enable)
 {
 	AAMPLOG_INFO("ENTRY enable=%d", enable);
+	if (enable)
+	{
+		AAMPLOG_WARN("Pause on start playback is not supported by "
+			"AampRialtoPlayer - ignoring");
+	}
 	AAMPLOG_INFO("EXIT");
 }
 
@@ -2421,11 +2554,12 @@ void AampRialtoPlayer::NotifyInjectorToPause()
 	// follow-up gateInjection(true) here — unlike Flush()/Configure(), this
 	// path has no guaranteed later ungate event, so blocking here risks
 	// hanging the injector thread forever (e.g. during teardown).
-	for (auto &source : m_sources)
+	const auto pipeline = GetPipeline();
+	for (const auto &source : SnapshotSources())
 	{
 		if (source)
 		{
-			source->unblockInjection(m_pipeline.get(), "NotifyInjectorToPause");
+			source->unblockInjection(pipeline.get(), "NotifyInjectorToPause");
 		}
 	}
 	AAMPLOG_INFO("EXIT");
@@ -2434,10 +2568,10 @@ void AampRialtoPlayer::NotifyInjectorToPause()
 void AampRialtoPlayer::UnblockTrackInjection(AampMediaType type)
 {
 	AAMPLOG_INFO("ENTRY type=%d", static_cast<int>(type));
-	if (type < m_sources.size() && m_sources[type])
+	if (const auto source = getSource(type))
 	{
 		// This requires Stream to be called by AAMP to ungate the content
-		m_sources[type]->unblockInjection(m_pipeline.get(), "UnblockTrackInjection");
+		source->unblockInjection(GetPipeline().get(), "UnblockTrackInjection");
 	}
 	AAMPLOG_INFO("EXIT");
 }
@@ -2454,13 +2588,13 @@ void AampRialtoPlayer::SetStreamCaps(AampMediaType type, MediaCodecInfo &&codecI
 	}
 
 	std::lock_guard<std::mutex> lock(m_attachMutex);
-	if (!m_pipeline)
+	if (!GetPipeline())
 	{
 		AAMPLOG_ERR("pipeline not created");
 	}
 	else
 	{
-		auto *source = getSource(type);
+		const auto source = getSource(type);
 		if (source)
 		{
 			AttachSource(*source, codecInfo);
@@ -2473,9 +2607,10 @@ void AampRialtoPlayer::SetStreamCaps(AampMediaType type, MediaCodecInfo &&codecI
 			// ResumeTrackDownloads is never triggered by a Rialto NeedData
 			// callback after a caps update.  Clear the flag here so that the
 			// inject loop is unblocked once the new period init has been accepted.
-			if (type == eMEDIATYPE_SUBTITLE && m_aamp)
+			PrivateInstanceAAMP *aamp = Aamp();
+			if (type == eMEDIATYPE_SUBTITLE && aamp)
 			{
-				m_aamp->ResumeTrackDownloads(eMEDIATYPE_SUBTITLE);
+				aamp->ResumeTrackDownloads(eMEDIATYPE_SUBTITLE);
 			}
 		}
 		else
@@ -2491,7 +2626,7 @@ bool AampRialtoPlayer::IsAssociatedAamp(PrivateInstanceAAMP *aampInstance)
 {
 	bool ret = false;
 	AAMPLOG_INFO("ENTRY aampInstance=%p", aampInstance);
-	ret = (m_aamp == aampInstance);
+	ret = (Aamp() == aampInstance);
 	AAMPLOG_INFO("EXIT ret=%d", ret);
 	return ret;
 }
@@ -2499,14 +2634,29 @@ bool AampRialtoPlayer::IsAssociatedAamp(PrivateInstanceAAMP *aampInstance)
 void AampRialtoPlayer::ChangeAamp(PrivateInstanceAAMP *newAamp, id3_callback_t id3HandlerCallback)
 {
 	AAMPLOG_INFO("ENTRY newAamp=%p", newAamp);
-	m_ID3MetadataHandler = std::move(id3HandlerCallback);
+	{
+		std::lock_guard<std::mutex> lock(m_id3HandlerMutex);
+		m_ID3MetadataHandler = std::move(id3HandlerCallback);
+	}
 	if (newAamp == nullptr)
 	{
 		AAMPLOG_WARN("newAamp is null in ChangeAamp; keeping current association");
 	}
 	else
 	{
-		m_aamp = newAamp;
+		m_aamp.store(newAamp, std::memory_order_release);
+		{
+			// A bridge made for the previous instance would keep using it.
+			// One installed by SetEncryptedAamp() targets another instance
+			// on purpose and is kept.  The old bridge is released outside the
+			// lock; an in-flight AttachSource() holds its own snapshot.
+			std::shared_ptr<IDrmBridge> staleBridge;
+			std::lock_guard<std::mutex> lock(m_drmBridgeMutex);
+			if (!m_drmBridgeIsExplicit)
+			{
+				staleBridge = std::move(m_drmBridge);
+			}
+		}
 		if (m_notifiableAdapter)
 		{
 			static_cast<PrivateInstanceAAMPNotifiable *>(
@@ -2522,9 +2672,31 @@ void AampRialtoPlayer::SetEncryptedAamp(PrivateInstanceAAMP *aamp)
 	// Create DRM bridge with the encrypted player's aamp to share its DRM
 	// session manager.  Supports pre-roll ads: clear ad player calls this
 	// with the encrypted VOD player so the pipeline is configured for DRM
-	// even though the first asset is unencrypted.
-	m_drmBridge = std::make_shared<AampDrmBridge>(aamp);
+	// even though the first asset is unencrypted.  Null reverts to the
+	// default bridge for the current instance.
+	std::shared_ptr<IDrmBridge> previousBridge;
+	{
+		std::lock_guard<std::mutex> lock(m_drmBridgeMutex);
+		previousBridge = std::move(m_drmBridge);
+		m_drmBridgeIsExplicit = (aamp != nullptr);
+		if (aamp != nullptr)
+		{
+			m_drmBridge = std::make_shared<AampDrmBridge>(aamp);
+		}
+	}
 	AAMPLOG_INFO("EXIT");
+}
+
+std::shared_ptr<IDrmBridge> AampRialtoPlayer::GetDrmBridge()
+{
+	std::lock_guard<std::mutex> lock(m_drmBridgeMutex);
+	if (!m_drmBridge)
+	{
+		PrivateInstanceAAMP *aamp = Aamp();
+		m_drmBridge = std::make_shared<AampDrmBridge>(aamp);
+		AAMPLOG_INFO("Creating m_drmBridge with aamp=%p", aamp);
+	}
+	return m_drmBridge;
 }
 
 void AampRialtoPlayer::ResetFirstFrame()
@@ -2538,17 +2710,17 @@ void AampRialtoPlayer::ResetFirstFrame()
 }
 
 // ---------------------------------------------------------------------------
-// Callbacks invoked from AampRialtoMediaPipelineClient
+// IAampRialtoPipelineEvents, delivered by AampRialtoMediaPipelineClient
 // ---------------------------------------------------------------------------
 
 void AampRialtoPlayer::OnNeedMediaData(
 	int32_t sourceId, size_t frameCount, uint32_t requestId)
 {
 	AAMPLOG_INFO("sourceId=%d frameCount=%zu requestId=%u", sourceId, frameCount, requestId);
-	auto *source = findSourceByRialtoId(sourceId);
+	const auto source = findSourceByRialtoId(sourceId);
 	if (source)
 	{
-		source->handleNeedData(frameCount, requestId, m_pipeline.get());
+		source->handleNeedData(frameCount, requestId, GetPipeline().get());
 	}
 	else
 	{
@@ -2559,7 +2731,7 @@ void AampRialtoPlayer::OnNeedMediaData(
 void AampRialtoPlayer::OnCancelNeedMediaData(int32_t sourceId)
 {
 	AAMPLOG_INFO("sourceId=%d", sourceId);
-	auto *source = findSourceByRialtoId(sourceId);
+	const auto source = findSourceByRialtoId(sourceId);
 	if (source)
 	{
 		source->handleCancelNeedData();
@@ -2568,7 +2740,7 @@ void AampRialtoPlayer::OnCancelNeedMediaData(int32_t sourceId)
 
 unsigned long AampRialtoPlayer::GetCCHandle() const
 {
-	auto *mediaSource = m_sources[eMEDIATYPE_SUBTITLE].get();
+	const auto mediaSource = getSource(eMEDIATYPE_SUBTITLE);
 	// Build the CC decoder handle. In inband-CC mode pass the
 	// IDirectRialtoCC pointer (as unsigned long) so that
 	// priv_aamp::InitializeCC() initialises the CC manager with the
@@ -2581,63 +2753,218 @@ unsigned long AampRialtoPlayer::GetCCHandle() const
 	return ccHandle;
 }
 
+void AampRialtoPlayer::HandlePlaybackStarted()
+{
+	m_stateMachine.onPlaybackStarted();
+	// No flush wake-up needed here: Rialto is guaranteed to
+	// send SEEK_DONE before PLAYING/PAUSED for the same flush cycle,
+	// so onFlushComplete() (called from the SEEK_DONE handler) has
+	// already left FLUSHING and woken any waiter in
+	// WaitForFlushToComplete() by the time this runs.
+	//
+	// Deliberately no UngateAllSources() here.  Ungating happens
+	// only where the playback controller issues play(); a PLAYING
+	// notification can also be a late echo of the play() issued by
+	// StopBuffering() inside Discontinuity(), while
+	// PlayHold::PositionPending is still applied and Configure()'s
+	// gate must hold until the deferred Flush() resolves the new
+	// position.  Ungating here was a fail-safe with no identified
+	// need; removing it avoids that race rather than guarding it.
+
+	const bool firstFrame =
+		!m_firstFrameNotified.exchange(true, std::memory_order_acq_rel);
+	const unsigned long ccHandle = GetCCHandle();
+
+	if (firstFrame)
+	{
+		m_notifiable->LogFirstFrame();
+		m_notifiable->LogTuneComplete();
+		m_notifiable->NotifyFirstBufferProcessed(GetVideoRectangle());
+		m_notifiable->NotifyFirstFrameReceived(ccHandle);
+		m_notifiable->NotifyFirstVideoFrameDisplayed();
+	}
+	else if (m_notifiable->GetState() == eSTATE_SEEKING)
+	{
+		m_notifiable->NotifyFirstBufferProcessed(GetVideoRectangle());
+		m_notifiable->NotifyFirstFrameReceived(ccHandle);
+		m_notifiable->NotifyFirstVideoFrameDisplayed();
+	}
+	else
+	{
+		m_notifiable->NotifyFirstBufferProcessed(GetVideoRectangle());
+		m_notifiable->NotifyFirstFrameReceived(ccHandle);
+	}
+	StartProgressTimer();
+
+	{
+		std::lock_guard<std::mutex> lock(m_monitorMutex);
+		if (m_monitorAV)
+		{
+			m_monitorAV->start();
+		}
+	}
+}
+
+void AampRialtoPlayer::ApplyTrickplaySegmentPosition(int64_t positionNs, int rate)
+{
+	// resetTime=false: the pipeline-level setPosition() already flushed
+	// source buffers; we only update the segment rate.
+	const auto videoSource = getSource(eMEDIATYPE_VIDEO);
+	const auto pipeline = GetPipeline();
+	if (videoSource && pipeline)
+	{
+		const double appliedRate =
+			computeAppliedRate(rate, eMEDIATYPE_VIDEO);
+		if (appliedRate != AAMP_NORMAL_PLAY_RATE)
+		{
+			if (!pipeline->setSourcePosition(
+					videoSource->sourceId(), positionNs,
+					/*resetTime=*/false,
+					appliedRate))
+			{
+				AAMPLOG_WARN("setSourcePosition failed for "
+					"sourceId=%d after SEEK_DONE",
+					videoSource->sourceId());
+			}
+		}
+	}
+}
+
+void AampRialtoPlayer::ApplySubtitleSegmentPosition(int64_t positionNs)
+{
+	// Without this the subtitle engine only learns the position when
+	// SignalSubtitleClock() next succeeds, which introduces a visible
+	// display delay.  Suspected Rialto issue: Flush() already called
+	// setPosition(), yet setSourcePosition() is still required here.
+	std::lock_guard<std::mutex> lock(m_attachMutex);
+	const auto subtitleSrc = getSource(eMEDIATYPE_SUBTITLE);
+	const auto pipeline = GetPipeline();
+	if (subtitleSrc && subtitleSrc->isAttached() && pipeline)
+	{
+		if (!pipeline->setSourcePosition(
+					subtitleSrc->sourceId(), positionNs,
+					/*resetTime=*/false))
+		{
+			AAMPLOG_WARN("setSourcePosition failed for subtitle "
+				"sourceId=%d after SEEK_DONE",
+				subtitleSrc->sourceId());
+		}
+		else
+		{
+			AAMPLOG_INFO("SEEK_DONE: updated subtitle position to "
+				"%" PRId64 " ns", positionNs);
+		}
+	}
+}
+
+void AampRialtoPlayer::HandleSeekDone()
+{
+	// Ignore SEEK_DONE not originating from a Flush()-initiated seek.
+	// SeekStreamSink() also delegates to Flush(), so it enters FLUSHING
+	// like any other caller; this guard only excludes stray/duplicate
+	// SEEK_DONE notifications outside a flush cycle.
+	if (m_stateMachine.currentState() != PlayerStateId::FLUSHING)
+	{
+		AAMPLOG_INFO("SEEK_DONE received outside FLUSHING (state=%s) - ignored",
+			m_stateMachine.currentStateName());
+	}
+	else
+	{
+		const int64_t posNs = m_segmentPosition.StagedPositionNs();
+		const int pendingRate = m_segmentPosition.StagedRate();
+
+		ApplyTrickplaySegmentPosition(posNs, pendingRate);
+		ApplySubtitleSegmentPosition(posNs);
+
+		m_rate.store(pendingRate, std::memory_order_relaxed);
+		AAMPLOG_INFO("SEEK_DONE: committed playback rate=%d", pendingRate);
+
+		// Commit this flush's target as the new segment-start baseline
+		// for GetPositionMilliseconds() - the seek may have landed
+		// mid-fragment, so the first sample's own PTS is not reliable.
+		m_segmentPosition.CommitBaseline(posNs);
+
+		// PlayHold::PositionPending was already released synchronously
+		// when Flush() entered this cycle (not deferred to here) -
+		// releasing it again on this SEEK_DONE would wrongly discard a
+		// re-arm from a Discontinuity() that landed for a newer period
+		// while this flush was still in flight.
+
+		// Release the Flushing hold while the state machine is still
+		// FLUSHING.  Once it leaves FLUSHING a Flush() blocked in
+		// WaitForFlushToComplete() can proceed and apply its own hold, so
+		// releasing afterwards could drop that new flush's hold and let
+		// play() run part-way through it.
+		//
+		// Releasing the hold ungates and plays if Stream() was called while
+		// the flush was in progress, regardless of what onFlushComplete()
+		// restores.  For seek-while-playing the pre-flush (and thus
+		// restored) state is already PLAYING, so this is the only
+		// guaranteed point that ungates sources - waiting for a subsequent
+		// "redundant" Rialto PLAYING notification is an assumption, not a
+		// guarantee, and must not be relied on to avoid leaving sources
+		// gated forever.  Seek-while-paused is handled correctly: Stream()
+		// is not called in that path so no play request is outstanding and
+		// the gate is left for the later Pause(false)/StopBuffering() to
+		// clear.
+		//
+		// PlayHold::PositionPending may already be applied again here: a
+		// Discontinuity() can re-arm it for a newer period while this
+		// flush cycle was still in flight (see
+		// MaybeFlushForPendingPosition()).  In that case this SEEK_DONE
+		// only resolves the earlier, now-stale position - playing now
+		// would run past the still-owed newer one.  The controller
+		// retains the play request until that hold clears too.
+		m_playbackController.ReleaseHold(PlayHold::Flushing,
+			"OnPlaybackState(SEEK_DONE)");
+
+		// Transition FLUSHING -> FLUSHED and wake any thread blocked in
+		// WaitForFlushToComplete(). FLUSHED does not restore the
+		// pre-flush PLAYING/PAUSED state: Rialto is guaranteed to send
+		// its own PLAYING/PAUSED notification after this SEEK_DONE for
+		// the same flush cycle, and that notification drives the state
+		// machine the rest of the way via onPlaybackStarted()/
+		// onPlaybackPaused().
+		m_stateMachine.onFlushComplete();
+	}
+}
+
+void AampRialtoPlayer::HandlePlaybackFailure()
+{
+	// A failure can arrive while FLUSHING; onError() wakes any thread blocked
+	// in WaitForFlushToComplete().
+	const PlayerStateId previousState = m_stateMachine.onError();
+
+	// IDLE means no live session, so the failure is stale; ERROR means it was
+	// already reported.
+	if (previousState == PlayerStateId::IDLE ||
+	    previousState == PlayerStateId::ERROR)
+	{
+		AAMPLOG_WARN("Rialto FAILURE ignored in state %d - %s",
+			static_cast<int>(previousState),
+			(previousState == PlayerStateId::IDLE) ? "no active session"
+			                                       : "already reported");
+	}
+	else
+	{
+		m_notifiable->NotifyPlaybackError(
+			AAMP_TUNE_GST_PIPELINE_ERROR,
+			"Rialto PlaybackState FAILURE",
+			/*isRetryEnabled=*/true);
+	}
+}
+
 void AampRialtoPlayer::OnPlaybackState(firebolt::rialto::PlaybackState state)
 {
-	AAMPLOG_INFO("state=%d", static_cast<int>(state));
+	AAMPLOG_INFO("Rialto reported %s (state=%d), player state=%s",
+		PlaybackStateName(state), static_cast<int>(state),
+		m_stateMachine.currentStateName());
 
 	switch (state)
 	{
 		case firebolt::rialto::PlaybackState::PLAYING:
-		{
-			m_stateMachine.onPlaybackStarted();
-			// No m_flushCv.notify_all() needed here: Rialto is guaranteed to
-			// send SEEK_DONE before PLAYING/PAUSED for the same flush cycle,
-			// so onFlushComplete() (called from the SEEK_DONE handler above)
-			// has already left FLUSHING and woken any waiter in
-			// WaitForFlushToComplete() by the time this case runs.
-			//
-			// Deliberately no UngateAllSources() here.  The two genuine
-			// ungate points are Stream() (fresh play(), all sources
-			// attached) and the SEEK_DONE handler below (flush resolved);
-			// a PLAYING notification can also be a late echo of the
-			// play() issued by StopBuffering() inside Discontinuity(),
-			// while m_positionPending is still true and Configure()'s gate
-			// must hold until the deferred Flush() resolves the new
-			// position.  Ungating here was a fail-safe with no identified
-			// need; removing it avoids that race rather than guarding it.
-
-			const bool firstFrame =
-				!m_firstFrameNotified.exchange(true, std::memory_order_acq_rel);
-			const unsigned long ccHandle = GetCCHandle();
-
-			if (firstFrame)
-			{
-				m_notifiable->LogFirstFrame();
-				m_notifiable->LogTuneComplete();
-				m_notifiable->NotifyFirstBufferProcessed(GetVideoRectangle());
-				m_notifiable->NotifyFirstFrameReceived(ccHandle);
-				m_notifiable->NotifyFirstVideoFrameDisplayed();
-			}
-			else if (m_notifiable->GetState() == eSTATE_SEEKING)
-			{
-				m_notifiable->NotifyFirstBufferProcessed(GetVideoRectangle());
-				m_notifiable->NotifyFirstFrameReceived(ccHandle);
-				m_notifiable->NotifyFirstVideoFrameDisplayed();
-			}
-			else
-			{
-				m_notifiable->NotifyFirstBufferProcessed(GetVideoRectangle());
-				m_notifiable->NotifyFirstFrameReceived(ccHandle);
-			}
-			StartProgressTimer();
-
-			if (m_monitorAV)
-			{
-				m_monitorAV->start();
-			}
-
+			HandlePlaybackStarted();
 			break;
-		}
 		case firebolt::rialto::PlaybackState::PAUSED:
 			m_stateMachine.onPlaybackPaused();
 			// Do NOT set paused=true on sources here.  PAUSED arrives for
@@ -2653,167 +2980,15 @@ void AampRialtoPlayer::OnPlaybackState(firebolt::rialto::PlaybackState state)
 			m_notifiable->NotifyEOSReached();
 			break;
 		case firebolt::rialto::PlaybackState::FAILURE:
-			// A failure can arrive while FLUSHING; wake any thread blocked in
-			// WaitForFlushToComplete() so it does not hang indefinitely.
-			{
-				std::lock_guard<std::mutex> lock(m_flushMutex);
-				m_stateMachine.onError();
-			}
-			m_flushCv.notify_all();
+			HandlePlaybackFailure();
 			break;
 		case firebolt::rialto::PlaybackState::SEEKING:
 			AAMPLOG_INFO("SEEKING notification received (state=%s)",
 				m_stateMachine.currentStateName());
 			break;
 		case firebolt::rialto::PlaybackState::SEEK_DONE:
-		{
-			// Ignore SEEK_DONE not originating from a Flush()-initiated seek.
-			// SeekStreamSink() now also delegates to Flush(), so it enters
-			// FLUSHING like any other caller; this guard only excludes
-			// stray/duplicate SEEK_DONE notifications outside a flush cycle.
-			if (m_stateMachine.currentState() != PlayerStateId::FLUSHING)
-			{
-				AAMPLOG_INFO("SEEK_DONE received outside FLUSHING (state=%s) - ignored",
-					m_stateMachine.currentStateName());
-				break;
-			}
-
-			const int64_t posNs =
-				m_pendingPositionNs.load(std::memory_order_relaxed);
-			const int pendingRate =
-				m_pendingFlushRate.load(std::memory_order_relaxed);
-
-			// Apply video-source segment position so the GStreamer
-			// segment event carries the correct applied_rate for trickplay.
-			// resetTime=false: the pipeline-level setPosition() already
-			// flushed source buffers; we only update the segment rate.
-			auto *videoSource = m_sources[eMEDIATYPE_VIDEO].get();
-			if (videoSource)
-			{
-				const double appliedRate =
-					computeAppliedRate(pendingRate, eMEDIATYPE_VIDEO);
-				if (appliedRate != AAMP_NORMAL_PLAY_RATE)
-				{
-					if (!m_pipeline->setSourcePosition(
-							videoSource->sourceId(), posNs,
-							/*resetTime=*/false,
-							appliedRate))
-					{
-						AAMPLOG_WARN("setSourcePosition failed for "
-							"sourceId=%d after SEEK_DONE",
-							videoSource->sourceId());
-					}
-				}
-			}
-
-			// Update the subtitle source position immediately after the
-			// pipeline-level seek so that the Rialto server's text track
-			// sink has the correct render position before the pipeline
-			// transitions PLAYING.  Without this, the subtitle engine
-			// only learns the position when SignalSubtitleClock() next
-			// succeeds, which introduces a visible display delay.
-			// This is a suspected Rialto issue; setPosition is called from
-			// Flush, and additionally calling setSourcePosition here.
-			{
-				std::lock_guard<std::mutex> lock(m_attachMutex);
-				auto *subtitleSrc = m_sources[eMEDIATYPE_SUBTITLE].get();
-				if (subtitleSrc && subtitleSrc->isAttached())
-				{
-					if (!m_pipeline->setSourcePosition(
-								subtitleSrc->sourceId(), posNs,
-								/*resetTime=*/false))
-					{
-						AAMPLOG_WARN("setSourcePosition failed for subtitle "
-							"sourceId=%d after SEEK_DONE",
-							subtitleSrc->sourceId());
-					}
-					else
-					{
-						AAMPLOG_INFO("SEEK_DONE: updated subtitle position to "
-							"%" PRId64 " ns", posNs);
-					}
-				}
-			}
-
-			m_rate.store(pendingRate, std::memory_order_relaxed);
-			AAMPLOG_INFO("SEEK_DONE: committed playback rate=%d", pendingRate);
-
-			// Commit this flush's target as the new segment-start baseline
-			// for GetPositionMilliseconds() - the seek may have landed
-			// mid-fragment, so the first sample's own PTS is not reliable.
-			m_segmentStartPositionNs.store(posNs, std::memory_order_relaxed);
-
-			// m_positionPending was already cleared synchronously when
-			// Flush() entered this cycle (not deferred to here) - clearing
-			// it again on this SEEK_DONE would wrongly discard a re-arm
-			// from a Discontinuity() that landed for a newer period while
-			// this flush was still in flight.
-
-			// Transition FLUSHING -> FLUSHED and wake any thread blocked in
-			// WaitForFlushToComplete(). FLUSHED does not restore the
-			// pre-flush PLAYING/PAUSED state: Rialto is guaranteed to send
-			// its own PLAYING/PAUSED notification after this SEEK_DONE for
-			// the same flush cycle, and that notification (handled above by
-			// the PLAYING_TRANSITION / PAUSED cases of this switch) drives
-			// the state machine the rest of the way via onPlaybackStarted()/
-			// onPlaybackPaused().
-			{
-				std::lock_guard<std::mutex> lock(m_flushMutex);
-				m_stateMachine.onFlushComplete();
-			}
-			m_flushCv.notify_all();
-
-			// Ungate if Stream() was called while the flush was in progress,
-			// regardless of what onFlushComplete() just restored.  For
-			// seek-while-playing, the pre-flush (and thus restored) state is
-			// already PLAYING, so this is the only guaranteed point that
-			// ungates sources — waiting for a subsequent "redundant" Rialto
-			// PLAYING notification is an assumption, not a guarantee, and
-			// must not be relied on to avoid leaving sources gated forever.
-			// seek-while-paused is handled correctly: Stream() is not called
-			// in that path so m_playRequested stays false and the gate is
-			// left for the later Pause(false)/StopBuffering() to clear.
-			//
-			// m_positionPending may already be true again here: a
-			// Discontinuity() can re-arm it for a newer period while this
-			// flush cycle was still in flight (see MaybeFlushForPendingPosition()).
-			// In that case this SEEK_DONE only resolves the earlier,
-			// now-stale position - playing now would run past the still-owed
-			// newer one. Mirror Stream()'s own deferral: leave
-			// m_playRequested set (do not consume it) so the SEEK_DONE of the
-			// flush cycle that resolves the newer position ungates/plays
-			// instead.
-			const bool positionStillPending =
-				m_positionPending.load(std::memory_order_relaxed);
-			const bool playRequested =
-				m_playRequested.load(std::memory_order_seq_cst);
-
-			if (playRequested && !positionStillPending)
-			{
-				m_playRequested.store(false, std::memory_order_relaxed);
-				UngateAllSources("OnPlaybackState(SEEK_DONE)");
-				AAMPLOG_INFO("SEEK_DONE: issuing play() (state=%s)",
-					m_stateMachine.currentStateName());
-				bool async = false;
-				if (!m_pipeline->play(async))
-				{
-					AAMPLOG_ERR("play() failed after SEEK_DONE");
-				}
-			}
-			else if (playRequested)
-			{
-				AAMPLOG_INFO("SEEK_DONE: deferring play() - a newer position "
-					"is still pending (state=%s)",
-					m_stateMachine.currentStateName());
-			}
-			else
-			{
-				AAMPLOG_INFO("SEEK_DONE: not issuing play() (state=%s)",
-					m_stateMachine.currentStateName());
-			}
-
+			HandleSeekDone();
 			break;
-		}
 		default:
 			break;
 	}
@@ -2826,7 +3001,6 @@ void AampRialtoPlayer::OnPosition(int64_t positionNs)
 
 void AampRialtoPlayer::OnDuration(int64_t durationNs)
 {
-	constexpr int64_t kNsPerMs = 1'000'000LL;
 	m_durationMs.store(durationNs / kNsPerMs, std::memory_order_relaxed);
 	AAMPLOG_INFO("duration updated: %" PRId64 " ms", m_durationMs.load());
 }
@@ -2834,7 +3008,7 @@ void AampRialtoPlayer::OnDuration(int64_t durationNs)
 void AampRialtoPlayer::OnBufferUnderflow(int32_t sourceId)
 {
 	AAMPLOG_INFO("sourceId=%d", sourceId);
-	auto *source = findSourceByRialtoId(sourceId);
+	const auto source = findSourceByRialtoId(sourceId);
 	if (!source)
 	{
 		AAMPLOG_WARN("unknown sourceId=%d - ignoring underflow notification",
@@ -2848,7 +3022,7 @@ void AampRialtoPlayer::OnPlaybackError(
 	int32_t sourceId, firebolt::rialto::PlaybackError error)
 {
 	AAMPLOG_WARN("sourceId=%d error=%d", sourceId, static_cast<int>(error));
-	auto *source = findSourceByRialtoId(sourceId);
+	const auto source = findSourceByRialtoId(sourceId);
 	std::string mediaDesc =
 		source ? GetMediaTypeName(source->mediaType()) : "unknown";
 	std::string errorDesc = "Rialto PlaybackError: sourceId=" +
@@ -2891,10 +3065,10 @@ double AampRialtoPlayer::computeAppliedRate(int candidateRate, AampMediaType typ
 	// normal play rate the result is always 1.0 - skip the isVideoMaster
 	// IPC round-trip entirely in both cases.
 	if (type == eMEDIATYPE_VIDEO && candidateRate != AAMP_NORMAL_PLAY_RATE &&
-		m_pipelineCapabilities)
+		m_session.Capabilities())
 	{
 		bool videoMaster = false;
-		if (m_pipelineCapabilities->isVideoMaster(videoMaster) && !videoMaster)
+		if (m_session.Capabilities()->isVideoMaster(videoMaster) && !videoMaster)
 		{
 			return static_cast<double>(candidateRate);
 		}
@@ -2902,26 +3076,12 @@ double AampRialtoPlayer::computeAppliedRate(int candidateRate, AampMediaType typ
 	return AAMP_NORMAL_PLAY_RATE;
 }
 
-void AampRialtoPlayer::OnSourceFlushed(int32_t sourceId)
-{
-	// Flush() now uses pipeline-level setPosition(); flush completion is
-	// driven by PlaybackState::SEEK_DONE, not per-source SourceFlushedEvents.
-	// This callback should not be reached.
-	AAMPLOG_WARN("OnSourceFlushed called unexpectedly for sourceId=%d "
-		"- flush is driven by setPosition/SEEK_DONE", sourceId);
-}
-
 void AampRialtoPlayer::StartProgressTimer()
 {
-	if (!m_progressTimer)
-	{
-		m_progressTimer = std::make_unique<ProgressTimer>();
-	}
-
-	if (m_progressTimer->isRunning())
+	if (m_progressTimer.isRunning())
 	{
 		AAMPLOG_INFO("Progress timer already running - kicking for immediate dispatch");
-		m_progressTimer->kick();
+		m_progressTimer.kick();
 		return;
 	}
 
@@ -2948,18 +3108,15 @@ void AampRialtoPlayer::StartProgressTimer()
 	}
 
 	AAMPLOG_INFO("Starting progress timer %dms", intervalMs);
-	m_progressTimer->start(intervalMs, [this]() {
+	m_progressTimer.start(intervalMs, [this]() {
 		this->OnProgressTimerTick();
 	});
 }
 
 void AampRialtoPlayer::StopProgressTimer()
 {
-	if (m_progressTimer)
-	{
-		AAMPLOG_INFO("Stopping progress timer");
-		m_progressTimer->stop();
-	}
+	AAMPLOG_INFO("Stopping progress timer");
+	m_progressTimer.stop();
 }
 
 void AampRialtoPlayer::OnProgressTimerTick()
@@ -2970,6 +3127,11 @@ void AampRialtoPlayer::OnProgressTimerTick()
 	}
 	else
 	{
+		// Fires every progress interval, so only emitted at TRACE.
+		if (AampLogManager::isLogLevelAllowed(eLOGLEVEL_TRACE))
+		{
+			LogSourceSnapshot("steady-state");
+		}
 		m_notifiable->MonitorProgress(/*sync=*/false,
 			/*beginningOfStream=*/false);
 	}

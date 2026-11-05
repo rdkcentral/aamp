@@ -23,16 +23,31 @@ include(${CMAKE_CURRENT_LIST_DIR}/../CommonTestIncludes.cmake)
 
 set(TEST_SOURCES
 	AampRialtoPlayerTests.cpp
-	AampRialtoPlayerTestCases.cpp
+	AampRialtoPlayerTestFixture.cpp
+	AampRialtoPlayerConfigureTestCases.cpp
+	AampRialtoPlayerAttachTestCases.cpp
+	AampRialtoPlayerInjectionTestCases.cpp
+	AampRialtoPlayerFlushTestCases.cpp
+	AampRialtoPlayerPlaybackTestCases.cpp
+	AampRialtoPlayerPositionTestCases.cpp
+	AampRialtoPlayerDrmTestCases.cpp
+	AampRialtoPlayerAvSettingsTestCases.cpp
 )
 
 set(AAMP_SOURCES
 	${AAMP_ROOT}/direct-rialto/AampRialtoPlayer.cpp
+	${AAMP_ROOT}/direct-rialto/AampRialtoPipelineSession.cpp
 	${AAMP_ROOT}/direct-rialto/AampRialtoMediaSource.cpp
+	${AAMP_ROOT}/direct-rialto/AampRialtoNeedDataHandshake.cpp
+	${AAMP_ROOT}/direct-rialto/AampRialtoPlaybackController.cpp
+	${AAMP_ROOT}/direct-rialto/AampRialtoSegmentPosition.cpp
+	${AAMP_ROOT}/direct-rialto/AampRialtoPreRollMonitor.cpp
 	${AAMP_ROOT}/direct-rialto/AampRialtoSubtitleSource.cpp
+	${AAMP_ROOT}/direct-rialto/AampRialtoTtmlOffset.cpp
 	${AAMP_ROOT}/direct-rialto/AampPlayerStateMachine.cpp
 	${AAMP_ROOT}/direct-rialto/PrivateInstanceAAMPNotifiable.cpp
 	${AAMP_ROOT}/direct-rialto/AampRialtoMonitorAV.cpp
+	${AAMP_ROOT}/ID3Metadata.cpp
 )
 
 add_executable(${EXEC_NAME}

@@ -21,7 +21,7 @@ set(UTESTS_ROOT "../../")
 
 include(${CMAKE_CURRENT_LIST_DIR}/../CommonTestIncludes.cmake)
 
-set(TEST_SOURCES RialtoMediaKeySystemTests.cpp)
+set(TEST_SOURCES RialtoMediaKeySystemTests.cpp RialtoMediaKeySystemTestCases.cpp)
 
 set(AAMP_SOURCES
 	${AAMP_ROOT}/direct-rialto/RialtoMediaKeySystem.cpp

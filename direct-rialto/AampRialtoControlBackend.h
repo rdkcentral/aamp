@@ -37,6 +37,7 @@
 #include <condition_variable>
 #include <memory>
 #include <mutex>
+#include <utility>
 
 /**
  * @class AampRialtoControlBackend
@@ -47,25 +48,49 @@
  * client is registered as early as possible — before any IMediaPipeline is
  * created — minimising the window in which the RUNNING broadcast can be
  * missed.
+ *
+ * Threads: Rialto delivers state changes on its own thread; waitForRunning()
+ * runs on the control thread.  The state, mutex and condition variable are
+ * shared with the registered client so a late notification is safe after
+ * this object is destroyed.
  */
 class AampRialtoControlBackend final : public IRialtoControlBackend
 {
 	/**
-	 * @brief Nested IControlClient that forwards state notifications back to
-	 *        AampRialtoControlBackend::onApplicationStateChanged().
+	 * @brief Application state shared between the backend and its client.
+	 *
+	 * The client co-owns it, so a notification that is still running when the
+	 * backend is destroyed (Rialto's event thread holds the client for the
+	 * duration of the call) never touches destroyed members, whatever order
+	 * they are destroyed in.
+	 */
+	struct SharedState
+	{
+		std::mutex                         mutex;
+		std::condition_variable            cv;
+		firebolt::rialto::ApplicationState state{
+			firebolt::rialto::ApplicationState::UNKNOWN};
+		/// True once a notification has set @c state, so the initial state
+		/// returned by registerClient() cannot overwrite a newer one.
+		bool                               notified{false};
+	};
+
+	/**
+	 * @brief Nested IControlClient that records state notifications in the
+	 *        shared state and wakes waitForRunning().
 	 */
 	class ControlClient final : public firebolt::rialto::IControlClient
 	{
 	public:
-		explicit ControlClient(AampRialtoControlBackend &backend)
-			: m_backend{backend} {}
+		explicit ControlClient(std::shared_ptr<SharedState> state)
+			: m_state{std::move(state)} {}
 		~ControlClient() override = default;
 
 		void notifyApplicationState(
 			firebolt::rialto::ApplicationState state) override;
 
 	private:
-		AampRialtoControlBackend &m_backend;
+		std::shared_ptr<SharedState> m_state;
 	};
 
 public:
@@ -76,14 +101,9 @@ public:
 	bool waitForRunning(int timeoutMs) override;
 
 private:
-	void onApplicationStateChanged(firebolt::rialto::ApplicationState state);
-
-	firebolt::rialto::ApplicationState       m_rialtoClientState{
-		firebolt::rialto::ApplicationState::UNKNOWN};
+	std::shared_ptr<SharedState>             m_state;
 	std::shared_ptr<ControlClient>           m_controlClient;
 	std::shared_ptr<firebolt::rialto::IControl> m_control;
-	std::mutex                               m_mutex;
-	std::condition_variable                  m_stateCv;
 };
 
 #endif // AAMP_RIALTO_CONTROL_BACKEND_H

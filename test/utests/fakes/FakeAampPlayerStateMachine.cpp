@@ -22,7 +22,7 @@
  * @brief Lightweight fake PlayerStateMachine for L1 tests.
  *
  * Implements the same state-transition table as the real machine but
- * without the concrete IPlayerState class hierarchy.  This allows
+ * with its own simplified bookkeeping.  This allows
  * tests that call GetCurrentPlayerState() to observe real transitions
  * without pulling in the full production state machine.
  */
@@ -64,7 +64,6 @@ const char *PlayerStateMachine::currentStateName() const
 		case PlayerStateId::PLAYING:           return "PLAYING";
 		case PlayerStateId::PAUSED:            return "PAUSED";
 		case PlayerStateId::FLUSHING:          return "FLUSHING";
-		case PlayerStateId::STOPPED:           return "STOPPED";
 		case PlayerStateId::ERROR:             return "ERROR";
 		default:                               return "UNKNOWN";
 	}
@@ -105,7 +104,8 @@ void PlayerStateMachine::onPlaybackStarted()
 
 void PlayerStateMachine::onPlaybackPaused()
 {
-	if (s_fakeState == PlayerStateId::PLAYING)
+	if (s_fakeState == PlayerStateId::PLAYING ||
+	    s_fakeState == PlayerStateId::SOURCES_ATTACHED)
 	{
 		s_fakeState = PlayerStateId::PAUSED;
 	}
@@ -121,14 +121,24 @@ void PlayerStateMachine::onFlush()
 	}
 }
 
-void PlayerStateMachine::onStop()
+void PlayerStateMachine::onFlushComplete()
 {
-	s_fakeState = PlayerStateId::STOPPED;
+	if (s_fakeState == PlayerStateId::FLUSHING)
+	{
+		s_fakeState = PlayerStateId::FLUSHED;
+	}
 }
 
-void PlayerStateMachine::onError()
+void PlayerStateMachine::onStop()
 {
+	s_fakeState = PlayerStateId::IDLE;
+}
+
+PlayerStateId PlayerStateMachine::onError()
+{
+	const PlayerStateId previous = s_fakeState;
 	s_fakeState = PlayerStateId::ERROR;
+	return previous;
 }
 
 void PlayerStateMachine::onReconfigure()
@@ -136,11 +146,19 @@ void PlayerStateMachine::onReconfigure()
 	s_fakeState = PlayerStateId::IDLE;
 }
 
-void PlayerStateMachine::dispatch(
-	std::unique_ptr<IPlayerState> (IPlayerState::*handler)(),
-	const char *eventName)
+PlayerStateId PlayerStateMachine::dispatch(Event)
 {
-	(void)handler;
-	(void)eventName;
+	return s_fakeState;
+}
+
+PlayerStateId PlayerStateMachine::dispatchLocked(Event)
+{
+	return s_fakeState;
+}
+
+bool PlayerStateMachine::waitForFlushComplete(std::chrono::milliseconds,
+	const std::function<void()> &)
+{
+	return false;
 }
 
