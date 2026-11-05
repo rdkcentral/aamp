@@ -52,6 +52,7 @@
 #include <condition_variable>
 #include <queue>
 #include <algorithm>
+#include <thread>
 #include <glib.h>
 #include <cjson/cJSON.h>
 #include "AampConfig.h"
@@ -782,9 +783,10 @@ public:
 	 *
 	 * @param[in] newTune - true if operation is a new tune
 	 * @param[in] disableDownloads - true if downloads need to be disabled
+	 * @param[in] waitForStop - true to complete stream and sink stop before returning
 	 * @return void
 	 */
-	void TeardownStream( bool newTune, bool disableDownloads = false );
+	void TeardownStream( bool newTune, bool disableDownloads = false, bool waitForStop = true );
 
 	/**
 	 * @fn SendMessageOverPipe
@@ -972,6 +974,8 @@ public:
 	std::recursive_mutex mLock;
 	std::recursive_mutex mParallelPlaylistFetchLock; 	/**< mutex lock for parallel fetch */
 	std::thread  mRateCorrectionThread;     /**< Rate correction thread Id **/
+	std::thread  mStreamStopThread;         /**< Asynchronous stream stop thread */
+	std::thread  mStreamSinkStopThread;     /**< Asynchronous stream sink stop thread */
 
 	class StreamAbstractionAAMP *mpStreamAbstractionAAMP; /**< HLS or MPD collector */
 	class CDAIObject *mCdaiObject;      		/**< Client Side DAI Object */
@@ -3564,6 +3568,7 @@ public:
 	 *   @return void
 	 */
 	void ReleaseStreamLock();
+	std::mutex& GetDRMTeardownMutex();
 
 	/**
 	 *  @fn UpdateLiveOffset
@@ -4321,6 +4326,7 @@ protected:
 	std::recursive_mutex mEventLock; 		/**< lock for operation on mPendingAsyncEvents */
 	int mEventPriority; 			/**< priority for async events */
 	std::recursive_mutex mStreamLock; 		/**< Mutex for accessing mpStreamAbstractionAAMP */
+	std::mutex mDRMTeardownLock;			/**< Serializes DRM cleanup during parallel stop */
 	int mHarvestCountLimit;			/**< Harvest count */
 	int mHarvestConfig;			/**< Harvest config */
 	std::string mAuxAudioLanguage; 		/**< auxiliary audio language */
@@ -4376,6 +4382,8 @@ private:
 	 * @return bool true if async abort is supported for the given format/type
 	 */
 	bool IsAsyncTuneSupportedForType(MediaFormat format, ContentType type) const;
+	void StopStream(StreamAbstractionAAMP *stream, ContentType contentType, bool localAAMPTsb, bool disableDownloads);
+	void StopStreamSink(StreamSink *sink, bool keepLastFrame);
 
 	/**
 	 * @brief Play from the start of the TSB
