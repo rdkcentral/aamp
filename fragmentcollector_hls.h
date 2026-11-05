@@ -748,6 +748,7 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 		 * @return void
 		 ***************************************************************************/
 		void GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &subOutputFormat) override;
+		bool IsAudioAtmos(void) const override { return mPreviousAudioType == FORMAT_AUDIO_ES_ATMOS; }
 		/***************************************************************************
 		 * @fn GetStreamPosition
 		 * @brief Function to return current playing position of stream
@@ -1125,6 +1126,7 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 		bool mIframeAvailable;		/**< True if iframe available in the stream */
 		std::set<std::string> mLangList;/**< Available language list */
 		AampTime mFirstPTS;		/**< First video PTS */
+		StreamOutputFormat mPreviousAudioType;	/**< Previously selected HLS audio format */
 
 		ptsoffset_update_t mPtsOffsetUpdate;	/**< Function to use to update the PTS offset */
 

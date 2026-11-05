@@ -74,6 +74,7 @@ public:
 	double duration;					/**< Duration of the fragment, in seconds; as specified in the manifest */
 	bool initFragment;					/**< Flag indicating whether this fragment is an initialization fragment */
 	bool discontinuity;					/**< Flag indicating that a PTS discontinuity occurs just before this fragment */
+	bool codecChanged;					/**< Flag indicating that the audio codec changed before this fragment */
 	int profileIndex;					/**< Profile index; Updated internally */
 	uint32_t timeScale;					/**< timescale of this fragment as read from manifest */
 	std::string uri;					/**< for debug */
