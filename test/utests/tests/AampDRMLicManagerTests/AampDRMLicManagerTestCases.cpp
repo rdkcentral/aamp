@@ -560,3 +560,47 @@ TEST_F(AampDRMLicManagerTests, TriggerLAProfileErrorCb_SelfAbort_DoesNotSendErro
 
 	mTestableDRMLicenseManager->TriggerLAProfileErrorCb(callbackData);
 }
+
+/**
+ * @brief Verify pending DRM cleanup requests one full session clear.
+ */
+TEST_F(
+    AampDRMLicManagerTests,
+    PendingSessionCleanup_IsConsumedAfterFullClear)
+{
+    TestDrmSession session;
+    ::testing::InSequence sequence;
+
+    EXPECT_CALL(
+        *g_mockDRMSessionManager,
+        clearDrmSession(true));
+
+    EXPECT_CALL(
+        *g_mockDRMSessionManager,
+        clearDrmSession(false));
+
+    EXPECT_TRUE(
+        mTestableDRMLicenseManager->scheduleDrmSessionCleanup(&session));
+
+    mTestableDRMLicenseManager->clearDrmSession(false);
+    mTestableDRMLicenseManager->clearDrmSession(false);
+}
+
+/**
+ * @brief Verify a null session does not schedule full cleanup.
+ */
+TEST_F(
+    AampDRMLicManagerTests,
+    ScheduleDrmSessionCleanup_NullSessionIsRejected)
+{
+    EXPECT_CALL(
+        *g_mockDRMSessionManager,
+        clearDrmSession(false))
+        .Times(1);
+
+    EXPECT_FALSE(
+        mTestableDRMLicenseManager
+            ->scheduleDrmSessionCleanup(nullptr));
+
+    mTestableDRMLicenseManager->clearDrmSession(false);
+}

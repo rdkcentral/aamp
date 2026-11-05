@@ -31,6 +31,7 @@ public:
     MOCK_METHOD(bool, IsKeyIdProcessed, (std::vector<uint8_t> keyIdArray, bool &status));
     MOCK_METHOD(KeyState, initializeDrmSession, (DrmHelperPtr drmHelper, int sessionSlot, int &err));
     MOCK_METHOD(DrmSession*, createDrmSession, (int &responseCode, int &err, DrmHelperPtr drmHelper, DrmCallbacks* Instance, int streamType, void* metaDataPtr));
+    MOCK_METHOD(void, clearDrmSession, (bool forceClearSession));
 };
 
 extern std::shared_ptr<MockDRMSessionManager> g_mockDRMSessionManager;
