@@ -1095,13 +1095,34 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 }
 
 /**
+ * @brief Functional tests class for Init() with cached encrypted headers.
+ *
+ * Parameterized over eAAMPConfig_UseMp4Demux so that Init() behaviour is
+ * verified with the demuxer both enabled and disabled.
+ */
+class CachedEncryptedHeadersInitTests : public FunctionalTestsBase,
+										public ::testing::TestWithParam<bool>
+{
+protected:
+	void SetUp() override
+	{
+		FunctionalTestsBase::SetUp();
+	}
+
+	void TearDown() override
+	{
+		FunctionalTestsBase::TearDown();
+	}
+};
+
+/**
  * @brief Verify pre-SetStreamCaps fallback with per-track checks.
  *
- * For a clear initial period with no encrypted headers available, if mp4demux is enabled and
- * encrypted headers were already injected earlier in the lifecycle for specific tracks, Init() should force
+ * For a clear initial period with no encrypted headers available, regardless of the mp4demux
+ * setting, if encrypted headers were already injected earlier in the lifecycle for specific tracks, Init() should force
  * track-encrypted state only for those tracks before init fetch so downstream SetStreamCaps keeps encrypted caps.
  */
-TEST_F(FunctionalTests, Init_ClearInitialPeriod_ForcesTrackEncryptedWhenInjectedHeadersAlreadyUsed)
+TEST_P(CachedEncryptedHeadersInitTests, Init_ClearInitialPeriod_ForcesTrackEncryptedWhenInjectedHeadersAlreadyUsed)
 {
 	AAMPStatusType status;
 	static const char *manifest =
@@ -1125,7 +1146,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	</Period>
 </MPD>)";
 
-	mBoolConfigSettings[eAAMPConfig_UseMp4Demux] = true;
+	mBoolConfigSettings[eAAMPConfig_UseMp4Demux] = GetParam();
 
 	// Allow init fragment caching to succeed for both tracks; otherwise Init() keeps
 	// retrying profile-changed init fetches and can spin/fault in test environment.
@@ -1160,7 +1181,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
  * When both video and audio have encrypted headers cached, Init() should force
  * track-encrypted state for both tracks before init fetch.
  */
-TEST_F(FunctionalTests, Init_ClearInitialPeriod_ForcesBothTracksEncryptedWhenBothHeadersInjected)
+TEST_P(CachedEncryptedHeadersInitTests, Init_ClearInitialPeriod_ForcesBothTracksEncryptedWhenBothHeadersInjected)
 {
 	AAMPStatusType status;
 	static const char *manifest =
@@ -1184,7 +1205,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	</Period>
 </MPD>)";
 
-	mBoolConfigSettings[eAAMPConfig_UseMp4Demux] = true;
+	mBoolConfigSettings[eAAMPConfig_UseMp4Demux] = GetParam();
 
 	EXPECT_CALL(*g_mockMediaStreamContext,
 		CacheFragment(_, _, _, _, _, true, _, _, _))
@@ -1210,6 +1231,10 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	status = InitializeMPD(manifest);
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
 }
+
+INSTANTIATE_TEST_SUITE_P(Mp4DemuxEnabledAndDisabled,
+	CachedEncryptedHeadersInitTests,
+	::testing::Bool());
 
 /**
  * @brief Segment time identifier test with presentation time offset.
