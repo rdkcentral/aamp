@@ -421,7 +421,25 @@ private:
 	std::array<std::optional<MediaCodecInfo>, kMaxSourceTypes>
 		m_pendingAttach;
 
-	/// Look up a source by media type; returns nullptr if not created.
+	/// True when the content is audio-only and AAMP delivers the audio on
+	/// the video track slot (e.g. DASH audio-only remapped to the video
+	/// slot).  Rialto needs an audio source for it, so Configure() creates
+	/// one in the AUDIO slot and getSource() redirects VIDEO to it.
+	std::atomic<bool> m_audioInVideoSlot{false};
+
+	/// Map the media type AAMP uses for a track to the slot of the source
+	/// that serves it.
+	AampMediaType toSourceSlot(AampMediaType aampTrack) const;
+
+	/// Map a source slot back to the media type AAMP uses for its track.
+	AampMediaType toAampTrack(AampMediaType sourceSlot) const;
+
+	/// True if the source is kept at EOS while trickplay is active (the
+	/// audio and subtitle sources, unless audio is the primary track).
+	bool isEosDuringTrickplay(const AampRialtoMediaSource *source) const;
+
+	/// Look up the source serving an AAMP track; returns nullptr if not
+	/// created.
 	AampRialtoMediaSource *getSource(AampMediaType type);
 
 	/// Find a source by its Rialto-assigned source ID; returns nullptr if
