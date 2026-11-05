@@ -622,9 +622,10 @@ TEST(_AampUtils, GetMp4DemuxAudioFormatForCodec)
 	EXPECT_EQ(GetMp4DemuxAudioFormatForCodec("ac-4.02.01.01"), FORMAT_AUDIO_ES_AC4);
 	EXPECT_EQ(GetMp4DemuxAudioFormatForCodec("ac-4.02.01.02"), FORMAT_AUDIO_ES_AC4);
 	EXPECT_EQ(GetMp4DemuxAudioFormatForCodec("avc1.64001f,mp4a.40.2"), FORMAT_AUDIO_ES_AAC_RAW);
-	// ac-3 and ATMOS have no dac3/dec3-distinguishable mapping in AampMp4Demuxer, so they must
+	// ac-3 is reported by AampMp4Demuxer via dac3
+	EXPECT_EQ(GetMp4DemuxAudioFormatForCodec("ac-3"), FORMAT_AUDIO_ES_AC3);
+	// ATMOS has no dec3-distinguishable mapping in AampMp4Demuxer, so it must
 	// fall through to FORMAT_UNKNOWN rather than being predicted incorrectly
-	EXPECT_EQ(GetMp4DemuxAudioFormatForCodec("ac-3"), FORMAT_UNKNOWN);
 	EXPECT_EQ(GetMp4DemuxAudioFormatForCodec("ec+3"), FORMAT_UNKNOWN);
 	// a video-only codec string must not yield an audio format
 	EXPECT_EQ(GetMp4DemuxAudioFormatForCodec("avc1.64001f"), FORMAT_UNKNOWN);
