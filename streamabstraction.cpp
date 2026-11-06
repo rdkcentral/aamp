@@ -788,6 +788,12 @@ bool MediaTrack::CheckForDiscontinuity(CachedFragment* cachedFragment, bool& fra
 
 	if(cachedFragment->fragment.capacity() != 0)
 	{
+		if (cachedFragment->codecChanged)
+		{
+			AAMPLOG_INFO("Setting ES change status due to codec change");
+			context->SetESChangeStatus();
+			cachedFragment->codecChanged = false;
+		}
 		if ((cachedFragment->discontinuity || ptsError) && (AAMP_NORMAL_PLAY_RATE == aamp->rate))
 		{
 			bool isDiscoIgnoredForOtherTrack = aamp->IsDiscontinuityIgnoredForOtherTrack((AampMediaType)!type);
@@ -860,13 +866,10 @@ bool MediaTrack::CheckForDiscontinuity(CachedFragment* cachedFragment, bool& fra
 				// discontinuity.
 				if(IsPTSRestampEnabled())
 				{
+					const bool processDiscontinuityResult = context->ProcessDiscontinuity(type);
 					if (context->GetESChangeStatus() || context->GetPipelineFlushStatus())
 					{
-						stopInjection = context->ProcessDiscontinuity(type);
-					}
-					else
-					{
-						context->ProcessDiscontinuity(type);
+						stopInjection = processDiscontinuityResult;
 					}
 					bool isDiscontinuityIgnoredForCurrentTrack = aamp->IsDiscontinuityIgnoredForCurrentTrack((AampMediaType)type);
 					if( true != isDiscontinuityIgnoredForCurrentTrack )
@@ -1815,7 +1818,7 @@ void StreamAbstractionAAMP::WaitForVideoTrackCatchup()
 StreamAbstractionAAMP::StreamAbstractionAAMP(PrivateInstanceAAMP* aamp, id3_callback_t mID3Handler):
 		trickplayMode(false), currentProfileIndex(0), mCurrentBandwidth(0),currentAudioProfileIndex(-1),currentTextTrackProfileIndex(-1),
 		mTsbBandwidth(0),mNwConsistencyBypass(true), profileIdxForBandwidthNotification(0),
-		hasDrm(false), mIsAtLivePoint(false), mESChangeStatus(false), mPipelineFlushStatus(false), mAudiostateChangeCount(0),
+		hasDrm(false), mIsAtLivePoint(false), mESChangeStatus(false), mCodecChanged(false), mPipelineFlushStatus(false),
 		mNetworkDownDetected(false), mTotalPausedDurationMS(0), mIsPaused(false), mProgramStartTime(-1),
 		mStartTimeStamp(-1),mLastPausedTimeStamp(-1), aamp(aamp),
 		mSavedLatencyMonitorState (false),
@@ -4608,5 +4611,5 @@ void StreamAbstractionAAMP::ReinitializeInjection(double rate)
 			track->playContext->setRate(rate, PlayMode_normal);
 		}
 	}
-}
 
+}
