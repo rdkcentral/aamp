@@ -3590,3 +3590,141 @@ TEST_F(FetcherLoopTests, CDAI_LiveForwardPlayPeriodComplete_WaitsForWorkers)
 	g_mockAampTrackWorkerManager.reset();
 	g_mockAampTimeBasedBufferManager.reset();
 }
+
+
+/**
+ * @brief A new-normal live tune must not produce a negative first PTS when
+ *        live adjustment lands at the end of the middle period.
+ *
+ * The final 14.92-second period is shorter than the 15-second live offset,
+ * so Init lands in the preceding 40-second period at 39.92 seconds. Its
+ * segment timeline ends at that same offset, exercising the EOS path during
+ * SkipFragments before FetcherLoop calculates the PTS restamping offset.
+ */
+TEST_F(FetcherLoopTests, LiveAdjustAtPeriodBoundary_KeepsFirstPTSNonNegative)
+{
+	static constexpr const char *threePeriodLiveManifest = R"(<?xml version="1.0" encoding="utf-8"?>
+		<MPD xmlns="urn:mpeg:dash:schema:mpd:2011"
+		     availabilityStartTime="2023-01-01T00:00:00Z"
+		     mediaPresentationDuration="PT61.44S"
+		     maxSegmentDuration="PT2S" minBufferTime="PT4S"
+		     minimumUpdatePeriod="P100Y" timeShiftBufferDepth="PT5M"
+		     type="dynamic">
+			<Period id="p0" start="PT0.016S">
+				<AdaptationSet id="0" contentType="video">
+					<Representation id="video0" mimeType="video/mp4"
+					                codecs="avc1.640028" bandwidth="800000">
+						<SegmentTemplate timescale="1000"
+						                 initialization="video_p0_init.mp4"
+						                 media="video_p0_$Number$.m4s"
+						                 startNumber="3128152">
+							<SegmentTimeline><S t="997084411" d="2168" r="2" /></SegmentTimeline>
+						</SegmentTemplate>
+					</Representation>
+				</AdaptationSet>
+				<AdaptationSet id="1" contentType="audio" lang="eng">
+					<Representation id="audio0" mimeType="audio/mp4"
+					                codecs="mp4a.40.2" bandwidth="128000">
+						<SegmentTemplate timescale="1000"
+						                 initialization="audio_p0_init.mp4"
+						                 media="audio_p0_$Number$.m4s"
+						                 startNumber="3128152">
+							<SegmentTimeline><S t="997084411" d="2168" r="2" /></SegmentTimeline>
+						</SegmentTemplate>
+					</Representation>
+				</AdaptationSet>
+			</Period>
+			<Period id="p1" start="PT6.520S">
+				<AdaptationSet id="0" contentType="video">
+					<Representation id="video1" mimeType="video/mp4"
+					                codecs="avc1.640028" bandwidth="800000">
+						<SegmentTemplate timescale="1000"
+						                 initialization="video_p1_init.mp4"
+						                 media="video_p1_$Number$.m4s"
+						                 startNumber="3128152">
+							<SegmentTimeline><S t="997090915" d="1996" r="19" /></SegmentTimeline>
+						</SegmentTemplate>
+					</Representation>
+				</AdaptationSet>
+				<AdaptationSet id="1" contentType="audio" lang="eng">
+					<Representation id="audio1" mimeType="audio/mp4"
+					                codecs="mp4a.40.2" bandwidth="128000">
+						<SegmentTemplate timescale="1000"
+						                 initialization="audio_p1_init.mp4"
+						                 media="audio_p1_$Number$.m4s"
+						                 startNumber="3128152">
+							<SegmentTimeline><S t="997090931" d="1996" r="19" /></SegmentTimeline>
+						</SegmentTemplate>
+					</Representation>
+				</AdaptationSet>
+			</Period>
+			<Period id="p2" start="PT46.520S">
+				<AdaptationSet id="0" contentType="video">
+					<Representation id="video2" mimeType="video/mp4"
+					                codecs="avc1.640028" bandwidth="800000">
+						<SegmentTemplate timescale="1000"
+						                 initialization="video_p2_init.mp4"
+						                 media="video_p2_$Number$.m4s"
+						                 startNumber="3128172">
+							<SegmentTimeline><S t="997130835" d="1492" r="9" /></SegmentTimeline>
+						</SegmentTemplate>
+					</Representation>
+				</AdaptationSet>
+				<AdaptationSet id="1" contentType="audio" lang="eng">
+					<Representation id="audio2" mimeType="audio/mp4"
+					                codecs="mp4a.40.2" bandwidth="128000">
+						<SegmentTemplate timescale="1000"
+						                 initialization="audio_p2_init.mp4"
+						                 media="audio_p2_$Number$.m4s"
+						                 startNumber="3128172">
+							<SegmentTimeline><S t="997130835" d="1492" r="9" /></SegmentTimeline>
+						</SegmentTemplate>
+					</Representation>
+				</AdaptationSet>
+			</Period>
+		</MPD>)";
+
+	mPrivateInstanceAAMP->mLiveOffset = 15.0;
+	mBoolConfigSettings[eAAMPConfig_EnablePTSReStamp] = true;
+	EXPECT_CALL(*g_mockMediaStreamContext,
+		CacheFragment(_, _, _, _, _, true, _, _, _))
+		.Times(AnyNumber())
+		.WillRepeatedly(Return(true));
+
+	AAMPStatusType status = InitializeMPD(
+		threePeriodLiveManifest, eTUNETYPE_NEW_NORMAL);
+	ASSERT_EQ(status, eAAMPSTATUS_OK);
+	ASSERT_EQ(mTestableStreamAbstractionAAMP_MPD->GetCurrentPeriodIdx(), 1);
+	EXPECT_DOUBLE_EQ(mTestableStreamAbstractionAAMP_MPD->GetPeriodDuration(), 40000.0);
+
+	MediaStreamContext *videoContext =
+		mTestableStreamAbstractionAAMP_MPD->GetMediaStreamContextAt(eTRACK_VIDEO);
+	MediaStreamContext *audioContext =
+		mTestableStreamAbstractionAAMP_MPD->GetMediaStreamContextAt(eTRACK_AUDIO);
+	ASSERT_NE(videoContext, nullptr);
+	ASSERT_NE(audioContext, nullptr);
+	EXPECT_FALSE(videoContext->eos);
+	EXPECT_FALSE(audioContext->eos);
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLiveStream())
+		.Times(AnyNumber())
+		.WillRepeatedly(Return(true));
+	g_mockAampTimeBasedBufferManager =
+		std::make_shared<NiceMock<aamp::MockAampTimeBasedBufferManager>>();
+	ON_CALL(*g_mockAampTimeBasedBufferManager, IsFull()).WillByDefault(Return(false));
+
+	int downloadChecks = 0;
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
+		.Times(AnyNumber())
+		.WillRepeatedly([&downloadChecks]() { return ++downloadChecks <= 30; });
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection())
+		.WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager())
+		.WillRepeatedly(Return(nullptr));
+
+	mTestableStreamAbstractionAAMP_MPD->InvokeInitializeWorkers();
+	mTestableStreamAbstractionAAMP_MPD->InvokeFetcherLoop();
+
+	EXPECT_GE(mTestableStreamAbstractionAAMP_MPD->GetFirstPTS(), 0.0);
+	g_mockAampTimeBasedBufferManager.reset();
+}
