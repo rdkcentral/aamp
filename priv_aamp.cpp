@@ -1649,12 +1649,25 @@ int PrivateInstanceAAMP::HandleSSLProgressCallback ( void *clientp, double dltot
 		}
 		if (dlnow > 0 && context->lowBWTimeout> 0 && eMEDIATYPE_VIDEO == context->mediaType)
 		{
-			double elapsedTimeMs = (double)(NOW_STEADY_TS_MS - context->downloadStartTime);
-			if( elapsedTimeMs >= context->lowBWTimeout*1000 )
+			double requestElapsedMs = (double)(NOW_STEADY_TS_MS - context->downloadStartTime);
+
+			/*
+			 * Improved low-bandwidth timeout logic (LLD):
+			 * Separates request delay from payload throughput for more accurate decisions.
+			 *
+			 * RequestElapsed: Time from request start (includes DNS + TCP + TLS + TTFB + body transfer)
+			 * This remains the eligibility gate since all request delay consumes playback buffer.
+			 */
+			if( requestElapsedMs >= context->lowBWTimeout * 1000 )
 			{
 				if(dltotal)
 				{
-					double predictedTotalDownloadTimeMs = elapsedTimeMs*dltotal/dlnow;
+					/*
+					 * Case 1: Known content length (dltotal provided)
+					 * Use traditional predictive logic: if estimated time to completion
+					 * exceeds network timeout, abort.
+					 */
+					double predictedTotalDownloadTimeMs = requestElapsedMs * dltotal / dlnow;
 					if( predictedTotalDownloadTimeMs > aamp->mNetworkTimeoutMs )
 					{
 						AAMPLOG_WARN("lowBWTimeout=%ds; predictedTotalDownloadTime=%fs>%fs (network timeout)",
@@ -1667,8 +1680,66 @@ int PrivateInstanceAAMP::HandleSSLProgressCallback ( void *clientp, double dltot
 				}
 				else
 				{
+					/*
+					 * Case 2: Unknown content length (dltotal == 0, e.g., chunked transfer)
+					 * Use improved logic: separate actual transfer speed from request overhead.
+					 *
+					 * Track when first body data arrives to distinguish request delay
+					 * (DNS + TCP + TLS + TTFB) from actual payload transfer speed.
+					 */
 					if(context->aamp->GetLLDashServiceData()->lowLatencyMode && !IsLocalAAMPTsb())
 					{
+						/* Record first data arrival time and byte count */
+						if (context->firstDataTime == -1 && dlnow > 0)
+						{
+							context->firstDataTime = NOW_STEADY_TS_MS;
+							context->firstDataBytes = dlnow;
+							AAMPLOG_INFO("First data received: %lldms after request start, %f bytes", requestElapsedMs, dlnow);
+						}
+
+						/* Only perform bandwidth check after sufficient transfer time has elapsed */
+						if (context->firstDataTime != -1)
+						{
+							long long transferElapsedMs = NOW_STEADY_TS_MS - context->firstDataTime;
+							double transferBps = 0;
+
+							/*
+							 * Calculate transfer speed from actual data transfer period.
+							 * TransferBps = (CurrentBytes - FirstDataBytes) * 8000 / TransferElapsedMs
+							 * Factor of 8000 converts bytes/ms to bits/second.
+							 */
+							if (transferElapsedMs > 0)
+							{
+								transferBps = ((dlnow - context->firstDataBytes) * 8000.0) / transferElapsedMs;
+
+								BitsPerSecond currentProfilebps = context->aamp->mpStreamAbstractionAAMP->GetVideoBitrate();
+								BitsPerSecond abortThreshold = (currentProfilebps * SEVERE_LOW_BANDWIDTH_PERCENT) / 100;
+
+								AAMPLOG_TRACE("LLD BW Check: transferElapsed=%lldms, transferBps=%.0f, threshold=%f, profile=%" BITSPERSECOND_FORMAT,
+									transferElapsedMs, transferBps, abortThreshold, currentProfilebps);
+
+								if (transferBps > 0 && transferBps < abortThreshold)
+								{
+									AAMPLOG_WARN("Abort download: Transfer speed (%.0f bps) below threshold (%.0f bps, %d%% of profile %" BITSPERSECOND_FORMAT ")",
+										transferBps, abortThreshold, SEVERE_LOW_BANDWIDTH_PERCENT, currentProfilebps);
+
+									/* Report measured transfer bandwidth for future ABR decisions with safety margin */
+									BitsPerSecond retryBandwidth = (transferBps * RETRY_SAFETY_PERCENT) / 100;
+									AAMPLOG_INFO("Reporting retry bandwidth: %.0f bps (%.0f bps × %d%%)", retryBandwidth, transferBps, RETRY_SAFETY_PERCENT);
+									aamp->mhAbrManager.AddBandwidthSample(retryBandwidth, aamp->GetLLDashServiceData()->lowLatencyMode);
+
+									context->abortReason = eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT;
+									rc = 1; // CURLE_ABORTED_BY_CALLBACK
+								}
+							}
+						}
+					}
+					else
+					{
+						/*
+						 * Fallback for non-LL-DASH or local TSB injection scenarios.
+						 * Use simple download speed estimation.
+						 */
 						BitsPerSecond downloadbps = getCurrentContentDownloadSpeed(aamp, context->mediaType, context->dlStarted, (long)context->downloadStartTime, dlnow);
 						BitsPerSecond currentProfilebps  = context->aamp->mpStreamAbstractionAAMP->GetVideoBitrate();
 						MediaStreamContext *mCtx = context->aamp->GetMediaStreamContext(context->mediaType);
