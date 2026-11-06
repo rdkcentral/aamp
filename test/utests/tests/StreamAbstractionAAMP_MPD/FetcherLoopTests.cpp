@@ -204,12 +204,12 @@ protected:
 			{
 				return nullptr;
 			}
-			return mMediaStreamContext[idx];
+			return mMediaStreamContext[idx].get();
 		}
 
 		void SetMediaStreamContextAt(int idx, MediaStreamContext *ctx)
 		{
-			mMediaStreamContext[idx] = ctx;
+			mMediaStreamContext[idx].reset(ctx);
 		}
 
 		/**

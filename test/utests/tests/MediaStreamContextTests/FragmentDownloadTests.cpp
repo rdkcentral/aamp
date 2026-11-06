@@ -957,50 +957,33 @@ static const uint8_t kSidxBoxForABRTest[] = {
 // ---------------------------------------------------------------------------
 
 /**
- * @brief Fix 1 regression: IDX cleared under mIdxMutex must be visible
- *        atomically with fragmentOffset and mIdxBaseOffset reset.
+ * @brief Clearing the IDX must reset the base offset with it.
  *
  * Simulates FetchAndInjectInitialization clearing the IDX state (as happens on
- * an ABR profile change) by performing the three resets in a single critical
- * section, then verifying that a subsequent DownloadFragment call sees a
- * consistent state: IDX empty, fragmentOffset 0, mIdxBaseOffset 0.
+ * an ABR profile change), then verifies that a subsequent DownloadFragment call
+ * sees a consistent state: IDX empty, base offset 0, fragmentOffset 0.
  *
- * Pre-fix: fragmentOffset was reset to 0 BEFORE taking mIdxMutex, so a
- * concurrent DownloadFragment that had already read IDX (non-empty) could
- * compute a byte range using the stale fragmentOffset=0, producing a range
- * starting at byte 0 of the media file (moov box) → GStreamer error 80:1.
- *
- * Post-fix: all three resets are inside one mIdxMutex critical section so the
- * DownloadFragment ABR-switch branch always sees a coherent (IDX, fragmentOffset,
- * mIdxBaseOffset) triple.
+ * A stale base offset with a reloaded IDX would produce a byte range
+ * starting inside the moov box → GStreamer error 80:1.
  */
 TEST_F(FragmentDownloadTests, SegmentBase_FetchAndInjectInit_ResetsAreAtomic)
 {
 	// Simulate a loaded SIDX state (post first PushNextFragment call).
-	mMediaStreamContext->IDX.assign(kSidxBoxForABRTest,
-	                                kSidxBoxForABRTest + sizeof(kSidxBoxForABRTest));
-	mMediaStreamContext->mIdxBaseOffset = 1000;
+	mMediaStreamContext->IDX.LoadIfEmpty(std::vector<uint8_t>(kSidxBoxForABRTest,
+	                                                          kSidxBoxForABRTest + sizeof(kSidxBoxForABRTest)));
+	mMediaStreamContext->IDX.SetBaseOffset(1000);
 	mMediaStreamContext->fragmentOffset = 1000;
 
-	// Simulate what FetchAndInjectInitialization now does: all three resets
-	// inside a single mIdxMutex critical section (the fix).
-	{
-		std::lock_guard<std::mutex> lk(mMediaStreamContext->mIdxMutex);
-		mMediaStreamContext->fragmentOffset = 0;
-		aamp_utils::ClearAndRelease(mMediaStreamContext->IDX);
-		mMediaStreamContext->mIdxBaseOffset = 0;
-	}
+	// Simulate what FetchAndInjectInitialization does.
+	mMediaStreamContext->fragmentOffset = 0;
+	mMediaStreamContext->IDX.Clear();
 
-	// After the reset block the three fields must all be in the cleared state.
-	{
-		std::lock_guard<std::mutex> lk(mMediaStreamContext->mIdxMutex);
-		EXPECT_TRUE(mMediaStreamContext->IDX.empty())
-			<< "IDX must be empty after FetchAndInjectInitialization reset";
-		EXPECT_EQ(mMediaStreamContext->fragmentOffset, 0u)
-			<< "fragmentOffset must be 0 after reset";
-		EXPECT_EQ(mMediaStreamContext->mIdxBaseOffset, 0u)
-			<< "mIdxBaseOffset must be 0 after reset";
-	}
+	EXPECT_TRUE(mMediaStreamContext->IDX.Empty())
+		<< "IDX must be empty after FetchAndInjectInitialization reset";
+	EXPECT_EQ(mMediaStreamContext->fragmentOffset, 0u)
+		<< "fragmentOffset must be 0 after reset";
+	EXPECT_EQ(mMediaStreamContext->IDX.BaseOffset(), 0u)
+		<< "base offset must be 0 after reset";
 
 	// A DownloadFragment ABR-switch call with IDX empty must not attempt to
 	// compute a byte range (no SIDX to parse).  Verify it exits cleanly when
@@ -1018,54 +1001,33 @@ TEST_F(FragmentDownloadTests, SegmentBase_FetchAndInjectInit_ResetsAreAtomic)
 }
 
 /**
- * @brief Fix 2 regression: IDX.empty() check in PushNextFragment must be
- *        performed under mIdxMutex to avoid a TOCTOU race with
- *        FetchAndInjectInitialization.
- *
- * The original code at PushNextFragment line ~1614 read IDX.empty() without
- * holding mIdxMutex.  A concurrent ClearAndRelease under the mutex between
- * that read and the subsequent snapshot (line ~1709) caused idxSnapshot to be
- * empty, which set eos=true prematurely — reproducing the repeated tune-fail
- * loop.
- *
- * This test verifies the fix: when IDX is cleared between the shouldLoadIdx
- * gate and the snapshot, the code detects the empty snapshot and sets eos
- * rather than crashing or computing an invalid range.
+ * @brief After a concurrent clear the IDX emptiness check must see the cleared
+ *        state, so the lazy-load gate in PushNextFragment fires.
  *
  * We exercise this indirectly through DownloadFragment (the ABR-switch branch):
  * after clearing IDX the ABR-switch branch must not compute a range, confirming
  * that an empty IDX is treated as a consistent terminal state.
  */
-TEST_F(FragmentDownloadTests, SegmentBase_IDXEmptyCheck_MutexGuard_NoStaleRead)
+TEST_F(FragmentDownloadTests, SegmentBase_IDXEmptyCheck_NoStaleRead)
 {
 	// Step 1: IDX loaded and base offset set (represents the "IDX non-empty"
 	// state a thread could observe just before another thread clears it).
-	mMediaStreamContext->IDX.assign(kSidxBoxForABRTest,
-	                                kSidxBoxForABRTest + sizeof(kSidxBoxForABRTest));
-	mMediaStreamContext->mIdxBaseOffset = 500;
+	mMediaStreamContext->IDX.LoadIfEmpty(std::vector<uint8_t>(kSidxBoxForABRTest,
+	                                                          kSidxBoxForABRTest + sizeof(kSidxBoxForABRTest)));
+	mMediaStreamContext->IDX.SetBaseOffset(500);
 	mMediaStreamContext->fragmentOffset = 500;
 	mMediaStreamContext->fragmentDescriptor.Bandwidth = 5000000;
 
-	// Step 2: Simulate concurrent FetchAndInjectInitialization clearing IDX
-	// (the fix ensures this is fully atomic with fragmentOffset/mIdxBaseOffset).
-	{
-		std::lock_guard<std::mutex> lk(mMediaStreamContext->mIdxMutex);
-		mMediaStreamContext->fragmentOffset = 0;
-		aamp_utils::ClearAndRelease(mMediaStreamContext->IDX);
-		mMediaStreamContext->mIdxBaseOffset = 0;
-	}
+	// Step 2: Simulate concurrent FetchAndInjectInitialization clearing IDX.
+	mMediaStreamContext->fragmentOffset = 0;
+	mMediaStreamContext->IDX.Clear();
 
-	// Step 3: After the clear, any reader that acquires mIdxMutex to check
-	// IDX.empty() will see IDX empty — the shouldLoadIdx gate fires correctly.
-	bool shouldLoadIdx = false;
-	{
-		std::lock_guard<std::mutex> lk(mMediaStreamContext->mIdxMutex);
-		shouldLoadIdx = mMediaStreamContext->IDX.empty();
-	}
+	// Step 3: After the clear, the shouldLoadIdx gate must fire.
+	const bool shouldLoadIdx = mMediaStreamContext->IDX.Empty();
 	EXPECT_TRUE(shouldLoadIdx)
-		<< "shouldLoadIdx must be true after concurrent ClearAndRelease; "
-		   "without the mutex guard the stale non-empty observation would "
-		   "skip the lazy-load block and produce eos=true prematurely";
+		<< "shouldLoadIdx must be true after concurrent Clear; a stale "
+		   "non-empty observation would skip the lazy-load block and "
+		   "produce eos=true prematurely";
 
 	// Step 4: DownloadFragment ABR-switch path with empty IDX must not produce
 	// a byte range (consistent with the eos path in PushNextFragment).
@@ -1080,42 +1042,27 @@ TEST_F(FragmentDownloadTests, SegmentBase_IDXEmptyCheck_MutexGuard_NoStaleRead)
 }
 
 /**
- * @brief Fix 3 regression: Stop-path ClearAndRelease(IDX) must hold mIdxMutex.
+ * @brief Stop-path Clear() must leave a coherent empty IDX.
  *
- * StreamAbstractionAAMP_MPD::Stop() cleared IDX with no lock, creating a
- * data race against any concurrent PushNextFragment or DownloadFragment thread
- * still reading IDX.data().  The fix wraps the call in mIdxMutex.
- *
- * This test validates the invariant: after a locked ClearAndRelease the vector
- * is empty and mIdxBaseOffset is coherent (both observable under the same lock),
- * and a concurrent reader that acquires the lock after the clear sees a
- * consistent empty state rather than a partially-freed buffer.
+ * After Clear() the index is empty with a zero base offset, and a reader
+ * sees a consistent empty state rather than a partially-freed buffer.
  */
-TEST_F(FragmentDownloadTests, SegmentBase_StopPath_ClearAndRelease_IsLocked)
+TEST_F(FragmentDownloadTests, SegmentBase_StopPath_Clear_LeavesEmptyIndex)
 {
 	// Pre-condition: IDX populated and base offset valid.
-	mMediaStreamContext->IDX.assign(kSidxBoxForABRTest,
-	                                kSidxBoxForABRTest + sizeof(kSidxBoxForABRTest));
-	mMediaStreamContext->mIdxBaseOffset = 2000;
+	mMediaStreamContext->IDX.LoadIfEmpty(std::vector<uint8_t>(kSidxBoxForABRTest,
+	                                                          kSidxBoxForABRTest + sizeof(kSidxBoxForABRTest)));
+	mMediaStreamContext->IDX.SetBaseOffset(2000);
 
-	// Simulate the fixed Stop() path: clear under mutex.
-	{
-		std::lock_guard<std::mutex> lk(mMediaStreamContext->mIdxMutex);
-		aamp_utils::ClearAndRelease(mMediaStreamContext->IDX);
-	}
+	// Simulate the Stop() path.
+	mMediaStreamContext->IDX.Clear();
 
-	// A reader acquiring the mutex immediately after must see IDX empty.
-	// This mirrors what PushNextFragment's shouldLoadIdx gate does.
-	{
-		std::lock_guard<std::mutex> lk(mMediaStreamContext->mIdxMutex);
-		EXPECT_TRUE(mMediaStreamContext->IDX.empty())
-			<< "IDX must be empty after Stop-path ClearAndRelease under mIdxMutex";
-		// mIdxBaseOffset is left at whatever value it had; the fix in
-		// FetchAndInjectInitialization/EOS paths already resets it.
-		// Here we only assert the IDX buffer is not dangling.
-		EXPECT_EQ(mMediaStreamContext->IDX.data(), nullptr)
-			<< "ClearAndRelease must free the backing buffer (data()==nullptr)";
-	}
+	EXPECT_TRUE(mMediaStreamContext->IDX.Empty())
+		<< "IDX must be empty after the Stop-path Clear";
+	EXPECT_EQ(mMediaStreamContext->IDX.BaseOffset(), 0u)
+		<< "Clear must reset the base offset with the buffer";
+	EXPECT_EQ(mMediaStreamContext->IDX.Snapshot().data(), nullptr)
+		<< "Clear must free the backing buffer (data()==nullptr)";
 
 	// DownloadFragment with empty IDX must not dereference the cleared buffer.
 	mMediaStreamContext->fragmentDescriptor.Bandwidth = 5000000;
@@ -1128,7 +1075,7 @@ TEST_F(FragmentDownloadTests, SegmentBase_StopPath_ClearAndRelease_IsLocked)
 }
 
 // ---------------------------------------------------------------------------
-// Regression: SegmentBase ABR switch byte-range uses mIdxBaseOffset
+// Regression: SegmentBase ABR switch byte-range uses IDX base offset
 // ---------------------------------------------------------------------------
 // Root cause: Previously removed SETCONFIGVALUE(...DashParallelFragDownload,
 // false) guard from SkipFragments for SegmentBase streams, enabling parallel
@@ -1137,7 +1084,7 @@ TEST_F(FragmentDownloadTests, SegmentBase_StopPath_ClearAndRelease_IsLocked)
 // fetches garbage.  The parse produces duration=0 → PTS=0 → L2 test_8003_0
 // sees actual=0, expected=76800 → FAIL.
 //
-// Fix: store the correct byte base for segment 0 in mIdxBaseOffset when IDX is
+// Fix: store the correct byte base for segment 0 in IDX base offset when IDX is
 // loaded (FetchAndInjectInitialization + FetchFragment lazy-load), and use it in
 // DownloadFragment instead of recomputing from 0.
 //
@@ -1147,18 +1094,18 @@ TEST_F(FragmentDownloadTests, SegmentBase_StopPath_ClearAndRelease_IsLocked)
 
 /**
  * @brief Regression test: DownloadFragment ABR switch must use
- *        mIdxBaseOffset as the byte base for SegmentBase range computation.
+ *        IDX base offset as the byte base for SegmentBase range computation.
  *
  * Setup mimics the race window exposed:
  *   - fragmentDescriptor.Bandwidth = 5000000 (current 1080p profile)
- *   - IDX holds the 1080p SIDX; mIdxBaseOffset = 1000 (segment 0 start)
+ *   - IDX holds the 1080p SIDX; IDX base offset = 1000 (segment 0 start)
  *   - dlInfo->bandwidth = 1400000 (stale 480p job queued before ABR switch)
  *   - dlInfo->fragmentIndex = 1 (delivering the second data segment)
  *   - uriList is empty so the function returns false without issuing a network
  *     request; dlInfo->range is still populated before that early return.
  *
  * Expected byte range for fragmentIndex=1:
- *   base    = mIdxBaseOffset            = 1000
+ *   base    = IDX base offset            = 1000
  *   + seg0  = kSidxBoxForABRTest ref[0] = 16384  → start of seg1 = 17384
  *   end     = 17384 + ref[1].size - 1   = 17384 + 12288 - 1 = 29671
  *   range   = "17384-29671"
@@ -1174,8 +1121,8 @@ TEST_F(FragmentDownloadTests, DownloadFragment_SegmentBase_ABRSwitch_UsesIdxBase
 	// Load the 1080p SIDX into IDX and record the byte base for segment 0.
 	// kIdxBaseOffset = 1000 represents end_of_SIDX + 1 + first_offset(=0).
 	constexpr uint64_t kIdxBaseOffset = 1000;
-	mMediaStreamContext->IDX.assign(kSidxBoxForABRTest, kSidxBoxForABRTest + sizeof(kSidxBoxForABRTest));
-	mMediaStreamContext->mIdxBaseOffset = kIdxBaseOffset;
+	mMediaStreamContext->IDX.LoadIfEmpty(std::vector<uint8_t>(kSidxBoxForABRTest, kSidxBoxForABRTest + sizeof(kSidxBoxForABRTest)));
+	mMediaStreamContext->IDX.SetBaseOffset(kIdxBaseOffset);
 
 	// fragmentIndex=1: the context is advancing past the second data segment.
 	mMediaStreamContext->fragmentIndex = 1;
@@ -1201,7 +1148,7 @@ TEST_F(FragmentDownloadTests, DownloadFragment_SegmentBase_ABRSwitch_UsesIdxBase
 	// Old code produced "1-16384" (base=1), fetching inside the moov/SIDX
 	// prefix and returning a zero-duration fragment that broke PTS continuity.
 	EXPECT_EQ(dlInfo->range, "17384-29671")
-		<< "ABR switch must compute the byte range from mIdxBaseOffset; "
+		<< "ABR switch must compute the byte range from IDX base offset; "
 		   "the old code started from offset 1 (0+1+first_offset), "
 		   "which landed inside the moov/SIDX prefix and produced "
 		   "duration=0, PTS=0, breaking L2 test_8003_0 PTS restamp checks.";

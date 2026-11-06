@@ -1636,11 +1636,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 		{ // single-segment
 			std::string fragmentUrl;
 			ConstructFragmentURL(fragmentUrl, &pMediaStreamContext->fragmentDescriptor, "", aamp->mConfig);
-				bool shouldLoadIdx = false;
-			{
-				std::lock_guard<std::mutex> idxLock(pMediaStreamContext->mIdxMutex);
-				shouldLoadIdx = pMediaStreamContext->IDX.empty();
-			}
+			const bool shouldLoadIdx = pMediaStreamContext->IDX.Empty();
 			if (shouldLoadIdx)
 			{ // lazily load index
 				std::string range = segmentBase->GetIndexRange();
@@ -1661,11 +1657,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 				aamp->CurlTerm(curlInst);
 				if (!loadedIdx.empty())
 				{
-					std::lock_guard<std::mutex> idxLock(pMediaStreamContext->mIdxMutex);
-					if (pMediaStreamContext->IDX.empty())
-					{
-						pMediaStreamContext->IDX = std::move(loadedIdx);
-					}
+					pMediaStreamContext->IDX.LoadIfEmpty(std::move(loadedIdx));
 				}
 
 
@@ -1688,57 +1680,22 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 										(iFogError > 0 ? iFogError : http_code),effectiveUrl,pMediaStreamContext->fragmentDescriptor.Time, downloadTime);
 
 				{
-					std::lock_guard<std::mutex> idxLock(pMediaStreamContext->mIdxMutex);
 					pMediaStreamContext->fragmentOffset++; // first byte following packed index
-					if (!pMediaStreamContext->IDX.empty())
+					if (pMediaStreamContext->fragmentIndex != 0)
 					{
-						unsigned int firstOffset = 0;
-						if (ParseSegmentIndexBox(pMediaStreamContext->IDX.data(),
-												 pMediaStreamContext->IDX.size(),
-												 0,
-												 NULL,
-												 NULL,
-												 &firstOffset))
-						{
-							pMediaStreamContext->fragmentOffset += firstOffset;
-						}
-						// Snapshot the base offset (segment 0 start in the file) so that
-						// DownloadFragment can use it on ABR switches without recomputing.
-						pMediaStreamContext->mIdxBaseOffset = pMediaStreamContext->fragmentOffset;
-						if (pMediaStreamContext->fragmentIndex != 0)
-						{
-							unsigned int referenced_size;
-							float fragmentDuration;
-							AAMPLOG_INFO("current fragmentIndex = %d", pMediaStreamContext->fragmentIndex);
-							// Find the offset of previous fragment in new representation
-							for (int i = 0; i < pMediaStreamContext->fragmentIndex; i++)
-							{
-								if (ParseSegmentIndexBox(pMediaStreamContext->IDX.data(),
-														 pMediaStreamContext->IDX.size(),
-														 i,
-														 &referenced_size,
-														 &fragmentDuration,
-														 NULL))
-								{
-									pMediaStreamContext->fragmentOffset += referenced_size;
-								}
-							}
-						}
+						AAMPLOG_INFO("current fragmentIndex = %d", pMediaStreamContext->fragmentIndex);
 					}
+					// Snapshot the base offset (segment 0 start in the file) inside IDX so that
+					// DownloadFragment can use it on ABR switches without recomputing, and find
+					// the offset of the current fragment in the new representation.
+					pMediaStreamContext->fragmentOffset = pMediaStreamContext->IDX.AnchorAndOffsetOf(pMediaStreamContext->fragmentOffset, pMediaStreamContext->fragmentIndex);
 				}
 			}
 			{
-				// Take a snapshot of IDX under the mutex to guard against
-				// FetchAndInjectInitialization (worker thread) calling
-				// ClearAndRelease(IDX) concurrently between the empty() check
-				// and the data() dereference (check-then-act race / use-after-free).
-				// We must not hold the mutex across FetchFragment because that
-				// call blocks on network I/O; parsing from the local copy is safe.
-				std::vector<uint8_t> idxSnapshot;
-				{
-					std::lock_guard<std::mutex> idxLock(pMediaStreamContext->mIdxMutex);
-					idxSnapshot = pMediaStreamContext->IDX;
-				}
+				// Parse from a copy so that FetchAndInjectInitialization (worker thread)
+				// clearing IDX between the empty() check and the data() dereference
+				// cannot cause a use-after-free.
+				std::vector<uint8_t> idxSnapshot = pMediaStreamContext->IDX.Snapshot();
 				if (!idxSnapshot.empty())
 				{
 					unsigned int referenced_size;
@@ -1784,9 +1741,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 					}
 					else
 					{ // done with index
-						std::lock_guard<std::mutex> idxLock(pMediaStreamContext->mIdxMutex);
-						aamp_utils::ClearAndRelease(pMediaStreamContext->IDX);
-						pMediaStreamContext->mIdxBaseOffset = 0;
+						pMediaStreamContext->IDX.Clear();
 						pMediaStreamContext->eos = true;
 					}
 				}
@@ -2067,7 +2022,7 @@ bool StreamAbstractionAAMP_MPD::HandleSeekEOSAndPeriodTransition(double remainin
 	{
 		if (mMediaStreamContext[i])
 		{
-			const auto *ctx = mMediaStreamContext[i];
+			const auto *ctx = mMediaStreamContext[i].get();
 			trackSnapshots[i] = {
 				ctx->enabled,
 				ctx->adaptationSetIdx,
@@ -2136,7 +2091,7 @@ bool StreamAbstractionAAMP_MPD::HandleSeekEOSAndPeriodTransition(double remainin
 		{
 			if (mMediaStreamContext[i])
 			{
-				auto       *ctx  = mMediaStreamContext[i];
+				auto       *ctx  = mMediaStreamContext[i].get();
 				const auto &snap = trackSnapshots[i];
 				ctx->enabled             = snap.enabled;
 				ctx->adaptationSetIdx    = snap.adaptationSetIdx;
@@ -2192,11 +2147,11 @@ void StreamAbstractionAAMP_MPD::SeekInPeriod( double seekPositionSeconds, bool s
 			// A/V track, which could suppress a valid period transition or set the wrong
 			// seek position in the next period.  Discard the subtitle result here.
 			double skipTime = seekPositionSeconds;
-			SkipFragments(mMediaStreamContext[i], skipTime, true);
+			SkipFragments(mMediaStreamContext[i].get(), skipTime, true);
 		}
 		else
 		{
-			trackRemainingSeek = SkipFragments(mMediaStreamContext[i], seekPositionSeconds, true, skipToEnd);
+			trackRemainingSeek = SkipFragments(mMediaStreamContext[i].get(), seekPositionSeconds, true, skipToEnd);
 		}
 
 	}
@@ -2791,11 +2746,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 		{ // single-segment
 			//SETCONFIGVALUE(AAMP_STREAM_SETTING, eAAMPConfig_DashParallelFragDownload, false);
 			std::string range = segmentBase->GetIndexRange();
-			bool shouldLoadIdx = false;
-			{
-				std::lock_guard<std::mutex> idxLock(pMediaStreamContext->mIdxMutex);
-				shouldLoadIdx = pMediaStreamContext->IDX.empty();
-			}
+			const bool shouldLoadIdx = pMediaStreamContext->IDX.Empty();
 
 			if (shouldLoadIdx)
 			{ // lazily load index
@@ -2817,14 +2768,10 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 				aamp->CurlTerm(curlInstance);
 				if (!loadedIdx.empty())
 				{
-					std::lock_guard<std::mutex> idxLock(pMediaStreamContext->mIdxMutex);
-					if (pMediaStreamContext->IDX.empty())
-					{
-						pMediaStreamContext->IDX = std::move(loadedIdx);
-					}
+					pMediaStreamContext->IDX.LoadIfEmpty(std::move(loadedIdx));
 				}
 			}
-			if (!pMediaStreamContext->IDX.empty())
+			if (!pMediaStreamContext->IDX.Empty())
 			{
 				unsigned int referenced_size = 0;
 				float fragmentDuration = 0.00;
@@ -2862,9 +2809,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 					}
 					pMediaStreamContext->fragmentOffset = idxRangeEnd + 1;
 					unsigned int firstOffset = 0;
-					if (ParseSegmentIndexBox(pMediaStreamContext->IDX.data(),
-					                         pMediaStreamContext->IDX.size(),
-					                         0, NULL, NULL, &firstOffset))
+					if (pMediaStreamContext->IDX.Lookup(0, NULL, NULL, &firstOffset))
 					{
 						pMediaStreamContext->fragmentOffset += firstOffset;
 					}
@@ -2873,9 +2818,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 					{
 						unsigned int refSize = 0;
 						float refDur = 0.0f;
-						if (ParseSegmentIndexBox(pMediaStreamContext->IDX.data(),
-						                         pMediaStreamContext->IDX.size(),
-						                         idx, &refSize, &refDur, NULL))
+						if (pMediaStreamContext->IDX.Lookup(idx, &refSize, &refDur, NULL))
 						{
 							pMediaStreamContext->fragmentOffset += refSize;
 						}
@@ -2943,9 +2886,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 						}
 						pMediaStreamContext->fragmentOffset = idxRangeEnd + 1;
 						unsigned int firstOffset = 0;
-						if (ParseSegmentIndexBox(pMediaStreamContext->IDX.data(),
-						                         pMediaStreamContext->IDX.size(),
-						                         0, NULL, NULL, &firstOffset))
+						if (pMediaStreamContext->IDX.Lookup(0, NULL, NULL, &firstOffset))
 						{
 							pMediaStreamContext->fragmentOffset += firstOffset;
 						}
@@ -2953,9 +2894,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 						fragmentTime = (float)presentationTimeOffsetSec;
 						while (fragmentTime < targetTime)
 						{
-							if (ParseSegmentIndexBox(pMediaStreamContext->IDX.data(),
-							                         pMediaStreamContext->IDX.size(),
-							                         fragmentIndex++,
+							if (pMediaStreamContext->IDX.Lookup(fragmentIndex++,
 							                         &referenced_size,
 							                         &fragmentDuration,
 							                         NULL))
@@ -2967,8 +2906,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 							}
 							else
 							{
-								std::lock_guard<std::mutex> idxLock(pMediaStreamContext->mIdxMutex);
-								aamp_utils::ClearAndRelease(pMediaStreamContext->IDX);
+								pMediaStreamContext->IDX.Clear();
 								pMediaStreamContext->eos = true;
 								break;
 							}
@@ -3020,10 +2958,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 					// boundary is crossed and PushNextFragment handles sequential advancement.
 					while ((skipTime != 0) || skipToEnd)
 					{
-						if (ParseSegmentIndexBox(
-						                         pMediaStreamContext->IDX.data(),
-						                         pMediaStreamContext->IDX.size(),
-						                         fragmentIndex,
+						if (pMediaStreamContext->IDX.Lookup(fragmentIndex,
 						                         &referenced_size,
 						                         &fragmentDuration,
 						                         NULL))
@@ -3035,9 +2970,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 							{
 								// Advance until there is no next entry (this IS the last fragment).
 								unsigned int nextSize; float nextDur;
-								if (!ParseSegmentIndexBox(pMediaStreamContext->IDX.data(),
-								                          pMediaStreamContext->IDX.size(),
-								                          fragmentIndex + 1, &nextSize, &nextDur, NULL))
+								if (!pMediaStreamContext->IDX.Lookup(fragmentIndex + 1, &nextSize, &nextDur, NULL))
 								{
 									break;
 								}
@@ -3062,7 +2995,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 						}
 						else if (skipToEnd)
 						{
-							// ParseSegmentIndexBox returned false: back up to the last valid entry.
+							// Lookup returned false: back up to the last valid entry.
 							fragmentTime -= lastFragmentDuration;
 							pMediaStreamContext->fragmentOffset -= lastReferencedSize;
 							fragmentIndex--;
@@ -3071,8 +3004,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 						else
 						{
 							// done with index
-							std::lock_guard<std::mutex> idxLock(pMediaStreamContext->mIdxMutex);
-							aamp_utils::ClearAndRelease(pMediaStreamContext->IDX);
+							pMediaStreamContext->IDX.Clear();
 							pMediaStreamContext->eos = true;
 							break;
 						}
@@ -3112,7 +3044,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 				}
 				else if(pMediaStreamContext->type == eTRACK_AUDIO)
 				{
-					MediaStreamContext *videoContext = mMediaStreamContext[eMEDIATYPE_VIDEO];
+					MediaStreamContext *videoContext = mMediaStreamContext[eMEDIATYPE_VIDEO].get();
 					if(videoContext != NULL)
 					{
 						const std::vector<ISegmentURL*> vidSegmentURLs = videoContext->representation->GetSegmentList()->GetSegmentURLs();
@@ -4058,7 +3990,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 
 		for (int i = 0; i < mMaxTracks; i++)
 		{
-			mMediaStreamContext[i] = new MediaStreamContext((TrackType)i, this, aamp, GetMediaTypeName(AampMediaType(i)));
+			mMediaStreamContext[i] = std::make_unique<MediaStreamContext>((TrackType)i, this, aamp, GetMediaTypeName(AampMediaType(i)));
 			mMediaStreamContext[i]->fragmentDescriptor.manifestUrl = manifestUrl;
 			mMediaStreamContext[i]->mediaType = (AampMediaType)i;
 			mMediaStreamContext[i]->representationIndex = -1;
@@ -6515,7 +6447,7 @@ bool StreamAbstractionAAMP_MPD::GetBestTextTrackByLanguage( TextTrackInfo &selec
 
 void StreamAbstractionAAMP_MPD::StartSubtitleParser()
 {
-	class MediaStreamContext *subtitle = mMediaStreamContext[eMEDIATYPE_SUBTITLE];
+	class MediaStreamContext *subtitle = mMediaStreamContext[eMEDIATYPE_SUBTITLE].get();
 	if (subtitle && subtitle->enabled && subtitle->mSubtitleParser)
 	{
 		auto seekPoint = aamp->seek_pos_seconds;
@@ -6553,7 +6485,7 @@ void StreamAbstractionAAMP_MPD::StartSubtitleParser()
 
 void StreamAbstractionAAMP_MPD::PauseSubtitleParser(bool pause)
 {
-	class MediaStreamContext *subtitle = mMediaStreamContext[eMEDIATYPE_SUBTITLE];
+	class MediaStreamContext *subtitle = mMediaStreamContext[eMEDIATYPE_SUBTITLE].get();
 	if (subtitle && subtitle->enabled && subtitle->mSubtitleParser)
 	{
 		AAMPLOG_INFO("setting subtitles pause state = %d", pause);
@@ -6834,7 +6766,7 @@ void StreamAbstractionAAMP_MPD::SwitchSubtitleTrack(bool newTune)
 	std::string tTrackIdx;
 	double   oldPlaylistPosition,diffInFetchedDuration,diffInInjectedDuration,newInjectedPosition;
 
-	class MediaStreamContext *pMediaStreamContext = mMediaStreamContext[eMEDIATYPE_SUBTITLE];
+	class MediaStreamContext *pMediaStreamContext = mMediaStreamContext[eMEDIATYPE_SUBTITLE].get();
 	if ((!pMediaStreamContext) || (!pMediaStreamContext->enabled))
 	{
 		AAMPLOG_WARN("pMediaStreamContext  is null");
@@ -6947,7 +6879,7 @@ void StreamAbstractionAAMP_MPD::SelectSubtitleTrack(bool newTune, std::vector<Te
 	std::vector<AudioTrackInfo> aTracks;//aTracks is only used for calling ParseTrackInformation
 	bool isFrstAvailableTxtTrackSelected = false;
 
-	class MediaStreamContext *pMediaStreamContext = mMediaStreamContext[eMEDIATYPE_SUBTITLE];
+	class MediaStreamContext *pMediaStreamContext = mMediaStreamContext[eMEDIATYPE_SUBTITLE].get();
 	mMediaStreamContext[eMEDIATYPE_SUBTITLE]->enabled = false;
 
 	if(!period)
@@ -7207,7 +7139,7 @@ void StreamAbstractionAAMP_MPD::SelectAudioTrack(std::vector<AudioTrackInfo> &aT
  */
 void StreamAbstractionAAMP_MPD::RefreshTrack(AampMediaType type)
 {
-	MediaStreamContext *track = mMediaStreamContext[type];
+	MediaStreamContext *track = mMediaStreamContext[type].get();
 
 	if (track && track->Enabled())
 	{
@@ -7233,7 +7165,7 @@ void StreamAbstractionAAMP_MPD::RefreshTrack(AampMediaType type)
  */
 AAMPStatusType StreamAbstractionAAMP_MPD::UpdateMediaTrackInfo(AampMediaType type)
 {
-	class MediaStreamContext *pMediaStreamContext = mMediaStreamContext[type];
+	class MediaStreamContext *pMediaStreamContext = mMediaStreamContext[type].get();
 
 	IPeriod *period = mCurrentPeriod;
 
@@ -7511,7 +7443,7 @@ void StreamAbstractionAAMP_MPD::SwitchAudioTrack()
 	int diffFragmentsDownloaded = 0;
 	double offsetFromStart;
 
-	class MediaStreamContext *pMediaStreamContext = mMediaStreamContext[eMEDIATYPE_AUDIO];
+	class MediaStreamContext *pMediaStreamContext = mMediaStreamContext[eMEDIATYPE_AUDIO].get();
 	if (!pMediaStreamContext)
 	{
 		AAMPLOG_WARN("pMediaStreamContext is null");
@@ -7713,7 +7645,7 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 
 	for (int i = 0; i < mMaxTracks; i++)
 	{
-		class MediaStreamContext *pMediaStreamContext = mMediaStreamContext[i];
+		class MediaStreamContext *pMediaStreamContext = mMediaStreamContext[i].get();
 		if (!pMediaStreamContext)
 		{
 			continue;
@@ -8018,7 +7950,7 @@ std::string StreamAbstractionAAMP_MPD::GetCurrentMimeType(AampMediaType mediaTyp
 	std::string mimeType;
 	if( mediaType < mNumberOfTracks )
 	{
-		auto pMediaStreamContext = mMediaStreamContext[mediaType];
+		auto pMediaStreamContext = mMediaStreamContext[mediaType].get();
 		if( pMediaStreamContext )
 		{
 			// UpdateMPD() holds mMediaStreamContext[eMEDIATYPE_VIDEO]->mMediaStreamContextMutex and we do
@@ -8059,7 +7991,7 @@ std::string StreamAbstractionAAMP_MPD::GetCurrentCodec(AampMediaType mediaType)
 	std::string codec;
 	if( mediaType < mNumberOfTracks )
 	{
-		auto pMediaStreamContext = mMediaStreamContext[mediaType];
+		auto pMediaStreamContext = mMediaStreamContext[mediaType].get();
 		if( pMediaStreamContext )
 		{
 			// UpdateMPD() holds mMediaStreamContext[eMEDIATYPE_VIDEO]->mMediaStreamContextMutex and we do
@@ -8231,7 +8163,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 
 	for (int i = 0; i < mNumberOfTracks; i++)
 	{
-		class MediaStreamContext *pMediaStreamContext = mMediaStreamContext[i];
+		class MediaStreamContext *pMediaStreamContext = mMediaStreamContext[i].get();
 		if(!pMediaStreamContext)
 		{
 			AAMPLOG_WARN("pMediaStreamContext  is null");  //CID:82464,84186 - Null Returns
@@ -9005,7 +8937,7 @@ double StreamAbstractionAAMP_MPD::GetCulledSeconds(std::vector<PeriodInfo> &curr
 {
 	double newStartTimeSeconds = 0;
 	double culled = 0;
-	MediaStreamContext *pMediaStreamContext = mMediaStreamContext[eMEDIATYPE_VIDEO];
+	MediaStreamContext *pMediaStreamContext = mMediaStreamContext[eMEDIATYPE_VIDEO].get();
 	if (pMediaStreamContext->adaptationSet || pMediaStreamContext->representation)
 	{
 		if(mCurrentPeriod && mMPDParseHelper->aamp_HasSegmentTemplate(mCurrentPeriod))
@@ -9361,7 +9293,7 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitFragments(bool discontinuity)
  */
 void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool discontinuity)
 {
-		class MediaStreamContext *pMediaStreamContext = mMediaStreamContext[trackIdx];
+		class MediaStreamContext *pMediaStreamContext = mMediaStreamContext[trackIdx].get();
 
 		if(discontinuity && pMediaStreamContext->enabled)
 		{
@@ -9401,12 +9333,8 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 					ISegmentBase *segmentBase = pMediaStreamContext->representation->GetSegmentBase();
 					if (segmentBase)
 					{
-						{
-							std::lock_guard<std::mutex> idxLock(pMediaStreamContext->mIdxMutex);
-							pMediaStreamContext->fragmentOffset = 0;
-							aamp_utils::ClearAndRelease(pMediaStreamContext->IDX);
-							pMediaStreamContext->mIdxBaseOffset = 0;
-						}
+						pMediaStreamContext->fragmentOffset = 0;
+						pMediaStreamContext->IDX.Clear();
 						std::string range;
 						std::string nextrange; //CMCD get the next range
 						const IURLType *urlType = segmentBase->GetInitialization();
@@ -9931,7 +9859,7 @@ bool StreamAbstractionAAMP_MPD::ExtractAndAddSubtitleMediaHeader()
 void StreamAbstractionAAMP_MPD::AdvanceTrack(int trackIdx, bool trickPlay, double &delta)
 {
 	UsingPlayerId playerId(aamp->mPlayerId);
-	class MediaStreamContext *pMediaStreamContext = mMediaStreamContext[trackIdx];
+	class MediaStreamContext *pMediaStreamContext = mMediaStreamContext[trackIdx].get();
 	int vodTrickplayFPS = GETCONFIGVALUE(eAAMPConfig_VODTrickPlayFPS);
 
 	if (pMediaStreamContext->adaptationSet)
@@ -10573,7 +10501,7 @@ void StreamAbstractionAAMP_MPD::DetectDiscontinuityAndFetchInit(bool periodChang
 	if (periodChanged && ISCONFIGSET(eAAMPConfig_MPDDiscontinuityHandling) && mMediaStreamContext[eMEDIATYPE_VIDEO]->enabled &&
 		(ISCONFIGSET(eAAMPConfig_MPDDiscontinuityHandlingCdvr) || (!aamp->IsInProgressCDVR())))
 	{
-		MediaStreamContext *pMediaStreamContext = mMediaStreamContext[eMEDIATYPE_VIDEO];
+		MediaStreamContext *pMediaStreamContext = mMediaStreamContext[eMEDIATYPE_VIDEO].get();
 		SegmentTemplates segmentTemplates(pMediaStreamContext->representation->GetSegmentTemplate(),
 										pMediaStreamContext->adaptationSet->GetSegmentTemplate());
 		bool ignoreDiscontinuity = false;
@@ -10755,7 +10683,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 	bool resetIterator = true;
 	bool mpdChanged = false;
 
-	MediaStreamContext *playlistDownloaderContext = mMediaStreamContext[eMEDIATYPE_VIDEO];
+	MediaStreamContext *playlistDownloaderContext = mMediaStreamContext[eMEDIATYPE_VIDEO].get();
 
 	IPeriod *currPeriod = mCurrentPeriod;
 	if (currPeriod == NULL)
@@ -11273,7 +11201,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
  */
 bool StreamAbstractionAAMP_MPD::AdvanceTsbFetch(int trackIdx, bool trickPlay, double delta, bool &waitForFreeFrag, bool &bCacheFullState)
 {
-	class MediaStreamContext *pMediaStreamContext = mMediaStreamContext[trackIdx];
+	class MediaStreamContext *pMediaStreamContext = mMediaStreamContext[trackIdx].get();
 	AampMediaType mediaType = (AampMediaType) trackIdx;
 	AampTSBSessionManager* tsbSessionManager = aamp->GetTSBSessionManager();
 	std::shared_ptr<AampTsbReader> tsbReader;
@@ -11732,11 +11660,9 @@ StreamAbstractionAAMP_MPD::~StreamAbstractionAAMP_MPD()
 	mManifestUpdateHandleFlag       =       false;
 	dnldInstance->UnRegisterCallback();
 
-	for (int iTrack = 0; iTrack < mMaxTracks; iTrack++)
-	{
-		// Delete the MediaStreamContext object for this track.
-		SAFE_DELETE(mMediaStreamContext[iTrack]);
-	}
+	// Destroy the track contexts after the callback is unregistered and
+	// before the curl and service data teardown below.
+	mMediaStreamContext = {};
 
 	{
 		auto syncLock = aamp->SyncLock();
@@ -11890,7 +11816,7 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 	// Call AbortWaitForCachedAndFreeFragment() to unblock collector thread from WaitForFreeFragmentAvailable
 	for (int iTrack = 0; iTrack < mMaxTracks; iTrack++)
 	{
-		MediaStreamContext *track = mMediaStreamContext[iTrack];
+		MediaStreamContext *track = mMediaStreamContext[iTrack].get();
 		if(track)
 		{
 			if(track->playContext)
@@ -11943,7 +11869,7 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 
 	for (int iTrack = 0; iTrack < mMaxTracks; iTrack++)
 	{
-		MediaStreamContext *track = mMediaStreamContext[iTrack];
+		MediaStreamContext *track = mMediaStreamContext[iTrack].get();
 		if(track)
 		{
 			aamp->StopTrackInjection((AampMediaType) iTrack, true);
@@ -11962,10 +11888,7 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 			{
 				track->SetLocalTSBInjection(false);
 			}
-			{
-				std::lock_guard<std::mutex> idxLock(track->mIdxMutex);
-				aamp_utils::ClearAndRelease(track->IDX);
-			}
+			track->IDX.Clear();
 		}
 	}
 
@@ -12136,7 +12059,7 @@ void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutpu
  */
 MediaTrack* StreamAbstractionAAMP_MPD::GetMediaTrack(TrackType type)
 {
-	return mMediaStreamContext[type];
+	return mMediaStreamContext[type].get();
 }
 
 double StreamAbstractionAAMP_MPD::GetBufferedDuration()
@@ -12801,7 +12724,7 @@ void StreamAbstractionAAMP_MPD::StopInjection(void)
 	ReassessAndResumeAudioTrack(true);
 	for (int iTrack = 0; iTrack < mMaxTracks; iTrack++)
 	{
-		MediaStreamContext *track = mMediaStreamContext[iTrack];
+		MediaStreamContext *track = mMediaStreamContext[iTrack].get();
 		if(track)
 		{
 			if(track->playContext)
@@ -12822,7 +12745,7 @@ void StreamAbstractionAAMP_MPD::SendMediaHeaders()
 {
 	for (int iTrack = 0; iTrack < mMaxTracks; iTrack++)
 	{
-		MediaStreamContext *track = mMediaStreamContext[iTrack];
+		MediaStreamContext *track = mMediaStreamContext[iTrack].get();
 		if(track && !track->Enabled())
 		{
 			auto header = AampStreamSinkManager::GetInstance().GetMediaHeader(iTrack);
@@ -12860,7 +12783,7 @@ void StreamAbstractionAAMP_MPD::StartInjection(void)
 	SendMediaHeaders();
 	for (int iTrack = 0; iTrack < mNumberOfTracks; iTrack++)
 	{
-		MediaStreamContext *track = mMediaStreamContext[iTrack];
+		MediaStreamContext *track = mMediaStreamContext[iTrack].get();
 		if(track && track->Enabled())
 		{
 			aamp->ResumeTrackInjection((AampMediaType) iTrack);
@@ -13369,7 +13292,7 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 				for (int iTrack = 0; iTrack < mMaxTracks; iTrack++)
 				{
 					//after the ad placement, replacing ad manifest url to source manifest url for all the tracks in MediaStreamContext.
-					MediaStreamContext *track = mMediaStreamContext[iTrack];
+					MediaStreamContext *track = mMediaStreamContext[iTrack].get();
 					if(track)
 					{
 						mMediaStreamContext[iTrack]->fragmentDescriptor.manifestUrl = aamp->GetManifestUrl();
@@ -15235,7 +15158,7 @@ void StreamAbstractionAAMP_MPD::ClearWorkers()
  */
 void StreamAbstractionAAMP_MPD::OnFragmentDownloadComplete(bool status, DownloadInfoPtr downloadInfo)
 {
-	auto pMediaStreamContext = mMediaStreamContext[downloadInfo->mediaType];
+	auto pMediaStreamContext = mMediaStreamContext[downloadInfo->mediaType].get();
 	if (pMediaStreamContext)
 	{
 		if ((downloadInfo->mediaType == eMEDIATYPE_VIDEO) && !downloadInfo->isInitSegment && (mIsFogTSB && !mAdPlayingFromCDN) && pMediaStreamContext->mDownloadedFragment.capacity() != 0)

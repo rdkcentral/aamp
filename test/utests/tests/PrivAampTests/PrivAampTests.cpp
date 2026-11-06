@@ -1055,6 +1055,7 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackPipelinePausedNoUnderflow)
 	// Set up stream abstraction to return our real MediaStreamContext
 	// which forwards CacheFragmentChunk() to g_mockMediaStreamContext
 	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
+	p_aamp->mMediaFormat = eMEDIAFORMAT_DASH;
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetMediaTrack(eTRACK_VIDEO))
 		.WillRepeatedly(Return(mVideoStreamContext));
 
@@ -1117,6 +1118,7 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackPipelinePausedWithUnderflow)
 	// Set up stream abstraction to return our real MediaStreamContext
 	// which forwards CacheFragmentChunk() to g_mockMediaStreamContext
 	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
+	p_aamp->mMediaFormat = eMEDIAFORMAT_DASH;
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetMediaTrack(eTRACK_VIDEO))
 		.WillRepeatedly(Return(mVideoStreamContext));
 
@@ -1174,6 +1176,7 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithParseBufferFailure)
 	// Set up stream abstraction to return our real MediaStreamContext
 	// which forwards CacheFragmentChunk() to g_mockMediaStreamContext
 	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
+	p_aamp->mMediaFormat = eMEDIAFORMAT_DASH;
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetMediaTrack(eTRACK_VIDEO))
 		.WillRepeatedly(Return(mVideoStreamContext));
 	EXPECT_CALL(*g_mockMediaStreamContext, IsLocalTSBInjection())
@@ -1231,6 +1234,7 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithoutMdat)
 	// Set up stream abstraction to return our real MediaStreamContext
 	// which forwards CacheFragmentChunk() to g_mockMediaStreamContext
 	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
+	p_aamp->mMediaFormat = eMEDIAFORMAT_DASH;
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetMediaTrack(eTRACK_VIDEO))
 		.WillRepeatedly(Return(mVideoStreamContext));
 	EXPECT_CALL(*g_mockMediaStreamContext, IsLocalTSBInjection())
@@ -1291,6 +1295,7 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithPartialMp4Chunk)
 	// Set up stream abstraction to return our real MediaStreamContext
 	// which forwards CacheFragmentChunk() to g_mockMediaStreamContext
 	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
+	p_aamp->mMediaFormat = eMEDIAFORMAT_DASH;
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetMediaTrack(eTRACK_VIDEO))
 		.WillRepeatedly(Return(mVideoStreamContext));
 	EXPECT_CALL(*g_mockMediaStreamContext, IsLocalTSBInjection())
@@ -1387,6 +1392,7 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithMultipleMdatBoxes)
 	// Set up stream abstraction to return our real MediaStreamContext
 	// which forwards CacheFragmentChunk() to g_mockMediaStreamContext
 	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
+	p_aamp->mMediaFormat = eMEDIAFORMAT_DASH;
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetMediaTrack(eTRACK_VIDEO))
 		.WillRepeatedly(Return(mVideoStreamContext));
 	EXPECT_CALL(*g_mockMediaStreamContext, IsLocalTSBInjection())
@@ -1487,6 +1493,7 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithChunkEarlyAbort)
 	// Set up stream abstraction to return our real MediaStreamContext
 	// which forwards CacheFragmentChunk() to g_mockMediaStreamContext
 	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
+	p_aamp->mMediaFormat = eMEDIAFORMAT_DASH;
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetMediaTrack(eTRACK_VIDEO))
 		.WillRepeatedly(Return(mVideoStreamContext));
 	EXPECT_CALL(*g_mockMediaStreamContext, IsLocalTSBInjection())
@@ -1553,6 +1560,7 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackCacheFragmentChunkFailure)
 	// Set up stream abstraction to return our real MediaStreamContext
 	// which forwards CacheFragmentChunk() to g_mockMediaStreamContext
 	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
+	p_aamp->mMediaFormat = eMEDIAFORMAT_DASH;
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetMediaTrack(eTRACK_VIDEO))
 		.WillRepeatedly(Return(mVideoStreamContext));
 	EXPECT_CALL(*g_mockMediaStreamContext, IsLocalTSBInjection())
@@ -1662,6 +1670,7 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithMultipleChunks)
 	// Set up stream abstraction to return our real MediaStreamContext
 	// which forwards CacheFragmentChunk() to g_mockMediaStreamContext
 	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
+	p_aamp->mMediaFormat = eMEDIAFORMAT_DASH;
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetMediaTrack(eTRACK_VIDEO))
 		.WillRepeatedly(Return(mVideoStreamContext));
 	EXPECT_CALL(*g_mockMediaStreamContext, IsLocalTSBInjection())

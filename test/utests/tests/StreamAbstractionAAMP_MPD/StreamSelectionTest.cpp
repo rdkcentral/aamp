@@ -327,7 +327,7 @@ protected:
 
 		class MediaStreamContext *GetMediaStreamContext(AampMediaType type)
 		{
-			return mMediaStreamContext[type];
+			return mMediaStreamContext[type].get();
 		}
 	};
 
