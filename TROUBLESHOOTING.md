@@ -195,6 +195,22 @@ config.enableLowLatencyCorrection = true;
 
 ## DRM Issues
 
+### Validating String Session IDs Across AAMP and MPI
+
+Enable DEBUG-level logging in both AAMP and the middleware player interface (MPI),
+then filter the captured player logs for the literal marker `[SessionIdString]`.
+Existing INFO-level session messages also carry this marker.
+
+The logs trace string IDs through SecManager/Firebolt requests and responses, MPI
+session storage and release, watermark callbacks, AAMP event dispatch, and the
+JavaScript `sessionHandle` property. Correlate the same quoted ID across these
+handoffs; UUIDs must remain unchanged. AAMP's `playbackSessionId` is a separate
+player identifier and is not the DRM `sessionHandle`.
+
+SecManager's startup close-all request intentionally logs `sessionId=''`.
+Individual session operations reject empty IDs. These diagnostics do not add
+access tokens, license requests, or license responses to the logs.
+
 ### License Acquisition Timeout
 
 **Error**: `License acquisition timeout`

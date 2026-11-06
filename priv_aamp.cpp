@@ -10579,9 +10579,10 @@ void PrivateInstanceAAMP::SendBlockedEvent(const std::string & reason, const std
 /**
  * @brief  Generate WatermarkSessionUpdate event based on args passed.
  */
-void PrivateInstanceAAMP::SendWatermarkSessionUpdateEvent(uint32_t sessionHandle, uint32_t status, const std::string &system)
+void PrivateInstanceAAMP::SendWatermarkSessionUpdateEvent(const std::string& sessionHandle, uint32_t status, const std::string &system)
 {
-	AAMPLOG_INFO("Sending WatermarkSessionUpdateEvent status %d system %s GetSessionId() %s",status,system.c_str(), GetSessionId().c_str());
+	AAMPLOG_INFO("[SessionIdString] AAMP sending WatermarkSessionUpdateEvent sessionHandle='%s' status=%u system=%s playbackSessionId=%s",
+		sessionHandle.c_str(), status, system.c_str(), GetSessionId().c_str());
 	WatermarkSessionUpdateEventPtr event = std::make_shared<WatermarkSessionUpdateEvent>(sessionHandle, status, system, GetSessionId());
 	SendEvent(event,AAMP_EVENT_ASYNC_MODE);
 }
