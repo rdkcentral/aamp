@@ -109,6 +109,10 @@ public:
 	MOCK_METHOD(bool, IsCurrentProfileLowest, ());
 
 	MOCK_METHOD(void, StopUnderflowMonitor, (), (override));
+		
+	MOCK_METHOD(void, MuteSubtitleOnPause, (), (override));
+	
+	MOCK_METHOD(void, ResumeSubtitleOnPlay, (bool mute, char *data), (override));
 };
 
 extern std::shared_ptr<MockStreamAbstractionAAMP> g_mockStreamAbstractionAAMP;
