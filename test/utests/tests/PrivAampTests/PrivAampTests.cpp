@@ -18,6 +18,12 @@
 */
 
 #include <cstdlib>
+#include <functional>
+#include <future>
+#include <mutex>
+#include <vector>
+#include <thread>
+#include <atomic>
 #include <iostream>
 #include <string>
 #include <string.h>
@@ -310,6 +316,41 @@ public:
 		bool mFirstVideoFrameDisplayedEnabled = false;
 		SetState(eSTATE_SEEKING, true);
 		NotifyFirstBufferProcessed(std::string());
+	}
+	bool CallCancelPauseOnFirstVideoFrame(bool firstFrameEnabled, bool pauseOnFirstFrame, bool &pauseOnFirstFrameAfter)
+	{
+		TestablePrivAamp::mFirstVideoFrameDisplayedEnabled = firstFrameEnabled;
+		TestablePrivAamp::mPauseOnFirstVideoFrameDisp = pauseOnFirstFrame;
+		bool pending = CancelPauseOnFirstVideoFrame();
+		pauseOnFirstFrameAfter = TestablePrivAamp::mPauseOnFirstVideoFrameDisp;
+		return pending;
+	}
+	void CallSpeedChangeWithSidecar(float rate, bool changeState, bool effectsOnly, StreamAbstractionAAMP *streamAbstraction)
+	{
+		mData = std::make_unique<char[]>(1); // makes HasSidecarData() true
+		auto *previous = mpStreamAbstractionAAMP;
+		mpStreamAbstractionAAMP = streamAbstraction;
+		if (effectsOnly)
+		{
+			ApplySpeedChangeEffects(rate);
+		}
+		else
+		{
+			NotifySpeedChanged(rate, changeState);
+		}
+		mpStreamAbstractionAAMP = previous;
+		mData.reset();
+	}
+	void SetSeekWhilePausedFramePendingWithInitialCaching()
+	{
+		SetSeekWhilePausedFramePending();
+		TestablePrivAamp::mFragmentCachingRequired = true;
+	}
+	void SetSeekWhilePausedFramePending()
+	{
+		TestablePrivAamp::mFirstVideoFrameDisplayedEnabled = true;
+		TestablePrivAamp::mPauseOnFirstVideoFrameDisp = true;
+		SetState(eSTATE_SEEKING);
 	}
 	void CallNotifyFirstVideoFrameDisplayed()
 	{
@@ -5653,6 +5694,259 @@ TEST_F(PrivAampTests,NotifyFirstVideoFrameDisplayedTest1)
 	p_aamp->SetState(eSTATE_IDLE, true);
 	p_aamp->NotifyFirstVideoFrameDisplayed();
 }
+/**
+ * @brief A seek while paused still waiting for its first frame: the pause is cancelled and the first frame wait is kept.
+ */
+TEST_F(PrivAampPrivTests,CancelPauseOnFirstVideoFrame_SeekWhilePausedPending_CancelsPauseAndKeepsFirstFrameWait)
+{
+	bool pauseFlag = true;
+	EXPECT_TRUE(testp_aamp->CallCancelPauseOnFirstVideoFrame(true, true, pauseFlag));
+	EXPECT_FALSE(pauseFlag);
+	EXPECT_TRUE(testp_aamp->IsFirstVideoFrameDisplayedRequired());
+
+	// Nothing pending: first frame already handled, or not a seek while paused
+	EXPECT_FALSE(testp_aamp->CallCancelPauseOnFirstVideoFrame(false, true, pauseFlag));
+	EXPECT_FALSE(testp_aamp->CallCancelPauseOnFirstVideoFrame(true, false, pauseFlag));
+}
+
+/**
+ * @brief The first frame callback holds the fragment caching lock while it pauses the sink.
+ *
+ * A resume (CancelPauseOnFirstVideoFrame) arriving meanwhile must therefore wait for the pause to complete and then
+ * find nothing pending, so that it performs a normal un-pause instead of being overridden by the pause.
+ * Lock ownership is checked with a non-blocking try-lock, so the test does not depend on timing.
+ */
+TEST_F(PrivAampPrivTests,NotifyFirstVideoFrameDisplayed_PauseInProgress_HoldsCachingLockUntilPauseCompletes)
+{
+	using namespace std::chrono_literals;
+	testp_aamp->SetSeekWhilePausedFramePending();
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer.get()));
+
+	std::promise<void> pauseEntered;
+	std::promise<void> pauseRelease;
+	std::shared_future<void> pauseReleaseFuture = pauseRelease.get_future().share();
+	bool pauseReleased = false;
+	EXPECT_CALL(*g_mockAampGstPlayer, Pause(true, _))
+		.WillOnce(::testing::Invoke([&](bool, bool)
+		{
+			pauseEntered.set_value();
+			// Bounded so that a failing run cannot hang the callback thread forever
+			pauseReleaseFuture.wait_for(10s);
+			return true;
+		}));
+
+	bool pending = true;
+	std::thread callbackThread([this]() { testp_aamp->NotifyFirstVideoFrameDisplayed(); });
+	std::thread resumeThread;
+	// Releases the blocked sink pause and joins the threads on every exit path, including a failed ASSERT
+	struct Cleanup
+	{
+		std::function<void()> action;
+		~Cleanup() { action(); }
+	} cleanup{[&]()
+	{
+		if (!pauseReleased)
+		{
+			pauseRelease.set_value();
+			pauseReleased = true;
+		}
+		if (callbackThread.joinable())
+		{
+			callbackThread.join();
+		}
+		if (resumeThread.joinable())
+		{
+			resumeThread.join();
+		}
+	}};
+
+	ASSERT_EQ(pauseEntered.get_future().wait_for(10s), std::future_status::ready) << "first frame callback never reached the sink pause";
+
+	// The callback is inside the sink pause: it must own the caching lock
+	{
+		auto lock = testp_aamp->TryLockFragmentCaching();
+		EXPECT_FALSE(lock.owns_lock());
+	}
+
+	resumeThread = std::thread([&]() { pending = testp_aamp->CancelPauseOnFirstVideoFrame(); });
+
+	pauseRelease.set_value();
+	pauseReleased = true;
+	callbackThread.join();
+	resumeThread.join();
+
+	EXPECT_FALSE(pending);
+	EXPECT_EQ(testp_aamp->GetState(), eSTATE_PAUSED);
+}
+
+/**
+ * @brief Resume wins the race: the first frame callback must not pause, it moves SEEKING to PLAYING.
+ */
+TEST_F(PrivAampPrivTests,NotifyFirstVideoFrameDisplayed_PauseCancelled_MovesSeekingToPlaying)
+{
+	testp_aamp->SetSeekWhilePausedFramePending();
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer.get()));
+	EXPECT_CALL(*g_mockAampGstPlayer, Pause(_, _)).Times(0);
+
+	EXPECT_TRUE(testp_aamp->CancelPauseOnFirstVideoFrame());
+	testp_aamp->NotifyFirstVideoFrameDisplayed();
+	EXPECT_EQ(testp_aamp->GetState(), eSTATE_PLAYING);
+}
+
+/**
+ * @brief Resume then pause before the first frame: the pause is re-armed and the callback pauses and reports PAUSED.
+ */
+TEST_F(PrivAampPrivTests,NotifyFirstVideoFrameDisplayed_PauseRearmedAfterResume_PausesSinkAndReportsPaused)
+{
+	testp_aamp->SetSeekWhilePausedFramePending();
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer.get()));
+	EXPECT_CALL(*g_mockAampGstPlayer, Pause(true, _)).WillOnce(Return(true));
+
+	EXPECT_TRUE(testp_aamp->CancelPauseOnFirstVideoFrame());
+	EXPECT_TRUE(testp_aamp->RearmPauseOnFirstVideoFrame());
+	EXPECT_EQ(testp_aamp->GetState(), eSTATE_SEEKING);
+
+	testp_aamp->NotifyFirstVideoFrameDisplayed();
+	EXPECT_EQ(testp_aamp->GetState(), eSTATE_PAUSED);
+	EXPECT_FALSE(testp_aamp->IsFirstVideoFrameDisplayedRequired());
+}
+
+/**
+ * @brief If the state is already PAUSED when the callback runs, it must not turn it into PLAYING.
+ */
+TEST_F(PrivAampPrivTests,NotifyFirstVideoFrameDisplayed_PauseRearmedAndAlreadyPaused_DoesNotOverrideState)
+{
+	testp_aamp->SetSeekWhilePausedFramePending();
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer.get()));
+	EXPECT_CALL(*g_mockAampGstPlayer, Pause(_, _)).Times(0);
+
+	EXPECT_TRUE(testp_aamp->CancelPauseOnFirstVideoFrame());
+	EXPECT_TRUE(testp_aamp->RearmPauseOnFirstVideoFrame());
+	testp_aamp->SetState(eSTATE_PAUSED);
+
+	testp_aamp->NotifyFirstVideoFrameDisplayed();
+	EXPECT_EQ(testp_aamp->GetState(), eSTATE_PAUSED);
+}
+
+/**
+ * @brief Nothing was cancelled, or the first frame was already handled: there is nothing to re-arm.
+ */
+TEST_F(PrivAampPrivTests,RearmPauseOnFirstVideoFrame_NothingCancelled_ReturnsFalse)
+{
+	EXPECT_FALSE(testp_aamp->RearmPauseOnFirstVideoFrame());
+
+	testp_aamp->SetSeekWhilePausedFramePending();
+	EXPECT_FALSE(testp_aamp->RearmPauseOnFirstVideoFrame());
+
+	EXPECT_TRUE(testp_aamp->CancelPauseOnFirstVideoFrame());
+	testp_aamp->NotifyFirstVideoFrameDisplayed();
+	EXPECT_FALSE(testp_aamp->RearmPauseOnFirstVideoFrame());
+}
+
+/**
+ * @brief Used when only the player state transition is deferred (seek while paused still pre-rolling).
+ */
+TEST_F(PrivAampPrivTests,ApplySpeedChangeEffects_SidecarData_MutesAndResumesWithoutStateChange)
+{
+	testp_aamp->SetState(eSTATE_SEEKING);
+
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, MuteSubtitleOnPause()).Times(1);
+	testp_aamp->CallSpeedChangeWithSidecar(0, false, true, g_mockStreamAbstractionAAMP.get());
+	EXPECT_EQ(testp_aamp->GetState(), eSTATE_SEEKING);
+
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, ResumeSubtitleOnPlay(_, _)).Times(1);
+	testp_aamp->CallSpeedChangeWithSidecar(AAMP_NORMAL_PLAY_RATE, false, true, g_mockStreamAbstractionAAMP.get());
+	EXPECT_EQ(testp_aamp->GetState(), eSTATE_SEEKING);
+}
+
+/**
+ * @brief NotifySpeedChanged with a state change still applies the sidecar subtitle handling, and without one touches nothing.
+ */
+TEST_F(PrivAampPrivTests,NotifySpeedChanged_SidecarData_ChangesStateAndAppliesEffects)
+{
+	testp_aamp->SetState(eSTATE_SEEKING);
+
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, MuteSubtitleOnPause()).Times(1);
+	testp_aamp->CallSpeedChangeWithSidecar(0, true, false, g_mockStreamAbstractionAAMP.get());
+	EXPECT_EQ(testp_aamp->GetState(), eSTATE_PAUSED);
+
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, ResumeSubtitleOnPlay(_, _)).Times(1);
+	testp_aamp->CallSpeedChangeWithSidecar(AAMP_NORMAL_PLAY_RATE, true, false, g_mockStreamAbstractionAAMP.get());
+	EXPECT_EQ(testp_aamp->GetState(), eSTATE_PLAYING);
+
+	// No state change requested: neither subtitles nor state are touched
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, MuteSubtitleOnPause()).Times(0);
+	testp_aamp->CallSpeedChangeWithSidecar(0, false, false, g_mockStreamAbstractionAAMP.get());
+	EXPECT_EQ(testp_aamp->GetState(), eSTATE_PLAYING);
+}
+
+/**
+ * @brief Cancelling a pending pause skips initial caching so the first-frame callback can resume playback.
+ */
+TEST_F(PrivAampPrivTests,NotifyFirstVideoFrameDisplayed_CancelledPauseWithInitialCaching_MovesToPlaying)
+{
+	testp_aamp->SetSeekWhilePausedFramePendingWithInitialCaching();
+	EXPECT_CALL(*g_mockAampGstPlayer, Pause(_, _)).Times(0);
+
+	EXPECT_TRUE(testp_aamp->CancelPauseOnFirstVideoFrame());
+	EXPECT_FALSE(testp_aamp->IsFragmentCachingRequired());
+	testp_aamp->NotifyFirstVideoFrameDisplayed();
+	EXPECT_EQ(testp_aamp->GetState(), eSTATE_PLAYING);
+}
+
+/**
+ * @brief Pausing on the first frame of a seek while paused follows the paused download policy: downloads are stopped.
+ */
+TEST_F(PrivAampPrivTests,NotifyFirstVideoFrameDisplayed_PauseOnFirstFrame_StopsDownloads)
+{
+	testp_aamp->SetSeekWhilePausedFramePending();
+	testp_aamp->SetLocalAAMPTsb(false);
+	testp_aamp->mPausedBehavior = ePAUSED_BEHAVIOR_AUTOPLAY_IMMEDIATE;
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer.get()));
+	EXPECT_CALL(*g_mockAampGstPlayer, Pause(true, _)).WillOnce(Return(true));
+
+	testp_aamp->NotifyFirstVideoFrameDisplayed();
+	EXPECT_EQ(testp_aamp->GetState(), eSTATE_PAUSED);
+	EXPECT_TRUE(testp_aamp->mbDownloadsBlocked);
+	EXPECT_TRUE(testp_aamp->mDownloadsEnabled);
+	EXPECT_FALSE(testp_aamp->mSeekFromPausedState);
+}
+
+/**
+ * @brief With local TSB downloads keep running while paused, as for a normal pause (the TSB must keep recording).
+ */
+TEST_F(PrivAampPrivTests,NotifyFirstVideoFrameDisplayed_PauseOnFirstFrameWithLocalTsb_KeepsDownloadsRunning)
+{
+	testp_aamp->SetSeekWhilePausedFramePending();
+	testp_aamp->SetLocalAAMPTsb(true);
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer.get()));
+	EXPECT_CALL(*g_mockAampGstPlayer, Pause(true, _)).WillOnce(Return(true));
+
+	testp_aamp->NotifyFirstVideoFrameDisplayed();
+	EXPECT_EQ(testp_aamp->GetState(), eSTATE_PAUSED);
+	EXPECT_FALSE(testp_aamp->mbDownloadsBlocked);
+	EXPECT_TRUE(testp_aamp->mDownloadsEnabled);
+	EXPECT_FALSE(testp_aamp->mSeekFromPausedState);
+}
+
+/**
+ * @brief ePAUSED_BEHAVIOR_LIVE_DEFER: downloads are disabled and the resume is marked to retune from the paused state.
+ */
+TEST_F(PrivAampPrivTests,NotifyFirstVideoFrameDisplayed_PauseOnFirstFrameWithLiveDefer_DisablesDownloadsAndMarksSeekFromPaused)
+{
+	testp_aamp->SetSeekWhilePausedFramePending();
+	testp_aamp->SetLocalAAMPTsb(false);
+	testp_aamp->mPausedBehavior = ePAUSED_BEHAVIOR_LIVE_DEFER;
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer.get()));
+	EXPECT_CALL(*g_mockAampGstPlayer, Pause(true, _)).WillOnce(Return(true));
+
+	testp_aamp->NotifyFirstVideoFrameDisplayed();
+	EXPECT_EQ(testp_aamp->GetState(), eSTATE_PAUSED);
+	EXPECT_TRUE(testp_aamp->mbDownloadsBlocked);
+	EXPECT_FALSE(testp_aamp->mDownloadsEnabled);
+	EXPECT_TRUE(testp_aamp->mSeekFromPausedState);
+}
+
 TEST_F(PrivAampPrivTests,NotifyFirstVideoFrameDisplayedTest2)
 {
 	testp_aamp->CallNotifyFirstVideoFrameDisplayed();
