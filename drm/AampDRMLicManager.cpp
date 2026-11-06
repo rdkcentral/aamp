@@ -46,6 +46,30 @@
 #define LICENCE_REQUEST_USER_AGENT "User-Agent:"
 
 #define LICENCE_RESPONSE_JSON_LICENCE_KEY "license"
+
+/**
+ * @brief Map a ContentProtectionService business status (class 200, reason 102) to a tune failure
+ */
+AAMPTuneFailure AampDRMLicenseManager::MapBusinessStatusToTuneFailure(int32_t businessStatus)
+{
+	switch (businessStatus)
+	{
+		case 12005:
+			return AAMP_TUNE_CONCURRENCY_ERROR;
+		case 12007:
+		case 12021:
+		case 12027:
+			return AAMP_TUNE_GEOBLOCKED_ERROR;
+		case 0:
+		case 12000:
+		case 12012:
+		case 12013:
+		case 12025:
+			return AAMP_TUNE_AUTHORIZATION_FAILURE;
+		default:
+			return AAMP_TUNE_LICENCE_REQUEST_FAILED;
+	}
+}
 /** 
  * registerCb - register callbacks between player and middleware DRM component 
  */
@@ -464,9 +488,9 @@ KeyState AampDRMLicenseManager::handleLicenseResponse(int &responseCode,std::sha
 				{
 					if (eventHandle->getFailure() != AAMP_TUNE_FAILED_TO_GET_ACCESS_TOKEN)
 					{
-						eventHandle->setFailure(AAMP_TUNE_AUTHORIZATION_FAILURE);
+						eventHandle->setFailure(MapBusinessStatusToTuneFailure(eventHandle->getBusinessStatus()));
 					}
-					AAMPLOG_WARN("DRM session for %s, Authorization failed", mDrmSessionManager->drmSessionContexts[sessionSlot].drmSession->getKeySystem().c_str());
+					AAMPLOG_WARN("DRM session for %s, Authorization failed, business status %d", mDrmSessionManager->drmSessionContexts[sessionSlot].drmSession->getKeySystem().c_str(), eventHandle->getBusinessStatus());
 				}
 				else if(CONTENT_SECURITY_MANAGER_DRM_FAILURE == httpResponseCode && CONTENT_SECURITY_MANAGER_SERVICE_TIMEOUT == httpExtendedStatusCode)
 				{
@@ -1191,7 +1215,7 @@ DrmData * AampDRMLicenseManager::getLicenseSec(const LicenseRequest &licenseRequ
 		}
 		else
 		{
-			eventHandle->SetVerboseErrorCode( statusCode,  reasonCode, businessStatus);
+			eventHandle->SetVerboseErrorCode(statusCode, reasonCode, businessStatus);
 			AAMPLOG_WARN("Verbose error set with class : %d, Reason Code : %d Business status: %d ", statusCode, reasonCode, businessStatus);
 			*httpCode = statusCode;
 			*httpExtStatusCode = reasonCode;

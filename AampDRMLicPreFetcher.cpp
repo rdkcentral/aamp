@@ -481,6 +481,8 @@ void AampLicensePreFetcher::NotifyDrmFailure(LicensePreFetchObjectPtr fetchObj, 
 				//For other DRM failures, the flag should be set to false.
 				isRetryEnabled = ((failure == AAMP_TUNE_LICENCE_REQUEST_FAILED) && (event->getResponseCode() == SECCLIENT_RESULT_HTTP_FAILURE_TIMEOUT))
 				      || ((failure != AAMP_TUNE_AUTHORIZATION_FAILURE)
+				      && (failure != AAMP_TUNE_CONCURRENCY_ERROR)
+				      && (failure != AAMP_TUNE_GEOBLOCKED_ERROR)
 				      && (failure != AAMP_TUNE_LICENCE_REQUEST_FAILED)
 				      && (failure != AAMP_TUNE_LICENCE_TIMEOUT)
 				      && (failure != AAMP_TUNE_DEVICE_NOT_PROVISIONED)
