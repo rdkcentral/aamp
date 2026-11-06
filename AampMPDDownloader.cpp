@@ -243,6 +243,8 @@ void AampMPDDownloader::Initialize(ManifestDownloadConfigPtr mpdDnldCfg, std::st
 	std::lock_guard<std::recursive_mutex> lock(mMPDDnldMutex);
 	mMPDDnldCfg = std::move(mpdDnldCfg);
 	mTailDropTracker = std::make_shared<TailDropTracker>();
+	mLastLiveFirstPeriodStart = 0.0;
+	mLastLiveFirstSegmentStart = -1.0;
 
 	if(mpdPreProcessFuncptr)
 	{
@@ -379,6 +381,51 @@ void AampMPDDownloader::Start()
 }
 
 /**
+*   @fn keepManifestTimeline
+*   @brief Function to maintain the manifest timeline across live and static transitions
+*/
+bool AampMPDDownloader::keepManifestTimeline(const AampMPDParseHelperPtr& parseHelper, bool isLiveManifest,	uint64_t playlistDownloadTimeMs)
+{
+	if (isLiveManifest)
+	{
+		mLastLiveFirstPeriodStart = 0.0;
+		mLastLiveFirstSegmentStart = -1.0;
+		if (parseHelper && parseHelper->GetNumberOfPeriods() > 0)
+		{
+			mLastLiveFirstSegmentStart = parseHelper->GetFirstPeriodSegmentStart();
+			if (mLastLiveFirstSegmentStart >= 0.0)
+			{
+				mLastLiveFirstPeriodStart =	parseHelper->GetPeriodStartTime(0, playlistDownloadTimeMs);
+			}
+			else
+			{
+				AAMPLOG_ERR("Unable to capture first video segment start from live manifest");
+			}
+		}
+		return false;
+	}
+
+	if (parseHelper && mLastLiveFirstSegmentStart >= 0.0)
+	{
+		const double staticFirstSegmentStart = parseHelper->GetFirstPeriodSegmentStart();
+		if (staticFirstSegmentStart >= 0.0)
+		{
+			const double timelineDelta = staticFirstSegmentStart - mLastLiveFirstSegmentStart;
+			const double adjustedEpochStartTime = mLastLiveFirstPeriodStart + timelineDelta;
+			AAMPLOG_WARN("Dynamic to static: setting adjusted timeline origin to %lf "
+				"(segment start delta %lf)", adjustedEpochStartTime, timelineDelta);
+			parseHelper->SetAvailabilityStartTime(adjustedEpochStartTime);
+		}
+		else
+		{
+			AAMPLOG_WARN("Unable to rebase static manifest without first video segment start");
+		}
+	}
+
+	return true;
+}
+
+/**
 *   @fn downloadMPDThread1
 *   @brief downloadMPDThread1 thread function to download the Manifest 1
 */
@@ -389,9 +436,6 @@ void AampMPDDownloader::downloadMPDThread1()
 	std::string tuneUrl = mMPDDnldCfg->mTuneUrl;
 	bool firstDownload	=	true;
 	bool downloadFailed = false; // set when a refresh attempt fails; cleared on recovery to log the transition
-	double lastLiveFirstPeriodStart = 0.0;
-	double lastLiveFirstSegmentStart = -1.0;
-	bool hasLiveTimelineAnchor = false;
 	ManifestDownloadResponsePtr cachedBackupData = nullptr;
 	do
 	{
@@ -553,52 +597,13 @@ void AampMPDDownloader::downloadMPDThread1()
 			auto parseHelper = manifest->GetMPDParseHelper();
 			if(mMPDData->mIsLiveManifest)
 			{
-				if (parseHelper->GetNumberOfPeriods() > 0)
-				{
-					// Capture the start time of the first video segment in the live manifest to establish a timeline anchor
-					const auto &periods = manifest->mMPDInstance->GetPeriods();
-					if (!periods.empty() && periods.front())
-					{
-						lastLiveFirstSegmentStart =	parseHelper->GetFirstSegmentScaledStartTime(periods.front(), eMEDIATYPE_VIDEO);
-						if (lastLiveFirstSegmentStart >= 0.0)
-						{
-							lastLiveFirstPeriodStart = parseHelper->GetPeriodStartTime(0, mMPDData->mLastPlaylistDownloadTimeMs);
-							hasLiveTimelineAnchor = true;
-						}
-						else
-						{
-							hasLiveTimelineAnchor = false;
-							AAMPLOG_ERR("Unable to capture first video segment start from live manifest");
-						}
-					}
-				}
+				// Save the start values from the dynamic manifest
+				keepManifestTimeline(parseHelper, true,	mMPDData->mLastPlaylistDownloadTimeMs);
 			}
 			else if(!firstDownload)
 			{
-				if (hasLiveTimelineAnchor && parseHelper->GetNumberOfPeriods() > 0)
-				{
-					const auto &periods = manifest->mMPDInstance->GetPeriods();
-					if (!periods.empty() && periods.front())
-					{
-						// Get the start time of the first video segment in the static manifest
-						// Compare it with the first video segment start time from the live manifest to calculate the timeline delta
-						// Rebase the static manifest timeline to align with the live manifest timeline
-						const double staticFirstSegmentStart =	parseHelper->GetFirstSegmentScaledStartTime(periods.front(), eMEDIATYPE_VIDEO);
-						if (staticFirstSegmentStart >= 0.0)
-						{
-							const double timelineDelta = staticFirstSegmentStart - lastLiveFirstSegmentStart;
-							const double adjustedEpochStartTime = lastLiveFirstPeriodStart + timelineDelta;
-							AAMPLOG_WARN("Dynamic to static: setting adjusted timeline origin to %lf (segment start delta %lf)", adjustedEpochStartTime, timelineDelta);
-							parseHelper->SetAvailabilityStartTime(adjustedEpochStartTime);
-						}
-						else
-						{
-							AAMPLOG_WARN("Unable to rebase static manifest without first video segment start");
-						}
-					}
-				}
-				// Publish the final manifest even if publishTime is unchanged.
-				doPush = true;
+				// Recover the timeline for static manifest
+				doPush = keepManifestTimeline(parseHelper, false, 0) || doPush;
 			}
 		}
 

@@ -434,6 +434,7 @@ public :
 	 * @retval start time
 	 */
 	double GetFirstSegmentScaledStartTime(IPeriod * period, AampMediaType type);
+	double GetFirstPeriodSegmentStart() const { return mFirstPeriodSegmentStart; }
 
 	/**
 	 * @brief Get duration though representation iteration
@@ -571,6 +572,7 @@ private:
 	double mDeltaTime;
 	/* Vector to store the current MPD period details */
 	std::vector<PeriodInfo> mMPDPeriodDetails;
+	double mFirstPeriodSegmentStart{-1.0};
 };
 
 typedef std::shared_ptr<AampMPDParseHelper> AampMPDParseHelperPtr;
