@@ -19,7 +19,9 @@
 
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
+#include <atomic>
 #include <chrono>
+#include <thread>
 #include <string_view>
 #include <array>
 
@@ -1514,6 +1516,37 @@ TEST_F(TrackStateTests, SetEffectivePlaylistUrl)
 	std::string url = "https://example.com/playlist.m3u8"; // Choose a test URL
 	TrackStateobj->SetEffectivePlaylistUrl(url);
 	ASSERT_EQ(TrackStateobj->GetEffectivePlaylistUrl(), url); // Check if the URL matches what was set
+}
+
+TEST_F(TrackStateTests, SetEffectivePlaylistUrl_WaitsForPlaylistLock)
+{
+	// The playlist thread updates mEffectiveUrl while the fetcher thread copies it under
+	// the playlist lock, so the setter must not complete while that lock is held
+	const std::string oldUrl = "https://example.com/old/playlist.m3u8";
+	const std::string newUrl = "https://example.com/new/playlist.m3u8";
+	TrackStateobj->SetEffectivePlaylistUrl(oldUrl);
+
+	std::atomic<bool> writerStarted{false};
+	std::atomic<bool> setterDone{false};
+	TrackStateobj->AcquirePlaylistLock();
+	std::thread writer([&]() {
+		writerStarted = true;
+		TrackStateobj->SetEffectivePlaylistUrl(newUrl);
+		setterDone = true;
+	});
+
+	while (!writerStarted)
+	{
+		std::this_thread::yield();
+	}
+	// Without the lock the setter would finish within microseconds of starting
+	std::this_thread::sleep_for(std::chrono::milliseconds(100));
+	EXPECT_FALSE(setterDone);
+
+	TrackStateobj->ReleasePlaylistLock();
+	writer.join();
+	EXPECT_TRUE(setterDone);
+	EXPECT_EQ(TrackStateobj->GetEffectivePlaylistUrl(), newUrl);
 }
 
 TEST_F(TrackStateTests, GetLastPlaylistDownloadTime)

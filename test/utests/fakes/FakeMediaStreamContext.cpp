@@ -70,7 +70,7 @@ std::string& MediaStreamContext::GetPlaylistUrl()
 	return mPlaylistUrl;
 }
 
-std::string& MediaStreamContext::GetEffectivePlaylistUrl()
+std::string MediaStreamContext::GetEffectivePlaylistUrl()
 {
 	return mEffectiveUrl;
 }

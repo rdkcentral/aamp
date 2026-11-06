@@ -1657,10 +1657,11 @@ void TrackState::FetchFragment()
 			// in case of tsb, GetCurrentBandWidth does not return correct bandwidth as it is updated after this point
 			// hence getting from context which is updated in FetchFragmentHelper
 			long lbwd = aamp->IsFogTSBSupported() ? context->GetTsbBandwidth() : this->GetCurrentBandWidth();
+			std::string effectivePlaylistUrl = GetEffectivePlaylistUrl();
 			//update videoend info
 			aamp->UpdateVideoEndMetrics((IS_FOR_IFRAME(iCurrentRate, type) ? eMEDIATYPE_IFRAME : (AampMediaType)(type)),
 										lbwd,
-										((iFogErrorCode > 0) ? iFogErrorCode : http_error), this->mEffectiveUrl, fragmentDurationSeconds, downloadTime, bKeyChanged, fragmentEncrypted);
+										((iFogErrorCode > 0) ? iFogErrorCode : http_error), effectivePlaylistUrl, fragmentDurationSeconds, downloadTime, bKeyChanged, fragmentEncrypted);
 			return;
 		}
 
@@ -1712,11 +1713,12 @@ void TrackState::FetchFragment()
 			// in case of tsb, GetCurrentBandWidth does not return correct bandwidth as it is updated after this point
 			// hence getting from context which is updated in FetchFragmentHelper
 			long lbwd = aamp->IsFogTSBSupported() ? context->GetTsbBandwidth() : this->GetCurrentBandWidth();
+			std::string effectivePlaylistUrl = GetEffectivePlaylistUrl();
 
 			// update videoend info
 			aamp->UpdateVideoEndMetrics( (IS_FOR_IFRAME(iCurrentRate,type)? eMEDIATYPE_IFRAME:(AampMediaType)(type) ),
 									lbwd,
-									((iFogErrorCode > 0 ) ? iFogErrorCode : http_error), this->mEffectiveUrl, cachedFragment->duration, downloadTime, bKeyChanged, fragmentEncrypted);
+									((iFogErrorCode > 0 ) ? iFogErrorCode : http_error), effectivePlaylistUrl, cachedFragment->duration, downloadTime, bKeyChanged, fragmentEncrypted);
 
 			const auto early_processing = aamp->mConfig->IsConfigSet(eAAMPConfig_EarlyID3Processing);
 			if (early_processing && playContext && aamp->IsEventListenerAvailable(AAMP_EVENT_ID3_METADATA))
@@ -6283,7 +6285,7 @@ bool TrackState::FetchInitFragmentHelper(int &http_code, bool forcePushEncrypted
 		{
 			getNextFetchRequestUri();
 			std::string fragmentUrl;
-			aamp_ResolveURL(fragmentUrl, mEffectiveUrl, uri.c_str(), ISCONFIGSET(eAAMPConfig_PropagateURIParam));
+			aamp_ResolveURL(fragmentUrl, GetEffectivePlaylistUrl(), uri.c_str(), ISCONFIGSET(eAAMPConfig_PropagateURIParam));
 			std::string tempEffectiveUrl;
 			CachedFragment* cachedFragment = GetFetchBuffer(true);
 			if (!cachedFragment)

@@ -73,7 +73,7 @@ public:
 		playlistURL = url;
 	}
 
-	std::string &GetEffectivePlaylistUrl() override
+	std::string GetEffectivePlaylistUrl() override
 	{
 		return playlistURL;
 	}
