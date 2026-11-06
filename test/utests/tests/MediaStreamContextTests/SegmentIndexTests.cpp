@@ -43,7 +43,8 @@ constexpr uint64_t kSize1 = 12288;
 constexpr size_t kFirstOffsetLastByte = 27;
 }
 
-TEST(SegmentIndexTests, StartsEmpty)
+/** @brief A default-constructed index is empty with a zero base offset. */
+TEST(SegmentIndexTests, Default_IsEmptyWithZeroBase)
 {
 	SegmentIndex index;
 	EXPECT_TRUE(index.Empty());
@@ -51,6 +52,7 @@ TEST(SegmentIndexTests, StartsEmpty)
 	EXPECT_TRUE(index.Snapshot().empty());
 }
 
+/** @brief LoadIfEmpty stores the first index and rejects a second one. */
 TEST(SegmentIndexTests, LoadIfEmpty_StoresOnlyTheFirstIndex)
 {
 	SegmentIndex index;
@@ -62,6 +64,7 @@ TEST(SegmentIndexTests, LoadIfEmpty_StoresOnlyTheFirstIndex)
 	EXPECT_EQ(index.Snapshot(), kSidx);
 }
 
+/** @brief Lookup returns the size and duration of an entry and fails past the last one. */
 TEST(SegmentIndexTests, Lookup_ReturnsEntrySizeAndDuration)
 {
 	SegmentIndex index;
@@ -75,6 +78,7 @@ TEST(SegmentIndexTests, Lookup_ReturnsEntrySizeAndDuration)
 	EXPECT_FALSE(index.Lookup(2, &size, &duration, nullptr));
 }
 
+/** @brief Lookup on an empty index fails. */
 TEST(SegmentIndexTests, Lookup_OnEmptyIndexFails)
 {
 	SegmentIndex index;
@@ -83,6 +87,7 @@ TEST(SegmentIndexTests, Lookup_OnEmptyIndexFails)
 	EXPECT_FALSE(index.Lookup(0, &size, &duration, nullptr));
 }
 
+/** @brief With no index loaded, AnchorAndOffsetOf returns its input and leaves the base at 0. */
 TEST(SegmentIndexTests, AnchorAndOffsetOf_EmptyIndexReturnsInputAndLeavesBase)
 {
 	SegmentIndex index;
@@ -90,6 +95,7 @@ TEST(SegmentIndexTests, AnchorAndOffsetOf_EmptyIndexReturnsInputAndLeavesBase)
 	EXPECT_EQ(index.BaseOffset(), 0u);
 }
 
+/** @brief AnchorAndOffsetOf records segment 0's offset and returns the start of the requested segment. */
 TEST(SegmentIndexTests, AnchorAndOffsetOf_RecordsBaseAndSumsPrecedingSizes)
 {
 	SegmentIndex index;
@@ -102,6 +108,7 @@ TEST(SegmentIndexTests, AnchorAndOffsetOf_RecordsBaseAndSumsPrecedingSizes)
 	EXPECT_EQ(index.BaseOffset(), 1000u);
 }
 
+/** @brief The sidx first_offset field is added to the recorded base. */
 TEST(SegmentIndexTests, AnchorAndOffsetOf_AddsTheFirstOffsetToTheBase)
 {
 	std::vector<uint8_t> sidx(kSidx);
@@ -113,6 +120,7 @@ TEST(SegmentIndexTests, AnchorAndOffsetOf_AddsTheFirstOffsetToTheBase)
 	EXPECT_EQ(index.BaseOffset(), 1100u);
 }
 
+/** @brief RangeOf reports a segment's offset from the base, plus its size and duration. */
 TEST(SegmentIndexTests, RangeOf_ReturnsOffsetSizeAndDurationRelativeToBase)
 {
 	SegmentIndex index;
@@ -128,6 +136,7 @@ TEST(SegmentIndexTests, RangeOf_ReturnsOffsetSizeAndDurationRelativeToBase)
 	EXPECT_FLOAT_EQ(duration, 2.0f);
 }
 
+/** @brief RangeOf for a missing entry returns false but still reports the summed offset. */
 TEST(SegmentIndexTests, RangeOf_MissingEntryFailsButStillReportsOffset)
 {
 	SegmentIndex index;
@@ -141,6 +150,7 @@ TEST(SegmentIndexTests, RangeOf_MissingEntryFailsButStillReportsOffset)
 	EXPECT_EQ(offset, 1000u + kSize0 + kSize1);
 }
 
+/** @brief Clear empties the index and zeroes the base offset, and a new index can then be loaded. */
 TEST(SegmentIndexTests, Clear_ReleasesTheBufferAndZeroesTheBase)
 {
 	SegmentIndex index;

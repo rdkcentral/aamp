@@ -1193,6 +1193,7 @@ protected:
 	AampMPDParseHelperPtr	mMPDParseHelper;
 	bool mLowLatencyMode;
 	dash::mpd::IMPD *mpd;
+	// MediaStreamContext is incomplete here; any class destroying this array needs MediaStreamContext.h.
 	std::array<std::unique_ptr<MediaStreamContext>, AAMP_TRACK_COUNT> mMediaStreamContext;
 	int mNumberOfTracks;
 	int mCurrentPeriodIdx;

@@ -1679,22 +1679,17 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 										pMediaStreamContext->fragmentDescriptor.Bandwidth,
 										(iFogError > 0 ? iFogError : http_code),effectiveUrl,pMediaStreamContext->fragmentDescriptor.Time, downloadTime);
 
+				pMediaStreamContext->fragmentOffset++; // first byte following packed index
+				if (pMediaStreamContext->fragmentIndex != 0)
 				{
-					pMediaStreamContext->fragmentOffset++; // first byte following packed index
-					if (pMediaStreamContext->fragmentIndex != 0)
-					{
-						AAMPLOG_INFO("current fragmentIndex = %d", pMediaStreamContext->fragmentIndex);
-					}
-					// Snapshot the base offset (segment 0 start in the file) inside IDX so that
-					// DownloadFragment can use it on ABR switches without recomputing, and find
-					// the offset of the current fragment in the new representation.
-					pMediaStreamContext->fragmentOffset = pMediaStreamContext->IDX.AnchorAndOffsetOf(pMediaStreamContext->fragmentOffset, pMediaStreamContext->fragmentIndex);
+					AAMPLOG_INFO("current fragmentIndex = %d", pMediaStreamContext->fragmentIndex);
 				}
+				// Records the base offset (segment 0 start in the file) for DownloadFragment's
+				// ABR-switch range and returns the offset of the current fragment.
+				pMediaStreamContext->fragmentOffset = pMediaStreamContext->IDX.AnchorAndOffsetOf(pMediaStreamContext->fragmentOffset, pMediaStreamContext->fragmentIndex);
 			}
 			{
-				// Parse from a copy so that FetchAndInjectInitialization (worker thread)
-				// clearing IDX between the empty() check and the data() dereference
-				// cannot cause a use-after-free.
+				// Parse a copy: the index can be cleared concurrently.
 				std::vector<uint8_t> idxSnapshot = pMediaStreamContext->IDX.Snapshot();
 				if (!idxSnapshot.empty())
 				{
@@ -2807,28 +2802,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 						pMediaStreamContext->eos = true;
 						return false;
 					}
-					pMediaStreamContext->fragmentOffset = idxRangeEnd + 1;
-					unsigned int firstOffset = 0;
-					if (pMediaStreamContext->IDX.Lookup(0, NULL, NULL, &firstOffset))
-					{
-						pMediaStreamContext->fragmentOffset += firstOffset;
-					}
-					// Walk forward through sidx entries to reach the current fragmentIndex.
-					for (int idx = 0; idx < fragmentIndex; idx++)
-					{
-						unsigned int refSize = 0;
-						float refDur = 0.0f;
-						if (pMediaStreamContext->IDX.Lookup(idx, &refSize, &refDur, NULL))
-						{
-							pMediaStreamContext->fragmentOffset += refSize;
-						}
-						else
-						{
-							AAMPLOG_WARN("Type[%d] SegmentBase: sidx entry %d missing while recomputing fragmentOffset",
-							             pMediaStreamContext->type, idx);
-							break;
-						}
-					}
+					pMediaStreamContext->fragmentOffset = pMediaStreamContext->IDX.AnchorAndOffsetOf(idxRangeEnd + 1, fragmentIndex);
 				}
 
 			if (fragmentIndex == 0)
@@ -2884,12 +2858,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 							pMediaStreamContext->eos = true;
 							return false;
 						}
-						pMediaStreamContext->fragmentOffset = idxRangeEnd + 1;
-						unsigned int firstOffset = 0;
-						if (pMediaStreamContext->IDX.Lookup(0, NULL, NULL, &firstOffset))
-						{
-							pMediaStreamContext->fragmentOffset += firstOffset;
-						}
+						pMediaStreamContext->fragmentOffset = pMediaStreamContext->IDX.AnchorAndOffsetOf(idxRangeEnd + 1, 0);
 						fragmentIndex = 0;
 						fragmentTime = (float)presentationTimeOffsetSec;
 						while (fragmentTime < targetTime)
@@ -11653,16 +11622,18 @@ StreamAbstractionAAMP_MPD::~StreamAbstractionAAMP_MPD()
 {
 	aamp->initialManifestFetchInProgress=false;
 
-	// Unregister the MPD download callback BEFORE deleting tracks.
-	// This ensures the notifier thread cannot fire MPDUpdateCallbackExec()
+	// Unregister the MPD download callback BEFORE destroying tracks so the
+	// notifier thread cannot fire MPDUpdateCallbackExec() on a destroyed track.
 
 	AampMPDDownloader *dnldInstance = aamp->GetMPDDownloader();
 	mManifestUpdateHandleFlag       =       false;
 	dnldInstance->UnRegisterCallback();
 
-	// Destroy the track contexts after the callback is unregistered and
-	// before the curl and service data teardown below.
-	mMediaStreamContext = {};
+	// Do not reorder: destroy the contexts after UnRegisterCallback() and before CurlTerm().
+	for (auto &context : mMediaStreamContext)
+	{
+		context.reset();
+	}
 
 	{
 		auto syncLock = aamp->SyncLock();

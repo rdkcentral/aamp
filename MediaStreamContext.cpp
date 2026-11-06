@@ -43,7 +43,7 @@ void MediaStreamContext::InjectFragmentInternal(CachedFragment* cachedFragment, 
 
 	if(playContext)
 	{
-		// The DASH processors (IsoBmff, Mp4Demux, Elementary) do not use the per-sample callback.
+		// The DASH processors (IsoBmff, Mp4Demux, Elementary) ignore the process callback.
 		fragmentDiscarded = !playContext->sendSegment(std::move(cachedFragment->fragment), cachedFragment->position,
 														cachedFragment->duration, cachedFragment->PTSOffsetSec, isDiscontinuity, cachedFragment->initFragment, MediaProcessor::process_fcn_t{}, ptsError);
 	}

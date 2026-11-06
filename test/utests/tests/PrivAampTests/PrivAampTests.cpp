@@ -5469,9 +5469,35 @@ TEST_F(PrivAampTests,SetCurrentLatencyTest)
 	EXPECT_EQ(val,123456);
 }
 
-TEST_F(PrivAampTests,GetMediaStreamContextTest)
+/** @brief GetMediaStreamContext returns the collector's track for DASH. */
+TEST_F(PrivAampTests,GetMediaStreamContext_Dash_ReturnsTrack)
 {
-	MediaStreamContext *mCtx = p_aamp->GetMediaStreamContext(eMEDIATYPE_VIDEO);
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
+	p_aamp->mMediaFormat = eMEDIAFORMAT_DASH;
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetMediaTrack(eTRACK_VIDEO))
+		.WillOnce(Return(mVideoStreamContext));
+
+	EXPECT_EQ(p_aamp->GetMediaStreamContext(eMEDIATYPE_VIDEO), mVideoStreamContext);
+}
+
+/** @brief GetMediaStreamContext returns null for a non-DASH format without querying the collector. */
+TEST_F(PrivAampTests,GetMediaStreamContext_Hls_ReturnsNull)
+{
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
+	p_aamp->mMediaFormat = eMEDIAFORMAT_HLS;
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetMediaTrack(_)).Times(0);
+
+	EXPECT_EQ(p_aamp->GetMediaStreamContext(eMEDIATYPE_VIDEO), nullptr);
+}
+
+/** @brief GetMediaStreamContext returns null for a media type that has no track. */
+TEST_F(PrivAampTests,GetMediaStreamContext_NonTrackType_ReturnsNull)
+{
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
+	p_aamp->mMediaFormat = eMEDIAFORMAT_DASH;
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetMediaTrack(_)).Times(0);
+
+	EXPECT_EQ(p_aamp->GetMediaStreamContext(eMEDIATYPE_MANIFEST), nullptr);
 }
 
 TEST_F(PrivAampTests,GetPeriodDurationTimeValueTest)

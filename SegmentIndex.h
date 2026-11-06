@@ -27,6 +27,7 @@
 
 #include <cstdint>
 #include <mutex>
+#include <utility>
 #include <vector>
 #include "AampMPDUtils.h"
 #include "AampUtils.h"
@@ -85,7 +86,7 @@ public:
 	 * @param[in]  segmentIndex    Entry to read
 	 * @param[out] referencedSize  Size in bytes
 	 * @param[out] referencedDuration Duration in seconds
-	 * @param[out] firstOffset     Offset of the first entry, or nullptr
+	 * @param[out] firstOffset     Bytes from the end of the index to segment 0, or nullptr
 	 * @return true if the entry was parsed
 	 */
 	bool Lookup(int segmentIndex, unsigned int *referencedSize, float *referencedDuration, unsigned int *firstOffset) const
