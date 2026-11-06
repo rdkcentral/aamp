@@ -170,3 +170,8 @@ void AampDRMLicenseManager::SetLicenseFetcher( AampLicenseFetcher* )
 {
 
 }
+
+bool AampDRMLicenseManager::scheduleDrmSessionCleanup(DrmSession*)
+{
+    return true;
+}
