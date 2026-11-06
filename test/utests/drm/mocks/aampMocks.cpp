@@ -181,11 +181,11 @@ static const char *mLogLevelStr[eLOGLEVEL_ERROR+1] =
 	"ERROR", // eLOGLEVEL_ERROR
 };
 
-bool AampLogManager::disableLogRedirection = false;
-bool AampLogManager::enableEthanLogRedirection = false;
-AAMP_LogLevel AampLogManager::aampLoglevel = eLOGLEVEL_WARN;
-bool AampLogManager::locked = false;
-bool AampLogManager::logFilename = false;
+std::atomic<bool> AampLogManager::disableLogRedirection(false);
+std::atomic<bool> AampLogManager::enableEthanLogRedirection(false);
+std::atomic<AAMP_LogLevel> AampLogManager::aampLoglevel(eLOGLEVEL_WARN);
+std::atomic<bool> AampLogManager::locked(false);
+std::atomic<bool> AampLogManager::logFilename(false);
 
 void logprintf(AAMP_LogLevel level, const char *file, const char *func, int line, const char *format,
 			   ...)
@@ -204,6 +204,16 @@ void logprintf(AAMP_LogLevel level, const char *file, const char *func, int line
 			 format );
 	vprintf(fmt, args);
 	va_end(args);
+}
+
+void emitLogLine(int logLevel, const char* line,
+                 bool disableRedirection, bool enableEthanRedirection)
+{
+	printf("%s\n", line);
+}
+
+void flushFlightDataRecorder(int triggerLevel, const char* triggerSource)
+{
 }
 
 void DumpBlob(const unsigned char *ptr, size_t len)
