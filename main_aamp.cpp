@@ -758,6 +758,8 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 				}
 			}
 			bool retValue = true;
+			bool firstFrameDeferral = false;
+			float deferredNotifyRate = 0; // speed reported when the state transition is deferred; fixed while the caching lock is held
 
 			if (rate >= AAMP_NORMAL_PLAY_RATE &&
 				aamp->IsAtLivePoint() &&
@@ -915,49 +917,83 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 						// Notify speed change without state transition (keeps eSTATE_SEEKING)
 						// State will naturally transition to PLAYING when NotifyFirstBufferProcessed() is called after fragments arrive
 						aamp->NotifySpeedChanged(aamp->rate, false);
+						aamp->ResumeDownloads();
 					}
 					else
 					{
-						// check if unpausing in the middle of fragments caching
-						if(!aamp->SetStateBufferingIfRequired())
+						StreamSink *sink = nullptr;
+						bool bufferingSet = false;
 						{
-							aamp->mpStreamAbstractionAAMP->NotifyPlaybackPaused(false);
-							StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(aamp);
-							if (sink)
+							// Serialise with NotifyFirstVideoFrameDisplayed(): resolve the pending first-frame seek before
+							// entering BUFFERING, then keep the cancellation and sink resume atomic.
+							auto cachingLock = aamp->LockFragmentCaching();
+							// A pending seek's callback must decide whether to enter BUFFERING or PLAYING after its first frame.
+							firstFrameDeferral = aamp->CancelPauseOnFirstVideoFrame();
+							deferredNotifyRate = aamp->rate;
+							if (!firstFrameDeferral)
 							{
-								retValue = sink->Pause(false, false);
+								// No pending first-frame seek: check if unpausing in the middle of fragment caching.
+								bufferingSet = aamp->SetStateBufferingIfRequired();
 							}
+							if(!bufferingSet)
+							{
+								aamp->mpStreamAbstractionAAMP->NotifyPlaybackPaused(false);
+								sink = AampStreamSinkManager::GetInstance().GetStreamSink(aamp);
+								if (sink)
+								{
+									retValue = sink->Pause(false, false);
+								}
+							}
+							// Part of the same transaction: once the lock is released the first frame callback may publish PLAYING,
+							// and a listener calling SetRate(0) must then not be dropped by the "already paused" check.
+							aamp->pipeline_paused = false;
+							aamp->ResumeDownloads();
+						}
+						if(!bufferingSet && !firstFrameDeferral)
+						{
 							// required since buffers are already cached in paused state
 							aamp->NotifyFirstBufferProcessed(sink ? sink->GetVideoRectangle() : std::string());
 						}
+						// No first-buffer notification here when the seek's first frame is pending; the sink reports it
 					}
-					aamp->pipeline_paused = false;
-					aamp->ResumeDownloads();
 				}
 			}
 			else if (rate == 0)
 			{
 				if (!aamp->pipeline_paused)
 				{
-					aamp->mpStreamAbstractionAAMP->NotifyPlaybackPaused(true);
-					if (!aamp->IsLocalAAMPTsb())
 					{
-						aamp->StopDownloads();
-						if(aamp->mPausedBehavior == ePAUSED_BEHAVIOR_LIVE_DEFER )
+						// Re-arming the pause and committing pipeline_paused must be one transaction with respect to
+						// NotifyFirstVideoFrameDisplayed(). Otherwise the callback can pause the sink, publish PAUSED and a
+						// listener can resume before pipeline_paused = true is written, which would then be a stale value.
+						auto cachingLock = aamp->LockFragmentCaching();
+						// A resume may have cancelled the pause on first frame of a seek while paused; keep the latest pause intent.
+						firstFrameDeferral = aamp->RearmPauseOnFirstVideoFrame();
+						if (firstFrameDeferral)
 						{
-							AAMPLOG_INFO("Downloads disabled on pause");
-							// for this class of playback, disable downloads indefinitely while paused. If we continue manifest downloading in this scenario, can result in playback failure due to period culling.
-							aamp->DisableDownloads();
-							aamp->mSeekFromPausedState = true;
+							deferredNotifyRate = 0;
+							aamp->pipeline_paused = true;
 						}
 					}
-
-					StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(aamp);
-					if (sink)
+					if (firstFrameDeferral)
 					{
-						retValue = sink->Pause(true, false);
+						// The seek's first frame has not been displayed yet. Stopping downloads would block injection and
+						// the first frame would never arrive, so leave the player in SEEKING and let
+						// NotifyFirstVideoFrameDisplayed() apply the paused download policy, pause the sink and report PAUSED.
+						AAMPLOG_INFO("Pause deferred until the first video frame of the seek is displayed");
 					}
-					aamp->pipeline_paused = true;
+					else
+					{
+						aamp->mpStreamAbstractionAAMP->NotifyPlaybackPaused(true);
+						aamp->ApplyPausedDownloadPolicy();
+
+						StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(aamp);
+						if (sink)
+						{
+							retValue = sink->Pause(true, false);
+						}
+						aamp->pipeline_paused = true;
+					}
 
 					if(aamp->GetLLDashServiceData()->lowLatencyMode)
 					{
@@ -1008,9 +1044,16 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 			if(retValue)
 			{
 				// Do not update state if fragments caching is ongoing and pipeline not paused,
-				// target state will be updated once caching completed
-				aamp->NotifySpeedChanged(aamp->pipeline_paused ? 0 : aamp->rate,
-										 (!aamp->IsFragmentCachingRequired() || aamp->pipeline_paused));
+				// target state will be updated once caching completed.
+				// Likewise leave the state to NotifyFirstVideoFrameDisplayed() if a seek while paused is still prerolling.
+				const float notifyRate = firstFrameDeferral ? deferredNotifyRate : (aamp->pipeline_paused ? 0 : aamp->rate);
+				if (firstFrameDeferral)
+				{
+					// Only the player state transition is deferred; subtitle pause/resume must still follow the request
+					aamp->ApplySpeedChangeEffects(notifyRate);
+				}
+				aamp->NotifySpeedChanged(notifyRate,
+										 !firstFrameDeferral && (!aamp->IsFragmentCachingRequired() || aamp->pipeline_paused));
 			}
 		}
 		else
@@ -3586,4 +3629,3 @@ void PlayerInstanceAAMP::updateManifest(const char *manifestData)
 		aamp->updateManifest(manifestData);
 	}
 }
-
