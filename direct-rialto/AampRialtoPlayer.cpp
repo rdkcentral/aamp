@@ -1542,6 +1542,7 @@ void AampRialtoPlayer::StopInternal(bool keepLastFrame, bool preservePendingPosi
 		// not to end a session on the caller's behalf.
 		m_pendingPositionNs.store(-1, std::memory_order_relaxed);
 		m_segmentStartPositionNs.store(0, std::memory_order_relaxed);
+		m_awaitingPostSeekPosition.store(false, std::memory_order_relaxed);
 	}
 	{
 		std::lock_guard<std::mutex> lock(m_ptsCheckMutex);
@@ -1824,6 +1825,17 @@ long long AampRialtoPlayer::GetPositionMilliseconds()
 				m_segmentStartPositionNs.load(std::memory_order_relaxed) / kNsPerMs;
 			const int64_t rawMs = queriedNs / kNsPerMs;
 			const int rate = m_rate.load(std::memory_order_relaxed);
+			if (IsStalePostSeekPosition(queriedNs, rate))
+			{
+				// Pre-seek position still reported after SEEK_DONE: report
+				// the seek target until Rialto catches up, so the stale value
+				// is never latched as the new player's progress baseline.
+				AAMPLOG_WARN("Ignoring stale post-seek position %" PRId64
+					" ms (seek target %" PRId64 " ms) - reporting seek target",
+					rawMs, startMs);
+				return result;
+			}
+			MaybeConfirmPostSeekPosition(queriedNs, rate);
 			const int64_t elapsed = rawMs - startMs;
 			// For forward play (rate > 0) clamp to zero to avoid a
 			// negative blip caused by clock jitter at startup.  For
@@ -2743,6 +2755,15 @@ void AampRialtoPlayer::OnPlaybackState(firebolt::rialto::PlaybackState state)
 			// mid-fragment, so the first sample's own PTS is not reliable.
 			m_segmentStartPositionNs.store(posNs, std::memory_order_relaxed);
 
+			// Until a position consistent with this seek target is observed,
+			// GetPositionMilliseconds() must not trust a pre-seek value that
+			// the pipeline may still report for a short time.
+			m_seekDoneSteadyMs.store(
+				std::chrono::duration_cast<std::chrono::milliseconds>(
+					std::chrono::steady_clock::now().time_since_epoch()).count(),
+				std::memory_order_relaxed);
+			m_awaitingPostSeekPosition.store(true, std::memory_order_release);
+
 			// m_positionPending was already cleared synchronously when
 			// Flush() entered this cycle (not deferred to here) - clearing
 			// it again on this SEEK_DONE would wrongly discard a re-arm
@@ -2821,7 +2842,34 @@ void AampRialtoPlayer::OnPlaybackState(firebolt::rialto::PlaybackState state)
 
 void AampRialtoPlayer::OnPosition(int64_t positionNs)
 {
-	// Not used
+	MaybeConfirmPostSeekPosition(positionNs, m_rate.load(std::memory_order_relaxed));
+}
+
+bool AampRialtoPlayer::IsStalePostSeekPosition(int64_t positionNs, int rate) const
+{
+	if (rate <= 0 || !m_awaitingPostSeekPosition.load(std::memory_order_acquire))
+	{
+		return false;
+	}
+	constexpr int64_t kNsPerMs = 1'000'000LL;
+	const int64_t nowMs =
+		std::chrono::duration_cast<std::chrono::milliseconds>(
+			std::chrono::steady_clock::now().time_since_epoch()).count();
+	const int64_t sinceSeekDoneMs =
+		std::max<int64_t>(0, nowMs - m_seekDoneSteadyMs.load(std::memory_order_relaxed));
+	const int64_t aheadMs = positionNs / kNsPerMs -
+		m_segmentStartPositionNs.load(std::memory_order_relaxed) / kNsPerMs;
+	return aheadMs > (kPostSeekPositionToleranceMs + sinceSeekDoneMs) * rate;
+}
+
+void AampRialtoPlayer::MaybeConfirmPostSeekPosition(int64_t positionNs, int rate)
+{
+	if (m_awaitingPostSeekPosition.load(std::memory_order_acquire) &&
+		!IsStalePostSeekPosition(positionNs, rate))
+	{
+		m_awaitingPostSeekPosition.store(false, std::memory_order_release);
+		AAMPLOG_INFO("post-seek position confirmed at %" PRId64 " ns", positionNs);
+	}
 }
 
 void AampRialtoPlayer::OnDuration(int64_t durationNs)
