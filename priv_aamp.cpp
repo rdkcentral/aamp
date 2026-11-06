@@ -1702,7 +1702,7 @@ int PrivateInstanceAAMP::HandleSSLProgressCallback ( void *clientp, double dltot
  */
 PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPosn(0.0), mLastTelemetryTimeMS(0), mBufferingStartTimeMS(-1), mDiscontinuityFound(false), mTelemetryInterval(0), mLock(),
 	mpStreamAbstractionAAMP(NULL), mInitSuccess(false), mVideoFormat(FORMAT_INVALID), mAudioFormat(FORMAT_INVALID), mDownloadsDisabled(),
-	mDownloadsEnabled(true), profiler(), licenceFromManifest(false), previousAudioType(eAUDIO_UNKNOWN),isPreferredDRMConfigured(false),
+	mDownloadsEnabled(true), profiler(), licenceFromManifest(false), previousAudioType(FORMAT_UNKNOWN),isPreferredDRMConfigured(false),
 	mbDownloadsBlocked(false), streamerIsActive(false), mFogTSBEnabled(false), mIscDVR(false), mLiveOffset(AAMP_LIVE_OFFSET),
 	seek_pos_seconds(-1), rate(0), mSinkPaused(false), mMaxLanguageCount(0), zoom_mode(VIDEO_ZOOM_NONE),
 	video_muted(false), subtitles_muted(true), audio_volume(100), subscribedTags(), manifestHeadersNeeded(), httpHeaderResponses(), timedMetadata(), timedMetadataNew(), IsTuneTypeNew(false), trickStartUTCMS(-1), durationSeconds(0.0), culledSeconds(0.0), culledOffset(0.0), maxRefreshPlaylistIntervalSecs(DEFAULT_INTERVAL_BETWEEN_PLAYLIST_UPDATES_MS/1000),
@@ -10536,7 +10536,7 @@ void PrivateInstanceAAMP::SendMediaMetadataEvent(void)
 	AudioTrackInfo currentAudioTrack;
 	if (mpStreamAbstractionAAMP && mpStreamAbstractionAAMP->GetCurrentAudioTrack(currentAudioTrack))
 	{
-		bool isAtmos = (previousAudioType == eAUDIO_ATMOS) ||
+		bool isAtmos = (previousAudioType == FORMAT_AUDIO_ES_ATMOS) ||
 		               (mPreviousAudioType == FORMAT_AUDIO_ES_ATMOS);
 		event->SetAudioMetaData(currentAudioTrack.codec, currentAudioTrack.mixType, isAtmos);
 	}
@@ -11991,7 +11991,7 @@ std::string PrivateInstanceAAMP::GetAudioTrackInfo()
 				// (mPreviousAudioType == FORMAT_AUDIO_ES_ATMOS) after period
 				// transitions (where mediaMetadata is not re-fired).
 				cJSON_AddBoolToObject(item, "isAtmos",
-				                      (previousAudioType == eAUDIO_ATMOS) ||
+				                      (previousAudioType == FORMAT_AUDIO_ES_ATMOS) ||
 				                      (mPreviousAudioType == FORMAT_AUDIO_ES_ATMOS));
 				if (!trackInfo.mType.empty())
 				{

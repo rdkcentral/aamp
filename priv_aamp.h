@@ -229,25 +229,6 @@ typedef enum
 } BitrateChangeReason;
 
 /**
- * @enum AudioType
- *
- * @brief Type of audio ES for MPD
- */
-enum AudioType
-{
-	eAUDIO_UNSUPPORTED,
-	eAUDIO_UNKNOWN,
-	eAUDIO_AAC,
-	eAUDIO_DDPLUS,
-	eAUDIO_ATMOS,
-	eAUDIO_DOLBYAC3,
-	eAUDIO_DOLBYAC4,
-	eAUDIO_VORBIS,
-	eAUDIO_OPUS
-};
-
-
-/**
  * @struct AsyncEventDescriptor
  * @brief Used in asynchronous event notification logic
  */
@@ -1033,7 +1014,7 @@ public:
 	ABRManager mhAbrManager;                 /**< Pointer to Hybrid abr manager*/
 	ProfileEventAAMP profiler;
 	bool licenceFromManifest;
-	AudioType previousAudioType; 			/**< Used to maintain previous audio type */
+	StreamOutputFormat previousAudioType; 			/**< Used to maintain previous audio type */
 
 	CURL *curl[eCURLINSTANCE_MAX];
 	eCurlHostMapStruct *curlhost[eCURLINSTANCE_MAX];
