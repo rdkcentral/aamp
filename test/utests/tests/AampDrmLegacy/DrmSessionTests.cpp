@@ -23,9 +23,21 @@
 #include <algorithm>
 #include <iterator>
 #include <memory>
+#include <chrono>
+#include <future>
+#include <mutex>
+#include <thread>
 #include <cjson/cJSON.h>
 
 #include "priv_aamp.h"
+
+#include "AampDRMLicPreFetcher.h"
+#include "DrmSession.h"
+#include "AampCurlDownloader.h"
+#include "DrmSessionManager.h"
+#define private public
+#include "AampDRMLicManager.h"
+#undef private
 
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
@@ -73,7 +85,126 @@ protected:
 	}
 
 public:
+	bool EnqueueWatermarkTaskForTest(std::function<void()> task)
+	{
+		return mUtils->getSessionManager()->EnqueueWatermarkTask(std::move(task));
+	}
+
+	void StopWatermarkWorkerForTest()
+	{
+		mUtils->getSessionManager()->StopWatermarkWorker();
+	}
+
+	bool WaitForWatermarkWorkerToStop()
+	{
+		auto *manager = mUtils->getSessionManager();
+		std::unique_lock<std::mutex> lock(manager->mWatermarkTaskMutex);
+		return manager->mWatermarkTaskCondition.wait_for(lock, std::chrono::seconds(5), [manager]() {
+			return manager->mWatermarkWorkerStopping;
+		});
+	}
 };
+
+TEST_F(AampLegacyDrmSessionTests, WatermarkTasksRunOnWorkerInFifoOrder)
+{
+	struct TaskResults
+	{
+		std::mutex mutex;
+		std::vector<int> order;
+		std::vector<std::thread::id> threads;
+		std::promise<void> complete;
+	};
+	auto results = std::make_shared<TaskResults>();
+	const auto callerThread = std::this_thread::get_id();
+	auto tasksCompleteFuture = results->complete.get_future();
+
+	for (int taskId = 1; taskId <= 3; ++taskId)
+	{
+		ASSERT_TRUE(EnqueueWatermarkTaskForTest([results, taskId]() {
+			{
+				std::lock_guard<std::mutex> lock(results->mutex);
+				results->order.push_back(taskId);
+				results->threads.push_back(std::this_thread::get_id());
+			}
+			if (taskId == 3)
+			{
+				results->complete.set_value();
+			}
+		}));
+	}
+
+	ASSERT_EQ(tasksCompleteFuture.wait_for(std::chrono::seconds(5)), std::future_status::ready);
+	EXPECT_EQ(results->order, (std::vector<int>{1, 2, 3}));
+	ASSERT_EQ(results->threads.size(), 3u);
+	for (const auto& taskThread : results->threads)
+	{
+		EXPECT_NE(taskThread, callerThread);
+	}
+}
+
+TEST_F(AampLegacyDrmSessionTests, WatermarkWorkerDrainsQueuedTasksWhenStopped)
+{
+	auto *manager = mUtils->getSessionManager();
+	std::promise<void> taskStarted;
+	std::promise<void> releaseTask;
+	auto releaseTaskFuture = releaseTask.get_future().share();
+	std::promise<void> queuedTaskComplete;
+	auto queuedTaskCompleteFuture = queuedTaskComplete.get_future();
+
+	if (!EnqueueWatermarkTaskForTest([&]() {
+		taskStarted.set_value();
+		releaseTaskFuture.wait();
+	}))
+	{
+		FAIL() << "Could not enqueue initial watermark task";
+		return;
+	}
+	if (taskStarted.get_future().wait_for(std::chrono::seconds(5)) != std::future_status::ready)
+	{
+		releaseTask.set_value();
+		StopWatermarkWorkerForTest();
+		FAIL() << "Watermark worker did not start the initial task";
+		return;
+	}
+	if (!EnqueueWatermarkTaskForTest([&]() { queuedTaskComplete.set_value(); }))
+	{
+		releaseTask.set_value();
+		StopWatermarkWorkerForTest();
+		FAIL() << "Could not enqueue pending watermark task";
+		return;
+	}
+
+	std::thread stopper([this]() { StopWatermarkWorkerForTest(); });
+	const bool stopRequested = WaitForWatermarkWorkerToStop();
+	releaseTask.set_value();
+	stopper.join();
+
+	EXPECT_TRUE(stopRequested);
+	EXPECT_EQ(queuedTaskCompleteFuture.wait_for(std::chrono::seconds(5)), std::future_status::ready);
+	EXPECT_FALSE(EnqueueWatermarkTaskForTest([]() {}));
+
+	manager->setPlaybackSpeedState(false, 0.0, false, 0.0, 7, 42.0, true);
+	EXPECT_EQ(manager->mDrmSessionManager->mCurrentSpeed.load(), 7);
+	EXPECT_TRUE(manager->mDrmSessionManager->mFirstFrameSeen.load());
+}
+
+TEST_F(AampLegacyDrmSessionTests, PublicWatermarkUpdatesAreProcessedInQueueOrder)
+{
+	auto *manager = mUtils->getSessionManager();
+	auto queueFlushed = std::make_shared<std::promise<void>>();
+	auto queueFlushedFuture = queueFlushed->get_future();
+
+	manager->setPlaybackSpeedState(false, 0.0, false, 0.0, 4, 12.5, true);
+	manager->setVideoMute(false, 0.0, false, 0.0, true, 12.5);
+	manager->setVideoWindowSize(1920, 1080);
+	manager->hideWatermarkOnDetach();
+	ASSERT_TRUE(EnqueueWatermarkTaskForTest([queueFlushed]() { queueFlushed->set_value(); }));
+
+	ASSERT_EQ(queueFlushedFuture.wait_for(std::chrono::seconds(5)), std::future_status::ready);
+	EXPECT_EQ(manager->mDrmSessionManager->mCurrentSpeed.load(), 4);
+	EXPECT_TRUE(manager->mDrmSessionManager->mIsVideoOnMute.load());
+	EXPECT_FALSE(manager->mDrmSessionManager->mFirstFrameSeen.load());
+}
 
 TEST_F(AampLegacyDrmSessionTests, TestCreateClearkeySession)
 {
