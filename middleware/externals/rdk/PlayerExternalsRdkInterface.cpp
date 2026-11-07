@@ -172,6 +172,20 @@ void PlayerExternalsRdkInterface::SetHDMIStatus()
  */
 void PlayerExternalsRdkInterface::SetHDMIStatus()
 {
+    if(m_use_firebolt_sdk || IsContainerEnvironment())
+    {
+        auto* devIface = dynamic_cast<DeviceFireboltInterface*>(m_pDeviceInterfaceBase.get());
+        if(devIface)
+        {
+            devIface->SetHDMIStatus();
+        }
+        else
+        {
+            MW_LOG_ERR("SetHDMIStatus: DeviceFireboltInterface not available\n");
+        }
+        return;
+    }
+
     std::unique_lock<std::mutex> lock(m_hdmiStatusMutex, std::try_to_lock);
     if (!lock.owns_lock()) {
         MW_LOG_WARN("SetHDMIStatus: Already in progress on another thread, skipping\n");
