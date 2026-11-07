@@ -443,8 +443,7 @@ private:
 	std::mutex mRefreshMtx;
 	std::condition_variable mRefreshCondVar;
 
-	std::mutex mMPDDnldDataMtx;
-	std::condition_variable mMPDDnldDataCondVar;
+	std::condition_variable mMPDDnldDataCondVar; // waits on mMPDBufferMutex
 
 	std::mutex mMPDNotifierMtx;
 	std::condition_variable mMPDNotifierCondVar;
