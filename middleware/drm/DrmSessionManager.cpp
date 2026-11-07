@@ -77,6 +77,7 @@ DrmSessionManager::DrmSessionManager(int maxDrmSessions, void *player, std::func
  */
 DrmSessionManager::~DrmSessionManager()
 {
+	stopCsmNotifyWorker();
 	clearAccessToken();
 	clearSessionData();
 	MW_SAFE_DELETE_ARRAY(drmSessionContexts);
@@ -235,14 +236,79 @@ void DrmSessionManager::setVideoMute(bool live, double currentLatency, bool live
 	auto localSession = mContentSecurityManagerSession; //Remove potential isSessionValid(), getSessionID() race by using a local copy
 	if(localSession.isSessionValid())
 	{
-		ContentSecurityManager::GetInstance()->UpdateSessionState(localSession.getSessionID(), !mIsVideoOnMute.load());
-		if(!mIsVideoOnMute.load())
+		/*
+		 * Post the CSM notifications to an order-preserving worker so the
+		 * synchronous SecManager/Firebolt IPC (VPAAMP-1337: measured ~20-77ms
+		 * on the calling thread, ~150ms under contention) does not block the
+		 * tune/unmute path. Order is preserved: session-state is always sent
+		 * before the speed update it must precede.
+		 */
+		const int64_t sessionId = localSession.getSessionID();
+		const bool sessionActive = !isVideoOnMute;
+		const int speed = mCurrentSpeed.load();
+		startCsmNotifyWorker();
 		{
-			//this is required as secmanager waits for speed update to show wm once session is active
-			int speed=mCurrentSpeed.load();
-			MW_LOG_INFO("Setting speed after video unmute %d ", speed);
-			setPlaybackSpeedState(live, currentLatency, livepoint, liveOffsetMs, speed, positionMs);
+			std::lock_guard<std::mutex> lock(mCsmNotifyMutex);
+			mCsmNotifyQueue.emplace_back(
+				[this, sessionId, sessionActive, live, currentLatency, livepoint, liveOffsetMs, speed, positionMs]()
+				{
+					ContentSecurityManager::GetInstance()->UpdateSessionState(sessionId, sessionActive);
+					if (sessionActive)
+					{
+						//this is required as secmanager waits for speed update to show wm once session is active
+						MW_LOG_INFO("Setting speed after video unmute %d ", speed);
+						setPlaybackSpeedState(live, currentLatency, livepoint, liveOffsetMs, speed, positionMs);
+					}
+				});
 		}
+		mCsmNotifyCv.notify_one();
+	}
+}
+
+/**
+ *  @brief Lazily start the worker that executes content-security-manager notifications.
+ */
+void DrmSessionManager::startCsmNotifyWorker()
+{
+	std::call_once(mCsmNotifyOnce, [this]() {
+		mCsmNotifyThread = std::thread(&DrmSessionManager::csmNotifyWorkerLoop, this);
+	});
+}
+
+/**
+ *  @brief Signal the CSM notification worker to exit and wait for it.
+ */
+void DrmSessionManager::stopCsmNotifyWorker()
+{
+	mCsmNotifyStop.store(true);
+	mCsmNotifyCv.notify_all();
+	if (mCsmNotifyThread.joinable())
+	{
+		mCsmNotifyThread.join();
+	}
+}
+
+/**
+ *  @brief Execute queued CSM notifications in FIFO order until stopped and drained.
+ */
+void DrmSessionManager::csmNotifyWorkerLoop()
+{
+	while (true)
+	{
+		std::function<void()> task;
+		{
+			std::unique_lock<std::mutex> lock(mCsmNotifyMutex);
+			mCsmNotifyCv.wait(lock, [this]() {
+				return mCsmNotifyStop.load() || !mCsmNotifyQueue.empty();
+			});
+			if (mCsmNotifyQueue.empty())
+			{
+				return;
+			}
+			task = std::move(mCsmNotifyQueue.front());
+			mCsmNotifyQueue.pop_front();
+		}
+		task();
 	}
 }
 

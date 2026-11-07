@@ -37,6 +37,10 @@
 #include "ContentSecurityManagerSession.h"
 
 #include <functional>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
+#include <deque>
 
 
 #define VIDEO_SESSION 0
@@ -162,6 +166,29 @@ private:
 	bool mEnableAccessAttributes;
 	int mMaxDRMSessions;
 	std::function<void(uint32_t, uint32_t, const std::string&)> mPlayerSendWatermarkSessionUpdateEventCB;
+	/**
+	 * Ordered worker queue for content-security-manager notifications
+	 * (session state + playback speed). Keeps synchronous SecManager/Firebolt
+	 * IPC off the video-mute critical path while preserving notification order.
+	 */
+	std::deque<std::function<void()>> mCsmNotifyQueue;
+	std::mutex mCsmNotifyMutex;
+	std::condition_variable mCsmNotifyCv;
+	std::thread mCsmNotifyThread;
+	std::atomic<bool> mCsmNotifyStop{false};
+	std::once_flag mCsmNotifyOnce;
+	/**
+	 * @brief Lazily start the CSM notification worker thread
+	 */
+	void startCsmNotifyWorker();
+	/**
+	 * @brief Stop the CSM notification worker thread and join it
+	 */
+	void stopCsmNotifyWorker();
+	/**
+	 * @brief Worker loop executing queued CSM notifications in FIFO order
+	 */
+	void csmNotifyWorkerLoop();
 	/**     
 	 * @brief Copy constructor disabled
 	 *

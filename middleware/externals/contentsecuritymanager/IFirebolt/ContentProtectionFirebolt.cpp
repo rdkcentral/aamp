@@ -499,7 +499,12 @@ bool ContentProtectionFirebolt::SetDrmSessionState(int64_t sessionId, bool activ
 	{
 		sessionState = Firebolt::ContentProtection::SessionState::INACTIVE;
 	}
-	std::lock_guard<std::mutex> lock(mContentProtectionMutex);
+	/*
+	 * VPAAMP-1337: use mSpeedStateMutex (not mContentProtectionMutex) so this
+	 * short notification never queues behind AcquireLicenseOpenOrUpdate, which
+	 * holds mContentProtectionMutex across a network-bound license exchange.
+	 */
+	std::lock_guard<std::mutex> lock(mSpeedStateMutex);
 	// Call the setDrmSessionState method from the interface
 	auto result = Firebolt::IFireboltAampAccessor::Instance().ContentProtectionInterface().setDrmSessionState(std::to_string(sessionId), sessionState);
 	// Check for errors
@@ -528,7 +533,8 @@ bool ContentProtectionFirebolt::SetPlaybackPosition(int64_t sessionId, float spe
 		MW_LOG_ERR("Firebolt is not active (or) channel couldn't be opened");
 		return ret;
 	}
-	std::lock_guard<std::mutex> lock(mContentProtectionMutex);
+	// VPAAMP-1337: mSpeedStateMutex, not mContentProtectionMutex (see SetDrmSessionState)
+	std::lock_guard<std::mutex> lock(mSpeedStateMutex);
 	// Call the setPlaybackPosition method from the interface
 	auto result = Firebolt::IFireboltAampAccessor::Instance().ContentProtectionInterface().setPlaybackPosition(std::to_string(sessionId), speed, position);
 	// Check for errors
@@ -556,7 +562,8 @@ void ContentProtectionFirebolt::ShowWatermark(bool show, int64_t sessionId)
 		return;
 	}
 
-	std::lock_guard<std::mutex> lock(mContentProtectionMutex);
+	// VPAAMP-1337: mSpeedStateMutex, not mContentProtectionMutex (see SetDrmSessionState)
+	std::lock_guard<std::mutex> lock(mSpeedStateMutex);
 	// Call the showWatermark method from the interface
 	auto result = Firebolt::IFireboltAampAccessor::Instance().ContentProtectionInterface().showWatermark(std::to_string(sessionId), show, 0);
 	// Check for errors
