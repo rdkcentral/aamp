@@ -195,6 +195,7 @@ struct GstPlayerPriv
 	bool decoderHandleNotified;                                                      /**< Flag that denotes if decoder handle was notified. */
 	guint firstFrameCallbackIdleTaskId;                                      /**< ID of idle handler created for notifying first frame event. */
 	GstEvent *protectionEvent[GST_TRACK_COUNT];                      /**< GstEvent holding the pssi data to be sent downstream. */
+	std::mutex protectionEventMutex;
 	std::atomic<bool> firstFrameCallbackIdleTaskPending; /**< Set if any first frame callback is pending. */
 	bool using_westerossink;                                                         /**< true if westeros sink is used as video sink */
 	bool usingRialtoSink;                                                            /**< true if rialto sink is used for video and audio sinks */
