@@ -66,9 +66,11 @@
 #include <cmath>
 #include <regex>
 #include <fstream>
+#include <system_error>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <thread>
 #include <uuid/uuid.h>
 #include <string.h>
 #include "AampCurlDownloader.h"
@@ -5013,31 +5015,67 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 	UnblockWaitForDiscontinuityProcessToComplete();
 	ResetTrackDiscontinuityIgnoredStatus();
 	lock.unlock();
+	auto streamStopStartTime = NOW_STEADY_TS_MS;
+	std::thread streamCleanupThread;
 	if (mpStreamAbstractionAAMP)
 	{
 		// Using StreamLock to make sure this is not interfering with GetFile() from PreCachePlaylistDownloadTask
 		AcquireStreamLock();
+		auto streamAbstractionStopStartTime = NOW_STEADY_TS_MS;
 		mpStreamAbstractionAAMP->Stop(disableDownloads);
+		AAMPLOG_WARN("TeardownStream: StreamAbstraction::Stop took %u ms",
+			(unsigned int)(NOW_STEADY_TS_MS - streamAbstractionStopStartTime));
+		ReleaseStreamLock();
 
-		if(mContentType == ContentType_HDMIIN)
+		try
 		{
-			StreamAbstractionAAMP_HDMIIN::ResetInstance();
-			mpStreamAbstractionAAMP = NULL;
+			streamCleanupThread = std::thread([this]()
+			{
+				auto streamCleanupStartTime = NOW_STEADY_TS_MS;
+				AcquireStreamLock();
+				if(mContentType == ContentType_HDMIIN)
+				{
+					StreamAbstractionAAMP_HDMIIN::ResetInstance();
+					mpStreamAbstractionAAMP = NULL;
+				}
+				else if(mContentType == ContentType_COMPOSITEIN)
+				{
+					StreamAbstractionAAMP_COMPOSITEIN::ResetInstance();
+					mpStreamAbstractionAAMP = NULL;
+				}
+				else if(!IsLocalAAMPTsb())
+				{
+					SAFE_DELETE(mpStreamAbstractionAAMP);
+				}
+				ReleaseStreamLock();
+				AAMPLOG_WARN("TeardownStream: StreamAbstraction cleanup/deletion took %u ms",
+					(unsigned int)(NOW_STEADY_TS_MS - streamCleanupStartTime));
+			});
 		}
-		else if(mContentType == ContentType_COMPOSITEIN)
+		catch (const std::system_error& e)
 		{
-			StreamAbstractionAAMP_COMPOSITEIN::ResetInstance();
-			mpStreamAbstractionAAMP = NULL;
-		}
-		else
-		{
-			if(!IsLocalAAMPTsb())
+			AAMPLOG_ERR("TeardownStream: failed to start StreamAbstraction cleanup thread: %s", e.what());
+			AcquireStreamLock();
+			if(mContentType == ContentType_HDMIIN)
+			{
+				StreamAbstractionAAMP_HDMIIN::ResetInstance();
+				mpStreamAbstractionAAMP = NULL;
+			}
+			else if(mContentType == ContentType_COMPOSITEIN)
+			{
+				StreamAbstractionAAMP_COMPOSITEIN::ResetInstance();
+				mpStreamAbstractionAAMP = NULL;
+			}
+			else if(!IsLocalAAMPTsb())
 			{
 				SAFE_DELETE(mpStreamAbstractionAAMP);
 			}
+			ReleaseStreamLock();
 		}
-		ReleaseStreamLock();
 	}
+	auto streamStopDuration = NOW_STEADY_TS_MS - streamStopStartTime;
+	AAMPLOG_WARN("TeardownStream: StreamAbstraction stop and cleanup phase started, stop took %u ms",
+		(unsigned int)streamStopDuration);
 	m_lastSubClockSyncTime = std::chrono::system_clock::time_point();
 
 	lock.lock();
@@ -5081,7 +5119,10 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 				StreamSink *sink = AampStreamSinkManager::GetInstance().GetStoppingStreamSink(this);
 				if (sink)
 				{
+					auto sinkStopStartTime = NOW_STEADY_TS_MS;
 					sink->Stop(!newTune);
+					AAMPLOG_WARN("TeardownStream: StreamSink stop took %u ms",
+						(unsigned int)(NOW_STEADY_TS_MS - sinkStopStartTime));
 				}
 			}
 		}
@@ -5093,6 +5134,11 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 			mbTrackDownloadsBlocked[iTrack] = true;
 		}
 		streamerIsActive = true;
+	}
+	if (streamCleanupThread.joinable())
+	{
+		streamCleanupThread.join();
+		AAMPLOG_WARN("TeardownStream: StreamAbstraction cleanup thread joined");
 	}
 	mAdProgressId = "";
 	std::queue<AAMPEventPtr> emptyEvQ;
@@ -7901,8 +7947,17 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 		streamLockStopTime = NOW_STEADY_TS_MS;
 		if (mDRMLicenseManager)
 		{
+			auto drmPreparationStartTime = NOW_STEADY_TS_MS;
+			auto dynamicDrmWaitStartTime = NOW_STEADY_TS_MS;
 			ReleaseDynamicDRMToUpdateWait();
+			AAMPLOG_WARN("AAMP Stop: dynamic DRM update wait release took %u ms",
+				(unsigned int)(NOW_STEADY_TS_MS - dynamicDrmWaitStartTime));
+
+			auto licenseAbortStartTime = NOW_STEADY_TS_MS;
 			mDRMLicenseManager->setLicenseRequestAbort(true);
+			AAMPLOG_WARN("AAMP Stop: DRM license request abort took %u ms",
+				(unsigned int)(NOW_STEADY_TS_MS - licenseAbortStartTime));
+
 			// Reset the mFetchInstance in AampLicensePreFetcher as we are going to delete
 			// StreamAbstractionAamp object from TeardownStream(). Otherwise it can
 			// lead to crash as PreFetchThread can call UpdateFailedDRMStatus
@@ -7910,6 +7965,10 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 			licenseAquisitionLockStartTime = NOW_STEADY_TS_MS;
 			mDRMLicenseManager->SetLicenseFetcher(nullptr);
 			licenseAquisitionLockStopTime = NOW_STEADY_TS_MS;
+			AAMPLOG_WARN("AAMP Stop: license fetcher detach took %u ms",
+				(unsigned int)(licenseAquisitionLockStopTime - licenseAquisitionLockStartTime));
+			AAMPLOG_WARN("AAMP Stop: DRM pre-stop preparation took %u ms",
+				(unsigned int)(NOW_STEADY_TS_MS - drmPreparationStartTime));
 		}
 		if (HasSidecarData())
 		{ // has sidecar data
@@ -7921,15 +7980,53 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 	TeardownStream(true,true); //disable download as well
 	auto tearDownEndTime = NOW_STEADY_TS_MS;
 
+	std::thread drmStopThread;
+	if (mDRMLicenseManager)
+	{
+		try
+		{
+			drmStopThread = std::thread([this]()
+			{
+				auto drmStopStartTime = NOW_STEADY_TS_MS;
+				/** Reset the license fetcher only DRM handle is deleting **/
+				mDRMLicenseManager->Stop();
+				mDRMLicenseManager->setSessionMgrState(SessionMgrState::eSESSIONMGR_INACTIVE);
+				AAMPLOG_WARN("AAMP Stop: DRM prefetch stop and session state update took %u ms",
+					(unsigned int)(NOW_STEADY_TS_MS - drmStopStartTime));
+			});
+		}
+		catch (const std::system_error& e)
+		{
+			AAMPLOG_ERR("AAMP Stop: failed to start DRM cleanup thread: %s", e.what());
+			/** Reset the license fetcher only DRM handle is deleting **/
+			auto drmStopStartTime = NOW_STEADY_TS_MS;
+			mDRMLicenseManager->Stop();
+			mDRMLicenseManager->setSessionMgrState(SessionMgrState::eSESSIONMGR_INACTIVE);
+			AAMPLOG_WARN("AAMP Stop: DRM prefetch stop and session state update took %u ms",
+				(unsigned int)(NOW_STEADY_TS_MS - drmStopStartTime));
+		}
+	}
+
 	// stop the mpd update immediately after Stream abstraction delete
 	if(mMPDDownloaderInstance != nullptr)
 	{
+		auto mpdCleanupStartTime = NOW_STEADY_TS_MS;
 		mMPDDownloaderInstance->Release();
+		AAMPLOG_WARN("AAMP Stop: MPD downloader release took %u ms",
+			(unsigned int)(NOW_STEADY_TS_MS - mpdCleanupStartTime));
 	}
 	if(mTSBSessionManager)
 	{
+		auto tsbFlushStartTime = NOW_STEADY_TS_MS;
 		// Clear all the local TSB data
 		mTSBSessionManager->Flush();
+		AAMPLOG_WARN("AAMP Stop: TSB flush took %u ms",
+			(unsigned int)(NOW_STEADY_TS_MS - tsbFlushStartTime));
+	}
+	if (drmStopThread.joinable())
+	{
+		drmStopThread.join();
+		AAMPLOG_WARN("AAMP Stop: DRM cleanup thread joined");
 	}
 
 	mId3MetadataCache.Reset();
@@ -8008,15 +8105,6 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 	{
 		pipeline_paused = false;
 	}
-	if (mDRMLicenseManager)
-	{
-		/** Reset the license fetcher only DRM handle is deleting **/
-		mDRMLicenseManager->Stop();
-
-		// Set Session Manager State to Inactive after StreamSink has been stopped
-		// to avoid any race condition between data still being streamed and DRM session manager
-		mDRMLicenseManager->setSessionMgrState(SessionMgrState::eSESSIONMGR_INACTIVE);
-	}
 
 	SAFE_DELETE(mCdaiObject);
 
@@ -8042,7 +8130,10 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 	SetFlushFdsNeededInCurlStore(false);
 	EnableDownloads();
 
+	auto deactivatePlayerStartTime = NOW_STEADY_TS_MS;
 	AampStreamSinkManager::GetInstance().DeactivatePlayer(this, true);
+	AAMPLOG_WARN("AAMP Stop: stream sink manager deactivation took %u ms",
+		(unsigned int)(NOW_STEADY_TS_MS - deactivatePlayerStartTime));
 	unsigned int mLastStopDurationMs = (unsigned)(NOW_STEADY_TS_MS - stopStartTime);
 	AAMPLOG_WARN("AAMP Stop took %u ms; streamLock %u, SetLicenceFetcher %u, Teardown %u",
 		mLastStopDurationMs,
