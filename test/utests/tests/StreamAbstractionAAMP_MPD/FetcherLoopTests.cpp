@@ -680,6 +680,79 @@ public:
 
 		return mTestableStreamAbstractionAAMP_MPD->PushNextFragment(pMediaStreamContext, 0);
 	}
+
+	/**
+	 * @brief Call PushNextFragment() on a track whose Representation has no segment info
+	 *
+	 * Temporarily points the track's context at the first Representation of
+	 * AdaptationSet[adaptationSetIdx] in altManifest (which must have no
+	 * SegmentTemplate/SegmentBase/SegmentList), calls PushNextFragment() twice,
+	 * then restores the original AdaptationSet/Representation.
+	 *
+	 * @param[in] altManifest MPD containing the Representation to use
+	 * @param[in] trackType Media track type
+	 * @param[in] expectedMediaType Expected media type of the track's context
+	 * @param[in] adaptationSetIdx AdaptationSet index in altManifest
+	 * @param[in] expectedBaseUrlCount Expected number of Representation-level BaseURLs
+	 * @param[in] curlInstance Curl instance passed to PushNextFragment()
+	 * @retval eos flag of the track after the calls
+	 */
+	bool PushNextFragmentWithoutSegmentInfo(const char *altManifest, TrackType trackType, AampMediaType expectedMediaType,
+											size_t adaptationSetIdx, size_t expectedBaseUrlCount, unsigned int curlInstance)
+	{
+		MediaStreamContext *ctx = static_cast<MediaStreamContext *>(mTestableStreamAbstractionAAMP_MPD->GetMediaTrack(trackType));
+		EXPECT_NE(ctx, nullptr);
+		if (ctx == nullptr)
+		{
+			return false;
+		}
+		EXPECT_EQ(ctx->mediaType, expectedMediaType);
+
+		/* Keeps the alternate MPD (and so the swapped-in Representation) alive until restored. */
+		ManifestDownloadResponsePtr altResponse = MakeSharedManifestDownloadResponsePtr();
+		altResponse->mMPDDownloadResponse->mDownloadData.assign((uint8_t *)altManifest, (uint8_t *)&altManifest[strlen(altManifest)]);
+		GetMPDFromManifest(altResponse);
+		EXPECT_NE(altResponse->mMPDInstance, nullptr);
+		if (altResponse->mMPDInstance == nullptr)
+		{
+			return false;
+		}
+
+		IAdaptationSet *altAdaptationSet = altResponse->mMPDInstance->GetPeriods().at(0)->GetAdaptationSets().at(adaptationSetIdx);
+		IRepresentation *altRepresentation = altAdaptationSet->GetRepresentation().at(0);
+		/* Sanity check the Representation really reaches the final fallback branch. */
+		EXPECT_EQ(altRepresentation->GetSegmentTemplate(), nullptr);
+		EXPECT_EQ(altRepresentation->GetSegmentBase(), nullptr);
+		EXPECT_EQ(altRepresentation->GetSegmentList(), nullptr);
+		EXPECT_EQ(altAdaptationSet->GetSegmentTemplate(), nullptr);
+		EXPECT_EQ(altRepresentation->GetBaseURLs().size(), expectedBaseUrlCount);
+
+		const IAdaptationSet *origAdaptationSet = ctx->adaptationSet;
+		const IRepresentation *origRepresentation = ctx->representation;
+		ctx->adaptationSet = altAdaptationSet;
+		ctx->representation = altRepresentation;
+		ctx->eos = false;
+
+		/* This branch must never try to download anything. */
+		EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, _, _, _, _)).Times(0);
+
+		bool ret = true;
+		/* Before ES1-3464 fix: std::out_of_range thrown here when expectedBaseUrlCount == 0. */
+		EXPECT_NO_THROW(ret = mTestableStreamAbstractionAAMP_MPD->PushNextFragment(ctx, curlInstance));
+		EXPECT_FALSE(ret);
+		bool eosAfterFirstCall = ctx->eos;
+
+		/* FetcherLoop calls again on the next iteration while eos is false; state must be stable. */
+		EXPECT_NO_THROW(ret = mTestableStreamAbstractionAAMP_MPD->PushNextFragment(ctx, curlInstance));
+		EXPECT_FALSE(ret);
+		EXPECT_EQ(ctx->eos, eosAfterFirstCall);
+
+		bool eos = ctx->eos;
+		ctx->adaptationSet = origAdaptationSet;
+		ctx->representation = origRepresentation;
+		ctx->eos = false;
+		return eos;
+	}
 };
 
 /**
@@ -3003,4 +3076,137 @@ TEST_F(FetcherLoopTests, HandleSeekEOS_UpdateTrackInfoFails_PeriodStateRestored)
 	// must be preserved by the rollback rather than left at the false that
 	// UpdateTrackInfo writes for the new period.
 	EXPECT_TRUE(videoCtx->eos);
+}
+
+/*
+ * ES1-3464: PushNextFragment() crashed with an uncaught std::out_of_range when a
+ * Representation had no SegmentTemplate/SegmentBase/SegmentList and no
+ * Representation-level <BaseURL>, because GetBaseURLs().at(0) was evaluated
+ * unconditionally (for every media type) in the final fallback branch.
+ *
+ * Each test initializes a normal SegmentTemplate stream (kNoSegmentInfoBaseManifest),
+ * then uses PushNextFragmentWithoutSegmentInfo() to point one track at a
+ * Representation from kNoSegmentInfoAltManifest and reach that branch.
+ */
+namespace
+{
+/* Base stream: video + subtitle, both SegmentTemplate (known-good init path). */
+const char *kNoSegmentInfoBaseManifest =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" profiles="urn:mpeg:dash:profile:isoff-live:2011" type="static" mediaPresentationDuration="PT15M0.0S" minBufferTime="PT4.0S">
+	<Period id="0" start="PT0.0S">
+		<AdaptationSet id="0" contentType="video" segmentAlignment="true" bitstreamSwitching="true" lang="und">
+			<Representation id="0" mimeType="video/mp4" codecs="avc1.4d4028" bandwidth="5000000" width="1920" height="1080" frameRate="25/1">
+				<SegmentTemplate timescale="12800" initialization="dash/1080p_init.m4s" media="dash/1080p_$Number%03d$.m4s" startNumber="1">
+					<SegmentTimeline>
+						<S t="0" d="25600" r="449" />
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+		<AdaptationSet id="12" contentType="text" segmentAlignment="true" lang="ger">
+			<Role schemeIdUri="urn:mpeg:dash:role:2011" value="caption"/>
+			<Representation id="Germany TTML captions" mimeType="application/mp4" codecs="stpp" bandwidth="400">
+				<SegmentTemplate timescale="48000" media="dash/ttml_de_$Number%03d$.mp4" startNumber="1">
+					<SegmentTimeline>
+						<S t="0" d="96000" r="449" />
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+	</Period>
+</MPD>
+)";
+
+/*
+ * Representations with no segment info. AdaptationSet index:
+ *  0: subtitle, BaseURL only at AdaptationSet level (Representation list empty)
+ *  1: video,    no BaseURL anywhere
+ *  2: subtitle, Representation-level BaseURL (sidecar file)
+ *  3: video,    Representation-level BaseURL
+ */
+const char *kNoSegmentInfoAltManifest =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" profiles="urn:mpeg:dash:profile:isoff-live:2011" type="static" mediaPresentationDuration="PT15M0.0S" minBufferTime="PT4.0S">
+	<Period id="0" start="PT0.0S">
+		<AdaptationSet id="20" contentType="text" lang="eng">
+			<BaseURL>subs/</BaseURL>
+			<Representation id="sub-no-baseurl" mimeType="application/ttml+xml" bandwidth="400"/>
+		</AdaptationSet>
+		<AdaptationSet id="21" contentType="video">
+			<Representation id="video-no-baseurl" mimeType="video/mp4" codecs="avc1.4d4028" bandwidth="5000000" width="1920" height="1080"/>
+		</AdaptationSet>
+		<AdaptationSet id="22" contentType="text" lang="eng">
+			<Representation id="sub-sidecar" mimeType="application/ttml+xml" bandwidth="400">
+				<BaseURL>subs/eng.ttml</BaseURL>
+			</Representation>
+		</AdaptationSet>
+		<AdaptationSet id="23" contentType="video">
+			<Representation id="video-baseurl" mimeType="video/mp4" codecs="avc1.4d4028" bandwidth="5000000" width="1920" height="1080">
+				<BaseURL>video/1080p.mp4</BaseURL>
+			</Representation>
+		</AdaptationSet>
+	</Period>
+</MPD>
+)";
+} // namespace
+
+/**
+ * @brief ES1-3464: subtitle Representation without segment info and without a
+ * Representation-level BaseURL must not throw; track is not marked EOS.
+ */
+TEST_F(FetcherLoopTests, PushNextFragment_NoSegmentInfo_SubtitleWithoutRepresentationBaseUrl_NoThrow)
+{
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, _, _, _, _))
+		.Times(AnyNumber())
+		.WillRepeatedly(Return(true));
+	/* Read during subtitle track selection; not in this fixture's defaults. */
+	mBoolConfigSettings[eAAMPConfig_GstSubtecEnabled] = false;
+	ASSERT_EQ(InitializeMPD(kNoSegmentInfoBaseManifest), eAAMPSTATUS_OK);
+	EXPECT_FALSE(PushNextFragmentWithoutSegmentInfo(kNoSegmentInfoAltManifest, eTRACK_SUBTITLE, eMEDIATYPE_SUBTITLE, 0, 0, eCURLINSTANCE_SUBTITLE));
+}
+
+/**
+ * @brief ES1-3464: the old code evaluated GetBaseURLs().at(0) before checking the
+ * media type, so a video Representation without segment info or BaseURL also threw.
+ */
+TEST_F(FetcherLoopTests, PushNextFragment_NoSegmentInfo_VideoWithoutRepresentationBaseUrl_NoThrow)
+{
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, _, _, _, _))
+		.Times(AnyNumber())
+		.WillRepeatedly(Return(true));
+	/* Read during subtitle track selection; not in this fixture's defaults. */
+	mBoolConfigSettings[eAAMPConfig_GstSubtecEnabled] = false;
+	ASSERT_EQ(InitializeMPD(kNoSegmentInfoBaseManifest), eAAMPSTATUS_OK);
+	EXPECT_FALSE(PushNextFragmentWithoutSegmentInfo(kNoSegmentInfoAltManifest, eTRACK_VIDEO, eMEDIATYPE_VIDEO, 1, 0, eCURLINSTANCE_VIDEO));
+}
+
+/**
+ * @brief Regression guard: a sidecar subtitle (Representation-level BaseURL, no
+ * segment info) is still marked EOS.
+ */
+TEST_F(FetcherLoopTests, PushNextFragment_NoSegmentInfo_SubtitleWithRepresentationBaseUrl_SetsEos)
+{
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, _, _, _, _))
+		.Times(AnyNumber())
+		.WillRepeatedly(Return(true));
+	/* Read during subtitle track selection; not in this fixture's defaults. */
+	mBoolConfigSettings[eAAMPConfig_GstSubtecEnabled] = false;
+	ASSERT_EQ(InitializeMPD(kNoSegmentInfoBaseManifest), eAAMPSTATUS_OK);
+	EXPECT_TRUE(PushNextFragmentWithoutSegmentInfo(kNoSegmentInfoAltManifest, eTRACK_SUBTITLE, eMEDIATYPE_SUBTITLE, 2, 1, eCURLINSTANCE_SUBTITLE));
+}
+
+/**
+ * @brief Regression guard: a non-subtitle Representation with only a BaseURL is an
+ * unsupported format; it is not marked EOS.
+ */
+TEST_F(FetcherLoopTests, PushNextFragment_NoSegmentInfo_VideoWithRepresentationBaseUrl_NotEos)
+{
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, _, _, _, _))
+		.Times(AnyNumber())
+		.WillRepeatedly(Return(true));
+	/* Read during subtitle track selection; not in this fixture's defaults. */
+	mBoolConfigSettings[eAAMPConfig_GstSubtecEnabled] = false;
+	ASSERT_EQ(InitializeMPD(kNoSegmentInfoBaseManifest), eAAMPSTATUS_OK);
+	EXPECT_FALSE(PushNextFragmentWithoutSegmentInfo(kNoSegmentInfoAltManifest, eTRACK_VIDEO, eMEDIATYPE_VIDEO, 3, 1, eCURLINSTANCE_VIDEO));
 }
