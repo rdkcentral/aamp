@@ -544,11 +544,10 @@ double MediaStreamContext::GetBufferedDuration()
 {
 	double bufferedDuration=0;
 	double position = aamp->GetPositionMs() / 1000.00;
-	AAMPLOG_INFO("[%s] lastDownloadedPosition %lfs position %lfs prevFirstPeriodStartTime %llds",
+	AAMPLOG_INFO("[%s] lastDownloadedPosition %lfs position %lfs",
 		GetMediaTypeName(mediaType),
 		lastDownloadedPosition.load(),
-		position,
-		aamp->prevFirstPeriodStartTime);
+		position);
 	if(lastDownloadedPosition >= position)
 	{
 		// If player faces buffering, this will be 0
@@ -558,19 +557,6 @@ double MediaStreamContext::GetBufferedDuration()
 			bufferedDuration,
 			lastDownloadedPosition.load(),
 			position);
-	}
-	else if( lastDownloadedPosition < aamp->prevFirstPeriodStartTime )
-	{
-		//When Player is rolling from IVOD window to Linear
-		position = aamp->prevFirstPeriodStartTime - position;
-		aamp->prevFirstPeriodStartTime = 0;
-		bufferedDuration = lastDownloadedPosition - position;
-		AAMPLOG_TRACE("[%s] bufferedDuration %fs lastDownloadedPosition %lfs position %lfs prevFirstPeriodStartTime %llds",
-			GetMediaTypeName(mediaType),
-			bufferedDuration,
-			lastDownloadedPosition.load(),
-			position,
-			aamp->prevFirstPeriodStartTime);
 	}
 	else
 	{

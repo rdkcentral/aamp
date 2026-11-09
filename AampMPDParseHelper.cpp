@@ -34,7 +34,7 @@ AampMPDParseHelper::AampMPDParseHelper() : mMPDInstance(NULL),mIsLiveManifest(fa
 				mIsFogMPD(false),
 				mAvailabilityStartTime(0.0),mPublishTime(0.0),mSegmentDurationSeconds(0),mTSBDepth(0.0),
 				mPresentationOffsetDelay(0.0),mMediaPresentationDuration(0),
-				mMyObjectMutex(),mPeriodEncryptionMap(),mNumberOfPeriods(0),mPeriodEmptyMap(),mLiveTimeFragmentSync(false),mHasServerUtcTime(false),mUpperBoundaryPeriod(0),mLowerBoundaryPeriod(0),mMPDPeriodDetails(),mDeltaTime(0.0)
+				mMyObjectMutex(),mPeriodEncryptionMap(),mNumberOfPeriods(0),mPeriodEmptyMap(),mLiveTimeFragmentSync(false),mHasServerUtcTime(false),mUpperBoundaryPeriod(0),mLowerBoundaryPeriod(0),mDeltaTime(0.0),mMPDPeriodDetails(),mFirstPeriodSegmentStart(-1.0)
 {
 }
 
@@ -56,7 +56,7 @@ AampMPDParseHelper::AampMPDParseHelper(const AampMPDParseHelper& cachedMPD) : mI
 					   mSegmentDurationSeconds(cachedMPD.mSegmentDurationSeconds), mTSBDepth(cachedMPD.mTSBDepth),
 					   mPresentationOffsetDelay(cachedMPD.mPresentationOffsetDelay), mMediaPresentationDuration(cachedMPD.mMediaPresentationDuration),
 					   mMyObjectMutex(), mNumberOfPeriods(cachedMPD.mNumberOfPeriods) , mPeriodEncryptionMap(cachedMPD.mPeriodEncryptionMap),
-					   mPeriodEmptyMap(cachedMPD.mPeriodEmptyMap) , mMPDInstance(NULL),mLiveTimeFragmentSync(cachedMPD.mLiveTimeFragmentSync),mHasServerUtcTime(cachedMPD.mHasServerUtcTime),mUpperBoundaryPeriod(cachedMPD.mUpperBoundaryPeriod),mLowerBoundaryPeriod(cachedMPD.mLowerBoundaryPeriod),mMPDPeriodDetails(cachedMPD.mMPDPeriodDetails),mDeltaTime(cachedMPD.mDeltaTime)
+					   mPeriodEmptyMap(cachedMPD.mPeriodEmptyMap) , mMPDInstance(NULL),mLiveTimeFragmentSync(cachedMPD.mLiveTimeFragmentSync),mHasServerUtcTime(cachedMPD.mHasServerUtcTime),mUpperBoundaryPeriod(cachedMPD.mUpperBoundaryPeriod),mLowerBoundaryPeriod(cachedMPD.mLowerBoundaryPeriod),mDeltaTime(cachedMPD.mDeltaTime),mMPDPeriodDetails(cachedMPD.mMPDPeriodDetails),mFirstPeriodSegmentStart(cachedMPD.mFirstPeriodSegmentStart)
 
 {
 }
@@ -102,6 +102,7 @@ void AampMPDParseHelper::Clear()
 	mLowerBoundaryPeriod = 0;
 	mDeltaTime = 0.0;
 	mMPDPeriodDetails.clear();
+	mFirstPeriodSegmentStart = -1.0;
 
 }
 
@@ -202,6 +203,12 @@ void AampMPDParseHelper::parseMPD()
 	}
 
 	mNumberOfPeriods = (int)mMPDInstance->GetPeriods().size();
+	const auto& periods = mMPDInstance->GetPeriods();
+	if (!periods.empty() && periods.front() != nullptr)
+	{
+		mFirstPeriodSegmentStart = GetFirstSegmentScaledStartTime(
+			periods.front(), eMEDIATYPE_VIDEO);
+	}
 }
 
 /**
@@ -586,7 +593,7 @@ double AampMPDParseHelper::GetPeriodStartTime(int periodIndex,uint64_t mLastPlay
 						durationTotal += aamp_GetPeriodDuration(idx, mLastPlaylistDownloadTimeMs);
 					}
 					periodStart =  ((double)durationTotal / (double)1000);
-					if(mIsLiveManifest && (periodStart >= 0))
+					if(mAvailabilityStartTime > 0 && (periodStart >= 0))
 					{
 						periodStart += mAvailabilityStartTime;
 					}
@@ -668,24 +675,9 @@ double AampMPDParseHelper::GetPeriodEndTime(int periodIndex, uint64_t mLastPlayl
 				if(startTimeStr.empty() || mLiveTimeFragmentSync)
 				{
 					AAMPLOG_INFO("Period startTime is not present in MPD, so calculating start time with previous period durations");
-					if(mIsLiveManifest)
-					{
-						periodStartMs = GetPeriodStartTime(periodIndex,mLastPlaylistDownloadTimeMs) * 1000 - (mAvailabilityStartTime * 1000);
-					}
-					else
-					{
-						periodStartMs = GetPeriodStartTime(periodIndex,mLastPlaylistDownloadTimeMs) * 1000;
-					}
 				}
-				else
-				{
-					periodStartMs = ParseISO8601Duration(startTimeStr.c_str()) + (aamp_GetPeriodStartTimeDeltaRelativeToPTSOffset(period)* 1000);
-				}
+				periodStartMs = GetPeriodStartTime(periodIndex,mLastPlaylistDownloadTimeMs) * 1000;
 				periodEndTime = ((double)(periodStartMs + periodDurationMs) /1000);
-				if(mIsLiveManifest)
-				{
-					periodEndTime +=  mAvailabilityStartTime;
-				}
 			}
 			AAMPLOG_INFO("StreamAbstractionAAMP_MPD: MPD periodIndex:%d periodId %s periodEndTime %f", periodIndex, period->GetId().c_str(), periodEndTime);
 		}
@@ -1408,6 +1400,7 @@ double AampMPDParseHelper::GetFirstSegmentScaledStartTime(IPeriod * period, Aamp
 	}
 	return scaledStartTime;
 }
+
 
 
 /**
