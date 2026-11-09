@@ -207,9 +207,34 @@ namespace {
 
 	constexpr unsigned int kMsPerSecond = 1000;
 
+	/// Deliberately no default: the compiler's switch-enum warning flags a
+	/// new StreamOutputFormat enumerator here, so a new audio format is not
+	/// missed.
 	bool isAudioOutputFormat(StreamOutputFormat format)
 	{
-		return format >= FORMAT_AUDIO_ES_MP3 && format <= FORMAT_AUDIO_ES_AC4;
+		switch (format)
+		{
+		case FORMAT_AUDIO_ES_MP3:
+		case FORMAT_AUDIO_ES_AAC:
+		case FORMAT_AUDIO_ES_AAC_RAW:
+		case FORMAT_AUDIO_ES_AC3:
+		case FORMAT_AUDIO_ES_EC3:
+		case FORMAT_AUDIO_ES_ATMOS:
+		case FORMAT_AUDIO_ES_AC4:
+			return true;
+		case FORMAT_INVALID:
+		case FORMAT_MPEGTS:
+		case FORMAT_ISO_BMFF:
+		case FORMAT_VIDEO_ES_H264:
+		case FORMAT_VIDEO_ES_HEVC:
+		case FORMAT_VIDEO_ES_MPEG2:
+		case FORMAT_SUBTITLE_WEBVTT:
+		case FORMAT_SUBTITLE_TTML:
+		case FORMAT_SUBTITLE_MP4:
+		case FORMAT_UNKNOWN:
+			return false;
+		}
+		return false;
 	}
 }
 

@@ -428,10 +428,15 @@ private:
 	std::atomic<bool> m_audioInVideoSlot{false};
 
 	/// Map the media type AAMP uses for a track to the slot of the source
-	/// that serves it.
+	/// that serves it.  The two are the same, except for audio-only content:
+	///   A/V:        track VIDEO -> slot VIDEO, track AUDIO -> slot AUDIO
+	///   audio-only: track VIDEO -> slot AUDIO (no video source exists)
 	AampMediaType toSourceSlot(AampMediaType aampTrack) const;
 
-	/// Map a source slot back to the media type AAMP uses for its track.
+	/// Inverse of toSourceSlot(): map a source slot back to the media type
+	/// AAMP uses for its track (audio-only: slot AUDIO -> track VIDEO).
+	/// sourceSlot must be the slot of an existing source; VIDEO is not a
+	/// valid slot while m_audioInVideoSlot is set and is returned unchanged.
 	AampMediaType toAampTrack(AampMediaType sourceSlot) const;
 
 	/// True if the source is kept at EOS while trickplay is active (the
