@@ -759,6 +759,30 @@ int getHarvestConfigForMedia(AampMediaType mediaType)
 }
 
 /**
+ * @brief Check that a '/' separated path contains no "." or ".." segments
+ * @param path path to validate
+ * @retval true if path cannot traverse outside of the directory it is appended to
+ */
+static bool IsTraversalFreePath(const std::string &path)
+{
+	size_t start = 0;
+	for(;;)
+	{
+		size_t end = path.find('/', start);
+		size_t segLen = (end == std::string::npos) ? path.size() - start : end - start;
+		if(path.compare(start, segLen, ".") == 0 || path.compare(start, segLen, "..") == 0)
+		{
+			return false;
+		}
+		if(end == std::string::npos)
+		{
+			return true;
+		}
+		start = end + 1;
+	}
+}
+
+/**
  * @brief Write - file to storage
  */
 bool aamp_WriteFile(std::string fileName, const char* data, size_t len, AampMediaType mediaType, unsigned int count,const char *prefix)
@@ -794,6 +818,12 @@ bool aamp_WriteFile(std::string fileName, const char* data, size_t len, AampMedi
 				std::string ext = fileName.substr(extPos);
 				fileName = fileName.substr(0,manifestPos+1); 
 				fileName = fileName + "manifest" + ext +  "." + std::to_string(count);
+			}
+
+			if(prefix == NULL || *prefix == '\0' || !IsTraversalFreePath(prefix) || !IsTraversalFreePath(fileName))
+			{
+				AAMPLOG_ERR("Rejected unsafe harvest path. prefix = %s file = %s", prefix ? prefix : "(null)", fileName.c_str());
+				return retVal;
 			}
 			
 			// create subdirectories lazily as needed, preserving CDN folder structure

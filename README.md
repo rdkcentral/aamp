@@ -273,7 +273,7 @@ showDiagnosticsOverlay		Configures the diagnostics overlay: 0 (none), 1 (minimal
 
 // String inputs
 licenseServerUrl		URL to be used for license requests for encrypted(PR/WV) assets
-harvestPath			Specify the path where fragments has to be harvested,check folder permissions specifying the path
+harvestPath			Specify the path where fragments has to be harvested,check folder permissions specifying the path. Only honored from device configuration (e.g. aamp.cfg); ignored if set by application (initConfig), stream or tune settings
 networkProxy			proxy address to set for all file downloads. Default: None  
 licenseProxy			proxy address to set for license fetch. Default: None
 AuthToken			SessionToken string to override from Application. Default: None
