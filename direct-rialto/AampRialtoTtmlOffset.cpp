@@ -151,7 +151,7 @@ bool AampRialtoTtmlOffset::FindFirstBeginMs(
 	const auto ms = ParseTimeToMs(value);
 	if (!ms)
 	{
-		AAMPLOG_WARN("findFirstBeginMs: ignoring unparsable begin=\"%.32s\"",
+		AAMPLOG_WARN("findFirstBeginMs: ignoring invalid begin=\"%.32s\"",
 			value.c_str());
 		return false;
 	}

@@ -65,8 +65,8 @@ public:
 	static std::optional<int64_t> ParseTimeToMs(const std::string &timeStr);
 
 	/// First begin="..." value in @p ttml, in ms.
-	/// @return false for empty or header-only documents, or an unparsable
-	///         value.
+	/// @return false for empty or header-only documents, or a value that is
+	///         not a valid clock time.
 	static bool FindFirstBeginMs(const std::string &ttml, int64_t &outMs);
 
 private:
