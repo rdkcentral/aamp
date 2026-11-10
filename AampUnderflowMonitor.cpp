@@ -34,12 +34,14 @@
  * underflow is declared via SetBufferingState(true).
  *
  * The deadline is re-armed by:
- *   - NotifyVideoFragment()   — each downloaded fragment / chunk
- *   - NotifyPipelineResumed() — after buffering recovery
+ *   - NotifyVideoFragment()        — each downloaded fragment / chunk
+ *   - NotifyPipelineResumed()      — after buffering recovery
+ *   - NotifyDiscontinuityComplete()— after discontinuity processing finishes
  *
  * The deadline is suspended (disarmed) by:
- *   - NotifyPipelinePaused()  — while pipeline is paused for buffering
- *   - Stop()                  — shutdown
+ *   - NotifyPipelinePaused()     — while pipeline is paused for buffering
+ *   - NotifyDiscontinuityStart() — while a discontinuity is being processed
+ *   - Stop()                     — shutdown
  *
  * Resume logic
  * ============
@@ -259,6 +261,35 @@ void AampUnderflowMonitor::NotifyPipelineResumed(double endPosition, float playR
 
         mCurrentEndPosition = endPosition;
         mCurrentPlayRate    = playRate;
+        RearmDeadline(bufferSec, playRate);
+    }
+    mCV.notify_one();
+}
+
+void AampUnderflowMonitor::NotifyDiscontinuityStart()
+{
+    {
+        std::lock_guard<std::mutex> lock(mMutex);
+        AAMPLOG_INFO("[video] AampUnderflowMonitor: discontinuity processing started; disarming deadline");
+        mDeadlineArmed = false;
+    }
+    mCV.notify_one();
+}
+
+void AampUnderflowMonitor::NotifyDiscontinuityComplete(double endPosition, float playRate)
+{
+    {
+        std::lock_guard<std::mutex> lock(mMutex);
+        if (!mAamp) return;
+
+        const double positionSec = mAamp->GetPositionMs() / 1000.0;
+        double bufferSec = endPosition - positionSec;
+        if (bufferSec < 0.0) bufferSec = 0.0;
+
+        mCurrentEndPosition = endPosition;
+        mCurrentPlayRate    = playRate;
+        AAMPLOG_INFO("[video] AampUnderflowMonitor: discontinuity processed; rearming deadline (buffered=%.3f)",
+                     bufferSec);
         RearmDeadline(bufferSec, playRate);
     }
     mCV.notify_one();
