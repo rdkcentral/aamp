@@ -290,3 +290,113 @@ TEST_F(AampRialtoGlibTimerTest, AampRialtoGlibTimer_Stop_WaitsForTickOnAnotherTh
 	EXPECT_EQ(Fire(0), G_SOURCE_REMOVE);
 	EXPECT_EQ(ticks.load(), 1);
 }
+
+/**
+ * @test AampRialtoGlibTimer_RestartIfRunning_WhenStopped_DoesNotRestart
+ * @brief A timer stopped before RestartIfRunning() stays stopped and nothing
+ *        is scheduled, so a restart racing a Stop() cannot revive it.
+ */
+TEST_F(AampRialtoGlibTimerTest,
+	AampRialtoGlibTimer_RestartIfRunning_WhenStopped_DoesNotRestart)
+{
+	AampRialtoGlibTimer timer;
+	ASSERT_TRUE(timer.Start(250, [] { return true; }));
+	timer.Stop();
+
+	EXPECT_FALSE(timer.RestartIfRunning(250));
+
+	EXPECT_FALSE(timer.IsRunning());
+	EXPECT_EQ(m_sources.size(), 1u);
+}
+
+/**
+ * @test AampRialtoGlibTimer_RestartIfRunning_WhenRunning_ReschedulesSameTick
+ * @brief The running source is replaced by one at the new interval that runs
+ *        the original tick; the old source is ignored.
+ */
+TEST_F(AampRialtoGlibTimerTest,
+	AampRialtoGlibTimer_RestartIfRunning_WhenRunning_ReschedulesSameTick)
+{
+	AampRialtoGlibTimer timer;
+	int ticks = 0;
+	ASSERT_TRUE(timer.Start(250, [&ticks] { ++ticks; return true; }));
+
+	EXPECT_TRUE(timer.RestartIfRunning(500));
+
+	EXPECT_TRUE(timer.IsRunning());
+	ASSERT_EQ(m_sources.size(), 2u);
+	EXPECT_EQ(m_sources[1].interval, 500u);
+	EXPECT_EQ(m_removed, std::vector<guint>{m_sources[0].id});
+	EXPECT_EQ(Fire(0), G_SOURCE_REMOVE);
+	EXPECT_EQ(ticks, 0);
+	EXPECT_EQ(Fire(1), G_SOURCE_CONTINUE);
+	EXPECT_EQ(ticks, 1);
+}
+
+/**
+ * @test AampRialtoGlibTimer_FireNowIfRunning_WhenStopped_DoesNotTick
+ * @brief Once Stop() has returned, an immediate dispatch does nothing.
+ */
+TEST_F(AampRialtoGlibTimerTest,
+	AampRialtoGlibTimer_FireNowIfRunning_WhenStopped_DoesNotTick)
+{
+	AampRialtoGlibTimer timer;
+	int ticks = 0;
+	ASSERT_TRUE(timer.Start(250, [&ticks] { ++ticks; return true; }));
+	timer.Stop();
+
+	EXPECT_FALSE(timer.FireNowIfRunning());
+
+	EXPECT_EQ(ticks, 0);
+}
+
+/**
+ * @test AampRialtoGlibTimer_FireNowIfRunning_TickReturnsFalse_StopsTimer
+ * @brief An immediate tick that returns false stops the timer and removes
+ *        its scheduled source.
+ */
+TEST_F(AampRialtoGlibTimerTest,
+	AampRialtoGlibTimer_FireNowIfRunning_TickReturnsFalse_StopsTimer)
+{
+	AampRialtoGlibTimer timer;
+	int ticks = 0;
+	ASSERT_TRUE(timer.Start(250, [&ticks] { ++ticks; return false; }));
+
+	EXPECT_TRUE(timer.FireNowIfRunning());
+
+	EXPECT_EQ(ticks, 1);
+	EXPECT_FALSE(timer.IsRunning());
+	EXPECT_EQ(m_removed, std::vector<guint>{m_sources[0].id});
+}
+
+/**
+ * @test AampRialtoGlibTimer_Stop_WaitsForImmediateTick
+ * @brief An immediate tick runs under the timer lock like a scheduled one,
+ *        so Stop() on another thread waits until it has returned.
+ */
+TEST_F(AampRialtoGlibTimerTest, AampRialtoGlibTimer_Stop_WaitsForImmediateTick)
+{
+	AampRialtoGlibTimer timer;
+	std::promise<void> tickEntered;
+	std::promise<void> releaseTick;
+	auto release = releaseTick.get_future().share();
+	ASSERT_TRUE(timer.Start(250, [&] {
+		tickEntered.set_value();
+		release.wait();
+		return true;
+	}));
+
+	auto firer = std::async(std::launch::async,
+		[&timer] { return timer.FireNowIfRunning(); });
+	tickEntered.get_future().wait();
+	auto stopper = std::async(std::launch::async, [&timer] { timer.Stop(); });
+
+	// Negative check: Stop() must still be blocked behind the running tick.
+	EXPECT_EQ(stopper.wait_for(std::chrono::milliseconds(50)),
+		std::future_status::timeout);
+	releaseTick.set_value();
+	ASSERT_EQ(stopper.wait_for(std::chrono::seconds(5)), std::future_status::ready);
+	ASSERT_EQ(firer.wait_for(std::chrono::seconds(5)), std::future_status::ready);
+	EXPECT_TRUE(firer.get());
+	EXPECT_FALSE(timer.IsRunning());
+}

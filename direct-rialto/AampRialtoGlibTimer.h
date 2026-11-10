@@ -77,6 +77,47 @@ public:
 		return StartLocked(intervalMs, std::move(tick));
 	}
 
+	/// Restart the running timer's interval from now, keeping its tick.
+	/// The running check and the restart are one step with respect to
+	/// Stop(), so a timer stopped concurrently is never brought back.
+	/// Returns false, doing nothing, if the timer is not running; also
+	/// returns false, leaving it stopped, if GLib cannot reschedule it.
+	bool RestartIfRunning(guint intervalMs)
+	{
+		std::lock_guard<std::recursive_mutex> lock(m_state->mutex);
+		bool restarted = false;
+		if (m_state->running)
+		{
+			Tick tick = m_state->tick;
+			StopLocked();
+			restarted = StartLocked(intervalMs, std::move(tick));
+		}
+		return restarted;
+	}
+
+	/// Run the tick once now, on the calling thread, if the timer is
+	/// running.  It runs under the same lock as scheduled ticks, so Stop()
+	/// waits for it and it never runs once Stop() has returned.  A tick
+	/// returning false stops the timer.  Returns false if not running.
+	bool FireNowIfRunning()
+	{
+		std::lock_guard<std::recursive_mutex> lock(m_state->mutex);
+		bool fired = false;
+		if (m_state->running)
+		{
+			const uint64_t generation = m_state->generation;
+			// Copied so the tick may Restart() its own timer.
+			Tick tick = m_state->tick;
+			fired = true;
+			if (!tick() && m_state->running &&
+				(m_state->generation == generation))
+			{
+				StopLocked();
+			}
+		}
+		return fired;
+	}
+
 	/// Cancel the timer; see the class comment for the blocking guarantee.
 	void Stop()
 	{

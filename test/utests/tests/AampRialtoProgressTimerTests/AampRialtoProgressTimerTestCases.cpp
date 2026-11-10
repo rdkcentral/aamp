@@ -203,3 +203,22 @@ TEST_F(AampRialtoProgressTimerTest, AampRialtoProgressTimer_stop_NoReportAfterSt
 	EXPECT_EQ(Fire(0), G_SOURCE_REMOVE);
 	EXPECT_EQ(m_reports, 1);
 }
+
+/**
+ * @test AampRialtoProgressTimer_kick_AfterStop_DoesNotRestartOrReport
+ * @brief A kick() arriving after stop() (e.g. a late PLAYING notification
+ *        during teardown) neither revives the timer nor reports.
+ */
+TEST_F(AampRialtoProgressTimerTest,
+	AampRialtoProgressTimer_kick_AfterStop_DoesNotRestartOrReport)
+{
+	AampRialtoProgressTimer timer;
+	timer.start(1000, [this] { ++m_reports; });
+	timer.stop();
+
+	timer.kick();
+
+	EXPECT_FALSE(timer.isRunning());
+	EXPECT_EQ(m_reports, 1);
+	EXPECT_EQ(m_sources.size(), 1u);
+}

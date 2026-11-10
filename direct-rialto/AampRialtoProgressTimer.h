@@ -66,7 +66,6 @@ public:
 		{
 			std::lock_guard<std::mutex> lock(m_mutex);
 			m_interval = interval_ms;
-			m_callback = cb;
 		}
 
 		const bool scheduled = m_timer.Start(interval_ms,
@@ -80,49 +79,44 @@ public:
 
 		if (!scheduled)
 		{
+			// No timer exists for stop() to cancel, so report directly.
 			AAMPLOG_WARN("Failed to schedule progress timer");
+			cb();
 		}
 		else
 		{
 			AAMPLOG_INFO("Started progress timer (interval=%u ms)",
 				interval_ms);
+			// Report immediately rather than waiting a full interval.  Runs
+			// under the timer's lock, so a concurrent stop() waits for it
+			// and it is skipped if stop() already ran.
+			m_timer.FireNowIfRunning();
 		}
-
-		// Report immediately rather than waiting a full interval.
-		cb();
 	}
 
-	/// Force immediate callback dispatch and restart the interval.
+	/// Force immediate callback dispatch and restart the interval.  Does
+	/// nothing if the timer is not running, including when a concurrent
+	/// stop() wins; kick() never restarts a stopped timer.
 	void kick()
 	{
-		if (!m_timer.IsRunning())
-		{
-			return;
-		}
-
 		guint interval = 0;
-		Callback cb;
 		{
 			std::lock_guard<std::mutex> lock(m_mutex);
 			interval = m_interval;
-			cb = m_callback;
-		}
-		if (!cb)
-		{
-			return;
 		}
 
 		// Reschedule so the interval restarts from now, then dispatch
 		// immediately.
-		if (!m_timer.Restart(interval, [cb]() { cb(); return true; }))
+		if (!m_timer.RestartIfRunning(interval))
 		{
-			AAMPLOG_WARN("Failed to reschedule progress timer after kick");
+			if (m_timer.IsRunning())
+			{
+				AAMPLOG_WARN("Failed to reschedule progress timer after kick");
+			}
+			return;
 		}
-		else
-		{
-			AAMPLOG_INFO("Progress timer kicked (rescheduled)");
-		}
-		cb();
+		AAMPLOG_INFO("Progress timer kicked (rescheduled)");
+		m_timer.FireNowIfRunning();
 	}
 
 	/// Stop the timer; no callback runs once this returns.
@@ -141,10 +135,9 @@ public:
 private:
 	AampRialtoGlibTimer m_timer;
 
-	/// Guards m_interval and m_callback, which kick() reads.
+	/// Guards m_interval, which kick() reads.
 	std::mutex m_mutex;
 	guint m_interval{0};
-	Callback m_callback;
 };
 
 #endif // AAMP_RIALTO_PROGRESS_TIMER_H
