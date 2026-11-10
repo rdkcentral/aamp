@@ -400,3 +400,26 @@ TEST_F(AampRialtoGlibTimerTest, AampRialtoGlibTimer_Stop_WaitsForImmediateTick)
 	EXPECT_TRUE(firer.get());
 	EXPECT_FALSE(timer.IsRunning());
 }
+
+/**
+ * @test AampRialtoGlibTimer_SourceDestroyed_ReleasesTick
+ * @brief Once the timer is gone and GLib destroys its source (the fake does
+ *        so when the mock is destroyed), the tick and everything it
+ *        captured are released.
+ */
+TEST_F(AampRialtoGlibTimerTest, AampRialtoGlibTimer_SourceDestroyed_ReleasesTick)
+{
+	auto token = std::make_shared<int>(0);
+	std::weak_ptr<int> watch = token;
+	{
+		AampRialtoGlibTimer timer;
+		ASSERT_TRUE(timer.Start(250, [token] { return true; }));
+		ASSERT_TRUE(timer.RestartIfRunning(250));
+	}
+	token.reset();
+	ASSERT_FALSE(watch.expired()) << "GLib still owns the sources";
+
+	g_mockGLib.reset();
+
+	EXPECT_TRUE(watch.expired());
+}

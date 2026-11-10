@@ -20,6 +20,8 @@
 #include <glib-object.h>
 #include <glib.h>
 #include <iostream>
+#include <mutex>
+#include <vector>
 
 #include "MockGLib.h"
 
@@ -31,7 +33,50 @@ using namespace std;
 #define TRACE_FUNC() ((void)0)
 #endif
 
+namespace
+{
+	/// A timeout source registered with a destroy notify, and the mock that
+	/// was current when it was registered.
+	struct FakeTimeoutSource
+	{
+		const MockGLib *owner;
+		gpointer data;
+		GDestroyNotify notify;
+	};
+
+	// Defined before g_mockGLib so they outlive it during static
+	// destruction, should a test leave the mock set.
+	std::mutex g_fakeSourcesMutex;
+	std::vector<FakeTimeoutSource> g_fakeSources;
+}
+
 std::shared_ptr<MockGLib> g_mockGLib{};
+
+void ReleaseFakeGLibSources(const MockGLib *owner)
+{
+	std::vector<FakeTimeoutSource> released;
+	{
+		std::lock_guard<std::mutex> lock(g_fakeSourcesMutex);
+		auto it = g_fakeSources.begin();
+		while (it != g_fakeSources.end())
+		{
+			if (it->owner == owner)
+			{
+				released.push_back(*it);
+				it = g_fakeSources.erase(it);
+			}
+			else
+			{
+				++it;
+			}
+		}
+	}
+	// Outside the lock: a notify may register or release another source.
+	for (const auto &source : released)
+	{
+		source.notify(source.data);
+	}
+}
 
 void g_object_set(gpointer object, const gchar *first_property_name, ...)
 {
@@ -234,13 +279,20 @@ int g_strcmp0(const char *str1, const char *str2)
 
 guint g_timeout_add_full(gint priority, guint interval, GSourceFunc function, gpointer data, GDestroyNotify notify)
 {
-	// Shares the g_timeout_add expectations; the destroy notify is not
-	// called, as the fake never destroys a source.
+	// Shares the g_timeout_add expectations.  GLib calls the destroy notify
+	// when the source is removed; the fake defers it until the mock is
+	// destroyed, so a test can still dispatch a removed source to check that
+	// it does nothing, without leaking the data.
 	guint retval = 0;
 
 	if (g_mockGLib != nullptr)
 	{
 		retval = g_mockGLib->g_timeout_add(interval, function, data);
+		if ((retval != 0) && (notify != nullptr))
+		{
+			std::lock_guard<std::mutex> lock(g_fakeSourcesMutex);
+			g_fakeSources.push_back({g_mockGLib.get(), data, notify});
+		}
 	}
 
 	return retval;
