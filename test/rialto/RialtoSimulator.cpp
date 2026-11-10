@@ -1205,11 +1205,48 @@ private:
 	{
 		const uint64_t expectedGeneration = m_generation.load(std::memory_order_relaxed);
 		RIALTO_SIM_LOG("sourceId %d ", sourceId);
-		if (m_needDataThread.find(sourceId) != m_needDataThread.end() && m_needDataThread[sourceId].joinable())
 		{
-			m_needDataThread[sourceId].join();
+			std::lock_guard<std::mutex> lock(m_trackMutex);
+			const auto pacing = m_pacingSources.find(sourceId);
+			if (pacing != m_pacingSources.end() && pacing->second == expectedGeneration)
+			{
+				// This source's pacing thread has not sent its request yet and
+				// will ask for more data itself.  Real Rialto's haveData()
+				// never waits for its own pacing, so neither join it (it may
+				// wait for a long time, e.g. while the client tears down)
+				// nor start a second request.
+				RIALTO_SIM_LOG("scheduleNextNeedData: sourceId=%d already has a "
+					"pending request - not scheduling another", sourceId);
+				return;
+			}
+			m_pacingSources[sourceId] = expectedGeneration;
 		}
-		m_needDataThread[sourceId] = std::thread([this, sourceId, expectedGeneration]() {
+		// Any previous thread for this source has sent its request or given
+		// up, or belongs to an earlier generation and gives up within one
+		// pacing interval, so joining it does not wait for the pacing loop.
+		std::lock_guard<std::mutex> threadLock(m_needDataThreadMutex);
+		auto &slot = m_needDataThread[sourceId];
+		if (slot.joinable())
+		{
+			slot.join();
+		}
+		slot = std::thread([this, sourceId, expectedGeneration]() {
+			// Leave m_pacingSources once this thread will send no further
+			// request, unless a newer generation's thread has replaced it.
+			// Caller must hold m_trackMutex.
+			auto leavePacingLocked = [this, sourceId, expectedGeneration]()
+			{
+				const auto it = m_pacingSources.find(sourceId);
+				if (it != m_pacingSources.end() && it->second == expectedGeneration)
+				{
+					m_pacingSources.erase(it);
+				}
+			};
+			auto giveUp = [this, &leavePacingLocked]()
+			{
+				std::lock_guard<std::mutex> lock(m_trackMutex);
+				leavePacingLocked();
+			};
 			// Wait until this source's buffered (injected-but-not-played) media
 			// drops below the high-water mark before asking it for more.
 			// This keeps injection at ~real time instead of draining AAMP's
@@ -1221,6 +1258,7 @@ private:
 				if (m_stopRequested.load(std::memory_order_relaxed))
 				{
 					RIALTO_SIM_LOG("scheduleNextNeedData: aborting sourceId=%d - stop requested", sourceId);
+					giveUp();
 					return;
 				}
 				if (m_generation.load(std::memory_order_relaxed) != expectedGeneration)
@@ -1232,6 +1270,7 @@ private:
 					// just create a duplicate outstanding request.
 					RIALTO_SIM_LOG("scheduleNextNeedData: aborting sourceId=%d - generation changed",
 						sourceId);
+					giveUp();
 					return;
 				}
 				int64_t buffered = 0;
@@ -1256,12 +1295,14 @@ private:
 			auto client = m_client.lock();
 			if (!client)
 			{
+				giveUp();
 				return;
 			}
 
 			uint32_t reqId = 0;
 			{
 				std::lock_guard<std::mutex> lock(m_trackMutex);
+				leavePacingLocked();
 				if (m_generation.load(std::memory_order_relaxed) != expectedGeneration)
 				{
 					RIALTO_SIM_LOG("scheduleNextNeedData: aborting sourceId=%d"
@@ -1426,11 +1467,14 @@ private:
 		{
 			m_eosThread.join();
 		}
-		for (auto &pair : m_needDataThread)
 		{
-			if (pair.second.joinable())
+			std::lock_guard<std::mutex> threadLock(m_needDataThreadMutex);
+			for (auto &pair : m_needDataThread)
 			{
-				pair.second.join();
+				if (pair.second.joinable())
+				{
+					pair.second.join();
+				}
 			}
 		}
 		joinNeedDataRetries(/*finishedOnly=*/false);
@@ -1550,6 +1594,12 @@ private:
 	std::thread m_positionThread;
 	std::thread m_eosThread;
 	std::map<int32_t, std::thread> m_needDataThread;
+	/// Guards m_needDataThread: haveData() for different sources can arrive
+	/// on different client threads.
+	std::mutex m_needDataThreadMutex;
+	/// Sources whose pacing thread has not yet sent (or given up on) its
+	/// request, with that thread's generation.  Guarded by m_trackMutex.
+	std::map<int32_t, uint64_t> m_pacingSources;
 	struct RetryThread
 	{
 		std::thread thread;
