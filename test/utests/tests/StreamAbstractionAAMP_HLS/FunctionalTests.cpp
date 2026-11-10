@@ -1518,35 +1518,36 @@ TEST_F(TrackStateTests, SetEffectivePlaylistUrl)
 	ASSERT_EQ(TrackStateobj->GetEffectivePlaylistUrl(), url); // Check if the URL matches what was set
 }
 
-TEST_F(TrackStateTests, SetEffectivePlaylistUrl_WaitsForPlaylistLock)
+TEST_F(TrackStateTests, EffectivePlaylistUrl_ConcurrentSetAndGet_ReturnsConsistentValue)
 {
-	// The playlist thread updates mEffectiveUrl while the fetcher thread copies it under
-	// the playlist lock, so the setter must not complete while that lock is held
-	const std::string oldUrl = "https://example.com/old/playlist.m3u8";
-	const std::string newUrl = "https://example.com/new/playlist.m3u8";
-	TrackStateobj->SetEffectivePlaylistUrl(oldUrl);
+	// The playlist thread updates mEffectiveUrl while the fetcher thread copies it, so every
+	// read must return one complete value. URLs exceed the small-string buffer so each
+	// assignment reallocates, making an unsynchronized read observable (always under ASan/TSan)
+	const std::string urlA = "https://example.com/a/some/long/path/playlist.m3u8";
+	const std::string urlB = "https://example.com/b/another/long/path/playlist.m3u8";
+	constexpr int kIterations = 20000;
+	TrackStateobj->SetEffectivePlaylistUrl(urlA);
 
-	std::atomic<bool> writerStarted{false};
-	std::atomic<bool> setterDone{false};
-	TrackStateobj->AcquirePlaylistLock();
+	std::atomic<bool> stop{false};
 	std::thread writer([&]() {
-		writerStarted = true;
-		TrackStateobj->SetEffectivePlaylistUrl(newUrl);
-		setterDone = true;
+		for (int i = 0; i < kIterations && !stop; ++i)
+		{
+			TrackStateobj->SetEffectivePlaylistUrl((i & 1) ? urlA : urlB);
+		}
 	});
 
-	while (!writerStarted)
+	int badReads = 0;
+	for (int i = 0; i < kIterations; ++i)
 	{
-		std::this_thread::yield();
+		const std::string url = TrackStateobj->GetEffectivePlaylistUrl();
+		if (url != urlA && url != urlB)
+		{
+			++badReads;
+		}
 	}
-	// Without the lock the setter would finish within microseconds of starting
-	std::this_thread::sleep_for(std::chrono::milliseconds(100));
-	EXPECT_FALSE(setterDone);
-
-	TrackStateobj->ReleasePlaylistLock();
+	stop = true;
 	writer.join();
-	EXPECT_TRUE(setterDone);
-	EXPECT_EQ(TrackStateobj->GetEffectivePlaylistUrl(), newUrl);
+	EXPECT_EQ(badReads, 0);
 }
 
 TEST_F(TrackStateTests, GetLastPlaylistDownloadTime)
