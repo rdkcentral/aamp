@@ -206,15 +206,68 @@ namespace {
 	constexpr int kRialtoRunningTimeoutMs = 2000;
 
 	constexpr unsigned int kMsPerSecond = 1000;
+
+	/// Deliberately no default: the compiler's switch-enum warning flags a
+	/// new StreamOutputFormat enumerator here, so a new audio format is not
+	/// missed.
+	bool isAudioOutputFormat(StreamOutputFormat format)
+	{
+		switch (format)
+		{
+		case FORMAT_AUDIO_ES_MP3:
+		case FORMAT_AUDIO_ES_AAC:
+		case FORMAT_AUDIO_ES_AAC_RAW:
+		case FORMAT_AUDIO_ES_AC3:
+		case FORMAT_AUDIO_ES_EC3:
+		case FORMAT_AUDIO_ES_ATMOS:
+		case FORMAT_AUDIO_ES_AC4:
+			return true;
+		case FORMAT_INVALID:
+		case FORMAT_MPEGTS:
+		case FORMAT_ISO_BMFF:
+		case FORMAT_VIDEO_ES_H264:
+		case FORMAT_VIDEO_ES_HEVC:
+		case FORMAT_VIDEO_ES_MPEG2:
+		case FORMAT_SUBTITLE_WEBVTT:
+		case FORMAT_SUBTITLE_TTML:
+		case FORMAT_SUBTITLE_MP4:
+		case FORMAT_UNKNOWN:
+			return false;
+		}
+		return false;
+	}
 }
 
 // ---------------------------------------------------------------------------
 // Source lookup helpers
 // ---------------------------------------------------------------------------
 
+AampMediaType AampRialtoPlayer::toSourceSlot(AampMediaType aampTrack) const
+{
+	return (aampTrack == eMEDIATYPE_VIDEO &&
+		m_audioInVideoSlot.load(std::memory_order_relaxed))
+		? eMEDIATYPE_AUDIO : aampTrack;
+}
+
+AampMediaType AampRialtoPlayer::toAampTrack(AampMediaType sourceSlot) const
+{
+	return (sourceSlot == eMEDIATYPE_AUDIO &&
+		m_audioInVideoSlot.load(std::memory_order_relaxed))
+		? eMEDIATYPE_VIDEO : sourceSlot;
+}
+
+bool AampRialtoPlayer::isEosDuringTrickplay(
+	const AampRialtoMediaSource *source) const
+{
+	return source &&
+		((source == m_sources[eMEDIATYPE_AUDIO].get() &&
+		  !m_audioInVideoSlot.load(std::memory_order_relaxed)) ||
+		 source == m_sources[eMEDIATYPE_SUBTITLE].get());
+}
+
 AampRialtoMediaSource *AampRialtoPlayer::getSource(AampMediaType type)
 {
-	auto idx = static_cast<size_t>(type);
+	auto idx = static_cast<size_t>(toSourceSlot(type));
 	if (idx < kMaxSourceTypes)
 	{
 		return m_sources[idx].get();
@@ -430,15 +483,27 @@ void AampRialtoPlayer::Configure(
 {
 	// GstStreamOutputFormat and StreamOutputFormat share the same
 	// enumerator order (see PrivateInstanceAAMP::GetMediaCodecInfo()).
-	const StreamOutputFormat videoFormat =
+	const StreamOutputFormat reportedVideoFormat =
 		static_cast<StreamOutputFormat>(codecInfo.video.mCodecFormat);
-	const StreamOutputFormat audioFormat =
+	const StreamOutputFormat reportedAudioFormat =
 		static_cast<StreamOutputFormat>(codecInfo.audio.mCodecFormat);
 	const StreamOutputFormat subFormat =
 		static_cast<StreamOutputFormat>(codecInfo.subtitle.mCodecFormat);
 
-	AAMPLOG_INFO("ENTRY videoFormat=%d audioFormat=%d subFormat=%d bESChangeStatus=%d setReadyAfterPipelineCreation=%d", static_cast<int>(videoFormat), static_cast<int>(audioFormat),
-		static_cast<int>(subFormat), bESChangeStatus, setReadyAfterPipelineCreation);
+	// Audio-only content can arrive as an audio codec on the video slot
+	// with no audio track.  Rialto needs an audio source for it, so treat
+	// it as audio-only on the audio slot; getSource() redirects the VIDEO
+	// track to that source.
+	const bool audioInVideoSlot =
+		isAudioOutputFormat(reportedVideoFormat) &&
+		reportedAudioFormat == FORMAT_INVALID;
+	const StreamOutputFormat videoFormat =
+		audioInVideoSlot ? FORMAT_INVALID : reportedVideoFormat;
+	const StreamOutputFormat audioFormat =
+		audioInVideoSlot ? reportedVideoFormat : reportedAudioFormat;
+
+	AAMPLOG_INFO("ENTRY videoFormat=%d audioFormat=%d subFormat=%d bESChangeStatus=%d setReadyAfterPipelineCreation=%d audioInVideoSlot=%d", static_cast<int>(videoFormat), static_cast<int>(audioFormat),
+		static_cast<int>(subFormat), bESChangeStatus, setReadyAfterPipelineCreation, audioInVideoSlot);
 
 	// If a flush cycle is in progress, block until all sources finish
 	// flushing so m_rate is committed before ShouldRecreatePipeline reads it.
@@ -500,6 +565,9 @@ void AampRialtoPlayer::Configure(
 		if (!ShouldRecreatePipeline(videoFormat, audioFormat, subFormat,
 		        bESChangeStatus, setReadyAfterPipelineCreation))
 		{
+			// Must precede the ResumeTrackDownloads() loop below.
+			m_audioInVideoSlot.store(audioInVideoSlot, std::memory_order_relaxed);
+
 			// Codec was unknown when the source was created (e.g. muxed
 			// HLS-TS before PMT parsing) and has since been identified -
 			// record it so later stream-caps computation (SendCopy's
@@ -541,7 +609,7 @@ void AampRialtoPlayer::Configure(
 				if (m_sources[i])
 				{
 					m_aamp->ResumeTrackDownloads(
-						static_cast<AampMediaType>(i));
+						toAampTrack(static_cast<AampMediaType>(i)));
 				}
 			}
 
@@ -770,6 +838,10 @@ void AampRialtoPlayer::Configure(
 		return;
 	}
 
+	// Must precede source creation: ResumeTrackDownloads() below maps slot to
+	// track via toAampTrack().
+	m_audioInVideoSlot.store(audioInVideoSlot, std::memory_order_relaxed);
+
 	// Create per-source objects based on configured formats.
 	// FORMAT_ISO_BMFF: AampRialtoPlayer demuxes via SendTransfer; the demuxer
 	//                  is created lazily on the first SendTransfer call.
@@ -814,7 +886,7 @@ void AampRialtoPlayer::Configure(
 			m_sources[eMEDIATYPE_AUDIO] = std::move(src);
 			m_sources[eMEDIATYPE_AUDIO]->gateInjection(
 				m_pipeline.get(), true, "Configure");
-			m_aamp->ResumeTrackDownloads(eMEDIATYPE_AUDIO);
+			m_aamp->ResumeTrackDownloads(toAampTrack(eMEDIATYPE_AUDIO));
 			AAMPLOG_INFO("Created audio source (format=%d)", static_cast<int>(audioFormat));
 		}
 	}
@@ -1121,7 +1193,16 @@ void AampRialtoPlayer::AttachSource(
 	std::optional<AampRialtoMediaSource::ProtectionParams> protectionCopy;
 	{
 		std::lock_guard<std::mutex> lock(m_pendingProtectionMutex);
-		protectionCopy = m_pendingProtection[static_cast<size_t>(type)];
+		// AAMP queues protection under its own track type, which differs from
+		// this source's slot when audio is carried in the video slot.  Prefer
+		// the AAMP track's entry (kept current by the demuxer), then the
+		// entry queued under this source's own slot (e.g. by manifest
+		// stream selection).
+		protectionCopy = m_pendingProtection[static_cast<size_t>(toAampTrack(type))];
+		if (!protectionCopy.has_value())
+		{
+			protectionCopy = m_pendingProtection[static_cast<size_t>(type)];
+		}
 		if (codecInfo.mIsEncrypted && !protectionCopy.has_value() &&
 		    type != eMEDIATYPE_VIDEO && m_pendingProtection[eMEDIATYPE_VIDEO].has_value())
 		{
@@ -1352,7 +1433,7 @@ void AampRialtoPlayer::MaybeFlushForPendingPosition(
 	const AampMediaType electedType =
 		(videoSource && videoSource->isAttached()) ? eMEDIATYPE_VIDEO
 		                                           : eMEDIATYPE_AUDIO;
-	if (mediaType != electedType)
+	if (toSourceSlot(mediaType) != electedType)
 	{
 		return;
 	}
@@ -1638,8 +1719,7 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown, boo
 				// the pipeline clock is not stalled waiting for audio data
 				// that will never arrive.
 				const bool newEos = rate != AAMP_NORMAL_PLAY_RATE &&
-				          ((source.get() == m_sources[eMEDIATYPE_AUDIO].get()) ||
-						   (source.get() == m_sources[eMEDIATYPE_SUBTITLE].get()));
+				          isEosDuringTrickplay(source.get());
 				source->unblockInjection(m_pipeline.get(),
 					"Flush(non-flushable)", newEos);
 				// Unlike the flushable path below, no Stream() will follow
@@ -1676,8 +1756,7 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown, boo
 			// Rialto/GStreamer pipeline clock is not stalled waiting
 			// for audio data that will never arrive.
 			const bool newEos = rate != AAMP_NORMAL_PLAY_RATE &&
-					          ((source.get() == m_sources[eMEDIATYPE_AUDIO].get()) ||
-							   (source.get() == m_sources[eMEDIATYPE_SUBTITLE].get()));
+					          isEosDuringTrickplay(source.get());
 			source->unblockInjection(m_pipeline.get(), "Flush", newEos);
 			// Post-seek data is genuinely wanted once it arrives — hold it
 			// (rather than drop it) until Stream() ungates via
@@ -1792,11 +1871,14 @@ long long AampRialtoPlayer::GetPositionMilliseconds()
 
 	if (m_stateMachine.currentState() == PlayerStateId::FLUSHING)
 	{
-		// Seek in progress - the pipeline hasn't confirmed the new position
-		// via SEEK_DONE yet, so report the requested target directly rather
-		// than a stale pre-seek value.
-		result = m_pendingPositionNs.load(std::memory_order_relaxed) / kNsPerMs;
-		AAMPLOG_INFO("EXIT FLUSHING - pending flush position=%lld ms", result);
+		// The position reported here is relative to the segment start (the
+		// caller adds it to its own seek position), so right after a flush
+		// it is 0. Do not return the staged target: it is an absolute
+		// value and would be double-counted by the caller. Until Rialto
+		// sends PLAYING/PAUSED after SEEK_DONE the pipeline may still be
+		// pre-rolling, so getPosition() can fail or return a stale value.
+		AAMPLOG_INFO("EXIT %s - position not yet valid, reporting 0",
+			m_stateMachine.currentStateName());
 		return result;
 	}
 
@@ -2431,10 +2513,11 @@ void AampRialtoPlayer::NotifyInjectorToPause()
 void AampRialtoPlayer::UnblockTrackInjection(AampMediaType type)
 {
 	AAMPLOG_INFO("ENTRY type=%d", static_cast<int>(type));
-	if (type < m_sources.size() && m_sources[type])
+	const auto slot = static_cast<size_t>(toSourceSlot(type));
+	if (slot < m_sources.size() && m_sources[slot])
 	{
 		// This requires Stream to be called by AAMP to ungate the content
-		m_sources[type]->unblockInjection(m_pipeline.get(), "UnblockTrackInjection");
+		m_sources[slot]->unblockInjection(m_pipeline.get(), "UnblockTrackInjection");
 	}
 	AAMPLOG_INFO("EXIT");
 }
@@ -2838,7 +2921,7 @@ void AampRialtoPlayer::OnBufferUnderflow(int32_t sourceId)
 			sourceId);
 		return;
 	}
-	m_notifiable->NotifyBufferUnderflow(source->mediaType());
+	m_notifiable->NotifyBufferUnderflow(toAampTrack(source->mediaType()));
 }
 
 void AampRialtoPlayer::OnPlaybackError(

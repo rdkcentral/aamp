@@ -84,6 +84,18 @@ protected:
 		{
 			return CalculateProducerReferenceTimeOffset();
 		}
+
+		AAMPStatusType CallUpdatePeriodTiming(
+			ManifestDownloadResponsePtr response, bool init)
+		{
+			const auto status = GetMPDFromManifest(response, init);
+			if (status == AAMPStatusType::eAAMPSTATUS_OK)
+			{
+				std::vector<PeriodInfo> periods;
+				UpdateCulledAndDurationFromPeriodInfo(periods);
+			}
+			return status;
+		}
 	};
 
 	PrivateInstanceAAMP *mPrivateInstanceAAMP;
@@ -777,7 +789,7 @@ protected:
 			{
 				if (!mMediaStreamContext[i])
 				{
-					mMediaStreamContext[i] = new MediaStreamContext(
+					mMediaStreamContext[i] = std::make_unique<MediaStreamContext>(
 						(TrackType)i, this, aamp,
 						GetMediaTypeName(AampMediaType(i)));
 					mMediaStreamContext[i]->enabled = false;
@@ -820,7 +832,7 @@ protected:
 
 		MediaStreamContext* GetMediaStreamContextForTest(int trackIdx)
 		{
-			return mMediaStreamContext[trackIdx];
+			return mMediaStreamContext[trackIdx].get();
 		}
 
 		AAMPStatusType CallResolveAdaptationSetForTrack(MediaStreamContext *pMediaStreamContext, IPeriod *period)
@@ -1040,6 +1052,58 @@ class TrickplayTests1 : public TrickplayTests {};
 
 
 /**
+ * @brief A rebased single-period static MPD uses its normalized first-segment
+ * time, not the previous live window start, to calculate the absolute end.
+ */
+TEST_F(FunctionalTests, DynamicToStatic_RebasedPeriodPreservesAbsoluteEnd)
+{
+	static const char *liveManifest =
+		"<MPD xmlns=\"urn:mpeg:dash:schema:mpd:2011\" type=\"dynamic\" "
+		"availabilityStartTime=\"2024-11-08T00:00:00Z\">"
+		"<Period id=\"p0\" start=\"PT100S\" duration=\"PT40S\">"
+		"<AdaptationSet contentType=\"video\" mimeType=\"video/mp4\">"
+		"<SegmentTemplate timescale=\"1000\" presentationTimeOffset=\"500000\" "
+		"media=\"$Time$.m4s\"><SegmentTimeline>"
+		"<S t=\"510000\" d=\"10000\" r=\"3\"/>"
+		"</SegmentTimeline></SegmentTemplate>"
+		"<Representation id=\"r0\" bandwidth=\"100000\"/>"
+		"</AdaptationSet></Period></MPD>";
+	static const char *staticManifest =
+		"<MPD xmlns=\"urn:mpeg:dash:schema:mpd:2011\" type=\"static\" "
+		"mediaPresentationDuration=\"PT30S\">"
+		"<Period id=\"p0\" start=\"PT0S\" duration=\"PT30S\">"
+		"<AdaptationSet contentType=\"video\" mimeType=\"video/mp4\">"
+		"<SegmentTemplate timescale=\"1000\" presentationTimeOffset=\"520000\" "
+		"media=\"$Time$.m4s\"><SegmentTimeline>"
+		"<S t=\"520000\" d=\"10000\" r=\"2\"/>"
+		"</SegmentTimeline></SegmentTemplate>"
+		"<Representation id=\"r0\" bandwidth=\"100000\"/>"
+		"</AdaptationSet></Period></MPD>";
+
+	mManifest = liveManifest;
+	const auto live = GetManifestForMPDDownloader();
+	const double liveAst = live->GetMPDParseHelper()->GetAvailabilityStartTime();
+	mManifest = staticManifest;
+	const auto cold = GetManifestForMPDDownloader();
+	cold->GetMPDParseHelper()->SetAvailabilityStartTime(liveAst + 120.0);
+	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
+	auto stream = std::make_unique<TestableFunctionalStreamAbstractionAAMP_MPD>(
+		mPrivateInstanceAAMP, 0.0, AAMP_NORMAL_PLAY_RATE);
+
+	ASSERT_EQ(stream->CallUpdatePeriodTiming(live, true),
+		AAMPStatusType::eAAMPSTATUS_OK);
+	EXPECT_DOUBLE_EQ(mPrivateInstanceAAMP->culledSeconds, liveAst + 110.0);
+	EXPECT_DOUBLE_EQ(mPrivateInstanceAAMP->mAbsoluteEndPosition,
+		liveAst + 150.0);
+
+	ASSERT_EQ(stream->CallUpdatePeriodTiming(cold, false),
+		AAMPStatusType::eAAMPSTATUS_OK);
+	EXPECT_DOUBLE_EQ(mPrivateInstanceAAMP->culledSeconds, liveAst + 120.0);
+	EXPECT_DOUBLE_EQ(mPrivateInstanceAAMP->mAbsoluteEndPosition,
+		liveAst + 150.0);
+}
+
+/**
  * @brief Segment time identifier test.
  *
  * The $Time$ identifier is set to the segment time and is used to select the uri of the media
@@ -1095,13 +1159,34 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 }
 
 /**
+ * @brief Functional tests class for Init() with cached encrypted headers.
+ *
+ * Parameterized over eAAMPConfig_UseMp4Demux so that Init() behaviour is
+ * verified with the demuxer both enabled and disabled.
+ */
+class CachedEncryptedHeadersInitTests : public FunctionalTestsBase,
+										public ::testing::TestWithParam<bool>
+{
+protected:
+	void SetUp() override
+	{
+		FunctionalTestsBase::SetUp();
+	}
+
+	void TearDown() override
+	{
+		FunctionalTestsBase::TearDown();
+	}
+};
+
+/**
  * @brief Verify pre-SetStreamCaps fallback with per-track checks.
  *
- * For a clear initial period with no encrypted headers available, if mp4demux is enabled and
- * encrypted headers were already injected earlier in the lifecycle for specific tracks, Init() should force
+ * For a clear initial period with no encrypted headers available, regardless of the mp4demux
+ * setting, if encrypted headers were already injected earlier in the lifecycle for specific tracks, Init() should force
  * track-encrypted state only for those tracks before init fetch so downstream SetStreamCaps keeps encrypted caps.
  */
-TEST_F(FunctionalTests, Init_ClearInitialPeriod_ForcesTrackEncryptedWhenInjectedHeadersAlreadyUsed)
+TEST_P(CachedEncryptedHeadersInitTests, Init_ClearInitialPeriod_ForcesTrackEncryptedWhenInjectedHeadersAlreadyUsed)
 {
 	AAMPStatusType status;
 	static const char *manifest =
@@ -1125,7 +1210,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	</Period>
 </MPD>)";
 
-	mBoolConfigSettings[eAAMPConfig_UseMp4Demux] = true;
+	mBoolConfigSettings[eAAMPConfig_UseMp4Demux] = GetParam();
 
 	// Allow init fragment caching to succeed for both tracks; otherwise Init() keeps
 	// retrying profile-changed init fetches and can spin/fault in test environment.
@@ -1160,7 +1245,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
  * When both video and audio have encrypted headers cached, Init() should force
  * track-encrypted state for both tracks before init fetch.
  */
-TEST_F(FunctionalTests, Init_ClearInitialPeriod_ForcesBothTracksEncryptedWhenBothHeadersInjected)
+TEST_P(CachedEncryptedHeadersInitTests, Init_ClearInitialPeriod_ForcesBothTracksEncryptedWhenBothHeadersInjected)
 {
 	AAMPStatusType status;
 	static const char *manifest =
@@ -1184,7 +1269,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	</Period>
 </MPD>)";
 
-	mBoolConfigSettings[eAAMPConfig_UseMp4Demux] = true;
+	mBoolConfigSettings[eAAMPConfig_UseMp4Demux] = GetParam();
 
 	EXPECT_CALL(*g_mockMediaStreamContext,
 		CacheFragment(_, _, _, _, _, true, _, _, _))
@@ -1210,6 +1295,10 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	status = InitializeMPD(manifest);
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
 }
+
+INSTANTIATE_TEST_SUITE_P(Mp4DemuxEnabledAndDisabled,
+	CachedEncryptedHeadersInitTests,
+	::testing::Bool());
 
 /**
  * @brief Segment time identifier test with presentation time offset.

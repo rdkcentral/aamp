@@ -76,6 +76,17 @@ TEST_F(MediaStreamContextTest, GetContextTest)
     mMediaStreamContext->GetContext();
 }
 
+/** @brief ABRProfileChanged with no representation selected returns without consulting the profile map. */
+TEST_F(MediaStreamContextTest, ABRProfileChanged_NullRepresentation_ReturnsWithoutChange)
+{
+    mMediaStreamContext->profileChanged = false;
+
+    // The fake profile lookup throws on an empty profile map, so reaching it fails the test.
+    EXPECT_NO_THROW(mMediaStreamContext->ABRProfileChanged());
+    EXPECT_FALSE(mMediaStreamContext->profileChanged);
+    EXPECT_EQ(mMediaStreamContext->representation, nullptr);
+}
+
 TEST_F(MediaStreamContextTest, GetManifestTimeScaleTest)
 {
     //Assert: FragmentDescriptor defaults TimeScale to 1 before any manifest is parsed

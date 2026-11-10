@@ -38,6 +38,8 @@
 #include "libdash/xml/DOMParser.h"
 #include <libxml/xmlreader.h>
 #include <thread>
+#include <array>
+#include <memory>
 #include "admanager_mpd.h"
 #include "AampMPDDownloader.h"
 #include "AampDRMLicPreFetcher.h"
@@ -48,6 +50,8 @@
 
 // Sentinel for invalid base period offset in ad nodes
 constexpr int32_t INVALID_BASE_PERIOD_OFFSET = -1;
+
+class MediaStreamContext;
 
 using namespace dash;
 using namespace std;
@@ -1189,7 +1193,8 @@ protected:
 	AampMPDParseHelperPtr	mMPDParseHelper;
 	bool mLowLatencyMode;
 	dash::mpd::IMPD *mpd;
-	class MediaStreamContext *mMediaStreamContext[AAMP_TRACK_COUNT];
+	// MediaStreamContext is incomplete here; any class destroying this array needs MediaStreamContext.h.
+	std::array<std::unique_ptr<MediaStreamContext>, AAMP_TRACK_COUNT> mMediaStreamContext;
 	int mNumberOfTracks;
 	int mCurrentPeriodIdx;
 	int mNumberOfPeriods;	// Number of periods in the updated manifest
@@ -1239,7 +1244,6 @@ protected:
 
 	double mLiveEndPosition;    // Live end absolute position
 	double mCulledSeconds;      // Culled absolute position
-	double mPrevFirstPeriodStart;
 	bool mAdPlayingFromCDN;   /*Note: TRUE: Ad playing currently & from CDN. FALSE: Ad "maybe playing", but not from CDN.*/
 	bool mPostRollAdPlaybackDone; /**< Set in onAdEvent when the post-roll ad playback has fully completed; triggers EOS path in SelectSourceOrAdPeriod */
 	double mAvailabilityStartTime;

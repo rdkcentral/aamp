@@ -43,11 +43,9 @@ void MediaStreamContext::InjectFragmentInternal(CachedFragment* cachedFragment, 
 
 	if(playContext)
 	{
-		MediaProcessor::process_fcn_t processor = [this](AampMediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
-		{
-		};
+		// The DASH processors (IsoBmff, Mp4Demux, Elementary) ignore the process callback.
 		fragmentDiscarded = !playContext->sendSegment(std::move(cachedFragment->fragment), cachedFragment->position,
-														cachedFragment->duration, cachedFragment->PTSOffsetSec, isDiscontinuity, cachedFragment->initFragment, std::move(processor), ptsError);
+														cachedFragment->duration, cachedFragment->PTSOffsetSec, isDiscontinuity, cachedFragment->initFragment, MediaProcessor::process_fcn_t{}, ptsError);
 	}
 	else
 	{
@@ -488,6 +486,11 @@ void MediaStreamContext::ABRProfileChanged(void)
 {
 	// TODO: Use this lock across all the functions which uses shared variables
 	std::lock_guard<std::recursive_mutex> lock(mMediaStreamContextMutex);
+	if (representation == nullptr)
+	{
+		AAMPLOG_WARN("representation is null");  //CID:83962 - Null Returns
+		return;
+	}
 	struct ProfileInfo profileMap = context->GetAdaptationSetAndRepresentationIndicesForProfile(context->currentProfileIndex);
 	// Get AdaptationSet Index and Representation Index from the corresponding profile
 	int adaptIdxFromProfile = profileMap.adaptationSetIndex;
@@ -496,39 +499,32 @@ void MediaStreamContext::ABRProfileChanged(void)
 	{
 		const IAdaptationSet *pNewAdaptationSet = context->GetAdaptationSetAtIndex(adaptIdxFromProfile);
 		IRepresentation *pNewRepresentation = pNewAdaptationSet->GetRepresentation().at(reprIdxFromProfile);
-		if(representation != NULL)
-		{
-			AAMPLOG_WARN("StreamAbstractionAAMP_MPD: ABR %dx%d[%d] -> %dx%d[%d]",
-					representation->GetWidth(), representation->GetHeight(), representation->GetBandwidth(),
-					pNewRepresentation->GetWidth(), pNewRepresentation->GetHeight(), pNewRepresentation->GetBandwidth());
-			adaptationSetIdx = adaptIdxFromProfile;
-			adaptationSet = pNewAdaptationSet;
-			adaptationSetId = adaptationSet->GetId();
-			representationIndex = reprIdxFromProfile;
-			representation = pNewRepresentation;
+		AAMPLOG_WARN("StreamAbstractionAAMP_MPD: ABR %dx%d[%d] -> %dx%d[%d]",
+				representation->GetWidth(), representation->GetHeight(), representation->GetBandwidth(),
+				pNewRepresentation->GetWidth(), pNewRepresentation->GetHeight(), pNewRepresentation->GetBandwidth());
+		adaptationSetIdx = adaptIdxFromProfile;
+		adaptationSet = pNewAdaptationSet;
+		adaptationSetId = adaptationSet->GetId();
+		representationIndex = reprIdxFromProfile;
+		representation = pNewRepresentation;
 
-			dash::mpd::IMPD *mpd = context->GetMPD();
-			IPeriod *period = context->GetPeriod();
-			fragmentDescriptor.ClearMatchingBaseUrl();
-			fragmentDescriptor.AppendMatchingBaseUrl( &mpd->GetBaseUrls() );
-			fragmentDescriptor.AppendMatchingBaseUrl( &period->GetBaseURLs() );
-			fragmentDescriptor.AppendMatchingBaseUrl( &adaptationSet->GetBaseURLs() );
-			fragmentDescriptor.AppendMatchingBaseUrl( &representation->GetBaseURLs() );
+		dash::mpd::IMPD *mpd = context->GetMPD();
+		IPeriod *period = context->GetPeriod();
+		fragmentDescriptor.ClearMatchingBaseUrl();
+		fragmentDescriptor.AppendMatchingBaseUrl( &mpd->GetBaseUrls() );
+		fragmentDescriptor.AppendMatchingBaseUrl( &period->GetBaseURLs() );
+		fragmentDescriptor.AppendMatchingBaseUrl( &adaptationSet->GetBaseURLs() );
+		fragmentDescriptor.AppendMatchingBaseUrl( &representation->GetBaseURLs() );
 
-			fragmentDescriptor.Bandwidth = representation->GetBandwidth();
-			fragmentDescriptor.RepresentationID.assign(representation->GetId());
-			// Update timescale when video profile changes in ABR
-			SegmentTemplates segmentTemplates (representation->GetSegmentTemplate(), adaptationSet->GetSegmentTemplate());
-			if (segmentTemplates.HasSegmentTemplate())
-			{
-				fragmentDescriptor.TimeScale = segmentTemplates.GetTimescale();
-			}
-			profileChanged = true;
-		}
-		else
+		fragmentDescriptor.Bandwidth = representation->GetBandwidth();
+		fragmentDescriptor.RepresentationID.assign(representation->GetId());
+		// Update timescale when video profile changes in ABR
+		SegmentTemplates segmentTemplates (representation->GetSegmentTemplate(), adaptationSet->GetSegmentTemplate());
+		if (segmentTemplates.HasSegmentTemplate())
 		{
-			AAMPLOG_WARN("representation is null");  //CID:83962 - Null Returns
+			fragmentDescriptor.TimeScale = segmentTemplates.GetTimescale();
 		}
+		profileChanged = true;
 	}
 	else
 	{
@@ -544,11 +540,10 @@ double MediaStreamContext::GetBufferedDuration()
 {
 	double bufferedDuration=0;
 	double position = aamp->GetPositionMs() / 1000.00;
-	AAMPLOG_INFO("[%s] lastDownloadedPosition %lfs position %lfs prevFirstPeriodStartTime %llds",
+	AAMPLOG_INFO("[%s] lastDownloadedPosition %lfs position %lfs",
 		GetMediaTypeName(mediaType),
 		lastDownloadedPosition.load(),
-		position,
-		aamp->prevFirstPeriodStartTime);
+		position);
 	if(lastDownloadedPosition >= position)
 	{
 		// If player faces buffering, this will be 0
@@ -558,19 +553,6 @@ double MediaStreamContext::GetBufferedDuration()
 			bufferedDuration,
 			lastDownloadedPosition.load(),
 			position);
-	}
-	else if( lastDownloadedPosition < aamp->prevFirstPeriodStartTime )
-	{
-		//When Player is rolling from IVOD window to Linear
-		position = aamp->prevFirstPeriodStartTime - position;
-		aamp->prevFirstPeriodStartTime = 0;
-		bufferedDuration = lastDownloadedPosition - position;
-		AAMPLOG_TRACE("[%s] bufferedDuration %fs lastDownloadedPosition %lfs position %lfs prevFirstPeriodStartTime %llds",
-			GetMediaTypeName(mediaType),
-			bufferedDuration,
-			lastDownloadedPosition.load(),
-			position,
-			aamp->prevFirstPeriodStartTime);
 	}
 	else
 	{
@@ -1105,39 +1087,21 @@ bool MediaStreamContext::DownloadFragment(DownloadInfoPtr dlInfo)
 	}
 
 	// Handle change in bandwidth for segmentBase streams, so need to load new range
-	if((dlInfo->bandwidth != fragmentDescriptor.Bandwidth) && !IDX.empty() && uriInfo.range.empty())
+	if((dlInfo->bandwidth != fragmentDescriptor.Bandwidth) && !IDX.Empty() && uriInfo.range.empty())
 	{
-		std::lock_guard<std::mutex> idxLock(mIdxMutex);
 		// If the bandwidth is different, then set the range
 		if (dlInfo->bandwidth > 0)
 		{
-			// mIdxBaseOffset is the byte position of segment 0 in the file for the
-			// current IDX profile, captured when IDX was loaded in the FetcherLoop.
-			// Using it here avoids the previous bug of starting from offset 1,
-			// which landed inside the moov+SIDX prefix and fetched wrong byte ranges.
-			dlInfo->fragmentOffset = mIdxBaseOffset;
 			unsigned int referenced_size = 0;
 			float fragmentDuration = 0.0f;
 			AAMPLOG_DEBUG("current fragmentIndex = %d", dlInfo->fragmentIndex);
-			// Find the offset of previous fragment in new representation
-			for (int i = 0; i < dlInfo->fragmentIndex; i++)
-			{
-				if (ParseSegmentIndexBox(IDX.data(),
-										 IDX.size(),
-										 i,
-										 &referenced_size,
-										 &fragmentDuration,
-										 NULL))
-				{
-					dlInfo->fragmentOffset += referenced_size;
-				}
-			}
-			if (ParseSegmentIndexBox(IDX.data(),
-									 IDX.size(),
-									 dlInfo->fragmentIndex,
-									 &referenced_size,
-									 &fragmentDuration,
-									 NULL))
+			// RangeOf starts from the byte position of segment 0 for the current
+			// IDX profile, captured when IDX was loaded in the FetcherLoop, and
+			// adds the sizes of the preceding fragments in the new representation.
+			if (IDX.RangeOf(dlInfo->fragmentIndex,
+							dlInfo->fragmentOffset,
+							referenced_size,
+							fragmentDuration))
 			{
 				char range[MAX_RANGE_STRING_CHARS];
 				snprintf(range, sizeof(range), "%" PRIu64 "-%" PRIu64 "", dlInfo->fragmentOffset, dlInfo->fragmentOffset + referenced_size - 1);
