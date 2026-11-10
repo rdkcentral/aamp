@@ -1483,3 +1483,15 @@ bool AAMPGstPlayer::SendSample(AampMediaType mediaType, AampMediaSample&& sample
 		std::move(sample.mDrmMetadata)
 	});
 }
+
+/**
+ * @brief Get the current and pending state of the GStreamer pipeline
+ *
+ * @param[out] currentState - Pointer to store the current state of the pipeline
+ * @param[out] pendingState - Pointer to store the pending state of the pipeline
+ * @return GstStateChangeReturn indicating the result of the state query
+ */
+GstStateChangeReturn AAMPGstPlayer::GetPipelineState(GstState *currentState, GstState *pendingState)
+{
+    return playerInstance->GetPipelineState(currentState, pendingState);
+}
