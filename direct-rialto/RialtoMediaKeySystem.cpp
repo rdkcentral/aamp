@@ -188,16 +188,31 @@ void RialtoMediaKeySystem::MediaKeysClient::onKeyStatusesChanged(
 		}
 	}
 
+	// A callback may deregister its own session, after which its owner may
+	// be freed: stop dispatching this batch as soon as that happens.
+	const auto stillRegistered = [this, keySessionId]()
+	{
+		std::lock_guard<std::mutex> lock(mutex);
+		return callbacks.find(keySessionId) != callbacks.end();
+	};
+
 	if (onKeyUpdate)
 	{
 		for (const auto& entry : keyStatuses)
 		{
-				onKeyUpdate(entry.first.data(), entry.first.size());
+			onKeyUpdate(entry.first.data(), entry.first.size());
+			if (!stillRegistered())
+			{
+				AAMPLOG_INFO("RialtoMediaKeySystem::MediaKeysClient: session %d "
+				            "deregistered by its key update - stopping dispatch",
+				            keySessionId);
+				return;
+			}
 		}
 	}
 
 	// Signal that all key statuses for this update have been delivered.
-	if (onKeysUpdated)
+	if (onKeysUpdated && stillRegistered())
 	{
 		onKeysUpdated();
 	}

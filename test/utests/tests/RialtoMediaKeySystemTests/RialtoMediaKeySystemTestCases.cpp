@@ -395,6 +395,43 @@ TEST_F(RialtoMediaKeySystemTest, OnKeyStatusesChanged_CallbackMayDestructItsSess
 }
 
 /**
+ * @test OnKeyStatusesChanged_FirstKeyUpdateDeregisters_StopsDispatch
+ */
+TEST_F(RialtoMediaKeySystemTest, OnKeyStatusesChanged_FirstKeyUpdateDeregisters_StopsDispatch)
+{
+	/**
+	 * @brief Once a callback has deregistered its session, the owner of the
+	 *        callbacks may be freed, so neither the remaining key updates of
+	 *        the batch nor onKeysUpdated may run.
+	 */
+	auto system = createSystemWithMediaKeys();
+	RialtoMediaKeySession* sessionPtr = nullptr;
+	int keyUpdates = 0;
+	int keysUpdatedCalls = 0;
+	RialtoSessionCallbacks callbacks;
+	callbacks.onKeyUpdate = [&](const uint8_t*, size_t)
+	{
+		++keyUpdates;
+		sessionPtr->destruct();
+	};
+	callbacks.onKeysUpdated = [&] { ++keysUpdatedCalls; };
+
+	std::weak_ptr<firebolt::rialto::IMediaKeysClient> weakClient;
+	auto session = createSessionCapturingClient(*system, callbacks, weakClient);
+	ASSERT_NE(nullptr, session);
+	sessionPtr = session.get();
+	auto client = weakClient.lock();
+	ASSERT_NE(nullptr, client);
+
+	client->onKeyStatusesChanged(TEST_SESSION_ID,
+		{{std::vector<uint8_t>{0x01}, firebolt::rialto::KeyStatus::USABLE},
+		 {std::vector<uint8_t>{0x02}, firebolt::rialto::KeyStatus::USABLE}});
+
+	EXPECT_EQ(keyUpdates, 1);
+	EXPECT_EQ(keysUpdatedCalls, 0);
+}
+
+/**
  * @test Destruct_WaitsForCallbackInProgressOnAnotherThread
  */
 TEST_F(RialtoMediaKeySystemTest, Destruct_WaitsForCallbackInProgressOnAnotherThread)
