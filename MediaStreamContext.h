@@ -27,6 +27,7 @@
 
 #include "StreamAbstractionAAMP.h"
 #include "fragmentcollector_mpd.h"
+#include "SegmentIndex.h"
 
 /**
  * @class MediaStreamContext
@@ -46,42 +47,7 @@ public:
 			PrivateInstanceAAMP* aamp, const char* name) :
 			MediaTrack(type, aamp, name),
 			mediaType((AampMediaType)type),
-			adaptationSet(NULL),
-			representation(NULL),
-			fragmentIndex(0),
-			timeLineIndex(0),
-			fragmentRepeatCount(0),
-			fragmentOffset(0),
-			eos(false),
-			fragmentTime(0),
-			periodStartOffset(0),
-			timeStampOffset(0),
-			lastSegmentTime(0),
-			lastSegmentNumber(0),
-			lastSegmentDuration(0),
-			adaptationSetIdx(0),
-			representationIndex(0),
-			profileChanged(true),
-			adaptationSetId(0),
-			adaptationSetIdValid(false),
-			fragmentDescriptor(),
-			context(ctx),
-			initialization(""),
-			discontinuity(false),
-			mSkipSegmentOnError(true),
-			lastDownloadedPosition(0), // ,mCMCDNetworkMetrics{-1,-1,-1}
-			scaledPTO(0),
-			failAdjacentSegment(false),
-			httpErrorCode(0),
-			mPlaylistUrl(""),
-			mEffectiveUrl(""),
-			freshManifest(false),
-			nextfragmentIndex(-1),
-			mReachedFirstFragOnRewind(false),
-			fetchChunkBufferMutex(),
-			mActiveDownloadInfo(nullptr),
-		mMediaStreamContextMutex(),
-		mIdxMutex()
+			context(ctx)
 	{
 		AAMPLOG_INFO("[%s] Create new MediaStreamContext",
 				GetMediaTypeName(mediaType));
@@ -97,10 +63,7 @@ public:
 	/**
 	 * @brief MediaStreamContext Destructor
 	 */
-	~MediaStreamContext()
-	{
-		mTimeBasedBufferManager.reset();
-	}
+	~MediaStreamContext() override = default;
 
 	/**
 	 * @brief MediaStreamContext Copy Constructor
@@ -260,7 +223,7 @@ public:
 	 * @fn GetEffectivePlaylistUrl
 	 * @return string - original playlist URL(redirected)
 	 */
-	std::string& GetEffectivePlaylistUrl() override;
+	std::string GetEffectivePlaylistUrl() override;
 
 	/**
 	 * @fn SetEffectivePlaylistUrl
@@ -343,46 +306,44 @@ public:
 
 	AampMediaType mediaType;
 	struct FragmentDescriptor fragmentDescriptor;
-	const IAdaptationSet *adaptationSet;
-	const IRepresentation *representation;
-	int fragmentIndex;
-	int timeLineIndex;
-	int fragmentRepeatCount;
-	uint64_t fragmentOffset;
-	bool eos;
-	bool profileChanged;
-	bool discontinuity;
+	const IAdaptationSet *adaptationSet{nullptr};
+	const IRepresentation *representation{nullptr};
+	int fragmentIndex{0};
+	int timeLineIndex{0};
+	int fragmentRepeatCount{0};
+	uint64_t fragmentOffset{0};
+	bool eos{false};
+	bool profileChanged{true};
+	bool discontinuity{false};
 	std::vector<uint8_t> mDownloadedFragment{};	/**< Fragment stored across ABR profile changes */
 	std::vector<uint8_t> mTempFragment{};		/**< Scratch buffer for init/download fragments */
 
-	double fragmentTime; // Absolute Fragment time from Availability start
-	std::atomic<double> lastDownloadedPosition;
-	double periodStartOffset;
-	uint64_t timeStampOffset;
-	std::vector<uint8_t> IDX{};		/**< Index data buffer for DASH byte-range segments */
-	uint64_t mIdxBaseOffset{0};		/**< Byte offset of segment 0 in the file for the current IDX profile; set when IDX is loaded, cleared with IDX */
-	uint64_t lastSegmentTime;       // zeroed at start of period and also 0 when first segment of an ad has been sent otherwise fragmentDescriptor.Time
-	uint64_t lastSegmentNumber;
-	uint64_t lastSegmentDuration;   //lastSegmentTime+ duration of that segment
-	int adaptationSetIdx;
-	int representationIndex;
+	double fragmentTime{0}; // Absolute Fragment time from Availability start
+	std::atomic<double> lastDownloadedPosition{0};
+	double periodStartOffset{0};
+	uint64_t timeStampOffset{0};
+	SegmentIndex IDX{};				/**< Index (sidx) data for DASH byte-range segments; thread-safe */
+	uint64_t lastSegmentTime{0};    // zeroed at start of period and also 0 when first segment of an ad has been sent otherwise fragmentDescriptor.Time
+	uint64_t lastSegmentNumber{0};
+	uint64_t lastSegmentDuration{0};   //lastSegmentTime+ duration of that segment
+	int adaptationSetIdx{0};
+	int representationIndex{0};
 	StreamAbstractionAAMP_MPD* context;
-	std::string initialization;
-	uint32_t adaptationSetId;
-	bool adaptationSetIdValid;      /**< true once adaptationSetId reflects a resolved selection; guards reorder detection on first use */
-	bool mSkipSegmentOnError;
-	double scaledPTO;
-	bool failAdjacentSegment;
-	int httpErrorCode;
-	std::string mPlaylistUrl;
-	std::string mEffectiveUrl; 		/**< uri associated with downloaded playlist (takes into account 302 redirect) */
-	bool freshManifest;
-	int nextfragmentIndex; //CMCD get next index to fetch url from Segment List
-	bool mReachedFirstFragOnRewind; /**< flag denotes if we reached the first fragment in a period on rewind */
+	std::string initialization{};
+	uint32_t adaptationSetId{0};
+	bool adaptationSetIdValid{false};      /**< true once adaptationSetId reflects a resolved selection; guards reorder detection on first use */
+	bool mSkipSegmentOnError{true};
+	double scaledPTO{0};
+	bool failAdjacentSegment{false};
+	int httpErrorCode{0};
+	std::string mPlaylistUrl{};
+	std::string mEffectiveUrl{}; 		/**< uri associated with downloaded playlist (takes into account 302 redirect) */
+	bool freshManifest{false};
+	int nextfragmentIndex{-1}; //CMCD get next index to fetch url from Segment List
+	bool mReachedFirstFragOnRewind{false}; /**< flag denotes if we reached the first fragment in a period on rewind */
 	std::mutex fetchChunkBufferMutex;
-	DownloadInfoPtr mActiveDownloadInfo;
+	DownloadInfoPtr mActiveDownloadInfo{nullptr};
 	std::recursive_mutex mMediaStreamContextMutex; /**< Recursive mutex to protect MediaStreamContext state during ABR profile changes and playlist updates */
-	std::mutex mIdxMutex; /**< Protects IDX buffer: FetcherLoop (writer) vs. download worker threads (reader) */
 
 protected:
 	CachedFragment mStagingFragment{};		/**< Staging buffer for fragment download in progress */

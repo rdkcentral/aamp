@@ -576,6 +576,22 @@ protected:
 			0, 0, 0, 0, /*initFragment=*/true);
 	}
 
+	/// Trigger an encrypted audio initFragment on the VIDEO track, which is
+	/// where AAMP delivers audio-only content.
+	void SendEncryptedAudioInitFragmentOnVideoSlot()
+	{
+		ON_CALL(*g_mockMp4Demux, Parse(_)).WillByDefault(Return(true));
+		ON_CALL(*g_mockMp4Demux, GetCodecInfo())
+			.WillByDefault([]() {
+				MediaCodecInfo ci = MakeAudioAacCodecInfo();
+				ci.mIsEncrypted = true;
+				return ci;
+			});
+		std::vector<uint8_t> buf = {0x00, 0x00, 0x00, 0x01};
+		m_player->SendTransfer(eMEDIATYPE_VIDEO, std::move(buf),
+			0, 0, 0, 0, /*initFragment=*/true);
+	}
+
 	void TriggerProgressTimerTick()
 	{
 		// With the new ProgressTimer implementation, we directly invoke
@@ -716,6 +732,179 @@ TEST_F(AampRialtoPlayerTest, Configure_AudioOnly_CreatesAudioSourceOnly)
 	EXPECT_EQ(m_createSourceCallCount, 1);
 	EXPECT_EQ(m_mockSources[eMEDIATYPE_VIDEO], nullptr);
 	EXPECT_NE(m_mockSources[eMEDIATYPE_AUDIO], nullptr);
+}
+
+/**
+ * @test AAMP reports audio-only DASH as an audio codec on the video slot with
+ *       no audio track.  Rialto needs an audio source for it, and AAMP must be
+ *       told the VIDEO track (the one it is feeding) is ready to download.
+ */
+TEST_F(AampRialtoPlayerTest, Configure_AudioCodecOnVideoSlot_CreatesAudioSourceOnly)
+{
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, ResumeTrackDownloads(eMEDIATYPE_VIDEO)).Times(1);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, ResumeTrackDownloads(eMEDIATYPE_AUDIO)).Times(0);
+
+	m_createSourceCallCount = 0;
+	Configure(FORMAT_AUDIO_ES_AAC, FORMAT_INVALID);
+
+	EXPECT_EQ(m_createSourceCallCount, 1);
+	EXPECT_NE(m_mockSources[eMEDIATYPE_AUDIO], nullptr);
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_VIDEO], nullptr);
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_SUBTITLE], nullptr);
+}
+
+/**
+ * @test AAMP keeps injecting on the VIDEO track, so samples sent for VIDEO
+ *       must be delivered to the audio source.
+ */
+TEST_F(AampRialtoPlayerTest, SendSample_AudioCodecOnVideoSlot_ReachesAudioSource)
+{
+	Configure(FORMAT_AUDIO_ES_AAC, FORMAT_INVALID);
+	auto *audioSource = m_mockSources[eMEDIATYPE_AUDIO];
+	ASSERT_NE(audioSource, nullptr);
+
+	EXPECT_CALL(*audioSource, injectSingleSample(_, _, _)).Times(1).WillOnce(Return(true));
+
+	EXPECT_TRUE(m_player->SendSample(eMEDIATYPE_VIDEO, MakeSample()));
+}
+
+/**
+ * @test The first VIDEO sample must resolve the pending position through the
+ *       audio source, which is the only source that can supply a PTS.
+ */
+TEST_F(AampRialtoPlayerTest, SendSample_AudioCodecOnVideoSlot_PositionPending_FlushesToSamplePts)
+{
+	Configure(FORMAT_AUDIO_ES_AAC, FORMAT_INVALID);
+	ASSERT_NE(m_mockSources[eMEDIATYPE_AUDIO], nullptr);
+	m_player->SetStreamCaps(eMEDIATYPE_VIDEO, MakeAudioAacCodecInfo());
+
+	const int64_t expectedPosNs = 4'500'000'000LL;
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(expectedPosNs))
+		.WillOnce(Return(true));
+	// The flush leaves the source gated, so the real injector would block.
+	EXPECT_CALL(*m_mockSources[eMEDIATYPE_AUDIO], injectSingleSample(_, _, _))
+		.WillOnce(Return(true));
+
+	m_player->SendSample(eMEDIATYPE_VIDEO, MakeSample(/*pts=*/4.5));
+}
+
+/**
+ * @test The underflow reported by Rialto for the audio source must reach AAMP
+ *       as the VIDEO track, since that is the track AAMP is injecting on.
+ */
+TEST_F(AampRialtoPlayerTest, OnBufferUnderflow_AudioCodecOnVideoSlot_NotifiesVideoTrack)
+{
+	Configure(FORMAT_AUDIO_ES_AAC, FORMAT_INVALID);
+	ASSERT_NE(m_mockSources[eMEDIATYPE_AUDIO], nullptr);
+	m_player->SetStreamCaps(eMEDIATYPE_VIDEO, MakeAudioAacCodecInfo());
+	const int32_t audioSourceId = m_mockSources[eMEDIATYPE_AUDIO]->sourceId();
+	ASSERT_GE(audioSourceId, 0);
+
+	EXPECT_CALL(m_mockNotifiable, NotifyBufferUnderflow(eMEDIATYPE_VIDEO)).Times(1);
+	EXPECT_CALL(m_mockNotifiable, NotifyBufferUnderflow(eMEDIATYPE_AUDIO)).Times(0);
+
+	PostBufferUnderflow(audioSourceId);
+}
+
+/**
+ * @test When audio is the only (primary) track it must keep receiving data at
+ *       trickplay rates, so Flush() must not leave it at EOS.  The player has
+ *       no attached sources here, so this takes the non-flushable path.
+ */
+TEST_F(AampRialtoPlayerTest, Flush_TrickplayRate_AudioCodecOnVideoSlot_AudioNotEos)
+{
+	Configure(FORMAT_AUDIO_ES_AAC, FORMAT_INVALID);
+	auto *audioSource = m_mockSources[eMEDIATYPE_AUDIO];
+	ASSERT_NE(audioSource, nullptr);
+
+	m_player->Flush(/*position=*/12.0, /*rate=*/-2, /*shouldTearDown=*/false);
+
+	EXPECT_FALSE(audioSource->state().eos);
+}
+
+/**
+ * @test As above, with the audio source attached so that Flush() takes the
+ *       flushable path that playback normally uses.
+ */
+TEST_F(AampRialtoPlayerTest, Flush_TrickplayRate_AudioCodecOnVideoSlotAttached_AudioNotEos)
+{
+	Configure(FORMAT_AUDIO_ES_AAC, FORMAT_INVALID);
+	auto *audioSource = m_mockSources[eMEDIATYPE_AUDIO];
+	ASSERT_NE(audioSource, nullptr);
+	m_player->SetStreamCaps(eMEDIATYPE_VIDEO, MakeAudioAacCodecInfo());
+	ASSERT_TRUE(audioSource->isAttached());
+
+	m_player->Flush(/*position=*/12.0, /*rate=*/-2, /*shouldTearDown=*/false);
+
+	EXPECT_FALSE(audioSource->state().eos);
+}
+
+/**
+ * @test Reconfiguring with the same audio-on-video-slot content reuses the
+ *       pipeline and sources, and must still resume downloads for the VIDEO
+ *       track.
+ */
+TEST_F(AampRialtoPlayerTest, Configure_AudioCodecOnVideoSlotTwice_ReusesSourcesAndResumesVideoTrack)
+{
+	EXPECT_CALL(*m_mockFactory, createMediaPipeline(_, _)).Times(1);
+
+	m_createSourceCallCount = 0;
+	Configure(FORMAT_AUDIO_ES_AAC, FORMAT_INVALID);
+	ASSERT_NE(m_mockSources[eMEDIATYPE_AUDIO], nullptr);
+
+	::testing::Mock::VerifyAndClearExpectations(g_mockPrivateInstanceAAMP.get());
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, ResumeTrackDownloads(eMEDIATYPE_VIDEO)).Times(1);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, ResumeTrackDownloads(eMEDIATYPE_AUDIO)).Times(0);
+
+	Configure(FORMAT_AUDIO_ES_AAC, FORMAT_INVALID);
+
+	EXPECT_EQ(m_createSourceCallCount, 1);
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_VIDEO], nullptr);
+}
+
+/**
+ * @test The same audio source is reused when AAMP moves the audio from the
+ *       video slot to the audio slot, and downloads are then resumed for
+ *       AUDIO.
+ */
+TEST_F(AampRialtoPlayerTest, Configure_AudioCodecMovesFromVideoSlotToAudioSlot_ResumesAudioTrack)
+{
+	EXPECT_CALL(*m_mockFactory, createMediaPipeline(_, _)).Times(1);
+
+	m_createSourceCallCount = 0;
+	Configure(FORMAT_AUDIO_ES_AAC, FORMAT_INVALID);
+	ASSERT_NE(m_mockSources[eMEDIATYPE_AUDIO], nullptr);
+
+	::testing::Mock::VerifyAndClearExpectations(g_mockPrivateInstanceAAMP.get());
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, ResumeTrackDownloads(eMEDIATYPE_AUDIO)).Times(1);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, ResumeTrackDownloads(eMEDIATYPE_VIDEO)).Times(0);
+
+	Configure(FORMAT_INVALID, FORMAT_AUDIO_ES_AAC);
+
+	EXPECT_EQ(m_createSourceCallCount, 1);
+}
+
+/**
+ * @test Regression guard: with a real video track the audio source is still
+ *       put at EOS at trickplay rates, and VIDEO still routes to the video
+ *       source.
+ */
+TEST_F(AampRialtoPlayerTest, Configure_VideoAndAudio_KeepsTrackRoutingAndTrickplayAudioEos)
+{
+	Configure(FORMAT_VIDEO_ES_H264, FORMAT_AUDIO_ES_AAC);
+	auto *videoSource = m_mockSources[eMEDIATYPE_VIDEO];
+	auto *audioSource = m_mockSources[eMEDIATYPE_AUDIO];
+	ASSERT_NE(videoSource, nullptr);
+	ASSERT_NE(audioSource, nullptr);
+
+	EXPECT_CALL(*videoSource, injectSingleSample(_, _, _)).Times(1).WillOnce(Return(true));
+	EXPECT_CALL(*audioSource, injectSingleSample(_, _, _)).Times(0);
+	EXPECT_TRUE(m_player->SendSample(eMEDIATYPE_VIDEO, MakeSample()));
+
+	m_player->Flush(/*position=*/12.0, /*rate=*/-2, /*shouldTearDown=*/false);
+
+	EXPECT_TRUE(audioSource->state().eos);
+	EXPECT_FALSE(videoSource->state().eos);
 }
 
 // Reconfiguring with the same audio-only formats must reuse the pipeline
@@ -1972,6 +2161,89 @@ TEST_F(AampRialtoPlayerDrmTest,
 			}));
 	SendVideoInitFragment();
 	SendAudioInitFragment(/*encrypted=*/true);
+}
+
+/**
+ * @test Audio-only content carried in the video slot: protection queued by
+ *       manifest stream selection is stored under AUDIO, so the audio source
+ *       must still create a DRM session from it when nothing was queued
+ *       under VIDEO.
+ */
+TEST_F(AampRialtoPlayerDrmTest,
+	AttachAudioSourceOnVideoSlot_ProtectionQueuedUnderAudio_CreatesSession)
+{
+	const uint8_t initData[] = {0x01, 0x02};
+	Configure(FORMAT_AUDIO_ES_AAC, FORMAT_INVALID);
+	m_player->QueueProtectionEvent(
+		"com.widevine.alpha", initData, sizeof(initData), eMEDIATYPE_AUDIO);
+
+	EXPECT_CALL(*m_mockDrmBridge, createSession(_, _, _, eMEDIATYPE_AUDIO))
+		.WillOnce(Return(10));
+	EXPECT_CALL(*m_mockPipelinePtr, attachSource(_))
+		.WillOnce(Invoke(
+			[this](const std::unique_ptr<
+				firebolt::rialto::IMediaPipeline::MediaSource> &src)
+			{
+				EXPECT_TRUE(src->getHasDrm());
+				const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
+					*src).setId(m_nextSourceId++);
+				return true;
+			}));
+
+	SendEncryptedAudioInitFragmentOnVideoSlot();
+}
+
+/**
+ * @test Audio-only content carried in the video slot: protection forwarded
+ *       by the demuxer is stored under VIDEO, and must be used for the audio
+ *       source.
+ */
+TEST_F(AampRialtoPlayerDrmTest,
+	AttachAudioSourceOnVideoSlot_ProtectionQueuedUnderVideo_CreatesSession)
+{
+	const uint8_t initData[] = {0x01, 0x02};
+	Configure(FORMAT_AUDIO_ES_AAC, FORMAT_INVALID);
+	m_player->QueueProtectionEvent(
+		"com.widevine.alpha", initData, sizeof(initData), eMEDIATYPE_VIDEO);
+
+	EXPECT_CALL(*m_mockDrmBridge, createSession(_, _, _, eMEDIATYPE_VIDEO))
+		.WillOnce(Return(10));
+	EXPECT_CALL(*m_mockPipelinePtr, attachSource(_))
+		.WillOnce(Invoke(
+			[this](const std::unique_ptr<
+				firebolt::rialto::IMediaPipeline::MediaSource> &src)
+			{
+				EXPECT_TRUE(src->getHasDrm());
+				const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
+					*src).setId(m_nextSourceId++);
+				return true;
+			}));
+
+	SendEncryptedAudioInitFragmentOnVideoSlot();
+}
+
+/**
+ * @test When protection exists under both AUDIO (manifest) and VIDEO
+ *       (demuxer), the AAMP track's entry (VIDEO) is used.
+ */
+TEST_F(AampRialtoPlayerDrmTest,
+	AttachAudioSourceOnVideoSlot_ProtectionUnderBoth_PrefersVideoEntry)
+{
+	const uint8_t manifestInitData[] = {0x0A};
+	const uint8_t demuxerInitData[] = {0x0B, 0x0C};
+	Configure(FORMAT_AUDIO_ES_AAC, FORMAT_INVALID);
+	m_player->QueueProtectionEvent(
+		"com.widevine.alpha", manifestInitData, sizeof(manifestInitData), eMEDIATYPE_AUDIO);
+	m_player->QueueProtectionEvent(
+		"com.widevine.alpha", demuxerInitData, sizeof(demuxerInitData), eMEDIATYPE_VIDEO);
+
+	EXPECT_CALL(*m_mockDrmBridge,
+		createSession(_, _, sizeof(demuxerInitData), eMEDIATYPE_VIDEO))
+		.WillOnce(Return(10));
+	EXPECT_CALL(*m_mockDrmBridge, createSession(_, _, _, eMEDIATYPE_AUDIO))
+		.Times(0);
+
+	SendEncryptedAudioInitFragmentOnVideoSlot();
 }
 
 TEST_F(AampRialtoPlayerDrmTest,

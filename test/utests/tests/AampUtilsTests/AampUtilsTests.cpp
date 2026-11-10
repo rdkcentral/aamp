@@ -120,6 +120,27 @@ TEST(_AampUtils, aamp_ResolveURL1)
 	std::string base; 
 	aamp_ResolveURL(dst, base, uri, true);
 }
+
+TEST(_AampUtils, aamp_ResolveURL_BaseWithoutProtocol_DoesNotCrash)
+{
+	// A base with no "scheme://" (e.g. a URL string read while being overwritten) used to
+	// dereference a NULL pointer; it must now be rejected, leaving dst unchanged
+	const char* uri = "segment_1.ts";
+	std::string dst;
+
+	dst = "unchanged";
+	aamp_ResolveURL(dst, "example.com/live/playlist.m3u8", uri, false);
+	EXPECT_EQ(dst, "unchanged");
+
+	dst = "unchanged";
+	aamp_ResolveURL(dst, "https:/example.com/live/playlist.m3u8", uri, false);
+	EXPECT_EQ(dst, "unchanged");
+
+	dst = "unchanged";
+	aamp_ResolveURL(dst, std::string("\0ttps://example.com/live/playlist.m3u8", 38), uri, false);
+	EXPECT_EQ(dst, "unchanged");
+}
+
 TEST(_AampUtils, aamp_IsAbsoluteURL)
 {
 	bool result;

@@ -789,7 +789,7 @@ protected:
 			{
 				if (!mMediaStreamContext[i])
 				{
-					mMediaStreamContext[i] = new MediaStreamContext(
+					mMediaStreamContext[i] = std::make_unique<MediaStreamContext>(
 						(TrackType)i, this, aamp,
 						GetMediaTypeName(AampMediaType(i)));
 					mMediaStreamContext[i]->enabled = false;
@@ -832,7 +832,7 @@ protected:
 
 		MediaStreamContext* GetMediaStreamContextForTest(int trackIdx)
 		{
-			return mMediaStreamContext[trackIdx];
+			return mMediaStreamContext[trackIdx].get();
 		}
 
 		AAMPStatusType CallResolveAdaptationSetForTrack(MediaStreamContext *pMediaStreamContext, IPeriod *period)
