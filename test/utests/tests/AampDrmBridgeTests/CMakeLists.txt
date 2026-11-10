@@ -45,9 +45,9 @@ if(COVERAGE_ENABLED)
 endif()
 
 target_link_libraries(${EXEC_NAME}
-	${GLIB_LINK_LIBRARIES}
 	fakes
 	-pthread
+	${GLIB_LINK_LIBRARIES}
 	${OS_LD_FLAGS}
 	${GMOCK_LINK_LIBRARIES}
 	${GTEST_LINK_LIBRARIES}
