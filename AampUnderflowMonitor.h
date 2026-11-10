@@ -136,6 +136,26 @@ public:
      */
     void NotifyRateChange(float rate);
 
+    /**
+     * @fn NotifyDiscontinuityStart
+     * @brief Disarm the deadline while a discontinuity is being processed.
+     *
+     * During discontinuity processing the injector is stopped and the pipeline
+     * is reconfigured/flushed, so no new video fragments are queued for a short
+     * window.  Without disarming, the pending deadline could expire and declare
+     * a spurious underflow.  Call NotifyDiscontinuityComplete() once processing
+     * has finished to re-arm the deadline.
+     */
+    void NotifyDiscontinuityStart();
+
+    /**
+     * @fn NotifyDiscontinuityComplete
+     * @brief Re-arm the deadline after discontinuity processing has completed.
+     * @param[in] endPosition  Latest known end-of-buffer position (seconds).
+     * @param[in] playRate     Current play rate.
+     */
+    void NotifyDiscontinuityComplete(double endPosition, float playRate);
+
 private:
     /**
      * @fn Run

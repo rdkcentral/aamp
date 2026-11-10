@@ -1168,6 +1168,7 @@ bool AAMPGstPlayer::Discontinuity(AampMediaType type)
 
 	else if(shouldHaltBuffering)
 	{
+AAMPLOG_WARN("AampUnderflowMonitor DBG StopBuffering(true)");		
 		StopBuffering(true);
 		// Disarm the underflow monitor during codec-change EOS/flush sequence.
 		// GstPlayer_SignalEOS() has been sent; no video fragments will arrive until
@@ -1176,6 +1177,7 @@ bool AAMPGstPlayer::Discontinuity(AampMediaType type)
 		// from being processed and AAMP_EVENT_STATE_CHANGED: COMPLETE from ever firing.
 		if (ISCONFIGSET(eAAMPConfig_EnableAampUnderflowMonitor) && aamp->mpStreamAbstractionAAMP)
 		{
+AAMPLOG_WARN("AampUnderflowMonitor DBG NotifyPipelinePausedToUnderflowMonitor");		
 			aamp->mpStreamAbstractionAAMP->NotifyPipelinePausedToUnderflowMonitor();
 		}
 	}

@@ -3773,6 +3773,12 @@ bool PrivateInstanceAAMP::ProcessPendingDiscontinuity()
 
 		if (continueDiscontProcessing)
 		{
+			// Disarm the underflow monitor for the duration of discontinuity
+			// processing.  Injection is stopped and the pipeline reconfigured/
+			// flushed below, so no new video fragments are queued during this
+			// window; a pending deadline would otherwise fire a false underflow.
+			mpStreamAbstractionAAMP->NotifyDiscontinuityStartToUnderflowMonitor();
+
 			// mStreamLock is not exactly required here, this will be called from Scheduler/GMainLoop based on AAMP config
 			// The same thread will be executing operations involving TeardownStream.
 			mpStreamAbstractionAAMP->StopInjection();
@@ -3846,6 +3852,10 @@ bool PrivateInstanceAAMP::ProcessPendingDiscontinuity()
 				sink->Stream();
 			}
 			mIsTrackIdMismatch = false;
+
+			// Discontinuity processing complete and injection restarted; re-arm
+			// the underflow monitor to resume normal underflow detection.
+			mpStreamAbstractionAAMP->NotifyDiscontinuityCompleteToUnderflowMonitor(rate);
 		}
 		else
 		{
