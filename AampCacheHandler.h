@@ -226,7 +226,7 @@ public:
 		}
 		else if( Find(url) )
 		{ // should never happen - caller has no business downloading if already cached
-			AAMPLOG_ERR("%s %s already cached", GetMediaTypeName(mediaType), url.c_str());
+			AAMPLOG_INFO("%s %s already cached", GetMediaTypeName(mediaType), url.c_str());
 		}
 		else
 		{

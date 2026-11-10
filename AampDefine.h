@@ -109,9 +109,11 @@
 #define MAX_WAIT_TIMEOUT_MS	200				/**< Max Timeout duration for wait until cache is available to inject next*/
 #define MAX_INIT_FRAGMENT_CACHE_PER_TRACK  5       		/**< Max No Of cached Init fragments per track */
 #define MIN_SEG_DURATION_THRESHOLD	(0.25)			/**< Min Segment Duration threshold for pushing to pipeline at period End*/
+#define AAMP_VOD_SPLICE_SNAP_TOLERANCE_SEC (0.1)	/**< VOD ad splice points within this of a segment boundary snap to the nearest such boundary */
 #define MAX_CURL_SOCK_STORE		10			/**< Maximum no of host to be maintained in curl store*/
 #define DEFAULT_AD_FULFILLMENT_TIMEOUT 2000	/**< Default Ad fulfillment timeout in milliseconds */
 #define MAX_AD_FULFILLMENT_TIMEOUT 5000	/**< Max Ad fulfillment timeout in milliseconds */
+#define DEFAULT_VOD_ADBREAK_LOOKAHEAD_SEC 5	/**< Default VOD ad-break lookahead in seconds; event fired this many seconds before the insertion point */
 
 #define AAMP_TRACK_COUNT 4		/**< internal use - audio+video+sub+aux track */
 #define DEFAULT_CURL_INSTANCE_COUNT (AAMP_TRACK_COUNT + 1) /**< One for Manifest/Playlist + Number of tracks */

@@ -19,6 +19,7 @@
 
 #include "admanager_mpd.h"
 #include "MockAdManager.h"
+#include <limits>
 
 MockPrivateCDAIObjectMPD *g_MockPrivateCDAIObjectMPD = nullptr;
 
@@ -39,8 +40,10 @@ void CDAIObjectMPD::SetAlternateContents(const std::string &adBreakId, const std
     }
 }
 
-PrivateCDAIObjectMPD::PrivateCDAIObjectMPD(PrivateInstanceAAMP* aamp) : mAamp(aamp),mDaiMtx(), mIsFogTSB(false), mAdBreaks(), mPeriodMap(), mCurPlayingBreakId(), mAdObjThreadID(), mCurAds(nullptr),
-					mCurAdIdx(-1), mContentSeekOffset(0), mAdState(AdState::OUTSIDE_ADBREAK),mPlacementObj(), mAdFulfillObj(),mAdtoInsertInNextBreakVec(),mAdBrkVecMtx()
+PrivateCDAIObjectMPD::PrivateCDAIObjectMPD(PrivateInstanceAAMP* aamp) : mAamp(aamp), mDaiMtx(), mIsFogTSB(false), mAdBreaks(), mPeriodMap(), mCurPlayingBreakId(), mAdObjThreadID(), mCurAds(nullptr),
+					mCurAdIdx(-1), mAdFulfillObj(), mPlacementObj(), mContentSeekOffset(0), mAdState(AdState::OUTSIDE_ADBREAK), currentAdPeriodClosed(false), mAdtoInsertInNextBreakVec(), mAdBrkVecMtx(),
+					mWaitForManifestUpdate(0), mVodAdBreaks(), mVodAdBreakOrder(), mNextVodBreakToCheck(std::numeric_limits<double>::max()), mVodResumeOffset(0.0), mVodManifestStitched(false),
+				mBaseMPDParseHelper(nullptr), mBaseMPDHelperMtx()
 {
 }
 
@@ -127,6 +130,10 @@ void PrivateCDAIObjectMPD::AbortWaitForNextAdResolved()
 {
 }
 
+void PrivateCDAIObjectMPD::WaitForAdFulfilmentIdle()
+{
+}
+
 
 bool PrivateCDAIObjectMPD::WaitForNextAdResolved(int timeoutMs, std::string periodId)
 {
@@ -156,6 +163,11 @@ bool PrivateCDAIObjectMPD::AreAllAdsResolved(const std::string& periodId)
 	return false;
 }
 
+bool PrivateCDAIObjectMPD::AreAllVodAdsResolved()
+{
+	return true;
+}
+
 void PrivateCDAIObjectMPD::SetBaseMPDParseHelper(AampMPDParseHelperPtr helper)
 {
 }
@@ -173,5 +185,53 @@ void CDAIObjectMPD::NotifyReservationComplete(const std::string& reservationId)
 }
 
 void CDAIObjectMPD::CancelReservation(const std::string& cancelAtReservationId)
+{
+}
+
+void CDAIObjectMPD::RegisterVodAdBreak(const std::string &breakId, double insertionPointSec,
+                                       double breakDurationSec, const std::string &breakType)
+{
+}
+
+void CDAIObjectMPD::CancelVodAdBreak(const std::string &breakId)
+{
+}
+
+void PrivateCDAIObjectMPD::RegisterVodAdBreak(const VodAdBreakInfo &info)
+{
+}
+
+void PrivateCDAIObjectMPD::CancelVodAdBreak(const std::string &breakId)
+{
+}
+
+void PrivateCDAIObjectMPD::CheckVodAdBreakLookahead(double positionSec, double lookaheadSec)
+{
+}
+
+bool PrivateCDAIObjectMPD::CheckVodAdBreakCrossing(double positionSec, const std::string &currentPeriodId)
+{
+	return false;
+}
+
+void PrivateCDAIObjectMPD::MarkVodAdBreakCompleted(const std::string &breakId)
+{
+}
+
+bool PrivateCDAIObjectMPD::IsVodAdBreak(const std::string &breakId) const
+{
+	return false;
+}
+
+double CDAIObjectMPD::GetVirtualPosition(double sourcePositionSec)
+{
+	return sourcePositionSec;
+}
+
+void PrivateCDAIObjectMPD::CheckVodStitchedAdEvents(double positionMs)
+{
+}
+
+void PrivateCDAIObjectMPD::ResetVodAdEventTracker()
 {
 }

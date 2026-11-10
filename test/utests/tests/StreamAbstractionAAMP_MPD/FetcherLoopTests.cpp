@@ -280,7 +280,8 @@ protected:
 			{eAAMPConfig_StallTimeoutMS, DEFAULT_STALL_DETECTION_TIMEOUT},
 			{eAAMPConfig_AdFulfillmentTimeout, DEFAULT_AD_FULFILLMENT_TIMEOUT},
 			{eAAMPConfig_AdFulfillmentTimeoutMax, MAX_AD_FULFILLMENT_TIMEOUT},
-			{eAAMPConfig_MaxFragmentChunkCached, DEFAULT_CACHED_FRAGMENT_CHUNKS_PER_TRACK}
+			{eAAMPConfig_MaxFragmentChunkCached, DEFAULT_CACHED_FRAGMENT_CHUNKS_PER_TRACK},
+			{eAAMPConfig_VodAdBreakLookaheadSec, DEFAULT_VOD_ADBREAK_LOOKAHEAD_SEC}
 		};
 
 	IntConfigSettings mIntConfigSettings;
@@ -835,6 +836,8 @@ TEST_F(FetcherLoopTests, BasicFetcherLoop)
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
 		.Times(AnyNumber())
 		.WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetPositionMilliseconds())
+		.WillRepeatedly(Return(0));
 
 	/* Invoke the fetcher loop. */
 	mTestableStreamAbstractionAAMP_MPD->InvokeInitializeWorkers();
@@ -1085,6 +1088,11 @@ TEST_F(FetcherLoopTests, FetcherLoopSkipsAdvanceTrackWhenExceedsLiveEdge)
 
 	status = InitializeMPD(mLiveManifest, eTUNETYPE_SEEK, 0.0);
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
+
+	// Override: this test exercises the live-edge suppression path, so IsLiveStream() must return true.
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLiveStream())
+		.Times(AnyNumber())
+		.WillRepeatedly(Return(true));
 
 	mTestableStreamAbstractionAAMP_MPD->InvokeInitializeWorkers();
 

@@ -291,6 +291,15 @@ void PrivateInstanceAAMP::CancelReservation(const std::string& cancelAtReservati
 
 }
 
+void PrivateInstanceAAMP::RegisterVodAdBreak(const std::string &breakId, double insertionPointSec,
+                                             double breakDurationSec, const std::string &breakType)
+{
+}
+
+void PrivateInstanceAAMP::CancelVodAdBreak(const std::string &breakId)
+{
+}
+
 void PrivateInstanceAAMP::LogPlayerPreBuffered(void)
 {
 }

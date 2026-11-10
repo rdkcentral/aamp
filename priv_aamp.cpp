@@ -2156,6 +2156,12 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 			}
 			DeliverAdEvents(false, position); // use progress reporting as trigger to belatedly deliver ad events
 			ReportAdProgress(position);
+			{
+				CDAIObjectMPD *cdaiMpd = dynamic_cast<CDAIObjectMPD *>(mCdaiObject);
+				PrivateCDAIObjectMPD *cdaiPriv = cdaiMpd ? cdaiMpd->GetPrivateCDAIObjectMPD() : nullptr;
+				if (cdaiPriv && cdaiPriv->mVodManifestStitched)
+					cdaiPriv->CheckVodStitchedAdEvents(position);
+			}
 
 			if(ISCONFIGSET_PRIV(eAAMPConfig_ReportVideoPTS))
 			{
@@ -5100,6 +5106,12 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 		std::lock_guard<std::mutex> lock(mAdEventQMtx);
 		std::swap( mAdEventsQ, emptyEvQ );
 	}
+	{
+		CDAIObjectMPD *cdaiMpd = dynamic_cast<CDAIObjectMPD *>(mCdaiObject);
+		PrivateCDAIObjectMPD *cdaiPriv = cdaiMpd ? cdaiMpd->GetPrivateCDAIObjectMPD() : nullptr;
+		if (cdaiPriv && cdaiPriv->mVodManifestStitched)
+			cdaiPriv->ResetVodAdEventTracker();
+	}
 }
 
 /**
@@ -5472,6 +5484,26 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			if (NULL == mCdaiObject)
 			{
 				mCdaiObject = new CDAIObjectMPD(this); // special version for DASH
+				// Replay any RegisterVodAdBreak calls that arrived before mCdaiObject was created.
+				for (auto &brk : mPendingVodAdBreaks)
+				{
+					AAMPLOG_INFO("[AAMP] Replaying pending VOD ad break registration id=%s", brk.breakId.c_str());
+					mCdaiObject->RegisterVodAdBreak(brk.breakId, brk.insertionPointSec,
+					                               brk.breakDurationSec, brk.breakType);
+				}
+				mPendingVodAdBreaks.clear();
+				// Replay any SetAlternateContents calls that arrived before mCdaiObject was created.
+				std::vector<PendingAlternateContents> pendingAC;
+				{
+					std::lock_guard<std::recursive_mutex> guard(mLock);
+					pendingAC.swap(mPendingAlternateContents);
+				}
+				for (auto &ac : pendingAC)
+				{
+					AAMPLOG_INFO("[AAMP] Replaying pending SetAlternateContents breakId=%s adId=%s",
+					             ac.adBreakId.c_str(), ac.adId.c_str());
+					mCdaiObject->SetAlternateContents(ac.adBreakId, ac.adId, ac.url);
+				}
 			}
 		}
 		else
@@ -8019,6 +8051,8 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 	}
 
 	SAFE_DELETE(mCdaiObject);
+	mPendingVodAdBreaks.clear();
+	mPendingAlternateContents.clear();
 
 #if 0
 	/* Clear the session data*/
@@ -8889,6 +8923,50 @@ void PrivateInstanceAAMP::CancelReservation(const std::string& cancelAtReservati
 }
 
 /**
+ * @brief Register a VOD ad-break insertion point
+ */
+void PrivateInstanceAAMP::RegisterVodAdBreak(const std::string &breakId, double insertionPointSec,
+                                             double breakDurationSec, const std::string &breakType)
+{
+	if (mCdaiObject)
+	{
+		mCdaiObject->RegisterVodAdBreak(breakId, insertionPointSec, breakDurationSec, breakType);
+	}
+	else
+	{
+		// mCdaiObject is created during TuneHelper; buffer the registration for replay at tune time.
+		AAMPLOG_INFO("[AAMP] CDAIObject not yet created; queuing VOD ad break id=%s for replay at tune", breakId.c_str());
+		mPendingVodAdBreaks.push_back({breakId, insertionPointSec, breakDurationSec, breakType});
+	}
+}
+
+/**
+ * @brief Cancel a registered VOD ad-break that has not yet started
+ */
+void PrivateInstanceAAMP::CancelVodAdBreak(const std::string &breakId)
+{
+	if (mCdaiObject)
+	{
+		mCdaiObject->CancelVodAdBreak(breakId);
+	}
+	else
+	{
+		// Remove from the pending queue if the break has not yet been forwarded to mCdaiObject.
+		auto it = std::remove_if(mPendingVodAdBreaks.begin(), mPendingVodAdBreaks.end(),
+			[&breakId](const PendingVodAdBreak &b) { return b.breakId == breakId; });
+		if (it != mPendingVodAdBreaks.end())
+		{
+			AAMPLOG_INFO("[AAMP] CancelVodAdBreak id=%s: removed from pending queue", breakId.c_str());
+			mPendingVodAdBreaks.erase(it, mPendingVodAdBreaks.end());
+		}
+		else
+		{
+			AAMPLOG_WARN("[AAMP] CDAIObject not set. Cannot cancel VOD ad break id=%s", breakId.c_str());
+		}
+	}
+}
+
+/**
  * @brief updates download metrics to VideoStat object, this is used for VideoFragment as it takes duration for calculation purpose.
  */
 void PrivateInstanceAAMP::UpdateVideoEndMetrics(AampMediaType mediaType, BitsPerSecond bitrate, int curlOrHTTPCode, std::string& strUrl, double duration, double curlDownloadTime, bool keyChanged, bool isEncrypted, ManifestData * manifestData)
@@ -9693,9 +9771,19 @@ void PrivateInstanceAAMP::FoundEventBreak(const std::string &adBreakId, uint64_t
  */
 void PrivateInstanceAAMP::SetAlternateContents(const std::string &adBreakId, const std::string &adId, const std::string &url)
 {
-	if(ISCONFIGSET_PRIV(eAAMPConfig_EnableClientDai) && mCdaiObject)
+	if(ISCONFIGSET_PRIV(eAAMPConfig_EnableClientDai))
 	{
-		mCdaiObject->SetAlternateContents(adBreakId, adId, url);
+		if (mCdaiObject)
+		{
+			mCdaiObject->SetAlternateContents(adBreakId, adId, url);
+		}
+		else
+		{
+			AAMPLOG_INFO("[CDAI] SetAlternateContents queued pre-tune for breakId=%s adId=%s",
+				adBreakId.c_str(), adId.c_str());
+			std::lock_guard<std::recursive_mutex> guard(mLock);
+			mPendingAlternateContents.push_back({adBreakId, adId, url});
+		}
 	}
 	else
 	{
