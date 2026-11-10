@@ -98,7 +98,7 @@ public:
 	// Provide overrides for pure virtuals - this is just to keep the compiler happy
 	void ProcessPlaylist(std::vector<uint8_t>&, int) override {};
 	std::string& GetPlaylistUrl() override { return mFakeStr; };
-	std::string& GetEffectivePlaylistUrl() override { return mFakeStr; };
+	std::string GetEffectivePlaylistUrl() override { return mFakeStr; };
 	void SetEffectivePlaylistUrl(std::string) override {};
 	long long GetLastPlaylistDownloadTime() override { return 0; };
 	long GetMinUpdateDuration() override { return 0; };

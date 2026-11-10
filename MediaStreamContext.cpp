@@ -595,7 +595,7 @@ std::string& MediaStreamContext::GetPlaylistUrl()
 /**
  * @brief Returns the MPD original playlist URL
  */
-std::string& MediaStreamContext::GetEffectivePlaylistUrl()
+std::string MediaStreamContext::GetEffectivePlaylistUrl()
 {
 	return mEffectiveUrl;
 }
