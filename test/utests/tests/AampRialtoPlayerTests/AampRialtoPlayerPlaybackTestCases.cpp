@@ -1409,3 +1409,50 @@ TEST_F(AampRialtoPlayerWithDemuxTest, Stop_DuringPipelineCall_KeepsPipelineAlive
 	EXPECT_TRUE(pipelineDestroyed->load())
 		<< "pipeline must be released once the in-flight call has returned";
 }
+
+/**
+ * @test FlushDuringPreRollPause_SourcesStayGated
+ */
+TEST_F(AampRialtoPlayerPreRollTest, FlushDuringPreRollPause_SourcesStayGated)
+{
+	/**
+	 * @brief A Flush() that starts while pre-roll is pausing the pipeline
+	 *        gates the sources for the seek.  Pre-roll must not ungate them
+	 *        afterwards: data sent before SEEK_DONE would be stale.  The
+	 *        flush is started from inside pause() and given time to finish;
+	 *        it must instead wait until pre-roll's step has finished, and
+	 *        then gate the sources.
+	 */
+	ON_CALL(*m_mockPipelinePtr, setPosition(_)).WillByDefault(Return(true));
+	std::future<void> flusher;
+	bool flushFinishedDuringPause = false;
+	EXPECT_CALL(*m_mockPipelinePtr, pause())
+		.WillOnce(Invoke([&]
+		{
+			flusher = std::async(std::launch::async, [this]
+			{
+				m_player->Flush(/*position=*/10.0, /*rate=*/1,
+					/*shouldTearDown=*/false);
+			});
+			flushFinishedDuringPause =
+				(flusher.wait_for(std::chrono::milliseconds(200)) ==
+					std::future_status::ready);
+			return true;
+		}))
+		.WillRepeatedly(Return(true));
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).Times(0);
+
+	TuneAndStream();
+	ASSERT_TRUE(flusher.valid());
+	ASSERT_EQ(flusher.wait_for(std::chrono::seconds(5)), std::future_status::ready);
+
+	EXPECT_FALSE(flushFinishedDuringPause);
+	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
+	EXPECT_NE(m_mockSources[eMEDIATYPE_VIDEO]->state().gateMode,
+		AampRialtoMediaSource::GateMode::NONE);
+	EXPECT_NE(m_mockSources[eMEDIATYPE_AUDIO]->state().gateMode,
+		AampRialtoMediaSource::GateMode::NONE);
+
+	// Complete the seek so the player is not torn down mid-flush.
+	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
+}

@@ -22,8 +22,10 @@ package "Question 1: may play() be issued?\n(AampRialtoPlaybackController)" {
   rectangle "Play request\n(AAMP called Stream() /\nRequestPlay())" as REQ
   rectangle "Holds (bit set)\nSourcesNotAttached\nFlushing\nPositionPending\nFragmentCaching\nPreRollIncomplete" as HOLDS
   rectangle "Play action fires once when\nrequest outstanding AND no hold set\n-> AampRialtoPlayer::IssuePlay()" as FIRE
+  rectangle "Pre-roll action fires once when\nrequest outstanding AND only\nPreRollIncomplete set\n-> AampRialtoPlayer::StartPreRoll()" as PREROLL
   REQ --> FIRE
   HOLDS --> FIRE : all must be clear
+  HOLDS --> PREROLL : only PreRollIncomplete
 }
 
 package "Question 2: may a sample reach Rialto?\n(AampRialtoMediaSource, one per track)" {
@@ -45,6 +47,7 @@ package "Question 4: whose position is it?\n(deferred flush election)" {
 }
 
 FIRE ..> GATE : IssuePlay() calls\nUngateAllSources() then play()
+PREROLL ..> GATE : pause() then UngateAllSources(),\nvia RunIfPreRollCurrent()
 CLAIM ..> HOLDS : Flush() releases PositionPending,\nadds then (at SEEK_DONE) releases Flushing
 CLAIM ..> GATE : Flush(): unblockInjection (DROPPED)\nthen gateInjection(true) (BLOCKED)
 ST ..> HOLDS : FLUSHING <=> Flushing hold set
@@ -52,7 +55,10 @@ ST ..> HOLDS : FLUSHING <=> Flushing hold set
 note bottom
   Configure() gates every new source (BLOCKED) so early needData cannot slip
   samples in before the position is known.  Ungating happens only where the
-  controller issues play() (and in a few explicit resume paths); a late
-  PLAYING notification deliberately does not ungate.
+  controller issues play() or starts pre-roll (and in a few explicit resume
+  paths); a late PLAYING notification deliberately does not ungate.  Both
+  run under the controller's play lock, so a Flush() cannot add its hold
+  (and gate) part-way through; a pre-roll whose episode a hold has already
+  ended does nothing.
 end note
 @enduml

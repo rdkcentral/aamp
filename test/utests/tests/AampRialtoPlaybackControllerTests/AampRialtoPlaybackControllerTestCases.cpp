@@ -421,10 +421,11 @@ protected:
 	{
 		m_controller = std::make_unique<AampRialtoPlaybackController>(
 			[this](const char *) { ++m_playCount; },
-			[this](const char *reason)
+			[this](const char *reason, uint64_t episode)
 			{
 				++m_preRollCount;
 				m_lastPreRollReason = (reason != nullptr) ? reason : "";
+				m_lastPreRollEpisode = episode;
 			});
 	}
 
@@ -440,6 +441,7 @@ protected:
 	int m_playCount{0};
 	int m_preRollCount{0};
 	std::string m_lastPreRollReason;
+	uint64_t m_lastPreRollEpisode{0};
 };
 
 /**
@@ -698,6 +700,125 @@ TEST(AampRialtoPlaybackControllerDispatchTest,
 }
 
 /**
+ * @test RunIfPreRollCurrent_CurrentEpisode_RunsStep
+ * @brief A step for the episode just started runs, and may call back into
+ *        the controller (here: releasing the pre-roll hold issues play()).
+ */
+TEST_F(AampRialtoPlaybackControllerPreRollTest,
+	RunIfPreRollCurrent_CurrentEpisode_RunsStep)
+{
+	HoldOnlyPreRoll();
+	m_controller->RequestPlay("Stream");
+	ASSERT_EQ(m_preRollCount, 1);
+
+	bool ran = false;
+	EXPECT_TRUE(m_controller->RunIfPreRollCurrent(m_lastPreRollEpisode, [&]
+	{
+		ran = true;
+		m_controller->ReleaseHold(PlayHold::PreRollIncomplete, "complete");
+	}));
+
+	EXPECT_TRUE(ran);
+	EXPECT_EQ(m_playCount, 1);
+}
+
+/**
+ * @test RunIfPreRollCurrent_AfterFlushHold_SkipsStep
+ * @brief A Flush() hold added after the pre-roll action was started ends the
+ *        episode, so the action's later steps (ungating sources, releasing
+ *        the pre-roll hold) are not applied.
+ */
+TEST_F(AampRialtoPlaybackControllerPreRollTest,
+	RunIfPreRollCurrent_AfterFlushHold_SkipsStep)
+{
+	HoldOnlyPreRoll();
+	m_controller->RequestPlay("Stream");
+	ASSERT_EQ(m_preRollCount, 1);
+	const uint64_t episode = m_lastPreRollEpisode;
+
+	m_controller->AddHold(PlayHold::Flushing, "Flush");
+
+	bool ran = false;
+	EXPECT_FALSE(m_controller->RunIfPreRollCurrent(episode, [&] { ran = true; }));
+	EXPECT_FALSE(ran);
+	EXPECT_TRUE(m_controller->IsHeld(PlayHold::PreRollIncomplete));
+}
+
+/**
+ * @test RunIfPreRollCurrent_EndedEpisode_StaysEndedAfterNewOne
+ * @brief Once the flush completes a new episode starts; a step for the old
+ *        one is still refused while one for the new episode runs.
+ */
+TEST_F(AampRialtoPlaybackControllerPreRollTest,
+	RunIfPreRollCurrent_EndedEpisode_StaysEndedAfterNewOne)
+{
+	HoldOnlyPreRoll();
+	m_controller->RequestPlay("Stream");
+	const uint64_t oldEpisode = m_lastPreRollEpisode;
+	m_controller->AddHold(PlayHold::Flushing, "Flush");
+	m_controller->ReleaseHold(PlayHold::Flushing, "SEEK_DONE");
+	ASSERT_EQ(m_preRollCount, 2);
+	const uint64_t newEpisode = m_lastPreRollEpisode;
+	ASSERT_NE(newEpisode, oldEpisode);
+
+	EXPECT_FALSE(m_controller->RunIfPreRollCurrent(oldEpisode, [] {}));
+	EXPECT_TRUE(m_controller->RunIfPreRollCurrent(newEpisode, [] {}));
+}
+
+/**
+ * @test RunIfPreRollCurrent_AfterReset_SkipsStep
+ */
+TEST_F(AampRialtoPlaybackControllerPreRollTest, RunIfPreRollCurrent_AfterReset_SkipsStep)
+{
+	HoldOnlyPreRoll();
+	m_controller->RequestPlay("Stream");
+	const uint64_t episode = m_lastPreRollEpisode;
+
+	m_controller->Reset("Stop");
+
+	EXPECT_FALSE(m_controller->RunIfPreRollCurrent(episode, [] {}));
+}
+
+/**
+ * @test AddHold_WaitsForRunningPreRollStep
+ * @brief A Flush() hold cannot be applied while a pre-roll step is running,
+ *        so the flush gates sources only after the step's ungate, never
+ *        before it.
+ */
+TEST_F(AampRialtoPlaybackControllerPreRollTest, AddHold_WaitsForRunningPreRollStep)
+{
+	HoldOnlyPreRoll();
+	m_controller->RequestPlay("Stream");
+	const uint64_t episode = m_lastPreRollEpisode;
+
+	std::promise<void> stepEntered;
+	std::promise<void> releaseStep;
+	auto release = releaseStep.get_future().share();
+	auto stepper = std::async(std::launch::async, [&]
+	{
+		return m_controller->RunIfPreRollCurrent(episode, [&]
+		{
+			stepEntered.set_value();
+			release.wait();
+		});
+	});
+	stepEntered.get_future().wait();
+	auto flusher = std::async(std::launch::async, [&]
+	{
+		m_controller->AddHold(PlayHold::Flushing, "Flush");
+	});
+
+	// Negative check: AddHold() must still be blocked behind the step.
+	EXPECT_EQ(flusher.wait_for(std::chrono::milliseconds(50)),
+		std::future_status::timeout);
+	releaseStep.set_value();
+	ASSERT_EQ(flusher.wait_for(std::chrono::seconds(5)), std::future_status::ready);
+	ASSERT_EQ(stepper.wait_for(std::chrono::seconds(5)), std::future_status::ready);
+	EXPECT_TRUE(stepper.get());
+	EXPECT_FALSE(m_controller->RunIfPreRollCurrent(episode, [] {}));
+}
+
+/**
  * @test PreRollAction_MayWaitForAnotherThreadUsingTheController
  */
 TEST(AampRialtoPlaybackControllerDispatchTest,
@@ -712,7 +833,7 @@ TEST(AampRialtoPlaybackControllerDispatchTest,
 	std::atomic<int> plays{0};
 	controller = std::make_unique<AampRialtoPlaybackController>(
 		[&](const char *){ ++plays; },
-		[&](const char *)
+		[&](const char *, uint64_t)
 		{
 			std::thread poll([&]{
 				controller->ReleaseHold(PlayHold::PreRollIncomplete, "poll");

@@ -632,6 +632,12 @@ private:
 	/// Declared after m_playbackController, which its completion calls into.
 	std::unique_ptr<AampRialtoPreRollMonitor> m_preRollMonitor;
 
+	/// Controller pre-roll episode the running monitor belongs to; its
+	/// completion releases the hold only while that episode is current.
+	/// Written only from a step that RunIfPreRollCurrent() ran, so it never
+	/// moves back to an ended episode.
+	std::atomic<uint64_t> m_preRollEpisode{0};
+
 	/// True when eAAMPConfig_GStreamerBufferingBeforePlay is set and @p rate
 	/// is normal play rate - the reference only pre-rolls at 1x.
 	bool IsPreRollEnabled(int rate) const;
@@ -643,7 +649,9 @@ private:
 	/// Pause the pipeline, ungate every source and start the pre-roll
 	/// monitor on the primary track.  Invoked by the playback controller when
 	/// only PlayHold::PreRollIncomplete holds an outstanding play request.
-	void StartPreRoll(const char *reason);
+	/// Does nothing once controller pre-roll @p episode has ended (e.g. a
+	/// concurrent Flush() added its hold).
+	void StartPreRoll(const char *reason, uint64_t episode);
 
 	/// Ungate every source and issue play().  Invoked by the playback
 	/// controller once a play request has no remaining holds.

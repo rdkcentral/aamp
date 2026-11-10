@@ -74,8 +74,11 @@ public:
 
 	/// Invoked when a play request is held only by
 	/// PlayHold::PreRollIncomplete, i.e. when it is safe to let data flow
-	/// into Rialto ahead of play().
-	using PreRollAction = std::function<void(const char *reason)>;
+	/// into Rialto ahead of play().  @p episode identifies this entry into
+	/// that condition; pass it to RunIfPreRollCurrent() so that work done
+	/// for it is dropped once the condition has ended.
+	using PreRollAction =
+		std::function<void(const char *reason, uint64_t episode)>;
 
 	/**
 	 * @brief Construct the controller.
@@ -129,6 +132,22 @@ public:
 	/// True while a play request is outstanding.
 	bool IsPlayPending() const;
 
+	/**
+	 * @brief Run @p step only if pre-roll @p episode is still current.
+	 *
+	 * The episode is current while the play request it was started for is
+	 * still held by PlayHold::PreRollIncomplete alone.  @p step runs under
+	 * the play-dispatch lock, as the play action does, so an AddHold(),
+	 * ReleaseHold(), CancelPlayRequest() or Reset() that ends the episode
+	 * cannot return while it runs, and a step for an ended episode never
+	 * runs.  @p step may call back into this object.  It must not wait for
+	 * another thread that uses this object.
+	 *
+	 * @return true if @p step ran.
+	 */
+	bool RunIfPreRollCurrent(uint64_t episode,
+		const std::function<void()> &step);
+
 private:
 	/// Holds applied to a freshly constructed controller and after Reset().
 	static constexpr uint32_t kInitialHolds =
@@ -138,15 +157,17 @@ private:
 	/// Caller must hold m_mutex.
 	bool ClaimPlayLocked();
 
-	/// Decide which actions a state change has made due.  Caller must hold
-	/// m_mutex and invoke the returned actions after releasing it.
-	void EvaluateLocked(bool &issuePlay, bool &startPreRoll);
+	/// Decide which actions a state change has made due, and the pre-roll
+	/// episode a pre-roll action is for.  Caller must hold m_mutex and
+	/// invoke the returned actions after releasing it.
+	void EvaluateLocked(bool &issuePlay, bool &startPreRoll,
+		uint64_t &preRollEpisode);
 
 	/// Invoke the actions chosen by EvaluateLocked().  Caller must NOT
 	/// hold m_mutex.  @p playLock is released before the pre-roll action,
 	/// which may wait on a thread that needs m_playMutex.
-	void Dispatch(bool issuePlay, bool startPreRoll, const char *reason,
-		std::unique_lock<std::recursive_mutex> &playLock);
+	void Dispatch(bool issuePlay, bool startPreRoll, uint64_t preRollEpisode,
+		const char *reason, std::unique_lock<std::recursive_mutex> &playLock);
 
 	PlayAction m_onPlay;
 	PreRollAction m_onPreRollReady;
@@ -171,6 +192,11 @@ private:
 	/// True while the pre-roll-ready condition holds, so the action fires
 	/// once per entry into that condition.  Guarded by m_mutex.
 	bool m_preRollReady;
+
+	/// Bumped on every entry into or exit from the pre-roll-ready condition
+	/// (and by Reset()), identifying the current episode.  Guarded by
+	/// m_mutex.
+	uint64_t m_preRollEpisode;
 };
 
 #endif // AAMP_RIALTO_PLAYBACK_CONTROLLER_H

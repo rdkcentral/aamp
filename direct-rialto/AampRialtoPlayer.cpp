@@ -225,15 +225,28 @@ AampRialtoPlayer::AampRialtoPlayer(
 	, m_session(std::move(controlBackend))
 	, m_playbackController(
 		[this](const char *reason) { IssuePlay(reason); },
-		[this](const char *reason) { StartPreRoll(reason); })
+		[this](const char *reason, uint64_t episode)
+		{
+			StartPreRoll(reason, episode);
+		})
 {
 	m_preRollMonitor = std::make_unique<AampRialtoPreRollMonitor>(
 		AampRialtoPreRollMonitor::Config{
 			kPreRollMinAcceptedFrames, kPreRollPollIntervalMs, kPreRollTimeoutMs},
 		[this]()
 		{
-			m_playbackController.ReleaseHold(PlayHold::PreRollIncomplete,
-				"PreRollComplete");
+			// A monitor left over from an ended episode must not release the
+			// hold a later Flush()/Configure() has re-armed.
+			const uint64_t episode =
+				m_preRollEpisode.load(std::memory_order_acquire);
+			if (!m_playbackController.RunIfPreRollCurrent(episode, [this]
+				{
+					m_playbackController.ReleaseHold(
+						PlayHold::PreRollIncomplete, "PreRollComplete");
+				}))
+			{
+				AAMPLOG_INFO("pre-roll complete for an ended episode - ignored");
+			}
 		});
 
 	if (notifiable == nullptr)
@@ -1340,7 +1353,7 @@ void AampRialtoPlayer::ArmPreRoll(int rate, const char *reason)
 	}
 }
 
-void AampRialtoPlayer::StartPreRoll(const char *reason)
+void AampRialtoPlayer::StartPreRoll(const char *reason, uint64_t episode)
 {
 	// Video carries the reference timeline; audio only for audio-only content.
 	AampMediaType primaryType = eMEDIATYPE_VIDEO;
@@ -1352,28 +1365,48 @@ void AampRialtoPlayer::StartPreRoll(const char *reason)
 	const auto primary = getSource(primaryType);
 	const auto pipeline = GetPipeline();
 
-	if (!pipeline || !primary || !primary->isAttached())
-	{
-		AAMPLOG_WARN("pre-roll skipped (%s) - no pipeline or attached "
-			"primary source", reason);
-		m_playbackController.ReleaseHold(PlayHold::PreRollIncomplete,
-			"PreRoll(skipped)");
-	}
-	else
-	{
-		// The Rialto API does not promise data requests before play(); PAUSED
-		// is the documented non-playing state, as in the reference.  If it is
-		// refused, the timeout still bounds the wait.
-		if (!pipeline->pause())
+	// The controller runs this action with its play lock released, so a
+	// Flush(), Configure() or Stop() may already have ended the episode.
+	// Each step that changes playback runs under that lock, as play() does,
+	// and only while the episode is current; otherwise a stale pre-roll
+	// could ungate sources a flush has just gated, or release the hold the
+	// flush has re-armed.
+	bool started = false;
+	const bool current = m_playbackController.RunIfPreRollCurrent(episode,
+		[&]
 		{
-			AAMPLOG_WARN("pause() failed for pre-roll (%s)", reason);
-		}
+			if (!pipeline || !primary || !primary->isAttached())
+			{
+				AAMPLOG_WARN("pre-roll skipped (%s) - no pipeline or attached "
+					"primary source", reason);
+				m_playbackController.ReleaseHold(PlayHold::PreRollIncomplete,
+					"PreRoll(skipped)");
+				return;
+			}
 
-		// Every other hold is clear, so sources are attached, no flush is in
-		// progress and the position is resolved: Rialto will not treat data
-		// sent now as stale.
-		UngateAllSources("PreRoll");
+			// The Rialto API does not promise data requests before play();
+			// PAUSED is the documented non-playing state, as in the
+			// reference.  If it is refused, the timeout still bounds the
+			// wait.
+			if (!pipeline->pause())
+			{
+				AAMPLOG_WARN("pause() failed for pre-roll (%s)", reason);
+			}
 
+			// Every other hold is clear, so sources are attached, no flush is
+			// in progress and the position is resolved: Rialto will not treat
+			// data sent now as stale.
+			UngateAllSources("PreRoll");
+			m_preRollEpisode.store(episode, std::memory_order_release);
+			started = true;
+		});
+	if (!current)
+	{
+		AAMPLOG_INFO("pre-roll (%s) superseded before it started - skipped",
+			reason);
+	}
+	else if (started)
+	{
 		const int32_t sourceId = primary->sourceId();
 		AampRialtoPreRollMonitor::Probe probe;
 		probe.acceptedFrames = [this, primaryType]()
