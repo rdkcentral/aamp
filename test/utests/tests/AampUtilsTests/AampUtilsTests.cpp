@@ -497,6 +497,50 @@ TEST(_AampUtils, aamp_WriteFile2)
 	EXPECT_TRUE(result);
 }
 
+TEST(_AampUtils, IsTraversalFreePath)
+{
+	EXPECT_TRUE(IsTraversalFreePath(""));
+	EXPECT_TRUE(IsTraversalFreePath("/"));
+	EXPECT_TRUE(IsTraversalFreePath("/opt/aamp"));
+	EXPECT_TRUE(IsTraversalFreePath("host:8080/a/b/seg.ts"));
+	EXPECT_TRUE(IsTraversalFreePath("host/a..b/...ts/.hidden/..x"));
+	EXPECT_TRUE(IsTraversalFreePath("host//a/"));
+	EXPECT_TRUE(IsTraversalFreePath("host/%2e%2e/seg.ts"));
+
+	EXPECT_FALSE(IsTraversalFreePath(".."));
+	EXPECT_FALSE(IsTraversalFreePath("."));
+	EXPECT_FALSE(IsTraversalFreePath("../etc"));
+	EXPECT_FALSE(IsTraversalFreePath("host/../../etc/passwd"));
+	EXPECT_FALSE(IsTraversalFreePath("host/a/.."));
+	EXPECT_FALSE(IsTraversalFreePath("host/./seg.ts"));
+	EXPECT_FALSE(IsTraversalFreePath("/opt/aamp/../../nvram"));
+}
+
+TEST(_AampUtils, aamp_WriteFile_RejectsUrlTraversal)
+{
+	const char *prefix = "harvest_traversal_prefix";
+	const char *escaped = "harvest_traversal_escaped.ts";
+	std::remove(escaped);
+
+	EXPECT_FALSE(aamp_WriteFile("http://host/../../harvest_traversal_escaped.ts", teststr, strlen(teststr), eMEDIATYPE_VIDEO, 0, prefix));
+	EXPECT_FALSE(std::ifstream(escaped).good()) << "file was written outside of the harvest prefix";
+
+	EXPECT_FALSE(aamp_WriteFile("http://host/./seg.ts", teststr, strlen(teststr), eMEDIATYPE_VIDEO, 0, prefix));
+	EXPECT_FALSE(aamp_WriteFile("http://../seg.ts", teststr, strlen(teststr), eMEDIATYPE_VIDEO, 0, prefix));
+	EXPECT_FALSE(aamp_WriteFile("http://host/../../x/master.m3u8?a=b", teststr, strlen(teststr), eMEDIATYPE_MANIFEST, 1, prefix));
+	EXPECT_FALSE(aamp_WriteFile("http://host/../media.m3u8", teststr, strlen(teststr), eMEDIATYPE_PLAYLIST_VIDEO, 1, prefix));
+
+	EXPECT_TRUE(aamp_WriteFile("http://host/a..b/seg.ts", teststr, strlen(teststr), eMEDIATYPE_VIDEO, 0, prefix));
+	EXPECT_TRUE(std::ifstream(std::string(prefix) + "/host/a..b/seg.ts").good());
+}
+
+TEST(_AampUtils, aamp_WriteFile_RejectsUnsafePrefix)
+{
+	EXPECT_FALSE(aamp_WriteFile("http://host/seg.ts", teststr, strlen(teststr), eMEDIATYPE_VIDEO, 0, "harvest_prefix/../.."));
+	EXPECT_FALSE(aamp_WriteFile("http://host/seg.ts", teststr, strlen(teststr), eMEDIATYPE_VIDEO, 0, ""));
+	EXPECT_FALSE(aamp_WriteFile("http://host/seg.ts", teststr, strlen(teststr), eMEDIATYPE_VIDEO, 0, nullptr));
+}
+
 TEST(_AampUtils, getWorkingTrickplayRate)
 {
 	float rate[]        = { 4, 16, 32,  -4, -16, -32, 100};
