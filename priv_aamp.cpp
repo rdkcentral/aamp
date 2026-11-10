@@ -14246,7 +14246,8 @@ void PrivateInstanceAAMP::ProcessID3Metadata(const std::vector<uint8_t>& segment
 
 					if(mMediaFormat == eMEDIAFORMAT_DASH)
 					{
-						ReportID3Metadata(type, message, messageLen, schemeIDUri, (char*)(value), presTime, id, eventDuration, timeScale, GetMediaStreamContext(type)->timeStampOffset);
+						const MediaStreamContext *mediaCtx = GetMediaStreamContext(type);
+						ReportID3Metadata(type, message, messageLen, schemeIDUri, (char*)(value), presTime, id, eventDuration, timeScale, mediaCtx ? mediaCtx->timeStampOffset : timeStampOffset);
 					}else
 					{
 						ReportID3Metadata(type, message, messageLen, schemeIDUri, (char*)(value), presTime, id, eventDuration, timeScale, timeStampOffset);
@@ -14423,15 +14424,17 @@ void PrivateInstanceAAMP::SetCurrentLatencyMs(long currentLatencyMs)
  */
 MediaStreamContext* PrivateInstanceAAMP::GetMediaStreamContext(AampMediaType type)
 {
+	// Only the DASH collector's tracks are MediaStreamContext objects; other
+	// formats' tracks share the MediaTrack base but are different types.
 	if(mpStreamAbstractionAAMP &&
+		mMediaFormat == eMEDIAFORMAT_DASH &&
 		(type == eMEDIATYPE_VIDEO ||
 		 type == eMEDIATYPE_AUDIO ||
 		 type == eMEDIATYPE_SUBTITLE))
 	{
-		MediaStreamContext* context = (MediaStreamContext*)mpStreamAbstractionAAMP->GetMediaTrack((TrackType)type);
-		return context;
+		return static_cast<MediaStreamContext*>(mpStreamAbstractionAAMP->GetMediaTrack((TrackType)type));
 	}
-	return NULL;
+	return nullptr;
 }
 
 /**

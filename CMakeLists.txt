@@ -509,7 +509,7 @@ set(LIBAAMP_SOURCES
 	isobmff/isobmffbuffer.cpp isobmff/isobmffbuffer.h
 	isobmff/isobmffprocessor.cpp isobmff/isobmffprocessor.h
 	isobmff/isobmffhelper.cpp isobmff/isobmffhelper.h
-	MediaStreamContext.cpp MediaStreamContext.h
+	MediaStreamContext.cpp MediaStreamContext.h SegmentIndex.h
 	downloader/AampCurlStore.cpp downloader/AampCurlStore.h downloader/AampCurlDefine.h
 	AampDRMLicPreFetcher.cpp AampDRMLicPreFetcher.h
 	AampCMCDCollector.cpp AampCMCDCollector.h

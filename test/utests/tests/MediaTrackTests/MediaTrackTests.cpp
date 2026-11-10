@@ -1307,7 +1307,7 @@ TEST_F(MediaTrackTests, MPDCallback_Teardown_RaceConditionTest)
 	auto* testMPD = new TestableStreamAbstractionAAMP_MPD(mPrivateInstanceAAMP, 0, 0);
 
 	auto* videoCtx = new MediaStreamContext(eTRACK_VIDEO, testMPD, mPrivateInstanceAAMP, "video");
-	testMPD->mMediaStreamContext[eTRACK_VIDEO] = videoCtx;
+	testMPD->mMediaStreamContext[eTRACK_VIDEO].reset(videoCtx);
 
 	// Precondition: GetMediaTrack() returns the track from the array.
 	ASSERT_EQ(testMPD->GetMediaTrack(eTRACK_VIDEO), static_cast<MediaTrack*>(videoCtx));
@@ -1351,9 +1351,9 @@ TEST_F(MediaTrackTests, MPDCallback_Teardown_RaceConditionTest)
 
 	const int countAfterUnregistering = callbackCount.load(std::memory_order_acquire);
 
-	// FIX 2 validation: The destructor uses SAFE_DELETE(mMediaStreamContext[iTrack]).
+	// FIX 2 validation: The destructor resets mMediaStreamContext[iTrack].
 	// We verify this by calling it and checking the array entry is null afterwards.
-	SAFE_DELETE(testMPD->mMediaStreamContext[eTRACK_VIDEO]);
+	testMPD->mMediaStreamContext[eTRACK_VIDEO].reset();
 
 	//Un-fixed code . If this is uncommented then the test will fail
 	// MediaStreamContext* track = testMPD->mMediaStreamContext[eTRACK_VIDEO];
