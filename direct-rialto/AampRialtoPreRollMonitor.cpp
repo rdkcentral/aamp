@@ -69,12 +69,18 @@ void AampRialtoPreRollMonitor::Start(Probe probe)
 
 	const bool scheduled = m_timer.Start(m_config.pollIntervalMs,
 		[this]() { return Poll(); });
+	// Read before taking m_mutex: a GLib dispatch holds the timer's lock
+	// while Poll() takes m_mutex, so asking the timer under m_mutex could
+	// deadlock against it.  Not scheduled but running means another
+	// thread's Start() won, and its timer serves this probe.
+	const bool startedElsewhere = !scheduled && m_timer.IsRunning();
 
 	bool completeNow = false;
 	{
 		std::lock_guard<std::mutex> lock(m_mutex);
-		// Not scheduled but running means another thread started it first.
-		if (!scheduled && !m_timer.IsRunning() && m_running &&
+		// The epoch check drops this if a later Start() or Stop() has
+		// already taken over since the timer state was read.
+		if (!scheduled && !startedElsewhere && m_running &&
 		    (m_epoch == epoch))
 		{
 			m_running = false;
