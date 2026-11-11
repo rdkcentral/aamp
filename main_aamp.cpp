@@ -1006,7 +1006,14 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 					else
 					{
 						// check if unpausing in the middle of fragments caching
-						if(!aamp->SetStateBufferingIfRequired())
+						const bool bufferingRequired{
+							aamp->SetStateBufferingIfRequired()};
+						AAMPLOG_INFO("SEEK_RESUME resume positionMs=%.0f "
+							"sinkPaused=%d cachingRequired=%d action=%s",
+							formattedCurrPos, aamp->mSinkPaused.load(),
+							bufferingRequired,
+							bufferingRequired ? "WAIT_FOR_CACHE" : "UNPAUSE");
+						if(!bufferingRequired)
 						{
 							aamp->mpStreamAbstractionAAMP->NotifyPlaybackPaused(false);
 							StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(aamp);

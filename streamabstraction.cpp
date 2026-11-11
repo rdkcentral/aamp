@@ -466,6 +466,18 @@ void MediaTrack::UpdateTSAfterFetchStats(CachedFragment* cachedFragment, bool is
 	}
 	currentInitialCacheDurationSeconds += cachedFragment->duration;
 
+	if (eTRACK_VIDEO == type && !cachingCompleted)
+	{
+		AAMPLOG_TRACE("SEEK_RESUME cache track=%s init=%d "
+			"fragmentDurationSec=%.3f cacheDurationSec=%d targetSec=%d "
+			"effectiveRequired=%d completed=%d cachedFragments=%d "
+			"capacity=%zu sinkFull=%d",
+			name, isInitSegment, cachedFragment->duration,
+			currentInitialCacheDurationSeconds, aamp->GetInitialBufferDuration(),
+			aamp->IsFragmentCachingRequired(), cachingCompleted,
+			numberOfFragmentsCached, mCachedFragmentSize, sinkBufferIsFull);
+	}
+
 	if ((eTRACK_VIDEO == type)
 		&& aamp->IsFragmentCachingRequired()
 		&& !cachingCompleted)

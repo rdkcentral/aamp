@@ -2259,6 +2259,10 @@ void AampRialtoPlayer::ResetEOSSignalledFlag()
 void AampRialtoPlayer::NotifyFragmentCachingComplete()
 {
 	AAMPLOG_INFO("ENTRY");
+	AAMPLOG_INFO("SEEK_RESUME rialto-cache-complete pendingPlay=%d "
+		"pipelinePresent=%d state=%d",
+		m_pendingPlayOnFragCaching, m_pipeline != nullptr,
+		static_cast<int>(m_stateMachine.currentState()));
 
 	if (m_pendingPlayOnFragCaching)
 	{
@@ -2266,9 +2270,20 @@ void AampRialtoPlayer::NotifyFragmentCachingComplete()
 		m_pendingPlayOnFragCaching = false;
 		if (m_pipeline)
 		{
+			AAMPLOG_INFO("SEEK_RESUME rialto-cache-complete action=PLAY");
 			bool async = false;
 			m_pipeline->play(async);
 		}
+		else
+		{
+			AAMPLOG_ERR("SEEK_RESUME rialto-cache-complete "
+				"action=NO_PLAY reason=NO_PIPELINE");
+		}
+	}
+	else
+	{
+		AAMPLOG_INFO("SEEK_RESUME rialto-cache-complete "
+			"action=NO_PLAY reason=NOT_PENDING");
 	}
 
 	AAMPLOG_INFO("EXIT");
@@ -2277,6 +2292,10 @@ void AampRialtoPlayer::NotifyFragmentCachingComplete()
 void AampRialtoPlayer::NotifyFragmentCachingOngoing()
 {
 	AAMPLOG_INFO("ENTRY");
+	AAMPLOG_INFO("SEEK_RESUME rialto-cache-ongoing pendingPlayBefore=%d "
+		"pipelinePresent=%d state=%d",
+		m_pendingPlayOnFragCaching, m_pipeline != nullptr,
+		static_cast<int>(m_stateMachine.currentState()));
 	m_pendingPlayOnFragCaching = true;
 	if (m_pipeline && m_stateMachine.currentState() != PlayerStateId::PAUSED)
 	{

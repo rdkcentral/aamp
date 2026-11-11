@@ -100,6 +100,31 @@ cmake -DCMAKE_CXX_STANDARD=17 ..
 
 ## Runtime Issues
 
+### VOD Does Not Resume After Seeking While Paused
+
+For a diagnostic capture, set AAMP's `log` configuration to `"trace"` before
+reproducing the seek and Play sequence. Filter the resulting player log:
+
+```bash
+grep 'SEEK_RESUME' player.log
+```
+
+The diagnostics record:
+- `first-frame`: raw and effective caching requirements before and after
+  clearing pause-on-first-frame.
+- `resume`: whether Play unpauses the sink or waits for cache completion.
+- `cache`: video-fragment duration, accumulated initial-cache duration,
+  target duration, cache occupancy, and completion status. These records
+  use TRACE and are emitted only while track caching is incomplete.
+- `cache-complete` and `rialto-cache-complete`: completion delivery and
+  whether Rialto is instructed to play.
+
+An initial-cache requirement can be suppressed during seek-while-paused.
+Check whether it becomes effective again after the first frame, and whether
+cache completion subsequently reaches Rialto. A missing completion record
+identifies an incomplete handoff, not by itself the reason progress stopped.
+Restore the previous log configuration after capture to avoid verbose output.
+
 ### No Video Output
 
 **Possible Causes**:
