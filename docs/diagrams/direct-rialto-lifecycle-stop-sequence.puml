@@ -1,0 +1,52 @@
+' If not stated otherwise in this file or this component's license file the
+' following copyright and licenses apply:
+'
+' Copyright 2026 RDK Management
+'
+' Licensed under the Apache License, Version 2.0 (the "License");
+' you may not use this file except in compliance with the License.
+' You may obtain a copy of the License at
+'
+' http://www.apache.org/licenses/LICENSE-2.0
+'
+' Unless required by applicable law or agreed to in writing, software
+' distributed under the License is distributed on an "AS IS" BASIS,
+' WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+' See the License for the specific language governing permissions and
+' limitations under the License.
+
+@startuml direct-rialto-lifecycle-stop-sequence
+title Stop(keepLastFrame): StopInternal(preservePendingPosition=false)
+
+participant "AAMP control\nthread" as CT
+participant "AampRialtoPlayer" as P
+participant "Timers and\nmonitors" as T
+participant "Sources /\nhandshakes" as SRC
+participant "PipelineSession" as S
+participant "Rialto" as R
+participant "PlaybackController" as PC
+participant "PlayerStateMachine" as SM
+
+CT -> P : Stop()
+activate P
+P -> P : lock m_flushCallMutex
+P -> SM : waitForFlushComplete(5000 ms)
+P -> T : progress timer stop(),\npre-roll Stop(), SetMonitorAV(nullptr)
+note right of T : each waits for a\nrunning tick
+P -> SRC : unblockInjection("Stop", eos=false)
+note right of SRC : generation++, gate DROPPED:\nblocked injectors return
+P -> R : pipeline->stop()
+P -> S : SetPipeline(nullptr)
+P -> S : ReleaseControlBackend()
+S -> R : IControl deregister
+P -> PC : Reset("Stop")
+note right of PC : drops play request and\nFlushing/PositionPending;\nkeeps SourcesNotAttached
+P -> P : ClearForNewSession(),\nreset PTS tracking
+P -> SM : onStop() -> IDLE
+P --> CT : return
+deactivate P
+note over P, SM
+  Not done by Stop(): destroying sources or the client, clearing the
+  client's event sink.  keepLastFrame is unused (LIFE-06).
+end note
+@enduml

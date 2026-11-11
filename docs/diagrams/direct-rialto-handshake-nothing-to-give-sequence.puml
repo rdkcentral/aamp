@@ -1,0 +1,58 @@
+' If not stated otherwise in this file or this component's license file the
+' following copyright and licenses apply:
+'
+' Copyright 2026 RDK Management
+'
+' Licensed under the Apache License, Version 2.0 (the "License");
+' you may not use this file except in compliance with the License.
+' You may obtain a copy of the License at
+'
+' http://www.apache.org/licenses/LICENSE-2.0
+'
+' Unless required by applicable law or agreed to in writing, software
+' distributed under the License is distributed on an "AS IS" BASIS,
+' WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+' See the License for the specific language governing permissions and
+' limitations under the License.
+
+@startuml direct-rialto-handshake-nothing-to-give-sequence
+title Handshake: needData arrives but there is nothing to send
+skinparam shadowing false
+
+participant "Rialto event thread" as EV
+participant "AampRialtoMediaSource" as SRC
+participant "NeedDataHandshake" as HS
+participant "IMediaPipeline" as PIPE
+
+EV -> SRC : handleNeedData(N, req=9)
+SRC -> HS : OnNeedData(N, 9)
+alt a previous request is still unanswered
+  HS --> SRC : superseded = Claim(old req)
+  SRC -> PIPE : haveData(NO_AVAILABLE_SAMPLES, old req)
+end
+alt gateMode is BLOCKED or DROPPED
+  HS --> SRC : rejected = true (request NOT staged)
+  SRC -> PIPE : haveData(NO_AVAILABLE_SAMPLES, 9)
+  note right of PIPE
+    Data sent against a request issued before SEEK_DONE
+    would be discarded as stale by Rialto.  Answering at
+    once makes Rialto ask again after the gate clears.
+  end note
+else gate NONE and EOS latched, no injector active
+  HS --> SRC : eos = Claim(9)
+  SRC -> PIPE : haveData(EOS, 9)
+else gate NONE, no EOS (no sample available yet)
+  HS --> SRC : request staged, hasPending = true
+  note right of SRC
+    No reply is sent.  Request 9 stays open until
+    an injector fills it (normal sequence), EOS is
+    signalled (SignalEos answers it), the gate/generation
+    changes (Unblock answers it), or Rialto cancels it.
+  end note
+end
+SRC -> HS : WakeWaiters()
+note over SRC, HS
+  WakeWaiters() runs after the replies above, so an injector
+  cannot add segments before the NO_AVAILABLE_SAMPLES is sent.
+end note
+@enduml

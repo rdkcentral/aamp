@@ -1,0 +1,49 @@
+' If not stated otherwise in this file or this component's license file the
+' following copyright and licenses apply:
+'
+' Copyright 2026 RDK Management
+'
+' Licensed under the Apache License, Version 2.0 (the "License");
+' you may not use this file except in compliance with the License.
+' You may obtain a copy of the License at
+'
+' http://www.apache.org/licenses/LICENSE-2.0
+'
+' Unless required by applicable law or agreed to in writing, software
+' distributed under the License is distributed on an "AS IS" BASIS,
+' WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+' See the License for the specific language governing permissions and
+' limitations under the License.
+@startuml direct-rialto-build-selection-activity
+title direct-rialto: build-time and run-time selection of the Rialto library and the sink
+
+start
+:install-aamp.sh [rialto] [--rialto-force-simulator];
+:rialto_install_fn: clone rialto (pinned tag) and copy\npublic headers to .libs/include/rialto;
+if (option 'rialto' given\nand not --rialto-force-simulator\nand not macOS?) then (yes)
+	:build protobuf, rialto, rialto-gstreamer\ninto .libs;
+else (no)
+endif
+:cmake: find_package(Rialto)\n(cmake/FindRialto.cmake);
+if (RIALTO_FORCE_SIMULATOR or APPLE?) then (yes)
+	:skip library search;
+else (no)
+	:find_library(libRialtoClient.so | RialtoClient)\nfind_path(IMediaPipeline.h);
+endif
+if (RIALTO_FOUND?) then (yes)
+	:libaamp links the real libRialtoClient.so;
+else (no)
+	:add_subdirectory(test/rialto)\nbuild RialtoSimulator as libRialtoClient.so.0;
+	:libaamp links RialtoSimulator;
+endif
+:all direct-rialto/*.cpp are compiled into libaamp\n(no compile-time switch);
+:run time: PlayerInstanceAAMP constructor\nreads useDirectRialto from the config;
+if (useDirectRialto?) then (true)
+	:AampStreamSinkManager creates AampRialtoPlayer\nand useMp4Demux is forced on;
+	:PrivateInstanceAAMP installs the Rialto DRM\nsession creator and the DirectRialto CC manager;
+else (false)
+	:AampStreamSinkManager creates AAMPGstPlayer\n(useRialtoSink selects rialto-gstreamer sinks);
+endif
+stop
+
+@enduml

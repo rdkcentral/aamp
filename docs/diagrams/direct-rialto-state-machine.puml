@@ -16,45 +16,64 @@
 ' limitations under the License.
 
 @startuml direct-rialto-state-machine
-title direct-rialto PlayerStateMachine (direct-rialto/AampPlayerStateMachine.cpp)
+title direct-rialto PlayerStateMachine (AampPlayerStateMachine.cpp)
 
 [*] --> IDLE
 
-IDLE --> PIPELINE_CREATED : onPipelineLoaded\n(pipeline load() succeeded)
-PIPELINE_CREATED --> SOURCES_ATTACHING : onSourceAttaching\n(first source)
-SOURCES_ATTACHING --> SOURCES_ATTACHED : onAllSourcesAttached
+state "Session active\n(every state except IDLE, FLUSHING, ERROR)" as ACTIVE {
+	state PIPELINE_CREATED
+	state SOURCES_ATTACHING
+	state SOURCES_ATTACHED
+	state PLAYING
+	state PAUSED
+	state FLUSHED
+}
 
-SOURCES_ATTACHED --> PLAYING : onPlaybackStarted\n(Rialto PLAYING)
-SOURCES_ATTACHED --> PAUSED : onPlaybackPaused\n(Rialto PAUSED)
-PLAYING --> PAUSED : onPlaybackPaused
-PAUSED --> PLAYING : onPlaybackStarted
+IDLE --> PIPELINE_CREATED : onPipelineLoaded\n[Configure: load() succeeded]
+PIPELINE_CREATED --> SOURCES_ATTACHING : onSourceAttaching\n[first source attach starts]
+SOURCES_ATTACHING --> SOURCES_ATTACHED : onAllSourcesAttached\n[allSourcesAttached() accepted]
+
+SOURCES_ATTACHED --> PLAYING : onPlaybackStarted\n[Rialto PLAYING]
+SOURCES_ATTACHED --> PAUSED : onPlaybackPaused\n[Rialto PAUSED: pre-roll pause()]
+PLAYING --> PAUSED : onPlaybackPaused\n[Rialto PAUSED]
+PAUSED --> PLAYING : onPlaybackStarted\n[Rialto PLAYING]
 
 SOURCES_ATTACHED --> FLUSHING : onFlush
 PLAYING --> FLUSHING : onFlush
 PAUSED --> FLUSHING : onFlush
-FLUSHED --> FLUSHING : onFlush\n(rapid second seek)
+FLUSHED --> FLUSHING : onFlush\n[rapid second seek]
 
-FLUSHING --> FLUSHED : onFlushComplete\n(SEEK_DONE, or an early\nexit / timeout of Flush())
-FLUSHED --> PLAYING : onPlaybackStarted\n(Rialto PLAYING)
-FLUSHED --> PAUSED : onPlaybackPaused\n(Rialto PAUSED)
+FLUSHING --> FLUSHED : onFlushComplete\n[SEEK_DONE, setPosition failed,\nno pipeline, or wait timeout]
+FLUSHED --> PLAYING : onPlaybackStarted\n[Rialto PLAYING]
+FLUSHED --> PAUSED : onPlaybackPaused\n[Rialto PAUSED]
 
-FLUSHING --> ERROR : onError
-note right of FLUSHING
-  onStop and onReconfigure are not handled here:
-  Stop() and Configure() first wait for the
-  flush to end (waitForFlushComplete),
-  so they never see FLUSHING.
-end note
-
+ACTIVE --> IDLE : onStop [state != IDLE]\nonReconfigure
+ACTIVE --> ERROR : onError\n[Rialto FAILURE]
+FLUSHING --> ERROR : onError\n[Rialto FAILURE]
 ERROR --> IDLE : onStop / onReconfigure
 
-state "any other active state" as ACTIVE
-note bottom of ACTIVE
-  PIPELINE_CREATED, SOURCES_ATTACHING,
-  SOURCES_ATTACHED, PLAYING, PAUSED, FLUSHED:
-  onStop -> IDLE, onReconfigure -> IDLE,
-  onError -> ERROR.
-  IDLE: onReconfigure -> IDLE; onStop is ignored.
+note right of FLUSHING
+  onStop and onReconfigure have no transition here:
+  Stop() and Configure() first wait for the flush to
+  end (waitForFlushComplete), so they never see
+  FLUSHING.  Any event with no transition is
+  ignored with a WARN, e.g. onPlaybackPaused
+  in PAUSED, onPlaybackStarted in FLUSHING.
+end note
+
+note left of IDLE
+  IDLE: onStop is ignored quietly.
+  onReconfigure stays IDLE.  onError is ignored
+  (no session).  onSourceAttaching is accepted
+  by the guard in IDLE and ERROR but has no
+  transition there, so it logs a WARN.
+end note
+
+note bottom of ERROR
+  Terminal until Stop(), a teardown Flush(), or a
+  Configure() that rebuilds the pipeline moves the
+  machine back to IDLE.  Only the first FAILURE
+  (previous state not IDLE/ERROR) is reported to AAMP.
 end note
 
 note as THREADING

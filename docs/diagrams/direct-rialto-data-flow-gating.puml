@@ -29,7 +29,7 @@ package "Question 1: may play() be issued?\n(AampRialtoPlaybackController)" {
 }
 
 package "Question 2: may a sample reach Rialto?\n(AampRialtoMediaSource, one per track)" {
-  rectangle "GateMode\nNONE: flows\nBLOCKED: injector thread waits\nDROPPED: sample discarded at once" as GATE
+  rectangle "GateMode\nNONE: flows\nBLOCKED: injector thread waits\nDROPPED: sample discarded at once\n(needData is answered NO_AVAILABLE_SAMPLES\nwhile BLOCKED or DROPPED)" as GATE
   rectangle "Generation token\ncaptured by the injector before it blocks;\nbumped by unblockInjection()\n(Flush / Stop): an older sample is abandoned" as GEN
   rectangle "Rialto needData request\nsample is added only after Rialto asks" as ND
   GATE --> ND : passed

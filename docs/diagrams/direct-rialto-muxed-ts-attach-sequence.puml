@@ -1,0 +1,55 @@
+' If not stated otherwise in this file or this component's license file the
+' following copyright and licenses apply:
+'
+' Copyright 2026 RDK Management
+'
+' Licensed under the Apache License, Version 2.0 (the "License");
+' you may not use this file except in compliance with the License.
+' You may obtain a copy of the License at
+'
+' http://www.apache.org/licenses/LICENSE-2.0
+'
+' Unless required by applicable law or agreed to in writing, software
+' distributed under the License is distributed on an "AS IS" BASIS,
+' WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+' See the License for the specific language governing permissions and
+' limitations under the License.
+
+@startuml direct-rialto-muxed-ts-attach-sequence
+title Muxed HLS-TS: one inject thread attaches every source
+skinparam shadowing false
+
+participant "TS inject thread\n(only thread for A+V)" as INJ
+participant "AampRialtoPlayer" as PLAYER
+participant "Video source" as VS
+participant "Audio source" as AS
+participant "IMediaPipeline" as PIPE
+
+INJ -> PLAYER : Configure(formats from PMT)
+note right of PLAYER
+  Sources are created (gate BLOCKED), format recorded with
+  setFormat().  A format still UNKNOWN is filled in later by
+  TryReuseExistingPipeline() once the codec is identified.
+end note
+INJ -> PLAYER : SendCopy(VIDEO, first ES frame)
+PLAYER -> PLAYER : video not attached -> loop over ALL sources
+PLAYER -> PLAYER : SetStreamCaps(VIDEO, codec only)
+PLAYER -> VS : attachOrUpdate()
+VS -> PIPE : attachSource(MediaSourceVideo)
+VS --> PLAYER : NEWLY_ATTACHED
+PLAYER -> PLAYER : OnSourceNewlyAttached(): CommitBaseline,\nrelease PositionPending, drain deferred non-video
+PLAYER -> PLAYER : SetStreamCaps(AUDIO, codec only)
+PLAYER -> AS : attachOrUpdate()
+AS -> PIPE : attachSource(MediaSourceAudio)
+PLAYER -> PLAYER : CheckAllSourcesAttached()
+PLAYER -> PIPE : allSourcesAttached()
+PLAYER -> PLAYER : release SourcesNotAttached hold
+INJ -> VS : processDataFragment() -> injectOneSample()
+note over INJ, PIPE
+  Why: with a single thread, if only the video source were
+  attached, that thread would block in injectOneSample() waiting
+  for a needData and never get to attach audio (code comment:
+  "deadlock with muxed HLS-TS which uses only one injection
+  thread").  DeferAttachUntilVideo() still orders video first.
+end note
+@enduml

@@ -1,0 +1,52 @@
+' If not stated otherwise in this file or this component's license file the
+' following copyright and licenses apply:
+'
+' Copyright 2026 RDK Management
+'
+' Licensed under the Apache License, Version 2.0 (the "License");
+' you may not use this file except in compliance with the License.
+' You may obtain a copy of the License at
+'
+' http://www.apache.org/licenses/LICENSE-2.0
+'
+' Unless required by applicable law or agreed to in writing, software
+' distributed under the License is distributed on an "AS IS" BASIS,
+' WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+' See the License for the specific language governing permissions and
+' limitations under the License.
+
+@startuml direct-rialto-drm-callback-reentrancy-sequence
+title Key-session callbacks versus session teardown (CallbackScope and the running map)
+
+participant "rialto-media-keys-events\nthread" as EV
+participant "MediaKeysClient\n(mutex, running, callbackDone)" as MC
+participant "RialtoMediaKeySessionAdapter\n(callbacks capture this)" as AD
+participant "Teardown thread\n(DrmSessionManager)" as TD
+participant "RialtoMediaKeySession" as KS
+
+EV -> MC : onKeyStatusesChanged(id, statuses)
+activate MC
+MC -> MC : lock mutex; copy callbacks;\nCallbackScope adds this thread to running[id];\nupdate key-status cache; unlock
+MC -> AD : onKeyUpdate(...) / onKeysUpdated()\n(no client mutex held)
+
+TD -> AD : delete session -> ~adapter -> clearDecryptContext()
+AD -> KS : close() (closeKeySession)
+AD -> KS : destruct() (releaseKeySession)
+KS -> MC : deregisterSession(id)
+MC -> MC : erase callbacks[id], sessions[id]
+MC -> MC : wait on callbackDone until running[id]\ncontains no other thread
+note right of MC : teardown blocks here\n(untimed) while EV is still\ninside the adapter's callback
+
+AD --> MC : callback returns
+MC -> MC : ~CallbackScope: lock, remove this thread\nfrom running[id], notify_all
+deactivate MC
+MC --> KS : deregisterSession returns
+KS --> AD : destruct complete
+AD --> TD : adapter memory may now be freed safely
+
+== A callback that deregisters its own session ==
+EV -> MC : onLicenseRequest(id) -> callback
+MC -> MC : deregisterSession(id) from the same thread
+note right of MC : the calling thread is excluded from\nthe wait (onlySelfRunning), so a callback\ncan tear down its own session
+MC -> MC : onKeyStatusesChanged: re-check the session is\nstill registered after each onKeyUpdate and before\nonKeysUpdated; stop dispatching the batch if not
+@enduml

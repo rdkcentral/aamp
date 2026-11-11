@@ -1,0 +1,68 @@
+' If not stated otherwise in this file or this component's license file the
+' following copyright and licenses apply:
+'
+' Copyright 2026 RDK Management
+'
+' Licensed under the Apache License, Version 2.0 (the "License");
+' you may not use this file except in compliance with the License.
+' You may obtain a copy of the License at
+'
+' http://www.apache.org/licenses/LICENSE-2.0
+'
+' Unless required by applicable law or agreed to in writing, software
+' distributed under the License is distributed on an "AS IS" BASIS,
+' WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+' See the License for the specific language governing permissions and
+' limitations under the License.
+@startuml direct-rialto-test-architecture-component
+title direct-rialto: what is real, faked or simulated at each test level
+
+package "L1 unit test (one gtest executable per class)" #E8F4E8 {
+	[Class under test\n(real .cpp from direct-rialto/)] as CUT
+	[AampRialtoPlayerTests: real player +\nsession, sources, handshake,\ncontroller, state machine ...] as PLAYERCUT
+	package "Injected through constructors" {
+		[MockIStreamSinkNotifiable] as MNOT
+		[MockIRialtoControlBackend] as MCB
+		[SourceCreator lambda ->\nMockAampRialtoMediaSource] as MSRC
+	}
+	package "Replaced at link time (fakes library)" {
+		[FakeRialtoFactories\n(g_mockPipelineFactory,\nMockIMediaPipeline)] as FFACT
+		[FakeAampDrmBridge\n(g_mockDrmBridge)] as FDRM
+		[FakeAampRialtoMediaPipelineClient\n(forwards events to the sink)] as FCLI
+		[FakePrivateInstanceAAMP,\nFakeAampConfig, FakeGLib,\nccManagerFakes ...] as FCORE
+		[MockGLib\n(timer ticks fired by the test)] as MGL
+	}
+}
+
+package "L2 simulator run (CI-style)" #E8EEF8 {
+	[aamp-cli + real libaamp\n(all direct-rialto code real)] as CLI1
+	[Test framework (pytest)\naamp.cfg: useDirectRialto,\nuseMp4Demux] as FW1
+	[simlinear / test CDN\n(real HTTP streams)] as HTTP
+	[RialtoSimulator\nlibRialtoClient.so.0\n(no decode, no DRM,\nfires needData / PLAYING)] as SIM
+}
+
+package "L2 real-Rialto run (manual, --aamp_video)" #F8EEE8 {
+	[build-rialto/aamp-cli] as CLI2
+	[libRialtoClient.so.1] as RCL
+	[Rialto server manager +\nRialtoServer + platform decoders] as RSRV
+}
+
+PLAYERCUT ..> CUT : same idea,\nlarger scope
+CUT --> MNOT
+CUT --> MCB
+CUT --> MSRC
+CUT --> FFACT
+CUT --> FDRM
+CUT --> FCLI
+CUT --> FCORE
+CUT --> MGL
+
+FW1 --> CLI1 : starts, reads log,\nmatches expect_list
+HTTP --> CLI1 : manifests, fragments
+CLI1 --> SIM : IMediaPipeline API\n(in process)
+
+FW1 ..> CLI2 : --aamp_video
+CLI2 --> RCL
+RCL --> RSRV : socket\n(RIALTO_SOCKET_PATH)
+
+@enduml

@@ -1,0 +1,63 @@
+' If not stated otherwise in this file or this component's license file the
+' following copyright and licenses apply:
+'
+' Copyright 2026 RDK Management
+'
+' Licensed under the Apache License, Version 2.0 (the "License");
+' you may not use this file except in compliance with the License.
+' You may obtain a copy of the License at
+'
+' http://www.apache.org/licenses/LICENSE-2.0
+'
+' Unless required by applicable law or agreed to in writing, software
+' distributed under the License is distributed on an "AS IS" BASIS,
+' WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+' See the License for the specific language governing permissions and
+' limitations under the License.
+
+@startuml direct-rialto-data-path-component
+title direct-rialto media data path: components and threads
+
+package "AAMP core (one inject thread per track)" {
+  [MediaTrack::InjectFragment\n(inject thread)] as INJ
+  [AampMp4Demuxer\n(fMP4, DASH + HLS-MP4)] as MP4D
+  [TSProcessor\n(muxed HLS-TS)] as TSP
+  [PrivateInstanceAAMP\nSendStream*()] as PIA
+}
+
+package "direct-rialto" {
+  [AampRialtoPlayer\nSendSample / SendCopy /\nSendTransfer / SetStreamCaps] as PLAYER
+  [AampRialtoMediaSource\n(Video / Audio / Subtitle)\ninjectOneSample()] as SRC
+  [AampRialtoNeedDataHandshake\none per source, own mutex] as HS
+  [AampRialtoSegmentPosition\nstaged position + baseline] as POS
+  [AampRialtoMediaPipelineClient\nIMediaPipelineClient] as CLIENT
+}
+
+package "Rialto client library" {
+  [IMediaPipeline\naddSegment / haveData /\nattachSource] as PIPE
+}
+
+database "Rialto server\nshared memory" as SHM
+
+INJ --> MP4D : fMP4 fragment
+INJ --> TSP : TS fragment
+MP4D --> PIA : SendSample (1 sample)
+TSP --> PIA : SendCopy (1 ES frame)
+INJ --> PIA : SendTransfer (init,\nTTML/WebVTT, no playContext)
+PIA --> PLAYER : via StreamSink
+PLAYER --> SRC : injectSingleSample /\nprocessDataFragment
+SRC --> HS : BeginInject, WaitForGate,\nWaitForRequest, Complete
+SRC --> PIPE : addSegment, haveData
+PIPE --> SHM : copy payload
+SHM ..> CLIENT : needData, cancelNeedData,\nunderflow (Rialto event thread)
+CLIENT ..> PLAYER : OnNeedMediaData ...
+PLAYER ..> SRC : handleNeedData()
+SRC ..> HS : OnNeedData
+PLAYER --> POS : Flush / SEEK_DONE\nstage and commit
+
+note bottom of HS
+  Solid arrows: injector thread.  Dotted arrows: Rialto event thread.
+  The control thread (Flush, Stop, Configure) reaches the handshake
+  through unblockInjection() / gateInjection().
+end note
+@enduml

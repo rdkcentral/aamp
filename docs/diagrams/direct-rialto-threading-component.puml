@@ -1,0 +1,65 @@
+' If not stated otherwise in this file or this component's license file the
+' following copyright and licenses apply:
+'
+' Copyright 2026 RDK Management
+'
+' Licensed under the Apache License, Version 2.0 (the "License");
+' you may not use this file except in compliance with the License.
+' You may obtain a copy of the License at
+'
+' http://www.apache.org/licenses/LICENSE-2.0
+'
+' Unless required by applicable law or agreed to in writing, software
+' distributed under the License is distributed on an "AS IS" BASIS,
+' WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+' See the License for the specific language governing permissions and
+' limitations under the License.
+
+@startuml direct-rialto-threading-component
+title direct-rialto threads and where they block
+
+left to right direction
+
+node "AAMP control thread" as CTL
+node "Injector thread\n(one per track)" as INJ
+node "Rialto client\nevent thread" as EVT
+node "GLib main loop\n(default GMainContext)" as GLIB
+node "AAMP scheduler thread" as SCHED
+
+package "AampRialtoPlayer" {
+	component "Configure / Stop / Flush\n[m_flushCallMutex]" as API
+	component "SendCopy / SendTransfer /\nSendSample / SetStreamCaps\n[m_attachMutex for attach]" as DATA
+	component "On...() handlers\n(SEEK_DONE, PLAYING,\nneedData, errors)" as EVH
+	component "AampRialtoPlaybackController\n[play lock -> m_mutex]" as CTRL
+	component "PlayerStateMachine\n[m_mutex + m_stateChanged]" as SM
+	component "AampRialtoNeedDataHandshake\n(per source) [mu + cv]" as HS
+	component "AampRialtoGlibTimer x4\n(progress, pre-roll,\nMonitorAV x2) [recursive mutex]" as TMR
+	component "PrivateInstanceAAMPNotifiable" as NOTIF
+}
+
+component "Rialto IMediaPipeline\n(synchronous IPC)" as RIALTO
+component "AampDrmBridge\n(blocking licence fetch)" as DRM
+
+CTL --> API
+INJ --> DATA
+EVT --> EVH
+GLIB --> TMR
+
+API --> SM : waits for SEEK_DONE\n(5000 ms)
+API --> CTRL
+API --> TMR : Stop() waits\nfor running tick
+DATA --> HS : waits for needData\n(no timeout)
+DATA --> DRM : under m_attachMutex
+DATA --> API : deferred Flush()
+EVH --> HS : needData / cancel
+EVH --> SM : SEEK_DONE / FAILURE\nwake waiters
+EVH --> CTRL : release Flushing
+EVH --> TMR : start progress timer\n(immediate tick)
+TMR --> CTRL : pre-roll complete
+CTRL --> RIALTO : play() under play lock
+API --> RIALTO
+HS ..> RIALTO : haveData()\n(after lock released)
+EVH --> NOTIF
+TMR --> NOTIF
+NOTIF ..> SCHED : ScheduleAsyncTask\n(never blocks on AAMP locks)
+@enduml

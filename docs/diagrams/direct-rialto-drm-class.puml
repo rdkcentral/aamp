@@ -1,0 +1,109 @@
+' If not stated otherwise in this file or this component's license file the
+' following copyright and licenses apply:
+'
+' Copyright 2026 RDK Management
+'
+' Licensed under the Apache License, Version 2.0 (the "License");
+' you may not use this file except in compliance with the License.
+' You may obtain a copy of the License at
+'
+' http://www.apache.org/licenses/LICENSE-2.0
+'
+' Unless required by applicable law or agreed to in writing, software
+' distributed under the License is distributed on an "AS IS" BASIS,
+' WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+' See the License for the specific language governing permissions and
+' limitations under the License.
+@startuml direct-rialto-drm-class
+title direct-rialto: DRM classes (two separate hooks into AAMP's DRM stack)
+
+package "direct-rialto/ - player side" {
+	interface IDrmBridge {
+		+createSession(systemId, initData, len, type) : mks_id
+	}
+	class AampDrmBridge {
+		-m_aamp : PrivateInstanceAAMP* (non-owning)
+	}
+	class AampRialtoMediaSource
+	class AampRialtoPlayer
+}
+
+package "AAMP core / middleware-player-interface" {
+	class PrivateInstanceAAMP
+	class AampDRMLicenseManager {
+		+createDrmSession(...)
+	}
+	class DrmSessionManager {
+		-m_sessionCreator : DrmSessionCreator
+	}
+	abstract class DrmSession {
+		+getMediaKeySessionId()
+	}
+	class OCDMSessionAdapter <<DrmSessionFactory default>>
+}
+
+package "direct-rialto/ - session side" {
+	class "makeRialtoSessionCreator()" as MK <<RialtoSessionCreator.cpp>>
+	class RialtoMediaKeySessionAdapter {
+		-m_system : unique_ptr<RialtoMediaKeySystem>
+		-m_session : shared_ptr<RialtoMediaKeySession>
+		+generateDRMSession()
+		+generateKeyRequest()
+		+processDRMKey()
+	}
+	class RialtoMediaKeySystem {
+		-m_mediaKeys : unique_ptr<IMediaKeys>
+		-m_client : shared_ptr<MediaKeysClient>
+		+createSession(initDataType, initData, callbacks)
+	}
+	class "RialtoMediaKeySystem::MediaKeysClient" as MKC {
+		callbacks, sessions, running (by keySessionId)
+	}
+	class RialtoMediaKeySession {
+		-m_keyStatuses (mutex)
+		+update() / close() / destruct()
+		+isKeyUsable()
+	}
+	class RialtoSessionCallbacks <<struct>> {
+		onChallenge / onKeyUpdate /
+		onKeysUpdated / onLicenseRenewal
+	}
+}
+
+interface "firebolt::rialto::IMediaKeys" as IMK <<Rialto>>
+interface "firebolt::rialto::IMediaKeysClient" as IMKC <<Rialto>>
+
+AampRialtoPlayer o-- IDrmBridge : shared_ptr
+IDrmBridge <|.. AampDrmBridge
+AampRialtoMediaSource ..> IDrmBridge : attachOrUpdate()\n(raw pointer, per call)
+AampDrmBridge --> PrivateInstanceAAMP : mDRMLicenseManager,\nmMediaFormat
+PrivateInstanceAAMP *-- AampDRMLicenseManager
+AampDRMLicenseManager *-- DrmSessionManager
+DrmSessionManager ..> DrmSession : creates
+DrmSession <|-- OCDMSessionAdapter
+DrmSession <|-- RialtoMediaKeySessionAdapter
+PrivateInstanceAAMP ..> MK : ctor passes creator\nonly if useDirectRialto
+MK ..> RialtoMediaKeySessionAdapter : builds
+MK ..> RialtoMediaKeySystem : builds (one per session)
+RialtoMediaKeySessionAdapter *-- RialtoMediaKeySystem
+RialtoMediaKeySessionAdapter o-- RialtoMediaKeySession
+RialtoMediaKeySystem *-- MKC
+MKC ..|> IMKC
+RialtoMediaKeySystem *-- IMK
+RialtoMediaKeySystem ..> RialtoMediaKeySession : creates
+RialtoMediaKeySystem ..> RialtoSessionCallbacks : registers per session
+RialtoMediaKeySession --> IMK : reference
+
+note right of AampDrmBridge
+	Blocks until the license flow completes
+	(runs on the fragment-collector thread).
+	Returns the Rialto mks_id that the source
+	stamps on every encrypted MediaSegment.
+end note
+
+note right of RialtoMediaKeySessionAdapter
+	Does not override decrypt(): decryption
+	is done in the Rialto server pipeline.
+end note
+
+@enduml

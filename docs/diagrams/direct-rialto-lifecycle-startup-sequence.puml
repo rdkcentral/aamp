@@ -1,0 +1,67 @@
+' If not stated otherwise in this file or this component's license file the
+' following copyright and licenses apply:
+'
+' Copyright 2026 RDK Management
+'
+' Licensed under the Apache License, Version 2.0 (the "License");
+' you may not use this file except in compliance with the License.
+' You may obtain a copy of the License at
+'
+' http://www.apache.org/licenses/LICENSE-2.0
+'
+' Unless required by applicable law or agreed to in writing, software
+' distributed under the License is distributed on an "AS IS" BASIS,
+' WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+' See the License for the specific language governing permissions and
+' limitations under the License.
+
+@startuml direct-rialto-lifecycle-startup-sequence
+title First tune: Configure() to first PLAYING
+
+participant "AAMP control\nthread" as CT
+participant "Injector\nthreads" as INJ
+participant "AampRialtoPlayer" as P
+participant "PlaybackController" as PC
+participant "PipelineSession" as S
+participant "Rialto client /\nserver" as R
+participant "Rialto event\nthread" as EV
+
+CT -> P : Configure(formats)
+P -> P : WaitForFlushToComplete()\nArmPositionPending (gate sources)
+P -> P : ShouldRecreatePipeline? yes (no pipeline)
+P -> P : BeginNewSession()\nstate IDLE, AddHold(SourcesNotAttached),\nArmPreRoll
+P -> S : CreateAndLoad()
+S -> R : IControl::registerClient
+S -> R : waitForRunning(2000 ms)
+note right of S : WARN and proceed on\ntimeout (ARCH-18)
+S -> R : createMediaPipeline(3840x2160)
+S -> S : install player as event sink
+S -> R : load(MSE, "mse://1")
+P -> P : state PIPELINE_CREATED\napply cached volume, create AV monitor
+P -> P : CreateSources() (each gated)
+CT -> P : Stream()
+P -> PC : RequestPlay("Stream")
+note right of PC : holds remain:\nSourcesNotAttached, PositionPending
+
+INJ -> P : SetStreamCaps(video)
+P -> R : attachSource(video)
+P -> P : SOURCES_ATTACHING; commit baseline,\nReleaseHold(PositionPending),\ndrain deferred audio/subtitle attaches
+INJ -> P : SetStreamCaps(audio)
+P -> R : attachSource(audio)
+P -> R : allSourcesAttached()
+P -> P : state SOURCES_ATTACHED
+P -> PC : ReleaseHold(SourcesNotAttached)
+
+alt pre-roll enabled (rate 1, GStreamerBufferingBeforePlay)
+  PC -> P : StartPreRoll(): pause(), ungate,\nstart pre-roll monitor
+  note right of P : monitor releases PreRollIncomplete\nafter frame floor / EOS / full / 1 s
+  PC -> P : IssuePlay()
+else no pre-roll
+  PC -> P : IssuePlay()
+end
+P -> R : ungate sources, play()
+R -> EV : needData ... (data path)
+R -> EV : PLAYING
+EV -> P : HandlePlaybackStarted()
+P -> P : state PLAYING; first-frame and\ntune-complete notifications;\nstart progress timer, AV monitor
+@enduml

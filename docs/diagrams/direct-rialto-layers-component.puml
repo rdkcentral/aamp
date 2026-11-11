@@ -1,0 +1,91 @@
+' If not stated otherwise in this file or this component's license file the
+' following copyright and licenses apply:
+'
+' Copyright 2026 RDK Management
+'
+' Licensed under the Apache License, Version 2.0 (the "License");
+' you may not use this file except in compliance with the License.
+' You may obtain a copy of the License at
+'
+' http://www.apache.org/licenses/LICENSE-2.0
+'
+' Unless required by applicable law or agreed to in writing, software
+' distributed under the License is distributed on an "AS IS" BASIS,
+' WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+' See the License for the specific language governing permissions and
+' limitations under the License.
+@startuml direct-rialto-layers-component
+title direct-rialto: layers and components
+
+package "L0  AAMP core (outside direct-rialto)" {
+	[PrivateInstanceAAMP] as CORE
+	[AampStreamSinkManager] as MGR
+	[StreamAbstractionAAMP /\nAampMp4Demuxer] as SA
+	[AampDRMLicenseManager /\nDrmSessionManager] as LIC
+	[PlayerCCManager\n(PlayerDirectRialtoCCManager)] as CC
+}
+
+package "L1  Sink facade and orchestration" {
+	[AampRialtoPlayer\n(StreamSink + IDirectRialtoCC +\nIAampRialtoPipelineEvents)] as ARP
+}
+
+package "L2  Policy helpers owned by the player" {
+	[PlayerStateMachine] as SM
+	[AampRialtoPlaybackController\n(PlayHold bits)] as PC
+	[AampRialtoSegmentPosition] as SP
+	[AampRialtoPreRollMonitor] as PRM
+	[AampRialtoMonitorAV] as MAV
+	[AampRialtoProgressTimer] as PT
+	[AampRialtoGlibTimer] as GT
+}
+
+package "L3  Per-track sources" {
+	[AampRialtoMediaSource\n(Video / Audio / Subtitle)] as SRC
+	[AampRialtoNeedDataHandshake] as HS
+	[AampRialtoTtmlOffset] as TTML
+}
+
+package "L4  Adapters to the outside" {
+	[PrivateInstanceAAMPNotifiable\n(IStreamSinkNotifiable)] as NOTIF
+	[AampDrmBridge\n(IDrmBridge)] as BRIDGE
+	[RialtoSessionCreator /\nRialtoMediaKeySystem /\nRialtoMediaKeySession(+Adapter)] as RDRM
+}
+
+package "L5  Rialto connection" {
+	[AampRialtoPipelineSession] as PS
+	[AampRialtoMediaPipelineClient] as CLIENT
+	[AampRialtoControlBackend\n(IRialtoControlBackend)] as CB
+}
+
+cloud "Rialto client library\n(IMediaPipeline, IMediaKeys, IControl)" as RLIB
+
+MGR --> ARP : new / delete
+SA --> ARP : StreamSink API
+CORE --> ARP : via sink manager
+ARP --> NOTIF : IStreamSinkNotifiable
+NOTIF --> CORE : ScheduleAsyncTask
+ARP *-- SM
+ARP *-- PC
+ARP *-- SP
+ARP *-- PRM
+ARP *-- MAV
+ARP *-- PT
+PRM *-- GT
+MAV *-- GT
+PT *-- GT
+ARP o-- SRC : 0..3, shared_ptr
+SRC *-- HS
+SRC *-- TTML : subtitle only
+ARP *-- PS
+PS *-- CLIENT
+PS *-- CB
+CLIENT --> ARP : IAampRialtoPipelineEvents
+ARP --> BRIDGE : createSession
+BRIDGE --> LIC
+LIC ..> RDRM : DrmSessionCreator
+CC ..> ARP : IDirectRialtoCC\n(track select, CC mute)
+PS --> RLIB
+SRC --> RLIB : addSegment / haveData
+RDRM --> RLIB
+
+@enduml

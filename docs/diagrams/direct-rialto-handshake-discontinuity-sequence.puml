@@ -1,0 +1,64 @@
+' If not stated otherwise in this file or this component's license file the
+' following copyright and licenses apply:
+'
+' Copyright 2026 RDK Management
+'
+' Licensed under the Apache License, Version 2.0 (the "License");
+' you may not use this file except in compliance with the License.
+' You may obtain a copy of the License at
+'
+' http://www.apache.org/licenses/LICENSE-2.0
+'
+' Unless required by applicable law or agreed to in writing, software
+' distributed under the License is distributed on an "AS IS" BASIS,
+' WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+' See the License for the specific language governing permissions and
+' limitations under the License.
+
+@startuml direct-rialto-handshake-discontinuity-sequence
+title Handshake: Discontinuity() on a track
+skinparam shadowing false
+
+participant "AAMP inject thread" as INJ
+participant "AampRialtoPlayer" as PLAYER
+participant "AampRialtoMediaSource" as SRC
+participant "NeedDataHandshake" as HS
+participant "IMediaPipeline" as PIPE
+participant "Rialto event thread" as EV
+
+INJ -> PLAYER : Discontinuity(mediaType)
+alt no sample injected yet (firstPtsMs not set)
+  PLAYER --> INJ : false (ignored)
+else PTS restamp enabled and no ES change pending
+  PLAYER -> PLAYER : CompleteDiscontinuityDataDeliverForPTSRestamp()
+  note right of PLAYER : no EOS, no pipeline disruption
+else codec / ES change or restamp off
+  PLAYER -> SRC : signalEos(pipeline)
+  SRC -> HS : SignalEos()
+  alt request pending, no injector active, gate not BLOCKED
+    HS --> SRC : Claim
+    SRC -> PIPE : haveData(EOS, req)
+  else otherwise EOS is latched
+    note right of HS
+      Answered by the active injector when its batch completes
+      (Reply::Eos), by the next needData (OnNeedData eos claim),
+      or by SetGate(false) if it was deferred while BLOCKED.
+    end note
+  end
+  opt mediaType is VIDEO and subtitle source is attached, not at EOS
+    PLAYER -> SRC : subtitle.signalEos(pipeline)
+  end
+  PLAYER -> PIPE : StopBuffering(true): UngateAllSources, play()
+end
+opt AAMP will not flush on discontinuity (e.g. HLS fMP4)
+  PLAYER -> PLAYER : ArmPositionPending("Discontinuity")
+end
+PLAYER --> INJ : true
+...
+EV -> PLAYER : END_OF_STREAM (all attached sources answered EOS)
+PLAYER -> PLAYER : m_notifiable->NotifyEOSReached(): AAMP drives the rest
+note over PLAYER, HS
+  Later Flush() or Configure() clears the latched EOS
+  (unblockInjection newEos=false / reset()).
+end note
+@enduml
