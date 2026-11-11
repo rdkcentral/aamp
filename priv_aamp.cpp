@@ -9591,7 +9591,7 @@ void PrivateInstanceAAMP::ResetEOSSignalledFlag()
 void PrivateInstanceAAMP::NotifyFragmentCachingComplete()
 {
 	std::lock_guard<std::recursive_mutex> guard(mFragmentCachingLock);
-	AAMPLOG_INFO("SEEK_RESUME cache-complete requiredBefore=%d "
+	AAMPLOG_INFO("NEIL SEEK_RESUME cache-complete requiredBefore=%d "
 		"pauseOnFirstFrame=%d effectiveRequired=%d",
 		mFragmentCachingRequired, mPauseOnFirstVideoFrameDisp,
 		IsFragmentCachingRequired());
@@ -9602,7 +9602,7 @@ void PrivateInstanceAAMP::NotifyFragmentCachingComplete()
 		sink->NotifyFragmentCachingComplete();
 	}
 	AAMPPlayerState state = GetState();
-	AAMPLOG_INFO("SEEK_RESUME cache-complete requiredAfter=%d "
+	AAMPLOG_INFO("NEIL SEEK_RESUME cache-complete requiredAfter=%d "
 		"state=%d sinkPresent=%d",
 		mFragmentCachingRequired, static_cast<int>(state), sink != nullptr);
 	if (state == eSTATE_BUFFERING)
