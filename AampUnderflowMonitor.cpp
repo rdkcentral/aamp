@@ -343,6 +343,8 @@ void AampUnderflowMonitor::Run()
             break;
         }
 
+AAMPLOG_WARN("DBG - running monitor!!!");
+
         // Use the cached play rate (updated under mMutex in NotifyVideoFragment) rather
         // than reading mAamp->rate directly — the latter is a plain non-atomic float
         // that would constitute a C++ data race with the writer thread.
