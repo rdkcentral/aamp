@@ -34,12 +34,14 @@
  * underflow is declared via SetBufferingState(true).
  *
  * The deadline is re-armed by:
- *   - NotifyVideoFragment()   — each downloaded fragment / chunk
- *   - NotifyPipelineResumed() — after buffering recovery
+ *   - NotifyVideoFragment()        — each downloaded fragment / chunk
+ *   - NotifyPipelineResumed()      — after buffering recovery
+ *   - NotifyDiscontinuityComplete()— after discontinuity processing finishes
  *
  * The deadline is suspended (disarmed) by:
- *   - NotifyPipelinePaused()  — while pipeline is paused for buffering
- *   - Stop()                  — shutdown
+ *   - NotifyPipelinePaused()     — while pipeline is paused for buffering
+ *   - NotifyDiscontinuityStart() — while a discontinuity is being processed
+ *   - Stop()                     — shutdown
  *
  * Resume logic
  * ============
@@ -111,6 +113,7 @@ void AampUnderflowMonitor::Start()
     }
 
     mDeadlineArmed = false;
+    mDiscontinuityInProgress = false;
     mRunning.store(true);
 
     try
@@ -179,20 +182,33 @@ void AampUnderflowMonitor::NotifyVideoFragment(double endPosition, float playRat
         mCurrentEndPosition = endPosition;
         mCurrentPlayRate    = playRate;
 
-        const bool underflowActive = mAamp->GetBufUnderFlowStatus();
-
-        if (underflowActive)
+        if (mDiscontinuityInProgress)
         {
-            // Pipeline is paused for buffering.  Check whether we now have enough
-            // content to resume.  Don't rearm the timer here — NotifyPipelineResumed()
-            // does that once the pipeline is confirmed live.
-            resumeThreshold = mAamp->mConfig->GetConfigValue(eAAMPConfig_UnderflowResumeThresholdSec);
-            shouldResume    = (bufferSec >= resumeThreshold);
+            // A discontinuity is still being processed: the injector is stopped
+            // and the pipeline is being reconfigured/flushed.  Fragments downloaded
+            // during this window must NOT re-arm the deadline — the cached end
+            // position is kept fresh above, and NotifyDiscontinuityComplete() will
+            // re-arm once injection has restarted.  Rearming here with an in-flux
+            // buffer position could fire a spurious underflow mid-discontinuity.
+            AAMPLOG_TRACE("[video] fragment queued during discontinuity; deadline stays disarmed");
         }
         else
         {
-            // Normal playback: rearm the deadline.
-            RearmDeadline(bufferSec, playRate);
+            const bool underflowActive = mAamp->GetBufUnderFlowStatus();
+
+            if (underflowActive)
+            {
+                // Pipeline is paused for buffering.  Check whether we now have enough
+                // content to resume.  Don't rearm the timer here — NotifyPipelineResumed()
+                // does that once the pipeline is confirmed live.
+                resumeThreshold = mAamp->mConfig->GetConfigValue(eAAMPConfig_UnderflowResumeThresholdSec);
+                shouldResume    = (bufferSec >= resumeThreshold);
+            }
+            else
+            {
+                // Normal playback: rearm the deadline.
+                RearmDeadline(bufferSec, playRate);
+            }
         }
     }
 
@@ -259,6 +275,38 @@ void AampUnderflowMonitor::NotifyPipelineResumed(double endPosition, float playR
 
         mCurrentEndPosition = endPosition;
         mCurrentPlayRate    = playRate;
+        RearmDeadline(bufferSec, playRate);
+    }
+    mCV.notify_one();
+}
+
+void AampUnderflowMonitor::NotifyDiscontinuityStart()
+{
+    {
+        std::lock_guard<std::mutex> lock(mMutex);
+        AAMPLOG_INFO("[video] AampUnderflowMonitor: discontinuity processing started; disarming deadline");
+        mDiscontinuityInProgress = true;
+        mDeadlineArmed = false;
+    }
+    mCV.notify_one();
+}
+
+void AampUnderflowMonitor::NotifyDiscontinuityComplete(double endPosition, float playRate)
+{
+    {
+        std::lock_guard<std::mutex> lock(mMutex);
+        if (!mAamp) return;
+
+        mDiscontinuityInProgress = false;
+
+        const double positionSec = mAamp->GetPositionMs() / 1000.0;
+        double bufferSec = endPosition - positionSec;
+        if (bufferSec < 0.0) bufferSec = 0.0;
+
+        mCurrentEndPosition = endPosition;
+        mCurrentPlayRate    = playRate;
+        AAMPLOG_INFO("[video] AampUnderflowMonitor: discontinuity processed; rearming deadline (buffered=%.3f)",
+                     bufferSec);
         RearmDeadline(bufferSec, playRate);
     }
     mCV.notify_one();

@@ -136,6 +136,30 @@ public:
      */
     void NotifyRateChange(float rate);
 
+    /**
+     * @fn NotifyDiscontinuityStart
+     * @brief Disarm the deadline while a discontinuity is being processed.
+     *
+     * During discontinuity processing the injector is stopped and the pipeline
+     * is reconfigured/flushed.  New video fragments may still be downloaded and
+     * queued during this window, so disarming the deadline once is not enough:
+     * the next NotifyVideoFragment() would immediately re-arm it with an
+     * unreliable buffer position (positions are in flux during a flush), risking
+     * a spurious underflow before processing completes.  This call therefore
+     * latches a "discontinuity in progress" state that suppresses deadline
+     * re-arming in NotifyVideoFragment() until NotifyDiscontinuityComplete() is
+     * called to clear the latch and re-arm the deadline.
+     */
+    void NotifyDiscontinuityStart();
+
+    /**
+     * @fn NotifyDiscontinuityComplete
+     * @brief Re-arm the deadline after discontinuity processing has completed.
+     * @param[in] endPosition  Latest known end-of-buffer position (seconds).
+     * @param[in] playRate     Current play rate.
+     */
+    void NotifyDiscontinuityComplete(double endPosition, float playRate);
+
 private:
     /**
      * @fn Run
@@ -164,6 +188,7 @@ private:
 
     TimePoint               mDeadline;          ///< Wall-clock time of expected underflow.
     bool                    mDeadlineArmed{false}; ///< False while pipeline is paused for buffering.
+    bool                    mDiscontinuityInProgress{false}; ///< Latch: suppress deadline re-arm until discontinuity processing completes.
     double                  mCurrentPlayRate{1.0}; ///< Cached for resume re-arm.
     double                  mCurrentEndPosition{0.0}; ///< Cached for resume re-arm.
 };
