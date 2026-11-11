@@ -38,6 +38,7 @@
 #include "isobmffhelper.h"
 #include "AampConfig.h"
 #include "SubtecFactory.hpp"
+#include "AampAvlog.h"
 #include "AampUtils.h"
 
 // checks if current state is going to use IFRAME ( Fragment/Playlist )
@@ -1095,6 +1096,9 @@ bool MediaTrack::ProcessFragmentChunk()
 				int64_t ptsOffset = cachedFragment->PTSOffsetSec * cachedFragment->timeScale;
 				(void)mIsoBmffHelper->RestampPts(parsedBufferChunk, ptsOffset, cachedFragment->uri,
 												 name, cachedFragment->timeScale);
+				// avlog: one record each time the offset applied to this track changes (LL-DASH chunks)
+				AampAvlogRestamp(type, cachedFragment->PTSOffsetSec, cachedFragment->absPosition,
+								 cachedFragment->timeScale, cachedFragment->discontinuityIndex, false);
 				fpts += cachedFragment->PTSOffsetSec;
 			}
 		}
@@ -1384,6 +1388,9 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 					(void)mIsoBmffHelper->RestampPts(cachedFragment->fragment, ptsOffset,
 													 cachedFragment->uri, name,
 													 cachedFragment->timeScale);
+					// avlog: one record each time the offset applied to this track changes
+					AampAvlogRestamp(type, cachedFragment->PTSOffsetSec, cachedFragment->absPosition,
+									 cachedFragment->timeScale, cachedFragment->discontinuityIndex, false);
 				}
 				else
 				{
@@ -4682,6 +4689,8 @@ void MediaTrack::HandleFragmentPositionJump(CachedFragment* cachedFragment)
 	{
 		// Find the delta between the last injected fragment end position and the current fragment position
 		double positionDelta = (cachedFragment->absPosition - lastInjectedDuration);
+		// avlog: record any non-zero delta (also < 0, which AAMP ignores below)
+		AampAvlogPositionJump(type, positionDelta, lastInjectedDuration, cachedFragment->absPosition, false);
 		// There is a delta which implies a fragment might have been skipped
 		// Here we are comparing against absolute position, so discontinuous periods have no effect
 		if (positionDelta > 0)
