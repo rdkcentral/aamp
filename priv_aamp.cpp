@@ -3704,7 +3704,7 @@ bool PrivateInstanceAAMP::ProcessPendingDiscontinuity()
 
 	if (!(DiscontinuitySeenInAllTracks()))
 	{
-		AAMPLOG_ERR("PrivateInstanceAAMP: Discontinuity status of video - (%d), audio - (%d)", mProcessingDiscontinuity[eMEDIATYPE_VIDEO], mProcessingDiscontinuity[eMEDIATYPE_AUDIO]);
+		AAMPLOG_ERR("PrivateInstanceAAMP: Discontinuity status of video - (%d), audio - (%d)", mProcessingDiscontinuity[eMEDIATYPE_VIDEO].load(), mProcessingDiscontinuity[eMEDIATYPE_AUDIO].load());
 		UnblockWaitForDiscontinuityProcessToComplete();
 		return ret; // true so that PrivateInstanceAAMP_ProcessDiscontinuity can cleanup properly
 	}
