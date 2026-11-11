@@ -1842,6 +1842,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	, mIsChunkMode(false)
 	, prevFirstPeriodStartTime(0)
 	, mIsFlushOperationInProgress(false)
+	, mAampTrackWorkerManager()
 	, mSetRateActive(false)
 	, mSetRateActiveMutex()
 	, mThumbnailLastProgramDateTime(0)

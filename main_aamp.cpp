@@ -976,7 +976,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 						aamp->SetState(eSTATE_SEEKING);
 						aamp->seek_pos_seconds = aamp->GetPositionSeconds();
 						aamp->rate = AAMP_NORMAL_PLAY_RATE;
-						aamp->pipeline_paused = false;
+						aamp->mSinkPaused = false;
 						{
 							PrivateInstanceAAMP::SetRateProtect setRateLock(aamp);
 							aamp->TuneHelper(eTUNETYPE_SEEK, false);
