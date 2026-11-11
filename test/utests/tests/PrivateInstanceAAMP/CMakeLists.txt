@@ -33,7 +33,6 @@ set(TEST_SOURCES PauseAtTests.cpp
                  LocalTSBTests.cpp
                  ChunkedTransferTests.cpp
                  PlayerStateTests.cpp
-                 AsyncTuneAbortTests.cpp)
                  AsyncTuneAbortTests.cpp
                  BlockProgressMonitorTests.cpp)
 

@@ -1086,7 +1086,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 				aamp->ResumeDownloads();
 				{
 					PrivateInstanceAAMP::SetRateProtect setRateLock(aamp);
-					aamp->TuneHelper(eTUNETYPE_SEEK, false);
+					aamp->TuneHelper(tuneTypePlay); // this unpauses pipeline as side effect
 				}
 			}
 

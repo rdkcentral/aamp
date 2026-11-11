@@ -624,12 +624,12 @@ public:
 			{
 				mAamp->mSetRateActiveMutex.lock(); // protect the gap between setting the flag and the stream lock
 				mAamp->mSetRateActive = true; // prevent MonitorProgress() running while doing trick mode
-				mAamp->AcquireStreamLock();
+				mAamp->GetStreamLock().lock();
 				mAamp->mSetRateActiveMutex.unlock();
 			}
 			~SetRateProtect()
 			{
-				mAamp->ReleaseStreamLock();
+				mAamp->GetStreamLock().unlock();
 				mAamp->mSetRateActive = false; // allow MonitorProgress() to run again
 			}
 		private:
