@@ -11837,6 +11837,28 @@ bool PrivateInstanceAAMP::SetStateBufferingIfRequired()
 {
 	bool bufferingSet = false;
 	std::lock_guard<std::recursive_mutex> guard(mFragmentCachingLock);
+
+	// IsFragmentCachingRequired() is false while a seek-while-paused is
+	// waiting for its first video frame, so UpdateTSAfterFetchStats() skips the
+	// caching-complete check for every fragment fetched in that window while
+	// mFragmentCachingRequired stays set. Once the user resumes, the
+	// requirement is live again and the cached duration may already meet the
+	// target. Waiting for a further fragment download to notice that can
+	// deadlock when the sink is not requesting more data (e.g. Direct Rialto,
+	// whose pipeline is paused and which has no enough-data signal): BUFFERING
+	// would hold play() back while the download that would end it is blocked on
+	// a full fragment cache. So re-check here and drop the requirement if the
+	// target has already been met, letting the caller resume normally.
+	if(IsFragmentCachingRequired() && mpStreamAbstractionAAMP)
+	{
+		MediaTrack *video = mpStreamAbstractionAAMP->GetMediaTrack(eTRACK_VIDEO);
+		if(video && video->CompleteInitialCachingIfTargetMet(GetInitialBufferDuration()))
+		{
+			AAMPLOG_MIL("Fragment caching target already met, not entering BUFFERING");
+			mFragmentCachingRequired = false;
+		}
+	}
+
 	if(IsFragmentCachingRequired())
 	{
 		bufferingSet = true;
