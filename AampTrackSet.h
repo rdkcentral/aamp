@@ -30,6 +30,7 @@
 #include <cstdint>
 #include <initializer_list>
 #include <type_traits>
+#include "AampDefine.h"
 #include "AampMediaType.h"
 
 /**
@@ -39,7 +40,7 @@
  * Purpose: records which track slots (video, audio, subtitle) are active,
  * independent of their position.
  *
- * Only the media types before eMEDIATYPE_RESERVED are track types; any other
+ * Only the first AAMP_TRACK_COUNT media types are track types; any other
  * value is never contained and is ignored by With().
  *
  * Iteration is in ascending AampMediaType order, which is primary-first
@@ -50,11 +51,8 @@
 class AampTrackSet
 {
 public:
-	/**
-	 * Number of track types a set can hold.
-	 * eMEDIATYPE_RESERVED must remain the first enumerator after the track types.
-	 */
-	static constexpr size_t MAX_TRACK_TYPES = static_cast<size_t>(eMEDIATYPE_RESERVED);
+	/** Number of track types a set can hold. */
+	static constexpr size_t MAX_TRACK_TYPES = AAMP_TRACK_COUNT;
 	static_assert(MAX_TRACK_TYPES <= 8, "AampTrackSet stores one bit per track type in a uint8_t");
 
 	/** Forward or reverse iterator over the media types in a set. */

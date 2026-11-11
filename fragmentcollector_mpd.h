@@ -49,8 +49,6 @@
 #include "AampDownloadInfo.hpp"
 #include "AampTrackSet.h"
 
-static_assert(AampTrackSet::MAX_TRACK_TYPES == AAMP_TRACK_COUNT, "AampTrackSet must cover every track slot");
-
 // Sentinel for invalid base period offset in ad nodes
 constexpr int32_t INVALID_BASE_PERIOD_OFFSET = -1;
 
