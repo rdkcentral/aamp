@@ -53,44 +53,38 @@ AampRialtoPreRollMonitor::~AampRialtoPreRollMonitor()
 
 void AampRialtoPreRollMonitor::Start(Probe probe)
 {
-	// Cancels any previous timer and waits for a Poll still running on it, so
-	// that Poll cannot read the probe replaced below.
-	m_timer.Stop();
-
-	uint64_t epoch = 0;
+	// The timer's lock is the outer lock for Start() and Stop(), so each
+	// updates the pre-roll state and the timer as one step: a Stop() racing
+	// this Start() either runs wholly before it or cancels both the state
+	// and the timer it installs, never just the timer.  m_mutex is taken
+	// inside, the same order as a GLib dispatch running Poll().  Stopping the
+	// timer waits for a Poll still running on it, so that Poll cannot read
+	// the probe replaced below.
+	bool scheduled = false;
+	m_timer.RunLocked([&]
 	{
-		std::lock_guard<std::mutex> lock(m_mutex);
-		epoch = ++m_epoch;
-		m_running = true;
-		m_probe = std::move(probe);
-		m_startMs = m_clock();
-		m_haveLoggedFrames = false;
-	}
-
-	const bool scheduled = m_timer.Start(m_config.pollIntervalMs,
-		[this]() { return Poll(); });
-	// Read before taking m_mutex: a GLib dispatch holds the timer's lock
-	// while Poll() takes m_mutex, so asking the timer under m_mutex could
-	// deadlock against it.  Not scheduled but running means another
-	// thread's Start() won, and its timer serves this probe.
-	const bool startedElsewhere = !scheduled && m_timer.IsRunning();
-
-	bool completeNow = false;
-	{
-		std::lock_guard<std::mutex> lock(m_mutex);
-		// The epoch check drops this if a later Start() or Stop() has
-		// already taken over since the timer state was read.
-		if (!scheduled && !startedElsewhere && m_running &&
-		    (m_epoch == epoch))
+		m_timer.Stop();
 		{
-			m_running = false;
-			completeNow = true;
+			std::lock_guard<std::mutex> lock(m_mutex);
+			++m_epoch;
+			m_running = true;
+			m_probe = std::move(probe);
+			m_startMs = m_clock();
+			m_haveLoggedFrames = false;
 		}
-	}
+		scheduled = m_timer.Start(m_config.pollIntervalMs,
+			[this]() { return Poll(); });
+		if (!scheduled)
+		{
+			std::lock_guard<std::mutex> lock(m_mutex);
+			m_running = false;
+		}
+	});
 
-	if (completeNow)
+	if (!scheduled)
 	{
 		AAMPLOG_WARN("pre-roll timer could not be scheduled - completing now");
+		ReleaseProbe();
 		m_onComplete();
 	}
 	else
@@ -104,14 +98,18 @@ void AampRialtoPreRollMonitor::Start(Probe probe)
 void AampRialtoPreRollMonitor::Stop()
 {
 	bool wasRunning = false;
+	// One step with the timer, as in Start().  Stopping the timer waits for a
+	// Poll in progress, so no completion fires after this returns.
+	m_timer.RunLocked([&]
 	{
-		std::lock_guard<std::mutex> lock(m_mutex);
-		wasRunning = m_running;
-		m_running = false;
-		++m_epoch;
-	}
-	// Waits for a Poll in progress, so no completion fires after this returns.
-	m_timer.Stop();
+		{
+			std::lock_guard<std::mutex> lock(m_mutex);
+			wasRunning = m_running;
+			m_running = false;
+			++m_epoch;
+		}
+		m_timer.Stop();
+	});
 	if (wasRunning)
 	{
 		AAMPLOG_INFO("pre-roll monitor stopped before completion");

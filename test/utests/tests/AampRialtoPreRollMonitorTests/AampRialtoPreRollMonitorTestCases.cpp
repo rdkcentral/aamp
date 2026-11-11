@@ -33,10 +33,12 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <future>
 #include <thread>
+#include <vector>
 
 #include "AampRialtoPreRollMonitor.h"
 #include "MockGLib.h"
@@ -329,6 +331,77 @@ TEST_F(AampRialtoPreRollMonitorTest, Stop_WaitsForPollInProgress)
 	stopThread.join();
 	EXPECT_TRUE(stopReturned.load());
 	EXPECT_EQ(m_completions, 0);
+}
+
+/**
+ * @test StopRacingStart_RunningStateMatchesTimer
+ */
+TEST_F(AampRialtoPreRollMonitorTest, StopRacingStart_RunningStateMatchesTimer)
+{
+	/**
+	 * @brief Regression: Stop() cleared the running state and then stopped
+	 *        the timer as a separate step, so a Start() that completed in
+	 *        between had its new timer cancelled while the monitor stayed
+	 *        running, and pre-roll could never complete.  The old Stop()
+	 *        waited for the timer behind a Poll in progress after clearing
+	 *        the state; here the competing Start() runs inside that Poll.
+	 */
+	std::vector<guint> ids;
+	std::vector<guint> removed;
+	GSourceFunc firstFn = nullptr;
+	gpointer firstData = nullptr;
+	ON_CALL(*m_mockGLib, g_timeout_add(_, _, _))
+		.WillByDefault(Invoke(
+			[&](guint, GSourceFunc fn, gpointer data) -> guint
+			{
+				if (ids.empty())
+				{
+					firstFn = fn;
+					firstData = data;
+				}
+				ids.push_back(100u + static_cast<guint>(ids.size()));
+				return ids.back();
+			}));
+	ON_CALL(*m_mockGLib, g_source_remove(_))
+		.WillByDefault(Invoke([&](guint id)
+			{
+				removed.push_back(id);
+				return TRUE;
+			}));
+
+	std::promise<void> pollEntered;
+	std::promise<void> releasePoll;
+	auto released = releasePoll.get_future().share();
+	AampRialtoPreRollMonitor::Probe probe = MakeProbe();
+	probe.acceptedFrames = [&]() -> uint32_t
+	{
+		pollEntered.set_value();
+		released.wait();
+		m_monitor->Start(MakeProbe());
+		return 0u;
+	};
+	m_monitor->Start(std::move(probe));
+	ASSERT_NE(firstFn, nullptr);
+
+	std::thread pollThread([&] { firstFn(firstData); });
+	pollEntered.get_future().wait();
+	std::thread stopThread([this] { m_monitor->Stop(); });
+	// Give Stop() time to reach the point where the old code cleared the
+	// running state before waiting for the timer.
+	for (int i = 0; (i < 20) && m_monitor->IsRunning(); ++i)
+	{
+		std::this_thread::sleep_for(std::chrono::milliseconds(10));
+	}
+
+	releasePoll.set_value();
+	pollThread.join();
+	stopThread.join();
+
+	ASSERT_EQ(ids.size(), 2u);
+	const bool timerLive =
+		std::find(removed.begin(), removed.end(), ids[1]) == removed.end();
+	EXPECT_EQ(m_monitor->IsRunning(), timerLive)
+		<< "monitor running state and its timer disagree";
 }
 
 /**

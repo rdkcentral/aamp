@@ -131,6 +131,17 @@ public:
 		return m_state->running;
 	}
 
+	/// Run @p fn holding the timer's lock: no tick runs, and no Start(),
+	/// Restart() or Stop() on another thread takes effect, until it returns.
+	/// @p fn may call this timer's methods (the lock is recursive), so an
+	/// owner can update its own state and the timer as one step.  Take any
+	/// owner lock inside @p fn, the same order as a tick that takes it.
+	void RunLocked(const std::function<void()> &fn)
+	{
+		std::lock_guard<std::recursive_mutex> lock(m_state->mutex);
+		fn();
+	}
+
 private:
 	struct State
 	{

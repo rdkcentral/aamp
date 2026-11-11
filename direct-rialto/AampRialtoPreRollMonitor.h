@@ -51,9 +51,11 @@
  * duration is reported in the logs only; it does not gate.
  *
  * Thread-safe.  Start()/Stop() may be called from any thread; polling and
- * completion run on the GLib main loop.  Stop() waits for a Poll in progress,
- * so no completion fires once it returns.  The completion action is invoked
- * without the internal mutex held.
+ * completion run on the GLib main loop.  Start() and Stop() each update the
+ * pre-roll state and its timer as one step, so overlapping calls cannot
+ * leave the monitor running without a timer.  Stop() waits for a Poll in
+ * progress, so no completion fires once it returns.  The completion action
+ * is invoked without the internal mutex held, and may call Start() or Stop().
  */
 class AampRialtoPreRollMonitor
 {
