@@ -9712,7 +9712,7 @@ void PrivateInstanceAAMP::UpdateVideoEndProfileResolution(AampMediaType mediaTyp
 /**
  *  @brief updates download metrics to VideoStat object, this is used for VideoFragment as it takes duration for calculation purpose.
  */
-void PrivateInstanceAAMP::UpdateVideoEndMetrics(AampMediaType mediaType, BitsPerSecond bitrate, int curlOrHTTPCode, std::string& strUrl, double duration, double curlDownloadTime)
+void PrivateInstanceAAMP::UpdateVideoEndMetrics(AampMediaType mediaType, BitsPerSecond bitrate, int curlOrHTTPCode, const std::string& strUrl, double duration, double curlDownloadTime)
 {
 	UpdateVideoEndMetrics(mediaType, bitrate, curlOrHTTPCode, strUrl,duration,curlDownloadTime, false,false);
 }
@@ -9821,7 +9821,7 @@ void PrivateInstanceAAMP::CancelVodAdBreak(const std::string &breakId)
 /**
  * @brief updates download metrics to VideoStat object, this is used for VideoFragment as it takes duration for calculation purpose.
  */
-void PrivateInstanceAAMP::UpdateVideoEndMetrics(AampMediaType mediaType, BitsPerSecond bitrate, int curlOrHTTPCode, std::string& strUrl, double duration, double curlDownloadTime, bool keyChanged, bool isEncrypted, ManifestData * manifestData)
+void PrivateInstanceAAMP::UpdateVideoEndMetrics(AampMediaType mediaType, BitsPerSecond bitrate, int curlOrHTTPCode, const std::string& strUrl, double duration, double curlDownloadTime, bool keyChanged, bool isEncrypted, ManifestData * manifestData)
 {
 	int audioIndex = 1;
 	// ignore for write and aborted errors
@@ -10017,7 +10017,7 @@ void PrivateInstanceAAMP::UpdateVideoEndMetrics(double adjustedRate)
 /**
  * @brief updates download metrics to VideoStat object, this is used for VideoFragment as it takes duration for calculation purpose.
  */
-void PrivateInstanceAAMP::UpdateVideoEndMetrics(AampMediaType mediaType, BitsPerSecond bitrate, int curlOrHTTPCode, std::string& strUrl, double curlDownloadTime, ManifestData * manifestData)
+void PrivateInstanceAAMP::UpdateVideoEndMetrics(AampMediaType mediaType, BitsPerSecond bitrate, int curlOrHTTPCode, const std::string& strUrl, double curlDownloadTime, ManifestData * manifestData)
 {
 	UpdateVideoEndMetrics(mediaType, bitrate, curlOrHTTPCode, strUrl,0,curlDownloadTime, false, false, manifestData);
 }
@@ -14246,7 +14246,8 @@ void PrivateInstanceAAMP::ProcessID3Metadata(const std::vector<uint8_t>& segment
 
 					if(mMediaFormat == eMEDIAFORMAT_DASH)
 					{
-						ReportID3Metadata(type, message, messageLen, schemeIDUri, (char*)(value), presTime, id, eventDuration, timeScale, GetMediaStreamContext(type)->timeStampOffset);
+						const MediaStreamContext *mediaCtx = GetMediaStreamContext(type);
+						ReportID3Metadata(type, message, messageLen, schemeIDUri, (char*)(value), presTime, id, eventDuration, timeScale, mediaCtx ? mediaCtx->timeStampOffset : timeStampOffset);
 					}else
 					{
 						ReportID3Metadata(type, message, messageLen, schemeIDUri, (char*)(value), presTime, id, eventDuration, timeScale, timeStampOffset);
@@ -14423,15 +14424,17 @@ void PrivateInstanceAAMP::SetCurrentLatencyMs(long currentLatencyMs)
  */
 MediaStreamContext* PrivateInstanceAAMP::GetMediaStreamContext(AampMediaType type)
 {
+	// Only the DASH collector's tracks are MediaStreamContext objects; other
+	// formats' tracks share the MediaTrack base but are different types.
 	if(mpStreamAbstractionAAMP &&
+		mMediaFormat == eMEDIAFORMAT_DASH &&
 		(type == eMEDIATYPE_VIDEO ||
 		 type == eMEDIATYPE_AUDIO ||
 		 type == eMEDIATYPE_SUBTITLE))
 	{
-		MediaStreamContext* context = (MediaStreamContext*)mpStreamAbstractionAAMP->GetMediaTrack((TrackType)type);
-		return context;
+		return static_cast<MediaStreamContext*>(mpStreamAbstractionAAMP->GetMediaTrack((TrackType)type));
 	}
-	return NULL;
+	return nullptr;
 }
 
 /**
