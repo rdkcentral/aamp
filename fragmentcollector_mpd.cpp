@@ -9540,17 +9540,11 @@ void StreamAbstractionAAMP_MPD::CacheEncryptedHeader(int trackIdx, std::string h
 			 * drive any post-download bookkeeping (profile/discontinuity reset, etc.).
 			 * Without UseMp4Demux the legacy CacheFragment path is taken instead. */
 			downloadInfo->mediaType = static_cast<AampMediaType>(trackIdx);
-			if(ISCONFIGSET(eAAMPConfig_UseMp4Demux))
 			{
 				downloadInfo->curlInstance = static_cast<AampCurlInstance>(eCURLINSTANCE_VIDEO + mMediaStreamContext[trackIdx]->mediaType);
 				downloadInfo->uriList[0] = URIInfo(headerUrl);
 				temp = mMediaStreamContext[trackIdx]->DownloadFragment(downloadInfo);
 				this->OnFragmentDownloadComplete(temp, downloadInfo);
-			}
-			else
-			{
-				mMediaStreamContext[trackIdx]->mActiveDownloadInfo = std::move(downloadInfo);
-				temp =  mMediaStreamContext[trackIdx]->CacheFragment(headerUrl, (eCURLINSTANCE_VIDEO + mMediaStreamContext[trackIdx]->mediaType), mMediaStreamContext[trackIdx]->fragmentTime, 0.0, NULL, true, false, false, 0);
 			}
 		}
 		catch(const std::regex_error& e)
