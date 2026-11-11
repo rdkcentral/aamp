@@ -326,6 +326,65 @@ TEST_F(FunctionalTests, Cullsegments)
 	EXPECT_DOUBLE_EQ(TSBDuration, FRAG_DURATION);
 }
 
+/**
+ * @brief Regression test for a fix in AampTSBSessionManager::UpdateProgress().
+ *
+ * Background: UpdateProgress() used to unconditionally overwrite aamp->culledSeconds
+ * with GetTsbDataManager(eMEDIATYPE_VIDEO)->GetFirstFragmentPosition(), which returns 0
+ * when the video data manager has no fragments yet (e.g. right after a TSB flush/
+ * recreate on an audio/text track switch, before any new segment has been downloaded).
+ * This clobbered a previously-valid aamp->culledSeconds with 0 until the next
+ * UpdateProgress() call, once a fragment had arrived.
+ *
+ * Test Steps:
+ * 1. Set aamp->culledSeconds to a known non-zero value, simulating state left over
+ *    from before a TSB flush.
+ * 2. Call UpdateProgress() while the video data manager has no fragments (as in
+ *    SetUp(), before any EnqueueWrite()).
+ * 3. Add an init fragment and a video fragment, then call UpdateProgress() again.
+ *
+ * Expected Results:
+ * - After step 2, aamp->culledSeconds is unchanged (not clobbered to 0).
+ * - After step 3, aamp->culledSeconds is updated to the new fragment's absolute position.
+ */
+TEST_F(FunctionalTests, UpdateProgress_SkipsCulledSecondsUpdate_WhenStoreEmpty)
+{
+	const double MANIFEST_DURATION = 30.0;
+	const double PREVIOUS_CULLED_SECONDS = 1000.0;
+	aamp->culledSeconds = PREVIOUS_CULLED_SECONDS;
+	aamp->mAbsoluteEndPosition = PREVIOUS_CULLED_SECONDS + MANIFEST_DURATION;
+
+	// No fragments have been written yet (fresh TSB session from SetUp()).
+	mAampTSBSessionManager->UpdateProgress(MANIFEST_DURATION, 0);
+	EXPECT_DOUBLE_EQ(aamp->culledSeconds, PREVIOUS_CULLED_SECONDS);
+
+	// An init fragment followed by a video fragment now arrives.
+	std::shared_ptr<CachedFragment> cachedFragment = std::make_shared<CachedFragment>();
+	cachedFragment->fragment.assign(TEST_DATA.begin(), TEST_DATA.end());
+	cachedFragment->initFragment = true;
+	cachedFragment->type = eMEDIATYPE_INIT_VIDEO;
+
+	EXPECT_CALL(*g_mockTSBStore, Write(_, _, _)).WillRepeatedly(Return(TSB::Status::OK));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetVidTimeScale()).WillRepeatedly(Return(1));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, RecalculatePTS(_, _, _)).WillRepeatedly(Return(0));
+
+	const std::string initUrl = std::string(TEST_BASE_URL) + std::string("init.mp4");
+	mAampTSBSessionManager->EnqueueWrite(initUrl, cachedFragment, TEST_PERIOD_ID);
+	std::this_thread::sleep_for(std::chrono::milliseconds(25));
+
+	cachedFragment->initFragment = false;
+	cachedFragment->type = eMEDIATYPE_VIDEO;
+	cachedFragment->duration = 1.92;
+	cachedFragment->absPosition = 2000.0;
+
+	const std::string videoUrl = std::string(TEST_BASE_URL) + std::string("video.mp4");
+	mAampTSBSessionManager->EnqueueWrite(videoUrl, cachedFragment, TEST_PERIOD_ID);
+	std::this_thread::sleep_for(std::chrono::milliseconds(25));
+
+	mAampTSBSessionManager->UpdateProgress(MANIFEST_DURATION, 0);
+	EXPECT_DOUBLE_EQ(aamp->culledSeconds, cachedFragment->absPosition);
+}
+
 TEST_F(FunctionalTests, TSBReadTests)
 {
 	constexpr double FRAG_FIRST_POS = 99.0;
