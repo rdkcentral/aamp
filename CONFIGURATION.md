@@ -250,6 +250,7 @@ Network timeout configurations control how long AAMP waits for various network o
 | `useNewAdBreaker` | Boolean | false | Use new discontinuity processing based on PDT |
 | `useRetuneForUnpairedDiscontinuity` | Boolean | true | Retune on unpaired discontinuity |
 | `enableNetworkPersonaLogging` | Boolean | false | Collect network metrics and log a JSON persona when the last active player in the process stops |
+| `asyncStreamStop` | Boolean | false | Run the stream abstraction stop in parallel with the sink stop during Stop() to reduce stop time; always synchronous with direct Rialto |
 
 ## Best Practices
 

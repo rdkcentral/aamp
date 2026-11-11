@@ -244,6 +244,7 @@ typedef enum
 	eAAMPConfig_EnableEventProfiling,			/**< Enable event round-trip time profiling (async queue dwell + sync delivery). Default: false */
 	eAAMPConfig_EnableNetworkPersonaLogging,	/**< Collect network metrics and log the JSON persona on Stop. Default: false */
 	eAAMPConfig_DisableTTML,					/**< Config to disable/exclude TTML tracks in DASH (default: TTML enabled) */
+	eAAMPConfig_AsyncStreamStop,				/**< Run the stream abstraction stop in parallel with the sink stop during Stop(). Ignored (synchronous) with direct Rialto. Default: false */
 	eAAMPConfig_BoolMaxValue				/**< Max value of bool config always last element */	
 
 } AAMPConfigSettingBool;

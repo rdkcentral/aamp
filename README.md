@@ -193,6 +193,7 @@ useSinglePipeline		Enable/Disable using single gstreamer pipeline for main and s
 earlyProcessing			Enable/Disable processing fragments on download to extract ID3 metadata
 useRialtoSink              Enable/Disable player to use Rialto sink based video and audio pipeline
 disableTTML			Disable TTML subtitle tracks in DASH; in-band closed captions remain available. Default: false
+asyncStreamStop			Run the stream abstraction stop in parallel with the sink stop during Stop() to reduce stop time. Always synchronous with direct Rialto. Default: false
 // Integer inputs
 ptsErrorThreshold		aamp maximum number of back-to-back pts errors to be considered for triggering a retune
 waitTimeBeforeRetryHttp5xx 	Specify the wait time before retry for 5xx http errors. Default: 1s.

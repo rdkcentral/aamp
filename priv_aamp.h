@@ -52,6 +52,7 @@
 #include <condition_variable>
 #include <queue>
 #include <algorithm>
+#include <thread>
 #include <glib.h>
 #include <cjson/cJSON.h>
 #include <future>
@@ -785,7 +786,8 @@ public:
 	 * @fn TeardownStream
 	 *
 	 * @param[in] newTune - true if operation is a new tune
-	 * @param[in] disableDownloads - true if downloads need to be disabled
+	 * @param[in] disableDownloads - true if downloads need to be disabled (full stop). With the asyncStreamStop config
+	 *            the stream stop then runs in parallel with the sink stop; it is always joined before returning.
 	 * @return void
 	 */
 	void TeardownStream( bool newTune, bool disableDownloads = false );
@@ -3728,6 +3730,11 @@ public:
 	std::recursive_mutex& GetStreamLock() { return mStreamLock; }
 
 	/**
+	 * @brief Get mutex used to serialize DRM teardown across stop paths.
+	 */
+	std::mutex& GetDRMTeardownMutex();
+
+	/**
 	 *  @fn UpdateLiveOffset
 	 *
 	 */
@@ -4601,6 +4608,7 @@ protected:
 	std::recursive_mutex mEventLock; 		/**< lock for operation on mPendingAsyncEvents */
 	int mEventPriority; 			/**< priority for async events */
 	std::recursive_mutex mStreamLock; 		/**< Mutex for accessing mpStreamAbstractionAAMP */
+	std::mutex mDRMTeardownLock;			/**< Serializes DRM cleanup during parallel stop */
 	int mHarvestCountLimit;			/**< Harvest count */
 	int mHarvestConfig;			/**< Harvest config */
 	std::unique_ptr<Mp4Demux> mVideoIntegrityValidator; /**< Persistent Mp4Demux for video-track integrity monitoring */
@@ -4661,6 +4669,16 @@ private:
 	 * @return bool true if async abort is supported for the given format/type
 	 */
 	bool IsAsyncTuneSupportedForType(MediaFormat format, ContentType type, TuneType tuneType) const;
+
+	/**
+	 * @brief Stop the current stream abstraction and perform stream cleanup.
+	 *        Looks up mpStreamAbstractionAAMP under mStreamLock; does nothing if it was already
+	 *        torn down by another thread.
+	 *
+	 * @param[in] contentType       - content type of the stream
+	 * @param[in] disableDownloads  - true to disable downloads while stopping
+	 */
+	void StopStream(ContentType contentType, bool disableDownloads);
 
 	/**
 	 * @brief Play from the start of the TSB
