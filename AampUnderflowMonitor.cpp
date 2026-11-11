@@ -271,16 +271,19 @@ void AampUnderflowMonitor::NotifyPipelineResumed(double endPosition, float playR
 
 void AampUnderflowMonitor::NotifyDiscontinuityStart()
 {
+#if 0    
     {
         std::lock_guard<std::mutex> lock(mMutex);
         AAMPLOG_INFO("[video] AampUnderflowMonitor: discontinuity processing started; disarming deadline");
         mDeadlineArmed = false;
     }
     mCV.notify_one();
+#endif    
 }
 
 void AampUnderflowMonitor::NotifyDiscontinuityComplete(double endPosition, float playRate)
 {
+#if 0    
     {
         std::lock_guard<std::mutex> lock(mMutex);
         if (!mAamp) return;
@@ -296,6 +299,7 @@ void AampUnderflowMonitor::NotifyDiscontinuityComplete(double endPosition, float
         RearmDeadline(bufferSec, playRate);
     }
     mCV.notify_one();
+#endif    
 }
 
 // ---------------------------------------------------------------------------
@@ -347,12 +351,13 @@ void AampUnderflowMonitor::Run()
                                    rate != AAMP_SLOWMOTION_RATE  &&
                                    rate != AAMP_RATE_PAUSE);
         const bool  isSeeking   = (state == eSTATE_SEEKING);
-
-        if (isTrickplay || isSeeking)
-        {
-            AAMPLOG_TRACE("[video] underflow deadline expired but suppressed "
-                          "(rate=%.2f trickplay=%d seeking=%d); disarming",
-                          rate, (int)isTrickplay, (int)isSeeking);
+        const bool isDiscontinuityProcessPending = mAamp->IsDiscontinuityProcessPending();
+ 
+        if (isTrickplay || isSeeking || isDiscontinuityProcessPending)
+         {
+            AAMPLOG_WARN("DBG - [video] underflow deadline expired but suppressed "
+                          "(rate=%.2f trickplay=%d seeking=%d); discontinuityPending=%d; disarming",
+                          rate, (int)isTrickplay, (int)isSeeking, (int)isDiscontinuityProcessPending);
             mDeadlineArmed = false;
             continue;
         }
