@@ -401,7 +401,7 @@ bool PrivateInstanceAAMP::IsFragmentCachingRequired()
 	return false;
 }
 
-void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
+void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads, bool waitForStop)
 {
 }
 
