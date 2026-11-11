@@ -391,8 +391,13 @@ bool PrivateInstanceAAMP::IsFragmentCachingRequired()
 	return false;
 }
 
-void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
+void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads, bool waitForStop)
 {
+}
+
+std::mutex& PrivateInstanceAAMP::GetDRMTeardownMutex()
+{
+	return mDRMTeardownLock;
 }
 
 void PrivateInstanceAAMP::SetVideoRectangle(int x, int y, int w, int h)
