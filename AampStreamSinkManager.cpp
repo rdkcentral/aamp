@@ -33,7 +33,7 @@ AampStreamSinkManager::AampStreamSinkManager() :
 	mActivePlayersMap(),
 	mInactivePlayersMap(),
 	mEncryptedHeaders(),
-	mMediaHeaders(AAMP_TRACK_COUNT, nullptr),
+	mMediaHeaders(),
 	mPipelineMode(ePIPELINEMODE_UNDEFINED),
 	mStreamSinkMutex(),
 	mEncryptedAamp(nullptr),
@@ -232,6 +232,7 @@ void AampStreamSinkManager::DeleteStreamSink(PrivateInstanceAAMP *aamp)
 	
 	//Do not edit or remove this log - it is used in L2 test
 	AAMPLOG_WARN("AampStreamSinkManager(%p) DeleteStreamSink for PLAYER[%d]", this, aamp->mPlayerId);
+	mMediaHeaders.erase(aamp);
 
 	switch(mPipelineMode)
 	{
@@ -381,6 +382,10 @@ void AampStreamSinkManager::GetEncryptedHeaders(std::map<int, std::string>& mapp
 void AampStreamSinkManager::DeactivatePlayer(PrivateInstanceAAMP *aamp, bool stop)
 {
 	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
+	if (stop)
+	{
+		mMediaHeaders.erase(aamp);
+	}
 	
 	switch(mPipelineMode)
 	{
@@ -742,22 +747,28 @@ void AampStreamSinkManager::UpdateTuningPlayer(PrivateInstanceAAMP *aamp)
 	}
 }
 
-void AampStreamSinkManager::AddMediaHeader(unsigned track, std::shared_ptr<AampStreamSinkManager::MediaHeader> header)
+void AampStreamSinkManager::AddMediaHeader(PrivateInstanceAAMP *aamp, unsigned track, std::shared_ptr<AampStreamSinkManager::MediaHeader> header)
 {
 	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
 
 	if(track < AAMP_TRACK_COUNT)
 	{
-		if (mMediaHeaders[track])
+		auto playerHeaders = mMediaHeaders.find(aamp);
+		if (playerHeaders == mMediaHeaders.end())
+		{
+			playerHeaders = mMediaHeaders.emplace(aamp, std::vector<std::shared_ptr<MediaHeader>>(AAMP_TRACK_COUNT)).first;
+		}
+		auto& mediaHeaders = playerHeaders->second;
+		if (mediaHeaders[track])
 		{
 			AAMPLOG_WARN("AampStreamSinkManager(%p) media header for track[%u] have already been set; url[%s] mimeType[%s] injected[%d]",
-				this, track, mMediaHeaders[track]->url.c_str(), mMediaHeaders[track]->mimeType.c_str(), mMediaHeaders[track]->injected);
+				this, track, mediaHeaders[track]->url.c_str(), mediaHeaders[track]->mimeType.c_str(), mediaHeaders[track]->injected);
 		}
 		else
 		{
-			mMediaHeaders[track] = std::move(header);
+			mediaHeaders[track] = std::move(header);
 			AAMPLOG_INFO("AampStreamSinkManager(%p) Added header for track[%u] url[%s] mimeType[%s] injected[%d]",
-				this, track, mMediaHeaders[track]->url.c_str(), mMediaHeaders[track]->mimeType.c_str(), mMediaHeaders[track]->injected);
+				this, track, mediaHeaders[track]->url.c_str(), mediaHeaders[track]->mimeType.c_str(), mediaHeaders[track]->injected);
 		}
 	}
 	else
@@ -766,13 +777,17 @@ void AampStreamSinkManager::AddMediaHeader(unsigned track, std::shared_ptr<AampS
 	}
 }
 
-void AampStreamSinkManager::RemoveMediaHeader(unsigned track)
+void AampStreamSinkManager::RemoveMediaHeader(PrivateInstanceAAMP *aamp, unsigned track)
 {
 	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
 
 	if(track < AAMP_TRACK_COUNT)
 	{
-		mMediaHeaders[track].reset();
+		auto playerHeaders = mMediaHeaders.find(aamp);
+		if (playerHeaders != mMediaHeaders.end())
+		{
+			playerHeaders->second[track].reset();
+		}
 		AAMPLOG_INFO("AampStreamSinkManager(%p) Removed header for track[%u]", this, track);
 	}
 	else
@@ -781,18 +796,19 @@ void AampStreamSinkManager::RemoveMediaHeader(unsigned track)
 	}
 }
 
-std::shared_ptr<AampStreamSinkManager::MediaHeader> AampStreamSinkManager::GetMediaHeader(unsigned track)
+std::shared_ptr<AampStreamSinkManager::MediaHeader> AampStreamSinkManager::GetMediaHeader(PrivateInstanceAAMP *aamp, unsigned track)
 {
 	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
 	std::shared_ptr<AampStreamSinkManager::MediaHeader> header = {};
 
 	if(track < AAMP_TRACK_COUNT)
 	{
-		if (mMediaHeaders[track])
+		auto playerHeaders = mMediaHeaders.find(aamp);
+		if (playerHeaders != mMediaHeaders.end() && playerHeaders->second[track])
 		{
-			header = mMediaHeaders[track];
+			header = playerHeaders->second[track];
 			AAMPLOG_INFO("AampStreamSinkManager(%p) track[%u] url[%s] mimeType[%s] injected[%d]",
-				this, track, mMediaHeaders[track]->url.c_str(), mMediaHeaders[track]->mimeType.c_str(), mMediaHeaders[track]->injected);
+				this, track, header->url.c_str(), header->mimeType.c_str(), header->injected);
 		}
 		else
 		{

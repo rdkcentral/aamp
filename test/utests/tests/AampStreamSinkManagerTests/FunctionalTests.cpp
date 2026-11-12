@@ -663,18 +663,19 @@ TEST_F(AampStreamSinkManagerTests, MediaHeader_AddGetRemove)
     auto header = std::make_shared<AampStreamSinkManager::MediaHeader>("http://test.url/init.mp4", "application/mp4");
     int trackId = eMEDIATYPE_SUBTITLE;
 
-    manager.AddMediaHeader(trackId, header);
+    manager.AddMediaHeader(mPrivateInstanceAAMP1, trackId, header);
 
     // GetMediaHeader should return the same header
-    auto retrieved = manager.GetMediaHeader(trackId);
+    auto retrieved = manager.GetMediaHeader(mPrivateInstanceAAMP1, trackId);
     ASSERT_NE(retrieved, nullptr);
     EXPECT_EQ(retrieved->url, "http://test.url/init.mp4");
     EXPECT_EQ(retrieved->mimeType, "application/mp4");
     EXPECT_FALSE(retrieved->injected);
+    EXPECT_EQ(manager.GetMediaHeader(mPrivateInstanceAAMP2, trackId), nullptr);
 
     // RemoveMediaHeader should remove the header
-    manager.RemoveMediaHeader(trackId);
-    auto removed = manager.GetMediaHeader(trackId);
+    manager.RemoveMediaHeader(mPrivateInstanceAAMP1, trackId);
+    auto removed = manager.GetMediaHeader(mPrivateInstanceAAMP1, trackId);
     EXPECT_EQ(removed, nullptr);
 }
 
