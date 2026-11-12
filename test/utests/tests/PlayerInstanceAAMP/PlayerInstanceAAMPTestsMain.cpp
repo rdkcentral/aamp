@@ -610,7 +610,7 @@ TEST_F(PlayerInstanceAAMPTests, SetRate_PauseRearmedBeforeFirstFrame_DefersInjec
 {
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_SEEKING));
 	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
-	mPrivateInstanceAAMP->pipeline_paused = false;
+	mPrivateInstanceAAMP->mSinkPaused = false;
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, RearmPauseOnFirstVideoFrame()).WillOnce(Return(true));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, ApplyPausedDownloadPolicy()).Times(0);
@@ -621,7 +621,7 @@ TEST_F(PlayerInstanceAAMPTests, SetRate_PauseRearmedBeforeFirstFrame_DefersInjec
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifySpeedChanged(0, false)).Times(1);
 
 	mPlayerInstance->SetRate(0);
-	EXPECT_TRUE(mPrivateInstanceAAMP->pipeline_paused);
+	EXPECT_TRUE(mPrivateInstanceAAMP->mSinkPaused);
 }
 
 /**
@@ -634,7 +634,7 @@ TEST_F(PlayerInstanceAAMPTests, SetRate_PauseRearmedBeforeFirstFrame_RearmsAndCo
 {
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_SEEKING));
 	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
-	mPrivateInstanceAAMP->pipeline_paused = false;
+	mPrivateInstanceAAMP->mSinkPaused = false;
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, RearmPauseOnFirstVideoFrame())
 		.WillOnce(::testing::Invoke([&]()
@@ -649,11 +649,11 @@ TEST_F(PlayerInstanceAAMPTests, SetRate_PauseRearmedBeforeFirstFrame_RearmsAndCo
 		{
 			// The lock is released again and the flag was committed
 			EXPECT_FALSE(IsFragmentCachingLockOwnedByAnotherThread(mPrivateInstanceAAMP));
-			EXPECT_TRUE(mPrivateInstanceAAMP->pipeline_paused);
+			EXPECT_TRUE(mPrivateInstanceAAMP->mSinkPaused);
 		}));
 
 	mPlayerInstance->SetRate(0);
-	EXPECT_TRUE(mPrivateInstanceAAMP->pipeline_paused);
+	EXPECT_TRUE(mPrivateInstanceAAMP->mSinkPaused);
 }
 
 /**
@@ -663,7 +663,7 @@ TEST_F(PlayerInstanceAAMPTests, SetRate_PauseWithoutPendingFirstFrame_StopsInjec
 {
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
 	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
-	mPrivateInstanceAAMP->pipeline_paused = false;
+	mPrivateInstanceAAMP->mSinkPaused = false;
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, RearmPauseOnFirstVideoFrame()).WillOnce(Return(false));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, ApplyPausedDownloadPolicy()).Times(1);
@@ -673,7 +673,7 @@ TEST_F(PlayerInstanceAAMPTests, SetRate_PauseWithoutPendingFirstFrame_StopsInjec
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifySpeedChanged(0, true)).Times(1);
 
 	mPlayerInstance->SetRate(0);
-	EXPECT_TRUE(mPrivateInstanceAAMP->pipeline_paused);
+	EXPECT_TRUE(mPrivateInstanceAAMP->mSinkPaused);
 }
 
 /**
@@ -685,7 +685,7 @@ TEST_F(PlayerInstanceAAMPTests, SetRate_ResumeBeforeFirstFrame_DoesNotNotifyFirs
 {
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_SEEKING));
 	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
-	mPrivateInstanceAAMP->pipeline_paused = true;
+	mPrivateInstanceAAMP->mSinkPaused = true;
 	mPrivateInstanceAAMP->mbPlayEnabled = true;
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, CancelPauseOnFirstVideoFrame()).WillOnce(Return(true));
@@ -695,7 +695,7 @@ TEST_F(PlayerInstanceAAMPTests, SetRate_ResumeBeforeFirstFrame_DoesNotNotifyFirs
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifySpeedChanged(AAMP_NORMAL_PLAY_RATE, false)).Times(1);
 
 	mPlayerInstance->SetRate(1);
-	EXPECT_FALSE(mPrivateInstanceAAMP->pipeline_paused);
+	EXPECT_FALSE(mPrivateInstanceAAMP->mSinkPaused);
 }
 
 /**
@@ -705,7 +705,7 @@ TEST_F(PlayerInstanceAAMPTests, SetRate_ResumeWithoutPendingFirstFrame_HoldsCach
 {
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_SEEKING));
 	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
-	mPrivateInstanceAAMP->pipeline_paused = true;
+	mPrivateInstanceAAMP->mSinkPaused = true;
 	mPrivateInstanceAAMP->mbPlayEnabled = true;
 
 	::testing::InSequence sequence;
@@ -744,7 +744,7 @@ TEST_F(PlayerInstanceAAMPTests, SetRate_ResumeBeforeFirstFrame_ClearsPausedFlagA
 {
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_SEEKING));
 	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
-	mPrivateInstanceAAMP->pipeline_paused = true;
+	mPrivateInstanceAAMP->mSinkPaused = true;
 	mPrivateInstanceAAMP->mbPlayEnabled = true;
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, CancelPauseOnFirstVideoFrame()).WillOnce(Return(true));
@@ -752,12 +752,12 @@ TEST_F(PlayerInstanceAAMPTests, SetRate_ResumeBeforeFirstFrame_ClearsPausedFlagA
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, ResumeDownloads())
 		.WillOnce(::testing::Invoke([&]()
 		{
-			EXPECT_FALSE(mPrivateInstanceAAMP->pipeline_paused);
+			EXPECT_FALSE(mPrivateInstanceAAMP->mSinkPaused);
 			EXPECT_TRUE(IsFragmentCachingLockOwnedByAnotherThread(mPrivateInstanceAAMP));
 		}));
 
 	mPlayerInstance->SetRate(1);
-	EXPECT_FALSE(mPrivateInstanceAAMP->pipeline_paused);
+	EXPECT_FALSE(mPrivateInstanceAAMP->mSinkPaused);
 }
 
 /**
@@ -767,7 +767,7 @@ TEST_F(PlayerInstanceAAMPTests, SetRate_ResumeWithoutPendingSeek_NotifiesFirstBu
 {
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PAUSED));
 	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
-	mPrivateInstanceAAMP->pipeline_paused = true;
+	mPrivateInstanceAAMP->mSinkPaused = true;
 	mPrivateInstanceAAMP->mbPlayEnabled = true;
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, CancelPauseOnFirstVideoFrame()).WillOnce(Return(false));
@@ -775,7 +775,7 @@ TEST_F(PlayerInstanceAAMPTests, SetRate_ResumeWithoutPendingSeek_NotifiesFirstBu
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifyFirstBufferProcessed(_)).Times(1);
 
 	mPlayerInstance->SetRate(1);
-	EXPECT_FALSE(mPrivateInstanceAAMP->pipeline_paused);
+	EXPECT_FALSE(mPrivateInstanceAAMP->mSinkPaused);
 }
 
 /**
@@ -787,7 +787,7 @@ TEST_F(PlayerInstanceAAMPTests, SetRate_ResumeThenPauseBeforeFirstFrameWithIniti
 {
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_SEEKING));
 	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
-	mPrivateInstanceAAMP->pipeline_paused = true;
+	mPrivateInstanceAAMP->mSinkPaused = true;
 	mPrivateInstanceAAMP->mbPlayEnabled = true;
 
 	// If checked during resume, initial caching would enter BUFFERING before the pending seek is handled.
@@ -806,9 +806,9 @@ TEST_F(PlayerInstanceAAMPTests, SetRate_ResumeThenPauseBeforeFirstFrameWithIniti
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifySpeedChanged(_, true)).Times(0);
 
 	mPlayerInstance->SetRate(1);
-	EXPECT_FALSE(mPrivateInstanceAAMP->pipeline_paused);
+	EXPECT_FALSE(mPrivateInstanceAAMP->mSinkPaused);
 	mPlayerInstance->SetRate(0);
-	EXPECT_TRUE(mPrivateInstanceAAMP->pipeline_paused);
+	EXPECT_TRUE(mPrivateInstanceAAMP->mSinkPaused);
 }
 
 // Testing calling Stop cancels any pause position monitoring

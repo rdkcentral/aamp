@@ -1015,7 +1015,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 							}
 							// Part of the same transaction: once the lock is released the first frame callback may publish PLAYING,
 							// and a listener calling SetRate(0) must then not be dropped by the "already paused" check.
-							aamp->pipeline_paused = false;
+							aamp->mSinkPaused = false;
 							aamp->ResumeDownloads();
 						}
 						if(!bufferingSet && !firstFrameDeferral)
@@ -1041,7 +1041,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 						if (firstFrameDeferral)
 						{
 							deferredNotifyRate = 0;
-							aamp->pipeline_paused = true;
+							aamp->mSinkPaused = true;
 						}
 					}
 					AAMPLOG_INFO("Latency correction is disabled due to the Pause operation!!");
@@ -1063,7 +1063,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 						{
 							retValue = sink->Pause(true, false);
 						}
-						aamp->pipeline_paused = true;
+						aamp->mSinkPaused = true;
 					}
 					// Notify the underflow monitor that the pipeline is now intentionally
 					// paused by the user. This disarms the deadline so that fragments
