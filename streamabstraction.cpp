@@ -3276,7 +3276,7 @@ bool MediaTrack::CompleteInitialCachingIfTargetMet(int minInitialCacheSeconds)
 	std::lock_guard<std::mutex> guard(mutex);
 	if (!cachingCompleted && (currentInitialCacheDurationSeconds >= minInitialCacheSeconds))
 	{
-		AAMPLOG_WARN("##[%s] Caching Complete (target already met) cacheDuration %d minInitialCacheSeconds %d##",
+		AAMPLOG_MIL("##[%s] Caching Complete (target already met) cacheDuration %d minInitialCacheSeconds %d##",
 					 name, currentInitialCacheDurationSeconds, minInitialCacheSeconds);
 		cachingCompleted = true;
 	}

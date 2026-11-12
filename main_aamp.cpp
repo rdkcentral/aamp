@@ -1016,7 +1016,8 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 							}
 							// required since buffers are already cached in paused state
 							aamp->NotifyFirstBufferProcessed(sink ? sink->GetVideoRectangle() : std::string());
-						}					}
+						}
+					}
 					aamp->mSinkPaused = false;
 					aamp->ResumeDownloads();
 				}

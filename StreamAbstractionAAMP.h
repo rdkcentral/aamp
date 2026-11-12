@@ -575,12 +575,6 @@ public:
 	 * @fn CompleteInitialCachingIfTargetMet
 	 * @brief Mark initial fragment caching complete if the duration already
 	 *        cached meets the target.
-	 *
-	 * Initial caching is normally completed from UpdateTSAfterFetchStats()
-	 * when a fragment is fetched. That check is skipped while caching is
-	 * suppressed (seek while paused), so a target that was met in the
-	 * meantime would otherwise only be noticed after another download.
-	 *
 	 * @param[in] minInitialCacheSeconds - target cached duration in seconds
 	 * @return bool - true if caching is complete, false if more is needed
 	 */

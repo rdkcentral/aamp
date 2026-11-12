@@ -4904,10 +4904,7 @@ TEST_F(PrivAampTests,SetStateBufferingIfRequiredTest)
 	EXPECT_FALSE(p_aamp->SetStateBufferingIfRequired());
 }
 
-/**
- * Regression: seek while paused with fragment caching required. The caching
- * complete check is skipped while pause-on-first-frame is pending, so by the
- * time the user resumes the video track may already hold the target duration.
+/*
  * Resume must not enter BUFFERING (which would wait for a download that may
  * never come) and the requirement must be cleared.
  */
