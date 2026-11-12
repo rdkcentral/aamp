@@ -195,6 +195,9 @@ void AampUnderflowMonitor::NotifyVideoFragment(double endPosition, float playRat
         {
 AAMPLOG_WARN("DBG - enable monitor");		            
             // Normal playback: rearm the deadline.
+if(mAamp->IsDiscontinuityProcessPending())
+    AAMPLOG_WARN("DBG - enable monitor skipped");		            
+else 
             RearmDeadline(bufferSec, playRate);
         }
     }
@@ -316,20 +319,28 @@ void AampUnderflowMonitor::Run()
     {
         if (!mDeadlineArmed)
         {
+AAMPLOG_WARN("DBG - waiting!!!");
             // No active deadline — wait for a fragment notification or Stop().
             mCV.wait(lock, [this]{ return !mRunning.load() || mDeadlineArmed; });
+AAMPLOG_WARN("DBG - go!!!");
             continue;
         }
 
+AAMPLOG_WARN("DBG - sleep!!!");
         // Sleep until the deadline, or until woken by a rearm / stop.
         const TimePoint deadline = mDeadline;
         const bool timedOut = !mCV.wait_until(lock, deadline,
             [this, &deadline]{ return !mRunning.load() || !mDeadlineArmed || mDeadline != deadline; });
+AAMPLOG_WARN("DBG - run!!!");
 
         if (!mRunning.load()) break;
 
         // Woken early (deadline changed or disarmed) — loop back.
-        if (!timedOut) continue;
+        if (!timedOut)
+        {
+AAMPLOG_WARN("DBG - !timedOut!!!");
+            continue;
+        }
 
         // Deadline expired — declare underflow.
         if (!mAamp) break;
@@ -430,4 +441,5 @@ AAMPLOG_WARN("DBG - running monitor!!!");
     }
 
     mRunning.store(false);
+AAMPLOG_WARN("DBG - exit monitor!!!");
 }
