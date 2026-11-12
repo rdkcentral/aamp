@@ -32,17 +32,11 @@ static Configs sDefaultConfigs{};
 static GstPlaybackQualityStruct sPlaybackQuality{};
 
 InterfacePlayerRDK::InterfacePlayerRDK(bool /*isRialto*/)
-	: trickTeardown(false)
-	, m_gstConfigParam(&sDefaultConfigs)
-	, mDrmSystem(nullptr)
-	, mEncrypt(nullptr)
-	, mDRMSessionManager(nullptr)
-	, mProtectionLock()
-	, mFirstFrameRequired(false)
-	, mPauseInjector(false)
-	, mResumeInjector(false)
-	, PipelineSetToReady(false)
-	, interfacePlayerPriv(nullptr)
+	// Only members read by the fake or by AAMP are initialised, so that a
+	// middleware change to other members cannot break the fake.
+	: trickTeardown(false) // Returned by GetTrickTeardown()
+	, m_gstConfigParam(&sDefaultConfigs) // Dereferenced by aampgstplayer.cpp
+	, interfacePlayerPriv(nullptr) // Returned by GetPrivatePlayer()
 {
 }
 
