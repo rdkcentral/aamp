@@ -331,8 +331,3 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 {
 	return eAAMPSTATUS_OK;
 }
-
-AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, bool resetTimeLineIndex, bool isInit)
-{
-	return eAAMPSTATUS_OK;
-}
