@@ -120,6 +120,27 @@ TEST(_AampUtils, aamp_ResolveURL1)
 	std::string base; 
 	aamp_ResolveURL(dst, base, uri, true);
 }
+
+TEST(_AampUtils, aamp_ResolveURL_BaseWithoutProtocol_DoesNotCrash)
+{
+	// A base with no "scheme://" (e.g. a URL string read while being overwritten) used to
+	// dereference a NULL pointer; it must now be rejected, leaving dst unchanged
+	const char* uri = "segment_1.ts";
+	std::string dst;
+
+	dst = "unchanged";
+	aamp_ResolveURL(dst, "example.com/live/playlist.m3u8", uri, false);
+	EXPECT_EQ(dst, "unchanged");
+
+	dst = "unchanged";
+	aamp_ResolveURL(dst, "https:/example.com/live/playlist.m3u8", uri, false);
+	EXPECT_EQ(dst, "unchanged");
+
+	dst = "unchanged";
+	aamp_ResolveURL(dst, std::string("\0ttps://example.com/live/playlist.m3u8", 38), uri, false);
+	EXPECT_EQ(dst, "unchanged");
+}
+
 TEST(_AampUtils, aamp_IsAbsoluteURL)
 {
 	bool result;
@@ -476,6 +497,50 @@ TEST(_AampUtils, aamp_WriteFile2)
 	EXPECT_TRUE(result);
 }
 
+TEST(_AampUtils, IsTraversalFreePath)
+{
+	EXPECT_TRUE(IsTraversalFreePath(""));
+	EXPECT_TRUE(IsTraversalFreePath("/"));
+	EXPECT_TRUE(IsTraversalFreePath("/opt/aamp"));
+	EXPECT_TRUE(IsTraversalFreePath("host:8080/a/b/seg.ts"));
+	EXPECT_TRUE(IsTraversalFreePath("host/a..b/...ts/.hidden/..x"));
+	EXPECT_TRUE(IsTraversalFreePath("host//a/"));
+	EXPECT_TRUE(IsTraversalFreePath("host/%2e%2e/seg.ts"));
+
+	EXPECT_FALSE(IsTraversalFreePath(".."));
+	EXPECT_FALSE(IsTraversalFreePath("."));
+	EXPECT_FALSE(IsTraversalFreePath("../etc"));
+	EXPECT_FALSE(IsTraversalFreePath("host/../../etc/passwd"));
+	EXPECT_FALSE(IsTraversalFreePath("host/a/.."));
+	EXPECT_FALSE(IsTraversalFreePath("host/./seg.ts"));
+	EXPECT_FALSE(IsTraversalFreePath("/opt/aamp/../../nvram"));
+}
+
+TEST(_AampUtils, aamp_WriteFile_RejectsUrlTraversal)
+{
+	const char *prefix = "harvest_traversal_prefix";
+	const char *escaped = "harvest_traversal_escaped.ts";
+	std::remove(escaped);
+
+	EXPECT_FALSE(aamp_WriteFile("http://host/../../harvest_traversal_escaped.ts", teststr, strlen(teststr), eMEDIATYPE_VIDEO, 0, prefix));
+	EXPECT_FALSE(std::ifstream(escaped).good()) << "file was written outside of the harvest prefix";
+
+	EXPECT_FALSE(aamp_WriteFile("http://host/./seg.ts", teststr, strlen(teststr), eMEDIATYPE_VIDEO, 0, prefix));
+	EXPECT_FALSE(aamp_WriteFile("http://../seg.ts", teststr, strlen(teststr), eMEDIATYPE_VIDEO, 0, prefix));
+	EXPECT_FALSE(aamp_WriteFile("http://host/../../x/master.m3u8?a=b", teststr, strlen(teststr), eMEDIATYPE_MANIFEST, 1, prefix));
+	EXPECT_FALSE(aamp_WriteFile("http://host/../media.m3u8", teststr, strlen(teststr), eMEDIATYPE_PLAYLIST_VIDEO, 1, prefix));
+
+	EXPECT_TRUE(aamp_WriteFile("http://host/a..b/seg.ts", teststr, strlen(teststr), eMEDIATYPE_VIDEO, 0, prefix));
+	EXPECT_TRUE(std::ifstream(std::string(prefix) + "/host/a..b/seg.ts").good());
+}
+
+TEST(_AampUtils, aamp_WriteFile_RejectsUnsafePrefix)
+{
+	EXPECT_FALSE(aamp_WriteFile("http://host/seg.ts", teststr, strlen(teststr), eMEDIATYPE_VIDEO, 0, "harvest_prefix/../.."));
+	EXPECT_FALSE(aamp_WriteFile("http://host/seg.ts", teststr, strlen(teststr), eMEDIATYPE_VIDEO, 0, ""));
+	EXPECT_FALSE(aamp_WriteFile("http://host/seg.ts", teststr, strlen(teststr), eMEDIATYPE_VIDEO, 0, nullptr));
+}
+
 TEST(_AampUtils, getWorkingTrickplayRate)
 {
 	float rate[]        = { 4, 16, 32,  -4, -16, -32, 100};
@@ -622,9 +687,10 @@ TEST(_AampUtils, GetMp4DemuxAudioFormatForCodec)
 	EXPECT_EQ(GetMp4DemuxAudioFormatForCodec("ac-4.02.01.01"), FORMAT_AUDIO_ES_AC4);
 	EXPECT_EQ(GetMp4DemuxAudioFormatForCodec("ac-4.02.01.02"), FORMAT_AUDIO_ES_AC4);
 	EXPECT_EQ(GetMp4DemuxAudioFormatForCodec("avc1.64001f,mp4a.40.2"), FORMAT_AUDIO_ES_AAC_RAW);
-	// ac-3 and ATMOS have no dac3/dec3-distinguishable mapping in AampMp4Demuxer, so they must
+	// ac-3 is reported by AampMp4Demuxer via dac3
+	EXPECT_EQ(GetMp4DemuxAudioFormatForCodec("ac-3"), FORMAT_AUDIO_ES_AC3);
+	// ATMOS has no dec3-distinguishable mapping in AampMp4Demuxer, so it must
 	// fall through to FORMAT_UNKNOWN rather than being predicted incorrectly
-	EXPECT_EQ(GetMp4DemuxAudioFormatForCodec("ac-3"), FORMAT_UNKNOWN);
 	EXPECT_EQ(GetMp4DemuxAudioFormatForCodec("ec+3"), FORMAT_UNKNOWN);
 	// a video-only codec string must not yield an audio format
 	EXPECT_EQ(GetMp4DemuxAudioFormatForCodec("avc1.64001f"), FORMAT_UNKNOWN);

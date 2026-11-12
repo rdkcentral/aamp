@@ -104,6 +104,7 @@ static const FormatMap mMp4DemuxAudioFormatMap[] =
 {
 	{ "mp4a.40.2", FORMAT_AUDIO_ES_AAC_RAW },	/**< esds */
 	{ "mp4a.40.5", FORMAT_AUDIO_ES_AAC_RAW },	/**< esds */
+	{ "ac-3", FORMAT_AUDIO_ES_AC3 },		/**< dac3 */
 	{ "ec-3", FORMAT_AUDIO_ES_EC3 },		/**< dec3 */
 	{ "eac3", FORMAT_AUDIO_ES_EC3 },		/**< dec3 */
 	{ "ac-4.02.01.01", FORMAT_AUDIO_ES_AC4 },	/**< dac4 */
@@ -189,6 +190,11 @@ void aamp_ResolveURL(std::string& dst, std::string base, const char *uri , bool 
 		}
 		const char *baseStart = base.c_str();
 		const char *basePtr = ParseUriProtocol(baseStart);
+		if( !basePtr )
+		{
+			AAMPLOG_ERR("Invalid base url (no protocol): %s", baseStart);
+			return;
+		}
 		const char *baseEnd;
 		for(;;)
 		{
@@ -759,6 +765,30 @@ int getHarvestConfigForMedia(AampMediaType mediaType)
 }
 
 /**
+ * @brief Check that a '/' separated path contains no "." or ".." segments
+ * @param path path to validate
+ * @retval true if path cannot traverse outside of the directory it is appended to
+ */
+static bool IsTraversalFreePath(const std::string &path)
+{
+	size_t start = 0;
+	for(;;)
+	{
+		size_t end = path.find('/', start);
+		size_t segLen = (end == std::string::npos) ? path.size() - start : end - start;
+		if(path.compare(start, segLen, ".") == 0 || path.compare(start, segLen, "..") == 0)
+		{
+			return false;
+		}
+		if(end == std::string::npos)
+		{
+			return true;
+		}
+		start = end + 1;
+	}
+}
+
+/**
  * @brief Write - file to storage
  */
 bool aamp_WriteFile(std::string fileName, const char* data, size_t len, AampMediaType mediaType, unsigned int count,const char *prefix)
@@ -794,6 +824,12 @@ bool aamp_WriteFile(std::string fileName, const char* data, size_t len, AampMedi
 				std::string ext = fileName.substr(extPos);
 				fileName = fileName.substr(0,manifestPos+1); 
 				fileName = fileName + "manifest" + ext +  "." + std::to_string(count);
+			}
+
+			if(prefix == NULL || *prefix == '\0' || !IsTraversalFreePath(prefix) || !IsTraversalFreePath(fileName))
+			{
+				AAMPLOG_ERR("Rejected unsafe harvest path. prefix = %s file = %s", prefix ? prefix : "(null)", fileName.c_str());
+				return retVal;
 			}
 			
 			// create subdirectories lazily as needed, preserving CDN folder structure
