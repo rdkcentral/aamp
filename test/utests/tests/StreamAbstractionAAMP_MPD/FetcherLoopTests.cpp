@@ -1040,7 +1040,7 @@ TEST_F(FetcherLoopTests, DetectDiscotinuityAndFetchInitTests1)
 		.WillRepeatedly(Return(true));
 	status = InitializeMPD(mVodManifest, eTUNETYPE_SEEK, 0);
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
-	EXPECT_TRUE(::testing::Mock::VerifyAndClearExpectations(g_mockMediaStreamContext.get()));
+	EXPECT_TRUE(::testing::Mock::VerifyAndClearExpectations(g_mockMediaStreamContext));
 
 	status = mTestableStreamAbstractionAAMP_MPD->InvokeIndexNewMPDDocument(false); (void)status;
 
@@ -1105,7 +1105,7 @@ TEST_F(FetcherLoopTests, DetectDiscotinuityAndFetchInitTests2)
 		.WillRepeatedly(Return(true));
 	status = InitializeMPD(mVodManifest, eTUNETYPE_SEEK, 15);
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
-	EXPECT_TRUE(::testing::Mock::VerifyAndClearExpectations(g_mockMediaStreamContext.get()));
+	EXPECT_TRUE(::testing::Mock::VerifyAndClearExpectations(g_mockMediaStreamContext));
 
 	// Index the first period
 	status = mTestableStreamAbstractionAAMP_MPD->InvokeIndexNewMPDDocument(false); (void)status;

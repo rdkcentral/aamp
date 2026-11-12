@@ -93,8 +93,8 @@ protected:
 		g_mockTSBSessionManager = new NiceMock<MockTSBSessionManager>(mPrivateInstanceAAMP);
 		g_mockTSBReader = std::make_shared<MockTSBReader>();
 		g_mockAampMPDParseHelper = new MockAampMPDParseHelper();
-		g_mockAampConfig = std::make_shared<NiceMock<MockAampConfig>>();
-		g_mockMediaStreamContext = std::make_shared<NiceMock<MockMediaStreamContext>>();
+		g_mockAampConfig = new NiceMock<MockAampConfig>();
+		g_mockMediaStreamContext = new NiceMock<MockMediaStreamContext>();
 
 		// Test configuration
 		mSeekTime = 0.0;
@@ -114,6 +114,8 @@ protected:
 		delete g_mockPrivateInstanceAAMP;
 		delete g_mockTSBSessionManager;
 		delete g_mockAampMPDParseHelper;
+		delete g_mockAampConfig;
+		delete g_mockMediaStreamContext;
 		g_mockTSBReader.reset();
 		mMpdStream = nullptr;
 		mPrivateInstanceAAMP = nullptr;

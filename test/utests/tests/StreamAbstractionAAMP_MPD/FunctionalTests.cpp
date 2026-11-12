@@ -5363,7 +5363,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	bool shouldCallCheckForAdStart = params.second;
 
 	mBoolConfigSettings[eAAMPConfig_EnableClientDai] = true;
-	g_MockPrivateCDAIObjectMPD = std::make_shared<NiceMock<MockPrivateCDAIObjectMPD>>();
+	g_MockPrivateCDAIObjectMPD = new NiceMock<MockPrivateCDAIObjectMPD>();
 
 	// Set expectation based on parameter
 	if (shouldCallCheckForAdStart)
@@ -5384,7 +5384,8 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	AAMPStatusType status = InitializeMPD(manifest, tuneType);
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
 
-	g_MockPrivateCDAIObjectMPD.reset();
+	delete g_MockPrivateCDAIObjectMPD;
+	g_MockPrivateCDAIObjectMPD = nullptr;
 }
 
 /**
