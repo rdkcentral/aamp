@@ -275,11 +275,6 @@ void AampStreamSinkManager::DeleteStreamSink(PrivateInstanceAAMP *aamp)
 		case ePIPELINEMODE_MULTI:
 		{
 			mEncryptedHeadersInjected = false;
-			for (auto& header : mMediaHeaders)
-			{
-				header.reset();
-				AAMPLOG_MIL("Multi Pipeline mode, cleared mMediaHeaders");
-			}
 
 			if (mInactivePlayersMap.count(aamp))
 			{
@@ -391,11 +386,6 @@ void AampStreamSinkManager::DeactivatePlayer(PrivateInstanceAAMP *aamp, bool sto
 				AAMPLOG_WARN("AampStreamSinkManager(%p) Multi Pipeline mode, deactivating and stopping active PLAYER[%d]", this, aamp->mPlayerId);
 				mEncryptedHeadersInjected = false;
 				mEncryptedHeaders.clear();
-				for (auto& header : mMediaHeaders)
-				{
-					header.reset();
-					AAMPLOG_MIL("Multi Pipeline mode, cleared mMediaHeaders");
-				}
 			}
 			else
 			{
