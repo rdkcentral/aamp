@@ -4917,7 +4917,9 @@ TEST_F(PrivAampTests,SetStateBufferingIfRequired_TargetAlreadyMet_DoesNotBuffer)
 	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetMediaTrack(eTRACK_VIDEO))
 		.WillRepeatedly(Return(g_mockMediaTrack.get()));
-	EXPECT_CALL(*g_mockMediaTrack, CompleteInitialCachingIfTargetMet(_))
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_InitialBuffer))
+		.WillRepeatedly(Return(6));
+	EXPECT_CALL(*g_mockMediaTrack, CompleteInitialCachingIfTargetMet(6))
 		.WillOnce(Return(true));
 
 	p_aamp->SetState(eSTATE_PAUSED, true);
