@@ -61,6 +61,7 @@ public:
 			lastSegmentNumber(0),
 			lastSegmentDuration(0),
 			adaptationSetIdx(0),
+			adaptationSetIdValid(false),
 			representationIndex(0),
 			profileChanged(true),
 			adaptationSetId(0),
@@ -368,6 +369,7 @@ bool CacheFragmentData(const FragmentCacheDescriptor& desc);
 	uint64_t lastSegmentNumber;
 	uint64_t lastSegmentDuration;   //lastSegmentTime+ duration of that segment
 	int adaptationSetIdx;
+	bool adaptationSetIdValid;
 	int representationIndex;
 	StreamAbstractionAAMP_MPD* context;
 	std::string initialization;
