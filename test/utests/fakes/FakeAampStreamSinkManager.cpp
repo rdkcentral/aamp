@@ -119,11 +119,11 @@ void AampStreamSinkManager::RemoveMediaHeader(PrivateInstanceAAMP *aamp, unsigne
     }
 }
 
-std::shared_ptr<AampStreamSinkManager::MediaHeader> AampStreamSinkManager::GetMediaHeader(PrivateInstanceAAMP *aamp, unsigned track)
+std::shared_ptr<AampStreamSinkManager::MediaHeader> AampStreamSinkManager::GetMediaHeader(unsigned track)
 {
     if (g_mockAampStreamSinkManager)
     {
-	return g_mockAampStreamSinkManager->GetMediaHeader(aamp, track);
+	return g_mockAampStreamSinkManager->GetMediaHeader(track);
     }
 	return {};
 }
