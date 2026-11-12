@@ -1620,7 +1620,7 @@ TEST_F(FetcherLoopTests, HandleSeekEOS_DisabledTrack_NoPeriodTransition)
 {
 	AAMPStatusType status;
 
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _, _, _))
 		.WillRepeatedly(Return(true));
 
 	status = InitializeMPD(mVodManifest);
@@ -1682,7 +1682,7 @@ TEST_F(FetcherLoopTests, SeekInPeriod_SubtitleResultNotUsedForPeriodTransition)
 {
 	AAMPStatusType status;
 
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _, _, _))
 		.WillRepeatedly(Return(true));
 
 	// Initialise with a two-period A/V manifest.  No subtitle adaptation set is
@@ -1777,7 +1777,7 @@ TEST_F(FetcherLoopTests, HandleSeekEOS_UpdateTrackInfoFails_PeriodStateRestored)
   </Period>
 </MPD>)";
 
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _, _, _))
 		.WillRepeatedly(Return(true));
 
 	status = InitializeMPD(kTwoPeriodVideoAudioManifest);
