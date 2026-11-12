@@ -105,24 +105,23 @@ cmake -DCMAKE_CXX_STANDARD=17 ..
 For a diagnostic capture, set AAMP's `log` configuration to `"trace"` before
 reproducing the seek and Play sequence. Filter the resulting player log:
 
-```bash
-grep 'SEEK_RESUME' player.log
-```
+~~~bash
+grep -E 'Caching |Fragment caching|Pausing Playback|Resuming Playback' player.log
+~~~
 
-The diagnostics record:
-- `first-frame`: raw and effective caching requirements before and after
-  clearing pause-on-first-frame.
-- `resume`: whether Play unpauses the sink or waits for cache completion.
-- `cache`: video-fragment duration, accumulated initial-cache duration,
-  target duration, cache occupancy, and completion status. These records
-  use TRACE and are emitted only while track caching is incomplete.
-- `cache-complete` and `rialto-cache-complete`: completion delivery and
-  whether Rialto is instructed to play.
+The available messages show:
+- `Caching Ongoing` and `Caching Complete`: accumulated initial-cache
+  duration and target duration.
+- `Fragment caching target already met`: resume bypasses BUFFERING because
+  the cache target has already been satisfied.
+- `Pausing Playback on First Frame Displayed` and `Resuming Playback`:
+  the seek-while-paused and resume paths.
+- Rialto's `Fragment caching complete` message: a deferred play request
+  is being handled.
 
-An initial-cache requirement can be suppressed during seek-while-paused.
-Check whether it becomes effective again after the first frame, and whether
-cache completion subsequently reaches Rialto. A missing completion record
-identifies an incomplete handoff, not by itself the reason progress stopped.
+These logs do not include dedicated `SEEK_RESUME` records or raw versus
+effective caching flags. A missing message alone does not establish that
+the cache-completion handoff failed.
 Restore the previous log configuration after capture to avoid verbose output.
 
 ### No Video Output
