@@ -647,7 +647,7 @@ const std::string &AampDRMLicenseManager::getAccessToken(int &error_code)
 		else
 		{
 			AAMPLOG_ERR("ContentSecurityManager failed to get access token");
-			error_code = eAUTHTOKEN_TOKEN_PARSE_ERROR;
+			error_code = eAUTHTOKEN_SESSION_TOKEN_RETRIEVAL_ERROR;
 		}
 	}
 	return accessToken;

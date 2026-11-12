@@ -25,6 +25,9 @@
 #include "contentprotection.h"
 #include "fireboltaamp.h"
 #include "FireboltInterface.h"
+#if defined(USE_SECMANAGER)
+#include "ThunderAccessPlayer.h"
+#endif
 
 #include <unistd.h>
 #include <iomanip>
@@ -178,6 +181,21 @@ void ContentProtectionFirebolt::DeInitialize()
 bool ContentProtectionFirebolt::IsActive(bool /*force*/)
 {
 	return mInitialized;
+}
+
+bool ContentProtectionFirebolt::getSessionToken(std::string &token)
+{
+#if defined(USE_SECMANAGER)
+	ThunderAccessPlayer authService("org.rdk.AuthService.1");
+	JsonObject param;
+	JsonObject response;
+	if (authService.InvokeJSONRPC("getSessionToken", param, response, 10000))
+	{
+		token = response["token"].String();
+		return true;
+	}
+#endif
+	return false;
 }
 
 bool ContentProtectionFirebolt::AcquireLicenseOpenOrUpdate( std::string clientId, std::string appId, const char* licenseUrl, const char* moneyTraceMetadata[][2],

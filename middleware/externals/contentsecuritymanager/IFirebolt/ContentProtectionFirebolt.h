@@ -127,6 +127,12 @@ public:
 	 */
 	bool IsActive(bool force=false);
 	/**
+	 * @brief Gets the current session token from AuthService
+	 * @param[out] token Session token
+	 * @return true if the AuthService request succeeded
+	 */
+	bool getSessionToken(std::string &token) override;
+	/**
 	 * @brief Sets DRM session state (e.g., active/inactive)
 	 * @param sessionId DRM session ID
 	 * @param active Whether the session should be marked active

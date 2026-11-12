@@ -2625,6 +2625,10 @@ void PrivateInstanceAAMP::SendDrmErrorEvent(DrmMetaDataEventPtr event, bool isRe
 			{
 				snprintf(description, MAX_ERROR_DESCRIPTION_LENGTH - 1, "%s : Invalid status code", tuneFailureMap[tuneFailure].description);
 			}
+			else if(AAMP_TUNE_FAILED_TO_GET_ACCESS_TOKEN == tuneFailure && eAUTHTOKEN_SESSION_TOKEN_RETRIEVAL_ERROR == (AuthTokenErrors)error_code)
+			{
+				snprintf(description, MAX_ERROR_DESCRIPTION_LENGTH - 1, "%s : Session Token Retrieval Error", tuneFailureMap[tuneFailure].description);
+			}
 			else
 			{
 				snprintf(description, MAX_ERROR_DESCRIPTION_LENGTH - 1, "%s : Http Error Code %d", tuneFailureMap[tuneFailure].description, error_code);

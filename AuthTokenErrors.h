@@ -26,7 +26,8 @@
  */
 enum AuthTokenErrors {
     eAUTHTOKEN_TOKEN_PARSE_ERROR = -1,    /**< Auth token parse Error */
-    eAUTHTOKEN_INVALID_STATUS_CODE = -2   /**< Auth token Invalid status */
+    eAUTHTOKEN_INVALID_STATUS_CODE = -2,  /**< Auth token Invalid status */
+    eAUTHTOKEN_SESSION_TOKEN_RETRIEVAL_ERROR = -3 /**< Failed to retrieve session token */
 };
 
 #endif // AUTH_TOKEN_ERRORS_H
