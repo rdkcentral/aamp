@@ -9591,10 +9591,6 @@ void PrivateInstanceAAMP::ResetEOSSignalledFlag()
 void PrivateInstanceAAMP::NotifyFragmentCachingComplete()
 {
 	std::lock_guard<std::recursive_mutex> guard(mFragmentCachingLock);
-	AAMPLOG_INFO("NEIL SEEK_RESUME cache-complete requiredBefore=%d "
-		"pauseOnFirstFrame=%d effectiveRequired=%d",
-		mFragmentCachingRequired, mPauseOnFirstVideoFrameDisp,
-		IsFragmentCachingRequired());
 	mFragmentCachingRequired = false;
 	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 	if (sink)
@@ -9602,9 +9598,7 @@ void PrivateInstanceAAMP::NotifyFragmentCachingComplete()
 		sink->NotifyFragmentCachingComplete();
 	}
 	AAMPPlayerState state = GetState();
-	AAMPLOG_INFO("NEIL SEEK_RESUME cache-complete requiredAfter=%d "
-		"state=%d sinkPresent=%d",
-		mFragmentCachingRequired, static_cast<int>(state), sink != nullptr);
+
 	if (state == eSTATE_BUFFERING)
 	{
 		if(mpStreamAbstractionAAMP)
@@ -11789,18 +11783,7 @@ void PrivateInstanceAAMP::NotifyFirstVideoFrameDisplayed()
 	// Seek While Paused - pause on first Video frame displayed
 	if(mPauseOnFirstVideoFrameDisp)
 	{
-		{
-			std::lock_guard<std::recursive_mutex> guard(mFragmentCachingLock);
-			AAMPLOG_INFO("SEEK_RESUME first-frame phase=before-clear "
-				"state=%d pauseOnFirstFrame=%d required=%d effectiveRequired=%d",
-				static_cast<int>(state), mPauseOnFirstVideoFrameDisp,
-				mFragmentCachingRequired, IsFragmentCachingRequired());
-			mPauseOnFirstVideoFrameDisp = false;
-			AAMPLOG_INFO("SEEK_RESUME first-frame phase=after-clear "
-				"state=%d pauseOnFirstFrame=%d required=%d effectiveRequired=%d",
-				static_cast<int>(state), mPauseOnFirstVideoFrameDisp,
-				mFragmentCachingRequired, IsFragmentCachingRequired());
-		}
+		mPauseOnFirstVideoFrameDisp = false;
 		AAMPPlayerState state = GetState();
 		if(state != eSTATE_SEEKING)
 		{
