@@ -1198,9 +1198,16 @@ bool MediaStreamContext::DownloadFragment(DownloadInfoPtr dlInfo)
 		// Skip the wait when playing from local TSB
 		if (IsFragmentCacheFull() && !aamp->IsLocalAAMPTsbInjection())
 		{
-			while (DownloadsEnabled() && !WaitForFreeFragmentAvailable(MAX_WAIT_TIMEOUT_MS))
+			if (aamp->IsLocalAAMPTsb())
 			{
-				AAMPLOG_TRACE("Waiting for free fragment");
+				WaitForInjectionCacheWithTsb(DownloadsEnabled);
+			}
+			else
+			{
+				while (DownloadsEnabled() && !WaitForFreeFragmentAvailable(MAX_WAIT_TIMEOUT_MS))
+				{
+					AAMPLOG_TRACE("Waiting for free fragment");
+				}
 			}
 		}
 		while (WaitForLowLatencyDashDownloads())
@@ -1216,4 +1223,26 @@ bool MediaStreamContext::DownloadFragment(DownloadInfoPtr dlInfo)
 	}
 
 	return retval;
+}
+
+/**
+ * @fn WaitForInjectionCacheWithTsb
+ * @param[in] downloadsEnabled - predicate: downloads still enabled
+ */
+void MediaStreamContext::WaitForInjectionCacheWithTsb(const std::function<bool()> &downloadsEnabled)
+{
+	while (downloadsEnabled())
+	{
+		if (aamp->mSinkPaused.load() && !aamp->GetBufUnderFlowStatus())
+		{
+			// Paused: OnFragmentDownloadSuccess() writes to the TSB only.
+			AAMPLOG_TRACE("[%s] paused, not waiting for injection cache", name);
+			return;
+		}
+		if (WaitForFreeFragmentAvailable(MAX_WAIT_TIMEOUT_MS))
+		{
+			return;
+		}
+		AAMPLOG_TRACE("Waiting for free fragment");
+	}
 }

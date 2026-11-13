@@ -548,6 +548,38 @@ TEST_F(FragmentDownloadTests, DownloadFragment_CacheFull_DoesNotCache)
 }
 
 /**
+ * @brief Build a minimal valid media-segment download request.
+ */
+static DownloadInfoPtr MakeMediaDownloadInfo()
+{
+	DownloadInfoPtr dlInfo = std::make_shared<DownloadInfo>();
+	dlInfo->uriList[0].url = "http://example.com/fragment";
+	dlInfo->url = "http://example.com/fragment";
+	dlInfo->isInitSegment = false;
+	return dlInfo;
+}
+
+/**
+ * @brief AAMP TSB enabled and paused by the user: the fragment is written to the
+ *        TSB only, so the download must not wait for the injection cache.
+ */
+TEST_F(FragmentDownloadTests, DownloadFragment_TsbCacheFullPaused_DownloadsWithoutWaiting)
+{
+	mPrivateInstanceAAMP->SetLocalAAMPTsb(true);
+	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
+	mPrivateInstanceAAMP->mSinkPaused.store(true);
+
+	EXPECT_CALL(*g_mockMediaTrack, IsFragmentCacheFull()).WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockMediaTrack, WaitForFreeFragmentAvailable(_)).Times(0);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _))
+		.WillOnce(Return(true));
+
+	EXPECT_TRUE(mMediaStreamContext->DownloadFragment(MakeMediaDownloadInfo()));
+}
+
+/**
  * @brief Verify low-latency mode skips the wait loop when injecting from local TSB
  */
 TEST_F(FragmentDownloadTests, DownloadFragment_LLD_LocalTSBInjection_Caches)
