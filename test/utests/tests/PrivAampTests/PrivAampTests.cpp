@@ -6351,6 +6351,7 @@ TEST_F(PrivAampTests, GetStringForPlaybackErrorTest)
 	EXPECT_STREQ(p_aamp->getStringForPlaybackError(eDASH_LOW_LATENCY_INPUT_PROTECTION_ERROR), "LL DASH Input Protection Error");
 	EXPECT_STREQ(p_aamp->getStringForPlaybackError(eDASH_RECONFIGURE_FOR_ENC_PERIOD), "Encrypted period found");
 	EXPECT_STREQ(p_aamp->getStringForPlaybackError(eGST_ERROR_GST_PIPELINE_INTERNAL), "GstPipeline Internal Error");
+	EXPECT_STREQ(p_aamp->getStringForPlaybackError(eSTALL_LIVE_INJECTION_WITH_TSB), "Live Injection Stalled");
 	EXPECT_STREQ(p_aamp->getStringForPlaybackError(static_cast<PlaybackErrorType>(-1)), "STARTTIME RESET");
 }
 

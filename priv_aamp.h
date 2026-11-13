@@ -188,7 +188,8 @@ enum PlaybackErrorType
 	eGST_ERROR_GST_PIPELINE_INTERNAL,	  /**< GstPipeline Internal Error */
 	eDASH_LOW_LATENCY_MAX_CORRECTION_REACHED, /**< Low Latency Dash Max Correction Reached**/
 	eDASH_LOW_LATENCY_INPUT_PROTECTION_ERROR,  /**< Low Latency Dash Input Protection error **/
-	eDASH_RECONFIGURE_FOR_ENC_PERIOD /**< Retune to reconfigure pipeline for encrypted period **/
+	eDASH_RECONFIGURE_FOR_ENC_PERIOD, /**< Retune to reconfigure pipeline for encrypted period **/
+	eSTALL_LIVE_INJECTION_WITH_TSB /**< Live injection stalled while AAMP TSB enabled; retune to resume from TSB **/
 };
 
 /**

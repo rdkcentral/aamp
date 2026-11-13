@@ -15261,6 +15261,8 @@ const char* PrivateInstanceAAMP::getStringForPlaybackError(PlaybackErrorType err
 			return "Encrypted period found";
 		case eGST_ERROR_GST_PIPELINE_INTERNAL:
 			return "GstPipeline Internal Error";
+		case eSTALL_LIVE_INJECTION_WITH_TSB:
+			return "Live Injection Stalled";
 		default:
 			return "STARTTIME RESET";
 	}
