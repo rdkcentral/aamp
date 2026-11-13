@@ -50,8 +50,6 @@ public:
 
     MOCK_METHOD(void, SetPauseOnStartPlayback, (bool enable), (override));
 
-    MOCK_METHOD(void, NotifyFragmentCachingOngoing, (), (override));
-
     MOCK_METHOD(bool, SetPlayBackRate, (double), (override));
 
     MOCK_METHOD(void, SeekStreamSink, (double , double ), (override));
