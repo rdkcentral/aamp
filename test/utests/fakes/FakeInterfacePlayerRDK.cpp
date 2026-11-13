@@ -51,6 +51,7 @@ InterfacePlayerPriv* InterfacePlayerRDK::GetPrivatePlayer()
 
 void InterfacePlayerRDK::SetPlayerName(std::string /*name*/) {}
 void InterfacePlayerRDK::SetPreferredDRM(const char* /*drmID*/) {}
+std::string InterfacePlayerRDK::GetPreferredDRM() const { return {}; }
 void InterfacePlayerRDK::setEncryption(void* /*mEncrypt*/, void* /*mDRMSessionManager*/) {}
 void InterfacePlayerRDK::EnableGstDebugLogging(std::string /*debugLevel*/) {}
 

@@ -37,12 +37,12 @@ bool PlayerThunderInterface::ActivatePlugin()
     return false;
 }
 
-bool PlayerThunderInterface::UnSubscribeEvent(std::string eventName)
+bool PlayerThunderInterface::UnSubscribeEvent(const std::string& eventName)
 {
     return false;
 }
 
-bool PlayerThunderInterface::SetVideoRectangle(int x, int y, int w, int h, std::string videoInputType, PlayerThunderAccessShim shim)
+bool PlayerThunderInterface::SetVideoRectangle(int x, int y, int w, int h, const std::string& videoInputType, PlayerThunderAccessShim shim)
 {
     return false;
 }
@@ -56,11 +56,11 @@ void PlayerThunderInterface::UnRegisterAllEventsVideoin()
 {
 }
 
-void PlayerThunderInterface::StartHelperVideoin(int port, std::string videoInputType)
+void PlayerThunderInterface::StartHelperVideoin(int port, const std::string& videoInputType)
 {
 }
 
-void PlayerThunderInterface::StopHelperVideoin(std::string videoInputType)
+void PlayerThunderInterface::StopHelperVideoin(const std::string& videoInputType)
 {
 }
 
@@ -76,7 +76,7 @@ void PlayerThunderInterface::ReleaseOta()
 {
 }
 
-void PlayerThunderInterface::StartOta(std::string url, std::string waylandDisplay, std::string preferredLanguagesString, std::string atsc_preferredLanguagesString, std::string preferredRenditionString, std::string atsc_preferredRenditionString)
+void PlayerThunderInterface::StartOta(const std::string& url, const std::string& waylandDisplay, const std::string& preferredLanguagesString, const std::string& atsc_preferredLanguagesString, const std::string& preferredRenditionString, const std::string& atsc_preferredRenditionString)
 {
 }
 
@@ -84,7 +84,7 @@ void PlayerThunderInterface::StopOta()
 {
 }
 
-std::string PlayerThunderInterface::GetAudioTracksOta(std::vector<PlayerAudioData> audData)
+std::string PlayerThunderInterface::GetAudioTracksOta(std::vector<PlayerAudioData>& audData)
 {
     std::string ret = "";
     return ret;
@@ -96,7 +96,7 @@ std::string PlayerThunderInterface::SetAudioTrackOta(int index, int primaryKey)
     return ret;
 }
 
-bool PlayerThunderInterface::GetTextTracksOta(std::vector<PlayerTextData> txtData)
+bool PlayerThunderInterface::GetTextTracksOta(std::vector<PlayerTextData>& txtData)
 {
     return false;
 }
@@ -114,7 +114,7 @@ bool PlayerThunderInterface::InitRmf()
     return false;
 }
 
-bool PlayerThunderInterface::StartRmf(std::string url, std::function<void(std::string)> onPlayerStatusHandlerCb, std::function<void(std::string)> onPlayerErrorHandlerCb)
+bool PlayerThunderInterface::StartRmf(const std::string& url, std::function<void(std::string)> onPlayerStatusHandlerCb, std::function<void(std::string)> onPlayerErrorHandlerCb)
 {
     return false;
 }
@@ -158,7 +158,7 @@ std::string PlayerThunderInterface::GetMetaDataWatermark()
     return ret;
 }
 
-bool PlayerThunderInterface::PersistentStoreSaveWatermark(const char* base64Image, std::string metaData)
+bool PlayerThunderInterface::PersistentStoreSaveWatermark(const char* base64Image, const std::string& metaData)
 {
     return false;
 }
