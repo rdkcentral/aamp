@@ -100,6 +100,30 @@ cmake -DCMAKE_CXX_STANDARD=17 ..
 
 ## Runtime Issues
 
+### VOD Does Not Resume After Seeking While Paused
+
+For a diagnostic capture, set AAMP's `log` configuration to `"trace"` before
+reproducing the seek and Play sequence. Filter the resulting player log:
+
+~~~bash
+grep -E 'Caching |Fragment caching|Pausing Playback|Resuming Playback' player.log
+~~~
+
+The available messages show:
+- `Caching Ongoing` and `Caching Complete`: accumulated initial-cache
+  duration and target duration.
+- `Fragment caching target already met`: resume bypasses BUFFERING because
+  the cache target has already been satisfied.
+- `Pausing Playback on First Frame Displayed` and `Resuming Playback`:
+  the seek-while-paused and resume paths.
+- Rialto's `Fragment caching complete` message: a deferred play request
+  is being handled.
+
+These logs do not include dedicated `SEEK_RESUME` records or raw versus
+effective caching flags. A missing message alone does not establish that
+the cache-completion handoff failed.
+Restore the previous log configuration after capture to avoid verbose output.
+
 ### No Video Output
 
 **Possible Causes**:

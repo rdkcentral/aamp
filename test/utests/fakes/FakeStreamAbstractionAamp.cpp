@@ -218,6 +218,15 @@ void MediaTrack::OnSinkBufferFull()
 {
 }
 
+bool MediaTrack::CompleteInitialCachingIfTargetMet(int minInitialCacheSeconds)
+{
+	if (g_mockMediaTrack != nullptr)
+	{
+		return g_mockMediaTrack->CompleteInitialCachingIfTargetMet(minInitialCacheSeconds);
+	}
+	return false;
+}
+
 BufferHealthStatus MediaTrack::GetBufferStatus()
 {
 	return BUFFER_STATUS_GREEN;
