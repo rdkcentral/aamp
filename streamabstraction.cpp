@@ -3269,6 +3269,21 @@ void MediaTrack::OnSinkBufferFull()
 }
 
 /**
+ * @brief Mark initial fragment caching complete if the cached duration already meets the target
+ */
+bool MediaTrack::CompleteInitialCachingIfTargetMet(int minInitialCacheSeconds)
+{
+	std::lock_guard<std::mutex> guard(mutex);
+	if (!cachingCompleted && (currentInitialCacheDurationSeconds >= minInitialCacheSeconds))
+	{
+		AAMPLOG_MIL("##[%s] Caching Complete (target already met) cacheDuration %d minInitialCacheSeconds %d##",
+					 name, currentInitialCacheDurationSeconds, minInitialCacheSeconds);
+		cachingCompleted = true;
+	}
+	return cachingCompleted;
+}
+
+/**
  *  @brief Function to reset the paired discontinuity.
  */
 void StreamAbstractionAAMP::resetDiscontinuityTrackState()

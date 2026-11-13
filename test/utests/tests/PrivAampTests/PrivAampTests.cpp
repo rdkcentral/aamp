@@ -64,6 +64,7 @@
 #include "MockAdManager.h"
 #include "MockPlayerCCManager.h"
 #include "MockMediaStreamContext.h"
+#include "MockMediaTrack.h"
 #include "MockIsoBmffBuffer.h"
 #include "MockAampLatencyMonitor.h"
 #include "AampDefine.h"
@@ -105,6 +106,11 @@ public:
 			delete mMPDDownloaderInstance;
 			mMPDDownloaderInstance = nullptr;
 		}
+	}
+
+	void SetFragmentCachingRequiredForTest(bool required)
+	{
+		mFragmentCachingRequired = required;
 	}
 
 	void EnsureMPDDownloaderForTest()
@@ -4936,6 +4942,78 @@ TEST_F(PrivAampTests,NotifyFirstVideoFrameDisplayedTest)
 TEST_F(PrivAampTests,SetStateBufferingIfRequiredTest)
 {
 	EXPECT_FALSE(p_aamp->SetStateBufferingIfRequired());
+}
+
+/*
+ * Resume must not enter BUFFERING (which would wait for a download that may
+ * never come) and the requirement must be cleared.
+ */
+TEST_F(PrivAampTests,SetStateBufferingIfRequired_TargetAlreadyMet_DoesNotBuffer)
+{
+	g_mockMediaTrack = std::make_shared<NiceMock<MockMediaTrack>>();
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetMediaTrack(eTRACK_VIDEO))
+		.WillRepeatedly(Return(g_mockMediaTrack.get()));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_InitialBuffer))
+		.WillRepeatedly(Return(6));
+	EXPECT_CALL(*g_mockMediaTrack, CompleteInitialCachingIfTargetMet(6))
+		.WillOnce(Return(true));
+
+	p_aamp->SetState(eSTATE_PAUSED, true);
+	p_aamp->SetFragmentCachingRequiredForTest(true);
+	ASSERT_TRUE(p_aamp->IsFragmentCachingRequired());
+
+	EXPECT_FALSE(p_aamp->SetStateBufferingIfRequired());
+	EXPECT_NE(eSTATE_BUFFERING, p_aamp->GetState());
+	EXPECT_FALSE(p_aamp->IsFragmentCachingRequired());
+
+	p_aamp->mpStreamAbstractionAAMP = nullptr;
+	g_mockMediaTrack.reset();
+}
+
+TEST_F(PrivAampTests,SetStateBufferingIfRequired_TargetNotMet_Buffers)
+{
+	g_mockMediaTrack = std::make_shared<NiceMock<MockMediaTrack>>();
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetMediaTrack(eTRACK_VIDEO))
+		.WillRepeatedly(Return(g_mockMediaTrack.get()));
+	EXPECT_CALL(*g_mockMediaTrack, CompleteInitialCachingIfTargetMet(_))
+		.WillOnce(Return(false));
+
+	p_aamp->SetState(eSTATE_PAUSED, true);
+	p_aamp->SetFragmentCachingRequiredForTest(true);
+
+	EXPECT_TRUE(p_aamp->SetStateBufferingIfRequired());
+	EXPECT_EQ(eSTATE_BUFFERING, p_aamp->GetState());
+	EXPECT_TRUE(p_aamp->IsFragmentCachingRequired());
+
+	p_aamp->mpStreamAbstractionAAMP = nullptr;
+	g_mockMediaTrack.reset();
+}
+
+TEST_F(PrivAampTests,SetStateBufferingIfRequired_NoVideoTrack_Buffers)
+{
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetMediaTrack(eTRACK_VIDEO))
+		.WillRepeatedly(Return(nullptr));
+
+	p_aamp->SetState(eSTATE_PAUSED, true);
+	p_aamp->SetFragmentCachingRequiredForTest(true);
+
+	EXPECT_TRUE(p_aamp->SetStateBufferingIfRequired());
+	EXPECT_EQ(eSTATE_BUFFERING, p_aamp->GetState());
+
+	p_aamp->mpStreamAbstractionAAMP = nullptr;
+}
+
+TEST_F(PrivAampTests,SetStateBufferingIfRequired_NoStreamAbstraction_Buffers)
+{
+	p_aamp->mpStreamAbstractionAAMP = nullptr;
+	p_aamp->SetState(eSTATE_PAUSED, true);
+	p_aamp->SetFragmentCachingRequiredForTest(true);
+
+	EXPECT_TRUE(p_aamp->SetStateBufferingIfRequired());
+	EXPECT_EQ(eSTATE_BUFFERING, p_aamp->GetState());
 }
 
 TEST_F(PrivAampTests,TrackDownloadsAreEnabledTest)

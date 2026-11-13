@@ -9613,6 +9613,7 @@ void PrivateInstanceAAMP::NotifyFragmentCachingComplete()
 		sink->NotifyFragmentCachingComplete();
 	}
 	AAMPPlayerState state = GetState();
+
 	if (state == eSTATE_BUFFERING)
 	{
 		if(mpStreamAbstractionAAMP)
@@ -11900,6 +11901,20 @@ bool PrivateInstanceAAMP::SetStateBufferingIfRequired()
 {
 	bool bufferingSet = false;
 	std::lock_guard<std::recursive_mutex> guard(mFragmentCachingLock);
+
+	// Caching may already be satisfied: the caching-complete check in UpdateTSAfterFetchStats()
+	// is skipped during seek-while-paused. Clear the requirement now so resume does not wait for
+	// a download that may never arrive.
+	if(IsFragmentCachingRequired() && mpStreamAbstractionAAMP)
+	{
+		MediaTrack *video = mpStreamAbstractionAAMP->GetMediaTrack(eTRACK_VIDEO);
+		if(video && video->CompleteInitialCachingIfTargetMet(GetInitialBufferDuration()))
+		{
+			AAMPLOG_MIL("Fragment caching target already met, not entering BUFFERING");
+			mFragmentCachingRequired = false;
+		}
+	}
+
 	if(IsFragmentCachingRequired())
 	{
 		bufferingSet = true;

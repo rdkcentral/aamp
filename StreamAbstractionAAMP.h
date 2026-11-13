@@ -572,6 +572,15 @@ public:
 	void OnSinkBufferFull();
 
 	/**
+	 * @fn CompleteInitialCachingIfTargetMet
+	 * @brief Mark initial fragment caching complete if the duration already
+	 *        cached meets the target.
+	 * @param[in] minInitialCacheSeconds - target cached duration in seconds
+	 * @return bool - true if caching is complete, false if more is needed
+	 */
+	bool CompleteInitialCachingIfTargetMet(int minInitialCacheSeconds);
+
+	/**
 	 * @fn FlushFetchedFragments
 	 * @return void
  	 */
