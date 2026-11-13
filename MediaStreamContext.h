@@ -63,7 +63,11 @@ public:
 	/**
 	 * @brief MediaStreamContext Destructor
 	 */
-	~MediaStreamContext() override = default;
+	~MediaStreamContext() override
+	{
+		// Join the buffer monitor while GetContext() is still callable
+		StopBufferMonitor();
+	}
 
 	/**
 	 * @brief MediaStreamContext Copy Constructor

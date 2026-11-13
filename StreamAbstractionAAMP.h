@@ -34,6 +34,7 @@
 #include <vector>
 #include <array>
 #include <condition_variable>
+#include <atomic>
 
 #include <glib.h>
 #include "subtitleParser.h"
@@ -504,6 +505,14 @@ public:
 	bool isFragmentInjectorThreadStarted();
 	bool isPlaylistDownloaderThreadStarted();
 	void MonitorBufferHealth();
+
+	/**
+	 * @brief Stop and join the buffer monitor thread
+	 *
+	 * Must be called from the destructor of every class derived from
+	 * MediaTrack, while the derived part (and so GetContext()) is still valid.
+	 */
+	void StopBufferMonitor();
 	/**
 	 * @brief Signal the clock to subtitle module
 	 */
@@ -826,6 +835,7 @@ private:
 	std::thread fragmentInjectorThreadID;  	/**< Fragment injector thread id*/
 	std::condition_variable fragmentInjected;	/**< Signaled after a fragment is injected*/
 	std::thread bufferMonitorThreadID;    	/**< Buffer Monitor thread id */
+	std::atomic_bool bufferMonitorStop{false};	/**< Set to request the Buffer Monitor thread to exit */
 	std::thread subtitleClockThreadID;    	/**< subtitle clock synchronisation thread id */
 	int totalFragmentsDownloaded;       	/**< Total fragments downloaded since start by track*/
 	bool UpdateSubtitleClockTaskStarted;    /**< Subtitle clock synchronization thread started, or not */

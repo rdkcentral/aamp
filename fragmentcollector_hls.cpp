@@ -4877,6 +4877,7 @@ TrackState::TrackState(TrackType type, StreamAbstractionAAMP_HLS* parent, Privat
  */
 TrackState::~TrackState()
 {
+	StopBufferMonitor();
 }
 
 
