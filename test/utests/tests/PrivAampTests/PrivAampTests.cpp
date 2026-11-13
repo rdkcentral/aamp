@@ -5720,7 +5720,8 @@ TEST_F(PrivAampPrivTests,NotifyFirstVideoFrameDisplayed_PauseInProgress_HoldsCac
 {
 	using namespace std::chrono_literals;
 	testp_aamp->SetSeekWhilePausedFramePending();
-	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_))
+		.WillRepeatedly(Return(g_mockAampGstPlayer.get()));
 
 	std::promise<void> pauseEntered;
 	std::promise<void> pauseRelease;
@@ -5785,7 +5786,8 @@ TEST_F(PrivAampPrivTests,NotifyFirstVideoFrameDisplayed_PauseInProgress_HoldsCac
 TEST_F(PrivAampPrivTests,NotifyFirstVideoFrameDisplayed_PauseCancelled_MovesSeekingToPlaying)
 {
 	testp_aamp->SetSeekWhilePausedFramePending();
-	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_))
+		.WillRepeatedly(Return(g_mockAampGstPlayer.get()));
 	EXPECT_CALL(*g_mockAampGstPlayer, Pause(_, _)).Times(0);
 
 	EXPECT_TRUE(testp_aamp->CancelPauseOnFirstVideoFrame());
@@ -5799,7 +5801,8 @@ TEST_F(PrivAampPrivTests,NotifyFirstVideoFrameDisplayed_PauseCancelled_MovesSeek
 TEST_F(PrivAampPrivTests,NotifyFirstVideoFrameDisplayed_PauseRearmedAfterResume_PausesSinkAndReportsPaused)
 {
 	testp_aamp->SetSeekWhilePausedFramePending();
-	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_))
+		.WillRepeatedly(Return(g_mockAampGstPlayer.get()));
 	EXPECT_CALL(*g_mockAampGstPlayer, Pause(true, _)).WillOnce(Return(true));
 
 	EXPECT_TRUE(testp_aamp->CancelPauseOnFirstVideoFrame());
@@ -5817,7 +5820,8 @@ TEST_F(PrivAampPrivTests,NotifyFirstVideoFrameDisplayed_PauseRearmedAfterResume_
 TEST_F(PrivAampPrivTests,NotifyFirstVideoFrameDisplayed_PauseRearmedAndAlreadyPaused_DoesNotOverrideState)
 {
 	testp_aamp->SetSeekWhilePausedFramePending();
-	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_))
+		.WillRepeatedly(Return(g_mockAampGstPlayer.get()));
 	EXPECT_CALL(*g_mockAampGstPlayer, Pause(_, _)).Times(0);
 
 	EXPECT_TRUE(testp_aamp->CancelPauseOnFirstVideoFrame());
@@ -5851,11 +5855,13 @@ TEST_F(PrivAampPrivTests,ApplySpeedChangeEffects_SidecarData_MutesAndResumesWith
 	testp_aamp->SetState(eSTATE_SEEKING);
 
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, MuteSubtitleOnPause()).Times(1);
-	testp_aamp->CallSpeedChangeWithSidecar(0, false, true, g_mockStreamAbstractionAAMP);
+	testp_aamp->CallSpeedChangeWithSidecar(
+		0, false, true, g_mockStreamAbstractionAAMP.get());
 	EXPECT_EQ(testp_aamp->GetState(), eSTATE_SEEKING);
 
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, ResumeSubtitleOnPlay(_, _)).Times(1);
-	testp_aamp->CallSpeedChangeWithSidecar(AAMP_NORMAL_PLAY_RATE, false, true, g_mockStreamAbstractionAAMP);
+	testp_aamp->CallSpeedChangeWithSidecar(
+		AAMP_NORMAL_PLAY_RATE, false, true, g_mockStreamAbstractionAAMP.get());
 	EXPECT_EQ(testp_aamp->GetState(), eSTATE_SEEKING);
 }
 
@@ -5867,16 +5873,19 @@ TEST_F(PrivAampPrivTests,NotifySpeedChanged_SidecarData_ChangesStateAndAppliesEf
 	testp_aamp->SetState(eSTATE_SEEKING);
 
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, MuteSubtitleOnPause()).Times(1);
-	testp_aamp->CallSpeedChangeWithSidecar(0, true, false, g_mockStreamAbstractionAAMP);
+	testp_aamp->CallSpeedChangeWithSidecar(
+		0, true, false, g_mockStreamAbstractionAAMP.get());
 	EXPECT_EQ(testp_aamp->GetState(), eSTATE_PAUSED);
 
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, ResumeSubtitleOnPlay(_, _)).Times(1);
-	testp_aamp->CallSpeedChangeWithSidecar(AAMP_NORMAL_PLAY_RATE, true, false, g_mockStreamAbstractionAAMP);
+	testp_aamp->CallSpeedChangeWithSidecar(
+		AAMP_NORMAL_PLAY_RATE, true, false, g_mockStreamAbstractionAAMP.get());
 	EXPECT_EQ(testp_aamp->GetState(), eSTATE_PLAYING);
 
 	// No state change requested: neither subtitles nor state are touched
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, MuteSubtitleOnPause()).Times(0);
-	testp_aamp->CallSpeedChangeWithSidecar(0, false, false, g_mockStreamAbstractionAAMP);
+	testp_aamp->CallSpeedChangeWithSidecar(
+		0, false, false, g_mockStreamAbstractionAAMP.get());
 	EXPECT_EQ(testp_aamp->GetState(), eSTATE_PLAYING);
 }
 
@@ -5902,7 +5911,8 @@ TEST_F(PrivAampPrivTests,NotifyFirstVideoFrameDisplayed_PauseOnFirstFrame_StopsD
 	testp_aamp->SetSeekWhilePausedFramePending();
 	testp_aamp->SetLocalAAMPTsb(false);
 	testp_aamp->mPausedBehavior = ePAUSED_BEHAVIOR_AUTOPLAY_IMMEDIATE;
-	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_))
+		.WillRepeatedly(Return(g_mockAampGstPlayer.get()));
 	EXPECT_CALL(*g_mockAampGstPlayer, Pause(true, _)).WillOnce(Return(true));
 
 	testp_aamp->NotifyFirstVideoFrameDisplayed();
@@ -5919,7 +5929,8 @@ TEST_F(PrivAampPrivTests,NotifyFirstVideoFrameDisplayed_PauseOnFirstFrameWithLoc
 {
 	testp_aamp->SetSeekWhilePausedFramePending();
 	testp_aamp->SetLocalAAMPTsb(true);
-	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_))
+		.WillRepeatedly(Return(g_mockAampGstPlayer.get()));
 	EXPECT_CALL(*g_mockAampGstPlayer, Pause(true, _)).WillOnce(Return(true));
 
 	testp_aamp->NotifyFirstVideoFrameDisplayed();
@@ -5937,7 +5948,8 @@ TEST_F(PrivAampPrivTests,NotifyFirstVideoFrameDisplayed_PauseOnFirstFrameWithLiv
 	testp_aamp->SetSeekWhilePausedFramePending();
 	testp_aamp->SetLocalAAMPTsb(false);
 	testp_aamp->mPausedBehavior = ePAUSED_BEHAVIOR_LIVE_DEFER;
-	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_))
+		.WillRepeatedly(Return(g_mockAampGstPlayer.get()));
 	EXPECT_CALL(*g_mockAampGstPlayer, Pause(true, _)).WillOnce(Return(true));
 
 	testp_aamp->NotifyFirstVideoFrameDisplayed();
