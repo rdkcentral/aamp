@@ -518,7 +518,7 @@ bool PrivateInstanceAAMP::IsTuneCompleted()
 	return false;
 }
 
-void PrivateInstanceAAMP::SendWatermarkSessionUpdateEvent(uint32_t sessionHandle, uint32_t status, const std::string &system)
+void PrivateInstanceAAMP::SendWatermarkSessionUpdateEvent(const std::string& sessionHandle, uint32_t status, const std::string &system)
 {
 	return;
 }

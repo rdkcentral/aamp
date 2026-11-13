@@ -70,7 +70,7 @@ bool ContentSecurityManager::getSessionToken(std::string &token)
 /**
  * @brief To update session state to SecManager
  */
-bool ContentSecurityManager::UpdateSessionState(int64_t sessionId, bool active)
+bool ContentSecurityManager::UpdateSessionState(const std::string& sessionId, bool active)
 {
 	return false;
 }
@@ -78,7 +78,7 @@ bool ContentSecurityManager::UpdateSessionState(int64_t sessionId, bool active)
 /**
  * @brief To update session state to SecManager
  */
-bool ContentSecurityManager::setVideoWindowSize(int64_t sessionId, int64_t video_width, int64_t video_height)
+bool ContentSecurityManager::setVideoWindowSize(const std::string& sessionId, int64_t video_width, int64_t video_height)
 {
        return false;
 }
@@ -86,7 +86,7 @@ bool ContentSecurityManager::setVideoWindowSize(int64_t sessionId, int64_t video
 /**
  * @brief To set Playback Speed State to SecManager
  */
-bool ContentSecurityManager::setPlaybackSpeedState(int64_t sessionId, int64_t playback_speed, int64_t playback_position)
+bool ContentSecurityManager::setPlaybackSpeedState(const std::string& sessionId, int64_t playback_speed, int64_t playback_position)
 {
        return false;
 }
@@ -94,7 +94,7 @@ bool ContentSecurityManager::setPlaybackSpeedState(int64_t sessionId, int64_t pl
 /**
  * @brief To notify SecManager to release a session
  */
-void ContentSecurityManager::ReleaseSession(int64_t sessionId)
+void ContentSecurityManager::ReleaseSession(const std::string& sessionId)
 {
 	return;
 }
@@ -102,7 +102,7 @@ void ContentSecurityManager::ReleaseSession(int64_t sessionId)
 /**
  * @brief To set Watermark Session callback
  */
-void ContentSecurityManager::setWatermarkSessionEvent_CB(const std::function<void(uint32_t, uint32_t, const std::string&)>& callback)
+void ContentSecurityManager::setWatermarkSessionEvent_CB(const std::function<void(const std::string&, uint32_t, const std::string&)>& callback)
 {
 	return;
 }
@@ -110,9 +110,9 @@ void ContentSecurityManager::setWatermarkSessionEvent_CB(const std::function<voi
 /**
  * @brief To set Watermark Session callback
  */
-std::function<void(uint32_t, uint32_t, const std::string&)>& ContentSecurityManager::getWatermarkSessionEvent_CB( )
+std::function<void(const std::string&, uint32_t, const std::string&)>& ContentSecurityManager::getWatermarkSessionEvent_CB( )
 {
-	static std::function<void(uint32_t, uint32_t, const std::string&)> callback = nullptr;
+	static std::function<void(const std::string&, uint32_t, const std::string&)> callback = nullptr;
 	return callback;
 }
 

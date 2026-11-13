@@ -2897,7 +2897,7 @@ public:
 	 *   @param[in] status - Status of the watermark session
 	 *   @param[in] system - Watermarking protection provider
 	 */
-	void SendWatermarkSessionUpdateEvent(uint32_t sessionHandle, uint32_t status, const std::string &system);
+	void SendWatermarkSessionUpdateEvent(const std::string& sessionHandle, uint32_t status, const std::string &system);
 
 	/**
 	 *   @fn IsTuneCompleted

@@ -4486,7 +4486,7 @@ TEST_F(PrivAampTests,SendBlockedEventTest)
 
 TEST_F(PrivAampTests,SendWatermarkSessionUpdateEventTest)
 {
-	p_aamp->SendWatermarkSessionUpdateEvent(100,200,"SystemString");
+	p_aamp->SendWatermarkSessionUpdateEvent("4d1cb20e-48f0-4b81-9dd9-7d82ab9ba12f",200,"SystemString");
 }
 
 TEST_F(PrivAampTests,IsTuneCompletedTest)
