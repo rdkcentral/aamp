@@ -1732,16 +1732,6 @@ public:
 	void NotifySpeedChanged(float rate, bool changeState = true);
 
 	/**
-	 * @fn ApplySpeedChangeEffects
-	 * @brief Sidecar subtitle pause/resume and trickplay bookkeeping done by NotifySpeedChanged() when it changes
-	 *        state. Can be used on its own when only the player state transition has to be deferred.
-	 *
-	 * @param[in] rate - New speed
-	 * @return void
-	 */
-	void ApplySpeedChangeEffects(float rate);
-
-	/**
 	 * @fn NotifyBitRateChangeEvent
 	 *
 	 * @param[in] bitrate - New bitrate
@@ -3396,63 +3386,6 @@ public:
 	bool IsFirstVideoFrameDisplayedRequired();
 
 	/**
-	 *   @fn CancelPauseOnFirstVideoFrame
-	 *   @brief Cancel a pending "pause on first video frame" requested by a seek while paused, so that the
-	 *          first video frame displayed notification moves the player out of SEEKING to PLAYING.
-	 *          Locks mFragmentCachingLock (recursive).
-	 *
-	 *   @return bool - true if a seek while paused was still waiting for its first video frame
-	 */
-	bool CancelPauseOnFirstVideoFrame();
-
-	/**
-	 *   @fn LockFragmentCaching
-	 *   @brief Take the lock that serialises the first video frame callback and the fragment caching state, so that a
-	 *          caller can make several operations (e.g. cancel pause on first frame + resume the sink) atomic with
-	 *          respect to NotifyFirstVideoFrameDisplayed(). The lock is recursive.
-	 *          Do not call anything that needs mStreamLock while holding it: TuneHelper() takes mStreamLock first and
-	 *          then this lock, and NotifyFirstVideoFrameDisplayed() sends state events (sync listeners) with it held.
-	 *
-	 *   @return std::unique_lock<std::recursive_mutex> - owning lock, released when it goes out of scope
-	 */
-	std::unique_lock<std::recursive_mutex> LockFragmentCaching()
-	{
-		return std::unique_lock<std::recursive_mutex>(mFragmentCachingLock);
-	}
-
-	/**
-	 *   @fn TryLockFragmentCaching
-	 *   @brief Non-blocking variant of LockFragmentCaching(). The returned lock owns the mutex (owns_lock()) only if it
-	 *          could be taken immediately, e.g. it is not owned by another thread.
-	 *
-	 *   @return std::unique_lock<std::recursive_mutex> - lock, check owns_lock()
-	 */
-	std::unique_lock<std::recursive_mutex> TryLockFragmentCaching()
-	{
-		return std::unique_lock<std::recursive_mutex>(mFragmentCachingLock, std::try_to_lock);
-	}
-
-	/**
-	 *   @fn ApplyPausedDownloadPolicy
-	 *   @brief Download handling for a paused player. Used by SetRate(0) and when a seek while paused pauses on its
-	 *          first video frame, so both follow the same rules:
-	 *          - local TSB keeps downloading (the TSB must keep recording while paused)
-	 *          - otherwise downloads are stopped and, for ePAUSED_BEHAVIOR_LIVE_DEFER, disabled until play() with
-	 *            mSeekFromPausedState set so that the resume retunes to live
-	 */
-	void ApplyPausedDownloadPolicy();
-
-	/**
-	 *   @fn RearmPauseOnFirstVideoFrame
-	 *   @brief Restore the pause on first video frame that CancelPauseOnFirstVideoFrame() cancelled, when a new
-	 *          pause request arrives before that first frame is displayed, so the latest pause intent is kept.
-	 *          Locks mFragmentCachingLock (recursive).
-	 *
-	 *   @return bool - true if the pause was re-armed
-	 */
-	bool RearmPauseOnFirstVideoFrame();
-
-	/**
 	 *   @fn NotifyFirstVideoFrameDisplayed
 	 *
 	 *   @return void
@@ -4498,7 +4431,6 @@ protected:
 	bool mFragmentCachingRequired; 		/**< True if fragment caching is required or ongoing */
 	std::recursive_mutex mFragmentCachingLock; 	/**< To sync fragment initial caching operations */
 	bool mPauseOnFirstVideoFrameDisp; 	/**< True if pause AAMP after displaying first video frame */
-	bool mPauseOnFirstVideoFrameCancelled; /**< True if a resume cancelled mPauseOnFirstVideoFrameDisp before the first frame was displayed */
 //	AudioTrackInfo mPreferredAudioTrack; 	/**< Preferred audio track from available tracks in asset */
 	TextTrackInfo mPreferredTextTrack; 	/**< Preferred text track from available tracks in asset */
 	bool mFirstVideoFrameDisplayedEnabled; 	/**< Set True to enable call to NotifyFirstVideoFrameDisplayed() from Sink */

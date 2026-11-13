@@ -1697,7 +1697,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	, mCurrentDrm(), mDrmInitData(), mMinInitialCacheSeconds(DEFAULT_MINIMUM_INIT_CACHE_SECONDS)
 	//, mLicenseServerUrls()
 	, mFragmentCachingRequired(false), mFragmentCachingLock()
-	, mPauseOnFirstVideoFrameDisp(false), mPauseOnFirstVideoFrameCancelled(false)
+	, mPauseOnFirstVideoFrameDisp(false)
 	, mPreferredTextTrack(), mFirstVideoFrameDisplayedEnabled(false)
 	, mSessionToken()
 	, vDynamicDrmData()
@@ -3491,45 +3491,6 @@ void PrivateInstanceAAMP::NotifyBitRateChangeEvent(BitsPerSecond bitrate, Bitrat
 
 
 /**
- * @brief Apply the sidecar subtitle and trickplay bookkeeping for a speed change, without changing the player state
- */
-void PrivateInstanceAAMP::ApplySpeedChangeEffects(float rate)
-{
-	if (rate == 0)
-	{
-		if (HasSidecarData())
-		{ // has sidecar data
-			if (mpStreamAbstractionAAMP)
-				mpStreamAbstractionAAMP->MuteSubtitleOnPause();
-		}
-	}
-	else if (rate == AAMP_NORMAL_PLAY_RATE)
-	{
-		if (mTrickplayInProgress)
-		{
-			mTrickplayInProgress = false;
-		}
-		else
-		{
-			if (HasSidecarData())
-			{ // has sidecar data
-				if (mpStreamAbstractionAAMP)
-					mpStreamAbstractionAAMP->ResumeSubtitleOnPlay(subtitles_muted.load(), mData.get());
-			}
-		}
-	}
-	else
-	{
-		mTrickplayInProgress = true;
-		if (HasSidecarData())
-		{ // has sidecar data
-			if (mpStreamAbstractionAAMP)
-				mpStreamAbstractionAAMP->MuteSidecarSubtitles(true);
-		}
-	}
-}
-
-/**
  * @brief Notify speed change event to listeners
  */
 void PrivateInstanceAAMP::NotifySpeedChanged(float rate, bool changeState)
@@ -3539,11 +3500,36 @@ void PrivateInstanceAAMP::NotifySpeedChanged(float rate, bool changeState)
 		if (rate == 0)
 		{
 			SetState(eSTATE_PAUSED);
+			if (HasSidecarData())
+			{ // has sidecar data
+				if (mpStreamAbstractionAAMP)
+					mpStreamAbstractionAAMP->MuteSubtitleOnPause();
+			}
 		}
-		ApplySpeedChangeEffects(rate);
-		if (rate == AAMP_NORMAL_PLAY_RATE)
+		else if (rate == AAMP_NORMAL_PLAY_RATE)
 		{
+			if (mTrickplayInProgress)
+			{
+				mTrickplayInProgress = false;
+			}
+			else
+			{
+				if (HasSidecarData())
+				{ // has sidecar data
+					if (mpStreamAbstractionAAMP)
+						mpStreamAbstractionAAMP->ResumeSubtitleOnPlay(subtitles_muted.load(), mData.get());
+				}
+			}
 			SetState(eSTATE_PLAYING);
+		}
+		else
+		{
+			mTrickplayInProgress = true;
+			if (HasSidecarData())
+			{ // has sidecar data
+				if (mpStreamAbstractionAAMP)
+					mpStreamAbstractionAAMP->MuteSidecarSubtitles(true);
+			}
 		}
 	}
 
@@ -6024,7 +6010,6 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		//LazilyLoadConfigIfNeeded();
 		mFragmentCachingRequired = false;
 		mPauseOnFirstVideoFrameDisp = false;
-		mPauseOnFirstVideoFrameCancelled = false;
 		mFirstVideoFrameDisplayedEnabled = false;
 		prevFirstPeriodStartTime = 0;
 	}
@@ -11592,76 +11577,16 @@ bool PrivateInstanceAAMP::IsFirstVideoFrameDisplayedRequired()
 }
 
 /**
- * @brief Cancel pause on first video frame displayed (seek while paused followed by resume)
- */
-bool PrivateInstanceAAMP::CancelPauseOnFirstVideoFrame()
-{
-	std::lock_guard<std::recursive_mutex> guard(mFragmentCachingLock);
-	bool pending = (mFirstVideoFrameDisplayedEnabled && mPauseOnFirstVideoFrameDisp);
-	if (pending)
-	{
-		AAMPLOG_MIL("Resume requested before first video frame of seek while paused, cancelling pause on first frame");
-		if (mFragmentCachingRequired)
-		{
-			AAMPLOG_MIL("Skipping initial fragment caching for resumed seek");
-			mFragmentCachingRequired = false;
-		}
-		mPauseOnFirstVideoFrameDisp = false;
-		mPauseOnFirstVideoFrameCancelled = true;
-	}
-	return pending;
-}
-
-/**
- * @brief Restore a pause on first video frame displayed that was cancelled by a resume
- */
-bool PrivateInstanceAAMP::RearmPauseOnFirstVideoFrame()
-{
-	std::lock_guard<std::recursive_mutex> guard(mFragmentCachingLock);
-	bool rearmed = (mFirstVideoFrameDisplayedEnabled && mPauseOnFirstVideoFrameCancelled);
-	if (rearmed)
-	{
-		AAMPLOG_MIL("Pause requested before first video frame of a resumed seek while paused, re-arming pause on first frame");
-		mPauseOnFirstVideoFrameDisp = true;
-		mPauseOnFirstVideoFrameCancelled = false;
-	}
-	return rearmed;
-}
-
-/**
- *  @brief Apply download policy when the player is paused
- */
-void PrivateInstanceAAMP::ApplyPausedDownloadPolicy()
-{
-	if (!IsLocalAAMPTsb())
-	{
-		StopDownloads();
-		if (mPausedBehavior == ePAUSED_BEHAVIOR_LIVE_DEFER)
-		{
-			AAMPLOG_INFO("Downloads disabled on pause");
-			// for this class of playback, disable downloads indefinitely while paused. If we continue manifest downloading in this scenario, can result in playback failure due to period culling.
-			DisableDownloads();
-			mSeekFromPausedState = true;
-		}
-	}
-}
-
-/**
  *   @brief Notify First Video Frame was displayed
  */
 void PrivateInstanceAAMP::NotifyFirstVideoFrameDisplayed()
 {
-	// Serialises with CancelPauseOnFirstVideoFrame()/RearmPauseOnFirstVideoFrame() in SetRate().
-	// Unlock before calling SetState(). This ensures that any state change notifications triggered by SetState()
-	// do not cause a deadlock with mFragmentCachingLock.
-	std::unique_lock<std::recursive_mutex> lock(mFragmentCachingLock);
 	if(!mFirstVideoFrameDisplayedEnabled)
 	{
 		return;
 	}
 
 	mFirstVideoFrameDisplayedEnabled = false;
-	mPauseOnFirstVideoFrameCancelled = false;
 
 	// In the middle of stop processing we can receive state changing callback
 	AAMPPlayerState state = GetState();
@@ -11686,10 +11611,9 @@ void PrivateInstanceAAMP::NotifyFirstVideoFrameDisplayed()
 		{
 			mpStreamAbstractionAAMP->NotifyPlaybackPaused(true);
 		}
-		ApplyPausedDownloadPolicy();
+		StopDownloads();
 		if(PausePipeline(true, false))
 		{
-			lock.unlock();
 			SetState(eSTATE_PAUSED);
 		}
 		else
@@ -11701,7 +11625,6 @@ void PrivateInstanceAAMP::NotifyFirstVideoFrameDisplayed()
 	else if(!SetStateBufferingIfRequired())
 	{
 		// If Buffering state was not needed, set PLAYING state
-		lock.unlock();
 		SetState(eSTATE_PLAYING);
 	}
 }
