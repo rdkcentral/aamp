@@ -3287,6 +3287,106 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	EXPECT_EQ(m_player->GetPositionMilliseconds(), 0LL);
 }
 
+// Single-pipeline-mode ad switch: the shared pipeline is flushed to the ad's
+// start (0 s) while the main content was at ~33 s.  Some platforms keep
+// reporting the pre-seek position for a short time after SEEK_DONE.  That
+// stale value must not be surfaced as the new position - otherwise
+// priv_aamp latches it as the previous position and rejects every genuine
+// post-seek position as a backward jump, suppressing all progress events.
+// The seek target is reported instead until a consistent position arrives,
+// after which genuine positions are returned as before.
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	GetPositionMilliseconds_AfterSeekDone_StalePreSeekPosition_ReportsSeekTarget)
+{
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(0)).WillOnce(Return(true));
+	m_player->Flush(/*position=*/0.0, /*rate=*/1, /*shouldTearDown=*/true,
+		/*positionIsAuthoritative=*/true);
+	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
+
+	constexpr int64_t kStalePreSeekNs = 33'020'000'000LL;
+	constexpr int64_t kPostSeekNs     =    947'000'000LL;
+	EXPECT_CALL(*m_mockPipelinePtr, getPosition(_))
+		.WillOnce(DoAll(SetArgReferee<0>(kStalePreSeekNs), Return(true)))
+		.WillOnce(DoAll(SetArgReferee<0>(kStalePreSeekNs), Return(true)))
+		.WillOnce(DoAll(SetArgReferee<0>(kPostSeekNs), Return(true)));
+
+	EXPECT_EQ(m_player->GetPositionMilliseconds(), 0LL);
+	EXPECT_EQ(m_player->GetPositionMilliseconds(), 0LL);
+	EXPECT_EQ(m_player->GetPositionMilliseconds(), 947LL);
+}
+
+// Same as above for a non-zero seek target (return from an ad to the main
+// content's resume position): the elapsed time is measured from the seek
+// target, and a stale value far ahead of it is not reported.
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	GetPositionMilliseconds_AfterSeekDoneToResumePosition_StaleAheadPosition_ReportsSeekTarget)
+{
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(16'000'000'000LL)).WillOnce(Return(true));
+	m_player->Flush(/*position=*/16.0, /*rate=*/1, /*shouldTearDown=*/true,
+		/*positionIsAuthoritative=*/true);
+	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
+
+	EXPECT_CALL(*m_mockPipelinePtr, getPosition(_))
+		.WillOnce(DoAll(SetArgReferee<0>(33'020'000'000LL), Return(true)))
+		.WillOnce(DoAll(SetArgReferee<0>(16'250'000'000LL), Return(true)));
+
+	EXPECT_EQ(m_player->GetPositionMilliseconds(), 0LL);
+	EXPECT_EQ(m_player->GetPositionMilliseconds(), 250LL);
+}
+
+// A Rialto position notification consistent with the seek target confirms
+// the post-seek position, so later pipeline positions are trusted without
+// the stale-position window applying.
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	GetPositionMilliseconds_AfterSeekDone_ConfirmingNotifyPosition_TrustsLaterPositions)
+{
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(0)).WillOnce(Return(true));
+	m_player->Flush(/*position=*/0.0, /*rate=*/1, /*shouldTearDown=*/true,
+		/*positionIsAuthoritative=*/true);
+	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
+
+	PostPosition(207'000'000LL);
+
+	EXPECT_CALL(*m_mockPipelinePtr, getPosition(_))
+		.WillOnce(DoAll(SetArgReferee<0>(5'000'000'000LL), Return(true)));
+
+	EXPECT_EQ(m_player->GetPositionMilliseconds(), 5'000LL);
+}
+
+// A stale Rialto position notification arriving after SEEK_DONE must not
+// confirm the post-seek position.
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	GetPositionMilliseconds_AfterSeekDone_StaleNotifyPosition_DoesNotConfirm)
+{
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(0)).WillOnce(Return(true));
+	m_player->Flush(/*position=*/0.0, /*rate=*/1, /*shouldTearDown=*/true,
+		/*positionIsAuthoritative=*/true);
+	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
+
+	PostPosition(32'963'000'000LL);
+
+	EXPECT_CALL(*m_mockPipelinePtr, getPosition(_))
+		.WillOnce(DoAll(SetArgReferee<0>(33'020'000'000LL), Return(true)));
+
+	EXPECT_EQ(m_player->GetPositionMilliseconds(), 0LL);
+}
+
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	GetDurationMilliseconds_ReturnsLatestNotifiedDuration)
 {

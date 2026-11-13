@@ -505,6 +505,41 @@ private:
 	/// own PTS, since a flush/seek position can land mid-fragment.
 	std::atomic<int64_t> m_segmentStartPositionNs{0};
 
+	/// Armed by the SEEK_DONE handler; cleared once a position consistent
+	/// with the seek target has been observed, either from a
+	/// GetPositionMilliseconds() pipeline query or from a Rialto position
+	/// notification (OnPosition()).  Until then, some platforms keep
+	/// reporting the pre-seek position for a short time after SEEK_DONE
+	/// (e.g. the previous player's position after a single-pipeline-mode ad
+	/// switch), which must not be surfaced as the new player's position.
+	std::atomic<bool> m_awaitingPostSeekPosition{false};
+
+	/// Steady-clock time (ms) at which m_awaitingPostSeekPosition was armed.
+	std::atomic<int64_t> m_seekDoneSteadyMs{0};
+
+	/// Slack (ms) allowed around the seek target, on top of the playback
+	/// time elapsed since SEEK_DONE, before a post-SEEK_DONE position is
+	/// considered stale.
+	static constexpr int64_t kPostSeekPositionToleranceMs = 1000;
+
+	/**
+	 * @brief Check a pipeline position against the seek target committed by
+	 *        the last SEEK_DONE.
+	 *
+	 * @param[in] positionNs  Position (ns) reported by Rialto.
+	 * @param[in] rate        Current playback rate.
+	 * @return true if the position is further ahead of the seek target than
+	 *         forward playback since SEEK_DONE could have advanced it, i.e.
+	 *         it can only be a stale pre-seek value.
+	 */
+	bool IsStalePostSeekPosition(int64_t positionNs, int rate) const;
+
+	/**
+	 * @brief Clear m_awaitingPostSeekPosition if @p positionNs lies within
+	 *        the window expected after the last SEEK_DONE.
+	 */
+	void MaybeConfirmPostSeekPosition(int64_t positionNs, int rate);
+
 	/// Set by Stream(); cleared once play() is issued.  Lets us defer the
 	/// play() call until after allSourcesAttached() so the Rialto server
 	/// transitions PAUSED→PLAYING only after all sources are registered.
