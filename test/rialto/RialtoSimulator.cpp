@@ -142,6 +142,12 @@ constexpr int64_t kBufferHighWaterNs = 40000000000LL; // 40 seconds
 // defeating the backpressure model.
 constexpr unsigned int kNeedDataFrameCount = 24;
 
+// Delay before re-requesting data after a haveData() that delivered nothing
+// (NO_AVAILABLE_SAMPLES, ERROR, ...).  Real Rialto re-schedules needData in
+// that case (MediaPipelineServerInternal::scheduleNotifyNeedMediaData()),
+// starting at this delay; its back-off up to 500ms is not modelled.
+constexpr std::chrono::milliseconds kNeedDataResendDelay{15};
+
 // Slack allowed between the reported clock and the slowest track's horizon
 // before that track is treated as stalled (see refreshMasterClockLocked()).
 // Absorbs ordinary A/V injection skew and live-edge manifest-refresh gaps
@@ -408,6 +414,16 @@ public:
 
 	bool setImmediateOutput(int32_t, bool) override { return true; }
 	bool getImmediateOutput(int32_t, bool &io) override { io = false; return true; }
+	bool setReportDecodeErrors(int32_t, bool) override { return true; }
+
+	bool getQueuedFrames(int32_t sourceId, uint32_t &queuedFrames) override
+	{
+		// Refresh first so samples the clock has already passed are popped.
+		refreshAndGetPositionNs();
+		std::lock_guard<std::mutex> lock(m_trackMutex);
+		queuedFrames = queuedFramesLocked(sourceId);
+		return true;
+	}
 
 	bool setVideoWindow(uint32_t x, uint32_t y,
 		uint32_t width, uint32_t height) override
@@ -499,6 +515,18 @@ public:
 			!m_stopRequested.load(std::memory_order_relaxed))
 		{
 			scheduleNextNeedData(sourceId);
+		}
+		else if (status != MediaSourceStatus::EOS &&
+			!m_stopRequested.load(std::memory_order_relaxed))
+		{
+			// The client had nothing to send (e.g. its sources are gated
+			// during a flush).  Real Rialto asks again after a short delay
+			// rather than waiting for play(), so data can still arrive while
+			// PAUSED (pre-roll after a keep-paused seek depends on this).
+			RIALTO_SIM_LOG("haveData: status=%d for sourceId=%d - re-requesting in %lld ms",
+				static_cast<int>(status), sourceId,
+				static_cast<long long>(kNeedDataResendDelay.count()));
+			scheduleNeedDataRetry(sourceId);
 		}
 		else if (status == MediaSourceStatus::EOS)
 		{
@@ -741,6 +769,21 @@ private:
 		uint64_t generation = 0;
 	};
 
+	/// True if @p sourceId has a needData of @p generation still unanswered.
+	/// Caller must hold m_trackMutex.
+	bool hasOutstandingRequestLocked(int32_t sourceId, uint64_t generation) const
+	{
+		for (const auto &entry : m_requestIdToSource)
+		{
+			if (entry.second.sourceId == sourceId &&
+				entry.second.generation == generation)
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+
 	// Clears all per-track queue/readiness/EOS/underflow state. Used by the
 	// pipeline-wide flushing paths (flush(), setPosition()); every source must
 	// re-buffer afterwards. Caller must hold m_trackMutex.
@@ -847,6 +890,32 @@ private:
 				q.pop_front();
 			}
 		}
+	}
+
+	// Frames a non-subtitle source is holding that have not yet been
+	// presented, i.e. what a real decoder reports as its queued frames.
+	// The head stays queued until its successor's PTS passes the clock
+	// (see popMaturedSamplesLocked()), and nothing pops while paused, so
+	// the count rises during pre-roll as data is injected.
+	// Caller must hold m_trackMutex.
+	uint32_t queuedFramesLocked(int32_t sourceId) const
+	{
+		size_t frames = 0;
+		auto typeIt = m_sourceTypes.find(sourceId);
+		if (typeIt != m_sourceTypes.end())
+		{
+			if (typeIt->second == MediaSourceType::VIDEO)
+			{
+				auto it = m_videoQueue.find(sourceId);
+				frames = (it != m_videoQueue.end()) ? it->second.size() : 0;
+			}
+			else if (typeIt->second == MediaSourceType::AUDIO)
+			{
+				auto it = m_fifoQueue.find(sourceId);
+				frames = (it != m_fifoQueue.end()) ? it->second.size() : 0;
+			}
+		}
+		return static_cast<uint32_t>(frames);
 	}
 
 	// True if sourceId is an attached track that participates in the shared
@@ -1136,11 +1205,48 @@ private:
 	{
 		const uint64_t expectedGeneration = m_generation.load(std::memory_order_relaxed);
 		RIALTO_SIM_LOG("sourceId %d ", sourceId);
-		if (m_needDataThread.find(sourceId) != m_needDataThread.end() && m_needDataThread[sourceId].joinable())
 		{
-			m_needDataThread[sourceId].join();
+			std::lock_guard<std::mutex> lock(m_trackMutex);
+			const auto pacing = m_pacingSources.find(sourceId);
+			if (pacing != m_pacingSources.end() && pacing->second == expectedGeneration)
+			{
+				// This source's pacing thread has not sent its request yet and
+				// will ask for more data itself.  Real Rialto's haveData()
+				// never waits for its own pacing, so neither join it (it may
+				// wait for a long time, e.g. while the client tears down)
+				// nor start a second request.
+				RIALTO_SIM_LOG("scheduleNextNeedData: sourceId=%d already has a "
+					"pending request - not scheduling another", sourceId);
+				return;
+			}
+			m_pacingSources[sourceId] = expectedGeneration;
 		}
-		m_needDataThread[sourceId] = std::thread([this, sourceId, expectedGeneration]() {
+		// Any previous thread for this source has sent its request or given
+		// up, or belongs to an earlier generation and gives up within one
+		// pacing interval, so joining it does not wait for the pacing loop.
+		std::lock_guard<std::mutex> threadLock(m_needDataThreadMutex);
+		auto &slot = m_needDataThread[sourceId];
+		if (slot.joinable())
+		{
+			slot.join();
+		}
+		slot = std::thread([this, sourceId, expectedGeneration]() {
+			// Leave m_pacingSources once this thread will send no further
+			// request, unless a newer generation's thread has replaced it.
+			// Caller must hold m_trackMutex.
+			auto leavePacingLocked = [this, sourceId, expectedGeneration]()
+			{
+				const auto it = m_pacingSources.find(sourceId);
+				if (it != m_pacingSources.end() && it->second == expectedGeneration)
+				{
+					m_pacingSources.erase(it);
+				}
+			};
+			auto giveUp = [this, &leavePacingLocked]()
+			{
+				std::lock_guard<std::mutex> lock(m_trackMutex);
+				leavePacingLocked();
+			};
 			// Wait until this source's buffered (injected-but-not-played) media
 			// drops below the high-water mark before asking it for more.
 			// This keeps injection at ~real time instead of draining AAMP's
@@ -1152,6 +1258,7 @@ private:
 				if (m_stopRequested.load(std::memory_order_relaxed))
 				{
 					RIALTO_SIM_LOG("scheduleNextNeedData: aborting sourceId=%d - stop requested", sourceId);
+					giveUp();
 					return;
 				}
 				if (m_generation.load(std::memory_order_relaxed) != expectedGeneration)
@@ -1163,6 +1270,7 @@ private:
 					// just create a duplicate outstanding request.
 					RIALTO_SIM_LOG("scheduleNextNeedData: aborting sourceId=%d - generation changed",
 						sourceId);
+					giveUp();
 					return;
 				}
 				int64_t buffered = 0;
@@ -1187,12 +1295,14 @@ private:
 			auto client = m_client.lock();
 			if (!client)
 			{
+				giveUp();
 				return;
 			}
 
 			uint32_t reqId = 0;
 			{
 				std::lock_guard<std::mutex> lock(m_trackMutex);
+				leavePacingLocked();
 				if (m_generation.load(std::memory_order_relaxed) != expectedGeneration)
 				{
 					RIALTO_SIM_LOG("scheduleNextNeedData: aborting sourceId=%d"
@@ -1357,11 +1467,106 @@ private:
 		{
 			m_eosThread.join();
 		}
-		for (auto &pair : m_needDataThread)
 		{
-			if (pair.second.joinable())
+			std::lock_guard<std::mutex> threadLock(m_needDataThreadMutex);
+			for (auto &pair : m_needDataThread)
 			{
-				pair.second.join();
+				if (pair.second.joinable())
+				{
+					pair.second.join();
+				}
+			}
+		}
+		joinNeedDataRetries(/*finishedOnly=*/false);
+	}
+
+	/**
+	 * Re-request data for @p sourceId after kNeedDataResendDelay, as real
+	 * Rialto does after a haveData() that delivered nothing.  Retries run on
+	 * their own threads, not m_needDataThread: the client may answer the
+	 * retried needData synchronously on that thread, which would otherwise
+	 * have to join itself.  At most one retry per source is pending.
+	 */
+	void scheduleNeedDataRetry(int32_t sourceId)
+	{
+		joinNeedDataRetries(/*finishedOnly=*/true);
+		std::lock_guard<std::mutex> lock(m_retryMutex);
+		if (!m_retryPendingSources.insert(sourceId).second)
+		{
+			return;
+		}
+		auto done = std::make_shared<std::atomic<bool>>(false);
+		std::thread thread([this, sourceId, done]() {
+			std::this_thread::sleep_for(kNeedDataResendDelay);
+			{
+				std::lock_guard<std::mutex> retryLock(m_retryMutex);
+				m_retryPendingSources.erase(sourceId);
+			}
+			uint32_t reqId = 0;
+			bool send = false;
+			if (!m_stopRequested.load(std::memory_order_relaxed))
+			{
+				std::lock_guard<std::mutex> trackLock(m_trackMutex);
+				// Request against the current generation: a flush()/
+				// setPosition() while waiting does not cancel the retry, as
+				// a retry requested during it is merged into this one.  Skip
+				// if the source already has a request outstanding (e.g. a
+				// restarted pump): the client closes a superseded request
+				// with NO_AVAILABLE_SAMPLES, and retrying that would keep
+				// two requests chasing each other.
+				const uint64_t generation = m_generation.load(std::memory_order_relaxed);
+				if (!hasOutstandingRequestLocked(sourceId, generation))
+				{
+					reqId = m_needDataRequestId++;
+					m_requestIdToSource[reqId] = RequestInfo{sourceId, generation};
+					send = true;
+				}
+			}
+			auto client = m_client.lock();
+			if (send && client)
+			{
+				RIALTO_SIM_LOG("notifyNeedMediaData: sourceId=%d requestId=%u (retry)",
+					sourceId, reqId);
+				client->notifyNeedMediaData(sourceId, kNeedDataFrameCount, reqId, nullptr);
+			}
+			done->store(true, std::memory_order_release);
+		});
+		m_retryThreads.push_back(RetryThread{std::move(thread), std::move(done)});
+	}
+
+	/// Join retry threads: only those that have finished, or all of them.
+	void joinNeedDataRetries(bool finishedOnly)
+	{
+		for (;;)
+		{
+			std::vector<std::thread> toJoin;
+			{
+				std::lock_guard<std::mutex> lock(m_retryMutex);
+				auto it = m_retryThreads.begin();
+				while (it != m_retryThreads.end())
+				{
+					if (!finishedOnly || it->done->load(std::memory_order_acquire))
+					{
+						toJoin.push_back(std::move(it->thread));
+						it = m_retryThreads.erase(it);
+					}
+					else
+					{
+						++it;
+					}
+				}
+			}
+			if (toJoin.empty())
+			{
+				return;
+			}
+			for (auto &thread : toJoin)
+			{
+				thread.join();
+			}
+			if (finishedOnly)
+			{
+				return;
 			}
 		}
 	}
@@ -1389,6 +1594,21 @@ private:
 	std::thread m_positionThread;
 	std::thread m_eosThread;
 	std::map<int32_t, std::thread> m_needDataThread;
+	/// Guards m_needDataThread: haveData() for different sources can arrive
+	/// on different client threads.
+	std::mutex m_needDataThreadMutex;
+	/// Sources whose pacing thread has not yet sent (or given up on) its
+	/// request, with that thread's generation.  Guarded by m_trackMutex.
+	std::map<int32_t, uint64_t> m_pacingSources;
+	struct RetryThread
+	{
+		std::thread thread;
+		std::shared_ptr<std::atomic<bool>> done;
+	};
+	/// Guards m_retryThreads and m_retryPendingSources.
+	std::mutex m_retryMutex;
+	std::vector<RetryThread> m_retryThreads;
+	std::set<int32_t> m_retryPendingSources;
 	mutable std::mutex m_trackMutex;
 	std::map<int32_t, MediaSourceType> m_sourceTypes;
 	// Audio / subtitle: FIFO (arrival order == presentation order).

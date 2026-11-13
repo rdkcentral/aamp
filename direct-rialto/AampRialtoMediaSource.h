@@ -35,20 +35,21 @@
 #include "AampMediaType.h"
 #include "IDrmBridge.h"
 #include "StreamOutputFormat.h"
+#include "AampRialtoTime.h"
+#include "AampRialtoNeedDataHandshake.h"
 
 #include <atomic>
 #include <condition_variable>
 #include <cstdint>
+#include <limits>
 #include <memory>
 #include <mutex>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "mp4demux/MP4Demux.h"
-
-/// Nanoseconds per second — shared by all source classes.
-constexpr int64_t kNsPerSecond = 1'000'000'000LL;
 
 /**
  * @class AampRialtoMediaSource
@@ -57,6 +58,18 @@ constexpr int64_t kNsPerSecond = 1'000'000'000LL;
  * Concrete subclasses (AampRialtoVideoSource, AampRialtoAudioSource,
  * AampRialtoSubtitleSource) implement the codec-specific virtual methods
  * while the base class owns the common pacing, DRM, and injection logic.
+ *
+ * Threads: this track's injector thread injects samples and blocks in
+ * injectOneSample() until Rialto asks for data; the Rialto pipeline event
+ * thread delivers needData (handleNeedData()); the AAMP control thread
+ * gates, unblocks and resets; attachOrUpdate() runs under the player's
+ * m_attachMutex on the control thread or an injector thread.  The handshake
+ * state and its decisions live in m_handshake (AampRialtoNeedDataHandshake),
+ * which has its own mutex; this class sends the resulting haveData() calls
+ * and keeps the statistics, sourceId/mksId/streamFormat are
+ * atomic and the pending codec data has its own mutex.  Injector waits have
+ * no timeout by design: only a needData, a gate change or a generation bump
+ * (Flush/Stop) releases them.
  */
 class AampRialtoMediaSource
 {
@@ -65,101 +78,9 @@ public:
 	// Public nested types
 	// -----------------------------------------------------------------
 
-	/**
-	 * @brief Injection gating mode for the needData/haveData handshake.
-	 */
-	enum class GateMode
-	{
-		NONE,     ///< Normal operation — samples flow through as needData arrives.
-		BLOCKED,  ///< New samples block (waiting) until gateInjection(false) or a newer generation.
-		DROPPED   ///< New samples are discarded immediately — never blocks the caller thread.
-	};
-
-	/**
-	 * @brief Per-track pacing state for the Rialto needData/haveData
-	 *        handshake.
-	 */
-	struct SourceState
-	{
-		/// Protects all fields in this struct.
-		std::mutex              mu;
-		/// Notified whenever hasPending, generation, gateMode,
-		/// attachPending, or eos changes.
-		std::condition_variable cv;
-
-		/// True when Rialto has issued a needData request that has not
-		/// yet been answered with a haveData response.
-		bool     hasPending{false};
-		/// Request ID from the current outstanding needData event; used
-		/// to correlate the haveData response.
-		uint32_t pendingRequestId{0};
-		/// Number of frames requested in the current needData event;
-		/// determines when the batch is considered complete.
-		size_t   pendingFrameCount{0};
-		/// Count of segments successfully delivered via addSegment for
-		/// the current request batch; triggers haveData(OK) when it
-		/// reaches pendingFrameCount.
-		size_t   segmentsAddedInBatch{0};
-		/// True once the first segment of the current batch has set
-		/// batchFirstPtsSec.  Distinguishes "first frame had PTS 0" from
-		/// "no frame added yet", mirroring kFirstPtsNotSet's role for
-		/// m_firstPtsMs but scoped to a single needData batch.
-		bool     batchHasFirstPts{false};
-		/// PTS (seconds) of the first segment added in the current batch.
-		/// Only meaningful when batchHasFirstPts is true.
-		double   batchFirstPtsSec{0.0};
-		/// Running sum of durations (seconds) of segments added in the
-		/// current batch.
-		double   batchDurationSecSum{0.0};
-		/// Running sum of raw media payload bytes (AampMediaSample::mDataSize)
-		/// of segments added in the current batch.
-		size_t   batchMediaBytesSum{0};
-		/// Running sum of DRM metadata bytes (key id + IV + subsample table)
-		/// attached to segments added in the current batch.
-		size_t   batchMetadataBytesSum{0};
-		/// Set once signalEos() has been called.  Causes the next batch
-		/// completion (or an idle needData) to fire haveData(EOS) instead
-		/// of haveData(OK).
-		bool     eos{false};
-		/// Monotonically-increasing abort token.  Bumped by reset() and
-		/// unblockInjection(); injectors capture it at entry and
-		/// abort if it changes while they are blocked.
-		uint64_t generation{0};
-		/// Injection gating mode — see GateMode.  Set to DROPPED by
-		/// unblockInjection() (flush/stop/pause-notify: abort now, never
-		/// block a caller thread again) and to BLOCKED or NONE by
-		/// gateInjection(gate), called via AampRialtoPlayer::UngateAllSources()
-		/// (gate=false) at each site that actually issues (or confirms)
-		/// pipeline play() — Stream(), CheckAllSourcesAttached(),
-		/// Pause(false), StopBuffering(), NotifyInjectorToResume(), the
-		/// SEEK_DONE play branch, and the PLAYING playback-state handler —
-		/// or (gate=true) by Configure() and Flush()'s flushable path, which
-		/// expect genuinely-wanted data to arrive shortly and must block it
-		/// rather than drop it.
-		/// Deliberately NOT touched by reset(): clearing it there would
-		/// reopen the gate before a multi-step Configure()/Flush() sequence
-		/// (e.g. trickplay's Flush(pos=0) -> Configure() -> Flush(correctPos)
-		/// -> Stream()) has finished, letting stale-position data slip
-		/// through on an early needData.  NOT related to the pipeline PAUSED
-		/// state — see the comment in waitForAttach() for the important
-		/// distinction.
-		/// While BLOCKED, injectOneSample() blocks newly-submitted samples
-		/// until the gate clears or a newer generation supersedes them.
-		/// While DROPPED, injectOneSample() discards newly-submitted samples
-		/// immediately without ever blocking the caller thread — see
-		/// injectOneSample() for details.
-		GateMode gateMode{GateMode::NONE};
-		/// True while an injector thread is executing inside
-		/// injectOneSample().  Prevents signalEos() and handleNeedData()
-		/// from firing haveData(EOS) immediately when the active injector
-		/// will send it after delivering its sample.
-		bool     injectorActive{false};
-		/// True while this source's Rialto attachment has been deferred
-		/// (e.g. waiting for the video source to attach first).  Inject
-		/// threads block on the cv when this is set so that no frames are
-		/// silently discarded before the source is ready.
-		bool     attachPending{false};
-	};
+	using GateMode = AampRialtoNeedDataHandshake::GateMode;
+	using SourceState = AampRialtoNeedDataHandshake::State;
+	using BatchSummary = AampRialtoNeedDataHandshake::BatchSummary;
 
 	/**
 	 * @brief Protection parameters saved by QueueProtectionEvent.
@@ -186,22 +107,6 @@ public:
 		UPDATED,         ///< Source already attached; metadata refreshed
 		NEWLY_ATTACHED,  ///< New source successfully attached to pipeline
 		FAILED           ///< Invalid codec or attachSource() failed
-	};
-
-	/**
-	 * @brief Snapshot of the segments staged for a needData batch, taken
-	 *        at the moment the batch is claimed/abandoned so the eventual
-	 *        haveData() response can be logged alongside what data (if
-	 *        any) it is answering for.
-	 */
-	struct BatchSummary
-	{
-		size_t frameCount{0};       ///< Segments added to this batch.
-		bool   hasFirstPts{false};  ///< True once at least one segment was added.
-		double firstPtsSec{0.0};    ///< PTS (seconds) of the first segment added.
-		double durationSecSum{0.0}; ///< Sum of durations (seconds) added.
-		size_t mediaBytes{0};       ///< Sum of media payload bytes added.
-		size_t metadataBytes{0};    ///< Sum of DRM metadata bytes added.
 	};
 
 	// -----------------------------------------------------------------
@@ -244,7 +149,7 @@ public:
 	///                     with the generation bump/gate-set above.  Callers
 	///                     that need to change eos alongside invalidating the
 	///                     generation (e.g. Stop(), Flush()) must use this
-	///                     parameter rather than locking m_state.mu
+	///                     parameter rather than calling setEos()
 	///                     separately afterwards, which would otherwise open
 	///                     a window where a concurrent needData/signalEos
 	///                     could observe the gate set but the old eos value.
@@ -260,7 +165,7 @@ public:
 	/// arrive shortly and must hold it rather than drop it.
 	/// gate=false must be called only from the specific points where
 	/// playback is genuinely about to resume — see the gateMode field
-	/// comment above for the authoritative list.
+	/// comment in AampRialtoNeedDataHandshake::State for the authoritative list.
 	///
 	/// If a needData was staged while BLOCKED and EOS was signalled in the
 	/// meantime (both intentionally deferred while gateMode==BLOCKED — see
@@ -274,7 +179,7 @@ public:
 	///                  EOS resolution must be replayed (gate=false).
 	/// @param gate      true to enter BLOCKED; false to clear to NONE.
 	/// @param reason    Short human-readable description of the caller
-	///                  (e.g. "Stream", "OnPlaybackState(PLAYING)"),
+		///                  (e.g. "Stream", "PreRoll"),
 	///                  included in the log line.
 	void gateInjection(firebolt::rialto::IMediaPipeline *pipeline,
 		bool gate, const char *reason);
@@ -296,8 +201,8 @@ public:
 	// Source identity
 	// -----------------------------------------------------------------
 
-	int32_t sourceId() const { return m_sourceId; }
-	bool isAttached() const { return m_sourceId >= 0; }
+	int32_t sourceId() const { return m_sourceId.load(std::memory_order_acquire); }
+	bool isAttached() const { return sourceId() >= 0; }
 
 	/// Block if this source's Rialto attachment is still deferred (waiting
 	/// for video to attach first).  Returns true when injection may safely
@@ -306,13 +211,16 @@ public:
 	/// generation change from Flush/Stop).
 	bool waitForAttach();
 
-	int32_t mksId() const { return m_mksId; }
+	int32_t mksId() const { return m_mksId.load(std::memory_order_acquire); }
 
 	// -----------------------------------------------------------------
 	// Pacing state
 	// -----------------------------------------------------------------
 
-	SourceState &state() { return m_state; }
+	SourceState &state() { return m_handshake.state(); }
+
+	/// True once signalEos() has latched EOS; reads the flag under the lock.
+	bool isEos();
 	uint64_t captureGeneration();
 
 	// -----------------------------------------------------------------
@@ -337,7 +245,7 @@ public:
 	// -----------------------------------------------------------------
 
 	/// @brief Return the StreamOutputFormat recorded by setFormat().
-	StreamOutputFormat format() const { return m_streamFormat; }
+	StreamOutputFormat format() const { return m_streamFormat.load(); }
 
 	/// @brief Record the StreamOutputFormat for which this source was created.
 	///
@@ -345,7 +253,7 @@ public:
 	/// construction.  Used to detect format changes on subsequent Configure()
 	/// calls so the pipeline is only recreated when necessary.  Never
 	/// cleared by reset().
-	void setFormat(StreamOutputFormat f) { m_streamFormat = f; }
+	void setFormat(StreamOutputFormat f) { m_streamFormat.store(f); }
 
 	// -----------------------------------------------------------------
 	// Core operations
@@ -460,6 +368,10 @@ public:
 	/// injected yet in the current session.
 	static constexpr int64_t kFirstPtsNotSet = std::numeric_limits<int64_t>::min();
 
+	/// handleNeedData() logs the first request after a reset or flush, then
+	/// every this-many requests, at INFO; the others log at TRACE.
+	static constexpr uint32_t kNeedDataLogInterval = 100;
+
 	/**
 	 * @brief PTS of the first sample injected since the last reset or
 	 *        unblockInjection().
@@ -474,6 +386,25 @@ public:
 	 * InterfacePlayerRDK::GetPositionMilliseconds().
 	 */
 	virtual int64_t firstPtsMs() const;
+
+	/**
+	 * @brief Span (ms) of media accepted by Rialto since the last reset or
+	 *        unblockInjection(): from the first accepted PTS to the end of
+	 *        the last accepted segment.  Zero if nothing has been accepted.
+	 */
+	int64_t injectedSpanMs() const;
+
+	/**
+	 * @brief Number of segments Rialto has accepted since the last reset or
+	 *        unblockInjection().
+	 */
+	virtual uint32_t acceptedFrames() const;
+
+	/**
+	 * @brief True if addSegment() has returned NO_SPACE since the last reset
+	 *        or unblockInjection().
+	 */
+	virtual bool bufferFull() const;
 
 	/**
 	 * @brief Signal end-of-stream for this source.
@@ -492,13 +423,6 @@ public:
 	 * @brief Handle a cancelNeedData event from the pipeline client.
 	 */
 	void handleCancelNeedData();
-
-	/**
-	 * @brief Flush this source on the pipeline and set source position.
-	 */
-	void flushSource(
-		firebolt::rialto::IMediaPipeline &pipeline,
-		int64_t positionNs);
 
 	/**
 	 * @brief Returns true when inband closed-caption mode is active.
@@ -559,9 +483,11 @@ protected:
 	// Members
 	// -----------------------------------------------------------------
 
-	SourceState m_state;
-	int32_t m_sourceId{-1};
-	int32_t m_mksId{-1};
+	AampRialtoNeedDataHandshake m_handshake;
+	/// Written when the source attaches or resets, read from injector and Rialto
+	/// callback threads, so read them through sourceId() / mksId().
+	std::atomic<int32_t> m_sourceId{-1};
+	std::atomic<int32_t> m_mksId{-1};
 	/// Protection params last used to create the current DRM session (via
 	/// m_mksId). Compared against the params passed to attachOrUpdate() on
 	/// subsequent calls so a genuinely new PSSH/init-data triggers a new
@@ -569,17 +495,30 @@ protected:
 	/// every period) do not incur a redundant OCDM license round-trip.
 	std::optional<ProtectionParams> m_activeProtection;
 	std::unique_ptr<Mp4Demux> m_demuxer;
+	/// Staged by attachOrUpdate() and taken by the injector; guarded by
+	/// m_codecDataMutex.
 	std::shared_ptr<firebolt::rialto::CodecData> m_pendingCodecData;
+	std::mutex m_codecDataMutex;
 	/// Stream format passed to Configure() when this source was created.
 	/// Never cleared by reset() so Configure() can compare formats across
 	/// sessions without unnecessarily recreating the pipeline.
-	StreamOutputFormat m_streamFormat{FORMAT_INVALID};
+	std::atomic<StreamOutputFormat> m_streamFormat{FORMAT_INVALID};
 
 	/// PTS of the first sample injected since the last reset or
 	/// unblockInjection(), in milliseconds.  Set lazily via
 	/// compare-exchange after addSegment(OK) in injectOneSample().
 	/// kFirstPtsNotSet = not set.
 	std::atomic<int64_t> m_firstPtsMs{kFirstPtsNotSet};
+
+	/// End (PTS + duration, ms) of the last segment Rialto accepted since
+	/// the last reset or unblockInjection().  kFirstPtsNotSet = not set.
+	std::atomic<int64_t> m_lastAcceptedEndMs{kFirstPtsNotSet};
+
+	/// See acceptedFrames().
+	std::atomic<uint32_t> m_acceptedFrames{0};
+
+	/// needData requests since the last reset or unblockInjection().
+	std::atomic<uint32_t> m_needDataCount{0};
 
 private:
 	// -----------------------------------------------------------------
@@ -590,12 +529,19 @@ private:
 	 * @brief Populate DRM/encryption metadata on a segment.
 	 *
 	 * No-op (other than a trace log) when the sample is not encrypted.
-	 * Logs a warning when the sample is encrypted but no DRM session
-	 * exists (m_mksId < 0).
+	 *
+	 * @return false when the sample must not be injected: it is encrypted
+	 *         but no DRM session exists (m_mksId < 0), or its sub-sample
+	 *         table is shorter than it declares.  Injecting such a sample
+	 *         would hand Rialto ciphertext without usable metadata.
 	 */
-	void annotateEncryption(
+	bool annotateEncryption(
 		const AampMediaSample &sample,
 		firebolt::rialto::IMediaPipeline::MediaSegment &segment) const;
+
+	/// Samples dropped for an annotateEncryption() failure since reset();
+	/// limits how often the failure is logged.
+	mutable std::atomic<uint32_t> m_droppedSampleCount{0};
 
 	/**
 	 * @brief Handle an AddSegmentStatus::NO_SPACE result from addSegment().
@@ -631,50 +577,8 @@ private:
 		size_t sampleMetadataBytes);
 
 	// -----------------------------------------------------------------
-	// Pending-request handshake helpers
+	// haveData replies
 	// -----------------------------------------------------------------
-
-	/**
-	 * @brief Claim the current pending request so the caller can close
-	 *        it out.
-	 *
-	 * Caller must hold m_state.mu.  Clears hasPending and the batch
-	 * tracking fields (via snapshotAndClearBatchLocked()), returning their
-	 * pre-claim values in outBatch.  Does not itself send any response —
-	 * the caller decides what status to reply with (or whether it is even
-	 * safe to reply, e.g. only when no injector is active).
-	 *
-	 * @param outBatch  Set to a summary of the segments staged for this
-	 *                  batch when this returns true; left unmodified
-	 *                  otherwise.
-	 * @return true if there was a pending request to claim.
-	 */
-	bool claimPendingRequestLocked(uint32_t &outReqId, BatchSummary &outBatch);
-
-	/**
-	 * @brief Attempt to resolve a pending request as EOS.
-	 *
-	 * Caller must hold m_state.mu.  Claims the pending request (via
-	 * claimPendingRequestLocked()) only if this source is genuinely ready
-	 * to answer haveData(EOS) right now: eos is set, a request is
-	 * pending, no injector is active to answer it on its own, and
-	 * gateMode is not BLOCKED.  The gate check is what distinguishes this
-	 * from the older behaviour: while gateMode==BLOCKED, EOS resolution is
-	 * deliberately deferred (the request is left pending) so it is not
-	 * resolved out of order with samples that are still blocked behind the
-	 * gate.  gateInjection(false) calls this again once the gate clears to
-	 * replay the resolution.  gateMode==DROPPED does not defer EOS —
-	 * dropped injection has no samples left to be resolved out of order
-	 * with, so EOS resolves immediately.
-	 *
-	 * @param outReqId  Set to the claimed request ID when this returns
-	 *                  true; left unmodified otherwise.
-	 * @param outBatch  Set to a summary of the segments staged for this
-	 *                  batch when this returns true; left unmodified
-	 *                  otherwise.
-	 * @return true if a pending request was claimed for EOS.
-	 */
-	bool tryClaimEosLocked(uint32_t &outReqId, BatchSummary &outBatch);
 
 	/**
 	 * @brief Send haveData(NO_AVAILABLE_SAMPLES) for a request this
@@ -683,7 +587,7 @@ private:
 	 * Logs and drops the request if @p pipeline is null (Stop() has
 	 * already destroyed it) - there is nothing left to answer.
 	 *
-	 * Must be called without holding m_state.mu.
+	 * Must be called without holding the handshake lock.
 	 */
 	void respondAbandonedRequest(
 		firebolt::rialto::IMediaPipeline *pipeline,
@@ -707,15 +611,6 @@ private:
 		uint32_t requestId,
 		const BatchSummary &batch);
 
-	/**
-	 * @brief Snapshot the current batch's frameCount/firstPts/duration
-	 *        totals and reset them to their empty state.
-	 *
-	 * Caller must hold m_state.mu.  Does not touch hasPending/
-	 * pendingRequestId — the caller decides whether/when the batch is
-	 * fully claimed.
-	 */
-	BatchSummary snapshotAndClearBatchLocked();
 };
 
 #endif /* AAMP_RIALTO_MEDIA_SOURCE_H */

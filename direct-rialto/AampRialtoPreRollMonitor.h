@@ -1,0 +1,146 @@
+/*
+ * If not stated otherwise in this file or this component's license file the
+ * following copyright and licenses apply:
+ *
+ * Copyright 2026 RDK Management
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
+/**
+ * @file AampRialtoPreRollMonitor.h
+ * @brief Decides when enough data has been buffered ahead of play().
+ */
+
+#ifndef AAMP_RIALTO_PRE_ROLL_MONITOR_H
+#define AAMP_RIALTO_PRE_ROLL_MONITOR_H
+
+#include "AampRialtoGlibTimer.h"
+
+#include <glib.h>
+
+#include <cstdint>
+#include <functional>
+#include <mutex>
+
+/**
+ * @class AampRialtoPreRollMonitor
+ * @brief Polls the primary track until a pre-roll target is met.
+ *
+ * Direct-Rialto counterpart of InterfacePlayerRDK's buffering_timeout: while
+ * running it polls the number of primary-track frames Rialto has accepted on
+ * a GLib timer and signals completion exactly once, when the first of these
+ * is true:
+ *  - accepted frames have reached the configured floor;
+ *  - Rialto has refused data for lack of space;
+ *  - the primary track has reached end of stream;
+ *  - the timeout has elapsed.
+ *
+ * Counts are taken on the client side, not from the server's decoder, so the
+ * gate does not depend on how a Rialto server is implemented.  The injected
+ * duration is reported in the logs only; it does not gate.
+ *
+ * Thread-safe.  Start()/Stop() may be called from any thread; polling and
+ * completion run on the GLib main loop.  Start() and Stop() each update the
+ * pre-roll state and its timer as one step, so overlapping calls cannot
+ * leave the monitor running without a timer.  Stop() waits for a Poll in
+ * progress, so no completion fires once it returns.  The completion action
+ * is invoked without the internal mutex held, and may call Start() or Stop().
+ */
+class AampRialtoPreRollMonitor
+{
+public:
+	/// Pre-roll target and timing.
+	struct Config
+	{
+		uint32_t minAcceptedFrames; ///< Frame floor for the primary track.
+		guint    pollIntervalMs;    ///< Interval between polls.
+		int64_t  timeoutMs;         ///< Give up and complete after this long.
+	};
+
+	/// Read-only views of the primary track, captured for one pre-roll.
+	struct Probe
+	{
+		/// Frames Rialto has accepted so far.
+		std::function<uint32_t()> acceptedFrames;
+		/// True once the primary track has signalled end of stream.
+		std::function<bool()> endOfStream;
+		/// True once Rialto has returned NO_SPACE for the primary track.
+		std::function<bool()> bufferFull;
+		/// Span of media accepted by Rialto so far, for logging.
+		std::function<int64_t()> injectedSpanMs;
+	};
+
+	/// Invoked once when a pre-roll completes for any reason.
+	using Completion = std::function<void()>;
+
+	/// Monotonic time source in milliseconds; injectable for tests.
+	using Clock = std::function<int64_t()>;
+
+	/**
+	 * @param[in] config      Target and timing.
+	 * @param[in] onComplete  Non-null action invoked on completion.
+	 * @param[in] clock       Optional time source; defaults to steady_clock.
+	 */
+	AampRialtoPreRollMonitor(Config config, Completion onComplete,
+		Clock clock = nullptr);
+
+	~AampRialtoPreRollMonitor();
+
+	AampRialtoPreRollMonitor(const AampRialtoPreRollMonitor &) = delete;
+	AampRialtoPreRollMonitor &operator=(const AampRialtoPreRollMonitor &) = delete;
+
+	/// Begin a pre-roll against @p probe, restarting any pre-roll already
+	/// in progress.  Completes immediately if no timer can be scheduled.
+	void Start(Probe probe);
+
+	/// Abandon any pre-roll in progress without signalling completion.
+	void Stop();
+
+	/// True while a pre-roll is in progress.
+	bool IsRunning() const;
+
+	/**
+	 * @brief Evaluate the pre-roll once.
+	 *
+	 * Called by the GLib timer; public so tests can drive it directly.
+	 *
+	 * @return true while polling should continue.
+	 */
+	bool Poll();
+
+private:
+	/// Drop the stored probe, and anything it captured, once no pre-roll is
+	/// running.  No-op while one is.
+	void ReleaseProbe();
+
+	const Config m_config;
+	const Completion m_onComplete;
+	const Clock m_clock;
+
+	mutable std::mutex m_mutex;
+	/// Guarded by m_mutex.  Bumped by Start()/Stop() so a poll that was
+	/// already in flight cannot complete an abandoned pre-roll.
+	uint64_t m_epoch{0};
+	bool m_running{false};
+	int64_t m_startMs{0};
+	uint32_t m_lastLoggedFrames{0};
+	bool m_haveLoggedFrames{false};
+	Probe m_probe;
+
+	/// Runs Poll() on the GLib main loop.  Stopping it waits for a Poll in
+	/// progress.
+	AampRialtoGlibTimer m_timer;
+};
+
+#endif // AAMP_RIALTO_PRE_ROLL_MONITOR_H

@@ -21,8 +21,8 @@
  * @file FakeAampRialtoMediaPipelineClient.cpp
  * @brief Fake implementation of AampRialtoMediaPipelineClient for L1 tests.
  *
- * This fake faithfully dispatches callbacks just like the real implementation.
- * AampRialtoPlayerTests relies on the callback dispatch to exercise the
+ * This fake forwards events to the installed sink like the real
+ * implementation.  AampRialtoPlayerTests relies on that to exercise the
  * needData/cancelNeedData/playbackState/position/duration/bufferUnderflow/
  * playbackError event paths.
  *
@@ -35,25 +35,23 @@
 AampRialtoMediaPipelineClient::AampRialtoMediaPipelineClient() {}
 AampRialtoMediaPipelineClient::~AampRialtoMediaPipelineClient() {}
 
-bool AampRialtoMediaPipelineClient::init() { return true; }
-
 void AampRialtoMediaPipelineClient::notifyNetworkState(
 	firebolt::rialto::NetworkState /*state*/) {}
 
 void AampRialtoMediaPipelineClient::notifyPlaybackState(
 	firebolt::rialto::PlaybackState state)
 {
-	if (m_playbackStateCallback)
+	if (IAampRialtoPipelineEvents *sink = Sink())
 	{
-		m_playbackStateCallback(state);
+		sink->OnPlaybackState(state);
 	}
 }
 
 void AampRialtoMediaPipelineClient::notifyPosition(int64_t position)
 {
-	if (m_positionCallback)
+	if (IAampRialtoPipelineEvents *sink = Sink())
 	{
-		m_positionCallback(position);
+		sink->OnPosition(position);
 	}
 }
 
@@ -63,9 +61,9 @@ void AampRialtoMediaPipelineClient::notifyNeedMediaData(
 	uint32_t needDataRequestId,
 	const std::shared_ptr<firebolt::rialto::MediaPlayerShmInfo> & /*shmInfo*/)
 {
-	if (m_needDataCallback)
+	if (IAampRialtoPipelineEvents *sink = Sink())
 	{
-		m_needDataCallback(sourceId, frameCount, needDataRequestId);
+		sink->OnNeedMediaData(sourceId, frameCount, needDataRequestId);
 	}
 }
 
@@ -75,17 +73,17 @@ void AampRialtoMediaPipelineClient::notifyQos(
 
 void AampRialtoMediaPipelineClient::notifyBufferUnderflow(int32_t sourceId)
 {
-        if (m_bufferUnderflowCallback)
-        {
-                m_bufferUnderflowCallback(sourceId);
-        }
+	if (IAampRialtoPipelineEvents *sink = Sink())
+	{
+		sink->OnBufferUnderflow(sourceId);
+	}
 }
 
 void AampRialtoMediaPipelineClient::notifyDuration(int64_t duration)
 {
-	if (m_durationCallback)
+	if (IAampRialtoPipelineEvents *sink = Sink())
 	{
-		m_durationCallback(duration);
+		sink->OnDuration(duration);
 	}
 }
 
@@ -99,28 +97,24 @@ void AampRialtoMediaPipelineClient::notifyAudioData(bool /*hasData*/) {}
 void AampRialtoMediaPipelineClient::notifyCancelNeedMediaData(
 	int32_t sourceId)
 {
-	if (m_cancelNeedDataCallback)
+	if (IAampRialtoPipelineEvents *sink = Sink())
 	{
-		m_cancelNeedDataCallback(sourceId);
+		sink->OnCancelNeedMediaData(sourceId);
 	}
 }
 
 void AampRialtoMediaPipelineClient::notifyPlaybackError(
 	int32_t sourceId, firebolt::rialto::PlaybackError error)
 {
-	if (m_playbackErrorCallback)
+	if (IAampRialtoPipelineEvents *sink = Sink())
 	{
-		m_playbackErrorCallback(sourceId, error);
+		sink->OnPlaybackError(sourceId, error);
 	}
 }
 
 void AampRialtoMediaPipelineClient::notifySourceFlushed(
-	int32_t sourceId)
+	int32_t /*sourceId*/)
 {
-	if (m_sourceFlushedCallback)
-	{
-		m_sourceFlushedCallback(sourceId);
-	}
 }
 void AampRialtoMediaPipelineClient::notifyPlaybackInfo(
 	const firebolt::rialto::PlaybackInfo & /*playbackInfo*/) {}

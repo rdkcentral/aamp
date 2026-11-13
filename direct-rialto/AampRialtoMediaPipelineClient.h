@@ -21,131 +21,71 @@
 #define AAMP_RIALTO_MEDIA_PIPELINE_CLIENT_H
 
 #include "IMediaPipeline.h"
-#include <functional>
+#include <mutex>
 #include <memory>
-#include <iostream>
 #include <vector>
 
 /**
- * @brief Payload delivered by a notifyNeedMediaData callback.
+ * @brief Pipeline events the player handles.  Delivered on Rialto's event
+ *        thread, without the client's lock held.
  */
-struct NeedDataRequestEvent
+class IAampRialtoPipelineEvents
 {
-	int32_t sourceId;
-	uint32_t requestId;
-	size_t frameCount;
-};
+public:
+	virtual ~IAampRialtoPipelineEvents() = default;
 
-using namespace firebolt::rialto;
+	/// Rialto wants @p frameCount frames for @p sourceId.
+	virtual void OnNeedMediaData(int32_t sourceId, size_t frameCount,
+		uint32_t requestId) = 0;
+	/// Rialto cancelled the pending need-data request for @p sourceId.
+	virtual void OnCancelNeedMediaData(int32_t sourceId) = 0;
+	/// The Rialto server changed state.
+	virtual void OnPlaybackState(firebolt::rialto::PlaybackState state) = 0;
+	/// Current position, in nanoseconds.
+	virtual void OnPosition(int64_t positionNs) = 0;
+	/// Stream duration, in nanoseconds.
+	virtual void OnDuration(int64_t durationNs) = 0;
+	/// @p sourceId has exhausted its buffer.
+	virtual void OnBufferUnderflow(int32_t sourceId) = 0;
+	/// Non-fatal playback error on @p sourceId.
+	virtual void OnPlaybackError(int32_t sourceId,
+		firebolt::rialto::PlaybackError error) = 0;
+};
 
 /**
  * @class AampRialtoMediaPipelineClient
- * @brief IMediaPipelineClient implementation that forwards need-data
- *        and cancel-need-data events via installed callbacks.
+ * @brief IMediaPipelineClient implementation that forwards Rialto events to
+ *        the installed IAampRialtoPipelineEvents sink.
  */
-class AampRialtoMediaPipelineClient : public IMediaPipelineClient
+class AampRialtoMediaPipelineClient
+	: public firebolt::rialto::IMediaPipelineClient
 {
 public:
-	/// Callback invoked when Rialto requests media data.
-	/// Parameters: sourceId, frameCount, needDataRequestId
-	using NeedDataCallback =
-		std::function<void(int32_t, size_t, uint32_t)>;
-
-	/// Callback invoked when Rialto cancels a pending need-data request.
-	/// Parameter: sourceId
-	using CancelNeedDataCallback = std::function<void(int32_t)>;
-
-	/// Callback invoked when the Rialto server transitions to a new state.
-	/// Parameter: PlaybackState
-	using PlaybackStateCallback = std::function<void(PlaybackState)>;
-
-	/// Callback invoked when Rialto reports current position.
-	/// Parameter: position in nanoseconds
-	using PositionCallback = std::function<void(int64_t)>;
-
-	/// Callback invoked when Rialto reports stream duration.
-	/// Parameter: duration in nanoseconds
-	using DurationCallback = std::function<void(int64_t)>;
-
-	/// Callback invoked when Rialto reports that a media source has
-	/// exhausted its internal buffer.
-	/// Parameter: sourceId
-	using BufferUnderflowCallback = std::function<void(int32_t)>;
-
-	/// Callback invoked when Rialto confirms a source flush is complete.
-	/// Parameter: sourceId
-	using SourceFlushedCallback = std::function<void(int32_t)>;
-
-	/// Callback invoked when Rialto reports a non-fatal playback error.
-	/// Parameters: sourceId, PlaybackError
-	using PlaybackErrorCallback =
-		std::function<void(int32_t, PlaybackError)>;
-
 	AampRialtoMediaPipelineClient();
 	~AampRialtoMediaPipelineClient() override;
 
-	bool init();
-
-	/// @brief Install callback for notifyNeedMediaData events.
-	void SetNeedDataCallback(NeedDataCallback cb)
+	/// @brief Install @p sink (nullptr to remove).  Not owned: it must
+	///        outlive its installation and any event already being delivered
+	///        to it.  Safe from any thread, including from inside an event.
+	void SetEventSink(IAampRialtoPipelineEvents *sink)
 	{
-		m_needDataCallback = std::move(cb);
-	}
-
-	/// @brief Install callback for notifyCancelNeedMediaData events.
-	void SetCancelNeedDataCallback(CancelNeedDataCallback cb)
-	{
-		m_cancelNeedDataCallback = std::move(cb);
-	}
-
-	/// @brief Install callback for notifyPlaybackState events.
-	void SetPlaybackStateCallback(PlaybackStateCallback cb)
-	{
-		m_playbackStateCallback = std::move(cb);
-	}
-
-	/// @brief Install callback for notifyPosition events.
-	void SetPositionCallback(PositionCallback cb)
-	{
-		m_positionCallback = std::move(cb);
-	}
-
-	/// @brief Install callback for notifyDuration events.
-	void SetDurationCallback(DurationCallback cb)
-	{
-		m_durationCallback = std::move(cb);
-	}
-
-	/// @brief Install callback for notifyBufferUnderflow events.
-	void SetBufferUnderflowCallback(BufferUnderflowCallback cb)
-	{
-		m_bufferUnderflowCallback = std::move(cb);
-	}
-
-	/// @brief Install callback for notifySourceFlushed events.
-	void SetSourceFlushedCallback(SourceFlushedCallback cb)
-	{
-		m_sourceFlushedCallback = std::move(cb);
-	}
-
-	/// @brief Install callback for notifyPlaybackError events.
-	void SetPlaybackErrorCallback(PlaybackErrorCallback cb)
-	{
-		m_playbackErrorCallback = std::move(cb);
+		std::lock_guard<std::mutex> lock(m_sinkMutex);
+		m_sink = sink;
 	}
 
 	// IMediaPipelineClient Implementation (All required pure virtuals)
-	void notifyNetworkState(NetworkState state) override;
-	void notifyPlaybackState(PlaybackState state) override;
+	void notifyNetworkState(firebolt::rialto::NetworkState state) override;
+	void notifyPlaybackState(firebolt::rialto::PlaybackState state) override;
 	void notifyPosition(int64_t position) override;
 	void notifyNeedMediaData(
 		int32_t sourceId,
 		size_t frameCount,
 		uint32_t needDataRequestId,
-		const std::shared_ptr<MediaPlayerShmInfo>
+		const std::shared_ptr<firebolt::rialto::MediaPlayerShmInfo>
 			&mediaPlayerShmInfo) override;
 	void notifyQos(
-		int32_t sourceId, const QosInfo &qosInfo) override;
+		int32_t sourceId,
+		const firebolt::rialto::QosInfo &qosInfo) override;
 	void notifyBufferUnderflow(int32_t sourceId) override;
 	void notifyDuration(int64_t duration) override;
 	void notifyNativeSize(
@@ -156,21 +96,23 @@ public:
 	void notifyCancelNeedMediaData(int32_t sourceId) override;
 	void notifyPlaybackError(
 		int32_t sourceId,
-		PlaybackError error) override;
+		firebolt::rialto::PlaybackError error) override;
 	void notifySourceFlushed(int32_t sourceId) override;
 	void notifyPlaybackInfo(
-		const PlaybackInfo &playbackInfo) override;
+		const firebolt::rialto::PlaybackInfo &playbackInfo) override;
 	void notifyFirstFrameReceived(int32_t sourceId) override;
 
 private:
-	NeedDataCallback m_needDataCallback;
-	CancelNeedDataCallback m_cancelNeedDataCallback;
-	PlaybackStateCallback m_playbackStateCallback;
-	PositionCallback m_positionCallback;
-	DurationCallback m_durationCallback;
-	BufferUnderflowCallback m_bufferUnderflowCallback;
-	SourceFlushedCallback m_sourceFlushedCallback;
-	PlaybackErrorCallback m_playbackErrorCallback;
+	/// The installed sink.  Read under the lock and called without it, so an
+	/// event may call SetEventSink().
+	IAampRialtoPipelineEvents *Sink() const
+	{
+		std::lock_guard<std::mutex> lock(m_sinkMutex);
+		return m_sink;
+	}
+
+	mutable std::mutex m_sinkMutex;
+	IAampRialtoPipelineEvents *m_sink{nullptr};
 };
 
 #endif // AAMP_RIALTO_MEDIA_PIPELINE_CLIENT_H

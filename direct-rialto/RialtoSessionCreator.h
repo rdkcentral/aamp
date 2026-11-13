@@ -26,8 +26,8 @@
  * Only the DrmSessionCreator std::function type is exposed.
  */
 
-#ifndef RialtoSessionCreator_h
-#define RialtoSessionCreator_h
+#ifndef AAMP_RIALTO_SESSION_CREATOR_H
+#define AAMP_RIALTO_SESSION_CREATOR_H
 
 #include "DrmSessionManager.h"
 
@@ -42,4 +42,4 @@
  */
 DrmSessionCreator makeRialtoSessionCreator();
 
-#endif // RialtoSessionCreator_h
+#endif // AAMP_RIALTO_SESSION_CREATOR_H

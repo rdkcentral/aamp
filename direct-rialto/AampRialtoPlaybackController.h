@@ -1,0 +1,202 @@
+/*
+ * If not stated otherwise in this file or this component's license file the
+ * following copyright and licenses apply:
+ *
+ * Copyright 2026 RDK Management
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
+/**
+ * @file AampRialtoPlaybackController.h
+ * @brief Arbitrates when Rialto's play() may be issued.
+ */
+
+#ifndef AAMP_RIALTO_PLAYBACK_CONTROLLER_H
+#define AAMP_RIALTO_PLAYBACK_CONTROLLER_H
+
+#include <atomic>
+#include <cstdint>
+#include <functional>
+#include <mutex>
+
+/**
+ * @brief Reasons that currently prevent play() from being issued.
+ *
+ * Values are bit flags so the complete set can be held in one atomic word
+ * and read without locking.
+ */
+enum class PlayHold : uint32_t
+{
+	/// allSourcesAttached() has not yet been accepted by Rialto.
+	SourcesNotAttached = 1u << 0,
+	/// A flush cycle is in progress; Rialto has not yet sent SEEK_DONE.
+	Flushing           = 1u << 1,
+	/// No position has been established for the current period yet.
+	PositionPending    = 1u << 2,
+	/// AAMP is refilling its fragment cache and has paused the pipeline.
+	FragmentCaching    = 1u << 3,
+	/// Pre-roll is enabled and has not yet completed.
+	PreRollIncomplete  = 1u << 4,
+};
+
+/**
+ * @class AampRialtoPlaybackController
+ * @brief Single decision point for "may playback start now?".
+ *
+ * The player records a play request (AAMP called Stream()) and, separately,
+ * adds or releases the holds that describe why playback cannot start yet.
+ * Whenever a request is outstanding and no hold remains, the controller
+ * fires the injected play action exactly once.
+ *
+ * Thread-safe.  The play action is invoked with the internal state mutex
+ * released, so it may call back into this object and may safely perform
+ * blocking Rialto IPC.  It runs under a separate play-dispatch lock that
+ * AddHold() and Reset() also pass through, so a hold added after play() was
+ * decided cannot return until that play() has finished (see m_playMutex).
+ */
+class AampRialtoPlaybackController
+{
+public:
+	/// Invoked when a play request becomes satisfiable.  @p reason is the
+	/// caller-supplied description of whatever released the final hold.
+	using PlayAction = std::function<void(const char *reason)>;
+
+	/// Invoked when a play request is held only by
+	/// PlayHold::PreRollIncomplete, i.e. when it is safe to let data flow
+	/// into Rialto ahead of play().  @p episode identifies this entry into
+	/// that condition; pass it to RunIfPreRollCurrent() so that work done
+	/// for it is dropped once the condition has ended.
+	using PreRollAction =
+		std::function<void(const char *reason, uint64_t episode)>;
+
+	/**
+	 * @brief Construct the controller.
+	 *
+	 * Starts with PlayHold::SourcesNotAttached held, matching a freshly
+	 * constructed player that has not yet attached any source.
+	 *
+	 * @param[in] onPlay         Non-null action invoked to issue play().
+	 * @param[in] onPreRollReady Optional action invoked once each time the
+	 *                           only remaining hold on an outstanding play
+	 *                           request becomes PlayHold::PreRollIncomplete.
+	 */
+	explicit AampRialtoPlaybackController(PlayAction onPlay,
+		PreRollAction onPreRollReady = nullptr);
+
+	AampRialtoPlaybackController(const AampRialtoPlaybackController &) = delete;
+	AampRialtoPlaybackController &operator=(
+		const AampRialtoPlaybackController &) = delete;
+
+	/**
+	 * @brief Record that playback is wanted, and start it if nothing holds.
+	 *
+	 * Repeated calls while unheld re-issue play() each time; AAMP treats
+	 * Stream() as unconditional.
+	 */
+	void RequestPlay(const char *reason);
+
+	/// Discard any outstanding play request without issuing play().
+	void CancelPlayRequest(const char *reason);
+
+	/**
+	 * @brief End-of-session reset: discard any play request and restore the
+	 *        state of a freshly constructed controller.
+	 *
+	 * Drops every hold except PlayHold::SourcesNotAttached, so a hold left by
+	 * the old session (e.g. Flushing after a failure, FragmentCaching) cannot
+	 * defer play() in the next one.  Never issues play().
+	 */
+	void Reset(const char *reason);
+
+	/// Add @p hold.  Never issues play().
+	void AddHold(PlayHold hold, const char *reason);
+
+	/// Release @p hold, issuing play() if a request is outstanding and no
+	/// other hold remains.
+	void ReleaseHold(PlayHold hold, const char *reason);
+
+	/// True while @p hold is applied.  Lock-free.
+	bool IsHeld(PlayHold hold) const;
+
+	/// True while a play request is outstanding.
+	bool IsPlayPending() const;
+
+	/**
+	 * @brief Run @p step only if pre-roll @p episode is still current.
+	 *
+	 * The episode is current while the play request it was started for is
+	 * still held by PlayHold::PreRollIncomplete alone.  @p step runs under
+	 * the play-dispatch lock, as the play action does, so an AddHold(),
+	 * ReleaseHold(), CancelPlayRequest() or Reset() that ends the episode
+	 * cannot return while it runs, and a step for an ended episode never
+	 * runs.  @p step may call back into this object.  It must not wait for
+	 * another thread that uses this object.
+	 *
+	 * @return true if @p step ran.
+	 */
+	bool RunIfPreRollCurrent(uint64_t episode,
+		const std::function<void()> &step);
+
+private:
+	/// Holds applied to a freshly constructed controller and after Reset().
+	static constexpr uint32_t kInitialHolds =
+		static_cast<uint32_t>(PlayHold::SourcesNotAttached);
+
+	/// Consume the outstanding request if it can be satisfied now.
+	/// Caller must hold m_mutex.
+	bool ClaimPlayLocked();
+
+	/// Decide which actions a state change has made due, and the pre-roll
+	/// episode a pre-roll action is for.  Caller must hold m_mutex and
+	/// invoke the returned actions after releasing it.
+	void EvaluateLocked(bool &issuePlay, bool &startPreRoll,
+		uint64_t &preRollEpisode);
+
+	/// Invoke the actions chosen by EvaluateLocked().  Caller must NOT
+	/// hold m_mutex.  @p playLock is released before the pre-roll action,
+	/// which may wait on a thread that needs m_playMutex.
+	void Dispatch(bool issuePlay, bool startPreRoll, uint64_t preRollEpisode,
+		const char *reason, std::unique_lock<std::recursive_mutex> &playLock);
+
+	PlayAction m_onPlay;
+	PreRollAction m_onPreRollReady;
+
+	/// Taken before m_mutex by every operation, and held until the play
+	/// action returns.  Without it, play() decided while no hold was applied
+	/// could still be running (and ungating sources) after a concurrent
+	/// AddHold(Flushing) had returned.  Recursive: the action may call back.
+	std::recursive_mutex m_playMutex;
+
+	/// Serialises hold/request updates so that exactly one caller can
+	/// consume a given play request.
+	mutable std::mutex m_mutex;
+
+	/// Bitwise OR of the applied PlayHold values.  Written under m_mutex,
+	/// read without it.
+	std::atomic<uint32_t> m_holds;
+
+	/// True while a play request is outstanding.  Guarded by m_mutex.
+	bool m_playPending;
+
+	/// True while the pre-roll-ready condition holds, so the action fires
+	/// once per entry into that condition.  Guarded by m_mutex.
+	bool m_preRollReady;
+
+	/// Bumped on every entry into or exit from the pre-roll-ready condition
+	/// (and by Reset()), identifying the current episode.  Guarded by
+	/// m_mutex.
+	uint64_t m_preRollEpisode;
+};
+
+#endif // AAMP_RIALTO_PLAYBACK_CONTROLLER_H

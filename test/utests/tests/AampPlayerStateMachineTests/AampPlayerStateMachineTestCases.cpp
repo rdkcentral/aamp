@@ -19,7 +19,7 @@
 
 /**
  * @file AampPlayerStateMachineTestCases.cpp
- * @brief L1 unit tests for PlayerStateMachine (GoF State pattern).
+ * @brief L1 unit tests for PlayerStateMachine (transition table).
  *
  * Each test constructs a fresh PlayerStateMachine and drives it through
  * defined event sequences, asserting current state after each event.
@@ -27,6 +27,9 @@
  */
 
 #include <gtest/gtest.h>
+#include <atomic>
+#include <chrono>
+#include <future>
 #include <thread>
 #include "AampPlayerStateMachine.h"
 
@@ -111,6 +114,19 @@ TEST_F(AampPlayerStateMachineTest, OnPlaybackStarted_FromSourcesAttached_Transit
 }
 
 /**
+ * @test SOURCES_ATTACHED + onPlaybackPaused → PAUSED (pipeline paused for
+ *       pre-roll before play() is issued).
+ */
+TEST_F(AampPlayerStateMachineTest, OnPlaybackPaused_FromSourcesAttached_TransitionsToPaused)
+{
+	m_sm.onPipelineLoaded();
+	m_sm.onSourceAttaching();
+	m_sm.onAllSourcesAttached();
+	m_sm.onPlaybackPaused();
+	EXPECT_EQ(m_sm.currentState(), PlayerStateId::PAUSED);
+}
+
+/**
  * @test PLAYING + onPlaybackPaused → PAUSED.
  */
 TEST_F(AampPlayerStateMachineTest, OnPlaybackPaused_FromPlaying_TransitionsToPaused)
@@ -181,11 +197,11 @@ TEST_F(AampPlayerStateMachineTest, OnFlush_FromPaused_TransitionsToFlushing)
 }
 
 /**
- * @test onSourceAttaching from FLUSHING is ignored (no valid transition).
+ * @test onSourceAttaching from FLUSHING leaves the machine in FLUSHING.
  *
  * There is no direct FLUSHING→SOURCES_ATTACHING path; a pipeline rebuild
- * always goes through onReconfigure (→IDLE) first.  The dispatch layer
- * emits a WARN and leaves the machine in FLUSHING.
+ * always goes through onReconfigure (→IDLE) first.  Another source
+ * attaching is not an error, so it is ignored without a WARN.
  */
 TEST_F(AampPlayerStateMachineTest, OnSourceAttaching_FromFlushing_IsIgnored)
 {
@@ -193,8 +209,89 @@ TEST_F(AampPlayerStateMachineTest, OnSourceAttaching_FromFlushing_IsIgnored)
 	m_sm.onSourceAttaching();
 	m_sm.onAllSourcesAttached();
 	m_sm.onFlush();
-	m_sm.onSourceAttaching();   // no transition defined — dispatch warns
+	m_sm.onSourceAttaching();   // ignored
 	EXPECT_EQ(m_sm.currentState(), PlayerStateId::FLUSHING);
+}
+
+/**
+ * @test The second and third source attaching after the first moved the
+ *       machine to SOURCES_ATTACHING is normal and must not log a WARN.
+ */
+TEST_F(AampPlayerStateMachineTest, OnSourceAttaching_WhileAlreadyAttaching_DoesNotWarn)
+{
+	m_sm.onPipelineLoaded();
+	m_sm.onSourceAttaching();
+
+	testing::internal::CaptureStdout();
+	m_sm.onSourceAttaching();
+	m_sm.onSourceAttaching();
+	const std::string log = testing::internal::GetCapturedStdout();
+
+	EXPECT_EQ(m_sm.currentState(), PlayerStateId::SOURCES_ATTACHING);
+	EXPECT_EQ(log.find("[WARN]"), std::string::npos) << log;
+}
+
+/**
+ * @test A source attaching after all sources attached (a deferred source,
+ *       or one added while playing) leaves the state alone without a WARN.
+ */
+TEST_F(AampPlayerStateMachineTest, OnSourceAttaching_AfterAllAttached_DoesNotWarn)
+{
+	m_sm.onPipelineLoaded();
+	m_sm.onSourceAttaching();
+	m_sm.onAllSourcesAttached();
+	m_sm.onPlaybackStarted();
+
+	testing::internal::CaptureStdout();
+	m_sm.onSourceAttaching();
+	const std::string log = testing::internal::GetCapturedStdout();
+
+	EXPECT_EQ(m_sm.currentState(), PlayerStateId::PLAYING);
+	EXPECT_EQ(log.find("[WARN]"), std::string::npos) << log;
+}
+
+/**
+ * @test onSourceAttaching with no pipeline (IDLE) is unexpected and still
+ *       logs a WARN, leaving the machine in IDLE.
+ */
+TEST_F(AampPlayerStateMachineTest, OnSourceAttaching_FromIdle_StillWarns)
+{
+	testing::internal::CaptureStdout();
+	m_sm.onSourceAttaching();
+	const std::string log = testing::internal::GetCapturedStdout();
+
+	EXPECT_EQ(m_sm.currentState(), PlayerStateId::IDLE);
+	EXPECT_NE(log.find("[WARN]"), std::string::npos) << log;
+}
+
+/**
+ * @test onSourceAttaching from ERROR is unexpected and still logs a WARN.
+ */
+TEST_F(AampPlayerStateMachineTest, OnSourceAttaching_FromError_StillWarns)
+{
+	m_sm.onPipelineLoaded();
+	m_sm.onError();
+
+	testing::internal::CaptureStdout();
+	m_sm.onSourceAttaching();
+	const std::string log = testing::internal::GetCapturedStdout();
+
+	EXPECT_EQ(m_sm.currentState(), PlayerStateId::ERROR);
+	EXPECT_NE(log.find("[WARN]"), std::string::npos) << log;
+}
+
+/**
+ * @test Stop() on an idle player (including one already stopped) is not an
+ *       error: the machine stays IDLE and nothing is logged as a WARN.
+ */
+TEST_F(AampPlayerStateMachineTest, OnStop_FromIdle_DoesNotWarn)
+{
+	testing::internal::CaptureStdout();
+	m_sm.onStop();
+	const std::string log = testing::internal::GetCapturedStdout();
+
+	EXPECT_EQ(m_sm.currentState(), PlayerStateId::IDLE);
+	EXPECT_EQ(log.find("[WARN]"), std::string::npos) << log;
 }
 
 /**
@@ -719,6 +816,33 @@ TEST_F(AampPlayerStateMachineTest, OnError_FromFlushed_TransitionsToError)
 }
 
 /**
+ * @test OnError_FromIdle_IsIgnored
+ * @brief With no session there is nothing to fail: the table has no Error row
+ *        from IDLE, so the machine stays IDLE and reports IDLE as the previous
+ *        state.
+ */
+TEST_F(AampPlayerStateMachineTest, OnError_FromIdle_IsIgnored)
+{
+	EXPECT_EQ(m_sm.onError(), PlayerStateId::IDLE);
+	EXPECT_EQ(m_sm.currentState(), PlayerStateId::IDLE);
+}
+
+/**
+ * @test OnError_FromError_IsIgnored
+ * @brief A second error is not a new transition; the machine stays in ERROR
+ *        until Stop or Reconfigure.
+ */
+TEST_F(AampPlayerStateMachineTest, OnError_FromError_IsIgnored)
+{
+	m_sm.onPipelineLoaded();
+	m_sm.onError();
+	ASSERT_EQ(m_sm.currentState(), PlayerStateId::ERROR);
+
+	EXPECT_EQ(m_sm.onError(), PlayerStateId::ERROR);
+	EXPECT_EQ(m_sm.currentState(), PlayerStateId::ERROR);
+}
+
+/**
  * @test FLUSHED + onReconfigure → IDLE.
  */
 TEST_F(AampPlayerStateMachineTest, OnReconfigure_FromFlushed_TransitionsToIdle)
@@ -732,4 +856,133 @@ TEST_F(AampPlayerStateMachineTest, OnReconfigure_FromFlushed_TransitionsToIdle)
 
 	m_sm.onReconfigure();
 	EXPECT_EQ(m_sm.currentState(), PlayerStateId::IDLE);
+}
+
+// ===========================================================================
+// waitForFlushComplete / waiter wake-up
+// ===========================================================================
+
+using namespace std::chrono_literals;
+
+class AampPlayerStateMachineFlushWaitTest : public AampPlayerStateMachineTest
+{
+protected:
+	/// PLAYING is a state a flush may start from.
+	void MoveToPlaying()
+	{
+		m_sm.onPipelineLoaded();
+		m_sm.onSourceAttaching();
+		m_sm.onAllSourcesAttached();
+		m_sm.onPlaybackStarted();
+	}
+};
+
+/**
+ * @test Without a flush in progress the wait returns at once, not abandoned.
+ */
+TEST_F(AampPlayerStateMachineFlushWaitTest, WaitForFlushComplete_NotFlushing_ReturnsFalseAtOnce)
+{
+	MoveToPlaying();
+	bool handlerRan = false;
+
+	const auto start = std::chrono::steady_clock::now();
+	const bool abandoned =
+		m_sm.waitForFlushComplete(10s, [&]() { handlerRan = true; });
+
+	EXPECT_FALSE(abandoned);
+	EXPECT_FALSE(handlerRan);
+	EXPECT_LT(std::chrono::steady_clock::now() - start, 1s);
+	EXPECT_EQ(m_sm.currentState(), PlayerStateId::PLAYING);
+}
+
+/**
+ * @test onFlushComplete() releases a thread blocked in waitForFlushComplete()
+ *       without abandoning the flush.
+ */
+TEST_F(AampPlayerStateMachineFlushWaitTest, OnFlushComplete_WakesWaiter_NotAbandoned)
+{
+	MoveToPlaying();
+	m_sm.onFlush();
+
+	std::atomic<bool> handlerRan{false};
+	auto waiter = std::async(std::launch::async, [&]()
+	{
+		return m_sm.waitForFlushComplete(10s, [&]() { handlerRan = true; });
+	});
+
+	// The waiter must really be blocked: FLUSHING has not ended.
+	EXPECT_EQ(waiter.wait_for(100ms), std::future_status::timeout);
+
+	m_sm.onFlushComplete();
+
+	ASSERT_EQ(waiter.wait_for(5s), std::future_status::ready);
+	EXPECT_FALSE(waiter.get());
+	EXPECT_FALSE(handlerRan.load());
+	EXPECT_EQ(m_sm.currentState(), PlayerStateId::FLUSHED);
+}
+
+/**
+ * @test When SEEK_DONE never arrives the wait gives up: the machine leaves
+ *       FLUSHING, the handler runs once after that, and true is returned.
+ */
+TEST_F(AampPlayerStateMachineFlushWaitTest, WaitForFlushComplete_Timeout_AbandonsFlush)
+{
+	MoveToPlaying();
+	m_sm.onFlush();
+
+	int handlerCalls = 0;
+	PlayerStateId stateInHandler = PlayerStateId::FLUSHING;
+	const bool abandoned = m_sm.waitForFlushComplete(50ms, [&]()
+	{
+		++handlerCalls;
+		stateInHandler = m_sm.currentState();
+	});
+
+	EXPECT_TRUE(abandoned);
+	EXPECT_EQ(handlerCalls, 1);
+	EXPECT_EQ(stateInHandler, PlayerStateId::FLUSHED);
+	EXPECT_EQ(m_sm.currentState(), PlayerStateId::FLUSHED);
+}
+
+/**
+ * @test A timed-out wait with no handler is allowed.
+ */
+TEST_F(AampPlayerStateMachineFlushWaitTest, WaitForFlushComplete_TimeoutWithoutHandler_StillAbandons)
+{
+	MoveToPlaying();
+	m_sm.onFlush();
+
+	EXPECT_TRUE(m_sm.waitForFlushComplete(20ms));
+	EXPECT_EQ(m_sm.currentState(), PlayerStateId::FLUSHED);
+}
+
+/**
+ * @test A failure that arrives while FLUSHING wakes the waiter (no timeout)
+ *       and onError() reports the state it interrupted.
+ */
+TEST_F(AampPlayerStateMachineFlushWaitTest, OnError_WhileFlushing_ReturnsPreviousAndWakesWaiter)
+{
+	MoveToPlaying();
+	m_sm.onFlush();
+
+	auto waiter = std::async(std::launch::async,
+		[&]() { return m_sm.waitForFlushComplete(10s); });
+	EXPECT_EQ(waiter.wait_for(100ms), std::future_status::timeout);
+
+	EXPECT_EQ(m_sm.onError(), PlayerStateId::FLUSHING);
+
+	ASSERT_EQ(waiter.wait_for(5s), std::future_status::ready);
+	EXPECT_FALSE(waiter.get());
+	EXPECT_EQ(m_sm.currentState(), PlayerStateId::ERROR);
+}
+
+/**
+ * @test onError() outside a flush reports the current state.
+ */
+TEST_F(AampPlayerStateMachineFlushWaitTest, OnError_WhenPlaying_ReturnsPlaying)
+{
+	MoveToPlaying();
+
+	EXPECT_EQ(m_sm.onError(), PlayerStateId::PLAYING);
+	EXPECT_EQ(m_sm.currentState(), PlayerStateId::ERROR);
 }

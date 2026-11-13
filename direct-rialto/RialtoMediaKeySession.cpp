@@ -24,6 +24,7 @@
 
 #include "RialtoMediaKeySession.h"
 #include "AampLogManager.h"
+#include <utility>
 
 RialtoMediaKeySession::RialtoMediaKeySession(
 	int32_t keySessionId,
@@ -36,9 +37,17 @@ RialtoMediaKeySession::RialtoMediaKeySession(
 	AAMPLOG_INFO("RialtoMediaKeySession[%d]: created", m_keySessionId);
 }
 
-bool RialtoMediaKeySession::update(const uint8_t* keyMessage, uint32_t keyMessageLength)
+RialtoMediaKeySession::~RialtoMediaKeySession()
 {
-	AAMPLOG_INFO("RialtoMediaKeySession[%d]: update, length=%u", m_keySessionId, keyMessageLength);
+	if (m_deregister)
+	{
+		m_deregister(m_keySessionId);
+	}
+}
+
+bool RialtoMediaKeySession::update(const uint8_t* keyMessage, size_t keyMessageLength)
+{
+	AAMPLOG_INFO("RialtoMediaKeySession[%d]: update, length=%zu", m_keySessionId, keyMessageLength);
 
 	const std::vector<uint8_t> responseData(keyMessage, keyMessage + keyMessageLength);
 	firebolt::rialto::MediaKeyErrorStatus status =
@@ -89,13 +98,14 @@ bool RialtoMediaKeySession::destruct()
 	if (m_deregister)
 	{
 		m_deregister(m_keySessionId);
+		m_deregister = nullptr;
 	}
 
 	AAMPLOG_INFO("RialtoMediaKeySession[%d]: destruct complete", m_keySessionId);
 	return (status == firebolt::rialto::MediaKeyErrorStatus::OK);
 }
 
-bool RialtoMediaKeySession::isKeyUsable(const uint8_t* keyId, uint8_t keyIdSize) const
+bool RialtoMediaKeySession::isKeyUsable(const uint8_t* keyId, size_t keyIdSize) const
 {
 	std::lock_guard<std::mutex> lock(m_keyStatusMutex);
 	const std::vector<uint8_t> key(keyId, keyId + keyIdSize);
@@ -108,7 +118,7 @@ bool RialtoMediaKeySession::isKeyUsable(const uint8_t* keyId, uint8_t keyIdSize)
 	return false;
 }
 
-bool RialtoMediaKeySession::isKeyOutputRestricted(const uint8_t* keyId, uint8_t keyIdSize) const
+bool RialtoMediaKeySession::isKeyOutputRestricted(const uint8_t* keyId, size_t keyIdSize) const
 {
 	std::lock_guard<std::mutex> lock(m_keyStatusMutex);
 	const std::vector<uint8_t> key(keyId, keyId + keyIdSize);
@@ -120,8 +130,9 @@ bool RialtoMediaKeySession::isKeyOutputRestricted(const uint8_t* keyId, uint8_t 
 	return false;
 }
 
-void RialtoMediaKeySession::updateKeyStatus(const std::vector<uint8_t>& keyId,
-                                            firebolt::rialto::KeyStatus status)
+void RialtoMediaKeySession::updateKeyStatus(
+	const std::vector<uint8_t>& keyId,
+	firebolt::rialto::KeyStatus status)
 {
 	std::lock_guard<std::mutex> lock(m_keyStatusMutex);
 	m_keyStatuses[keyId] = status;

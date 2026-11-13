@@ -23,11 +23,15 @@ include(${CMAKE_CURRENT_LIST_DIR}/../CommonTestIncludes.cmake)
 
 set(TEST_SOURCES
 	AampRialtoVideoSourceTests.cpp
-	AampRialtoVideoSourceTestCases.cpp
+	AampRialtoVideoSourceTestFixture.cpp
+	AampRialtoVideoSourceAttachTestCases.cpp
+	AampRialtoVideoSourceInjectionTestCases.cpp
+	AampRialtoVideoSourceFragmentTestCases.cpp
 )
 
 set(AAMP_SOURCES
 	${AAMP_ROOT}/direct-rialto/AampRialtoMediaSource.cpp
+	${AAMP_ROOT}/direct-rialto/AampRialtoNeedDataHandshake.cpp
 	${AAMP_ROOT}/direct-rialto/AampRialtoVideoSource.cpp
 )
 

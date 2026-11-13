@@ -27,9 +27,18 @@
 #include <cstring>
 #include <cstdarg>
 
+class MockGLib;
+
+/// Invoke the destroy notify of every timeout source registered through
+/// @p owner with g_timeout_add_full(), as GLib does when a source is
+/// destroyed.  Called when @p owner is destroyed.  Defined in FakeGLib.cpp.
+void ReleaseFakeGLibSources(const MockGLib *owner);
+
 class MockGLib
 {
 public:
+	~MockGLib() { ReleaseFakeGLibSources(this); }
+
 	MOCK_METHOD(GParamSpec*, g_object_class_find_property, (GObjectClass* oclass, const gchar* property_name));
 	MOCK_METHOD(guint, g_timeout_add, (guint interval, GSourceFunc function, gpointer data));
 	MOCK_METHOD(gboolean, g_source_remove, (guint tag));

@@ -30,18 +30,14 @@
 #include "AampRialtoControlBackend.h"
 
 AampRialtoControlBackend::AampRialtoControlBackend()
-	: m_controlClient{nullptr}
+	: m_state{nullptr}
+	, m_controlClient{nullptr}
 {
 }
 
 bool AampRialtoControlBackend::waitForRunning(int /*timeoutMs*/)
 {
 	return true;
-}
-
-void AampRialtoControlBackend::onApplicationStateChanged(
-	firebolt::rialto::ApplicationState /*state*/)
-{
 }
 
 void AampRialtoControlBackend::ControlClient::notifyApplicationState(
