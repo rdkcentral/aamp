@@ -155,7 +155,12 @@ protected:
 
 		void SetNumberOfTracks(int numTracks)
 		{
-			mNumberOfTracks = numTracks;
+			// The first numTracks slots (video, audio, subtitle) become active
+			mActiveTracks.Clear();
+			for (int i = 0; i < numTracks; ++i)
+			{
+				mActiveTracks.Add(static_cast<AampMediaType>(i));
+			}
 		}
 
 		void InvokeInitializeWorkers()
@@ -195,12 +200,12 @@ protected:
 
 		int GetNumberOfTracks() const
 		{
-			return mNumberOfTracks;
+			return static_cast<int>(mActiveTracks.Load().Size());
 		}
 
 		MediaStreamContext* GetMediaStreamContextAt(int idx)
 		{
-			if ((idx < 0) || (idx >= mNumberOfTracks))
+			if ((idx < 0) || (idx >= AAMP_TRACK_COUNT) || !mActiveTracks.Load().Contains(static_cast<AampMediaType>(idx)))
 			{
 				return nullptr;
 			}
@@ -3038,8 +3043,8 @@ TEST_F(FetcherLoopTests, SeekInPeriod_SubtitleResultNotUsedForPeriodTransition)
 	status = InitializeMPD(mAVVodManifest);
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
 
-	// Force mNumberOfTracks to 3 so the SeekInPeriod loop reaches the subtitle
-	// slot (index eTRACK_SUBTITLE == 2).  SkipFragments returns 0.0 immediately
+	// Make video, audio and subtitle active so the SeekInPeriod loop reaches the
+	// subtitle slot (index eTRACK_SUBTITLE == 2).  SkipFragments returns 0.0 immediately
 	// because representation is null — this is the value a pre-fix build would
 	// use as the period-1 carry-over seek offset, suppressing the correct 5 s
 	// carry-over from the A/V tracks.

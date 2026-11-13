@@ -151,7 +151,12 @@ protected:
 
 		void SetNumberOfTracks(int numTracks)
 		{
-			mNumberOfTracks = numTracks;
+			// The first numTracks slots (video, audio, subtitle) become active
+			mActiveTracks.Clear();
+			for (int i = 0; i < numTracks; ++i)
+			{
+				mActiveTracks.Add(static_cast<AampMediaType>(i));
+			}
 		}
 
 		bool CallOnAdEvent(AdEvent evt)

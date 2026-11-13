@@ -47,6 +47,7 @@
 #include "AampTrackWorker.hpp"
 #include "AampTrackWorkerManager.hpp"
 #include "AampDownloadInfo.hpp"
+#include "AampTrackSet.h"
 
 // Sentinel for invalid base period offset in ad nodes
 constexpr int32_t INVALID_BASE_PERIOD_OFFSET = -1;
@@ -1195,7 +1196,7 @@ protected:
 	dash::mpd::IMPD *mpd;
 	// MediaStreamContext is incomplete here; any class destroying this array needs MediaStreamContext.h.
 	std::array<std::unique_ptr<MediaStreamContext>, AAMP_TRACK_COUNT> mMediaStreamContext;
-	int mNumberOfTracks;
+	AampAtomicTrackSet mActiveTracks; ///< Tracks selected for the current period; rebuilt by StreamSelection()
 	int mCurrentPeriodIdx;
 	int mNumberOfPeriods;	// Number of periods in the updated manifest
 	int mIterPeriodIndex;	// FetcherLoop period iterator index
