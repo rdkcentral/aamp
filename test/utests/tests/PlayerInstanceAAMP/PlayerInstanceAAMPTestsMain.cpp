@@ -2937,7 +2937,7 @@ TEST_F(PlayerInstanceAAMPTests, SetRateTest_Pause_DisablesLatencyMonitorBeforeSi
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState())
 		.WillRepeatedly(Return(eSTATE_PLAYING));
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, StopDownloads())
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, ApplyPausedDownloadPolicy())
 		.Times(1);
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, NotifyPlaybackPaused(true))
 		.Times(1);
@@ -3179,8 +3179,8 @@ TEST_F(PlayerInstanceAAMPTests,
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLatencyExceedingTrickplayThreshold())
 		.Times(0);
 
-	// Pause proceeds: StopDownloads and pipeline Pause are the observable effects
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, StopDownloads())
+	// Pause proceeds: download policy is applied and the pipeline is paused.
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, ApplyPausedDownloadPolicy())
 		.Times(1);
 	EXPECT_CALL(*g_mockAampGstPlayer, Pause(true, false))
 		.Times(1)
