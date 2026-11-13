@@ -119,6 +119,9 @@ public:
 	MOCK_METHOD(void, NotifyPipelinePausedToUnderflowMonitor, ());
 
 	MOCK_METHOD(void, NotifyPipelineResumedToUnderflowMonitor, (float rate));
+	MOCK_METHOD(void, MuteSubtitleOnPause, (), (override));
+
+	MOCK_METHOD(void, ResumeSubtitleOnPlay, (bool mute, char *data), (override));
 };
 
 extern std::shared_ptr<MockStreamAbstractionAAMP> g_mockStreamAbstractionAAMP;
