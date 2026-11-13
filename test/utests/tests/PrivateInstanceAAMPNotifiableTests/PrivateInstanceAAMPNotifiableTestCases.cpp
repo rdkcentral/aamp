@@ -329,6 +329,26 @@ TEST_F(PrivateInstanceAAMPNotifiableTest,
 }
 
 // ===========================================================================
+// NotifyPipelineFailure
+// ===========================================================================
+
+TEST_F(PrivateInstanceAAMPNotifiableTest,
+	NotifyPipelineFailure_SchedulesRetuneTask)
+{
+	// ScheduleRetune is a no-op fake and not mockable, so this verifies the
+	// retune is dispatched asynchronously (never from the Rialto callback
+	// thread) and that running the task is safe.
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+		ScheduleAsyncTask(_, _, std::string("NotifyPipelineFailure")))
+		.WillOnce([](IdleTask task, void *arg, std::string) -> int {
+			task(arg);
+			return 1;
+		});
+
+	m_notifiable->NotifyPipelineFailure();
+}
+
+// ===========================================================================
 // SendMonitorAvEvent
 // ===========================================================================
 

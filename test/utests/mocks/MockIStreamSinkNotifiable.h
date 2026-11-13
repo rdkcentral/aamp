@@ -59,6 +59,7 @@ public:
 		 bool isRetryEnabled), (override));
 
 	MOCK_METHOD(void, NotifyOutputProtectionRecovered, (), (override));
+	MOCK_METHOD(void, NotifyPipelineFailure, (), (override));
 
 	MOCK_METHOD(void, CompleteDiscontinuityDataDeliverForPTSRestamp,
 		(AampMediaType type), (override));
