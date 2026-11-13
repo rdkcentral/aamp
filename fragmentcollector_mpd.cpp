@@ -9671,7 +9671,7 @@ bool StreamAbstractionAAMP_MPD::GetEncryptedHeaders(std::map<int, std::string>& 
 										 FragmentDescriptor *fragmentDescriptorCMCD(fragmentDescriptor);
 										ConstructFragmentURL(fragmentUrl,fragmentDescriptorCMCD , std::move(initialization), aamp->mConfig);
 
-										mappedHeaders[static_cast<int>(mediaType)] = std::move(fragmentUrl);
+										mappedHeaders[mediaType] = std::move(fragmentUrl);
 
 										SAFE_DELETE(fragmentDescriptor);
 										ret = true;
