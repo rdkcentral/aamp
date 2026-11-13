@@ -3639,4 +3639,3 @@ void PlayerInstanceAAMP::updateManifest(const char *manifestData)
 		aamp->updateManifest(manifestData);
 	}
 }
-
