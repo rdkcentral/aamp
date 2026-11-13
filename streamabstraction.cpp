@@ -1098,8 +1098,16 @@ bool MediaTrack::ProcessFragmentChunk()
 			else
 			{
 				int64_t ptsOffset = cachedFragment->PTSOffsetSec * cachedFragment->timeScale;
-				(void)mIsoBmffHelper->RestampPts(parsedBufferChunk, ptsOffset, cachedFragment->uri,
-												name, cachedFragment->timeScale);
+				if (!mIsoBmffHelper->RestampPts(parsedBufferChunk, ptsOffset, cachedFragment->uri,
+												name, cachedFragment->timeScale))
+				{
+					AAMPLOG_ERR("[%s] PTS restamp failed; scheduling retune", name);
+					aamp->ScheduleRetune(eGST_ERROR_PTS,
+						static_cast<AampMediaType>(type));
+					aamp_utils::ClearAndRelease(parsedBufferChunk);
+					aamp_utils::ClearAndRelease(unparsedBufferChunk);
+					return false;
+				}
 				fpts += cachedFragment->PTSOffsetSec;
 			}
 		}
