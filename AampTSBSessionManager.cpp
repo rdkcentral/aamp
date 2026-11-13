@@ -1101,18 +1101,27 @@ void AampTSBSessionManager::UpdateProgress(double manifestDuration, double manif
 		AAMPLOG_TRACE("Updating culled seconds: %lf", culledSeconds);
 		mAamp->UpdateCullingState(culledSeconds);
 	}
-	mAamp->culledSeconds = GetTsbDataManager(eMEDIATYPE_VIDEO)->GetFirstFragmentPosition();
-	LockReadMutex();
-	AAMPLOG_TRACE("LiveDownloader:: Manifest total duration:%lf, ManifestCulledSeconds:%lf", manifestDuration, manifestCulledSecondsFromStart);
-	mStoreEndPosition = mAamp->culledSeconds + GetTotalStoreDuration(eMEDIATYPE_VIDEO);
-	if (mAamp->mConfig->IsConfigSet(eAAMPConfig_ProgressLogging))
+	// GetFirstFragmentPosition() returns 0 when the store has no video fragments yet (e.g. just after
+	// a TSB flush/recreate); skip the update then so culledSeconds keeps its previously-valid value.
+	if (GetTsbDataManager(eMEDIATYPE_VIDEO)->GetFirstFragmentPosition() > 0.0)
 	{
-		AAMPLOG_INFO("tsb pos: [%lf..[X]..%lf]", mAamp->culledSeconds, mAamp->mAbsoluteEndPosition);
+		mAamp->culledSeconds = GetTsbDataManager(eMEDIATYPE_VIDEO)->GetFirstFragmentPosition();
+		LockReadMutex();
+		AAMPLOG_TRACE("LiveDownloader:: Manifest total duration:%lf, ManifestCulledSeconds:%lf", manifestDuration, manifestCulledSecondsFromStart);
+		mStoreEndPosition = mAamp->culledSeconds + GetTotalStoreDuration(eMEDIATYPE_VIDEO);
+		if (mAamp->mConfig->IsConfigSet(eAAMPConfig_ProgressLogging))
+		{
+			AAMPLOG_INFO("tsb pos: [%lf..[X]..%lf]", mAamp->culledSeconds, mAamp->mAbsoluteEndPosition);
+		}
+		UnlockReadMutex();
+		double duration = mAamp->mAbsoluteEndPosition -mAamp->culledSeconds;
+		AAMPLOG_TRACE("Updating duration: %lf", duration);
+		mAamp->UpdateDuration(duration);
 	}
-	UnlockReadMutex();
-	double duration = mAamp->mAbsoluteEndPosition -mAamp->culledSeconds;
-	AAMPLOG_TRACE("Updating duration: %lf", duration);
-	mAamp->UpdateDuration(duration);
+	else
+	{
+		AAMPLOG_INFO("No video fragments in TSB yet");
+	}
 }
 
 /**
