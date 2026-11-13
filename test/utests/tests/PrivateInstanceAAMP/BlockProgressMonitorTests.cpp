@@ -19,6 +19,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include <memory>
 
 #include "priv_aamp.h"
 #include "AampConfig.h"
@@ -50,7 +51,7 @@ protected:
     {
         gpGlobalConfig = new AampConfig();
         mPrivateInstanceAAMP = new TestablePrivateInstanceAAMP(gpGlobalConfig);
-        g_mockAampEventManager = new MockAampEventManager();
+		g_mockAampEventManager = std::make_shared<MockAampEventManager>();
 
         mPrivateInstanceAAMP->SetProgressState();
         mPrivateInstanceAAMP->trickStartUTCMS = 0;
@@ -61,8 +62,7 @@ protected:
         delete mPrivateInstanceAAMP;
         mPrivateInstanceAAMP = nullptr;
 
-        delete g_mockAampEventManager;
-        g_mockAampEventManager = nullptr;
+		g_mockAampEventManager.reset();
 
         delete gpGlobalConfig;
         gpGlobalConfig = nullptr;
@@ -76,7 +76,8 @@ TEST_F(BlockProgressMonitorTests, BlocksMonitorProgressUntilUnblocked)
 
         EXPECT_CALL(*g_mockAampEventManager, SendEvent(_, _)).Times(0);
         mPrivateInstanceAAMP->MonitorProgress();
-        ASSERT_TRUE(::testing::Mock::VerifyAndClearExpectations(g_mockAampEventManager));
+		ASSERT_TRUE(::testing::Mock::VerifyAndClearExpectations(
+			g_mockAampEventManager.get()));
     }
 
     EXPECT_CALL(*g_mockAampEventManager, SendEvent(AnEventOfType(AAMP_EVENT_PROGRESS), _)).Times(1);
