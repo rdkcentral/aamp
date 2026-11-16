@@ -1126,7 +1126,14 @@ bool AampConfig::SetConfigValue(ConfigPriority newowner, AAMPConfigSettingString
 	bool ret = false;
 	const char * cfgName = GetConfigName(cfg);
 	ConfigValueString &setting = configValueString[cfg];
-	if(setting.owner <= newowner )
+	// harvestPath selects a directory for arbitrary file writes; it is a developer
+	// debug facility and must not be settable by applications, streams or tune-time overrides
+	if(cfg == eAAMPConfig_HarvestPath &&
+		(newowner == AAMP_STREAM_SETTING || newowner == AAMP_APPLICATION_SETTING || newowner == AAMP_TUNE_SETTING))
+	{
+		AAMPLOG_WARN("Config[%s] cannot be set by owner[%d]: restricted to device configuration", cfgName, newowner);
+	}
+	else if(setting.owner <= newowner )
 	{
 		if(setting.owner != newowner)
 		{

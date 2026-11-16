@@ -241,9 +241,9 @@ public:
 	/**
 	 * @fn GetEffectivePlaylistUrl
 	 *
-	 * @return string - original playlist URL(redirected)
+	 * @return string - copy of the original playlist URL(redirected)
 	 */
-	virtual std::string& GetEffectivePlaylistUrl() = 0;
+	virtual std::string GetEffectivePlaylistUrl() = 0;
 
 	/**
 	 * @fn SetEffectivePlaylistUrl

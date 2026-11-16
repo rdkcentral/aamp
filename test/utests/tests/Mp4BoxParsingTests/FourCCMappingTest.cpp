@@ -41,6 +41,7 @@ TEST_F(FourCCMappingTest, TestCodecMappings)
 		{ MultiChar_Constant("avcC"), GST_FORMAT_VIDEO_ES_H264 },
 		{ MultiChar_Constant("hvcC"), GST_FORMAT_VIDEO_ES_HEVC },
 		{ MultiChar_Constant("esds"), GST_FORMAT_AUDIO_ES_AAC_RAW },
+		{ MultiChar_Constant("dac3"), GST_FORMAT_AUDIO_ES_AC3 },
 		{ MultiChar_Constant("dec3"), GST_FORMAT_AUDIO_ES_EC3 },
 		{ MultiChar_Constant("dac4"), GST_FORMAT_AUDIO_ES_AC4},
 		{ MultiChar_Constant("xvid"), GST_FORMAT_UNKNOWN } // Unknown FourCC

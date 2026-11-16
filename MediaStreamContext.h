@@ -223,7 +223,7 @@ public:
 	 * @fn GetEffectivePlaylistUrl
 	 * @return string - original playlist URL(redirected)
 	 */
-	std::string& GetEffectivePlaylistUrl() override;
+	std::string GetEffectivePlaylistUrl() override;
 
 	/**
 	 * @fn SetEffectivePlaylistUrl

@@ -19,7 +19,9 @@
 
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
+#include <atomic>
 #include <chrono>
+#include <thread>
 #include <string_view>
 #include <array>
 
@@ -1514,6 +1516,38 @@ TEST_F(TrackStateTests, SetEffectivePlaylistUrl)
 	std::string url = "https://example.com/playlist.m3u8"; // Choose a test URL
 	TrackStateobj->SetEffectivePlaylistUrl(url);
 	ASSERT_EQ(TrackStateobj->GetEffectivePlaylistUrl(), url); // Check if the URL matches what was set
+}
+
+TEST_F(TrackStateTests, EffectivePlaylistUrl_ConcurrentSetAndGet_ReturnsConsistentValue)
+{
+	// The playlist thread updates mEffectiveUrl while the fetcher thread copies it, so every
+	// read must return one complete value. URLs exceed the small-string buffer so each
+	// assignment reallocates, making an unsynchronized read observable (always under ASan/TSan)
+	const std::string urlA = "https://example.com/a/some/long/path/playlist.m3u8";
+	const std::string urlB = "https://example.com/b/another/long/path/playlist.m3u8";
+	constexpr int kIterations = 20000;
+	TrackStateobj->SetEffectivePlaylistUrl(urlA);
+
+	std::atomic<bool> stop{false};
+	std::thread writer([&]() {
+		for (int i = 0; i < kIterations && !stop; ++i)
+		{
+			TrackStateobj->SetEffectivePlaylistUrl((i & 1) ? urlA : urlB);
+		}
+	});
+
+	int badReads = 0;
+	for (int i = 0; i < kIterations; ++i)
+	{
+		const std::string url = TrackStateobj->GetEffectivePlaylistUrl();
+		if (url != urlA && url != urlB)
+		{
+			++badReads;
+		}
+	}
+	stop = true;
+	writer.join();
+	EXPECT_EQ(badReads, 0);
 }
 
 TEST_F(TrackStateTests, GetLastPlaylistDownloadTime)

@@ -1126,6 +1126,45 @@ TEST_F(AampConfigTests, DoCustomSettingRevertsDynamicUseDirectRialto)
 }
 
 /*
+	harvestPath is a developer debug facility; applications, streams and tune-time
+	overrides must not be able to choose where harvested files are written.
+*/
+TEST_F(AampConfigTests, HarvestPathRejectedFromAppStreamAndTune)
+{
+	AampConfig aampConfig;
+	aampConfig.Initialize();
+
+	EXPECT_FALSE(aampConfig.SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_HarvestPath, std::string("/nvram")));
+	EXPECT_FALSE(aampConfig.SetConfigValue(AAMP_STREAM_SETTING, eAAMPConfig_HarvestPath, std::string("/nvram")));
+	EXPECT_FALSE(aampConfig.SetConfigValue(AAMP_TUNE_SETTING, eAAMPConfig_HarvestPath, std::string("/nvram")));
+	EXPECT_EQ(aampConfig.GetConfigValue(eAAMPConfig_HarvestPath), "");
+	EXPECT_EQ(aampConfig.GetConfigOwner(eAAMPConfig_HarvestPath), AAMP_DEFAULT_SETTING);
+
+	const std::string json = R"({"harvestPath":"/nvram"})";
+	cJSON *cfgdata = cJSON_Parse(json.c_str());
+	ASSERT_NE(cfgdata, nullptr);
+	aampConfig.ProcessConfigJson(cfgdata, AAMP_APPLICATION_SETTING);
+	cJSON_Delete(cfgdata);
+	EXPECT_EQ(aampConfig.GetConfigValue(eAAMPConfig_HarvestPath), "");
+
+	std::string text = "harvestPath=/nvram";
+	aampConfig.ProcessConfigText(text, AAMP_APPLICATION_SETTING);
+	EXPECT_EQ(aampConfig.GetConfigValue(eAAMPConfig_HarvestPath), "");
+}
+
+TEST_F(AampConfigTests, HarvestPathAcceptedFromDeviceConfig)
+{
+	AampConfig aampConfig;
+	aampConfig.Initialize();
+
+	EXPECT_TRUE(aampConfig.SetConfigValue(AAMP_DEV_CFG_SETTING, eAAMPConfig_HarvestPath, std::string("/tmp/harvest")));
+	EXPECT_EQ(aampConfig.GetConfigValue(eAAMPConfig_HarvestPath), "/tmp/harvest");
+
+	EXPECT_FALSE(aampConfig.SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_HarvestPath, std::string("/nvram")));
+	EXPECT_EQ(aampConfig.GetConfigValue(eAAMPConfig_HarvestPath), "/tmp/harvest");
+}
+
+/*
 	A useDirectRialto value set at device-config time (before the player instance is
 	constructed) must be left untouched by DoCustomSetting.
 */

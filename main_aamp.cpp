@@ -3447,9 +3447,9 @@ std::string PlayerInstanceAAMP::GetPlaybackStats()
 
 void PlayerInstanceAAMP::ProcessContentProtectionDataConfig(const char *jsonbuffer)
 {
-	UsingPlayerId playerId(aamp->mPlayerId);
-	AAMPLOG_INFO("ProcessContentProtectionDataConfig received DRM config data from app");
 	if(aamp){
+		UsingPlayerId playerId(aamp->mPlayerId);
+		AAMPLOG_INFO("ProcessContentProtectionDataConfig received DRM config data from app");
 		//In case of tune failure, It is necessary to trigger the release of the mWaitForDynamicDRMToUpdate condition
 		//wait before exiting the API.
 		//Otherwise it may result in crash by the player attempting to access the cleared DRMSession after the timeout.
