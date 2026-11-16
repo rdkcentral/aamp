@@ -581,12 +581,6 @@ class PrivateInstanceAAMP : public DrmCallbacks, public std::enable_shared_from_
 	void SavePreferredTextLanguages(const char *param, bool &isSelectionChange);
 
 	/**
- 	* @brief Set closed caption track with appropriate format from passed text track
- 	* @param[in] track - Text track information
- 	*/
-	void SetClosedCaptionsFromTextTrack(TextTrackInfo &track);
-
-	/**
 	 * @brief  Find closed caption track index in list of text tracks
 	 * @param[in] trackInfo - Text track information vector
 	 * @return index of closed caption track otherwise -1 if not found
@@ -1199,6 +1193,10 @@ public:
 	std::string preferredTextNameString; 		/**< unparsed string with preferred name of text track */
 	std::string preferredTextLanguagesString; 		/**< unparsed string with preferred languages in format "lang1,lang2,.." */
 	std::vector<std::string> preferredTextLanguagesList;	/**< list of preferred text languages from most-preferred to the least*/
+	std::string preferredTextFormatsString; 		/**< unparsed string with preferred text formats in format "cea-708,webvtt,.." */
+	std::vector<std::string> preferredTextFormatsList;	/**< list of preferred text formats from most-preferred to the least */
+	std::string preferredTextCodecsString; 		/**< unparsed string with preferred text codecs in format "stpp,wvtt,.." */
+	std::vector<std::string> preferredTextCodecsList;	/**< list of preferred text codecs from most-preferred to the least */
 	std::string preferredTextRenditionString; 		/**< String value for rendition */
 	std::string preferredTextTypeString; 			/**< String value for text type */
 	std::string preferredTextLabelString; 			/**< String value for label */
@@ -3544,6 +3542,12 @@ public:
 	 *   @param[in] enabled - true for CC on, false otherwise
 	 */
 	void SetCCStatus(bool enabled);
+
+	/**
+	 * @brief Select the closed-caption service and format for a text track.
+	 * @param[in] track Text track containing the service ID and rendition.
+	 */
+	void SetClosedCaptionsFromTextTrack(TextTrackInfo &track);
 
 	/**
 	 * @brief Updates the provided vector of CCTrackInfo with data from a vector of TextTrackInfo.
