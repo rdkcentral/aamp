@@ -2498,6 +2498,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 									mFirstPTS = firstPTS;
 									mIsFinalFirstPTS = true;
 									mVideoPosRemainder = skipTime;
+ 									AAMPLOG_INFO("seekMidFragment=%d", ISCONFIGSET(eAAMPConfig_MidFragmentSeek));
 									if(ISCONFIGSET(eAAMPConfig_MidFragmentSeek))
 									{
 										mFirstPTS += mVideoPosRemainder;

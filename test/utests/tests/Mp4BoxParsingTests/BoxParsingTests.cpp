@@ -34,6 +34,7 @@
 #include "MP4Demux.h"
 #include "Mp4DemuxTestData.h"
 #include <vector>
+#include <tuple>
 #include <cstring>
 #include <cmath>
 
@@ -426,6 +427,128 @@ TEST(Mp4Demux_Gaps, EsdsVarintDecode) {
 	ASSERT_EQ(info.mCodecData.size(), 4u);
 	EXPECT_EQ(info.mCodecData[0], 0x11);
 	EXPECT_EQ(info.mCodecData[3], 0x44);
+}
+
+// AC-3 init: ac-3 + dac3 must yield a valid AC-3 codec format
+TEST(Mp4Demux_Gaps, AC3InitYieldsAc3Format) {
+	std::vector<uint8_t> buf;
+	{
+		Box moov(buf, "moov");
+		{
+			Box stsd(buf, "stsd");
+			writeFullBoxHeader(buf, /*version*/0, /*flags*/0);
+			write32be(buf, /*entry_count*/1);
+			{
+				Box ac3(buf, "ac-3");
+				for (int i=0; i<16; ++i) buf.push_back(0x00);
+				write16be(buf, 6);
+				buf.insert(buf.end(), 6, 0x00);
+				write16be(buf, 48000);
+				write16be(buf, 0x0000);
+				{
+					Box dac3(buf, "dac3");
+					for (int i=0; i<3; ++i) buf.push_back(uint8_t(0x50 + i));
+					dac3.close();
+				}
+				ac3.close();
+			}
+			stsd.close();
+		}
+		moov.close();
+	}
+
+	Mp4Demux d;
+	ASSERT_TRUE(d.Parse(std::make_shared<std::vector<uint8_t>>(buf)));
+	auto info = d.GetCodecInfo();
+	EXPECT_EQ(info.mCodecFormat, GST_FORMAT_AUDIO_ES_AC3);
+	EXPECT_EQ(info.mInfo.audio.mChannelCount, 6);
+	EXPECT_EQ(info.mInfo.audio.mSampleRate, 48000u);
+	EXPECT_TRUE(info.mCodecData.empty()) << "dac3 payload is not forwarded, same as dec3";
+	EXPECT_FALSE(info.mNaluLengthPrefixed);
+}
+
+// Builds one audio sample entry (entryFourCC) holding a single config box (cfgFourCC).
+static void writeAudioEntry(std::vector<uint8_t> &buf, const char *entryFourCC,
+	const char *cfgFourCC, size_t cfgLen, uint8_t cfgByte)
+{
+	Box entry(buf, entryFourCC);
+	for (int i = 0; i < 16; ++i) buf.push_back(0x00);
+	write16be(buf, 2);
+	buf.insert(buf.end(), 6, 0x00);
+	write16be(buf, 48000);
+	write16be(buf, 0x0000);
+	{
+		Box cfg(buf, cfgFourCC);
+		for (size_t i = 0; i < cfgLen; ++i) buf.push_back(uint8_t(cfgByte + i));
+		cfg.close();
+	}
+	entry.close();
+}
+
+// Builds an init segment whose stsd holds the given audio entries in order.
+static std::vector<uint8_t> buildAudioInit(
+	const std::vector<std::tuple<const char *, const char *, size_t, uint8_t>> &entries)
+{
+	std::vector<uint8_t> buf;
+	{
+		Box moov(buf, "moov");
+		{
+			Box stsd(buf, "stsd");
+			writeFullBoxHeader(buf, /*version*/0, /*flags*/0);
+			write32be(buf, static_cast<uint32_t>(entries.size()));
+			for (const auto &e : entries)
+			{
+				writeAudioEntry(buf, std::get<0>(e), std::get<1>(e), std::get<2>(e), std::get<3>(e));
+			}
+			stsd.close();
+		}
+		moov.close();
+	}
+	return buf;
+}
+
+// A skipped dac3/dec3 must not leave codec data from an earlier entry in the
+// same stsd attached to the final format (last entry wins).
+TEST(Mp4Demux_Gaps, SkippedConfigBoxClearsCodecDataFromEarlierStsdEntry) {
+	{
+		Mp4Demux d;
+		ASSERT_TRUE(d.Parse(std::make_shared<std::vector<uint8_t>>(
+			buildAudioInit({ {"ac-4", "dac4", 5, 0x10}, {"ac-3", "dac3", 3, 0x50} }))));
+		auto info = d.GetCodecInfo();
+		EXPECT_EQ(info.mCodecFormat, GST_FORMAT_AUDIO_ES_AC3);
+		EXPECT_TRUE(info.mCodecData.empty());
+	}
+	{
+		Mp4Demux d;
+		ASSERT_TRUE(d.Parse(std::make_shared<std::vector<uint8_t>>(
+			buildAudioInit({ {"ac-4", "dac4", 5, 0x10}, {"ec-3", "dec3", 4, 0x70} }))));
+		auto info = d.GetCodecInfo();
+		EXPECT_EQ(info.mCodecFormat, GST_FORMAT_AUDIO_ES_EC3);
+		EXPECT_TRUE(info.mCodecData.empty());
+	}
+}
+
+// The same Mp4Demux instance is reused across periods. Parse() does not reset
+// codecInfo, so the init segments are parsed back to back here (GetCodecInfo()
+// moves the data out and would mask the problem) to prove a skipped dac3/dec3
+// clears codec data left over from the previous init segment.
+TEST(Mp4Demux_Gaps, SkippedConfigBoxClearsCodecDataFromPreviousInit) {
+	{
+		Mp4Demux d;
+		ASSERT_TRUE(d.Parse(std::make_shared<std::vector<uint8_t>>(buildAudioInit({ {"ac-4", "dac4", 5, 0x10} }))));
+		ASSERT_TRUE(d.Parse(std::make_shared<std::vector<uint8_t>>(buildAudioInit({ {"ac-3", "dac3", 3, 0x50} }))));
+		auto info = d.GetCodecInfo();
+		EXPECT_EQ(info.mCodecFormat, GST_FORMAT_AUDIO_ES_AC3);
+		EXPECT_TRUE(info.mCodecData.empty());
+	}
+	{
+		Mp4Demux d;
+		ASSERT_TRUE(d.Parse(std::make_shared<std::vector<uint8_t>>(buildAudioInit({ {"ac-4", "dac4", 5, 0x10} }))));
+		ASSERT_TRUE(d.Parse(std::make_shared<std::vector<uint8_t>>(buildAudioInit({ {"ec-3", "dec3", 4, 0x70} }))));
+		auto info = d.GetCodecInfo();
+		EXPECT_EQ(info.mCodecFormat, GST_FORMAT_AUDIO_ES_EC3);
+		EXPECT_TRUE(info.mCodecData.empty());
+	}
 }
 
 // D) AC-4 init: ac-4 + dac4

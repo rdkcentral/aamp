@@ -104,6 +104,7 @@ static const FormatMap mMp4DemuxAudioFormatMap[] =
 {
 	{ "mp4a.40.2", FORMAT_AUDIO_ES_AAC_RAW },	/**< esds */
 	{ "mp4a.40.5", FORMAT_AUDIO_ES_AAC_RAW },	/**< esds */
+	{ "ac-3", FORMAT_AUDIO_ES_AC3 },		/**< dac3 */
 	{ "ec-3", FORMAT_AUDIO_ES_EC3 },		/**< dec3 */
 	{ "eac3", FORMAT_AUDIO_ES_EC3 },		/**< dec3 */
 	{ "ac-4.02.01.01", FORMAT_AUDIO_ES_AC4 },	/**< dac4 */
