@@ -1701,26 +1701,8 @@ void MediaTrack::OffsetTrackParams(double deltaFetchedDuration, double deltaInje
  *  @brief MediaTrack Constructor
  */
 MediaTrack::MediaTrack(TrackType type, PrivateInstanceAAMP* aamp, const char* name) :
-		eosReached(false), enabled(false), numberOfFragmentsCached(0), fragmentIdxToInject(0),
-		fragmentIdxToFetch(0), abort(false), fragmentInjectorThreadID(), bufferMonitorThreadID(), subtitleClockThreadID(), totalFragmentsDownloaded(0),
-		UpdateSubtitleClockTaskStarted(false), bufferMonitorThreadDisabled(false), totalInjectedDuration(0), currentInitialCacheDurationSeconds(0),
-		sinkBufferIsFull(false), cachingCompleted(false), fragmentDurationSeconds(0),  segDLFailCount(0),segDrmDecryptFailCount(0),mSegInjectFailCount(0),
-		bufferStatus(BUFFER_STATUS_GREEN), prevBufferStatus(BUFFER_STATUS_GREEN),
-		bandwidthBitsPerSecond(0), totalFetchedDuration(0),
-		discontinuityProcessed(false), ptsError(false), name(name), type(type), aamp(aamp),
-		mutex(), abortInject(false),
-		mSubtitleParser(), refreshSubtitles(false), refreshAudio(false),
-		mCachedFragment{}, fragmentFetched(), fragmentInjected(), maxLLDCachedFragmentsPerTrack(0),
-		loadNewAudio(false), audioFragmentCached(), audioFragmentCachedReady(false), audioMutex(), loadNewSubtitle(false), subtitleFragmentCached(), subtitleFragmentCachedReady(false), subtitleMutex(),
-		abortPlaylistDownloader(true), plDownloadWait()
-		,dwnldMutex(), playlistDownloaderThread(NULL), mManifestUpdateCounter(0)
-		,mManifestUpdateWait()
-		,playContext(nullptr), seamlessAudioSwitchInProgress(false), lastInjectedPosition(0), lastInjectedDuration(0), seamlessSubtitleSwitchInProgress(false)
-		,mIsLocalTSBInjection(false), mCachedFragmentSize(0)
-		,mIsoBmffHelper(std::make_shared<IsoBmffHelper>())
-		,mLastFragmentPts(0), mRestampedPts(0), mRestampedDuration(0), mTrickmodeState(TrickmodeState::UNDEF)
-		,mTrackParamsMutex(), mCheckForRampdown(false), mTimeBasedBufferManager(nullptr)
-		,m_totalDurationForPtsRestamping(0.0)
+		name(name), type(type), aamp(aamp),
+		mIsoBmffHelper(std::make_shared<IsoBmffHelper>())
 {
 	const int sldCacheSize = GETCONFIGVALUE(eAAMPConfig_MaxFragmentCached);
 
