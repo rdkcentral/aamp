@@ -682,6 +682,10 @@ void PrivateInstanceAAMP::SetCCStatus(bool enabled)
 {
 }
 
+void PrivateInstanceAAMP::SetClosedCaptionsFromTextTrack(TextTrackInfo &track)
+{
+}
+
 bool PrivateInstanceAAMP::GetCCStatus(void)
 {
 	return false;

@@ -19,6 +19,7 @@
 
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
+#include <algorithm>
 #include <chrono>
 #include "priv_aamp.h"
 #include "AampConfig.h"
@@ -497,6 +498,20 @@ protected:
 			this->mMPDParseHelper = mpdParseHelperPtr;
 		}
 
+		/** @brief Supply a parsed period to isolate text selection from tune I/O. */
+		void SetTextSelectionPeriod(IPeriod *period, AampMPDParseHelperPtr parseHelper)
+		{
+			mCurrentPeriod = period;
+			mMPDParseHelper = parseHelper;
+		}
+
+		/** @brief Apply text preferences without downloading a manifest. */
+		void CallSelectSubtitleTrack(std::vector<TextTrackInfo> &tracks,
+			std::string &index)
+		{
+			SelectSubtitleTrack(true, tracks, index);
+		}
+
 		void CallPrintSelectedTrack(const std::string &trackIndex, AampMediaType media)
 		{
 			printSelectedTrack(trackIndex, media);
@@ -848,6 +863,53 @@ protected:
 	PrivateInstanceAAMP *mPrivateInstanceAAMP;
 	TestableStreamAbstractionAAMP_MPD *mStreamAbstractionAAMP_MPD;
 
+	/** @brief Retain the parsed manifest for the lifetime of the selection test. */
+	bool LoadTextSelectionManifest(const std::string &manifest)
+	{
+		mResponse = MakeSharedManifestDownloadResponsePtr();
+		mResponse->mMPDDownloadResponse->mDownloadData.assign(manifest.begin(), manifest.end());
+		GetMPDFromManifest(mResponse);
+		if (!mResponse->mMPDInstance || mResponse->mMPDInstance->GetPeriods().size() != 1u)
+		{
+			return false;
+		}
+		mStreamAbstractionAAMP_MPD->SetTextSelectionPeriod(
+			mResponse->mMPDInstance->GetPeriods()[0], mResponse->GetMPDParseHelper());
+		return true;
+	}
+
+	/** @brief Format aliases must select the matching track, not the first track. */
+	void ExpectTextFormatAliasSelection(const std::string &format,
+		const std::string &preferredAttributes, const std::string &otherAttributes)
+	{
+		const std::string manifest =
+			"<MPD xmlns=\"urn:mpeg:dash:schema:mpd:2011\" type=\"static\" "
+			"mediaPresentationDuration=\"PT1M\"><Period>"
+			"<AdaptationSet contentType=\"text\" lang=\"eng\">"
+			"<Representation id=\"other\" bandwidth=\"400\" " + otherAttributes + "/>"
+			"</AdaptationSet>"
+			"<AdaptationSet contentType=\"text\" lang=\"eng\">"
+			"<Representation id=\"preferred\" bandwidth=\"400\" " + preferredAttributes + "/>"
+			"</AdaptationSet></Period></MPD>";
+		EXPECT_CALL(*g_mockAampUtils, Getiso639map_NormalizeLanguageCode(
+			"eng", ISO639_NO_LANGCODE_PREFERENCE))
+			.WillRepeatedly(Return(std::string("eng")));
+		ASSERT_TRUE(LoadTextSelectionManifest(manifest));
+
+		// With equal language and bandwidth, the first track is the default.
+		TextTrackInfo defaultTrack;
+		ASSERT_TRUE(mStreamAbstractionAAMP_MPD->GetBestTextTrackByLanguage(defaultTrack, {}));
+		EXPECT_EQ(defaultTrack.name, "other");
+
+		mPrivateInstanceAAMP->preferredTextFormatsList = {format};
+		TextTrackInfo selectedTrack;
+		ASSERT_TRUE(mStreamAbstractionAAMP_MPD->GetBestTextTrackByLanguage(selectedTrack, {}));
+		EXPECT_EQ(selectedTrack.index, "1-0");
+		EXPECT_EQ(selectedTrack.name, "preferred");
+		EXPECT_EQ(selectedTrack.language, "eng");
+		EXPECT_FALSE(selectedTrack.isCC);
+	}
+
 	void SetUp() override
 	{
 		// Set up your objects before each test case
@@ -896,6 +958,405 @@ protected:
 		g_mockAampConfig.reset();
 	}
 };
+
+/**
+ * @brief A CEA-708 preference selects the matching language's in-band service.
+ *
+ * This isolates selection using real DASH descriptor parsing. Full pre-tune
+ * application through Init/PlayerCCManager is not covered by this test.
+ */
+TEST_F(StreamAbstractionAAMP_MPDTest, GetBestTextTrackByLanguage_CEA708Preference_SelectsMatchingLanguageService)
+{
+	static const char *manifest =
+R"(<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="static" mediaPresentationDuration="PT1M">
+	<Period>
+		<AdaptationSet contentType="video" mimeType="video/mp4">
+			<Accessibility schemeIdUri="urn:scte:dash:cc:cea-608:2015" value="CC1=eng"/>
+			<Accessibility schemeIdUri="urn:scte:dash:cc:cea-708:2015" value="1=lang:fra;2=lang:eng"/>
+			<Representation id="video" codecs="avc1.640028" bandwidth="1000000"/>
+		</AdaptationSet>
+	</Period>
+</MPD>)";
+	EXPECT_CALL(*g_mockAampUtils, Getiso639map_NormalizeLanguageCode(
+		_, ISO639_NO_LANGCODE_PREFERENCE))
+		.WillRepeatedly(testing::ReturnArg<0>());
+	mPrivateInstanceAAMP->preferredTextFormatsList = {"cea-708"};
+	mPrivateInstanceAAMP->preferredTextLanguagesList = {"eng"};
+	ASSERT_TRUE(LoadTextSelectionManifest(manifest));
+	IPeriod *period = mResponse->mMPDInstance->GetPeriods()[0];
+	ASSERT_EQ(period->GetAdaptationSets().size(), 1u);
+
+	std::vector<AudioTrackInfo> audioTracks;
+	std::vector<TextTrackInfo> textTracks;
+	mStreamAbstractionAAMP_MPD->ParseTrackInformation(
+		period->GetAdaptationSets()[0], 0, eMEDIATYPE_VIDEO, audioTracks, textTracks);
+	ASSERT_EQ(textTracks.size(), 3u);
+
+	TextTrackInfo selectedTrack;
+	ASSERT_TRUE(mStreamAbstractionAAMP_MPD->GetBestTextTrackByLanguage(selectedTrack, textTracks));
+	EXPECT_TRUE(selectedTrack.isCC);
+	EXPECT_EQ(selectedTrack.rendition, "urn:scte:dash:cc:cea-708:2015");
+	EXPECT_EQ(selectedTrack.instreamId, "2");
+	EXPECT_EQ(selectedTrack.language, "eng");
+
+	// In-band services must not be auto-selected for an unrelated format.
+	mPrivateInstanceAAMP->preferredTextFormatsList = {"webvtt"};
+	TextTrackInfo unmatchedTrack;
+	EXPECT_FALSE(mStreamAbstractionAAMP_MPD->GetBestTextTrackByLanguage(unmatchedTrack, textTracks));
+	EXPECT_TRUE(unmatchedTrack.instreamId.empty());
+}
+
+/** @brief A webvtt preference recognizes the MP4 WebVTT codec alias. */
+TEST_F(StreamAbstractionAAMP_MPDTest, GetBestTextTrackByLanguage_WebVTTPreference_MatchesWvttCodec)
+{
+	ExpectTextFormatAliasSelection("webvtt",
+		"mimeType=\"application/mp4\" codecs=\"wvtt\"",
+		"mimeType=\"application/mp4\" codecs=\"stpp\"");
+}
+
+/** @brief A webvtt preference recognizes a codec-less WebVTT MIME type. */
+TEST_F(StreamAbstractionAAMP_MPDTest, GetBestTextTrackByLanguage_WebVTTPreference_MatchesTextVttMimeType)
+{
+	ExpectTextFormatAliasSelection("webvtt",
+		"mimeType=\"text/vtt\"",
+		"mimeType=\"application/mp4\" codecs=\"stpp\"");
+}
+
+/** @brief A ttml preference recognizes the MP4 TTML codec alias. */
+TEST_F(StreamAbstractionAAMP_MPDTest, GetBestTextTrackByLanguage_TTMLPreference_MatchesStppCodec)
+{
+	ExpectTextFormatAliasSelection("ttml",
+		"mimeType=\"application/mp4\" codecs=\"stpp\"",
+		"mimeType=\"application/mp4\" codecs=\"wvtt\"");
+}
+
+/** @brief A ttml preference recognizes a codec-less TTML MIME type. */
+TEST_F(StreamAbstractionAAMP_MPDTest, GetBestTextTrackByLanguage_TTMLPreference_MatchesTtmlMimeType)
+{
+	ExpectTextFormatAliasSelection("ttml",
+		"mimeType=\"application/ttml+xml\"",
+		"mimeType=\"application/mp4\" codecs=\"wvtt\"");
+}
+
+struct TextPreferenceCase
+{
+	std::vector<std::string> languages;
+	std::string type;
+	std::string codec;
+	std::string expectedIndex;
+};
+
+class DASHTextPreferenceTests : public StreamAbstractionAAMP_MPDTest,
+	public testing::WithParamInterface<TextPreferenceCase>
+{
+};
+
+/**
+ * @brief Language order precedes clean/HOH preference; explicit categories
+ * constrain selection, and codec preference applies within an adaptation.
+ */
+TEST_P(DASHTextPreferenceTests, SelectsOnlyEligiblePreferredText)
+{
+	static const char *manifest =
+R"(<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="static"
+	mediaPresentationDuration="PT1M"><Period>
+	<AdaptationSet contentType="text" lang="ger" mimeType="application/mp4">
+		<Accessibility schemeIdUri="urn:example:other" value="2"/>
+		<Accessibility schemeIdUri="urn:mpeg:dash:role:2011" value="caption"/>
+		<Representation id="german-hoh" codecs="stpp" bandwidth="900"/>
+	</AdaptationSet>
+	<AdaptationSet contentType="text" lang="eng" mimeType="application/mp4">
+		<Role schemeIdUri="urn:mpeg:dash:role:2011" value="subtitle"/>
+		<Representation id="english" codecs="stpp" bandwidth="500"/>
+	</AdaptationSet>
+	<AdaptationSet contentType="text" lang="ger" mimeType="application/mp4">
+		<Role schemeIdUri="urn:mpeg:dash:role:2011" value="subtitle"/>
+		<Accessibility schemeIdUri="urn:example:other" value="clean"/>
+		<Representation id="german-wvtt" codecs="wvtt" bandwidth="800"/>
+		<Representation id="german-stpp" codecs="stpp" bandwidth="100"/>
+	</AdaptationSet>
+	<AdaptationSet contentType="text" lang="mul" mimeType="application/mp4">
+		<Label>native</Label>
+		<Role schemeIdUri="urn:mpeg:dash:role:2011" value="alternate"/>
+		<Representation id="native" codecs="stpp" bandwidth="500"/>
+	</AdaptationSet>
+	<AdaptationSet contentType="text" lang="fra" mimeType="application/mp4">
+		<Accessibility schemeIdUri="urn:mpeg:dash:role:2011" value="caption"/>
+		<Representation id="french-hoh" codecs="stpp" bandwidth="900"/>
+	</AdaptationSet>
+</Period></MPD>)";
+	EXPECT_CALL(*g_mockAampUtils, Getiso639map_NormalizeLanguageCode(
+		_, ISO639_NO_LANGCODE_PREFERENCE))
+		.WillRepeatedly(testing::ReturnArg<0>());
+	ASSERT_TRUE(LoadTextSelectionManifest(manifest));
+	const auto &testCase = GetParam();
+	mPrivateInstanceAAMP->mTextLanguagePreferenceSet = true;
+	mPrivateInstanceAAMP->preferredTextLanguagesList = testCase.languages;
+	mPrivateInstanceAAMP->preferredTextTrackType = testCase.type;
+	if (!testCase.codec.empty())
+	{
+		mPrivateInstanceAAMP->preferredTextCodecsList = {testCase.codec};
+	}
+
+	TextTrackInfo selectedTrack;
+	const bool selected =
+		mStreamAbstractionAAMP_MPD->GetBestTextTrackByLanguage(selectedTrack, {});
+
+	EXPECT_EQ(selected, !testCase.expectedIndex.empty());
+	EXPECT_EQ(selectedTrack.index, testCase.expectedIndex);
+}
+
+INSTANTIATE_TEST_SUITE_P(LanguageTypeAndCodec, DASHTextPreferenceTests,
+	testing::Values(
+		TextPreferenceCase{{"ger", "eng"}, "", "", "2-0"},
+		TextPreferenceCase{{"fra", "eng"}, "", "", "4-0"},
+		TextPreferenceCase{{"eng", "ger"}, "", "", "1-0"},
+		TextPreferenceCase{{"ita"}, "", "", ""},
+		TextPreferenceCase{{}, "", "", ""},
+		TextPreferenceCase{{"ger"}, "CAPTIONS", "", "0-0"},
+		TextPreferenceCase{{"ger"}, "SUBTITLES", "", "2-0"},
+		TextPreferenceCase{{"mul"}, "SUBTITLES-NATIVE", "", "3-0"},
+		TextPreferenceCase{{"ger"}, "SUBTITLES-NATIVE", "", ""},
+		TextPreferenceCase{{"ger"}, "", "stpp", "2-1"}));
+
+class DASHDisabledTextPreferenceTests : public StreamAbstractionAAMP_MPDTest,
+	public testing::WithParamInterface<bool>
+{
+};
+
+/**
+ * @brief A no-match result must disable presentation rather than fall back
+ * to an available subtitle or retain a previous in-band caption choice.
+ */
+TEST_P(DASHDisabledTextPreferenceTests, NoTextMatchDisablesSubtitleContext)
+{
+	static const char *manifest =
+R"(<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="static"
+	mediaPresentationDuration="PT1M"><Period>
+	<AdaptationSet contentType="text" lang="eng" mimeType="application/mp4">
+		<Representation id="english" codecs="stpp" bandwidth="400"/>
+	</AdaptationSet>
+</Period></MPD>)";
+	EXPECT_CALL(*g_mockAampUtils, Getiso639map_NormalizeLanguageCode(
+		_, ISO639_NO_LANGCODE_PREFERENCE))
+		.WillRepeatedly(testing::ReturnArg<0>());
+	ASSERT_TRUE(LoadTextSelectionManifest(manifest));
+	mStreamAbstractionAAMP_MPD->SetupMediaStreamContexts(3);
+	auto *subtitleContext =
+		mStreamAbstractionAAMP_MPD->GetMediaStreamContextForTest(eTRACK_SUBTITLE);
+	subtitleContext->enabled = true;
+	mPrivateInstanceAAMP->mTextLanguagePreferenceSet = true;
+	mPrivateInstanceAAMP->preferredTextLanguagesList =
+		GetParam() ? std::vector<std::string>{"ger"} :
+			std::vector<std::string>{};
+	mPrivateInstanceAAMP->SetPreferredTextTrack(
+		TextTrackInfo(true, "urn:scte:dash:cc:cea-608:2015"));
+	std::vector<TextTrackInfo> tracks;
+	std::string index{"previous"};
+
+	mStreamAbstractionAAMP_MPD->CallSelectSubtitleTrack(tracks, index);
+
+	EXPECT_FALSE(subtitleContext->enabled);
+	EXPECT_TRUE(index.empty());
+	EXPECT_TRUE(mPrivateInstanceAAMP->mTextTrackSelectionDisabled);
+	EXPECT_FALSE(mPrivateInstanceAAMP->GetPreferredTextTrack().isCC);
+	ASSERT_EQ(tracks.size(), 1u);
+	EXPECT_EQ(tracks.front().language, "eng");
+}
+
+INSTANTIATE_TEST_SUITE_P(EmptyAndUnmatchedLanguages,
+	DASHDisabledTextPreferenceTests, testing::Bool());
+
+/**
+ * @brief CAPTIONS selects an in-band service without a formats parameter.
+ */
+TEST_F(StreamAbstractionAAMP_MPDTest, CaptionTypeSelectsInbandService)
+{
+	static const char *manifest =
+R"(<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="static"
+	mediaPresentationDuration="PT1M"><Period>
+	<AdaptationSet contentType="video" mimeType="video/mp4">
+		<Accessibility schemeIdUri="urn:scte:dash:cc:cea608:2015" value="CC1=eng"/>
+		<Accessibility schemeIdUri="urn:scte:dash:cc:cea708:2015" value="1=lang:ger"/>
+		<Representation id="video" codecs="avc1.640028" bandwidth="1000000"/>
+	</AdaptationSet>
+</Period></MPD>)";
+	EXPECT_CALL(*g_mockAampUtils, Getiso639map_NormalizeLanguageCode(
+		_, ISO639_NO_LANGCODE_PREFERENCE))
+		.WillRepeatedly(testing::ReturnArg<0>());
+	ASSERT_TRUE(LoadTextSelectionManifest(manifest));
+	mStreamAbstractionAAMP_MPD->SetupMediaStreamContexts(3);
+	mPrivateInstanceAAMP->mTextLanguagePreferenceSet = true;
+	mPrivateInstanceAAMP->preferredTextLanguagesList = {"ger", "eng"};
+	mPrivateInstanceAAMP->preferredTextTrackType = "CAPTIONS";
+	std::vector<TextTrackInfo> tracks;
+	std::string index;
+
+	mStreamAbstractionAAMP_MPD->CallSelectSubtitleTrack(tracks, index);
+
+	const auto &selected = mPrivateInstanceAAMP->GetPreferredTextTrack();
+	EXPECT_TRUE(selected.isCC);
+	EXPECT_EQ(selected.instreamId, "1");
+	EXPECT_EQ(selected.language, "ger");
+	EXPECT_EQ(selected.accessibilityItem.getSchemeId(),
+		"urn:scte:dash:cc:cea708:2015");
+	EXPECT_EQ(selected.accessibilityItem.getStrValue(), "1=lang:ger");
+	EXPECT_TRUE(mPrivateInstanceAAMP->mIsInbandCC);
+	EXPECT_FALSE(mPrivateInstanceAAMP->mTextTrackSelectionDisabled);
+	EXPECT_FALSE(mStreamAbstractionAAMP_MPD->
+		GetMediaStreamContextForTest(eTRACK_SUBTITLE)->enabled);
+	EXPECT_EQ(tracks.size(), 2u);
+}
+
+struct DASHCaptionPreferenceCase
+{
+	const char *name;
+	std::vector<std::string> languages;
+	std::string type;
+	std::string format;
+	std::string codec;
+	std::string expectedService;
+	bool expectSubtitle;
+	bool expectDisabled;
+};
+
+class DASHCaptionPreferenceTests : public StreamAbstractionAAMP_MPDTest,
+	public testing::WithParamInterface<DASHCaptionPreferenceCase>
+{
+};
+
+/**
+ * @brief Apply saved preferences during initial DASH text selection using
+ * standard caption descriptors, without external assets or media downloads.
+ *
+ * The preference setter and caption rendering are faked in this suite.
+ * The oracle is the applied subtitle representation or in-band service.
+ */
+TEST_P(DASHCaptionPreferenceTests, AppliesPreferencesOnInitialTextSelection)
+{
+	// Minimal DASH MPD: omit DRM, audio, and long segment timelines.
+	static const char *manifest =
+R"(<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="static"
+	mediaPresentationDuration="PT1M" minBufferTime="PT2S">
+	<Period id="1" start="PT0S">
+		<AdaptationSet id="2" contentType="video" mimeType="video/mp4"
+			segmentAlignment="true" startWithSAP="1">
+			<Accessibility schemeIdUri="urn:scte:dash:cc:cea-608:2015"
+				value="CC1=en"/>
+			<Accessibility schemeIdUri="urn:scte:dash:cc:cea-708:2015"
+				value="1=lang:en"/>
+			<Role schemeIdUri="urn:mpeg:dash:role:2011" value="main"/>
+			<Representation id="video" codecs="avc1.640028"
+				bandwidth="1000000"/>
+		</AdaptationSet>
+		<AdaptationSet id="60" contentType="text" mimeType="application/mp4"
+			lang="en" segmentAlignment="true" startWithSAP="1">
+			<Accessibility schemeIdUri="urn:mpeg:dash:role:2011"
+				value="caption"/>
+			<Role schemeIdUri="urn:mpeg:dash:role:2011" value="subtitle"/>
+			<SegmentTemplate timescale="240000" startNumber="0"
+				initialization="text-$RepresentationID$-init.mp4"
+				media="text-$RepresentationID$-$Number$.mp4">
+				<SegmentTimeline><S t="0" d="480480" r="29"/></SegmentTimeline>
+			</SegmentTemplate>
+			<Representation id="TTMLenCC" bandwidth="20000"
+				codecs="stpp.ttml.im1t|etd1"/>
+		</AdaptationSet>
+	</Period>
+</MPD>)";
+	const auto &testCase = GetParam();
+	mPrivateInstanceAAMP->mTextLanguagePreferenceSet = true;
+	mPrivateInstanceAAMP->preferredTextLanguagesList = testCase.languages;
+	mPrivateInstanceAAMP->preferredTextTrackType = testCase.type;
+	if (!testCase.format.empty())
+	{
+		mPrivateInstanceAAMP->preferredTextFormatsList = {testCase.format};
+	}
+	if (!testCase.codec.empty())
+	{
+		mPrivateInstanceAAMP->preferredTextCodecsList = {testCase.codec};
+	}
+
+	EXPECT_CALL(*g_mockAampUtils, Getiso639map_NormalizeLanguageCode(
+		_, ISO639_NO_LANGCODE_PREFERENCE))
+		.WillRepeatedly(testing::ReturnArg<0>());
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_))
+		.WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_GstSubtecEnabled))
+		.WillRepeatedly(Return(true));
+	ASSERT_TRUE(LoadTextSelectionManifest(manifest));
+	mStreamAbstractionAAMP_MPD->SetupMediaStreamContexts(3);
+	auto *subtitleContext =
+		mStreamAbstractionAAMP_MPD->GetMediaStreamContextForTest(eTRACK_SUBTITLE);
+	subtitleContext->enabled = true;
+	std::vector<TextTrackInfo> tracks;
+	std::string index{"previous"};
+
+	mStreamAbstractionAAMP_MPD->CallSelectSubtitleTrack(tracks, index);
+
+	EXPECT_EQ(subtitleContext->enabled, testCase.expectSubtitle);
+	EXPECT_EQ(mPrivateInstanceAAMP->mTextTrackSelectionDisabled,
+		testCase.expectDisabled);
+	ASSERT_THAT(tracks, testing::SizeIs(3));
+	const auto ttml = std::find_if(tracks.cbegin(), tracks.cend(),
+		[](const TextTrackInfo &track)
+		{
+			return track.name == "TTMLenCC";
+		});
+	ASSERT_NE(ttml, tracks.cend());
+	EXPECT_EQ(ttml->mType, "captions");
+	EXPECT_EQ(ttml->accessibilityItem.getSchemeId(),
+		"urn:mpeg:dash:role:2011");
+	EXPECT_EQ(ttml->accessibilityItem.getStrValue(), "caption");
+
+	if (testCase.expectDisabled)
+	{
+		EXPECT_TRUE(index.empty());
+		EXPECT_FALSE(mPrivateInstanceAAMP->GetPreferredTextTrack().isCC);
+	}
+	else if (testCase.expectSubtitle)
+	{
+		EXPECT_FALSE(mPrivateInstanceAAMP->mIsInbandCC);
+		ASSERT_EQ(subtitleContext->adaptationSetIdx, 1);
+		ASSERT_EQ(subtitleContext->representationIndex, 0);
+		EXPECT_EQ(index, ttml->index);
+		EXPECT_EQ(ttml->language, "en");
+		EXPECT_EQ(ttml->codec, "stpp.ttml.im1t|etd1");
+	}
+	else
+	{
+		const auto &selected = mPrivateInstanceAAMP->GetPreferredTextTrack();
+		EXPECT_TRUE(mPrivateInstanceAAMP->mIsInbandCC);
+		EXPECT_TRUE(selected.isCC);
+		EXPECT_EQ(selected.language, "en");
+		EXPECT_EQ(selected.instreamId, testCase.expectedService);
+		EXPECT_EQ(selected.rendition, "urn:scte:dash:cc:" +
+			testCase.format + ":2015");
+	}
+}
+
+INSTANTIATE_TEST_SUITE_P(MixedCaptionManifest, DASHCaptionPreferenceTests,
+	testing::Values(
+		DASHCaptionPreferenceCase{"EnglishHohFallback",
+			{"en"}, "", "ttml", "", "", true, false},
+		DASHCaptionPreferenceCase{"ExplicitTtmlCaption",
+			{"en"}, "CAPTIONS", "", "stpp.ttml.im1t|etd1", "", true, false},
+		DASHCaptionPreferenceCase{"Cea608",
+			{"en"}, "CAPTIONS", "cea-608", "", "CC1", false, false},
+		DASHCaptionPreferenceCase{"Cea708",
+			{"en"}, "CAPTIONS", "cea-708", "", "1", false, false},
+		DASHCaptionPreferenceCase{"SecondLanguageFallback",
+			{"fr", "en"}, "", "ttml", "", "", true, false},
+		DASHCaptionPreferenceCase{"UnmatchedLanguage",
+			{"fr"}, "CAPTIONS", "", "", "", false, true},
+		DASHCaptionPreferenceCase{"EmptyLanguages",
+			{}, "", "", "", "", false, true},
+		DASHCaptionPreferenceCase{"SubtitleTypeRejectsCaptionMetadata",
+			{"en"}, "SUBTITLES", "", "", "", false, true}),
+	[](const testing::TestParamInfo<DASHCaptionPreferenceCase> &info)
+	{
+		return std::string(info.param.name);
+	});
 
 class StreamFormatMPDTest : public StreamAbstractionAAMP_MPDTest,
 	public ::testing::WithParamInterface<bool>
@@ -2508,7 +2969,7 @@ TEST_F(FunctionalTests_1, GetBestTextTrackByLanguageTest)
 	// Define test input values
 	TextTrackInfo selectedTextTrack;
 	// Call the GetBestTextTrackByLanguage function
-	bool result = _instanceStreamAbstractionAAMP_MPD->GetBestTextTrackByLanguage(selectedTextTrack);
+	bool result = _instanceStreamAbstractionAAMP_MPD->GetBestTextTrackByLanguage(selectedTextTrack, {});
 	ASSERT_FALSE(result);
 	ASSERT_EQ(selectedTextTrack.language, "");
 }
