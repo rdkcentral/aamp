@@ -69,6 +69,8 @@
 #define MAX_LICENSE_ACQ_WAIT_TIME 12000  			/**< 12 secs Increase from 10 to 12 sec */
 #define DEFAULT_INIT_BITRATE     2500000            		/**< Initial bitrate: 2.5 mb - for non-4k playback */
 #define DEFAULT_BITRATE_OFFSET_FOR_DOWNLOAD 500000		/**< Offset in bandwidth window for checking buffer download expiry */
+#define SEVERE_LOW_BANDWIDTH_PERCENT 50				/**< Percentage of profile bitrate below which is considered severe low bandwidth (50%) */
+#define RETRY_SAFETY_PERCENT 80						/**< Percentage of measured bitrate to use for retry (80%) */
 #define DEFAULT_INIT_BITRATE_4K 13000000            		/**< Initial bitrate for 4K playback: 13mb ie, 3/4 profile */
 #define AAMP_LIVE_OFFSET 15             			/**< Live offset in seconds */
 #define AAMP_DEFAULT_LIVE_OFFSET_DRIFT (1)          /**< Default value of allowed live offset drift **/

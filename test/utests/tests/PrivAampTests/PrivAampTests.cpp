@@ -1080,6 +1080,42 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackTest)
 	EXPECT_EQ(val,0);
 }
 
+/**
+ * @brief Verify the first payload block captures transfer timing and size only once.
+ */
+TEST_F(PrivAampTests, HandleSSLWriteCallback_CapturesFirstPayloadTimingAndSize)
+{
+	p_aamp->mDownloadsEnabled = true;
+	p_aamp->mMediaDownloadsEnabled[eMEDIATYPE_VIDEO] = true;
+
+	std::vector<uint8_t> buffer;
+	CurlCallbackContext context(p_aamp, buffer);
+	context.mediaType = eMEDIATYPE_VIDEO;
+
+	char firstBlock[] = "first";
+	const size_t firstBlockSize = sizeof(firstBlock) - 1;
+	const size_t firstResult = p_aamp->HandleSSLWriteCallback(
+		firstBlock, firstBlockSize, 1, &context);
+
+	const long long firstDataTime = context.dataTransferStartTime;
+	const size_t firstDataSize = context.firstDataBytes;
+
+	EXPECT_EQ(firstResult, firstBlockSize);
+	EXPECT_GT(firstDataTime, 0);
+	EXPECT_EQ(firstDataSize, firstBlockSize);
+	EXPECT_EQ(context.abortReason, eCURL_ABORT_REASON_NONE);
+
+	char secondBlock[] = "second";
+	const size_t secondBlockSize = sizeof(secondBlock) - 1;
+	const size_t secondResult = p_aamp->HandleSSLWriteCallback(
+		secondBlock, secondBlockSize, 1, &context);
+
+	EXPECT_EQ(secondResult, secondBlockSize);
+	EXPECT_EQ(context.dataTransferStartTime, firstDataTime);
+	EXPECT_EQ(context.firstDataBytes, firstDataSize);
+	EXPECT_EQ(buffer.size(), firstBlockSize + secondBlockSize);
+}
+
 TEST_F(PrivAampTests, HandleSSLWriteCallbackPipelinePausedNoUnderflow)
 {
 	// Test HandleSSLWriteCallback when pipeline is paused and no underflow

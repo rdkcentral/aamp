@@ -326,6 +326,7 @@ struct CurlCallbackContext
 	long long downloadNowUpdatedTime = -1;
 	bool dlStarted = false;
 	int fragmentDurationMs = -1;
+	size_t firstDataBytes = 0; /**< Size of the first body data block, recorded by the write callback together with dataTransferStartTime */
 
 	/**
 	 * @brief Constructor to initialize CurlCallbackContext
@@ -361,6 +362,7 @@ struct CurlCallbackContext
 		bitrate = 0;
 		downloadUpdatedTime = -1;
 		downloadSize = -1;
+		firstDataBytes = 0;
 	}
 };
 
