@@ -42,6 +42,7 @@ CachedFragment::CachedFragment()
 	, timeScale(0)
 	, PTSOffsetSec(0)
 	, absPosition(0.0)
+	, adPlaying(false)
 	, isDummy(false)
 	, discontinuityIndex(0)
 {
@@ -69,6 +70,7 @@ void CachedFragment::Copy(CachedFragment* other, size_t len)
 	this->timeScale = other->timeScale;
 	this->PTSOffsetSec = other->PTSOffsetSec;
 	this->absPosition = other->absPosition;
+	this->adPlaying = other->adPlaying;
 	this->isDummy = other->isDummy;
 	this->discontinuityIndex = other->discontinuityIndex;
 	
@@ -99,6 +101,7 @@ void CachedFragment::Clear()
 	discontinuityIndex = 0;
 	PTSOffsetSec = 0;
 	absPosition = 0.0;
+	adPlaying = false;
 }
 
 /**
@@ -120,6 +123,7 @@ CachedFragment::CachedFragment(const CachedFragment& other)
 	, discontinuityIndex(other.discontinuityIndex)
 	, PTSOffsetSec(other.PTSOffsetSec)
 	, absPosition(other.absPosition)
+	, adPlaying(other.adPlaying)
 {
 }
 
@@ -142,6 +146,7 @@ CachedFragment::CachedFragment(CachedFragment&& other) noexcept
 	, discontinuityIndex(other.discontinuityIndex)
 	, PTSOffsetSec(other.PTSOffsetSec)
 	, absPosition(other.absPosition)
+	, adPlaying(other.adPlaying)
 {
 	// Reset moved-from object to default state
 	other.position = 0.0;
@@ -179,6 +184,7 @@ CachedFragment& CachedFragment::operator=(const CachedFragment& other)
 		discontinuityIndex = other.discontinuityIndex;
 		PTSOffsetSec = other.PTSOffsetSec;
 		absPosition = other.absPosition;
+		adPlaying = other.adPlaying;
 	}
 	return *this;
 }
@@ -204,6 +210,7 @@ CachedFragment& CachedFragment::operator=(CachedFragment&& other) noexcept
 		discontinuityIndex = other.discontinuityIndex;
 		PTSOffsetSec = other.PTSOffsetSec;
 		absPosition = other.absPosition;
+		adPlaying = other.adPlaying;
 		
 		// Reset moved-from object to default state
 		other.position = 0.0;
@@ -248,6 +255,7 @@ void CachedFragment::swap(CachedFragment& other) noexcept
 	swap(discontinuityIndex, other.discontinuityIndex);
 	swap(PTSOffsetSec, other.PTSOffsetSec);
 	swap(absPosition, other.absPosition);
+	swap(adPlaying, other.adPlaying);
 }
 
 /**

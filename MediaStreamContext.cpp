@@ -75,6 +75,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 	cachedFragment->timeScale = fragmentDescriptor.TimeScale;
 	cachedFragment->uri = fragmentUrl; // For debug output
 	cachedFragment->absPosition = posInAbsTimeline;
+	cachedFragment->adPlaying = playingAd;
 	/* The value of PTSOffsetSec in the context can get updated at the start of a period before
 	 * the last segment from the previous period has been injected, hence we copy it
 	 */
