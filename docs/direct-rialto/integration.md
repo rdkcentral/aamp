@@ -86,9 +86,12 @@ says real Rialto on Ubuntu locks up intermittently without a text-track sink).
   simulator in [`test/rialto/`](../../test/rialto) and links it as
   `libRialtoClient.so`. Headers come from `.libs/include/rialto` in that case.
 - `install-aamp.sh` with the `rialto` option builds real Rialto (and
-  `rialto-gstreamer`) into `.libs`. Without it the simulator is used. The
-  option is rejected on macOS. Public headers are always cloned because L1
-  tests need them. `--rialto-force-simulator` overrides `rialto`.
+  `rialto-gstreamer`) into `.libs`, together with protobuf. Without it the
+  simulator is used. The option is rejected on macOS. Without the option only
+  the Rialto public headers are obtained, because L1 tests need them.
+  `--rialto-force-simulator` overrides `rialto`.
+- [`scripts/install_options.sh`](../../scripts/install_options.sh) defines the
+  Rialto tag that is used (`OPTION_RIALTO_REFERENCE`, changed with `-r`).
 - Direct runtime dependencies: Rialto client (`IMediaPipeline`,
   `IMediaPipelineCapabilities`, `IControl`, `IMediaKeys`, `IClientLogControl`),
   GLib (timers), the middleware player interface (`DrmSession`,
@@ -124,15 +127,18 @@ says real Rialto on Ubuntu locks up intermittently without a text-track sink).
 |---|---|---|
 | L1 | `test/utests/tests/AampRialtoPlayerTests` (about 265 cases) | The sink, using mocks for `IMediaPipeline`, control backend, DRM bridge and notifiable |
 | L1 | `AampPlayerStateMachineTests` (about 46), `AampRialtoMediaPipelineClientTests`, `AampRialtoControlBackendTests`, `AampRialtoVideoSourceTests` (about 60, also exercise the base-class handshake), `AampRialtoAudioSourceTests`, `AampRialtoSubtitleSourceTests`, `AampRialtoMonitorAVTests`, `PrivateInstanceAAMPNotifiableTests`, `RialtoMediaKeySystemTests`, `RialtoMediaKeySessionTests`, `RialtoMediaKeySessionAdapterTests` | Individual classes |
-| L2 | `aamp_test_internal/test/l2test/AAMP-RIALTO-10000_Tune`, `10001_Tune_HLS`, `10002_TrickModes` | Tune, HLS and trick modes against the Rialto simulator |
-| Simulator | [`test/rialto/`](../../test/rialto) ([README](../../test/rialto/README.md)) | In-process `libRialtoClient.so` that fires playback, need-data and position callbacks |
+| L2 | `aamp_test_internal/test/l2test/AAMP-RIALTO-10000_Tune`, `10001_Tune_HLS`, `10002_TrickModes` | Direct Rialto specific tests that assert `PlayerState: A -> B` transitions for tune, HLS and trick modes |
+| L2 | Most other `aamp_test_internal/test/l2test` tests | CI runs nearly the full suite with `useDirectRialto` set |
+| L3 | A widget with `useDirectRialto` set in its AAMP configuration | Playback on a device or full stack (reported by the feature owners, not checked in this repository) |
+| Simulator | [`test/rialto/`](../../test/rialto) ([README](../../test/rialto/README.md)) | In-process `libRialtoClient.so` that fires playback, need-data and position callbacks. It stands in for the Rialto client and server |
 
-Counts are approximate and were taken by counting test macros.
+L2 tests can run against the simulator or a real Rialto server. CI uses the
+simulator. Counts are approximate and were taken by counting test macros.
 
 **Missing or thin coverage** (not an exhaustive search):
 
 - No dedicated tests for `AampDrmBridge` or `makeRialtoSessionCreator`.
 - No tests that run flush, stop, `SEEK_DONE`, and need-data on different
   threads concurrently.
-- L2 runs against a simulator, so real Rialto server behaviour (for example
+- CI runs L2 against the simulator, so real Rialto server behaviour (for example
   event ordering and pipeline overlap) is not exercised in CI.

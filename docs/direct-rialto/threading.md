@@ -167,7 +167,9 @@ concurrent control-thread `Flush()` between those two steps is not excluded.
 **Generation tokens.** `generation` makes an abort idempotent and lock-cheap:
 an injector captures it before blocking and bails out if it changed. The
 injector that observes the change closes out the request it owns. This is the
-central cancellation mechanism.
+central cancellation mechanism. The gate cannot replace it, because an
+injector can wake after the gate has moved on from `DROPPED`. See
+[lifecycle.md](lifecycle.md#why-a-generation-as-well-as-the-gate).
 
 **Nested calls.** Callbacks call back into `IMediaPipeline` (`play`,
 `setSourcePosition`, `haveData`). The Rialto source calls callbacks outside its

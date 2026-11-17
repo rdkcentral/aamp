@@ -127,8 +127,9 @@ stateDiagram-v2
 ```
 
 *Figure 7. Per-source gate. `unblockInjection()` also bumps `generation`,
-which aborts in-flight injectors. `reset()` deliberately does not touch the
-gate.*
+which aborts in-flight injectors. `reset()` bumps `generation` but
+deliberately does not touch the gate. See
+[why both exist](#why-a-generation-as-well-as-the-gate).*
 
 | Caller | Effect |
 |---|---|
@@ -178,7 +179,69 @@ State fields (`SourceState`, all under `mu`): `hasPending`,
 `generation`, `gateMode`, `injectorActive`, `attachPending`.
 
 `generation` is a monotonic abort token. Injectors capture it before blocking
-and abandon their sample if it changes.
+and abandon their sample if it changes. See
+[Why a generation as well as the gate](#why-a-generation-as-well-as-the-gate).
+
+### Why a generation as well as the gate
+
+The two mechanisms answer different questions.
+
+- The **gate** is a *mode*. It is read at particular moments: when a sample
+  reaches `injectOneSample()` and when `needMediaData` reaches
+  `handleNeedData()`. It describes what to do with data that arrives from now
+  on.
+- The **generation** is an *event counter*. `unblockInjection()` and `reset()`
+  increment it. An injector that already holds data can compare its captured
+  value with the current one and learn that an invalidation happened since it
+  started, even if the gate has since changed again.
+
+The sink cannot discard in-flight data itself when the gate becomes `DROPPED`,
+because the data is not in the sink. It is held by an injector thread, on that
+thread's stack, and the sink can only tell the thread to let go of it.
+
+| Where the old data is | Does the gate catch it? | Does the generation catch it? |
+|---|---|---|
+| Not yet submitted. It arrives after the change. | Yes. `DROPPED` discards it, `BLOCKED` holds it. | Not needed. A new call captures the new value. |
+| Waiting for the gate to clear (stage 1 of `injectOneSample()`) | Only if the injector wakes while the gate is `DROPPED`. | Yes, even if the gate is `BLOCKED` again by then. |
+| Waiting for a `needData` request (stage 2) | No. The wait only tests for `BLOCKED` being re-asserted, so `DROPPED` is ignored. | Yes. This is the only thing that aborts it. |
+| The rest of a demuxed fragment, still in `processDataFragment()` | Each sample sees whatever the gate is when it arrives. | Yes. The value is captured once per fragment, so one change abandons all of it. |
+| Inside `addSegment()`, with no lock held | No. | Yes, checked when it returns (`handleAddSegmentCompletion()`, `handleAddSegmentNoSpace()`). |
+| Waiting for the source to attach (`waitForAttach()`) | Deliberately not tested. | Yes. |
+
+The gate is not left at `DROPPED` for long on the paths that matter. A
+flushable `Flush()` calls `unblockInjection()` (`DROPPED`, generation + 1) and
+then `gateInjection(true)` (`BLOCKED`). A non-flushable `Flush()` follows it
+with `gateInjection(false)` (`NONE`). An injector that wakes after either
+sequence sees `BLOCKED` or `NONE`. Those mean "wait" or "go", so the gate alone
+cannot tell it that its sample is from before the seek. The changed generation
+can.
+
+Worked example, seek while a video injector is waiting for a request:
+
+1. The injector holds a sample from the old position and captures generation 7.
+   It waits in stage 2 for `needMediaData`.
+2. `Flush()` calls `unblockInjection()`. The gate becomes `DROPPED` and the
+   generation becomes 8. It then sets the gate `BLOCKED`.
+3. The injector wakes. The gate is `BLOCKED`, which by itself would mean wait
+   for the ungate. The generation is 8, not 7, so it abandons the sample.
+4. If a request was pending and this injector was active, it answers it with
+   `NO_AVAILABLE_SAMPLES` and the batch ends. If no injector was active,
+   `unblockInjection()` answered it in step 2.
+5. Samples for the new position arrive, hold at `BLOCKED`, and flow after
+   `play()`.
+
+The gate still has jobs the generation cannot do. After `Stop()` or
+`NotifyInjectorToPause()` it makes later arrivals be discarded without
+blocking the caller, and it makes `handleNeedData()` reject requests while a
+flush is outstanding.
+
+**Not verified.** The generation is captured in `processDataFragment()` and
+`injectSingleSample()` after parsing and `waitForAttach()`. A sample that is
+still on its way to that point when `unblockInjection()` runs captures the new
+value, so the generation does not mark it as stale. Keeping such samples away
+from Rialto appears to depend on the callers stopping and joining the injector
+threads first (`StopTrackInjection()` and `StopInjectLoop()`), but that
+ordering was not traced end to end.
 
 ## 4. Session flags and rendezvous
 
