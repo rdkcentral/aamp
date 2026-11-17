@@ -470,7 +470,7 @@ set(LIBAAMP_SOURCES
 	rmf_shim.cpp rmf_shim.h
 	fragmentcollector_progressive.cpp fragmentcollector_progressive.h
 	fragmentcollector_hls.cpp fragmentcollector_hls.h
-	fragmentcollector_mpd.cpp fragmentcollector_mpd.h
+	fragmentcollector_mpd.cpp fragmentcollector_mpd.h AampTrackSet.h
 	admanager_mpd.cpp admanager_mpd.h
 	AampUnderflowMonitor.cpp AampUnderflowMonitor.h
 	streamabstraction.cpp
