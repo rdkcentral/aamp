@@ -7163,7 +7163,7 @@ TEST_F(PrivAampTests, GetFileTest_EnableLowBWTimeoutOnNotLowestProfile)
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, IsCurrentProfileLowest()).WillOnce(Return(false));
 	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_ptr( mCurlEasyHandle, CURLOPT_PROGRESSDATA, _))
 		.WillOnce(Invoke([lowBWTimeoutValue](void* handle, CURLoption option, const void* param) -> CURLcode {
-			const CurlProgressCbContext* ctx = static_cast<const CurlProgressCbContext*>(param);
+			const CurlCallbackContext* ctx = static_cast<const CurlCallbackContext*>(param);
 			EXPECT_EQ(ctx->lowBWTimeout, lowBWTimeoutValue);
 			return CURLE_OK;
 		}));
@@ -7199,7 +7199,7 @@ TEST_F(PrivAampTests, GetFileTest_DisableLowBWTimeoutOnLowestProfile)
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, IsCurrentProfileLowest()).WillOnce(Return(true));
 	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_ptr( mCurlEasyHandle, CURLOPT_PROGRESSDATA, _))
 		.WillOnce(Invoke([](void* handle, CURLoption option, const void* param) -> CURLcode {
-			const CurlProgressCbContext* ctx = static_cast<const CurlProgressCbContext*>(param);
+			const CurlCallbackContext* ctx = static_cast<const CurlCallbackContext*>(param);
 			EXPECT_EQ(ctx->lowBWTimeout, 0);
 			return CURLE_OK;
 		}));

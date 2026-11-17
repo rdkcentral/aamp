@@ -1554,7 +1554,7 @@ BitsPerSecond getCurrentContentDownloadSpeed(PrivateInstanceAAMP *aamp,
 int PrivateInstanceAAMP::HandleSSLProgressCallback ( void *clientp, double dltotal, double dlnow, double ultotal, double ulnow )
 {
 	int rc = 0;
-	CurlProgressCbContext *context = (CurlProgressCbContext *)clientp;
+	CurlCallbackContext *context = static_cast<CurlCallbackContext *>(clientp);
 	PrivateInstanceAAMP *aamp = context->aamp;
 	AampConfig *mConfig = context->aamp->mConfig;
 
@@ -4737,16 +4737,8 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 			}
 			CURL_EASY_SETOPT_LONG(curl, CURLOPT_SSLVERSION, mSupportedTLSVersion);
 
-			CurlProgressCbContext progressCtx;
-			progressCtx.aamp = this;
-			progressCtx.mediaType = mediaType;
-			progressCtx.dlStarted = true;
-			progressCtx.fragmentDurationMs = fragmentDurationMs;
-
-			if ((mediaType == eMEDIATYPE_VIDEO) && (mAampLLDashServiceData.lowLatencyMode))
-			{
-				progressCtx.remoteUrl = remoteUrl;
-			}
+			context.dlStarted = true;
+			context.fragmentDurationMs = fragmentDurationMs;
 
 			SetCMCDTrackData(mediaType);
 
@@ -4757,12 +4749,12 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 			{
 				// For Manifest file : Set starttimeout to 0 ( no wait for first byte). Playlist/Manifest with DAI
 				// contents take more time , hence to avoid frequent timeout, its set as 0
-				progressCtx.startTimeout = 0;
+				context.startTimeout = 0;
 			}
 			else
 			{
 				// for Video/Audio segments , set the start timeout as configured by Application
-				progressCtx.startTimeout = GETCONFIGVALUE_PRIV(eAAMPConfig_CurlDownloadStartTimeout);
+				context.startTimeout = GETCONFIGVALUE_PRIV(eAAMPConfig_CurlDownloadStartTimeout);
 				// to enable lowBWTimeout based network timeout factor, if lowBWTimeout is not configured
 				int lowBWTimeout = GETCONFIGVALUE_PRIV(eAAMPConfig_CurlDownloadLowBWTimeout);
 				if ((0 == lowBWTimeout) && (AAMP_DEFAULT_SETTING == GETCONFIGOWNER_PRIV(eAAMPConfig_CurlDownloadLowBWTimeout)))
@@ -4781,16 +4773,16 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				if (mFogTSBEnabled)
 				{
 					AAMPLOG_DEBUG("Disable low bandwidth timeout in aamp, it will be done in fog");
-					progressCtx.lowBWTimeout = 0;
+					context.lowBWTimeout = 0;
 				}
 				else
 				{
-					progressCtx.lowBWTimeout = lowBWTimeout;
+					context.lowBWTimeout = lowBWTimeout;
 				}
 			}
-			progressCtx.stallTimeout = GETCONFIGVALUE_PRIV(eAAMPConfig_CurlStallTimeout);
+			context.stallTimeout = GETCONFIGVALUE_PRIV(eAAMPConfig_CurlStallTimeout);
 
-			AAMPLOG_INFO("lowBWTimeout:%d, stallTimeout:%d", progressCtx.lowBWTimeout, progressCtx.stallTimeout);
+			AAMPLOG_INFO("lowBWTimeout:%d, stallTimeout:%d", context.lowBWTimeout, context.stallTimeout);
 			// caller must pass either NULL or a string encoding range
 			// here we add sanity check to use null instead of empty string; this avoids undefined behavior
 			if( range && *range=='\0' ) range = NULL;
@@ -4841,15 +4833,10 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				context.ResetForNewDownload();
 				// The header callback only overwrites matching headers, so drop what a failed attempt left behind
 				httpRespHeaders[curlInstance] = respHeadersBeforeRequest;
-				progressCtx.downloadStartTime = NOW_STEADY_TS_MS;
-
-				progressCtx.downloadUpdatedTime = -1;
-				progressCtx.downloadSize = -1;
-				progressCtx.abortReason = eCURL_ABORT_REASON_NONE;
 				// Note: downloadStartTime is now set for all downloads (not just LL-DASH)
 				// so that timing/monitoring logic has a valid start timestamp in every case.
-				context.downloadStartTime = progressCtx.downloadStartTime;
-				CURL_EASY_SETOPT_POINTER(curl, CURLOPT_PROGRESSDATA, &progressCtx);
+				context.downloadStartTime = NOW_STEADY_TS_MS;
+				CURL_EASY_SETOPT_POINTER(curl, CURLOPT_PROGRESSDATA, &context);
 
 				buffer.clear();
 
@@ -4888,7 +4875,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 			// Reset progress-callback start timestamps to after the TTFB sleep so
 			// that start/stall/low-BW timeout checks measure only actual curl
 			// transfer time, not the simulated pre-transfer delay.
-			progressCtx.downloadStartTime = context.downloadStartTime = NOW_STEADY_TS_MS;
+			context.downloadStartTime = NOW_STEADY_TS_MS;
 			long long tBeforeCurl = NOW_STEADY_TS_MS;
 
 			res = curl_easy_perform(curl); // synchronous; callbacks allow interruption
@@ -5102,7 +5089,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				}
 				else if (context.chunkInjectionUsed &&
 						context.bufferOffset > 0 &&
-						HasDownloadTimedOutWithData(res, progressCtx.abortReason))
+						HasDownloadTimedOutWithData(res, context.abortReason))
 				{
 					// Download timed out in low latency chunk mode injection.
 					// With bufferOffset > 0, we have injected some chunks already, so treat it as success to update bandwidth metrics.
@@ -5116,13 +5103,13 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				{
 					//abortReason for progress_callback exit scenarios
 					// curl sometimes exceeds the wait time by few milliseconds.Added buffer of 10msec
-					isDownloadStalled = ((res == CURLE_PARTIAL_FILE) || (progressCtx.abortReason != eCURL_ABORT_REASON_NONE));
+					isDownloadStalled = ((res == CURLE_PARTIAL_FILE) || (context.abortReason != eCURL_ABORT_REASON_NONE));
 					// set flag if download aborted with start/stall timeout.
-					abortReason = progressCtx.abortReason;
+					abortReason = context.abortReason;
 
 					/* Curl 23 and 42 is not a real network error, so no need to log it here */
 					//Log errors due to curl stall/start detection abort
-					if (AampLogManager::isLogworthyErrorCode(res) || progressCtx.abortReason != eCURL_ABORT_REASON_NONE)
+					if (AampLogManager::isLogworthyErrorCode(res) || context.abortReason != eCURL_ABORT_REASON_NONE)
 					{
 						std::string effectiveUrl;
 						char *effectiveUrlPtr = aamp_CurlEasyGetinfoString(curl, CURLINFO_EFFECTIVE_URL);
@@ -5138,14 +5125,14 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 						if( res == CURLE_OPERATION_TIMEDOUT )
 						{
 							AampLogManager::LogNetworkError(effectiveUrl.c_str(),
-							AAMPNetworkErrorCurl, (int)((progressCtx.abortReason == eCURL_ABORT_REASON_NONE) ?
+							AAMPNetworkErrorCurl, (int)((context.abortReason == eCURL_ABORT_REASON_NONE) ?
 							(CURLcode)GetCurlTimeoutFailureReason(curl) : CURLE_PARTIAL_FILE),
 							mediaType);
 						}
 						else
 						{
 							AampLogManager::LogNetworkError (effectiveUrl.c_str(), // Effective URL could be different than remoteURL
-							AAMPNetworkErrorCurl, (int)(progressCtx.abortReason == eCURL_ABORT_REASON_NONE ? res : CURLE_PARTIAL_FILE), mediaType);
+							AAMPNetworkErrorCurl, (int)(context.abortReason == eCURL_ABORT_REASON_NONE ? res : CURLE_PARTIAL_FILE), mediaType);
 						}
 						print_headerResponse(context.allResponseHeaders, mediaType);
 
