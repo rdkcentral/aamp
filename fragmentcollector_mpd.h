@@ -1217,6 +1217,11 @@ protected:
 	bool mIsFogTSB;
 	IPeriod *mCurrentPeriod;
 	std::string mBasePeriodId;
+	/* avlog: last per-track period start / duration read by GetStartAndDurationForPtsRestamping */
+	double mAvlogAudioStart = 0.0;
+	double mAvlogVideoStart = 0.0;
+	double mAvlogAudioDuration = 0.0;
+	double mAvlogVideoDuration = 0.0;
 	double mBasePeriodOffset;
 	class PrivateCDAIObjectMPD *mCdaiObject;
 	std::vector<std::string> mEarlyAvailablePeriodIds;

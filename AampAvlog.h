@@ -18,6 +18,15 @@
  *                 offset and the position of the first fragment carrying it. A
  *                 change while playing (previous offset != 0) also asks for a
  *                 capture window; the first offset after start is recorded only.
+ *   AAMP_PERIOD   StreamAbstractionAAMP_MPD::UpdatePtsOffset at a new period: the
+ *                 per-track period start and duration AAMP reads from the manifest
+ *                 timeline and the PTS offset step it derives from them (offset +=
+ *                 min(start) of the old period + max(duration) - min(start) of the new
+ *                 one), plus whether a DAI ad is known for the period and AAMP's ad state.
+ *   AAMP_AD       PrivateInstanceAAMP::FoundEventBreak: an ad break or ad announced in
+ *                 the manifest (SCTE-35 / CDAI event), with its duration.
+ *   PERIOD and AD are sent straight to /dev/avlog with AVLOG_IOC_PUT_REC (no HAL
+ *   entry point needed, so the vendor layer is unchanged).
  * A failed write is reported once per process on stderr (AAMP log).
  * adPlaying comes from the fragment (CachedFragment::adPlaying, set from the CDAI
  * ad state in CacheFragment). A change of the ad flag also writes an AAMP_RESTAMP
@@ -27,11 +36,17 @@
 #define AAMP_AVLOG_H
 
 #include <dlfcn.h>
+#include <fcntl.h>
 #include <stdint.h>
+#include <sys/ioctl.h>
+#include <unistd.h>
+#include <string>
 #include <atomic>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <cerrno>
+#include <ctime>
 
 /* arm a capture window only for a real jump, not for float noise */
 #define AAMP_AVLOG_ARM_US        1000
@@ -41,6 +56,15 @@
 #define AAMP_AVLOG_MEDIA_AUDIO   2u
 #define AAMP_AVLOG_MEDIA_SUB     3u
 #define AAMP_AVLOG_UF_ARM_TIMER  (1u << 0)
+#define AAMP_AVLOG_TYPE_USER     6u
+#define AAMP_AVLOG_USER_PERIOD   3u        /* AVLOG_USER_AAMP_PERIOD */
+#define AAMP_AVLOG_USER_AD       4u        /* AVLOG_USER_AAMP_AD */
+#define AAMP_AVLOG_PERIOD_DAI_AD     (1u << 16)  /* period word: a DAI ad is known for this period */
+#define AAMP_AVLOG_PERIOD_AD_PLAYING (1u << 17)  /* period word: AAMP ad state IN_ADBREAK_AD_PLAYING */
+#define AAMP_AVLOG_AD_BREAK      1u        /* avlog_aamp_ad.event: ad break announced (isDAIEvent 0) */
+#define AAMP_AVLOG_AD_AD         2u        /* avlog_aamp_ad.event: ad announced (isDAIEvent 1) */
+/* AVLOG_IOC_PUT_REC = _IOW(0xA7, 1, struct avlog_user), struct avlog_user = 13 x __u32 */
+#define AAMP_AVLOG_IOC_PUT_REC   _IOW(0xA7, 1, uint32_t[13])
 
 /* the HAL entry points used here (avlog_hal.h) */
 struct AampAvlogHal
@@ -151,6 +175,99 @@ static inline void AampAvlogRestamp(int trackType, double ptsOffsetSec, double a
     AampAvlogCheck(hal->restamp(media, flags, offUs, prevUs, AampAvlogUs(absPosition), timeScale,
                                 static_cast<uint32_t>(discontinuityIndex), adPlaying ? 1u : 0u),
                    "AAMP_RESTAMP");
+}
+
+/* ---- PERIOD / AD: 52-byte USER payloads sent straight to /dev/avlog ---- */
+
+/* one fd per translation unit that writes PERIOD/AD records (two in AAMP); retried while
+ * avlog.ko is not loaded, at most once a second */
+static inline int AampAvlogFd(void)
+{
+    static std::atomic<int> fd{-1};
+    static std::atomic<long long> lastTry{0};
+    int f = fd.load(std::memory_order_acquire);
+    if (f >= 0)
+        return f;
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    if (ts.tv_sec == lastTry.exchange(ts.tv_sec))
+        return -1;
+    f = open("/dev/avlog", O_WRONLY | O_CLOEXEC);
+    if (f < 0)
+        return -1;
+    int expected = -1;
+    if (!fd.compare_exchange_strong(expected, f))
+    {
+        close(f);                       /* another thread opened it first */
+        return expected;
+    }
+    return f;
+}
+
+static inline void AampAvlogPut(const uint32_t rec[13], const char *what)
+{
+    int f = AampAvlogFd();
+    if (f < 0)
+        return;
+    int rc;
+    do
+        rc = ioctl(f, AAMP_AVLOG_IOC_PUT_REC, rec);
+    while (rc < 0 && errno == EINTR);
+    AampAvlogCheck(rc < 0 ? -errno : 0, what);
+}
+
+/* FNV-1a of the DASH period id, so a record can be matched to the AAMP log line */
+static inline uint32_t AampAvlogId(const std::string &id)
+{
+    uint32_t h = 2166136261u;
+    for (unsigned char c : id)
+        h = (h ^ c) * 16777619u;
+    return h;
+}
+
+static inline void AampAvlogLoHi(uint32_t *w, double seconds)
+{
+    const uint64_t v = static_cast<uint64_t>(AampAvlogUs(seconds));
+    w[0] = static_cast<uint32_t>(v);
+    w[1] = static_cast<uint32_t>(v >> 32);
+}
+
+/* UpdatePtsOffset, new period: what AAMP read from the timeline and what it did with it */
+static inline void AampAvlogPeriod(int periodIdx, const std::string &periodId,
+                            double audioStart, double videoStart,
+                            double audioDuration, double videoDuration,
+                            double offsetStep, bool daiAd, bool adPlaying)
+{
+    uint32_t r[13] = {0};
+    r[0] = AAMP_AVLOG_TYPE_USER;
+    r[1] = AAMP_AVLOG_USER_PERIOD;
+    r[2] = 0;                                           /* media: any */
+    r[3] = 0;                                           /* flags: never arms */
+    r[4] = (static_cast<uint32_t>(periodIdx) & 0xFFFFu) |
+           (daiAd ? AAMP_AVLOG_PERIOD_DAI_AD : 0u) | (adPlaying ? AAMP_AVLOG_PERIOD_AD_PLAYING : 0u);
+    r[5] = AampAvlogId(periodId);
+    AampAvlogLoHi(&r[6], audioStart);
+    AampAvlogLoHi(&r[8], videoStart);
+    r[10] = static_cast<uint32_t>(AampAvlogUs(audioDuration));
+    r[11] = static_cast<uint32_t>(AampAvlogUs(videoDuration));
+    r[12] = static_cast<uint32_t>(static_cast<int32_t>(AampAvlogUs(offsetStep)));   /* signed */
+    AampAvlogPut(r, "AAMP_PERIOD");
+}
+
+/* FoundEventBreak: an ad break (isDAIEvent 0) or an ad (isDAIEvent 1) announced in the manifest */
+static inline void AampAvlogAd(const std::string &periodId, uint32_t durationMs, bool isDaiEvent, uint64_t startMs)
+{
+    uint32_t r[13] = {0};
+    r[0] = AAMP_AVLOG_TYPE_USER;
+    r[1] = AAMP_AVLOG_USER_AD;
+    r[2] = 0;
+    r[3] = 0;
+    r[4] = isDaiEvent ? AAMP_AVLOG_AD_AD : AAMP_AVLOG_AD_BREAK;
+    r[5] = AampAvlogId(periodId);
+    r[6] = durationMs;
+    r[7] = static_cast<uint32_t>(startMs);
+    r[8] = static_cast<uint32_t>(startMs >> 32);
+    AampAvlogPut(r, "AAMP_AD");
 }
 
 #endif /* AAMP_AVLOG_H */

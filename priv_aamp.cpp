@@ -77,6 +77,7 @@
 #include "AampTSBSessionManager.h"
 #include "SocUtils.h"
 #include "AuthTokenErrors.h"
+#include "AampAvlog.h"
 
 #define LOCAL_HOST_IP       "127.0.0.1"
 #define AAMP_MAX_TIME_BW_UNDERFLOWS_TO_TRIGGER_RETUNE_MS (20*1000LL)
@@ -9663,6 +9664,7 @@ void PrivateInstanceAAMP::FoundEventBreak(const std::string &adBreakId, uint64_t
 	if(ISCONFIGSET_PRIV(eAAMPConfig_EnableClientDai) && !adBreakId.empty())
 	{
 		AAMPLOG_WARN("[CDAI] Found Adbreak on period[%s] Duration[%d] isDAIEvent[%d]", adBreakId.c_str(), brInfo.duration, brInfo.isDAIEvent);
+		AampAvlogAd(adBreakId, brInfo.duration, brInfo.isDAIEvent, startMS);	// avlog
 		if (brInfo.isDAIEvent)
 		{
 			std::string adId("");

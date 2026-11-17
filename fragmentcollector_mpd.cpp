@@ -52,6 +52,7 @@
 #include "AampMPDUtils.h"
 #include <chrono>
 #include "AampTSBSessionManager.h"
+#include "AampAvlog.h"
 //#define DEBUG_TIMELINE
 #include "PlayerCCManager.h"
 
@@ -9725,6 +9726,10 @@ void StreamAbstractionAAMP_MPD::GetStartAndDurationForPtsRestamping(AampTime &st
 
 	AAMPLOG_INFO("Idx %d Id %s aDur %f vDur %f aStart %f vStart %f",
 				 mCurrentPeriodIdx, period->GetId().c_str(), audioDuration.inSeconds(), videoDuration.inSeconds(), audioStart.inSeconds(), videoStart.inSeconds());
+	mAvlogAudioStart = audioStart.inSeconds();
+	mAvlogVideoStart = videoStart.inSeconds();
+	mAvlogAudioDuration = audioDuration.inSeconds();
+	mAvlogVideoDuration = videoDuration.inSeconds();
 
 	/* Should get here last manifest update before a period change
 	 * On live manifests the duration of the current period can be increasing as more segments
@@ -9794,10 +9799,16 @@ void StreamAbstractionAAMP_MPD::UpdatePtsOffset(bool isNewPeriod)
 			mNextPts += timelineStart - newStart;
 			AAMPLOG_INFO("newStart %f timelineStart %f", newStart.inSeconds(), timelineStart.inSeconds());
 		}
+		const double avlogStep = (mNextPts - timelineStart).inSeconds();
 		mPTSOffset += mNextPts - timelineStart;
 
 		AAMPLOG_INFO("Idx %d Id %s mPTSOffsetSec %f mNextPts %f timelineStartSec %f",
 					mCurrentPeriodIdx, period->GetId().c_str(), mPTSOffset.inSeconds(), mNextPts.inSeconds(), timelineStart.inSeconds());
+		// avlog: per-track period start/duration and the offset step AAMP derives from them
+		AampAvlogPeriod(mCurrentPeriodIdx, period->GetId(), mAvlogAudioStart, mAvlogVideoStart,
+						mAvlogAudioDuration, mAvlogVideoDuration, avlogStep,
+						mCdaiObject && mCdaiObject->HasDaiAd(period->GetId()),
+						mCdaiObject && (AdState::IN_ADBREAK_AD_PLAYING == mCdaiObject->mAdState));
 	}
 
 	mNextPts = duration + timelineStart;
