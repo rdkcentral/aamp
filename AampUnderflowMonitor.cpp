@@ -313,12 +313,13 @@ void AampUnderflowMonitor::Run()
                                    rate != AAMP_SLOWMOTION_RATE  &&
                                    rate != AAMP_RATE_PAUSE);
         const bool  isSeeking   = (state == eSTATE_SEEKING);
+        const bool isDiscontinuityProcessPending = mAamp->IsDiscontinuityProcessPending();
 
-        if (isTrickplay || isSeeking)
+        if (isTrickplay || isSeeking || isDiscontinuityProcessPending)
         {
             AAMPLOG_TRACE("[video] underflow deadline expired but suppressed "
-                          "(rate=%.2f trickplay=%d seeking=%d); disarming",
-                          rate, (int)isTrickplay, (int)isSeeking);
+                          "(rate=%.2f trickplay=%d seeking=%d); discontinuityPending=%d; disarming",
+                          rate, (int)isTrickplay, (int)isSeeking, (int)isDiscontinuityProcessPending);
             mDeadlineArmed = false;
             continue;
         }
