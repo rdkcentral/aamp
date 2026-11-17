@@ -3807,7 +3807,11 @@ bool PrivateInstanceAAMP::ProcessPendingDiscontinuity()
 			// The same thread will be executing operations involving TeardownStream.
 			mpStreamAbstractionAAMP->StopInjection();
 
-			GetStreamFormat(mVideoFormat, mAudioFormat, mSubtitleFormat);
+			StreamOutputFormat videoFormat = FORMAT_INVALID;
+			StreamOutputFormat audioFormat = FORMAT_INVALID;
+			GetStreamFormat(videoFormat, audioFormat, mSubtitleFormat);
+			mVideoFormat = videoFormat;
+			mAudioFormat = audioFormat;
 
 			StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 			if (sink)
@@ -6537,8 +6541,12 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		*/
 		AAMPLOG_MIL("Updated seek_pos_seconds %f culledSeconds/start %f culledOffset %f", seek_pos_seconds, culledSeconds, culledOffset);
 
-		GetStreamFormat(mVideoFormat, mAudioFormat, mSubtitleFormat);
-		AAMPLOG_INFO("TuneHelper : mVideoFormat %d, mAudioFormat %d mSubtitleFormat %d", mVideoFormat, mAudioFormat, mSubtitleFormat);
+		StreamOutputFormat videoFormat = FORMAT_INVALID;
+		StreamOutputFormat audioFormat = FORMAT_INVALID;
+		GetStreamFormat(videoFormat, audioFormat, mSubtitleFormat);
+		mVideoFormat = videoFormat;
+		mAudioFormat = audioFormat;
+		AAMPLOG_INFO("TuneHelper : mVideoFormat %d, mAudioFormat %d mSubtitleFormat %d", videoFormat, audioFormat, mSubtitleFormat);
 
 		//Identify if HLS with mp4 fragments, to change media format
 		if (mVideoFormat == FORMAT_ISO_BMFF && mMediaFormat == eMEDIAFORMAT_HLS)
@@ -12732,7 +12740,7 @@ void PrivateInstanceAAMP::SetStreamFormat(StreamOutputFormat videoFormat, Stream
 
 bool PrivateInstanceAAMP::IsAudioOrVideoOnly(StreamOutputFormat videoFormat, StreamOutputFormat audioFormat)
 {
-	AAMPLOG_WARN("Old Stream format - videoFormat %d and audioFormat %d",mVideoFormat,mAudioFormat);
+	AAMPLOG_WARN("Old Stream format - videoFormat %d and audioFormat %d",mVideoFormat.load(),mAudioFormat.load());
 	bool ret = false;
 	if (mVideoComponentCount == 0 && (mVideoFormat != videoFormat && videoFormat == FORMAT_INVALID))
 	{
@@ -15556,10 +15564,10 @@ MediaCodecInfo PrivateInstanceAAMP::GetMediaCodecInfo(AampMediaType type)
 		switch (type)
 		{
 			case eMEDIATYPE_VIDEO:
-				codecInfo.mCodecFormat = static_cast<GstStreamOutputFormat>(mVideoFormat);
+				codecInfo.mCodecFormat = static_cast<GstStreamOutputFormat>(mVideoFormat.load());
 				break;
 			case eMEDIATYPE_AUDIO:
-				codecInfo.mCodecFormat = static_cast<GstStreamOutputFormat>(mAudioFormat);
+				codecInfo.mCodecFormat = static_cast<GstStreamOutputFormat>(mAudioFormat.load());
 				break;
 			case eMEDIATYPE_SUBTITLE:
 				codecInfo.mCodecFormat = static_cast<GstStreamOutputFormat>(mSubtitleFormat);
