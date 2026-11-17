@@ -625,8 +625,8 @@ TEST_P(CacheEncryptedHeaderMp4DemuxTest,
 INSTANTIATE_TEST_SUITE_P(UseMp4Demux, CacheEncryptedHeaderMp4DemuxTest, ::testing::Bool());
 
 /**
- * @brief When UseMp4Demux is disabled, CacheFragment must be called directly
- *        with the correct headerUrl (1st arg) and isInitSegment=true (6th arg),
+ * @brief When UseMp4Demux is disabled, DownloadFragment must still be used and
+ *        called with the correct headerUrl (1st arg) and isInitSegment=true (6th arg),
  *        and mActiveDownloadInfo must be cleared after the call regardless of
  *        the download result.
  */
@@ -641,8 +641,8 @@ TEST_F(StreamAbstractionAAMP_MPD_Test,
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseMp4Demux))
 		.WillRepeatedly(Return(false));
 
-	// CacheFragment is called directly; verify the correct URL is forwarded (1st arg)
-	// and isInitSegment=true (6th arg).
+	// DownloadFragment fakes through to g_mockMediaStreamContext->CacheFragment.
+	// Verify the correct URL is forwarded (1st arg) and isInitSegment=true (6th arg).
 	EXPECT_CALL(*g_mockMediaStreamContext,
 		CacheFragment(headerUrl, _, _, _, _, /*initSegment=*/true, _, _, _))
 		.WillOnce(Return(true));

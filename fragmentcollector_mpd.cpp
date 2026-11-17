@@ -9534,14 +9534,14 @@ void StreamAbstractionAAMP_MPD::CacheEncryptedHeader(int trackIdx, std::string h
 			/* Stamp the download descriptor with the originating track type so that
 			 * downstream consumers (DRM context, segment parser) can associate the
 			 * fetched buffer with the correct media type.
-			 * When UseMp4Demux is active the encrypted init segment must be fetched
-			 * through DownloadFragment rather than CacheFragment: DownloadFragment
-			 * owns its own curl connection slot (identified by curlInstance, which is
-			 * offset from eCURLINSTANCE_VIDEO by the track's media-type ordinal so
-			 * each track uses a dedicated slot), and it delivers the raw MP4 init box
-			 * directly to the demuxer.  OnFragmentDownloadComplete is then called to
-			 * drive any post-download bookkeeping (profile/discontinuity reset, etc.).
-			 * Without UseMp4Demux the legacy CacheFragment path is taken instead. */
+			 * The encrypted init segment is fetched through DownloadFragment rather
+			 * than CacheFragment, regardless of UseMp4Demux: DownloadFragment owns its
+			 * own curl connection slot (identified by curlInstance, which is offset
+			 * from eCURLINSTANCE_VIDEO by the track's media-type ordinal so each track
+			 * uses a dedicated slot), and the downloaded header is injected rather than
+			 * only cached, so the pipeline can negotiate caps for the encrypted stream.
+			 * OnFragmentDownloadComplete is then called to drive any post-download
+			 * bookkeeping (profile/discontinuity reset, etc.). */
 			downloadInfo->mediaType = static_cast<AampMediaType>(trackIdx);
 			downloadInfo->curlInstance = static_cast<AampCurlInstance>(eCURLINSTANCE_VIDEO + mMediaStreamContext[trackIdx]->mediaType);
 			downloadInfo->uriList[0] = URIInfo(headerUrl);
