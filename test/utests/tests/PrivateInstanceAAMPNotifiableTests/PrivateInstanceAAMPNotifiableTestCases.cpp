@@ -240,10 +240,13 @@ TEST_F(PrivateInstanceAAMPNotifiableTest,
 	PrivateInstanceAAMP aampWithConfig(&config);
 	PrivateInstanceAAMPNotifiable notifiable(&aampWithConfig);
 
-	// Underflow monitor disabled: ScheduleRetune should be invoked (no-op in fake).
+	// Underflow monitor disabled: the task must request an underflow retune.
 	EXPECT_CALL(*g_mockAampConfig,
 		IsConfigSet(eAAMPConfig_EnableAampUnderflowMonitor))
 		.WillOnce(Return(false));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+		ScheduleRetune(eGST_ERROR_UNDERFLOW, eMEDIATYPE_VIDEO))
+		.Times(1);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP,
 		ScheduleAsyncTask(_, _, std::string("NotifyBufferUnderflow")))
 		.WillOnce([](IdleTask task, void *arg, std::string) -> int {
@@ -261,12 +264,11 @@ TEST_F(PrivateInstanceAAMPNotifiableTest,
 	PrivateInstanceAAMP aampWithConfig(&config);
 	PrivateInstanceAAMPNotifiable notifiable(&aampWithConfig);
 
-	// ScheduleRetune is a no-op fake and not mockable, so this only verifies
-	// the task is dispatched and takes the "monitor enabled" config branch,
-	// not that ScheduleRetune itself was skipped.
+	// Underflow monitor enabled: it owns underflow handling, so no retune.
 	EXPECT_CALL(*g_mockAampConfig,
 		IsConfigSet(eAAMPConfig_EnableAampUnderflowMonitor))
 		.WillOnce(Return(true));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, ScheduleRetune(_, _)).Times(0);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP,
 		ScheduleAsyncTask(_, _, std::string("NotifyBufferUnderflow")))
 		.WillOnce([](IdleTask task, void *arg, std::string) -> int {
@@ -313,8 +315,10 @@ TEST_F(PrivateInstanceAAMPNotifiableTest,
 	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(&m_aamp))
 		.WillOnce(Return(&mockSink));
 	EXPECT_CALL(mockSink, SetVideoMute(true));
-	// ScheduleRetune is a no-op fake and not mockable, so this only verifies
-	// the task is dispatched and mutes the sink before requesting a retune.
+	// The task must mute the sink, then request an output-protection retune.
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+		ScheduleRetune(eGST_ERROR_OUTPUT_PROTECTION_ERROR, eMEDIATYPE_VIDEO))
+		.Times(1);
 	// Must mute the sink only, not the persistent app-level video_muted flag -
 	// otherwise TuneHelper() re-applies mute forever on the retuned pipeline.
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetVideoMute(_)).Times(0);
@@ -335,9 +339,12 @@ TEST_F(PrivateInstanceAAMPNotifiableTest,
 TEST_F(PrivateInstanceAAMPNotifiableTest,
 	NotifyPipelineFailure_SchedulesRetuneTask)
 {
-	// ScheduleRetune is a no-op fake and not mockable, so this verifies the
-	// retune is dispatched asynchronously (never from the Rialto callback
-	// thread) and that running the task is safe.
+	// The retune must be dispatched asynchronously (never from the Rialto
+	// callback thread) and, when the task runs, request a video pipeline
+	// recovery.
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+		ScheduleRetune(eGST_ERROR_GST_PIPELINE_INTERNAL, eMEDIATYPE_VIDEO))
+		.Times(1);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP,
 		ScheduleAsyncTask(_, _, std::string("NotifyPipelineFailure")))
 		.WillOnce([](IdleTask task, void *arg, std::string) -> int {
