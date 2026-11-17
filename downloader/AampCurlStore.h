@@ -317,6 +317,15 @@ struct CurlCallbackContext
 	size_t synthesizeIframeByteCap = 0;    /**< Computed cap (moofSize+8+firstSampleSize); 0 until MOOF fully buffered */
 	BitsPerSecond profileBps = 0; /**< Current video profile bits per second used for early abort calculation*/
 	uint64_t chunkDurationInTicks = 0; /**< Duration of the current chunk in ticks, used while caching chunks */
+	long long downloadUpdatedTime = -1;
+	int startTimeout = -1;
+	int stallTimeout = -1;
+	int lowBWTimeout = -1;
+	double downloadSize = -1;
+	double downloadNow = -1;
+	long long downloadNowUpdatedTime = -1;
+	bool dlStarted = false;
+	int fragmentDurationMs = -1;
 
 	/**
 	 * @brief Constructor to initialize CurlCallbackContext
@@ -350,37 +359,9 @@ struct CurlCallbackContext
 		downloadIsEncoded = false;
 		contentLength = 0;
 		bitrate = 0;
+		downloadUpdatedTime = -1;
+		downloadSize = -1;
 	}
-};
-
-/**
- * @struct CurlProgressCbContext
- * @brief context during curl progress callbacks
- */
-struct CurlProgressCbContext
-{
-	PrivateInstanceAAMP *aamp;
-	AampMediaType mediaType;
-	CurlProgressCbContext() : aamp(NULL), mediaType(eMEDIATYPE_DEFAULT), downloadStartTime(-1), abortReason(eCURL_ABORT_REASON_NONE), downloadUpdatedTime(-1), startTimeout(-1), stallTimeout(-1), downloadSize(-1), downloadNow(-1), downloadNowUpdatedTime(-1), dlStarted(false), fragmentDurationMs(-1), remoteUrl(""), lowBWTimeout(-1) {}
-	CurlProgressCbContext(PrivateInstanceAAMP *_aamp, long long _downloadStartTime) : aamp(_aamp), mediaType(eMEDIATYPE_DEFAULT),downloadStartTime(_downloadStartTime), abortReason(eCURL_ABORT_REASON_NONE), downloadUpdatedTime(-1), startTimeout(-1), stallTimeout(-1), downloadSize(-1), downloadNow(-1), downloadNowUpdatedTime(-1), dlStarted(false), fragmentDurationMs(-1), remoteUrl(""), lowBWTimeout(-1) {}
-
-	~CurlProgressCbContext() {}
-
-	CurlProgressCbContext(const CurlProgressCbContext &other) = delete;
-	CurlProgressCbContext& operator=(const CurlProgressCbContext& other) = delete;
-
-	long long downloadStartTime;
-	long long downloadUpdatedTime;
-	int startTimeout;
-	int stallTimeout;
-	int lowBWTimeout;
-	double downloadSize;
-	CurlAbortReason abortReason;
-	double downloadNow;
-	long long downloadNowUpdatedTime;
-	bool dlStarted;
-	int fragmentDurationMs;
-	std::string remoteUrl;
 };
 
 int GetCurlResponseCode( CURL *curlhandle );
