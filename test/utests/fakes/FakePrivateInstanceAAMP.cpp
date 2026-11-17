@@ -182,7 +182,10 @@ int PrivateInstanceAAMP::HandleSSLProgressCallback ( void *clientp, double dltot
 
 void PrivateInstanceAAMP::SetBufferingState(bool buffering)
 {
-	(void)buffering;
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		g_mockPrivateInstanceAAMP->SetBufferingState(buffering);
+	}
 }
 
 void PrivateInstanceAAMP::UpdateUseSinglePipeline( void )
@@ -1260,6 +1263,10 @@ bool PrivateInstanceAAMP::IsDiscontinuityIgnoredForCurrentTrack(AampMediaType tr
 
 bool PrivateInstanceAAMP::IsDiscontinuityProcessPending()
 {
+    if (g_mockPrivateInstanceAAMP != nullptr)
+    {
+        return g_mockPrivateInstanceAAMP->IsDiscontinuityProcessPending();
+    }
     return true;
 }
 
