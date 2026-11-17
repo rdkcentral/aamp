@@ -48,7 +48,6 @@ set(MOCK_SOURCES ${DRM_ROOT}/mocks/aampMocks.cpp
   				 ${DRM_ROOT}/mocks/FakeID3Metadata.cpp
 				 ${DRM_ROOT}/mocks/FakeAampStreamSinkManager.cpp
 				 ${DRM_ROOT}/mocks/curlMocks.c	
-				 ${DRM_ROOT}/mocks/pthreadMocks.c
 				 ${DRM_ROOT}/mocks/openSslMocks.c)
 
 set(FAKE_SOURCES ${UTESTS_ROOT}/fakes/FakeAampRfc.cpp
