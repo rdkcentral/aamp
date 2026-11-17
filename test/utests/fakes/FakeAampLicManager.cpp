@@ -99,9 +99,9 @@ bool AampDRMLicenseManager::QueueContentProtection(DrmHelperPtr drmHelper, std::
 {
     if (g_mockAampLicenseManager)
     {
-        return g_mockAampLicenseManager->queueContentProtection(std::move(drmHelper), std::move(periodId), adapIdx, type, isVssPeriod);
+	return g_mockAampLicenseManager->queueContentProtection(std::move(drmHelper), std::move(periodId), adapIdx, type, isVssPeriod);
     }
-	return false;
+    return false;
 }
 
 bool AampDRMLicenseManager::IsKeyIdProcessed(const std::vector<uint8_t>&, bool&)

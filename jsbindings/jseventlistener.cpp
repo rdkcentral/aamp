@@ -385,6 +385,10 @@ public:
 		JSObjectSetProperty(mContext, jsEventObj, prop, JSValueMakeNumber(mContext, evt->getProducerReferenceClockOffset()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
+		prop = JSStringCreateWithUTF8CString("producerReferenceClockOffset");
+		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getProducerReferenceClockOffset()), kJSPropertyAttributeReadOnly, NULL);
+		JSStringRelease(prop);
+
 		prop = JSStringCreateWithUTF8CString("width");
 		JSObjectSetProperty(mContext, jsEventObj, prop, JSValueMakeNumber(mContext, evt->getWidth()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);

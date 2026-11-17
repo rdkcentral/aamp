@@ -42,7 +42,6 @@
 #include "MockAampLicManager.h"
 #include "MockDrmHelper.h"
 
-
 using ::testing::_;
 using ::testing::An;
 using ::testing::AtLeast;
