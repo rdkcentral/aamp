@@ -1458,11 +1458,14 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 		AAMPLOG_DEBUG("%s - injected cached fragment at pos %f dur %f", name, cachedFragment->position, cachedFragment->duration);
 		if (!fragmentDiscarded)
 		{
+			AAMPLOG_WARN("vk::m4 [%s] WAIT track params mutex=%p", name, static_cast<void*>(&mTrackParamsMutex));
 			std::lock_guard<std::mutex> lock(mTrackParamsMutex);
+			AAMPLOG_WARN("vk::m4 [%s] ACQUIRED track params mutex=%p", name, static_cast<void*>(&mTrackParamsMutex));
 			totalInjectedDuration += cachedFragment->duration;
 			lastInjectedPosition = cachedFragment->absPosition;
 			lastInjectedDuration = cachedFragment->absPosition + cachedFragment->duration;
 			mSegInjectFailCount = 0;
+			AAMPLOG_WARN("vk::m4 [%s] RELEASING track params mutex=%p on scope exit", name, static_cast<void*>(&mTrackParamsMutex));
 		}
 		else
 		{
@@ -1723,11 +1726,14 @@ void MediaTrack::RunInjectLoop()
 		}
 	}
 	{
+		AAMPLOG_WARN("vk::m4 [%s] WAIT track params mutex=%p", name, static_cast<void*>(&mTrackParamsMutex));
 		std::lock_guard<std::mutex> lock(mTrackParamsMutex);
+		AAMPLOG_WARN("vk::m4 [%s] ACQUIRED track params mutex=%p", name, static_cast<void*>(&mTrackParamsMutex));
 		totalInjectedDuration = 0;
 		totalInjectedChunksDuration = 0;
 		lastInjectedPosition = 0;
 		lastInjectedDuration = 0;
+		AAMPLOG_WARN("vk::m4 [%s] RELEASING track params mutex=%p on scope exit", name, static_cast<void*>(&mTrackParamsMutex));
 	}
 	while (aamp->DownloadsAreEnabled() && keepInjecting)
 	{
@@ -2002,10 +2008,13 @@ void MediaTrack::FlushFragments()
 		lastInjectedDuration = 0;
 		if( ( type == eTRACK_AUDIO && !loadNewAudio ) || ( type == eTRACK_SUBTITLE && !loadNewSubtitle ) )
 		{
+			AAMPLOG_WARN("vk::m4 [%s] WAIT track params mutex=%p", name, static_cast<void*>(&mTrackParamsMutex));
 			std::lock_guard<std::mutex> lock(mTrackParamsMutex);
+			AAMPLOG_WARN("vk::m4 [%s] ACQUIRED track params mutex=%p", name, static_cast<void*>(&mTrackParamsMutex));
 			totalFetchedDuration = 0;
 			totalFragmentsDownloaded = 0;
 			totalInjectedDuration = 0;
+			AAMPLOG_WARN("vk::m4 [%s] RELEASING track params mutex=%p on scope exit", name, static_cast<void*>(&mTrackParamsMutex));
 		}
 	}
 }
@@ -2017,7 +2026,9 @@ void MediaTrack::FlushFragments()
  */
 void MediaTrack::OffsetTrackParams(double deltaFetchedDuration, double deltaInjectedDuration, int deltaFragmentsDownloaded)
 {
+	AAMPLOG_WARN("vk::m4 [%s] WAIT track params mutex=%p", name, static_cast<void*>(&mTrackParamsMutex));
 	std::lock_guard<std::mutex> lock(mTrackParamsMutex);
+	AAMPLOG_WARN("vk::m4 [%s] ACQUIRED track params mutex=%p", name, static_cast<void*>(&mTrackParamsMutex));
 	AAMPLOG_MIL("Before Track Change totalFetchedDuration %lf totalInjectedDuration %lf totalFragmentsDownloaded:%d", totalFetchedDuration, totalInjectedDuration, totalFragmentsDownloaded);
 
 	totalFetchedDuration -= deltaFetchedDuration;
@@ -2026,6 +2037,7 @@ void MediaTrack::OffsetTrackParams(double deltaFetchedDuration, double deltaInje
 	totalFragmentsDownloaded -= deltaFragmentsDownloaded;
 
 	AAMPLOG_MIL("New totalFetchedDuration %lf totalInjectedDuration %lf totalFragmentsDownloaded:%d", totalFetchedDuration, totalInjectedDuration, totalFragmentsDownloaded);
+	AAMPLOG_WARN("vk::m4 [%s] RELEASING track params mutex=%p on scope exit", name, static_cast<void*>(&mTrackParamsMutex));
 }
 
 /**
@@ -3049,11 +3061,14 @@ void StreamAbstractionAAMP::CheckForPlaybackStall(bool fragmentParsed)
  */
 void StreamAbstractionAAMP::NotifyFirstFragmentInjected()
 {
+	AAMPLOG_WARN("vk::m5 ENTER NotifyFirstFragmentInjected WAIT mutex=%p", static_cast<void*>(&mLock));
 	std::lock_guard<std::mutex> guard(mLock);
+	AAMPLOG_WARN("vk::m5 ACQUIRED NotifyFirstFragmentInjected mutex=%p", static_cast<void*>(&mLock));
 	mIsPaused = false;
 	mLastPausedTimeStamp = -1;
 	mTotalPausedDurationMS = 0;
 	mStartTimeStamp = aamp_GetCurrentTimeMS();
+	AAMPLOG_WARN("vk::m5 EXIT NotifyFirstFragmentInjected; mutex=%p released on scope exit", static_cast<void*>(&mLock));
 }
 
 /**
@@ -4623,12 +4638,15 @@ int MediaTrack::WaitTimeBasedOnBufferAvailable()
  */
 double MediaTrack::GetTotalInjectedDuration()
 {
+	AAMPLOG_WARN("vk::m4 [%s] WAIT track params mutex=%p", name, static_cast<void*>(&mTrackParamsMutex));
 	std::lock_guard<std::mutex> lock(mTrackParamsMutex);
+	AAMPLOG_WARN("vk::m4 [%s] ACQUIRED track params mutex=%p", name, static_cast<void*>(&mTrackParamsMutex));
 	double ret = totalInjectedDuration;
 	if (aamp->GetLLDashChunkMode())
 	{
 		ret = totalInjectedChunksDuration;
 	}
+	AAMPLOG_WARN("vk::m4 [%s] RELEASING track params mutex=%p on return", name, static_cast<void*>(&mTrackParamsMutex));
 	return ret;
 }
 
@@ -4682,8 +4700,11 @@ void MediaTrack::HandleFragmentPositionJump(CachedFragment* cachedFragment)
 		{
 			// Update the total injected duration
 			{
+				AAMPLOG_WARN("vk::m4 [%s] WAIT track params mutex=%p", name, static_cast<void*>(&mTrackParamsMutex));
 				std::lock_guard<std::mutex> lock(mTrackParamsMutex);
+				AAMPLOG_WARN("vk::m4 [%s] ACQUIRED track params mutex=%p", name, static_cast<void*>(&mTrackParamsMutex));
 				totalInjectedDuration += positionDelta;
+				AAMPLOG_WARN("vk::m4 [%s] RELEASING track params mutex=%p on scope exit", name, static_cast<void*>(&mTrackParamsMutex));
 			}
 			if (type != eTRACK_SUBTITLE)
 			{
