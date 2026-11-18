@@ -84,10 +84,11 @@ AampRialtoVideoSource::createRialtoSource(
 	// audio. Forcing true here unconditionally avoided a Rialto Server crash seen
 	// during testing. Revisit and mirror that HLS-TS exception if/when we see an
 	// actual issue with clear HLS-TS streams under Direct Rialto.
+	AAMPLOG_WARN("AampRialtoVideoSource::createRialtoSource: forcing hasDrm false");
 	return std::make_unique<
 		firebolt::rialto::IMediaPipeline::MediaSourceVideo>(
 		mimeType,
-		/* hasDrm */ true,
+		/* hasDrm */ false,
 		static_cast<int32_t>(codecInfo.mInfo.video.mWidth),
 		static_cast<int32_t>(codecInfo.mInfo.video.mHeight),
 		firebolt::rialto::SegmentAlignment::AU,

@@ -1365,27 +1365,8 @@ void AampRialtoPlayer::CheckAllSourcesAttached()
 
 		if (m_playRequested.load(std::memory_order_seq_cst))
 		{
-			//AAMPLOG_INFO("play() deferred by Stream() - issuing now");
-			m_playRequested.store(false, std::memory_order_relaxed);
-
-			// EXPERIMENT: issue a pipeline-level setPosition to the staged
-			// start position before play(), for non-zero starts only.
-			// SEEK_DONE for this call is ignored by OnPlaybackState()
-			// because the state machine is not in FLUSHING.
-			const int64_t startPosNs =
-				m_pendingPositionNs.load(std::memory_order_relaxed);
-			if (startPosNs > 0)
-			{
-				AAMPLOG_WARN("EXPERIMENT: pipeline setPosition posNs=%" PRId64
-					" before play()", startPosNs);
-				if (!m_pipeline->setPosition(startPosNs))
-				{
-					AAMPLOG_WARN("EXPERIMENT: setPosition failed posNs=%" PRId64,
-						startPosNs);
-				}
-			}
-
 			AAMPLOG_INFO("play() deferred by Stream() - issuing now");
+			m_playRequested.store(false, std::memory_order_relaxed);
 			UngateAllSources("CheckAllSourcesAttached");
 			bool async = false;
 			if (!m_pipeline->play(async))
