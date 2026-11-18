@@ -11495,6 +11495,14 @@ void PrivateInstanceAAMP::NotifyFirstVideoFrameDisplayed()
 			return;
 		}
 
+		bool bufferReady = (GetBufferedDurationSecs() > 0);
+		if(!bufferReady)
+		{
+				AAMPLOG_INFO("Skipping pause on first frame displayed; seek buffer is not ready");
+				SetState(eSTATE_PLAYING);
+				return;
+		}
+
 		AAMPLOG_INFO("Pausing Playback on First Frame Displayed");
 		if(mpStreamAbstractionAAMP)
 		{
@@ -15054,6 +15062,7 @@ double PrivateInstanceAAMP::GetBufferedDurationSecs()
 	std::unique_lock<std::recursive_mutex> lock(mStreamLock, std::try_to_lock);
 	if (lock.owns_lock() && mpStreamAbstractionAAMP)
 	{
+		AAMPLOG_INFO("BufferDuration : %f",mpStreamAbstractionAAMP->GetBufferedDuration());
 		return mpStreamAbstractionAAMP->GetBufferedDuration();
 	}
 	// Return a negative sentinel so callers can distinguish a genuine empty
