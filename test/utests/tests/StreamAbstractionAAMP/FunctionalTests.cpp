@@ -288,6 +288,58 @@ TEST_F(StreamAbstractionAAMP_Test, UpdateTSAfterFetchStats_DoesNotRestoreLatency
 }
 
 /**
+ * @brief Caching is not required in this suite (fake IsFragmentCachingRequired()
+ *        returns false), which mirrors the seek-while-paused window: fragments
+ *        are accumulated but UpdateTSAfterFetchStats() never completes caching.
+ *        CompleteInitialCachingIfTargetMet() must then report the target as
+ *        met only once enough duration has accumulated.
+ *        Called via MediaTrack* as the mock class hides the real method.
+ */
+TEST_F(StreamAbstractionAAMP_Test, CompleteInitialCachingIfTargetMet_FalseUntilTargetReached)
+{
+	MediaTrack *videoTrack = mStreamAbstractionAAMP->mMockVideoTrack;
+	CachedFragment cachedFragment;
+	cachedFragment.duration = 2.0;
+	const int target = 6;
+
+	EXPECT_FALSE(videoTrack->CompleteInitialCachingIfTargetMet(target));
+
+	videoTrack->UpdateTSAfterFetchStats(&cachedFragment, false);
+	videoTrack->UpdateTSAfterFetchStats(&cachedFragment, false);
+	EXPECT_FALSE(videoTrack->CompleteInitialCachingIfTargetMet(target));
+
+	videoTrack->UpdateTSAfterFetchStats(&cachedFragment, false);
+	EXPECT_TRUE(videoTrack->CompleteInitialCachingIfTargetMet(target));
+}
+
+/**
+ * @brief Once caching is completed it stays completed, whatever target is
+ *        asked for afterwards.
+ */
+TEST_F(StreamAbstractionAAMP_Test, CompleteInitialCachingIfTargetMet_StaysCompleteOnceMet)
+{
+	MediaTrack *videoTrack = mStreamAbstractionAAMP->mMockVideoTrack;
+	CachedFragment cachedFragment;
+	cachedFragment.duration = 2.0;
+
+	videoTrack->UpdateTSAfterFetchStats(&cachedFragment, false);
+	videoTrack->UpdateTSAfterFetchStats(&cachedFragment, false);
+
+	EXPECT_TRUE(videoTrack->CompleteInitialCachingIfTargetMet(4));
+	EXPECT_TRUE(videoTrack->CompleteInitialCachingIfTargetMet(100));
+}
+
+/**
+ * @brief A zero target (initialBuffer reset to 0) is always satisfied.
+ */
+TEST_F(StreamAbstractionAAMP_Test, CompleteInitialCachingIfTargetMet_ZeroTargetIsMet)
+{
+	MediaTrack *videoTrack = mStreamAbstractionAAMP->mMockVideoTrack;
+
+	EXPECT_TRUE(videoTrack->CompleteInitialCachingIfTargetMet(0));
+}
+
+/**
  * @brief Verify GetBufferedAudioDurationSec() reports audio track buffer
  *        duration when the audio track is enabled.
  */

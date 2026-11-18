@@ -210,7 +210,7 @@ protected:
 	class TestableStreamAbstractionAAMP_MPD : public StreamAbstractionAAMP_MPD
 	{
 	public:
-		int mProfileCount;
+		int mProfileCount{0};
 		// Constructor to pass parameters to the base class constructor
 		TestableStreamAbstractionAAMP_MPD(PrivateInstanceAAMP *aamp,
 										  double seekpos, float rate)
@@ -305,7 +305,12 @@ protected:
 
 		void SetNumberOfTracks(int numTracks)
 		{
-			mNumberOfTracks = numTracks;
+			// The first numTracks slots (video, audio, subtitle) become active
+			mActiveTracks.Clear();
+			for (int i = 0; i < numTracks; ++i)
+			{
+				mActiveTracks.Add(static_cast<AampMediaType>(i));
+			}
 		}
 
 		int GetProfileCount()
