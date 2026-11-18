@@ -40,7 +40,7 @@
  *
  * Every valid transition is logged at MILESTONE level via AAMPLOG_MIL.  The
  * transitions are one table in AampPlayerStateMachine.cpp, drawn in
- * docs/diagrams/direct-rialto-state-machine.puml.
+ * docs/direct-rialto/02-player-lifecycle-and-state-machines.md.
  */
 
 #ifndef AAMP_PLAYER_STATE_MACHINE_H

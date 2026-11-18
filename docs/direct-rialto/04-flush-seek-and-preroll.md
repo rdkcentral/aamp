@@ -54,10 +54,107 @@ safely.
 
 ## 2. Flush/seek flow step by step
 
-[[diagram:direct-rialto-flush-seek-sequence]]
+```mermaid
+sequenceDiagram
+    participant CT as AAMP control thread<br/>(or injector thread for a<br/>deferred flush)
+    participant P as AampRialtoPlayer
+    participant SM as PlayerStateMachine
+    participant PC as AampRialtoPlaybackController
+    participant SRC as Media sources<br/>(video/audio/subtitle)
+    participant RP as Rialto pipeline
+    participant ET as Rialto event thread
+    CT->>P: Flush(position, rate,<br/>shouldTearDown, authoritative)
+    P->>P: lock m_flushCallMutex<br/>(recursive, held to the end of Flush)
+    P->>SM: waitForFlushComplete(timeout)
+    Note right of SM: Returns at once unless a previous flush is still in<br/>FLUSHING.  If SEEK_DONE does not arrive within the<br/>timeout the previous flush is abandoned: state leaves<br/>FLUSHING, the staged rate is committed and the<br/>Flushing hold is released.
+    P->>PC: AddHold(Flushing)
+    P->>P: stage position / rate / authority<br/>(AampRialtoSegmentPosition)
+    P->>PC: ReleaseHold(PositionPending)
+    alt state not PLAYING / PAUSED / SOURCES_ATTACHED / FLUSHED
+        alt shouldTearDown
+            P->>P: StopInternal(true)
+        else 
+            P->>SRC: unblockInjection + gateInjection(false)<br/>(rate committed, no flush cycle)
+        end
+        P->>PC: ReleaseHold(Flushing)
+        P-->>CT: return
+    else flushable
+        P->>SM: onFlush()  [-#gt; FLUSHING]
+        P->>P: ArmPreRoll(rate)
+        P->>SRC: unblockInjection()<br/>(generation++, gate DROPPED)
+        P->>SRC: gateInjection(true)<br/>(gate BLOCKED: hold new data)
+        alt pipeline present
+            P->>RP: setPosition(posNs)
+            alt setPosition fails
+                P->>SM: onFlushComplete()  [-#gt; FLUSHED]
+                P->>PC: ReleaseHold(Flushing)
+            end
+        else no pipeline
+            P->>SM: onFlushComplete()  [-#gt; FLUSHED]
+            P->>PC: ReleaseHold(Flushing)
+        end
+        P-->>CT: return (Flush done#59; seek still in flight)
+    end
+    Note over CT,ET: Rialto completes the seek asynchronously
+    RP->>ET: PlaybackState::SEEK_DONE
+    ET->>P: HandleSeekDone()
+    P->>P: apply trickplay / subtitle segment position,<br/>commit rate, commit segment baseline
+    P->>PC: ReleaseHold(Flushing)<br/>(still FLUSHING, so a Flush() waiting<br/>in WaitForComplete cannot interleave)
+    alt play requested and no other hold left
+        PC->>P: play action: IssuePlay()
+        P->>SRC: gateInjection(false)  (UngateAllSources)
+        P->>RP: play()
+    end
+    P->>SM: onFlushComplete()  [FLUSHING -#gt; FLUSHED]
+    SM->>SM: notify_all  (wakes Configure()/Stop()/Flush() waiting)
+    RP->>ET: PlaybackState::PLAYING / PAUSED
+    ET->>SM: onPlaybackStarted / onPlaybackPaused<br/>[FLUSHED -#gt; PLAYING / PAUSED]
+    Note over CT,ET: Failure while flushing
+    RP->>ET: PlaybackState::FAILURE
+    ET->>P: HandlePlaybackFailure()
+    P->>SM: onError()  [-#gt; ERROR]
+    SM->>SM: notify_all  (waiters wake, no timeout needed)
+```
+
 *The flushable path of `AampRialtoPlayer::Flush()` and its completion on SEEK_DONE, with threads and holds.*
 
-[[diagram:direct-rialto-flush-cycle-activity]]
+```mermaid
+flowchart TD
+    start(["Flush(position, rate, shouldTearDown, authoritative)"])
+    a1["lock m_flushCallMutex (recursive)"]
+    a2["WaitForFlushToComplete()<br/>(up to 5000 ms, abandons the previous cycle on timeout)"]
+    a3["AddHold(Flushing)<br/>(waits for any running play() or pre-roll step)"]
+    a4["StageRequested(pos, rate, authoritative)<br/>ReleaseHold(PositionPending)"]
+    d1{"state is PLAYING, PAUSED,<br/>SOURCES_ATTACHED or FLUSHED?"}
+    f1["onFlush(): FLUSHING<br/>ArmPreRoll(rate): stop monitor, add or<br/>release PreRollIncomplete"]
+    f2["ResetSourcesForFlush(gate=true):<br/>unblockInjection (generation++, DROPPED,<br/>EOS for audio and subtitle if rate != 1),<br/>then gate BLOCKED"]
+    d2{"pipeline present?"}
+    d3{"setPosition(pos)<br/>succeeds?"}
+    seek(["return: SEEK_DONE completes the cycle<br/>on the Rialto event thread"])
+    warn["WARN"]
+    early["commit staged rate<br/>onFlushComplete(): FLUSHED"]
+    rel1(["ReleaseHold(Flushing)"])
+    d4{"shouldTearDown?"}
+    d5{"state IDLE and<br/>no pipeline?"}
+    log["log only<br/>(pre-Configure seek pre-stage)"]
+    tear["FlushByTeardown: StopInternal(keepLastFrame=true,<br/>preservePendingPosition=true)"]
+    bypass["FlushWithoutCycle: commit rate now,<br/>ResetSourcesForFlush(gate=false)"]
+    rel2(["ReleaseHold(Flushing)"])
+
+    start --> a1 --> a2 --> a3 --> a4 --> d1
+    d1 -- flushable --> f1 --> f2 --> d2
+    d2 -- yes --> d3
+    d2 -- no --> early
+    d3 -- yes --> seek
+    d3 -- no --> warn --> early
+    early --> rel1
+    d1 -- not flushable --> d4
+    d4 -- yes --> d5
+    d5 -- yes --> log --> rel2
+    d5 -- no --> tear --> rel2
+    d4 -- no --> bypass --> rel2
+```
+
 *Decision flow of one `Flush()` call, including every early exit.*
 
 **Calling thread:** the AAMP control thread (tune, seek, discontinuity,
@@ -255,7 +352,42 @@ See the Media data path page, section 7, for the stage/commit/elect model of
 
 ## 5. Rapid second seek
 
-[[diagram:direct-rialto-flush-rapid-second-seek-sequence]]
+```mermaid
+sequenceDiagram
+    participant CT as AAMP control<br/>thread
+    participant P as AampRialtoPlayer
+    participant PC as PlaybackController<br/>(play lock)
+    participant SM as PlayerStateMachine
+    participant R as Rialto
+    participant EV as Rialto event<br/>thread
+    Note over P,SM: Flush A has returned: state FLUSHING, Flushing hold set,<br/>A's position and rate staged
+    CT->>P: Flush B(posB, rateB)
+    P->>P: lock m_flushCallMutex (free)
+    P->>SM: waitForFlushComplete()
+    Note right of SM: B blocks#59; nothing of B<br/>is staged yet
+    R->>EV: SEEK_DONE (A)
+    EV->>P: HandleSeekDone()
+    P->>P: commit A's rate and baseline
+    P->>PC: ReleaseHold(Flushing)
+    alt play request pending, no other hold
+        PC->>R: ungate, play()  (A's position)
+    end
+    P->>SM: onFlushComplete() -#gt; FLUSHED
+    SM-->>P: wake B
+    P->>PC: AddHold(Flushing)
+    Note right of PC: waits on the play lock until<br/>A's play() has finished, so it<br/>cannot ungate after B gates
+    P->>P: stage posB, rateB
+    P->>SM: FLUSHED is flushable: onFlush() -#gt; FLUSHING
+    P->>P: ArmPreRoll, abort and re-gate sources
+    P->>R: setPosition(posB)
+    R->>EV: PLAYING (late, for A)
+    EV->>SM: onPlaybackStarted()
+    Note right of SM: no FLUSHING transition:<br/>WARN, stays FLUSHING
+    R->>EV: SEEK_DONE (B)
+    EV->>P: HandleSeekDone() as normal
+    Note over CT,EV: If A's SEEK_DONE never arrives, B waits 5000 ms, abandons A and continues from FLUSHED.
+```
+
 *A second Flush() arriving while the first is still waiting for SEEK_DONE.*
 
 Rapid seeks happen with scrubbing, repeated trick-play rate changes and the
@@ -337,8 +469,7 @@ position staged, so the caller's intent is never lost.
 
 ## 7. Deferred flush from the injector thread
 
-[[diagram:direct-rialto-position-election-sequence]]
-*Owned by the Media data path page: which injector's first sample drives the deferred flush.*
+Owned by the Media data path page: which injector's first sample drives the deferred flush: see the diagram in [Media data path](03-media-data-path.md).
 
 **Calling thread:** a fragment injector thread, from `SendSample()` (fMP4
 via `AampMp4Demuxer`) or `SendTransfer()` (tracks without a play context),
@@ -398,7 +529,43 @@ requires rate == 1). It was added in commit `1dafd748`.
 
 ### 8.2 Arming and handover to play
 
-[[diagram:direct-rialto-preroll-activity]]
+```mermaid
+flowchart TD
+    start(["ArmPreRoll(rate)<br/>(Configure/BeginNewSession or a flushable Flush)"])
+    a1["stop the pre-roll monitor"]
+    d1{"gstBufferAndPlay set<br/>and rate == 1?"}
+    off(["ReleaseHold(PreRollIncomplete)"])
+    on["AddHold(PreRollIncomplete)"]
+    wait["wait until a play request is pending and<br/>PreRollIncomplete is the only hold"]
+    ctl["controller: ++episode<br/>StartPreRoll(reason, episode)<br/>(play lock released one level)"]
+    subgraph start1 ["RunIfPreRollCurrent(episode), under the play lock"]
+        d2{"episode still current?"}
+        stale(["ignore: Flush, Configure<br/>or Stop ended it"])
+        d3{"pipeline and attached primary source<br/>(video, else audio)?"}
+        skip(["ReleaseHold(PreRollIncomplete)<br/>(skipped)"])
+        go["pipeline->pause()<br/>UngateAllSources(PreRoll)<br/>m_preRollEpisode = episode"]
+    end
+    mon["m_preRollMonitor->Start(probe)<br/>(outside the play lock)"]
+    poll["GLib ticks: Poll() every 10 ms"]
+    comp["complete: 4 frames accepted, buffer full,<br/>end of stream, or 1000 ms timeout"]
+    subgraph done1 ["RunIfPreRollCurrent(m_preRollEpisode)"]
+        d4{"episode still current?"}
+        rel["ReleaseHold(PreRollIncomplete)<br/>no holds left: IssuePlay()<br/>(ungate, play()) on the GLib thread"]
+        ignore["completion ignored and logged"]
+    end
+    fin([done])
+
+    start --> a1 --> d1
+    d1 -- no --> off
+    d1 -- yes --> on --> wait --> ctl --> d2
+    d2 -- no --> stale
+    d2 -- yes --> d3
+    d3 -- no --> skip
+    d3 -- yes --> go --> mon --> poll --> comp --> d4
+    d4 -- yes --> rel --> fin
+    d4 -- no --> ignore --> fin
+```
+
 *From arming the PreRollIncomplete hold to play(), including how a flush cancels a stale pre-roll.*
 
 Pre-roll is expressed as one more `PlayHold`, `PreRollIncomplete`, so the
@@ -460,7 +627,33 @@ outside the lock.
 
 ### 8.4 The monitor algorithm
 
-[[diagram:direct-rialto-preroll-monitor-state]]
+```mermaid
+stateDiagram-v2
+    [*] --> Idle
+
+    Idle --> Polling : Start(probe)<br/>(stop old timer, ++epoch,<br/>record start time, schedule 10 ms timer)
+    Idle --> Completed : Start(probe)<br/>(timer could not be scheduled,<br/>complete immediately)
+
+    state Polling {
+        [*] --> Evaluate
+        Evaluate : copy probe, epoch, start (under mutex)<br/>evaluate probes without the mutex
+        Evaluate --> Evaluate : no reason yet<br/>(log only if frame count changed)
+    }
+
+    Polling --> Completed : reason found and epoch unchanged<br/>(target reached, buffer full,<br/>end of stream, timeout)
+    Polling --> Idle : Stop()<br/>(++epoch, stop timer and wait for<br/>a running Poll, release probe)
+    Polling --> Polling : Start(probe) again<br/>(restart with new epoch)
+    Completed --> Idle : release probe, run completion<br/>action without the mutex
+    Completed : log "pre-roll complete (reason) after N ms"
+
+    note right of Polling
+        A Poll whose copied epoch no longer
+        matches (Stop or restart happened
+        meanwhile) stops silently and
+        never completes.
+    end note
+```
+
 *States of AampRialtoPreRollMonitor and the epoch check that discards an abandoned poll.*
 
 `AampRialtoPreRollMonitor` is a small, thread-safe poller. `Start()`/`Stop()`
@@ -510,8 +703,35 @@ goes straight to `play()`.
 
 ## 9. Trick-play and rate changes
 
-[[diagram:direct-rialto-trickplay-activity]]
+```mermaid
+flowchart TD
+    start(["AAMP: TeardownStream, Flush(0, rate) placeholder,<br/>Configure(), Flush(position, rate), Stream()"])
+    a1["Flush stages the rate. m_rate is committed on SEEK_DONE<br/>(or immediately on the early-exit paths)"]
+    a2["ArmPreRoll(rate): pre-roll is disabled for rate != 1,<br/>so ReleaseHold(PreRollIncomplete)"]
+    a3["ResetSourcesForFlush"]
+    d1{"audio-only content<br/>(audio is primary)?"}
+    ao["subtitle source EOS,<br/>audio stays live"]
+    av["audio and subtitle sources EOS<br/>(Rialto must not wait for them)"]
+    a4["setPosition(position)<br/>SEEK_DONE on the Rialto event thread"]
+    d2{"Rialto isVideoMaster()<br/>is false?"}
+    ar["appliedRate = rate<br/>video setSourcePosition(pos,<br/>resetTime=false, appliedRate)"]
+    a1r["appliedRate = 1.0 (no extra call)"]
+    a5["play() (no pre-roll)"]
+    a6["GetPositionMilliseconds: (Rialto position minus<br/>segment-start baseline) x m_rate,<br/>clamped at 0 only for forward rates"]
+    fin(["the next Flush at rate 1 clears<br/>the audio and subtitle EOS"])
+
+    start --> a1 --> a2 --> a3 --> d1
+    d1 -- yes --> ao --> a4
+    d1 -- no --> av --> a4
+    a4 --> d2
+    d2 -- yes --> ar --> a5
+    d2 -- no --> a1r --> a5
+    a5 --> a6 --> fin
+```
+
 *How a flush with rate != 1 changes source EOS, pre-roll, the applied rate and position reporting.*
+
+Playback speed (`SetPlayBackRate`, used for latency correction) is separate from trick-play: it calls Rialto `setPlaybackRate()` directly, with no flush.
 
 ### 9.1 Two different rate mechanisms
 
@@ -584,16 +804,16 @@ section 5, which is why `FLUSHED` is flushable.
 
 ## Related pages
 
-- Direct Rialto - Lifecycle and state machine
-- Direct Rialto - Media data path
-- Direct Rialto - Threading model and locking
-- Direct Rialto - Monitoring and diagnostics
-- Direct Rialto - Subtitles and TTML
-- Direct Rialto - Workarounds and improvement register
+- [Lifecycle and state machine](02-player-lifecycle-and-state-machines.md)
+- [Media data path](03-media-data-path.md)
+- [Threading model and locking](05-threading-and-locking-model.md)
+- [Monitoring and diagnostics](08-av-monitoring-timers-and-position.md)
+- [Subtitles and TTML](07-subtitles-cc-and-ttml-offset.md)
+- [Workarounds and improvement register](11-workarounds-and-improvement-register.md)
 
 ## Workarounds and improvement candidates
 
-Rows are in `_register/FLUSH.md`. Related rows from other pages: LIFE-02 (`Pause(false)` bypasses the `Flushing` hold), LIFE-05 (the flush timeout needs a waiter), DATA-14 (audio-only tunes always take a deferred flush), THR-07 (staged position and rate are separate atomics), ARCH-08 (trick-mode stubs), ARCH-21 (pre-roll constants are compile-time), ARCH-22 (pre-roll needs a GLib main loop).
+See the [FLUSH rows in the register](11-workarounds-and-improvement-register.md#flush-seek-and-pre-roll-flush). Related rows from other pages: LIFE-02 (`Pause(false)` bypasses the `Flushing` hold), LIFE-05 (the flush timeout needs a waiter), DATA-14 (audio-only tunes always take a deferred flush), THR-07 (staged position and rate are separate atomics), ARCH-08 (trick-mode stubs), ARCH-21 (pre-roll constants are compile-time), ARCH-22 (pre-roll needs a GLib main loop).
 
 - FLUSH-01: subtitle `setSourcePosition` after every `SEEK_DONE` works around a suspected Rialto issue.
 - FLUSH-02: slow-motion playback rate is probably never applied.

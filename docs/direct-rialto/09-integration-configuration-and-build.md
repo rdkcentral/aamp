@@ -22,7 +22,38 @@ This page describes the seams between direct-rialto and the rest of AAMP: how `A
 
 ## How the player is selected and created
 
-[[diagram:direct-rialto-build-selection-activity]]
+```mermaid
+flowchart TD
+    start([install-aamp.sh rialto, optionally --rialto-force-simulator])
+    clone["rialto_install_fn: clone rialto at the pinned tag<br/>and copy public headers to .libs/include/rialto"]
+    d1{"option rialto given,<br/>no --rialto-force-simulator<br/>and not macOS?"}
+    full["build protobuf, rialto and<br/>rialto-gstreamer into .libs"]
+    cm["cmake: find_package(Rialto)<br/>(cmake/FindRialto.cmake)"]
+    d2{"RIALTO_FORCE_SIMULATOR<br/>or APPLE?"}
+    skip["skip library search"]
+    find["find_library(libRialtoClient.so or RialtoClient)<br/>find_path(IMediaPipeline.h)"]
+    d3{"RIALTO_FOUND?"}
+    real["libaamp links the real libRialtoClient.so"]
+    sim["add_subdirectory(test/rialto)<br/>build RialtoSimulator as libRialtoClient.so.0<br/>libaamp links RialtoSimulator"]
+    all["all direct-rialto/*.cpp are compiled into libaamp<br/>(no compile-time switch)"]
+    rt["run time: PlayerInstanceAAMP constructor<br/>reads useDirectRialto from the config"]
+    d4{"useDirectRialto?"}
+    drt["AampStreamSinkManager creates AampRialtoPlayer,<br/>useMp4Demux forced on, Rialto DRM session creator<br/>and DirectRialto CC manager installed"]
+    gst["AampStreamSinkManager creates AAMPGstPlayer<br/>(useRialtoSink selects rialto-gstreamer sinks)"]
+    stop([done])
+
+    start --> clone --> d1
+    d1 -- yes --> full --> cm
+    d1 -- no --> cm
+    cm --> d2
+    d2 -- yes --> skip --> d3
+    d2 -- no --> find --> d3
+    d3 -- yes --> real --> all
+    d3 -- no --> sim --> all
+    all --> rt --> d4
+    d4 -- true --> drt --> stop
+    d4 -- false --> gst --> stop
+```
 
 *Build-time choice of Rialto library (real or simulator) and run-time choice of sink.*
 
@@ -89,7 +120,60 @@ Not overridden (base defaults apply): `AdjustPlayBackRate` (returns true), `getC
 
 ## Notifications back into PrivateInstanceAAMP
 
-[[diagram:direct-rialto-notification-sequence]]
+```mermaid
+sequenceDiagram
+    participant RT as Rialto event thread
+    participant ARP as AampRialtoPlayer
+    participant GL as GLib main loop<br/>(progress / MonitorAV ticks)
+    participant NOT as PrivateInstanceAAMPNotifiable
+    participant SCHED as AAMP scheduler thread
+    participant CORE as PrivateInstanceAAMP
+    participant INJ as Injector thread
+    participant MAV as AampRialtoMonitorAV
+    Note over RT,MAV: Rialto state change -#gt; async notification
+    RT->>ARP: OnPlaybackState(PLAYING)
+    ARP->>ARP: stateMachine.onPlaybackStarted()
+    alt first PLAYING of the session
+        ARP->>NOT: LogFirstFrame(), LogTuneComplete()
+        ARP->>NOT: NotifyFirstBufferProcessed(videoRect)
+        ARP->>NOT: NotifyFirstFrameReceived(ccHandle)
+        ARP->>NOT: NotifyFirstVideoFrameDisplayed()
+    else later PLAYING while core state is SEEKING
+        ARP->>NOT: GetState()  (synchronous query)
+        NOT->>CORE: GetState()
+        ARP->>NOT: NotifyFirstBufferProcessed / NotifyFirstFrameReceived /<br/>NotifyFirstVideoFrameDisplayed
+    else other PLAYING (resume from pause)
+        ARP->>NOT: NotifyFirstBufferProcessed / NotifyFirstFrameReceived
+    end
+    NOT->>SCHED: ScheduleAsyncTask(name, lambda)<br/>(returns immediately)
+    SCHED->>CORE: NotifyFirstFrameReceived() etc.<br/>(state PLAYING, tuned event, InitializeCC)
+    ARP->>ARP: StartProgressTimer()#59; MonitorAV.start()
+    Note over RT,MAV: Periodic progress
+    GL->>ARP: OnProgressTimerTick()
+    ARP->>NOT: MonitorProgress(false, false)
+    NOT->>SCHED: ScheduleAsyncTask
+    SCHED->>CORE: MonitorProgress() -#gt; progress event
+    Note over RT,MAV: Errors and end of stream
+    RT->>ARP: OnPlaybackState(FAILURE / END_OF_STREAM)<br/>OnPlaybackError(...)<br/>OnBufferUnderflow(...)
+    ARP->>NOT: NotifyPlaybackError(failure, text, retry)<br/>NotifyEOSReached()<br/>NotifyBufferUnderflow(track)<br/>NotifyOutputProtectionRecovered()
+    NOT->>SCHED: ScheduleAsyncTask
+    SCHED->>CORE: SendErrorEvent() / NotifyEOSReached() /<br/>underflow handling / mute + ScheduleRetune()
+    Note over RT,MAV: Discontinuity (injector thread, synchronous)
+    INJ->>ARP: Discontinuity(mediaType)
+    alt PTS restamp active and no ES change
+        ARP->>NOT: CompleteDiscontinuityDataDeliverForPTSRestamp(type)
+        NOT->>CORE: direct call (no scheduler hop)
+    else EOS-based discontinuity and underflow monitor enabled
+        ARP->>NOT: NotifyPipelinePausedToUnderflowMonitor()
+        NOT->>CORE: mpStreamAbstractionAAMP-#gt;NotifyPipelinePausedToUnderflowMonitor()
+    end
+    Note over RT,MAV: AV monitor
+    GL->>MAV: report timer tick
+    MAV->>NOT: SendMonitorAvEvent(status, positions, dropped)<br/>(same IStreamSinkNotifiable, not via the player)
+    NOT->>SCHED: ScheduleAsyncTask
+    SCHED->>CORE: SendMonitorAvEvent() -#gt; MonitorAVStatusEvent
+    Note over NOT,SCHED: Why the scheduler hop: a Rialto callback thread may hold a<br/>Rialto lock and then need an AAMP lock (mLock / mStreamLock)<br/>while an AAMP thread holds that lock and waits on a Rialto<br/>call: an AB/BA deadlock.  Deferring to the scheduler thread<br/>breaks the cycle.  The two discontinuity calls skip the hop<br/>because they run on AAMP's own injector thread.
+```
 
 *Rialto events arrive on Rialto's thread; void notifications are queued onto the AAMP scheduler thread; two discontinuity calls are synchronous.*
 
@@ -201,16 +285,16 @@ The existing `aamp_test_internal/test/Rialto/README.md` describes the rialto-gst
 
 ## Related pages
 
-- Direct Rialto - Overview (top page)
-- Direct Rialto - Architecture and class model
-- Direct Rialto - Lifecycle and state machine
-- Direct Rialto - Media data path
-- Direct Rialto - Flush and seek
-- Direct Rialto - Testing
+- [Overview](00-direct-rialto-overview.md) (top page)
+- [Architecture and class model](01-architecture-and-class-model.md)
+- [Lifecycle and state machine](02-player-lifecycle-and-state-machines.md)
+- [Media data path](03-media-data-path.md)
+- [Flush and seek](04-flush-seek-and-preroll.md)
+- [Testing](10-testing.md)
 
 ## Workarounds and improvement candidates
 
-See `_register/ARCH.md`: ARCH-08 to ARCH-10 (StreamSink methods that are no-ops or misleading), ARCH-15 and ARCH-16 (notifications that do nothing), ARCH-22 (GLib loop dependency), ARCH-23 to ARCH-35 (special cases and workarounds outside the folder), ARCH-30 and ARCH-31 (config rules and missing README entry), ARCH-33 and ARCH-34 (build wiring), ARCH-44 (`GetEncryptedAampId`) and ARCH-45 (stale simulator README).
+See the [ARCH rows in the register](11-workarounds-and-improvement-register.md#architecture-integration-build-and-testing-arch): ARCH-08 to ARCH-10 (StreamSink methods that are no-ops or misleading), ARCH-15 and ARCH-16 (notifications that do nothing), ARCH-22 (GLib loop dependency), ARCH-23 to ARCH-35 (special cases and workarounds outside the folder), ARCH-30 and ARCH-31 (config rules and missing README entry), ARCH-33 and ARCH-34 (build wiring), ARCH-44 (`GetEncryptedAampId`) and ARCH-45 (stale simulator README).
 
 ## Open questions
 

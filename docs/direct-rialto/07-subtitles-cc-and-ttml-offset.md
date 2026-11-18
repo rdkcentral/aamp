@@ -18,8 +18,72 @@ This page explains how subtitles and closed captions are delivered on the direct
 
 ## 1. Supported forms
 
-[[diagram:direct-rialto-subtitle-class]]
+```mermaid
+classDiagram
+    class AampRialtoMediaSource {
+        <<abstract>>
+        +attachOrUpdate()
+        +processInitFragment()
+        +processDataFragment()
+        #mapCodecToMime()
+        #createRialtoSource()
+        #createSegment(sample)
+        #updateCachedMetadata()
+    }
+    class AampRialtoSubtitleSource {
+        +processInitFragment()
+        +processDataFragment()
+        +isInbandCC() bool
+        #mapCodecToMime() text/ttml, text/vtt or text/cc
+        #createRialtoSource() MediaSourceSubtitle with id CC1
+        #createSegment() SUBTITLE segment with display offset
+        -refineDisplayOffset(sample)
+        -m_applyTextTransform : bool
+    }
+    class AampRialtoTtmlOffset {
+        +Reset()
+        +Refine(data, size, ptsMs, durationMs, aampOffsetMs)
+        +ParseTimeToMs()$
+        +FindFirstBeginMs()$
+        -m_contentType : UNKNOWN, PASSTHROUGH or LINEAR_OFFSET
+        -m_linearOffsetMs
+    }
+    class IDirectRialtoCC {
+        <<interface>>
+        +setTextTrackIdentifier(id)
+        +setCCMute(muted)
+    }
+    class AampRialtoPlayer {
+        +SetSubtitleMute()
+        +SetSubtitlePtsOffset() no-op
+        +SignalSubtitleClock()
+        -CreateSubtitleSource()
+        -ApplySubtitleSegmentPosition()
+        -GetCCHandle()
+    }
+    class PlayerDirectRialtoCCManager {
+        <<middleware>>
+        +Initialize(handle)
+        +SetTrack(track)
+        +StartRendering()
+        +StopRendering()
+        +InvalidateHandle(handle)
+    }
+    class PlayerCCManager {
+        <<middleware singleton>>
+    }
+
+    AampRialtoMediaSource <|-- AampRialtoSubtitleSource
+    AampRialtoSubtitleSource *-- AampRialtoTtmlOffset
+    IDirectRialtoCC <|.. AampRialtoPlayer
+    AampRialtoPlayer o-- AampRialtoSubtitleSource : subtitle slot
+    PlayerCCManager ..> PlayerDirectRialtoCCManager : creates when SetRialto(true, true)
+    PlayerDirectRialtoCCManager --> IDirectRialtoCC : stored control from GetCCHandle
+```
+
 *The subtitle source, its TTML offset helper, and the closed-caption control path through `IDirectRialtoCC`.*
+
+`isInbandCC()` returns `format() == FORMAT_INVALID`.
 
 The player creates at most **one** subtitle source per pipeline, in `AampRialtoPlayer.cpp:CreateSubtitleSource`, called from `CreateSources` during a `Configure()` that builds a pipeline:
 
@@ -37,7 +101,47 @@ Why there is always an inband-CC source when video is present: Rialto needs the 
 
 ## 2. End-to-end data flow
 
-[[diagram:direct-rialto-subtitle-dataflow-sequence]]
+```mermaid
+sequenceDiagram
+    participant A as AAMP core<br/>(collector / injector)
+    participant D as AampMp4Demuxer
+    participant P as AampRialtoPlayer
+    participant S as AampRialtoSubtitleSource
+    participant R as Rialto pipeline
+    participant CC as PlayerDirectRialto<br/>CCManager
+    Note over A,CC: Configure(): create the subtitle source
+    A->>P: Configure(video, audio, subFormat)
+    alt subFormat TTML, MP4 or WebVTT (sidecar)
+        P->>S: create, setFormat(subFormat), gate
+        P->>P: AttachSource(synthesised TTML/VTT codec)<br/>(deferred until video is attached)
+    else no sidecar, video present: inband CC
+        P->>S: create, setFormat(FORMAT_INVALID), gate
+        P->>P: AttachSource(GST_FORMAT_UNKNOWN)
+    end
+    P->>R: attachSource(MediaSourceSubtitle(mime, #quot;CC1#quot;))<br/>mime = text/ttml | text/vtt | text/cc
+    Note over A,CC: Raw TTML / WebVTT (no MP4 container)
+    A->>P: SendTransfer(SUBTITLE, buffer, pts, dur,<br/>fragmentPTSoffset)
+    P->>S: processDataFragment()
+    S->>S: displayOffset = +offset (TTML)<br/>or -offset (WebVTT)
+    S->>S: createSegment(): TTML -#gt; AampRialtoTtmlOffset.Refine()
+    S->>R: addSegment(SUBTITLE, pts, dur,<br/>setDisplayOffset) on needData
+    Note over A,CC: TTML / WebVTT in MP4 (stpp / wvtt)
+    A->>D: subtitle fragments (playContext)
+    D->>P: SetStreamCaps(SUBTITLE, codecInfo)
+    P->>P: AttachSource#59; ResumeTrackDownloads(SUBTITLE)
+    D->>P: SendSample(SUBTITLE, sample with mDisplayOffsetMs)
+    P->>S: inject#59; createSegment() refines TTML offset
+    S->>R: addSegment(...)
+    Note over A,CC: Inband CC
+    Note over R: CC data stays inside the video stream#59;<br/>the server's text-track sink decodes it
+    A->>P: first PLAYING -#gt; NotifyFirstFrameReceived(GetCCHandle())
+    P->>CC: Initialize(IDirectRialtoCC*) via priv_aamp::InitializeCC
+    CC->>P: setTextTrackIdentifier(#quot;CC1#quot; / #quot;SERVICEn#quot;)
+    P->>R: setTextTrackIdentifier(id)
+    CC->>P: setCCMute(false / true)<br/>(StartRendering / StopRendering)
+    P->>R: setMute(subtitleSourceId, muted)
+```
+
 *How each subtitle form is created, attached and fed, and how the CC manager controls inband captions.*
 
 **Creation and attach.** For sidecar formats `CreateSubtitleSource` creates the source (gated, like every source), synthesises a TTML or WebVTT `MediaCodecInfo` and calls `AttachSource` under `m_attachMutex`. Raw formats have no init segment, so no `SetStreamCaps` call will come to trigger the attach. Like audio, the attach is deferred until video has attached (`DeferAttachUntilVideo`, ARCH-13). For `FORMAT_SUBTITLE_MP4` the synthesised attach is also queued, and `AampMp4Demuxer` later calls `SetStreamCaps(SUBTITLE)`, which attaches or updates with the real codec. For inband CC the source gets `FORMAT_INVALID` (which is what `isInbandCC()` tests) and is attached with `GST_FORMAT_UNKNOWN`, which maps to `text/cc`.
@@ -56,8 +160,40 @@ Why there is always an inband-CC source when video is present: Rialto needs the 
 
 ## 3. Display offset and TTML timing
 
-[[diagram:direct-rialto-ttml-offset-activity]]
+```mermaid
+flowchart TD
+    start(["Refine(document, ptsMs, durationMs, aampOffsetMs)"])
+    d1{"mode == PASSTHROUGH?"}
+    r0(["return 0"])
+    a1["take the first XML document only<br/>(Harmonic UHD buffers concatenate several)"]
+    d2{"first valid begin=#quot;hh:mm:ss.fff#quot;<br/>found?"}
+    r1(["empty or header-only document:<br/>return the stored offset if LINEAR_OFFSET, else 0"])
+    a2["offsetFromPts = firstBeginMs - ptsMs"]
+    d3{"mode == UNKNOWN?"}
+    d4{"abs(offsetFromPts - aampOffsetMs)<br/>> durationMs?"}
+    lin1["mode = LINEAR_OFFSET<br/>offset = offsetFromPts<br/>(cue times are absolute, wall clock)"]
+    d5{"aampOffsetMs != 0?"}
+    lin2["mode = LINEAR_OFFSET<br/>offset = aampOffsetMs<br/>(AAMP knows the period offset)"]
+    pass(["mode = PASSTHROUGH<br/>(cue times match container PTS)<br/>return 0"])
+    refine["offset = offsetFromPts if<br/>abs(offsetFromPts - aampOffsetMs) > durationMs,<br/>else aampOffsetMs (refined on every document)"]
+    ret(["return offset"])
+
+    start --> d1
+    d1 -- yes --> r0
+    d1 -- no --> a1 --> d2
+    d2 -- no --> r1
+    d2 -- yes --> a2 --> d3
+    d3 -- yes --> d4
+    d4 -- yes --> lin1 --> ret
+    d4 -- no --> d5
+    d5 -- yes --> lin2 --> ret
+    d5 -- no --> pass
+    d3 -- no, LINEAR_OFFSET --> refine --> ret
+```
+
 *How `AampRialtoTtmlOffset::Refine` decides between passthrough and a linear offset.*
+
+The result becomes the segment's display offset in milliseconds, and the Rialto server shifts cue times by it. The mode is reset only by `processInitFragment()` (see SUB-01 in the register).
 
 The Rialto server's text-track renderer shows a cue at `cue time - displayOffset`, relative to the pipeline clock. The player's job is to choose `displayOffset` so that cues line up with the restamped audio and video.
 
@@ -132,15 +268,15 @@ These live in AAMP core because of how Rialto works. They are recorded in the AR
 
 ## Related pages
 
-- Direct Rialto - Media data path
-- Direct Rialto - Flush and seek
-- Direct Rialto - Lifecycle and state machine
-- Direct Rialto - Integration, configuration and build
-- Direct Rialto - Workarounds and improvement register
+- [Media data path](03-media-data-path.md)
+- [Flush and seek](04-flush-seek-and-preroll.md)
+- [Lifecycle and state machine](02-player-lifecycle-and-state-machines.md)
+- [Integration, configuration and build](09-integration-configuration-and-build.md)
+- [Workarounds and improvement register](11-workarounds-and-improvement-register.md)
 
 ## Workarounds and improvement candidates
 
-Rows are in `_register/SUB.md`. Related rows: ARCH-11, ARCH-13, ARCH-23 to ARCH-27, DATA-12, FLUSH-01, ARCH-04.
+See the [SUB rows in the register](11-workarounds-and-improvement-register.md#subtitles-and-closed-captions-sub). Related rows: ARCH-11, ARCH-13, ARCH-23 to ARCH-27, DATA-12, FLUSH-01, ARCH-04.
 
 - SUB-01: TTML passthrough/linear decision is never reset on a reused pipeline (seeks, period changes).
 - SUB-02: stale comments (`isInbandCC` description, `application/x-subtitle-cc` mime).

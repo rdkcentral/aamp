@@ -40,7 +40,8 @@ bool PlayerStateMachine::NextState(PlayerStateId from, Event event,
 		S to;
 	};
 	// One row per allowed transition; any other (state, event) pair is
-	// ignored.  Keep in step with docs/diagrams/direct-rialto-state-machine.puml.
+	// ignored.  Keep in step with the state diagram in
+	// docs/direct-rialto/02-player-lifecycle-and-state-machines.md.
 	static constexpr Transition kTransitions[] = {
 		{S::IDLE,              Event::PipelineLoaded,     S::PIPELINE_CREATED},
 		{S::PIPELINE_CREATED,  Event::SourceAttaching,    S::SOURCES_ATTACHING},

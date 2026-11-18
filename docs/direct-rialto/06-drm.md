@@ -18,8 +18,108 @@ Explains how encrypted content plays on the direct-rialto path: how AAMP's exist
 | `drm/AampDRMLicManager.cpp`, `middleware-player-interface/drm/DrmSessionManager.cpp` (outside) | Unchanged AAMP DRM framework: slot selection, session reuse, license request, timeouts, error mapping. `DrmSessionManager` gained the `DrmSessionCreator` injection point for this component. |
 
 ## 1. How AAMP DRM reaches Rialto
-[[diagram:direct-rialto-drm-class]]
-*Two separate hooks into AAMP's DRM stack: `IDrmBridge` (the player asks the license manager for a session) and `makeRialtoSessionCreator()` (the session manager builds Rialto-backed `DrmSession` objects). Owned by page "Direct Rialto - Architecture and class model".*
+```mermaid
+classDiagram
+    class IDrmBridge {
+        <<interface, player side>>
+        +createSession(systemId, initData, len, type) mks_id
+    }
+    class AampDrmBridge {
+        <<player side>>
+        -m_aamp : PrivateInstanceAAMP* non-owning
+    }
+    class AampRialtoMediaSource {
+        <<player side>>
+    }
+    class AampRialtoPlayer {
+        <<player side>>
+    }
+    class PrivateInstanceAAMP {
+        <<AAMP core>>
+    }
+    class AampDRMLicenseManager {
+        <<AAMP core>>
+        +createDrmSession()
+    }
+    class DrmSessionManager {
+        <<middleware>>
+        -m_sessionCreator : DrmSessionCreator
+    }
+    class DrmSession {
+        <<abstract, middleware>>
+        +getMediaKeySessionId()
+    }
+    class OCDMSessionAdapter {
+        <<DrmSessionFactory default>>
+    }
+    class makeRialtoSessionCreator {
+        <<RialtoSessionCreator.cpp>>
+    }
+    class RialtoMediaKeySessionAdapter {
+        <<session side>>
+        -m_system : unique_ptr~RialtoMediaKeySystem~
+        -m_session : shared_ptr~RialtoMediaKeySession~
+        +generateDRMSession()
+        +generateKeyRequest()
+        +processDRMKey()
+    }
+    class RialtoMediaKeySystem {
+        <<session side>>
+        -m_mediaKeys : unique_ptr~IMediaKeys~
+        -m_client : shared_ptr~MediaKeysClient~
+        +createSession(initDataType, initData, callbacks)
+    }
+    class MediaKeysClient {
+        <<RialtoMediaKeySystem inner>>
+        callbacks, sessions, running by keySessionId
+    }
+    class RialtoMediaKeySession {
+        <<session side>>
+        -m_keyStatuses guarded by a mutex
+        +update()
+        +close()
+        +destruct()
+        +isKeyUsable()
+    }
+    class RialtoSessionCallbacks {
+        <<struct>>
+        onChallenge
+        onKeyUpdate
+        onKeysUpdated
+        onLicenseRenewal
+    }
+    class IMediaKeys {
+        <<Rialto interface>>
+    }
+    class IMediaKeysClient {
+        <<Rialto interface>>
+    }
+
+    AampRialtoPlayer o-- IDrmBridge : shared_ptr
+    IDrmBridge <|.. AampDrmBridge
+    AampRialtoMediaSource ..> IDrmBridge : attachOrUpdate(), raw pointer per call
+    AampDrmBridge --> PrivateInstanceAAMP : mDRMLicenseManager, mMediaFormat
+    PrivateInstanceAAMP *-- AampDRMLicenseManager
+    AampDRMLicenseManager *-- DrmSessionManager
+    DrmSessionManager ..> DrmSession : creates
+    DrmSession <|-- OCDMSessionAdapter
+    DrmSession <|-- RialtoMediaKeySessionAdapter
+    PrivateInstanceAAMP ..> makeRialtoSessionCreator : constructor passes the creator only if useDirectRialto
+    makeRialtoSessionCreator ..> RialtoMediaKeySessionAdapter : builds
+    makeRialtoSessionCreator ..> RialtoMediaKeySystem : builds, one per session
+    RialtoMediaKeySessionAdapter *-- RialtoMediaKeySystem
+    RialtoMediaKeySessionAdapter o-- RialtoMediaKeySession
+    RialtoMediaKeySystem *-- MediaKeysClient
+    IMediaKeysClient <|.. MediaKeysClient
+    RialtoMediaKeySystem *-- IMediaKeys
+    RialtoMediaKeySystem ..> RialtoMediaKeySession : creates
+    RialtoMediaKeySystem ..> RialtoSessionCallbacks : registers per session
+    RialtoMediaKeySession --> IMediaKeys : reference
+    note for AampDrmBridge "Blocks until the licence flow completes<br/>(fragment-collector or injector thread).<br/>Returns the Rialto mks_id that the source<br/>stamps on every encrypted MediaSegment."
+    note for RialtoMediaKeySessionAdapter "Does not override decrypt():<br/>decryption is done in the Rialto server."
+```
+
+*Two separate hooks into AAMP's DRM stack: `IDrmBridge` (the player asks the license manager for a session) and `makeRialtoSessionCreator()` (the session manager builds Rialto-backed `DrmSession` objects). Owned by [Architecture and class model](01-architecture-and-class-model.md).*
 
 direct-rialto does not have its own DRM framework. It reuses AAMP's (license manager, DRM helpers, session slots, license pre-fetcher, retries, error mapping) and changes only the *kind* of `DrmSession` that framework creates. Two independent hooks make this work:
 
@@ -70,7 +170,47 @@ Whether a key system actually works depends on the Rialto server build: if `crea
 - The number of concurrent sessions is AAMP's `maxDASHDRMSessions` slots in `DrmSessionManager`. A session is reused for the same key ID, and the oldest slot is evicted (deleted) for a new key ID. This is unchanged AAMP behaviour.
 
 ## 3. License acquisition flow
-[[diagram:direct-rialto-drm-license-sequence]]
+```mermaid
+sequenceDiagram
+    participant PF as PreFetchThread<br/>(AampLicensePreFetcher)
+    participant INJ as Injector thread<br/>(AampRialtoMediaSource)
+    participant BR as AampDrmBridge
+    participant LM as AampDRMLicenseManager +<br/>DrmSessionManager
+    participant AD as RialtoMediaKeySessionAdapter
+    participant SYS as RialtoMediaKeySystem +<br/>MediaKeysClient
+    participant IMK as Rialto IMediaKeys<br/>(IPC to server)
+    participant EVT as rialto-media-keys-events<br/>thread
+    participant LS as License server
+    PF->>LM: createDrmSession(helper)<br/>lock mDrmSessionLock
+    LM->>AD: creator: new adapter +<br/>RialtoMediaKeySystem(createMediaKeys)
+    LM->>AD: generateDRMSession(initData)<br/>(slot sessionMutex)
+    AD->>SYS: createSession(#quot;cenc#quot;, initData, callbacks)
+    SYS->>IMK: createKeySession(TEMPORARY) -#gt; keySessionId (mksId)
+    SYS->>SYS: register callbacks + session<br/>in client maps (before the request)
+    SYS->>IMK: generateRequest(CENC, initData)
+    IMK-->>EVT: license request event
+    EVT->>SYS: onLicenseRequest (CallbackScope)
+    SYS->>AD: onChallenge: store challenge,<br/>notify m_challengeReady
+    LM->>AD: generateKeyRequest(url, 5000 ms)
+    Note right of AD: blocks on m_challengeReady<br/>(returns at once if already received)
+    AD-->>LM: challenge, KEY_PENDING
+    LM->>LS: HTTP POST challenge<br/>(drmNetworkTimeout 5 s, up to 2 attempts)
+    LS-->>LM: license
+    LM->>AD: processDRMKey(license, 5000 ms)
+    AD->>IMK: updateSession(mksId, license)
+    IMK-->>EVT: key statuses event
+    EVT->>SYS: onKeyStatusesChanged: update key cache,<br/>then onKeyUpdate x N, onKeysUpdated
+    SYS->>AD: notify m_keyStatusReady
+    AD-->>LM: 0 + KEY_READY (any key USABLE)
+    LM-->>PF: DrmSession*#59; unlock mDrmSessionLock
+    INJ->>BR: createSession(systemId, pssh, type)<br/>(holds m_attachMutex)
+    BR->>LM: createDrmSession(...)<br/>waits for mDrmSessionLock
+    LM->>LM: getDrmSession: same key ID in slot,<br/>KEY_READY (or waitForState up to 5 s)
+    LM-->>BR: existing DrmSession*
+    BR->>AD: getMediaKeySessionId()
+    BR-->>INJ: mksId (or -1)
+```
+
 *Typical flow: the license pre-fetcher thread performs the acquisition; the injector thread's `IDrmBridge::createSession()` then finds the ready session in its slot and only reads its mksId.*
 
 **Steps** (all inside `DrmSessionManager::createDrmSession`, which holds `mDrmSessionLock` for the whole call):
@@ -122,13 +262,38 @@ The mksId is the Rialto key session ID returned by `IMediaKeys::createKeySession
   - **First attach**: create the session if `ProtectionParams` exist, then attach the Rialto source. Video and audio sources are always attached with `hasDrm = true` (see DATA-04), so a session that arrives later can still be used.
   - **Already attached**: a new session is requested only when the params differ from `m_activeProtection` (new period with a different PSSH or DRM system). Params are re-queued every period, so comparing avoids a redundant license round trip. On failure the previous mksId is kept.
   - `reset()` sets the mksId back to -1 and clears `m_activeProtection`.
-- Every encrypted sample is stamped with `MediaSegment::setMediaKeySessionId(mksId)` together with key ID, IV, cipher mode and sub-samples. An encrypted sample with mksId -1 is dropped. The per-sample rules are in "Direct Rialto - Media data path", section 12 "Encrypted samples".
+- Every encrypted sample is stamped with `MediaSegment::setMediaKeySessionId(mksId)` together with key ID, IV, cipher mode and sub-samples. An encrypted sample with mksId -1 is dropped. The per-sample rules are in "[Media data path](03-media-data-path.md)", section 12 "Encrypted samples".
 - In the Rialto server the mksId on each segment selects the key session used to decrypt that sample. The client never sends key material; it only names the session.
 
 Several sources can share an mksId: if audio and video use the same key ID, `DrmSessionManager` returns the same slot and therefore the same Rialto session.
 
 ## 6. Session close, cleanup and teardown ordering
-[[diagram:direct-rialto-drm-session-state]]
+```mermaid
+stateDiagram-v2
+    [*] --> KEY_INIT : adapter created by<br/>makeRialtoSessionCreator()
+
+    KEY_INIT --> KEY_ERROR : generateDRMSession()<br/>(no valid RialtoMediaKeySystem)
+    KEY_INIT --> KEY_ERROR_SESSION_CREATE_FAILED : generateDRMSession()<br/>(createKeySession or<br/>generateRequest failed)
+    KEY_INIT --> KEY_INIT : generateDRMSession() OK<br/>(Rialto session exists, mksId valid)
+    KEY_INIT --> KEY_ERROR : generateKeyRequest()<br/>sets KEY_ERROR first and stays there<br/>on challenge timeout or empty challenge
+    KEY_ERROR --> KEY_PENDING : challenge received<br/>(onChallenge, not individualisation)
+    KEY_PENDING --> KEY_READY : processDRMKey()<br/>(update OK, any key USABLE)
+    KEY_PENDING --> KEY_ERROR : processDRMKey()<br/>(update failed, key-status timeout,<br/>OUTPUT_RESTRICTED or no usable key)
+    KEY_READY --> KEY_ERROR : renewal, onLicenseRenewal then<br/>generateKeyRequest() on the renewal thread<br/>(then KEY_PENDING and KEY_READY as above)
+    KEY_READY --> KEY_INIT : clearDecryptContext()<br/>(close and releaseKeySession,<br/>deregister, mksId = -1)
+    KEY_ERROR --> KEY_INIT : clearDecryptContext()
+    KEY_ERROR_SESSION_CREATE_FAILED --> KEY_INIT : clearDecryptContext()
+    KEY_INIT --> [*] : adapter destroyed<br/>(DrmSessionManager deletes the slot's session)
+
+    note right of KEY_READY
+        Key status changes after KEY_READY
+        (for example EXPIRED) are cached in
+        RialtoMediaKeySession but nothing acts
+        on them. Failures surface later as
+        PlaybackError::DECRYPTION.
+    end note
+```
+
 *`KeyState` of the adapter as AAMP's DRM framework drives it, including renewal and clean-up.*
 
 **Who ends a session.** direct-rialto never deletes a DRM session itself. Sessions belong to AAMP's `DrmSessionManager` slots, and the manager deletes the `DrmSession` (the adapter) when:
@@ -172,7 +337,35 @@ Failures of `closeKeySession`/`releaseKeySession` are logged at ERROR and otherw
 Rialto's `PlaybackError` carries no message text, so only these coarse categories can be mapped, unlike the GStreamer path, which matches error strings.
 
 ## 8. Callback reentrancy and destruction during callbacks
-[[diagram:direct-rialto-drm-callback-reentrancy-sequence]]
+```mermaid
+sequenceDiagram
+    participant EV as rialto-media-keys-events<br/>thread
+    participant MC as MediaKeysClient<br/>(mutex, running, callbackDone)
+    participant AD as RialtoMediaKeySessionAdapter<br/>(callbacks capture this)
+    participant TD as Teardown thread<br/>(DrmSessionManager)
+    participant KS as RialtoMediaKeySession
+    EV->>MC: onKeyStatusesChanged(id, statuses)
+    MC->>MC: lock mutex#59; copy callbacks#59;<br/>CallbackScope adds this thread to running[id]#59;<br/>update key-status cache#59; unlock
+    MC->>AD: onKeyUpdate(...) / onKeysUpdated()<br/>(no client mutex held)
+    TD->>AD: delete session -#gt; ~adapter -#gt; clearDecryptContext()
+    AD->>KS: close() (closeKeySession)
+    AD->>KS: destruct() (releaseKeySession)
+    KS->>MC: deregisterSession(id)
+    MC->>MC: erase callbacks[id], sessions[id]
+    MC->>MC: wait on callbackDone until running[id]<br/>contains no other thread
+    Note right of MC: teardown blocks here<br/>(untimed) while EV is still<br/>inside the adapter's callback
+    AD-->>MC: callback returns
+    MC->>MC: ~CallbackScope: lock, remove this thread<br/>from running[id], notify_all
+    MC-->>KS: deregisterSession returns
+    KS-->>AD: destruct complete
+    AD-->>TD: adapter memory may now be freed safely
+    Note over EV,KS: A callback that deregisters its own session
+    EV->>MC: onLicenseRequest(id) -#gt; callback
+    MC->>MC: deregisterSession(id) from the same thread
+    Note right of MC: the calling thread is excluded from<br/>the wait (onlySelfRunning), so a callback<br/>can tear down its own session
+    MC->>MC: onKeyStatusesChanged: re-check the session is<br/>still registered after each onKeyUpdate and before<br/>onKeysUpdated#59; stop dispatching the batch if not
+```
+
 *How `CallbackScope` and `deregisterSession` keep an adapter alive until every callback running on another thread has returned.*
 
 **The problem.** Rialto calls `IMediaKeysClient` methods on the `rialto-media-keys-events` thread. The callbacks capture a raw `this` pointer to the adapter. Meanwhile AAMP can delete the adapter on another thread (slot eviction, stop). Without coordination, a callback could run on a freed adapter. Holding the client mutex while calling the callbacks is not an option either: callbacks take the adapter's own mutexes, and teardown holds those while it deregisters, so lock-order inversion and deadlock would follow.
@@ -215,15 +408,15 @@ Each `on...` handler, under `mutex`, copies the callbacks it needs and construct
 - **Key system support.** Which key systems are validated with direct-rialto (PlayReady, Widevine, ClearKey)? The code is agnostic.
 
 ## Related pages
-- Direct Rialto - Architecture and class model
-- Direct Rialto - Media data path
-- Direct Rialto - Threading model and locking
-- Direct Rialto - Integration, configuration and build
-- Direct Rialto - Testing
-- Direct Rialto - Workarounds and improvement register
+- [Architecture and class model](01-architecture-and-class-model.md)
+- [Media data path](03-media-data-path.md)
+- [Threading model and locking](05-threading-and-locking-model.md)
+- [Integration, configuration and build](09-integration-configuration-and-build.md)
+- [Testing](10-testing.md)
+- [Workarounds and improvement register](11-workarounds-and-improvement-register.md)
 
 ## Workarounds and improvement candidates
-Rows are in `_register/DRM.md`. Related rows from other pages: ARCH-04 and THR-04 (`m_attachMutex` held across a blocking licence fetch), ARCH-44 (`GetEncryptedAampId` not overridden), DATA-04 (`hasDrm` forced true), ARCH-41 (the simulator has no DRM).
+See the [DRM rows in the register](11-workarounds-and-improvement-register.md#drm-drm). Related rows from other pages: ARCH-04 and THR-04 (`m_attachMutex` held across a blocking licence fetch), ARCH-44 (`GetEncryptedAampId` not overridden), DATA-04 (`hasDrm` forced true), ARCH-41 (the simulator has no DRM).
 
 - DRM-01: licence renewal reuses the original challenge, because the renewal message is discarded.
 - DRM-02: only CENC init data is ever passed; the `webm`/`keyids` mapping is dead code.

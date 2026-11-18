@@ -20,7 +20,46 @@ This page explains how direct-rialto is tested: the L1 (unit) suites and the sea
 
 ## Test levels at a glance
 
-[[diagram:direct-rialto-test-architecture-component]]
+```mermaid
+flowchart TB
+    subgraph l1 ["L1 unit test (one gtest executable per class)"]
+        CUT["Class under test<br/>(real .cpp from direct-rialto/)"]
+        PLAYER["AampRialtoPlayerTests: real player with<br/>session, sources, handshake,<br/>controller, state machine..."]
+        subgraph inj ["Injected through constructors"]
+            MNOT["MockIStreamSinkNotifiable"]
+            MCB["MockIRialtoControlBackend"]
+            MSRC["SourceCreator lambda returning<br/>MockAampRialtoMediaSource"]
+        end
+        subgraph link ["Replaced at link time (fakes library)"]
+            FACTORY["FakeRialtoFactories<br/>(g_mockPipelineFactory,<br/>MockIMediaPipeline)"]
+            FDRM["FakeAampDrmBridge<br/>(g_mockDrmBridge)"]
+            FCLI["FakeAampRialtoMediaPipelineClient<br/>(forwards events to the sink)"]
+            CORE["FakePrivateInstanceAAMP, FakeAampConfig,<br/>FakeGLib, ccManagerFakes..."]
+            MGL["MockGLib<br/>(timer ticks fired by the test)"]
+        end
+    end
+    subgraph l2s ["L2 simulator run (CI style)"]
+        CLI1["aamp-cli and real libaamp<br/>(all direct-rialto code real)"]
+        FW1["Test framework (pytest)<br/>aamp.cfg: useDirectRialto, useMp4Demux"]
+        HTTP["local test stream server or test CDN<br/>(real HTTP streams)"]
+        SIM["RialtoSimulator libRialtoClient.so.0<br/>(no decode, no DRM,<br/>fires needData and PLAYING)"]
+    end
+    subgraph l2r ["L2 real-Rialto run (manual, --aamp_video)"]
+        CLI2["build-rialto/aamp-cli"]
+        RCL["libRialtoClient.so.1"]
+        RSRV["Rialto server manager,<br/>RialtoServer and platform decoders"]
+    end
+
+    PLAYER -. "same idea, larger scope" .-> CUT
+    CUT --> MNOT & MCB & MSRC
+    CUT --> FACTORY & FDRM & FCLI & CORE & MGL
+    FW1 -- "starts it, reads the log,<br/>matches expect_list" --> CLI1
+    HTTP -- "manifests, fragments" --> CLI1
+    CLI1 -- "IMediaPipeline API (in process)" --> SIM
+    FW1 -. "--aamp_video" .-> CLI2
+    CLI2 --> RCL
+    RCL -- "socket (RIALTO_SOCKET_PATH)" --> RSRV
+```
 
 *L1 replaces everything around one class; L2 runs the real `aamp-cli` against either the simulator or a real Rialto server.*
 
@@ -167,16 +206,16 @@ With `--aamp_video` the framework uses `build-rialto/aamp-cli` and puts `.libs-r
 
 ## Related pages
 
-- Direct Rialto - Overview (top page)
-- Direct Rialto - Architecture and class model
-- Direct Rialto - Integration, configuration and build
-- Direct Rialto - Lifecycle and state machine
-- Direct Rialto - Media data path
-- Direct Rialto - Flush and seek
+- [Overview](00-direct-rialto-overview.md) (top page)
+- [Architecture and class model](01-architecture-and-class-model.md)
+- [Integration, configuration and build](09-integration-configuration-and-build.md)
+- [Lifecycle and state machine](02-player-lifecycle-and-state-machines.md)
+- [Media data path](03-media-data-path.md)
+- [Flush and seek](04-flush-seek-and-preroll.md)
 
 ## Workarounds and improvement candidates
 
-See `_register/ARCH.md`: ARCH-36 to ARCH-43 (test-side duplication, gaps and simulator/L2 limits), ARCH-03 and ARCH-12 (seams that tests have to work around), and ARCH-45 (stale simulator README).
+See the [ARCH rows in the register](11-workarounds-and-improvement-register.md#architecture-integration-build-and-testing-arch): ARCH-36 to ARCH-43 (test-side duplication, gaps and simulator/L2 limits), ARCH-03 and ARCH-12 (seams that tests have to work around), and ARCH-45 (stale simulator README).
 
 ## Open questions
 

@@ -33,7 +33,65 @@ This page explains how the `direct-rialto/` component is built: the layers, what
 
 direct-rialto has no GStreamer dependency (`AampRialtoPlayer.h` states that no GStreamer headers are included). It is a single class hierarchy rooted in the `StreamSink` contract that the rest of AAMP already speaks, with the Rialto client API (`IMediaPipeline`, `IMediaKeys`, `IControl`) underneath.
 
-[[diagram:direct-rialto-layers-component]]
+```mermaid
+flowchart TB
+    subgraph L0 ["L0 AAMP core (outside direct-rialto)"]
+        CORE["PrivateInstanceAAMP"]
+        MGR["AampStreamSinkManager"]
+        SA["StreamAbstractionAAMP,<br/>AampMp4Demuxer"]
+        LIC["AampDRMLicenseManager,<br/>DrmSessionManager"]
+        CC["PlayerCCManager<br/>(PlayerDirectRialtoCCManager)"]
+    end
+    subgraph L1 ["L1 Sink facade and orchestration"]
+        ARP["AampRialtoPlayer<br/>(StreamSink, IDirectRialtoCC,<br/>IAampRialtoPipelineEvents)"]
+    end
+    subgraph L2 ["L2 Policy helpers owned by the player"]
+        SM["PlayerStateMachine"]
+        PC["AampRialtoPlaybackController<br/>(PlayHold bits)"]
+        SP["AampRialtoSegmentPosition"]
+        PRM["AampRialtoPreRollMonitor"]
+        MAV["AampRialtoMonitorAV"]
+        PT["AampRialtoProgressTimer"]
+        GT["AampRialtoGlibTimer"]
+    end
+    subgraph L3 ["L3 Per-track sources"]
+        SRC["AampRialtoMediaSource<br/>(Video, Audio, Subtitle)"]
+        HS["AampRialtoNeedDataHandshake"]
+        TTML["AampRialtoTtmlOffset"]
+    end
+    subgraph L4 ["L4 Adapters to the outside"]
+        NOTIFY["PrivateInstanceAAMPNotifiable<br/>(IStreamSinkNotifiable)"]
+        BRIDGE["AampDrmBridge<br/>(IDrmBridge)"]
+        RDRM["RialtoSessionCreator, RialtoMediaKeySystem,<br/>RialtoMediaKeySession and its adapter"]
+    end
+    subgraph L5 ["L5 Rialto connection"]
+        PS["AampRialtoPipelineSession"]
+        CLIENT["AampRialtoMediaPipelineClient"]
+        CB["AampRialtoControlBackend<br/>(IRialtoControlBackend)"]
+    end
+    RLIB(["Rialto client library<br/>(IMediaPipeline, IMediaKeys, IControl)"])
+
+    MGR -- "new, delete" --> ARP
+    SA -- "StreamSink API" --> ARP
+    CORE -- "via sink manager" --> ARP
+    ARP -- IStreamSinkNotifiable --> NOTIFY
+    NOTIFY -- ScheduleAsyncTask --> CORE
+    ARP -- owns --> SM & PC & SP & PRM & MAV & PT
+    PRM & MAV & PT -- owns --> GT
+    ARP -- "0..3, shared_ptr" --> SRC
+    SRC -- owns --> HS
+    SRC -- "owns, subtitle only" --> TTML
+    ARP -- owns --> PS
+    PS -- owns --> CLIENT & CB
+    CLIENT -- IAampRialtoPipelineEvents --> ARP
+    ARP -- createSession --> BRIDGE
+    BRIDGE --> LIC
+    LIC -. DrmSessionCreator .-> RDRM
+    CC -. "IDirectRialtoCC (track select, CC mute)" .-> ARP
+    PS --> RLIB
+    SRC -- "addSegment, haveData" --> RLIB
+    RDRM --> RLIB
+```
 
 *Layers: AAMP core calls the player; the player owns policy helpers, per-track sources and the Rialto connection; adapters plug it into AAMP's notification and DRM machinery.*
 
@@ -52,25 +110,281 @@ The model is split into four diagrams. Each is deliberately partial; the class-r
 
 ### Player core and what it owns
 
-[[diagram:direct-rialto-player-core-class]]
+```mermaid
+classDiagram
+    direction LR
+    class StreamSink {
+        <<interface>>
+    }
+    class IDirectRialtoCC {
+        <<interface>>
+        +setTextTrackIdentifier(id)
+        +setCCMute(muted)
+    }
+    class IAampRialtoPipelineEvents {
+        <<interface>>
+        +OnNeedMediaData()
+        +OnCancelNeedMediaData()
+        +OnPlaybackState()
+        +OnPosition()
+        +OnDuration()
+        +OnBufferUnderflow()
+        +OnPlaybackError()
+    }
+    class AampRialtoPlayer {
+        -m_aamp : atomic~PrivateInstanceAAMP*~
+        -m_sources : 3 x shared_ptr~AampRialtoMediaSource~
+        -m_drmBridge : shared_ptr~IDrmBridge~
+        -m_attachMutex
+        -m_flushCallMutex
+        +Configure()
+        +Stream()
+        +Stop()
+        +Flush()
+        +SendCopy()
+        +SendTransfer()
+        +SendSample()
+        +Discontinuity()
+    }
+    class AampRialtoPipelineSession {
+        -m_pipeline : shared_ptr~IMediaPipeline~
+        +GetPipeline() snapshot
+        +CreateAndLoad(events)
+    }
+    class PlayerStateMachine {
+        -m_state : PlayerStateId
+        +onPipelineLoaded()
+        +waitForFlushComplete()
+    }
+    class AampRialtoPlaybackController {
+        -m_holds : atomic~uint32_t~
+        +RequestPlay()
+        +AddHold()
+        +ReleaseHold()
+    }
+    class AampRialtoSegmentPosition {
+        +StageRequested()
+        +CommitBaseline()
+        +ClaimDeferredFlush()
+    }
+    class AampRialtoPreRollMonitor {
+        +Start(probe)
+        +Stop()
+        +Poll()
+    }
+    class AampRialtoMonitorAV {
+        +start()
+        +stop()
+    }
+    class AampRialtoProgressTimer {
+        +start()
+        +stop()
+        +kick()
+    }
+    class AampRialtoGlibTimer
+    class IStreamSinkNotifiable {
+        <<interface>>
+    }
+    class PrivateInstanceAAMPNotifiable
+    class AampRialtoMediaSource {
+        <<abstract>>
+    }
+
+    StreamSink <|.. AampRialtoPlayer
+    IDirectRialtoCC <|.. AampRialtoPlayer
+    IAampRialtoPipelineEvents <|.. AampRialtoPlayer : private
+    AampRialtoPlayer *-- AampRialtoPipelineSession
+    AampRialtoPlayer *-- PlayerStateMachine
+    AampRialtoPlayer *-- AampRialtoPlaybackController
+    AampRialtoPlayer *-- AampRialtoSegmentPosition
+    AampRialtoPlayer *-- AampRialtoProgressTimer
+    AampRialtoPlayer *-- "0..1" AampRialtoPreRollMonitor : unique_ptr
+    AampRialtoPlayer *-- "0..1" AampRialtoMonitorAV : unique_ptr
+    AampRialtoPlayer o-- "0..3" AampRialtoMediaSource : shared_ptr
+    AampRialtoPlayer --> IStreamSinkNotifiable : m_notifiable (raw)
+    AampRialtoPlayer *-- "0..1" PrivateInstanceAAMPNotifiable : m_notifiableAdapter
+    IStreamSinkNotifiable <|.. PrivateInstanceAAMPNotifiable
+    AampRialtoPreRollMonitor *-- AampRialtoGlibTimer
+    AampRialtoProgressTimer *-- AampRialtoGlibTimer
+    AampRialtoMonitorAV *-- AampRialtoGlibTimer : sample and report
+    AampRialtoPlaybackController ..> AampRialtoPlayer : onPlay, onPreRollReady callbacks
+    AampRialtoMonitorAV ..> AampRialtoPlayer : getter callbacks
+```
 
 *`AampRialtoPlayer` implements three interfaces and owns the policy helpers by value. Only the pre-roll monitor and AV monitor are optional (`unique_ptr`).*
 
 ### Source hierarchy
 
-[[diagram:direct-rialto-sources-class]]
+```mermaid
+classDiagram
+    class AampRialtoMediaSource {
+        <<abstract>>
+        -m_handshake : AampRialtoNeedDataHandshake
+        -m_sourceId : atomic~int32_t~
+        -m_mksId : atomic~int32_t~
+        -m_demuxer : unique_ptr~Mp4Demux~
+        -m_pendingCodecData : shared_ptr~CodecData~
+        -m_firstPtsMs, m_acceptedFrames
+        +attachOrUpdate(pipeline, codecInfo, drmBridge)
+        +processInitFragment(buffer)
+        +processDataFragment()
+        +injectSingleSample()
+        +injectOneSample()
+        +handleNeedData()
+        +handleCancelNeedData()
+        +gateInjection()
+        +unblockInjection()
+        +signalEos()
+        +reset()
+        +mediaType()*
+        #mapCodecToMime()*
+        #createRialtoSource()*
+        #updateCachedMetadata()*
+        #createSegment()*
+    }
+    class AampRialtoVideoSource {
+        -m_width
+        -m_height
+        H.264, HEVC
+    }
+    class AampRialtoAudioSource {
+        -m_sampleRate
+        -m_channels
+        AAC, AC-3, EAC-3, AC-4
+    }
+    class AampRialtoSubtitleSource {
+        -m_ttmlOffset : AampRialtoTtmlOffset
+        -m_applyTextTransform
+        TTML, WebVTT, TTML in MP4, inband CC
+    }
+    class AampRialtoNeedDataHandshake {
+        +State : mutex, cv, generation, gateMode
+        +Reset()
+        +Unblock()
+        +SetGate()
+        +OnNeedData()
+        +OnCancelNeedData()
+        +BeginInject()
+        +Complete()
+        +SignalEos()
+    }
+    class AampRialtoTtmlOffset {
+        +Refine(doc, pts, dur, aampOffset)
+        +Reset()
+    }
+    class Mp4Demux {
+        <<mp4demux>>
+    }
+    class SourceCreator {
+        <<std::function>>
+        unique_ptr of source for an AampMediaType
+    }
+    class makeDefaultSourceCreator {
+        <<AampRialtoSourceCreators.cpp>>
+    }
+
+    AampRialtoMediaSource <|-- AampRialtoVideoSource
+    AampRialtoMediaSource <|-- AampRialtoAudioSource
+    AampRialtoMediaSource <|-- AampRialtoSubtitleSource
+    AampRialtoMediaSource *-- AampRialtoNeedDataHandshake
+    AampRialtoMediaSource *-- "0..1" Mp4Demux
+    AampRialtoSubtitleSource *-- AampRialtoTtmlOffset
+    makeDefaultSourceCreator ..> SourceCreator : returns
+    SourceCreator ..> AampRialtoVideoSource : creates
+    SourceCreator ..> AampRialtoAudioSource : creates
+    SourceCreator ..> AampRialtoSubtitleSource : creates
+    note for AampRialtoMediaSource "Template Method: the base class owns pacing,<br/>DRM annotation and the needData/haveData protocol.<br/>Subclasses supply codec mapping and segment construction."
+```
 
 *`AampRialtoMediaSource` is a template-method base: it owns pacing, the handshake, DRM annotation and demuxing; subclasses supply codec mapping and segment construction.*
 
 ### DRM
 
-[[diagram:direct-rialto-drm-class]]
+Diagram: see the diagram in [DRM](06-drm.md).
 
 *There are two separate DRM hooks: `IDrmBridge` (player asks AAMP's license manager for a session) and `makeRialtoSessionCreator()` (AAMP's session manager builds Rialto-backed `DrmSession` objects).*
 
 ### Notification and backend interfaces, and ownership of the Rialto objects
 
-[[diagram:direct-rialto-interfaces-ownership-class]]
+```mermaid
+classDiagram
+    class IStreamSinkNotifiable {
+        <<interface>>
+        +NotifyFirstFrameReceived()
+        +NotifyFirstBufferProcessed()
+        +NotifyEOSReached()
+        +MonitorProgress()
+        +NotifyBufferUnderflow()
+        +NotifyPlaybackError()
+        +SendMonitorAvEvent()
+        +GetState()
+        +GetProgressReportIntervalSeconds()
+    }
+    class PrivateInstanceAAMPNotifiable {
+        <<final>>
+        -m_aamp : atomic~PrivateInstanceAAMP*~
+        +ChangeAamp()
+    }
+    class IRialtoControlBackend {
+        <<interface>>
+        +waitForRunning(timeoutMs) bool
+    }
+    class AampRialtoControlBackend {
+        <<final>>
+        -m_state : shared_ptr~SharedState~
+        -m_controlClient : shared_ptr~ControlClient~
+        -m_control : shared_ptr~IControl~
+    }
+    class IAampRialtoPipelineEvents {
+        <<interface>>
+    }
+    class AampRialtoMediaPipelineClient {
+        -m_sink : IAampRialtoPipelineEvents* not owned
+        +SetEventSink()
+    }
+    class IMediaPipelineClient {
+        <<Rialto interface>>
+    }
+    class IMediaPipeline {
+        <<Rialto interface>>
+    }
+    class IMediaPipelineFactory {
+        <<Rialto interface>>
+    }
+    class IMediaPipelineCapabilities {
+        <<Rialto interface>>
+    }
+    class AampRialtoPipelineSession {
+        -m_logHandler : shared_ptr~LogHandler~
+        -m_factory : shared_ptr~IMediaPipelineFactory~
+        -m_capabilities : unique_ptr
+        -m_controlBackend : unique_ptr~IRialtoControlBackend~
+        -m_client : shared_ptr~AampRialtoMediaPipelineClient~
+        -m_pipeline : shared_ptr~IMediaPipeline~
+        +CreateAndLoad(events)
+        +ReleaseControlBackend()
+    }
+    class AampRialtoPlayer
+    class AampRialtoMonitorAV
+
+    IStreamSinkNotifiable <|.. PrivateInstanceAAMPNotifiable
+    IRialtoControlBackend <|.. AampRialtoControlBackend
+    IMediaPipelineClient <|.. AampRialtoMediaPipelineClient
+    AampRialtoPlayer *-- AampRialtoPipelineSession
+    AampRialtoPlayer --> IStreamSinkNotifiable : raw, not owned
+    AampRialtoPlayer *-- PrivateInstanceAAMPNotifiable : production only
+    AampRialtoPipelineSession *-- IRialtoControlBackend : unique_ptr, created lazily
+    AampRialtoPipelineSession *-- AampRialtoMediaPipelineClient : shared_ptr
+    AampRialtoPipelineSession *-- IMediaPipeline : shared_ptr, snapshots handed out
+    AampRialtoPipelineSession *-- IMediaPipelineFactory
+    AampRialtoPipelineSession *-- IMediaPipelineCapabilities
+    IMediaPipeline ..> IMediaPipelineClient : weak_ptr to client
+    AampRialtoMediaPipelineClient ..> IAampRialtoPipelineEvents : calls without its lock held
+    IAampRialtoPipelineEvents <|.. AampRialtoPlayer : private
+    AampRialtoMonitorAV o-- IMediaPipeline : shared_ptr
+    AampRialtoMonitorAV --> IStreamSinkNotifiable : raw, not owned
+    note for AampRialtoPipelineSession "Destruction order: the pipeline is released first,<br/>then the client's event sink is cleared. The last<br/>pipeline release joins Rialto's event thread, so no<br/>event can run on a destroyed player."
+```
 
 *`AampRialtoPipelineSession` owns the Rialto objects; the player holds only snapshots of the pipeline for the duration of a call.*
 
@@ -111,7 +425,58 @@ The model is split into four diagrams. Each is deliberately partial; the class-r
 
 ## Ownership and lifetime
 
-[[diagram:direct-rialto-object-creation-sequence]]
+```mermaid
+sequenceDiagram
+    participant PI as PlayerInstanceAAMP<br/>(main_aamp.cpp)
+    participant CORE as PrivateInstanceAAMP
+    participant MGR as AampStreamSinkManager
+    participant ARP as AampRialtoPlayer
+    participant PS as AampRialtoPipelineSession
+    participant CB as IRialtoControlBackend
+    participant RLIB as Rialto client lib
+    participant CLI as AampRialtoMediaPipelineClient
+    participant SRC as AampRialtoMediaSource
+    Note over PI,SRC: 1. Player instance construction
+    PI->>CORE: new PrivateInstanceAAMP(config)
+    CORE->>CORE: PlayerCCManager::SetRialto(useRialtoSink, useDirectRialto)
+    CORE->>CORE: useDirectRialto ? DrmSessionCreator = makeRialtoSessionCreator()
+    CORE->>CORE: new AampDRMLicenseManager(maxSessions, this, creator)
+    PI->>MGR: CreateStreamSink(aamp, id3Handler, exportFrames)
+    MGR->>MGR: CreateSinkInstance(): useDirectRialto ?
+    MGR->>ARP: new AampRialtoPlayer(aamp, id3Handler, exportFrames)
+    Note right of ARP: Members are constructed in declaration order:<br/>m_session(nullptr backend), m_segmentPosition,<br/>m_playbackController(onPlay-#gt;IssuePlay,<br/>onPreRoll-#gt;StartPreRoll), m_progressTimer,<br/>m_stateMachine.  Then m_preRollMonitor,<br/>m_notifiableAdapter = PrivateInstanceAAMPNotifiable.<br/>No Rialto object exists yet: nothing registers<br/>with the Rialto server.
+    MGR-->>PI: sink stored in mActivePlayersMap<br/>(manager owns, deletes on DeleteStreamSink)
+    Note over PI,SRC: 2. Configure() on the AAMP control thread (first tune)
+    CORE->>ARP: Configure(codecInfo, bESChange, setReady)
+    ARP->>ARP: WaitForFlushToComplete()#59; StopProgressTimer()
+    ARP->>ARP: ArmPositionPendingForConfigure()
+    ARP->>ARP: TryReuseExistingPipeline() -#gt; false (no pipeline)
+    ARP->>ARP: ReleasePipelineForReconfigure()#59; BeginNewSession()
+    ARP->>PS: CreateAndLoad(*this)
+    PS->>RLIB: IClientLogControl: register LogHandler
+    PS->>CB: new AampRialtoControlBackend() (registers IControl client)
+    PS->>RLIB: IMediaPipelineFactory::createFactory(),<br/>IMediaPipelineCapabilitiesFactory
+    PS->>CLI: make_shared#lt;AampRialtoMediaPipelineClient#gt;()
+    PS->>CB: waitForRunning(2000 ms)
+    CB-->>PS: RUNNING (or timeout: warn and continue)
+    PS->>RLIB: createMediaPipeline(weak_ptr(client), 3840x2160)
+    RLIB-->>PS: shared_ptr#lt;IMediaPipeline#gt;
+    PS->>CLI: SetEventSink(player)  [before load()]
+    PS->>RLIB: pipeline-#gt;load(MSE, #quot;mse://1#quot;, live=false)
+    PS-->>ARP: Loaded
+    ARP->>ARP: stateMachine.onPipelineLoaded()#59; applyAudioVolume()
+    ARP->>ARP: CreateMonitorAV() if eAAMPConfig_MonitorAV<br/>(MonitorAV gets its own shared_ptr#lt;IMediaPipeline#gt;)
+    ARP->>SRC: m_sourceCreator(type) for video / audio / subtitle<br/>(stored in m_sources as shared_ptr, gated)
+    ARP->>CORE: ResumeTrackDownloads(track)
+    Note over PI,SRC: 3. Init fragments arrive on injector threads
+    CORE->>ARP: SendTransfer(init) / SetStreamCaps()
+    ARP->>SRC: attachOrUpdate(pipeline, codecInfo, drmBridge, ...)
+    Note right of ARP: m_drmBridge (AampDrmBridge) is created lazily by<br/>GetDrmBridge()#59; video attaches first, other<br/>sources are deferred. See the lifecycle page for<br/>the attach / allSourcesAttached / play sequence.
+    Note over PI,SRC: 4. Teardown
+    CORE->>ARP: Stop(keepLastFrame)
+    ARP->>PS: SetPipeline(nullptr)#59; ReleaseControlBackend()
+    MGR->>ARP: delete (DeleteStreamSink): ~AampRialtoPlayer<br/>releases pipeline, then clears client event sink
+```
 
 *Creation order: player instance, sink manager, player constructor (no Rialto objects yet), then `Configure()` creates the Rialto objects.*
 
@@ -171,20 +536,20 @@ The class comment in `AampRialtoPlayer.h` lists the calling threads. The lock hi
 
 ## Related pages
 
-- Direct Rialto - Overview (top page)
-- Direct Rialto - Lifecycle and state machine
-- Direct Rialto - Media data path
-- Direct Rialto - Flush and seek
-- Direct Rialto - Threading model and locking
-- Direct Rialto - DRM
-- Direct Rialto - Subtitles and TTML
-- Direct Rialto - Monitoring and diagnostics
-- Direct Rialto - Integration, configuration and build
-- Direct Rialto - Testing
+- [Overview](00-direct-rialto-overview.md) (top page)
+- [Lifecycle and state machine](02-player-lifecycle-and-state-machines.md)
+- [Media data path](03-media-data-path.md)
+- [Flush and seek](04-flush-seek-and-preroll.md)
+- [Threading model and locking](05-threading-and-locking-model.md)
+- [DRM](06-drm.md)
+- [Subtitles and TTML](07-subtitles-cc-and-ttml-offset.md)
+- [Monitoring and diagnostics](08-av-monitoring-timers-and-position.md)
+- [Integration, configuration and build](09-integration-configuration-and-build.md)
+- [Testing](10-testing.md)
 
 ## Workarounds and improvement candidates
 
-See the ARCH register (`_register/ARCH.md`). Rows relevant to this page: the size of `AampRialtoPlayer` (ARCH-02), the incomplete notification seam (ARCH-03), the blocking `m_attachMutex` (ARCH-04), stale comments (ARCH-01, ARCH-05, ARCH-06), public test hooks on the production class (ARCH-12), log-only Rialto notifications and the unused `OnPosition` (ARCH-14), the never-called `NotifySpeedChanged` (ARCH-15), the notification task leak (ARCH-17), the GLib main-context dependency of the timers (ARCH-22) and the test-side duplication of fakes (ARCH-36 to ARCH-38).
+See the [ARCH rows in the register](11-workarounds-and-improvement-register.md#architecture-integration-build-and-testing-arch). Rows relevant to this page: the size of `AampRialtoPlayer` (ARCH-02), the incomplete notification seam (ARCH-03), the blocking `m_attachMutex` (ARCH-04), stale comments (ARCH-01, ARCH-05, ARCH-06), public test hooks on the production class (ARCH-12), log-only Rialto notifications and the unused `OnPosition` (ARCH-14), the never-called `NotifySpeedChanged` (ARCH-15), the notification task leak (ARCH-17), the GLib main-context dependency of the timers (ARCH-22) and the test-side duplication of fakes (ARCH-36 to ARCH-38).
 
 ## Open questions
 

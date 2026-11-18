@@ -8,7 +8,7 @@ the AAMP control thread, one injector thread per track, the Rialto client's
 event thread and the GLib main loop, so most past bugs in this component
 were interleavings rather than logic errors. Read this page before adding a
 lock, a callback, a blocking wait or a timer. DRM thread internals are
-summarised only; page "DRM" owns the detail.
+summarised only; [DRM](06-drm.md) owns the detail.
 
 ## Source files
 | File | Role |
@@ -25,7 +25,7 @@ summarised only; page "DRM" owns the detail.
 | `AampRialtoProgressTimer.h`, `AampRialtoPreRollMonitor.h/.cpp`, `AampRialtoMonitorAV.h/.cpp` | The three users of `AampRialtoGlibTimer`. |
 | `AampRialtoSegmentPosition.h/.cpp` | Staged flush position, rate and segment baseline; all atomics, no lock. |
 | `PrivateInstanceAAMPNotifiable.h/.cpp` | Adapter from the player to `PrivateInstanceAAMP` (the "notifiable"); the calls into AAMP core. |
-| `RialtoMediaKeySystem.*`, `RialtoMediaKeySessionAdapter.*`, `RialtoMediaKeySession.*`, `AampDrmBridge.*` | DRM objects with their own locks and condition variables (summary only, see page "DRM"). |
+| `RialtoMediaKeySystem.*`, `RialtoMediaKeySessionAdapter.*`, `RialtoMediaKeySession.*`, `AampDrmBridge.*` | DRM objects with their own locks and condition variables (summary only, see [DRM](06-drm.md)). |
 
 ## 1. Threads at a glance
 direct-rialto creates no threads of its own: there is no `std::thread`, `std::async`, `g_idle_add` or private `GMainContext` anywhere in `direct-rialto/`. Every piece of code runs on a thread that belongs to someone else:
@@ -36,7 +36,49 @@ direct-rialto creates no threads of its own: there is no `std::thread`, `std::as
 
 The design therefore relies on three things: locks inside the player, condition variables that injector threads block on, and "post it to the AAMP scheduler" for every notification into AAMP core.
 
-[[diagram:direct-rialto-threading-component]]
+```mermaid
+flowchart LR
+    CTL(["AAMP control thread"])
+    INJ(["Injector thread<br/>(one per track)"])
+    EVT(["Rialto client<br/>event thread"])
+    GLIB(["GLib main loop<br/>(default GMainContext)"])
+    SCHED(["AAMP scheduler thread"])
+    subgraph player ["AampRialtoPlayer"]
+        API["Configure, Stop, Flush<br/>[m_flushCallMutex]"]
+        DATA["SendCopy, SendTransfer,<br/>SendSample, SetStreamCaps<br/>[m_attachMutex for attach]"]
+        EVH["On...() handlers<br/>(SEEK_DONE, PLAYING,<br/>needData, errors)"]
+        CTRL["AampRialtoPlaybackController<br/>[play lock, then m_mutex]"]
+        SM["PlayerStateMachine<br/>[m_mutex and m_stateChanged]"]
+        HS["AampRialtoNeedDataHandshake<br/>(per source) [mu and cv]"]
+        TMR["AampRialtoGlibTimer x4<br/>(progress, pre-roll, MonitorAV x2)<br/>[recursive mutex]"]
+        NOTIFY["PrivateInstanceAAMPNotifiable"]
+    end
+    RIALTO["Rialto IMediaPipeline<br/>(synchronous IPC)"]
+    DRM["AampDrmBridge<br/>(blocking licence fetch)"]
+
+    CTL --> API
+    INJ --> DATA
+    EVT --> EVH
+    GLIB --> TMR
+    API -- "waits for SEEK_DONE (5000 ms)" --> SM
+    API --> CTRL
+    API -- "Stop() waits for a running tick" --> TMR
+    DATA -- "waits for needData (no timeout)" --> HS
+    DATA -- "under m_attachMutex" --> DRM
+    DATA -- "deferred Flush()" --> API
+    EVH -- "needData, cancel" --> HS
+    EVH -- "SEEK_DONE, FAILURE wake waiters" --> SM
+    EVH -- "release Flushing" --> CTRL
+    EVH -- "start progress timer (immediate tick)" --> TMR
+    TMR -- "pre-roll complete" --> CTRL
+    CTRL -- "play() under the play lock" --> RIALTO
+    API --> RIALTO
+    HS -. "haveData() after the lock is released" .-> RIALTO
+    EVH --> NOTIFY
+    TMR --> NOTIFY
+    NOTIFY -. "ScheduleAsyncTask (never blocks on AAMP locks)" .-> SCHED
+```
+
 *Threads that enter direct-rialto, the entry points each one calls, and where each one can block.*
 
 The class comment on `AampRialtoPlayer` (in `AampRialtoPlayer.h`) lists the same threads. Checked against the code, it is accurate with three omissions:
@@ -49,11 +91,11 @@ The class comment on `AampRialtoPlayer` (in `AampRialtoPlayer.h`) lists the same
 | Thread (owner) | Entry points it calls | What it can block on | Bound / timeout |
 |---|---|---|---|
 | AAMP control thread (AAMP: application/JS API thread, tune thread, idle tasks such as `ProcessPendingDiscontinuity`) | `Configure`, `Stream`, `Stop`, `Flush`, `Pause`, `SetPlayBackRate`, `SeekStreamSink`, volume/mute/rectangle/CC setters, `ChangeAamp`, `SetEncryptedAamp`, `QueueProtectionEvent`, `ClearProtectionEvent`, `NotifyFragmentCachingOngoing/Complete`, `NotifyInjectorToPause/Resume`, `UnblockTrackInjection`, `StopBuffering`, destructor | `m_flushCallMutex` (an injector's deferred flush may hold it for a whole `Flush()`); `WaitForFlushToComplete` (condition variable in `PlayerStateMachine`); `AampRialtoControlBackend::waitForRunning` inside `CreateAndLoad`; synchronous Rialto IPC (`load`, `stop`, `setPosition`, `play`, `pause`, `attachSource`); `AampRialtoGlibTimer::Stop()` waiting for a running tick; the controller play lock (waits for an in-flight `play()` or pre-roll step); `m_attachMutex` in `SetVideoMute`/`SetSubtitleMute`/`setCCMute` (held for the length of a DRM licence fetch, see ARCH-04) | Flush wait: `m_flushCompleteTimeout` = 5000 ms, after which the flush is abandoned. Rialto RUNNING wait: `kRialtoRunningTimeoutMs` = 2000 ms. Rialto IPC: no direct-rialto timeout; the Rialto client's own IPC timeout applies. Timer and play-lock waits: as long as the tick or `play()` takes. |
-| Per-track injector threads (AAMP: one per track; a single thread for muxed HLS-TS) | `SendCopy`, `SendTransfer`, `SendSample`, `SetStreamCaps`, `Discontinuity`, `EndOfStreamReached`, `PipelineConfiguredForMedia`; the deferred `Flush()` + `Stream()` in `MaybeFlushForPendingPosition`; `Configure` (muxed TS, through `SetStreamFormat`) | Need-data handshake waits in `AampRialtoNeedDataHandshake` (`WaitForAttach`, `WaitForGate`, `WaitForRequest`); `m_attachMutex`; the DRM licence fetch inside `AampDrmBridge::createSession` (called by `attachOrUpdate` under `m_attachMutex`); `m_flushCallMutex` and `WaitForFlushToComplete` in the deferred flush; the play lock | Handshake waits have **no timeout by design**. Only a `needData`, a gate change or a generation bump (`Flush`/`Stop`/`Configure`/`UnblockTrackInjection`/`NotifyInjectorToPause`) releases them. The DRM fetch is bounded by the AAMP DRM layer's licence timeouts (page "DRM"). The flush wait is bounded at 5000 ms. |
+| Per-track injector threads (AAMP: one per track; a single thread for muxed HLS-TS) | `SendCopy`, `SendTransfer`, `SendSample`, `SetStreamCaps`, `Discontinuity`, `EndOfStreamReached`, `PipelineConfiguredForMedia`; the deferred `Flush()` + `Stream()` in `MaybeFlushForPendingPosition`; `Configure` (muxed TS, through `SetStreamFormat`) | Need-data handshake waits in `AampRialtoNeedDataHandshake` (`WaitForAttach`, `WaitForGate`, `WaitForRequest`); `m_attachMutex`; the DRM licence fetch inside `AampDrmBridge::createSession` (called by `attachOrUpdate` under `m_attachMutex`); `m_flushCallMutex` and `WaitForFlushToComplete` in the deferred flush; the play lock | Handshake waits have **no timeout by design**. Only a `needData`, a gate change or a generation bump (`Flush`/`Stop`/`Configure`/`UnblockTrackInjection`/`NotifyInjectorToPause`) releases them. The DRM fetch is bounded by the AAMP DRM layer's licence timeouts ([DRM](06-drm.md)). The flush wait is bounded at 5000 ms. |
 | Rialto client event thread (Rialto client library) | `AampRialtoMediaPipelineClient::notify*` forwards to `OnNeedMediaData`, `OnCancelNeedMediaData`, `OnPlaybackState` (`HandlePlaybackStarted`, `HandleSeekDone`, `HandlePlaybackFailure`, PAUSED, END_OF_STREAM), `OnDuration`, `OnBufferUnderflow`, `OnPlaybackError`; `AampRialtoControlBackend::ControlClient::notifyApplicationState` | `m_attachMutex` in `ApplySubtitleSegmentPosition` (SEEK_DONE), which can mean a whole DRM licence fetch; the play lock, and then a synchronous `play()` IPC, when SEEK_DONE releases the last hold; `isVideoMaster`/`setSourcePosition` IPC; the progress-timer lock (`StartProgressTimer` runs the immediate progress tick here); `m_monitorMutex` and the MonitorAV timer locks; the handshake mutex plus `haveData()` IPC in `handleNeedData` | No direct-rialto timeout. While the thread is blocked, every later Rialto event (including `needData`) is delayed. |
 | GLib main loop thread (host application; **default** `GMainContext`) | `AampRialtoGlibTimer::Dispatch` runs `OnProgressTimerTick`, `AampRialtoPreRollMonitor::Poll` (on completion: play lock, `ReleaseHold`, possibly `IssuePlay` and a `play()` IPC), and `AampRialtoMonitorAV::onSampleTick`/`onReportTick` (`getPosition`/`getStats` IPC) | The timer's own recursive mutex; the play lock; Rialto IPC | Interval timers: progress = `eAAMPConfig_ReportProgressInterval`, pre-roll poll = 10 ms with a 1000 ms timeout (`kPreRollPollIntervalMs`, `kPreRollTimeoutMs`), MonitorAV = configured intervals. |
 | AAMP scheduler thread (AAMP `AampScheduler`) | Runs the tasks posted by `PrivateInstanceAAMPNotifiable` (first frame, tune complete, `MonitorProgress`, `SendErrorEvent`, `ScheduleRetune`, MonitorAV events). One task re-enters the sink: `NotifyOutputProtectionRecovered` calls `StreamSink::SetVideoMute(true)`. | That re-entry takes `m_attachMutex` | Not bounded |
-| DRM / OCDM threads (Rialto client and AAMP DRM layer) | `RialtoMediaKeySystem::MediaKeysClient::onLicenseRequest/onLicenseRenewal/onKeyStatusesChanged` wake waiters in `RialtoMediaKeySessionAdapter` | The adapter's `wait_for` on challenge, key status and state (timeouts passed in by the AAMP DRM layer); `deregisterSession` waits, untimed, for callbacks still running on other threads | See page "DRM" |
+| DRM / OCDM threads (Rialto client and AAMP DRM layer) | `RialtoMediaKeySystem::MediaKeysClient::onLicenseRequest/onLicenseRenewal/onKeyStatusesChanged` wake waiters in `RialtoMediaKeySessionAdapter` | The adapter's `wait_for` on challenge, key status and state (timeouts passed in by the AAMP DRM layer); `deregisterSession` waits, untimed, for callbacks still running on other threads | See [DRM](06-drm.md) |
 | Any thread (getters) | `GetPositionMilliseconds`, `GetDurationMilliseconds`, `GetVideoPTS`, `CheckForPTSChangeWithTimeout`, `GetVideoRectangle`, `GetVideoSize`, `IsAssociatedAamp`, `GetVideoPlaybackQuality` | `getPosition`/`getStats` IPC; leaf locks only | IPC timeout only. `GetVideoPlaybackQuality` writes the unguarded `m_playbackQuality` member and returns a pointer to it; it is safe only while one thread calls it (the header says the AAMP monitor thread). |
 
 ### What happens without a running GLib main loop
@@ -91,7 +133,7 @@ The class comment on `AampRialtoPlayer` (in `AampRialtoPlayer.h`) lists the same
 | `AampRialtoGlibTimer` (4 instances: progress, pre-roll, MonitorAV sample, MonitorAV report) | `State::mutex` (`std::recursive_mutex`) | `running`, `sourceId`, `generation`, `tick`. **Held while the tick runs**, so `Stop()` waits for a running tick and no tick starts after `Stop()` returns. | **No.** Whatever the tick takes nests under it (see section 4). |
 | `AampRialtoProgressTimer` | `m_mutex` | `m_interval` | Yes |
 | `AampRialtoPreRollMonitor` | `m_mutex` | `m_running`, `m_epoch`, `m_probe`, `m_startMs`, progress logging. Probes and the completion callback run without it. | Yes |
-| DRM classes (`RialtoMediaKeySystem::MediaKeysClient::mutex` + `callbackDone`; `RialtoMediaKeySessionAdapter` `m_mutex`, `m_sessionMutex`, `m_usableKeysMutex`, `m_eventMutex` + three condition variables; `RialtoMediaKeySession::m_keyStatusMutex`) | See page "DRM" | Session registry, callbacks in progress, challenge/key-status hand-off | Internal to DRM. Callbacks are invoked without the registry mutex held. |
+| DRM classes (`RialtoMediaKeySystem::MediaKeysClient::mutex` + `callbackDone`; `RialtoMediaKeySessionAdapter` `m_mutex`, `m_sessionMutex`, `m_usableKeysMutex`, `m_eventMutex` + three condition variables; `RialtoMediaKeySession::m_keyStatusMutex`) | See [DRM](06-drm.md) | Session registry, callbacks in progress, challenge/key-status hand-off | Internal to DRM. Callbacks are invoked without the registry mutex held. |
 
 ### 3.2 Atomics (no lock)
 | Owner class | Members | Notes |
@@ -122,7 +164,52 @@ Locks may only be taken in this order (outermost first). A thread may skip level
 
 Rialto IPC can happen at levels 2 to 4, but never under a leaf lock.
 
-[[diagram:direct-rialto-threading-lock-order-component]]
+```mermaid
+flowchart TB
+    AAMP["AAMP mLock, mStreamLock<br/>(held by AAMP core)"]
+    FLUSH["m_flushCallMutex<br/>(recursive)"]
+    ATTACH["m_attachMutex"]
+    MON["m_monitorMutex"]
+    TIMER["GLib timer locks<br/>(progress, pre-roll, MonitorAV x2,<br/>recursive)"]
+    PLAY["controller play lock<br/>m_playMutex (recursive)"]
+    DRM[/"DRM licence fetch<br/>(AampDrmBridge and DRM locks)"/]
+    IPC[/"Rialto IPC<br/>(play, pause, stop, setPosition,<br/>attachSource, haveData...)"/]
+    subgraph leaf ["Leaf locks"]
+        SM["PlayerStateMachine::m_mutex"]
+        CM["controller m_mutex"]
+        HS["handshake State::mu<br/>(per source)"]
+        SRC["m_sourcesMutex,<br/>m_pipelineMutex"]
+        ATTL["m_drmBridgeMutex, m_pendingAttachMutex,<br/>m_pendingProtectionMutex, m_codecDataMutex"]
+        OTHER["m_ptsCheckMutex, m_videoRectangleMutex,<br/>m_id3HandlerMutex, pre-roll m_mutex,<br/>progress m_mutex, client m_sinkMutex"]
+    end
+
+    AAMP --> FLUSH
+    AAMP -- Discontinuity --> PLAY
+    FLUSH -- "Stop() waits for a tick" --> TIMER
+    FLUSH --> MON
+    FLUSH --> PLAY
+    FLUSH -- "flush wait" --> SM
+    FLUSH --> HS
+    FLUSH -.-> IPC
+    ATTACH -- "pre-roll Start()" --> TIMER
+    ATTACH --> PLAY
+    ATTACH --> SM
+    ATTACH --> ATTL
+    ATTACH --> HS
+    ATTACH -.-> DRM
+    ATTACH -.-> IPC
+    ATTACH -- "ResumeTrackDownloads (subtitle; AAMP never holds mLock here)" --> AAMP
+    MON -- "MonitorAV start()" --> TIMER
+    TIMER -- "pre-roll completion" --> PLAY
+    TIMER --> SRC
+    TIMER --> HS
+    TIMER -- "pre-roll Start() and Stop()" --> OTHER
+    PLAY --> CM
+    PLAY --> HS
+    PLAY --> SRC
+    PLAY -.-> IPC
+```
+
 *Verified lock nesting. Each arrow means "is held while taking". Dashed arrows mark Rialto IPC or a blocking DRM call made while the lock is held.*
 
 ### 4.1 Nested-lock sites (verified)
@@ -176,13 +263,54 @@ Almost every `IStreamSinkNotifiable` method is asynchronous. `PrivateInstanceAAM
 | `AampRialtoMonitorAV` | `start`/`stop` thread-safe; the classification state is touched only by ticks | Event thread (`start`), control thread (`stop`, destructor), GLib (ticks) | Holds its own pipeline snapshot. That is why `Stop` drops the monitor before the pipeline. |
 | `AampRialtoSegmentPosition` | Lock-free; individual values are consistent, pairs are not | Control, injector, event | Position and rate are only a consistent pair while FLUSHING (header contract) |
 | `PrivateInstanceAAMPNotifiable` | Thread-safe (`m_aamp` is atomic; work is posted to the AAMP scheduler) | All | See ARCH-17 for tasks the scheduler drops |
-| DRM classes | Thread-safe internally | Injector/control (`createSession`), Rialto DRM callbacks | See page "DRM" |
+| DRM classes | Thread-safe internally | Injector/control (`createSession`), Rialto DRM callbacks | See [DRM](06-drm.md) |
 
 ## 6. Cross-thread protocols
 Five protocols carry state between threads. Each one is a handshake: one thread waits on a condition variable or a lock, and another thread changes the state and wakes it.
 
 ### 6.1 Flush wait and notify
-[[diagram:direct-rialto-threading-flush-sequence]]
+```mermaid
+sequenceDiagram
+    participant CT as Control or<br/>injector thread
+    participant P as AampRialtoPlayer
+    participant PC as PlaybackController<br/>(play lock)
+    participant SM as PlayerStateMachine<br/>(m_mutex, m_stateChanged)
+    participant SRC as Sources /<br/>handshakes
+    participant R as Rialto pipeline
+    participant EV as Rialto event<br/>thread
+    CT->>P: Flush(pos, rate)
+    Note right of P: take m_flushCallMutex
+    P->>SM: waitForFlushComplete(5000 ms)
+    Note right of SM: returns at once unless a<br/>previous flush is FLUSHING
+    P->>PC: AddHold(Flushing)
+    P->>P: StageRequested(pos, rate)
+    P->>PC: ReleaseHold(PositionPending)
+    P->>SM: currentState() flushable?
+    P->>SM: onFlush() -#gt; FLUSHING
+    P->>SRC: unblockInjection + gate(BLOCKED)
+    Note right of SRC: generation bump wakes<br/>blocked injectors#59; they abort
+    P->>R: setPosition(pos)
+    P-->>CT: return (m_flushCallMutex released)
+    CT->>P: next Flush() / Configure() / Stop()
+    P->>SM: waitForFlushComplete()
+    Note right of SM: blocks while FLUSHING
+    R->>EV: SEEK_DONE
+    EV->>P: HandleSeekDone()
+    P->>SM: currentState() == FLUSHING?
+    P->>R: setSourcePosition (trickplay video,<br/>subtitle under m_attachMutex)
+    P->>P: commit rate + baseline
+    P->>PC: ReleaseHold(Flushing)
+    Note right of PC: while still FLUSHING, so a<br/>waiting Flush cannot add a hold<br/>that this release would drop
+    PC->>R: play() if a request is pending<br/>and no hold remains (event thread)
+    P->>SM: onFlushComplete() -#gt; FLUSHED
+    SM-->>CT: notify_all wakes waiter
+    alt SEEK_DONE not received in 5000 ms
+        SM->>SM: force FlushComplete (same mutex)
+        SM->>P: onAbandoned: commit staged rate
+        P->>PC: ReleaseHold(Flushing)
+    end
+```
+
 *A flush starts on the control thread (or an elected injector thread) and is completed by `SEEK_DONE` on the Rialto event thread.*
 
 - **Starting the cycle.** `AampRialtoPlayer.cpp:Flush` holds `m_flushCallMutex` (recursive) for the whole call. It first calls `WaitForFlushToComplete()`, so a second `Flush()` never overlaps a cycle that is still FLUSHING. It then adds `PlayHold::Flushing`, stages the position and rate in `AampRialtoSegmentPosition`, moves the state machine to FLUSHING, gates every source BLOCKED (bumping the handshake generation, which aborts blocked injectors) and calls `setPosition()`. `Flush()` returns **without** waiting for `SEEK_DONE`.
@@ -191,10 +319,39 @@ Five protocols carry state between threads. Each one is a handshake: one thread 
 - **Timeout.** If `SEEK_DONE` does not arrive within `m_flushCompleteTimeout` (5000 ms), `waitForFlushComplete` forces the transition to FLUSHED under the same mutex, runs the "abandoned" callback (commit the staged rate) and the waiter releases `PlayHold::Flushing` itself. This mirrors the `setPosition()` failure path, so playback can continue even if Rialto never confirms the seek.
 
 ### 6.2 Need-data wait and notify (summary)
-Rialto pulls data; AAMP pushes it. `AampRialtoNeedDataHandshake` reconciles the two with one mutex and one condition variable per source (`State::mu`, `State::cv`). The injector thread waits in up to three stages (`WaitForAttach`, `WaitForGate`, `WaitForRequest`). The Rialto event thread wakes it by recording a needData (`OnNeedData`). The control thread wakes it by changing the gate or bumping the generation (`unblockInjection`, `gateInjection`, `reset`). No handshake method calls Rialto while holding `State::mu`: they return a `Claim`, and the caller sends `haveData()` after the lock is released. The waits have no timeout (DATA-01). The full protocol, with one sequence diagram per scenario, is on **Media data path**.
+Rialto pulls data; AAMP pushes it. `AampRialtoNeedDataHandshake` reconciles the two with one mutex and one condition variable per source (`State::mu`, `State::cv`). The injector thread waits in up to three stages (`WaitForAttach`, `WaitForGate`, `WaitForRequest`). The Rialto event thread wakes it by recording a needData (`OnNeedData`). The control thread wakes it by changing the gate or bumping the generation (`unblockInjection`, `gateInjection`, `reset`). No handshake method calls Rialto while holding `State::mu`: they return a `Claim`, and the caller sends `haveData()` after the lock is released. The waits have no timeout (DATA-01). The full protocol, with one sequence diagram per scenario, is on [Media data path](03-media-data-path.md).
 
 ### 6.3 Stop versus event thread versus injectors
-[[diagram:direct-rialto-threading-stop-sequence]]
+```mermaid
+sequenceDiagram
+    participant CT as AAMP control<br/>thread
+    participant P as AampRialtoPlayer
+    participant HS as Handshake<br/>(State::mu, cv)
+    participant INJ as Injector<br/>thread
+    participant R as Rialto pipeline
+    participant EV as Rialto event<br/>thread
+    INJ->>HS: WaitForRequest()<br/>(blocked, no timeout)
+    CT->>P: Stop()
+    Note right of P: lock m_flushCallMutex<br/>(serialises with a deferred<br/>flush on an injector)
+    P->>P: WaitForFlushToComplete()<br/>(#lt;= 5000 ms if FLUSHING)
+    P->>P: StopProgressTimer()<br/>pre-roll Stop(), SetMonitorAV(nullptr)
+    Note right of P: each timer Stop() waits for<br/>a tick already running
+    P->>HS: unblockInjection(#quot;Stop#quot;)
+    Note right of HS: generation++, gate DROPPED,<br/>pending request answered,<br/>cv.notify_all()
+    HS-->>INJ: wake: generation changed
+    INJ-->>INJ: abort sample, return
+    EV->>P: OnNeedMediaData (late)
+    P->>HS: OnNeedData()
+    Note right of HS: DROPPED: answered<br/>NO_AVAILABLE_SAMPLES<br/>(or dropped if no pipeline)
+    P->>R: stop()
+    P->>P: SetPipeline(nullptr)<br/>ReleaseControlBackend()
+    Note right of P: later events see a null<br/>pipeline snapshot and<br/>do nothing
+    P->>P: controller Reset(#quot;Stop#quot;)<br/>ClearForNewSession()
+    P->>P: stateMachine.onStop() -#gt; IDLE
+    P-->>CT: return
+    Note over CT,EV: The client event sink is cleared only in ~AampRialtoPlayer, after the last<br/>pipeline release has joined Rialto's event thread.  AAMP core must call<br/>UnblockTrackInjection() (StopTrackInjection) before joining an injector.
+```
+
 *How `Stop()` makes teardown safe against a blocked injector and late Rialto events.*
 
 `AampRialtoPlayer.cpp:StopInternal` performs the teardown in an order chosen so that no other thread is left waiting on something that will never happen:
@@ -212,7 +369,39 @@ Two further rules complete the protocol:
 - **The client event sink outlives every event.** `Stop()` does not clear the `IMediaPipelineClient` sink. Only `~AampRialtoPlayer` does, after `m_session.SetPipeline(nullptr)`; the destructor comment states that the last pipeline release joins Rialto's event thread, so no event can still be running on the player when the sink is cleared.
 
 ### 6.4 Progress timer tick versus Stop
-[[diagram:direct-rialto-threading-timer-stop-sequence]]
+```mermaid
+sequenceDiagram
+    participant GL as GLib main<br/>loop thread
+    participant EV as Rialto event<br/>thread
+    participant T as AampRialtoGlibTimer<br/>(State::mutex, recursive)
+    participant P as AampRialtoPlayer
+    participant CT as AAMP control<br/>thread
+    Note over GL,CT: Scheduled tick racing Stop()
+    GL->>T: Dispatch(handle)
+    Note right of T: lock State::mutex#59;<br/>running && generation match
+    T->>P: OnProgressTimerTick()
+    P->>P: notifiable-#gt;MonitorProgress()<br/>(posted to AAMP scheduler)
+    CT->>T: Stop()
+    Note right of CT: blocks on State::mutex
+    T-->>GL: keep = true
+    T->>T: StopLocked(): running=false,<br/>g_source_remove(id)
+    T-->>CT: Stop() returns#59;<br/>no tick runs after this
+    Note over GL,CT: Dispatch already picked up by GLib
+    GL->>T: Dispatch(handle)
+    Note right of T: running == false or<br/>generation mismatch:<br/>do nothing, G_SOURCE_REMOVE.<br/>Handle keeps State alive.
+    Note over GL,CT: kick() racing Stop() (fixed in 7efb0a89)
+    EV->>P: HandlePlaybackStarted()
+    P->>T: RestartIfRunning(interval)
+    Note right of T: check + restart are one step<br/>under State::mutex#59; a stopped<br/>timer is never brought back
+    alt timer still running
+        P->>T: FireNowIfRunning()
+        Note right of T: tick runs on the EVENT<br/>thread, under the same lock
+    else Stop() won
+        T-->>P: false, nothing dispatched
+    end
+    Note over GL,CT: Remaining gap (THR-03): when the timer is NOT running, StartProgressTimer()<br/>calls start(), and start() after stop() does create a new timer.  A late<br/>PLAYING event processed after Stop() can therefore restart progress reporting.
+```
+
 *`AampRialtoGlibTimer` makes `Stop()` wait for a running tick and ignores dispatches that arrive afterwards.*
 
 `AampRialtoGlibTimer` (used by the progress timer, pre-roll monitor and AV monitor) guarantees that **no tick starts after `Stop()` returns**:
@@ -226,7 +415,7 @@ Commit `7efb0a89` closed a race in which `kick()` (called from `HandlePlaybackSt
 One gap remains (THR-03): when the timer is not running, `StartProgressTimer()` calls `start()`, and `start()` after `stop()` does create a new timer. `HandlePlaybackStarted` does not check the state machine, so a PLAYING event that is processed after `Stop()` restarts progress reporting.
 
 ### 6.5 DRM callback reentrancy (summary)
-Rialto delivers key-session callbacks (`onLicenseRequest`, `onLicenseRenewal`, `onKeyStatusesChanged`) on its own thread. `RialtoMediaKeySystem::MediaKeysClient` copies the session's callback under its mutex, registers the calling thread in a per-session `running` list with `CallbackScope`, releases the mutex and only then calls the callback. `deregisterSession` removes the session and waits until no *other* thread is still in one of its callbacks, so the owning session object can be freed as soon as it returns. The calling thread itself is excluded from the wait, which lets a callback deregister its own session without deadlocking. Because the owner may then be freed when that callback returns, `onKeyStatusesChanged` stops dispatching a batch once the session is no longer registered. Details, including the timeouts used while waiting for a licence, are on **DRM**.
+Rialto delivers key-session callbacks (`onLicenseRequest`, `onLicenseRenewal`, `onKeyStatusesChanged`) on its own thread. `RialtoMediaKeySystem::MediaKeysClient` copies the session's callback under its mutex, registers the calling thread in a per-session `running` list with `CallbackScope`, releases the mutex and only then calls the callback. `deregisterSession` removes the session and waits until no *other* thread is still in one of its callbacks, so the owning session object can be freed as soon as it returns. The calling thread itself is excluded from the wait, which lets a callback deregister its own session without deadlocking. Because the owner may then be freed when that callback returns, `onKeyStatusesChanged` stops dispatching a batch once the session is no longer registered. Details, including the timeouts used while waiting for a licence, are on [DRM](06-drm.md).
 
 ## 7. Rules for contributors
 1. **Respect the lock order** in section 4: AAMP core locks, then `m_flushCallMutex` **or** `m_attachMutex` (siblings, never held together), then `m_monitorMutex` and the timer locks, then the controller play lock, then leaf locks. Never take a lock from an earlier level while holding a later one.
@@ -262,16 +451,16 @@ These are plausible interleavings found by reading the code. None is covered by 
 - Which thread does AAMP use to call `GetVideoPlaybackQuality`? The header says the AAMP monitor thread; it was not verified.
 
 ## Related pages
-- Direct Rialto - Architecture and class model
-- Direct Rialto - Lifecycle and state machine
-- Direct Rialto - Media data path
-- Direct Rialto - Flush and seek
-- Direct Rialto - DRM
-- Direct Rialto - Monitoring and diagnostics
-- Direct Rialto - Workarounds and improvement register
+- [Architecture and class model](01-architecture-and-class-model.md)
+- [Lifecycle and state machine](02-player-lifecycle-and-state-machines.md)
+- [Media data path](03-media-data-path.md)
+- [Flush and seek](04-flush-seek-and-preroll.md)
+- [DRM](06-drm.md)
+- [Monitoring and diagnostics](08-av-monitoring-timers-and-position.md)
+- [Workarounds and improvement register](11-workarounds-and-improvement-register.md)
 
 ## Workarounds and improvement candidates
-Rows are in `_register/THR.md`:
+See the [THR rows in the register](11-workarounds-and-improvement-register.md#threading-and-locking-thr):
 
 - THR-01: the class threading comment in `AampRialtoPlayer.h` omits three callers and two lock nestings.
 - THR-02: `Configure()` can run on the TS injector thread without `m_flushCallMutex`.

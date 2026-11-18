@@ -2,7 +2,7 @@
 
 ## Purpose
 
-A practical guide for investigating direct-rialto problems from logs: how to build a timeline, which log lines matter, a symptom-to-cause table that points to the right page, and the full glossary of terms used across this documentation set. For the full list of log messages see **Monitoring and diagnostics**, section 8.
+A practical guide for investigating direct-rialto problems from logs: how to build a timeline, which log lines matter, a symptom-to-cause table that points to the right page, and the full glossary of terms used across this documentation set. For the full list of log messages see [Monitoring and diagnostics](08-av-monitoring-timers-and-position.md), section 8.
 
 ## Source files
 
@@ -13,14 +13,14 @@ A practical guide for investigating direct-rialto problems from logs: how to bui
 | `AampRialtoMediaSource.cpp`, `AampRialtoNeedDataHandshake.cpp` | Gate, EOS, attach, injector and `addSegment` lines for each track. |
 | `AampRialtoPlayer.cpp` | Tune, flush, error, position and notification lines. |
 | `AampRialtoPipelineSession.cpp` | Pipeline creation and the forwarded Rialto client log. |
-| `test/rialto/RialtoSimulator.cpp` | In-process Rialto stand-in for reproducing problems on a PC (see **Testing**). |
+| `test/rialto/RialtoSimulator.cpp` | In-process Rialto stand-in for reproducing problems on a PC (see [Testing](10-testing.md)). |
 
 ## 1. Getting useful logs
 
 - **AAMP logging.** Normal logs include MIL (milestone), WARN and ERR. Many direct-rialto decisions (holds, gates, attach, needData) log at INFO, so enable info logging when investigating. Per-sample and per-tick detail is at TRACE and is very verbose.
 - **Rialto client log** is forwarded into the AAMP log by `AampRialtoPipelineSession::LogHandler` as `<component> [<file>:<line> <function>] <message>`, at the matching level.
 - **Rialto server log** is separate (the server process writes to syslog or the journal). Server-side failures such as `createMediaPipeline returned nullptr` or decryption errors usually need it.
-- **Thread identity.** AAMP log lines carry the thread ID. Use it to tell the control thread, the injector threads, the Rialto event thread and the GLib main loop apart (see **Threading model and locking**, section 2).
+- **Thread identity.** AAMP log lines carry the thread ID. Use it to tell the control thread, the injector threads, the Rialto event thread and the GLib main loop apart (see [Threading model and locking](05-threading-and-locking-model.md), section 2).
 
 ## 2. Building a timeline
 
@@ -39,25 +39,25 @@ Hold bits in the `remaining=0x...` mask: `0x1` SourcesNotAttached, `0x2` Flushin
 
 | Symptom | Likely causes (check in this order) | Log evidence | Read |
 |---|---|---|---|
-| Tune never reaches `PIPELINE_CREATED` | Rialto server not running or not reachable; server refused the pipeline; `load()` failed (LIFE-04) | `Failed to create IMediaPipelineFactory`, `createMediaPipeline returned nullptr`, `load() failed` | Lifecycle and state machine §4, Integration |
-| Stuck in `SOURCES_ATTACHING` | Video codec not identified yet (muxed TS before PMT); attach failed (unmapped codec); audio/subtitle waiting for video (ARCH-13); a failed deferred attach left an injector waiting (DATA-16) | `attach of mediaType=... skipped`, `attach failed for mediaType=`, no `Attached source` line for video | Media data path §10–11 |
-| `SOURCES_ATTACHED` but `play()` never issued | A hold is still set: check the last `remaining=` mask. `0x4` means waiting for a first sample to resolve the position; `0x10` means pre-roll never completed (often no GLib main loop, ARCH-22); `0x1` with `allSourcesAttached() failed` | `hold ... released ... remaining=0x...`, `play requested by ... deferred, holds=0x...` | Lifecycle §5, Flush and seek §7–8 |
-| First frame late on every tune | Pre-roll running to its 1 s timeout; audio-only content taking a deferred flush (DATA-14); Rialto `RUNNING` wait of up to 2 s | `pre-roll complete (timeout)`, `pending position resolved by ...` | Flush and seek §8 |
-| Seek hangs for about 5 s, then continues | `SEEK_DONE` lost or delayed; event thread blocked behind a DRM licence fetch (THR-04) | `SEEK_DONE not received within 5000 ms - abandoning flush` | Flush and seek §6, Threading §8 |
-| Wrong position after a seek | Abandoned flush kept the old baseline (FLUSH-04); position pending reported as 0 | `abandoning flush`, `position not yet valid, reporting 0` | Monitoring §4, Flush and seek §4 |
-| Playback stops after an underflow and never recovers | Underflow retune is ignored when AAMP's underflow monitor is off (ARCH-16) | `OnBufferUnderflow` INFO lines, then nothing | Monitoring §6 |
-| Stop or channel change hangs | An injector thread blocked in the handshake was not released: `UnblockTrackInjection` not called before the join (DATA-11), or a deferred-attach waiter (DATA-16) | Last lines from the track's injector thread are a wait; no `injector bailing out` line | Threading §6.3, Media data path §9 |
-| No progress events | No GLib main loop in the host (ARCH-22); `progressReportingInterval` not positive | `Starting progress timer` with no ticks; `Invalid progress interval` | Monitoring §1–5 |
-| Encrypted content: no picture | No DRM session, so samples are dropped; licence timeout | `Dropping encrypted sample for sourceId=`, `createSession failed for mediaType=`, `timed out waiting for challenge/key status` | DRM §3, §7 |
-| Encrypted content fails after a while | Licence renewal sends a stale challenge (DRM-01); key expired (DRM-04) | `onLicenseRenewal`, then licence errors; Rialto `error=1` (DECRYPTION) | DRM §4, §9 |
-| Subtitles mistimed or missing | TTML mode stuck at passthrough (SUB-01); WebVTT-in-MP4 attached as TTML (SUB-03); subtitle muted (default) | `refineDisplayOffset: detected ...`, `subtitle setDisplayOffset ...`, `Attached source ... mime=text/ttml` | Subtitles and TTML §3, §5 |
-| Closed captions not shown | No inband-CC source (sidecar subtitles present or no video); CC manager not initialised (no first `PLAYING`); track identifier wrong | `Created inband CC subtitle source`, `setTextTrackIdentifier="..."` | Subtitles and TTML §2 |
-| No audio during fast-forward or rewind | Expected: audio and subtitle are forced EOS for rate != 1 | `eos (...) ... reason=` lines at the trick-play flush | Flush and seek §9 |
-| Log flooded with needData lines | `OnNeedMediaData` logs every request at INFO (DATA-02) | `sourceId=<n> frameCount=<n> requestId=<n>` | Media data path §16 |
+| Tune never reaches `PIPELINE_CREATED` | Rialto server not running or not reachable; server refused the pipeline; `load()` failed (LIFE-04) | `Failed to create IMediaPipelineFactory`, `createMediaPipeline returned nullptr`, `load() failed` | [Lifecycle and state machine](02-player-lifecycle-and-state-machines.md) §4, [Integration](09-integration-configuration-and-build.md) |
+| Stuck in `SOURCES_ATTACHING` | Video codec not identified yet (muxed TS before PMT); attach failed (unmapped codec); audio/subtitle waiting for video (ARCH-13); a failed deferred attach left an injector waiting (DATA-16) | `attach of mediaType=... skipped`, `attach failed for mediaType=`, no `Attached source` line for video | [Media data path](03-media-data-path.md) §10–11 |
+| `SOURCES_ATTACHED` but `play()` never issued | A hold is still set: check the last `remaining=` mask. `0x4` means waiting for a first sample to resolve the position; `0x10` means pre-roll never completed (often no GLib main loop, ARCH-22); `0x1` with `allSourcesAttached() failed` | `hold ... released ... remaining=0x...`, `play requested by ... deferred, holds=0x...` | [Lifecycle and state machine](02-player-lifecycle-and-state-machines.md) §5, [Flush and seek](04-flush-seek-and-preroll.md) §7–8 |
+| First frame late on every tune | Pre-roll running to its 1 s timeout; audio-only content taking a deferred flush (DATA-14); Rialto `RUNNING` wait of up to 2 s | `pre-roll complete (timeout)`, `pending position resolved by ...` | [Flush and seek](04-flush-seek-and-preroll.md) §8 |
+| Seek hangs for about 5 s, then continues | `SEEK_DONE` lost or delayed; event thread blocked behind a DRM licence fetch (THR-04) | `SEEK_DONE not received within 5000 ms - abandoning flush` | [Flush and seek](04-flush-seek-and-preroll.md) §6, [Threading](05-threading-and-locking-model.md) §8 |
+| Wrong position after a seek | Abandoned flush kept the old baseline (FLUSH-04); position pending reported as 0 | `abandoning flush`, `position not yet valid, reporting 0` | [Monitoring](08-av-monitoring-timers-and-position.md) §4, [Flush and seek](04-flush-seek-and-preroll.md) §4 |
+| Playback stops after an underflow and never recovers | Underflow retune is ignored when AAMP's underflow monitor is off (ARCH-16) | `OnBufferUnderflow` INFO lines, then nothing | [Monitoring](08-av-monitoring-timers-and-position.md) §6 |
+| Stop or channel change hangs | An injector thread blocked in the handshake was not released: `UnblockTrackInjection` not called before the join (DATA-11), or a deferred-attach waiter (DATA-16) | Last lines from the track's injector thread are a wait; no `injector bailing out` line | [Threading](05-threading-and-locking-model.md) §6.3, [Media data path](03-media-data-path.md) §9 |
+| No progress events | No GLib main loop in the host (ARCH-22); `progressReportingInterval` not positive | `Starting progress timer` with no ticks; `Invalid progress interval` | [Monitoring](08-av-monitoring-timers-and-position.md) §1–5 |
+| Encrypted content: no picture | No DRM session, so samples are dropped; licence timeout | `Dropping encrypted sample for sourceId=`, `createSession failed for mediaType=`, `timed out waiting for challenge/key status` | [DRM](06-drm.md) §3, §7 |
+| Encrypted content fails after a while | Licence renewal sends a stale challenge (DRM-01); key expired (DRM-04) | `onLicenseRenewal`, then licence errors; Rialto `error=1` (DECRYPTION) | [DRM](06-drm.md) §4, §9 |
+| Subtitles mistimed or missing | TTML mode stuck at passthrough (SUB-01); WebVTT-in-MP4 attached as TTML (SUB-03); subtitle muted (default) | `refineDisplayOffset: detected ...`, `subtitle setDisplayOffset ...`, `Attached source ... mime=text/ttml` | [Subtitles and TTML](07-subtitles-cc-and-ttml-offset.md) §3, §5 |
+| Closed captions not shown | No inband-CC source (sidecar subtitles present or no video); CC manager not initialised (no first `PLAYING`); track identifier wrong | `Created inband CC subtitle source`, `setTextTrackIdentifier="..."` | [Subtitles and TTML](07-subtitles-cc-and-ttml-offset.md) §2 |
+| No audio during fast-forward or rewind | Expected: audio and subtitle are forced EOS for rate != 1 | `eos (...) ... reason=` lines at the trick-play flush | [Flush and seek](04-flush-seek-and-preroll.md) §9 |
+| Log flooded with needData lines | `OnNeedMediaData` logs every request at INFO (DATA-02) | `sourceId=<n> frameCount=<n> requestId=<n>` | [Media data path](03-media-data-path.md) §16 |
 
 ## 4. Debugging tips
 
-- **Reproduce on a PC with the simulator.** `test/rialto/RialtoSimulator.cpp` builds a stand-in `libRialtoClient.so` that aamp-cli loads from `.libs/lib`. It has no decoding and no DRM, but it exercises the whole state, hold and handshake logic (see **Testing**).
+- **Reproduce on a PC with the simulator.** `test/rialto/RialtoSimulator.cpp` builds a stand-in `libRialtoClient.so` that aamp-cli loads from `.libs/lib`. It has no decoding and no DRM, but it exercises the whole state, hold and handshake logic (see [Testing](10-testing.md)).
 - **Check the L1 suites first.** Most components have a suite under `test/utests/tests/AampRialto*`. A focused test for a suspected interleaving is often quicker than a device repro.
 - **Count holds, not states.** "Why didn't it play?" is almost always answered by the last `remaining=` mask.
 - **Follow one track at a time.** Gate, EOS and attach lines include `sourceId` and `mediaType`. Filter on one track to see its handshake history.
@@ -120,14 +120,14 @@ None specific to this page. See the Open questions on each topic page.
 
 ## Related pages
 
-- Direct Rialto - Overview
-- Direct Rialto - Monitoring and diagnostics
-- Direct Rialto - Lifecycle and state machine
-- Direct Rialto - Flush and seek
-- Direct Rialto - Threading model and locking
-- Direct Rialto - Testing
-- Direct Rialto - Workarounds and improvement register
+- [Overview](00-direct-rialto-overview.md)
+- [Monitoring and diagnostics](08-av-monitoring-timers-and-position.md)
+- [Lifecycle and state machine](02-player-lifecycle-and-state-machines.md)
+- [Flush and seek](04-flush-seek-and-preroll.md)
+- [Threading model and locking](05-threading-and-locking-model.md)
+- [Testing](10-testing.md)
+- [Workarounds and improvement register](11-workarounds-and-improvement-register.md)
 
 ## Workarounds and improvement candidates
 
-None owned by this page. The symptom guide references register IDs; see **Workarounds and improvement register**.
+None owned by this page. The symptom guide references register IDs; see [Workarounds and improvement register](11-workarounds-and-improvement-register.md).

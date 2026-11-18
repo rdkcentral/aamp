@@ -23,8 +23,46 @@ Related code outside the folder: `mp4demux/AampMp4Demuxer.cpp` (AAMP-side fMP4 d
 
 ## 1. End-to-end narrative
 
-[[diagram:direct-rialto-data-path-component]]
+```mermaid
+flowchart LR
+    subgraph aamp ["AAMP core (one inject thread per track)"]
+        INJ["MediaTrack::InjectFragment<br/>(inject thread)"]
+        MP4D["AampMp4Demuxer<br/>(fMP4, DASH and HLS-MP4)"]
+        TSP["TSProcessor<br/>(muxed HLS-TS)"]
+        PIA["PrivateInstanceAAMP<br/>SendStream...()"]
+    end
+    subgraph dr ["direct-rialto"]
+        PLAYER["AampRialtoPlayer<br/>SendSample, SendCopy,<br/>SendTransfer, SetStreamCaps"]
+        SRC["AampRialtoMediaSource<br/>(Video, Audio, Subtitle)<br/>injectOneSample()"]
+        HS["AampRialtoNeedDataHandshake<br/>one per source, own mutex"]
+        POS["AampRialtoSegmentPosition<br/>staged position and baseline"]
+        CLIENT["AampRialtoMediaPipelineClient<br/>IMediaPipelineClient"]
+    end
+    subgraph rl ["Rialto client library"]
+        PIPE["IMediaPipeline<br/>addSegment, haveData,<br/>attachSource"]
+    end
+    SHM[("Rialto server<br/>shared memory")]
+
+    INJ -- "fMP4 fragment" --> MP4D
+    INJ -- "TS fragment" --> TSP
+    MP4D -- "SendSample (1 sample)" --> PIA
+    TSP -- "SendCopy (1 ES frame)" --> PIA
+    INJ -- "SendTransfer (init, TTML/WebVTT, no playContext)" --> PIA
+    PIA -- "via StreamSink" --> PLAYER
+    PLAYER -- "injectSingleSample, processDataFragment" --> SRC
+    SRC -- "BeginInject, WaitForGate, WaitForRequest, Complete" --> HS
+    SRC -- "addSegment, haveData" --> PIPE
+    PIPE -- "copy payload" --> SHM
+    SHM -. "needData, cancelNeedData, underflow" .-> CLIENT
+    CLIENT -. "OnNeedMediaData..." .-> PLAYER
+    PLAYER -. "handleNeedData()" .-> SRC
+    SRC -. OnNeedData .-> HS
+    PLAYER -- "Flush, SEEK_DONE: stage and commit" --> POS
+```
+
 *Components and threads on the data path. Solid arrows run on the track's injector thread, dotted arrows on Rialto's event thread.*
+
+Solid arrows run on the injector thread and dotted arrows on the Rialto event thread. The control thread (`Flush`, `Stop`, `Configure`) reaches the handshake through `unblockInjection()` and `gateInjection()`.
 
 1. **AAMP downloads a fragment** and a per-track inject thread (`MediaTrack::InjectFragment`) hands it to the track's `playContext`. With direct Rialto, AAMP forces `useMp4Demux` on (`AampConfig.cpp`), so DASH and HLS-MP4 audio/video use `AampMp4Demuxer`, which parses the fMP4 and calls `PrivateInstanceAAMP::SendStreamTransfer(type, AampMediaSample&&, morePending)` once per sample. Muxed HLS-TS goes through `TSProcessor`, which calls `SendStreamCopy` once per elementary-stream (ES) frame. Anything with no `playContext` (initialisation-only headers of disabled tracks, raw TTML/WebVTT) arrives as `SendStreamTransfer(buffer, ..., initFragment, discontinuity)`.
 2. `PrivateInstanceAAMP` forwards to the active `StreamSink`, which is `AampRialtoPlayer`: `SendSample`, `SendCopy` or `SendTransfer`. Every entry point first calls `ReportID3Metadata` (see section 10), then resolves the track to a source with `getSource()` (video track to the audio source in audio-only content, see section 9).
@@ -37,7 +75,127 @@ Related code outside the folder: `mp4demux/AampMp4Demuxer.cpp` (AAMP-side fMP4 d
 
 ## 2. The handshake types (`AampRialtoNeedDataHandshake`)
 
-[[diagram:direct-rialto-data-path-class]]
+```mermaid
+classDiagram
+    class AampRialtoPlayer {
+        m_sources : 3 x SourcePtr
+        m_segmentPosition
+        m_audioInVideoSlot : atomic~bool~
+        getSource(track)
+        SendSample()
+        SendCopy()
+        SendTransfer()
+    }
+    class AampRialtoMediaSource {
+        <<abstract>>
+        m_handshake
+        m_sourceId, m_mksId : atomic~int32~
+        m_pendingCodecData
+        m_firstPtsMs, m_acceptedFrames
+        attachOrUpdate()
+        injectOneSample()
+        handleNeedData()
+        signalEos()
+        unblockInjection()
+        gateInjection()
+        mapCodecToMime()*
+        createRialtoSource()*
+        createSegment()*
+    }
+    class AampRialtoVideoSource
+    class AampRialtoAudioSource
+    class AampRialtoSubtitleSource
+    class AampRialtoNeedDataHandshake {
+        OnNeedData()
+        OnCancelNeedData()
+        BeginInject()
+        WaitForGate()
+        WaitForRequest()
+        WaitForAttach()
+        OnNoSpace()
+        DropSample()
+        Complete()
+        Unblock()
+        SetGate()
+        SignalEos()
+        Reset()
+    }
+    class State {
+        <<guarded by mu>>
+        hasPending, pendingRequestId
+        pendingFrameCount, segmentsAddedInBatch
+        batch statistics
+        eos, generation
+        gateMode, injectorActive, attachPending
+    }
+    class GateMode {
+        <<enumeration>>
+        NONE
+        BLOCKED
+        DROPPED
+    }
+    class Claim {
+        requestId
+        batch : BatchSummary
+    }
+    class NeedDataResult {
+        superseded : optional~Claim~
+        rejected : bool
+        eos : optional~Claim~
+    }
+    class WaitResult {
+        outcome : Wait
+        requestId
+        abandoned : optional~Claim~
+    }
+    class DropResult {
+        claim : optional~Claim~
+        eos : bool
+    }
+    class Completion {
+        reply : Reply
+        batch : BatchSummary
+    }
+    class Wait {
+        <<enumeration>>
+        Proceed
+        GateReasserted
+        Abort
+    }
+    class Reply {
+        <<enumeration>>
+        None
+        Ok
+        Eos
+        Abandoned
+    }
+    class AttachWait {
+        <<enumeration>>
+        NotPending
+        Attached
+        Aborted
+    }
+
+    AampRialtoPlayer o-- "0..3" AampRialtoMediaSource
+    AampRialtoMediaSource <|-- AampRialtoVideoSource
+    AampRialtoMediaSource <|-- AampRialtoAudioSource
+    AampRialtoMediaSource <|-- AampRialtoSubtitleSource
+    AampRialtoMediaSource *-- AampRialtoNeedDataHandshake
+    AampRialtoNeedDataHandshake *-- State
+    State --> GateMode
+    AampRialtoNeedDataHandshake ..> NeedDataResult
+    AampRialtoNeedDataHandshake ..> WaitResult
+    AampRialtoNeedDataHandshake ..> DropResult
+    AampRialtoNeedDataHandshake ..> Completion
+    AampRialtoNeedDataHandshake ..> AttachWait
+    WaitResult --> Wait
+    Completion --> Reply
+    NeedDataResult --> Claim
+    WaitResult --> Claim
+    DropResult --> Claim
+    note for Claim "Every operation that closes a request returns a Claim<br/>(with BatchSummary) and clears hasPending under the lock.<br/>The caller sends haveData() afterwards, lock released."
+```
+
 *Source hierarchy and handshake types. `AampRialtoSubtitleSource` is covered on the subtitles page.*
 
 One handshake object lives inside each `AampRialtoMediaSource`. All of its state is in `State`, guarded by `State::mu` and signalled by `State::cv`. The class never calls Rialto: each operation that closes a request returns a `Claim`, and the caller sends the matching `haveData()` after the call returns, so no Rialto IPC happens with the lock held.
@@ -77,8 +235,40 @@ Operations by calling thread:
 
 A request is open from `OnNeedData()` until exactly one thread **claims** it. Every closing path calls `ClaimPendingLocked()`, which returns a `Claim` once and clears `hasPending`; the claimant then sends `haveData(status, requestId)` outside the lock. Because the claim and the clearing are one critical section, a request is never answered twice and never left open when someone is responsible.
 
-[[diagram:direct-rialto-request-lifecycle-state]]
+```mermaid
+stateDiagram-v2
+    [*] --> NoRequest
+
+    NoRequest --> Pending : OnNeedData() with gate NONE<br/>(hasPending = true)
+    NoRequest --> NoRequest : OnNeedData() while gated<br/>(rejected, answered at once, never staged)
+    Pending --> Pending : Complete() adds a segment,<br/>count < frameCount and morePending
+    Pending --> Claimed : batch complete, EOS, no space,<br/>dropped sample, abort, superseded<br/>or ungate (see table below)
+    Pending --> NoRequest : OnCancelNeedData()<br/>(Rialto cancelled, no haveData)
+    Pending --> NoRequest : Reset()<br/>(new session, dropped silently)
+    Claimed --> NoRequest : caller sends haveData(status, requestId)<br/>after the handshake lock is released
+
+    note right of Claimed
+        A claim clears hasPending and snapshots the
+        BatchSummary in one critical section, so exactly
+        one thread owns the duty to answer. There is no
+        timer: a Pending request stays open until one
+        of the events above happens.
+    end note
+```
+
 *Lifecycle of one needData request. There is no timer: a Pending request stays open until an event in the diagram happens.*
+
+Events that claim a pending request, and the status of the reply:
+
+| Event | Reply |
+|---|---|
+| `Complete()` with the batch full, or `morePending` false | `OK` |
+| `Complete()` with EOS latched | `EOS` |
+| `OnNoSpace()` | `OK`, or `NO_AVAILABLE_SAMPLES` if no frame was added |
+| `DropSample()` | `EOS` or `NO_AVAILABLE_SAMPLES` |
+| `Unblock()`, or a `WaitFor*()` abort | `NO_AVAILABLE_SAMPLES` |
+| A new `OnNeedData()` supersedes it | `NO_AVAILABLE_SAMPLES` |
+| `SignalEos()` or `SetGate(false)` | `EOS` |
 
 | Closing path | Status sent | Claimant |
 | --- | --- | --- |
@@ -111,21 +301,95 @@ Neither wait has a timeout (documented as by design in `AampRialtoMediaSource.h`
 
 ### 4.1 Normal: needData first, then segments
 
-[[diagram:direct-rialto-handshake-normal-sequence]]
+```mermaid
+sequenceDiagram
+    participant EV as Rialto event thread
+    participant SRC as AampRialtoMediaSource
+    participant HS as NeedDataHandshake<br/>(mutex State::mu)
+    participant INJ as Injector thread<br/>(blocked in WaitForRequest)
+    participant PIPE as IMediaPipeline
+    EV->>SRC: handleNeedData(frameCount=N, req=7)
+    SRC->>HS: OnNeedData(N, 7)
+    Note right of HS: gateMode == NONE:<br/>hasPending = true<br/>pendingRequestId = 7<br/>pendingFrameCount = max(N, 1)
+    HS-->>SRC: {superseded none, rejected false, eos none}
+    SRC->>HS: WakeWaiters()
+    HS->>INJ: cv.notify_all()
+    INJ->>HS: WaitForRequest(gen) returns Proceed, req=7
+    loop for each sample until the batch is complete
+        INJ->>INJ: createSegment(), annotateEncryption()
+        INJ->>PIPE: addSegment(7, segment)
+        PIPE-->>INJ: OK
+        INJ->>HS: Complete(gen, 7, morePending, segment)
+        HS-->>INJ: Reply::None (count #lt; N and more samples pending)
+    end
+    Note over INJ,HS: Last sample: count reaches N, or morePending == false<br/>(end of the fragment) -#gt; Reply::Ok. hasPending cleared,<br/>BatchSummary snapshotted, injectorActive = false.
+    INJ->>PIPE: haveData(OK, 7)
+    Note over PIPE: Rialto issues the next needData
+```
+
 *The event thread stages the request, wakes the injector, which adds samples until the batch is complete.*
 
 `WakeWaiters()` is called by `handleNeedData()` after any replies so that an injector cannot add segments to a request before the superseded/rejected reply is on its way.
 
 ### 4.2 Segment arrives before needData
 
-[[diagram:direct-rialto-handshake-injector-first-sequence]]
+```mermaid
+sequenceDiagram
+    participant INJ as Injector thread
+    participant HS as NeedDataHandshake
+    participant EV as Rialto event thread
+    participant PIPE as IMediaPipeline
+    INJ->>HS: BeginInject()
+    Note right of HS: injectorActive = true<br/>(returns false only if EOS is latched<br/>and no request is pending)
+    INJ->>HS: WaitForGate(gen)
+    HS-->>INJ: Proceed (gate is NONE)
+    INJ->>HS: WaitForRequest(gen)
+    Note right of INJ: Blocks on the condition variable.<br/>No timeout by design.  Released only by:<br/>needData, a gate change to BLOCKED,<br/>or a generation bump (Flush / Stop).
+    Note over INJ,PIPE: ...
+    EV->>HS: OnNeedData(N, 7) via handleNeedData()
+    HS->>INJ: cv.notify_all() (WakeWaiters)
+    HS-->>INJ: Proceed, req=7
+    INJ->>PIPE: addSegment(7, segment)
+    PIPE-->>INJ: OK
+    INJ->>HS: Complete(gen, 7, morePending=false, segment)
+    HS-->>INJ: Reply::Ok, injectorActive = false
+    INJ->>PIPE: haveData(OK, 7)
+    Note over INJ,PIPE: The inject thread is the back-pressure point: AAMP's<br/>fragment injection call does not return until Rialto<br/>has asked for (and been given) this sample.
+```
+
 *The injector is already waiting in `WaitForRequest` when Rialto asks.*
 
 This is the steady state for a fast producer: the injector sits in `WaitForRequest` with `injectorActive = true`. Because the injector is active, an EOS signalled meanwhile is not answered by the event thread; it is answered by the injector (`Reply::Eos`) right after the sample, so EOS never overtakes a held sample.
 
 ### 4.3 needData when there is nothing to give
 
-[[diagram:direct-rialto-handshake-nothing-to-give-sequence]]
+```mermaid
+sequenceDiagram
+    participant EV as Rialto event thread
+    participant SRC as AampRialtoMediaSource
+    participant HS as NeedDataHandshake
+    participant PIPE as IMediaPipeline
+    EV->>SRC: handleNeedData(N, req=9)
+    SRC->>HS: OnNeedData(N, 9)
+    alt a previous request is still unanswered
+        HS-->>SRC: superseded = Claim(old req)
+        SRC->>PIPE: haveData(NO_AVAILABLE_SAMPLES, old req)
+    end
+    alt gateMode is BLOCKED or DROPPED
+        HS-->>SRC: rejected = true (request NOT staged)
+        SRC->>PIPE: haveData(NO_AVAILABLE_SAMPLES, 9)
+        Note right of PIPE: Data sent against a request issued before SEEK_DONE<br/>would be discarded as stale by Rialto.  Answering at<br/>once makes Rialto ask again after the gate clears.
+    else gate NONE and EOS latched, no injector active
+        HS-->>SRC: eos = Claim(9)
+        SRC->>PIPE: haveData(EOS, 9)
+    else gate NONE, no EOS (no sample available yet)
+        HS-->>SRC: request staged, hasPending = true
+        Note right of SRC: No reply is sent.  Request 9 stays open until<br/>an injector fills it (normal sequence), EOS is<br/>signalled (SignalEos answers it), the gate/generation<br/>changes (Unblock answers it), or Rialto cancels it.
+    end
+    SRC->>HS: WakeWaiters()
+    Note over SRC,HS: WakeWaiters() runs after the replies above, so an injector<br/>cannot add segments before the NO_AVAILABLE_SAMPLES is sent.
+```
+
 *Rejected, EOS, or simply left open.*
 
 - Gate BLOCKED or DROPPED: the request is answered `NO_AVAILABLE_SAMPLES` immediately and not staged. Rialto treats data sent against a request issued before its `SEEK_DONE` as stale and discards it, so staging it would waste the sample; Rialto asks again once playback resumes.
@@ -134,36 +398,174 @@ This is the steady state for a fast producer: the injector sits in `WaitForReque
 
 ### 4.4 needData expiry, cancellation and supersession
 
-[[diagram:direct-rialto-handshake-cancel-supersede-sequence]]
+```mermaid
+sequenceDiagram
+    participant EV as Rialto event thread
+    participant SRC as AampRialtoMediaSource
+    participant HS as NeedDataHandshake
+    participant INJ as Injector thread
+    participant PIPE as IMediaPipeline
+    Note over EV,PIPE: direct-rialto has no needData timer of its own.  A request that<br/>Rialto no longer wants arrives as cancelNeedMediaData, or is<br/>implicitly replaced by a newer needData.
+    Note over EV,PIPE: Rialto cancels request 7
+    EV->>SRC: handleCancelNeedData()
+    SRC->>HS: OnCancelNeedData()
+    Note right of HS: hasPending = false, batch cleared, cv.notify_all().<br/>No haveData is sent (Rialto cancelled it).
+    alt injector is waiting in WaitForRequest
+        HS->>INJ: wakes, predicate false, keeps waiting for the next needData
+    else injector already holding req 7 (between WaitForRequest and Complete)
+        INJ->>PIPE: addSegment(7, segment)
+        PIPE-->>INJ: status (stale request id)
+        INJ->>HS: Complete(gen, 7, ...)
+        HS-->>INJ: Reply::None (request no longer owned)
+        Note right of INJ: The sample counts as consumed.  Only NO_SPACE keeps a sample<br/>for retry#59; an addSegment error is logged and the sample dropped.
+    end
+    Note over EV,PIPE: Rialto issues needData 8 while 7 is still unanswered
+    EV->>SRC: handleNeedData(N, req=8)
+    SRC->>HS: OnNeedData(N, 8)
+    HS-->>SRC: superseded = Claim(7), request 8 staged
+    SRC->>PIPE: haveData(NO_AVAILABLE_SAMPLES, 7)
+```
+
 *direct-rialto has no needData timer; it reacts to Rialto's cancel or replacement.*
 
 There is no timeout or "reply deadline" in direct-rialto. A request Rialto no longer wants arrives as `cancelNeedMediaData`; `OnCancelNeedData()` clears the pending request and batch and wakes waiters without replying. A newer needData before an answer (should not normally happen) closes the old request with `NO_AVAILABLE_SAMPLES`, because overwriting it would leave it open on Rialto's side and desynchronise the two. If a cancel races with an injector that already holds the request, the injector's `addSegment` uses a stale id; the sample is counted as consumed (see the edge-case table). Whether Rialto itself times out a request is not visible from this code.
 
 ### 4.5 Flush while waiting
 
-[[diagram:direct-rialto-handshake-flush-sequence]]
+```mermaid
+sequenceDiagram
+    participant CTL as Control thread<br/>Flush()
+    participant SRC as AampRialtoMediaSource
+    participant HS as NeedDataHandshake
+    participant INJ as Injector thread<br/>(in WaitForRequest)
+    participant PIPE as IMediaPipeline
+    participant EV as Rialto event thread
+    CTL->>SRC: unblockInjection(pipeline, #quot;Flush#quot;, newEos)
+    SRC->>HS: Unblock(newEos, previous)
+    Note right of HS: One critical section:<br/>generation++<br/>gateMode = DROPPED<br/>eos = newEos (if given)
+    alt injectorActive == false
+        HS-->>SRC: Claim(pending request)
+        SRC->>PIPE: haveData(NO_AVAILABLE_SAMPLES, req)
+    else injectorActive == true (injector owns the request)
+        HS->>INJ: cv.notify_all()
+        INJ->>HS: WaitForRequest sees generation != gen
+        HS-->>INJ: Abort + abandoned = Claim(req)
+        INJ->>PIPE: haveData(NO_AVAILABLE_SAMPLES, req)
+        Note right of INJ: injectOneSample() returns false.  processDataFragment<br/>stops the rest of the fragment#59; the sample is dropped.
+    end
+    CTL->>SRC: gateInjection(pipeline, true, #quot;Flush#quot;)
+    SRC->>HS: SetGate(true): gateMode = BLOCKED
+    CTL->>PIPE: setPosition(posNs)
+    EV->>HS: OnNeedData(...) while BLOCKED
+    HS-->>EV: rejected, answered NO_AVAILABLE_SAMPLES
+    Note over CTL,EV: ...
+    EV->>EV: SEEK_DONE: HandleSeekDone() releases the Flushing hold
+    EV->>SRC: controller runs IssuePlay() -#gt; UngateAllSources() -#gt; gateInjection(false)
+    SRC->>HS: SetGate(false): gateMode = NONE
+    Note over HS,INJ: New samples (fresh capturedGen) pass the gate and wait for<br/>the next needData.  See the Flush/seek page for the full cycle.
+```
+
 *Flush bumps the generation, drops the gate, then re-gates; SEEK_DONE ungates.*
 
 `Flush()` calls `ResetSourcesForFlush()`, which for every source calls `unblockInjection()` (generation++, DROPPED, optional new EOS value, answer any request nobody owns) and then `gateInjection(true)` (BLOCKED) on the flushable path, so post-seek data is held, not dropped, until `IssuePlay`/`UngateAllSources` runs after `SEEK_DONE`. On the non-flushable path the gate is cleared immediately because no Stream() will follow. An injector that was waiting aborts, answers its own request, and returns false from `injectOneSample`; `processDataFragment` then stops the rest of the fragment. Details of the whole cycle are on the Flush/seek page.
 
 ### 4.6 Stop while waiting
 
-[[diagram:direct-rialto-handshake-stop-sequence]]
+```mermaid
+sequenceDiagram
+    participant CTL as Control thread<br/>Stop()
+    participant SRC as AampRialtoMediaSource
+    participant HS as NeedDataHandshake
+    participant INJ as Injector thread
+    participant PIPE as IMediaPipeline
+    Note over CTL: Holds m_flushCallMutex, has waited for any flush<br/>to finish (WaitForFlushToComplete).
+    CTL->>SRC: unblockInjection(pipeline, #quot;Stop#quot;, newEos=false)
+    SRC->>HS: Unblock(false, previous)
+    Note right of HS: generation++, gateMode = DROPPED, eos = false.<br/>A request nobody owns is claimed and answered.
+    HS->>INJ: cv.notify_all()
+    alt injector was in WaitForGate or WaitForRequest
+        INJ->>HS: wakes: generation changed or DROPPED
+        HS-->>INJ: Abort (+ abandoned Claim if it owned a request)
+        INJ->>PIPE: haveData(NO_AVAILABLE_SAMPLES, req)
+        Note right of INJ: The injector uses the IMediaPipeline reference it took<br/>before Stop(), so the pipeline object is still alive.<br/>The call may fail once the pipeline is stopped: logged.
+    else injector was in WaitForAttach
+        INJ->>HS: generation changed -#gt; AttachWait::Aborted
+        Note right of INJ: sample discarded, #quot;Attach did not complete (abort)#quot;
+    end
+    CTL->>PIPE: stop()
+    CTL->>CTL: SetPipeline(nullptr), controller Reset, state machine onStop
+    Note over CTL,INJ: Sources stay DROPPED: later samples are discarded at once and<br/>never block a thread.  The next Configure() recreates the<br/>pipeline/sources (gated BLOCKED) or Flush() re-gates them.<br/>The AAMP side also calls UnblockTrackInjection() per track<br/>(StopTrackInjection(discard)) so the inject thread can be joined.
+```
+
 *Stop leaves sources DROPPED, so nothing can block after it.*
 
 `Stop()` unblocks with `newEos = false`, then stops and releases the pipeline. No `gateInjection(true)` follows: Stop ends the session, and a BLOCKED gate with no later ungate would hang an injector forever. The injector keeps its own `shared_ptr` to the pipeline (taken at the start of `SendCopy`/`SendSample`), so its abandoned-request `haveData` still has a live object; the call may fail on a stopped pipeline and is only logged.
 
 ### 4.7 Discontinuity
 
-[[diagram:direct-rialto-handshake-discontinuity-sequence]]
+```mermaid
+sequenceDiagram
+    participant INJ as AAMP inject thread
+    participant PLAYER as AampRialtoPlayer
+    participant SRC as AampRialtoMediaSource
+    participant HS as NeedDataHandshake
+    participant PIPE as IMediaPipeline
+    participant EV as Rialto event thread
+    INJ->>PLAYER: Discontinuity(mediaType)
+    alt no sample injected yet (firstPtsMs not set)
+        PLAYER-->>INJ: false (ignored)
+    else PTS restamp enabled and no ES change pending
+        PLAYER->>PLAYER: CompleteDiscontinuityDataDeliverForPTSRestamp()
+        Note right of PLAYER: no EOS, no pipeline disruption
+    else codec / ES change or restamp off
+        PLAYER->>SRC: signalEos(pipeline)
+        SRC->>HS: SignalEos()
+        alt request pending, no injector active, gate not BLOCKED
+            HS-->>SRC: Claim
+            SRC->>PIPE: haveData(EOS, req)
+        else otherwise EOS is latched
+            Note right of HS: Answered by the active injector when its batch completes<br/>(Reply::Eos), by the next needData (OnNeedData eos claim),<br/>or by SetGate(false) if it was deferred while BLOCKED.
+        end
+        opt mediaType is VIDEO and subtitle source is attached, not at EOS
+            PLAYER->>SRC: subtitle.signalEos(pipeline)
+        end
+        PLAYER->>PIPE: StopBuffering(true): UngateAllSources, play()
+    end
+    opt AAMP will not flush on discontinuity (e.g. HLS fMP4)
+        PLAYER->>PLAYER: ArmPositionPending(#quot;Discontinuity#quot;)
+    end
+    PLAYER-->>INJ: true
+    Note over INJ,EV: ...
+    EV->>PLAYER: END_OF_STREAM (all attached sources answered EOS)
+    PLAYER->>PLAYER: m_notifiable-#gt;NotifyEOSReached(): AAMP drives the rest
+    Note over PLAYER,HS: Later Flush() or Configure() clears the latched EOS<br/>(unblockInjection newEos=false / reset()).
+```
+
 *Discontinuity either absorbs a restamped period change or ends the track with EOS.*
 
 `Discontinuity()` is ignored if the track has not injected a sample yet. With PTS restamping enabled and no elementary-stream change pending, it just tells AAMP to complete the discontinuity (no pipeline disruption). Otherwise it signals EOS on the track (and on the subtitle source when the track is the video track), calls `StopBuffering(true)` (ungates all sources and plays) and tells the underflow monitor the pipeline is paused. Rialto only reports `END_OF_STREAM` once every attached source has delivered `haveData(EOS)`, and AAMP drives the rest of the discontinuity from that notification. If AAMP will not issue an explicit flush for this content (`WillFlushOnDiscontinuity()` false, e.g. HLS fMP4) the player arms `PositionPending`, and the first sample of the elected track performs the flush (section 7).
 
 ## 5. Gate mode state diagram
 
-[[diagram:direct-rialto-gate-mode-state]]
+```mermaid
+stateDiagram-v2
+    [*] --> NONE : new source object
+
+    NONE : NONE<br/>needData is staged<br/>injector waits for needData, then adds segments<br/>EOS answered once no injector is active
+    BLOCKED : BLOCKED<br/>needData rejected (NO_AVAILABLE_SAMPLES)<br/>injector blocks in WaitForGate(), sample held<br/>EOS deferred until ungate
+    DROPPED : DROPPED<br/>needData rejected (NO_AVAILABLE_SAMPLES)<br/>new samples discarded at once, never blocks<br/>generation was bumped, waiters abort
+
+    NONE --> BLOCKED : SetGate(true)<br/>Configure(), CreateMediaSource(),<br/>Flush() flushable path
+    NONE --> DROPPED : Unblock()<br/>Flush(), Stop(), Configure(recreate),<br/>NotifyInjectorToPause(), UnblockTrackInjection(),<br/>~AampRialtoPlayer()
+    BLOCKED --> DROPPED : Unblock()<br/>(same callers, generation++)
+    DROPPED --> BLOCKED : SetGate(true)<br/>Flush() after its Unblock(),<br/>Configure(position pending)
+    BLOCKED --> NONE : SetGate(false)<br/>UngateAllSources()
+    DROPPED --> NONE : SetGate(false)<br/>UngateAllSources()
+```
+
 *Gate transitions per source. Ungating happens only where playback is genuinely about to resume.*
+
+Ungate (`SetGate(false)`) happens only where playback really resumes: `IssuePlay()`, `StartPreRoll()`, `Pause(false)`, `StopBuffering()`, `NotifyInjectorToResume()`, and `Flush()` on a non-flushable state. The PLAYING notification does **not** ungate. `Reset()` (new session) deliberately leaves the gate mode unchanged.
 
 Key rules, all from comments in `AampRialtoNeedDataHandshake.h` and `AampRialtoPlayer.cpp`:
 
@@ -175,8 +577,43 @@ Key rules, all from comments in `AampRialtoNeedDataHandshake.h` and `AampRialtoP
 
 The broader "may play be issued" question is in the existing gating diagram:
 
-[[diagram:direct-rialto-data-flow-gating]]
+```mermaid
+flowchart TB
+    subgraph q1 ["Question 1: may play() be issued? (AampRialtoPlaybackController)"]
+        REQ["Play request<br/>(AAMP called Stream(), RequestPlay())"]
+        HOLDS["Holds (bit set)<br/>SourcesNotAttached, Flushing, PositionPending,<br/>FragmentCaching, PreRollIncomplete"]
+        FIRE["Play action fires once when a request is<br/>outstanding and no hold is set:<br/>AampRialtoPlayer::IssuePlay()"]
+        PREROLL["Pre-roll action fires once when a request is<br/>outstanding and only PreRollIncomplete is set:<br/>AampRialtoPlayer::StartPreRoll()"]
+        REQ --> FIRE
+        HOLDS -- "all must be clear" --> FIRE
+        HOLDS -- "only PreRollIncomplete" --> PREROLL
+    end
+    subgraph q2 ["Question 2: may a sample reach Rialto? (AampRialtoMediaSource, one per track)"]
+        GATE["GateMode<br/>NONE: flows<br/>BLOCKED: injector thread waits<br/>DROPPED: sample discarded at once<br/>(needData answered NO_AVAILABLE_SAMPLES<br/>while BLOCKED or DROPPED)"]
+        GEN["Generation token<br/>captured by the injector before it blocks,<br/>bumped by unblockInjection() (Flush, Stop):<br/>an older sample is abandoned"]
+        ND["Rialto needData request<br/>a sample is added only after Rialto asks"]
+        GATE -- passed --> ND
+        GEN -- "still current" --> ND
+    end
+    subgraph q3 ["Question 3: does the player state accept it? (PlayerStateMachine)"]
+        ST["FLUSHING: a flush owns the pipeline.<br/>Stop(), Configure() and Flush() wait for it"]
+    end
+    subgraph q4 ["Question 4: whose position is it? (deferred flush election)"]
+        ELECT["PositionPending hold, set by Configure() or<br/>Discontinuity(). The first sample of the elected track<br/>(video if attached, else audio) calls<br/>MaybeFlushForPendingPosition()"]
+        CLAIM["ClaimDeferredFlush(): exactly one injector<br/>thread runs Flush(position), then Stream()"]
+        ELECT --> CLAIM
+    end
+
+    FIRE -. "IssuePlay() calls UngateAllSources(), then play()" .-> GATE
+    PREROLL -. "pause(), then UngateAllSources(), via RunIfPreRollCurrent()" .-> GATE
+    CLAIM -. "Flush() releases PositionPending, adds Flushing, releases it at SEEK_DONE" .-> HOLDS
+    CLAIM -. "Flush(): unblockInjection (DROPPED), then gateInjection(true) (BLOCKED)" .-> GATE
+    ST -. "FLUSHING if and only if the Flushing hold is set" .-> HOLDS
+```
+
 *When may playback start and when may a sample reach Rialto.*
+
+`Configure()` gates every new source (BLOCKED), so an early needData cannot slip samples in before the position is known. Ungating happens only where the controller issues `play()` or starts pre-roll, and in a few explicit resume paths. A late PLAYING notification deliberately does not ungate. Both run under the controller's play lock, so a `Flush()` cannot add its hold (and gate) part-way through, and a pre-roll whose episode a hold has already ended does nothing.
 
 ## 6. `SendCopy`, `SendSample` and `SendTransfer`
 
@@ -186,12 +623,86 @@ The broader "may play be issued" question is in the existing gating diagram:
 | `SendCopy(type, buffer, fpts, fdts, fDuration)` | HLS-TS ES frames from `TSProcessor`, ID3 (DSM-CC) packets, progressive | See activity diagram below. Wraps the buffer as one sample (ES path). |
 | `SendTransfer(type, buffer, fpts, fdts, fDuration, fragmentPTSoffset, initFragment, discontinuity)` | Tracks with no `playContext`: init segments of disabled tracks, raw TTML/WebVTT | `initFragment`: `processInitFragment()` (own `Mp4Demux`), then `AttachSource` under `m_attachMutex`. Otherwise `MaybeFlushForPendingPosition` then `processDataFragment()`. Returns true for "no source" or empty buffer. `discontinuity` is only logged. |
 
-[[diagram:direct-rialto-send-copy-activity]]
+```mermaid
+flowchart TD
+    start(["SendCopy (HLS-TS elementary-stream frames, ID3)"])
+    a1["GetPipeline() (shared_ptr kept for the whole call)<br/>ReportID3Metadata(): ID3 header check on every<br/>buffer, handler called if valid"]
+    d1{"getSource(mediaType)<br/>is null?"}
+    r1(["WARN: No source, return false<br/>(DSM-CC and ID3 packets end here)"])
+    d2{"buffer empty or<br/>pipeline null?"}
+    r2(["WARN, return false"])
+    d3{"source not attached?"}
+    att["for every unattached source in the player:<br/>SetStreamCaps(type, codec = source->format() only,<br/>no size, channels or codec data)"]
+    n1["Muxed HLS-TS has one inject thread,<br/>so every source is attached from it now"]
+    a2["wrap buffer in shared_ptr<br/>MaybeFlushForPendingPosition(mediaType, fpts)<br/>(no-op unless PositionPending and this is the elected track)<br/>source->processDataFragment(fpts, fdts, fDuration)"]
+    d4{"source has a demuxer?"}
+    mp4["fMP4: Mp4Demux parses and<br/>injects each sample"]
+    d5{"waitForAttach()<br/>returns true?"}
+    inj["build one AampMediaSample (pts, dts, duration),<br/>capture generation, take pending codec data<br/>injectOneSample(morePending=false):<br/>blocks until Rialto needs data"]
+    discard["drop the frame<br/>(not attached or aborted)"]
+    ret(["return the processDataFragment result"])
+
+    start --> a1 --> d1
+    d1 -- yes --> r1
+    d1 -- no --> d2
+    d2 -- yes --> r2
+    d2 -- no --> d3
+    d3 -- yes --> att --> a2
+    d3 -- no --> a2
+    att -.- n1
+    a2 --> d4
+    d4 -- yes --> mp4 --> ret
+    d4 -- no --> d5
+    d5 -- yes --> inj --> ret
+    d5 -- no --> discard --> ret
+    classDef note fill:#fff8c4,stroke:#c8b560,color:#333
+    class n1 note
+```
+
 *Decision flow of `SendCopy`.*
 
 `processDataFragment()` has two modes. Without a demuxer (HLS-TS ES, raw subtitle) it builds one `AampMediaSample` from the buffer (`mData` aliases the buffer so the buffer lives as long as the sample), with `morePending = false`. With a demuxer it parses the fMP4 with `Mp4Demux`, injects each sample, passes the pending codec data only with the first sample and sets `morePending` for all but the last. If `injectOneSample` returns false mid-batch, the loop `break`s (a flush or stop aborted it).
 
-[[diagram:direct-rialto-inject-one-sample-activity]]
+```mermaid
+flowchart TD
+    start(["injectOneSample (track's injector thread)"])
+    d0{"BeginInject() false?<br/>(EOS latched, no request pending)"}
+    ign(["return false (sample ignored)"])
+    s1["Stage 1: WaitForGate(capturedGen)<br/>blocks while BLOCKED"]
+    d1{"generation changed<br/>or DROPPED?"}
+    ab1(["answer abandoned request<br/>(NO_AVAILABLE_SAMPLES), return false"])
+    s2["Stage 2: WaitForRequest(capturedGen)<br/>blocks until a request is pending.<br/>Gate set back to BLOCKED restarts at stage 1"]
+    d2{"generation changed?"}
+    ab2(["answer abandoned request, return false"])
+    seg["createSegment(sample) (outside the lock)"]
+    d3{"size > UINT32_MAX,<br/>annotateEncryption() fails<br/>or no segment?"}
+    drop(["DropSample(req): answer EOS or NO_AVAILABLE_SAMPLES<br/>if the request is still owned, return false"])
+    add["setCodecData (first sample after attach), setData<br/>addSegment(req, segment)"]
+    d4{"addSegment returned<br/>NO_SPACE?"}
+    full["OnNoSpace(): mark bufferFull, close the batch with<br/>haveData(OK) if frames were added, else<br/>NO_AVAILABLE_SAMPLES. The same sample is retried<br/>on the next needData"]
+    stats["update firstPtsMs, injectedSpan, acceptedFrames<br/>Complete(gen, req, morePending, segment)"]
+    d5{"reply?"}
+    r1["haveData(OK or EOS, req)"]
+    r2["haveData(NO_AVAILABLE_SAMPLES, req)"]
+    r3["batch not complete: no reply yet"]
+    ok([return true])
+
+    start --> d0
+    d0 -- yes --> ign
+    d0 -- no --> s1 --> d1
+    d1 -- yes --> ab1
+    d1 -- no --> s2 --> d2
+    d2 -- yes --> ab2
+    d2 -- no --> seg --> d3
+    d3 -- yes --> drop
+    d3 -- no --> add --> d4
+    d4 -- yes --> full --> s1
+    d4 -- no --> stats --> d5
+    d5 -- Ok or Eos --> r1 --> ok
+    d5 -- Abandoned --> r2 --> ok
+    d5 -- None --> r3 --> ok
+```
+
 *What happens to one sample on the injector thread.*
 
 ## 7. Segment positions: stage, commit, elect
@@ -204,10 +715,59 @@ The broader "may play be issued" question is in the existing gating diagram:
 | Baseline (commit) | `CommitBaseline(posNs)`, `BaselineNs()` | Where the current segment actually starts. Committed on `SEEK_DONE` (to the staged position, since the seek may land mid-fragment) and when the **video** source first attaches (`max(0, staged)`). `GetPositionMilliseconds()` subtracts it from Rialto's `getPosition()`. |
 | Deferred-flush claim | `ResetFlushClaim()`, `ClaimDeferredFlush()` | Elects exactly one injector thread to run the deferred `Flush()` when the real position is known only from the first sample of a new period. First caller wins until `ResetFlushClaim()` re-opens it. |
 
-[[diagram:direct-rialto-segment-position-sequence]]
+```mermaid
+sequenceDiagram
+    participant CTL as Control thread
+    participant POS as AampRialtoSegmentPosition
+    participant PIPE as IMediaPipeline
+    participant EV as Rialto event thread
+    participant INJ as Injector thread
+    participant POLL as AAMP position poll
+    Note over CTL,POLL: Flush(position, rate, authoritative)
+    CTL->>POS: StageRequested(posNs, rate, authoritative)
+    CTL->>PIPE: setPosition(posNs)
+    Note over CTL,POLL: A source attaches (first attach, or after Configure)
+    INJ->>POS: StagedPositionNs() (-1 if none)
+    INJ->>PIPE: setSourcePosition(id, stagedNs, resetTime=true, appliedRate)
+    opt source is VIDEO
+        INJ->>POS: CommitBaseline(max(0, stagedNs))
+    end
+    Note over CTL,POLL: SEEK_DONE
+    EV->>POS: StagedPositionNs(), StagedRate()
+    EV->>PIPE: setSourcePosition(video, posNs, resetTime=false, appliedRate)<br/>(only when appliedRate != 1.0, i.e. trickplay)
+    EV->>POS: CommitBaseline(posNs)
+    Note right of EV: m_rate = staged rate, Flushing hold released
+    Note over CTL,POLL: GetPositionMilliseconds()
+    POLL->>PIPE: getPosition(queriedNs)
+    POLL->>POS: BaselineNs()
+    Note right of POLL: FLUSHING / FLUSHED or PositionPending: report 0.<br/>Otherwise elapsed = queried - baseline, then<br/>rate #gt; 0: max(0, elapsed) * rate#59;  rate #lt; 0: elapsed * rate.
+```
+
 *Stage on Flush, commit on attach/SEEK_DONE, subtract when reporting position.*
 
-[[diagram:direct-rialto-position-election-sequence]]
+```mermaid
+sequenceDiagram
+    participant VI as Video injector
+    participant AI as Audio injector
+    participant PLAYER as AampRialtoPlayer
+    participant POS as AampRialtoSegmentPosition
+    Note over PLAYER,POS: Armed by Configure() / Discontinuity():<br/>ResetFlushClaim() + PositionPending hold added.
+    par 
+        VI->>PLAYER: SendSample(VIDEO, first sample, pts)
+        PLAYER->>PLAYER: MaybeFlushForPendingPosition(VIDEO, pts)
+    and 
+        AI->>PLAYER: SendSample(AUDIO, first sample, pts)
+        PLAYER->>PLAYER: MaybeFlushForPendingPosition(AUDIO, pts)
+        Note right of PLAYER: Elected track = VIDEO if a video source is attached,<br/>else AUDIO.  A non-elected track returns at once.
+    end
+    PLAYER->>PLAYER: lock m_flushCallMutex, re-check hold
+    PLAYER->>POS: ClaimDeferredFlush()
+    POS-->>PLAYER: true (first caller only)
+    PLAYER->>PLAYER: Flush(pts, rate, shouldTearDown=false)
+    PLAYER->>PLAYER: Stream() (records intent#59; SEEK_DONE plays)
+    Note over PLAYER,POS: Skipped when: hold already released, state is FLUSHING (an<br/>earlier flush is in flight), or the claim was already taken.
+```
+
 *Video and audio injectors race; only the elected track's first sample, and only the first claimant, flushes.*
 
 Position reporting (`GetPositionMilliseconds`): returns 0 while the state machine is FLUSHING/FLUSHED or `PositionPending` is held (no reliable position yet); otherwise `(getPosition() - baseline)` in ms, clamped at 0 for forward play and multiplied by the rate (negative values allowed in reverse trickplay, mirroring GStreamer's `(pos - segmentStart) * rate`). The caller adds its own seek position, so the value is segment-relative, not absolute. `GetVideoPTS()` has no Rialto API; it derives a 90 kHz PTS from `getPosition()`.
@@ -241,7 +801,32 @@ Flush and stop abort waits by bumping the generation (see 4.5, 4.6). `DROPPED` m
 
 ## 10. Muxed HLS-TS: one thread feeds all tracks
 
-[[diagram:direct-rialto-muxed-ts-attach-sequence]]
+```mermaid
+sequenceDiagram
+    participant INJ as TS inject thread<br/>(only thread for A+V)
+    participant PLAYER as AampRialtoPlayer
+    participant VS as Video source
+    participant AS as Audio source
+    participant PIPE as IMediaPipeline
+    INJ->>PLAYER: Configure(formats from PMT)
+    Note right of PLAYER: Sources are created (gate BLOCKED), format recorded with<br/>setFormat().  A format still UNKNOWN is filled in later by<br/>TryReuseExistingPipeline() once the codec is identified.
+    INJ->>PLAYER: SendCopy(VIDEO, first ES frame)
+    PLAYER->>PLAYER: video not attached -#gt; loop over ALL sources
+    PLAYER->>PLAYER: SetStreamCaps(VIDEO, codec only)
+    PLAYER->>VS: attachOrUpdate()
+    VS->>PIPE: attachSource(MediaSourceVideo)
+    VS-->>PLAYER: NEWLY_ATTACHED
+    PLAYER->>PLAYER: OnSourceNewlyAttached(): CommitBaseline,<br/>release PositionPending, drain deferred non-video
+    PLAYER->>PLAYER: SetStreamCaps(AUDIO, codec only)
+    PLAYER->>AS: attachOrUpdate()
+    AS->>PIPE: attachSource(MediaSourceAudio)
+    PLAYER->>PLAYER: CheckAllSourcesAttached()
+    PLAYER->>PIPE: allSourcesAttached()
+    PLAYER->>PLAYER: release SourcesNotAttached hold
+    INJ->>VS: processDataFragment() -#gt; injectOneSample()
+    Note over INJ,PIPE: Why: with a single thread, if only the video source were<br/>attached, that thread would block in injectOneSample() waiting<br/>for a needData and never get to attach audio (code comment:<br/>#quot;deadlock with muxed HLS-TS which uses only one injection<br/>thread#quot;).  DeferAttachUntilVideo() still orders video first.
+```
+
 *In `SendCopy`, the first frame attaches every source from the one TS inject thread.*
 
 In muxed HLS-TS, `TSProcessor` demuxes video, audio and ID3 from one stream on a single injection thread. The code comment in `SendCopy` says all sources are attached up front "to avoid deadlock with muxed HLS-TS which uses only one injection thread". The mechanism (inferred from the code): if only the first source were attached, that thread would block in `injectOneSample` waiting for needData, and could never reach the attach of the others; Rialto is not asked for data until `allSourcesAttached()`, which needs every source.
@@ -302,7 +887,38 @@ Audio-only DASH content with `Mp4Demux` reports an audio codec on the **video** 
 
 ## 12. Encrypted samples
 
-[[diagram:direct-rialto-encrypted-segment-activity]]
+```mermaid
+flowchart TD
+    start([annotateEncryption sample])
+    d1{"sample.mDrmMetadata<br/>.mIsEncrypted?"}
+    clear["segment left clear<br/>(TRACE log if a DRM session exists)"]
+    okClear([return true])
+    d2{"mksId < 0<br/>(no DRM session)?"}
+    d3{"sub-sample table shorter than<br/>numSubSamples x 6 bytes?"}
+    rej["count the drop, log ERR on the<br/>1st and every 100th occurrence"]
+    drop(["return false: injectOneSample() drops the sample<br/>and answers the request. Ciphertext is never sent<br/>without usable metadata"])
+    set["setEncrypted(true)<br/>setMediaKeySessionId(mksId)<br/>setKeyId(keyId), setInitVector(IV)<br/>setCipherMode(CENC, CBCS, CBC1, CENS or UNKNOWN)"]
+    d4{"cipher == CBCS?"}
+    pat["setEncryptionPattern(cryptByteBlock,<br/>skipByteBlock)"]
+    d5{"numSubSamples > 0?"}
+    subs["for each 6-byte entry: clear = big-endian uint16,<br/>enc = big-endian uint32, addSubSample(clear, enc)"]
+    whole["addSubSample(0, sample size)<br/>(whole sample encrypted)"]
+    ok([return true])
+
+    start --> d1
+    d1 -- no --> clear --> okClear
+    d1 -- yes --> d2
+    d2 -- yes --> rej
+    d2 -- no --> d3
+    d3 -- yes --> rej
+    d3 -- no --> set --> d4
+    rej --> drop
+    d4 -- yes --> pat --> d5
+    d4 -- no --> d5
+    d5 -- yes --> subs --> ok
+    d5 -- no --> whole --> ok
+```
+
 *How an `AampMediaSample` with DRM metadata becomes an encrypted `MediaSegment`.*
 
 - **Session**: `ProtectionParams{systemId, initData, type}` are queued by `QueueProtectionEvent()` (stored player-wide per slot, survive session resets; cleared by `ClearProtectionEvent()`). On first attach, `attachOrUpdate()` calls `drmBridge->createSession()` and stores the `mksId`. If the source is already attached, a new session is created only when the params differ from `m_activeProtection` (so params re-queued every period do not cause license round trips); a failed update keeps the previous `mksId`.
@@ -390,13 +1006,13 @@ Per-source atomics: `m_sourceId`, `m_mksId` (written on attach/reset, read from 
 
 ## Related pages
 
-- Direct Rialto - Lifecycle and state machine
-- Direct Rialto - Flush and seek
-- Direct Rialto - Threading model and locking
-- Direct Rialto - DRM
-- Direct Rialto - Subtitles and TTML
-- Direct Rialto - Workarounds and improvement register
+- [Lifecycle and state machine](02-player-lifecycle-and-state-machines.md)
+- [Flush and seek](04-flush-seek-and-preroll.md)
+- [Threading model and locking](05-threading-and-locking-model.md)
+- [DRM](06-drm.md)
+- [Subtitles and TTML](07-subtitles-cc-and-ttml-offset.md)
+- [Workarounds and improvement register](11-workarounds-and-improvement-register.md)
 
 ## Workarounds and improvement candidates
 
-Register fragment: `_register/DATA.md`. Highlights: no timeouts on injector waits and one INFO log per needData (DATA-01, DATA-02); video `hasDrm` forced true and AC-3 mapped to EAC-3 for a pinned Rialto version (DATA-04, DATA-05); the audio-before-video attach deferral that is observed but not root-caused (DATA-03); muxed HLS-TS attaches with codec-only caps and one haveData per ES frame (DATA-06, DATA-07); `fragmentPTSoffset` ignored on the `SendTransfer` demux path and duplicate demuxers (DATA-08, DATA-09); AAMP-side workarounds caused by blocking injection (`AampMp4Demuxer::mAborted`, `StopTrackInjection` unblock, subtitle `ResumeTrackDownloads`) (DATA-10 to DATA-12); a possible stuck waiter after a failed deferred attach (DATA-16); stale comments and stubs (DATA-15, DATA-20).
+See the [DATA rows in the register](11-workarounds-and-improvement-register.md#media-data-path-data). Highlights: no timeouts on injector waits and one INFO log per needData (DATA-01, DATA-02); video `hasDrm` forced true and AC-3 mapped to EAC-3 for a pinned Rialto version (DATA-04, DATA-05); the audio-before-video attach deferral that is observed but not root-caused (DATA-03); muxed HLS-TS attaches with codec-only caps and one haveData per ES frame (DATA-06, DATA-07); `fragmentPTSoffset` ignored on the `SendTransfer` demux path and duplicate demuxers (DATA-08, DATA-09); AAMP-side workarounds caused by blocking injection (`AampMp4Demuxer::mAborted`, `StopTrackInjection` unblock, subtitle `ResumeTrackDownloads`) (DATA-10 to DATA-12); a possible stuck waiter after a failed deferred attach (DATA-16); stale comments and stubs (DATA-15, DATA-20).

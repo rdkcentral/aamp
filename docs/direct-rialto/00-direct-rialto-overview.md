@@ -24,7 +24,50 @@ Rialto is a client/server media framework for RDK. A privileged **RialtoServer**
 1. **Through GStreamer** (`useRialtoSink`): AAMP's `AAMPGstPlayer` and the middleware `InterfacePlayerRDK` build a GStreamer pipeline whose video, audio and subtitle sinks are the rialto-gstreamer elements (`rialtomsevideosink` and friends). These forward buffers to RialtoServer. This path is described in `docs/rialto-integration/rialto-gstreamer-overview.md`.
 2. **Directly** (`useDirectRialto`): `AampRialtoPlayer` creates the Rialto media pipeline itself, attaches one Rialto source per track, answers Rialto's data requests with demuxed samples and drives playback with `play()`, `pause()`, `setPosition()` and so on. No GStreamer header or element is involved; the folder's only GStreamer-flavoured names are enum values shared with the existing `StreamSink` interface.
 
-[[diagram:direct-rialto-system-context-component]]
+```mermaid
+flowchart TB
+    subgraph proc ["AAMP process (libaamp.so)"]
+        APP["Application, aamp-cli or JS bindings"]
+        CORE["PrivateInstanceAAMP<br/>(player core)"]
+        SA["StreamAbstractionAAMP<br/>(fragment collectors, injectors)"]
+        MGR["AampStreamSinkManager<br/>(sink factory)"]
+        SS{{"StreamSink interface"}}
+        subgraph dr ["direct-rialto/"]
+            ARP["AampRialtoPlayer"]
+        end
+        subgraph gp ["GStreamer path"]
+            GST["AAMPGstPlayer, InterfacePlayerRDK<br/>and rialto-gstreamer sinks"]
+        end
+        DEMUX["Mp4Demux / AampMp4Demuxer"]
+        DRM["DRM licence manager<br/>(AampDRMLicenseManager)"]
+    end
+    subgraph lib ["Rialto client library (libRialtoClient.so)"]
+        RLIB["IMediaPipeline, IMediaKeys, IControl"]
+    end
+    subgraph srv ["Rialto server process (platform)"]
+        RSRV["RialtoServer"]
+        HW["Hardware decoders and renderers"]
+        CDM["CDM (Widevine, PlayReady...)"]
+    end
+
+    APP -- "tune, seek, rate" --> CORE
+    CORE -- "manifests, fragments" --> SA
+    SA -- "fMP4 fragments (useMp4Demux)" --> DEMUX
+    SA -- "SendCopy, SendTransfer, SendSample, Flush..." --> SS
+    MGR -. "creates one (useDirectRialto selects)" .-> SS
+    ARP -. implements .-> SS
+    GST -. implements .-> SS
+    CORE -- "GetStreamSink()" --> MGR
+    ARP -- "notifications (async tasks)" --> CORE
+    ARP -- "IPC calls (attachSource, addSegment, play...)" --> RLIB
+    RLIB -- "events (needData, playback state)" --> ARP
+    ARP -- "AampDrmBridge (createSession)" --> DRM
+    DRM -- IMediaKeys --> RLIB
+    GST -. "Rialto MSE sinks (useRialtoSink)" .-> RLIB
+    RLIB -- "IPC (RIALTO_SOCKET_PATH)" --> RSRV
+    RSRV --> HW
+    RSRV --> CDM
+```
 
 *System context: AAMP core reaches Rialto through a `StreamSink`, either `AAMPGstPlayer` (via rialto-gstreamer) or `AampRialtoPlayer` (direct).*
 
@@ -61,36 +104,36 @@ Titles below are the page titles in this documentation set.
 
 | Page | Summary |
 | --- | --- |
-| Direct Rialto - Overview | This page. |
-| Direct Rialto - Architecture and class model | Layers, a responsibility table for every class and interface, ownership and lifetime of the Rialto objects, the dependency-injection seams used by the tests and the design patterns involved, with component, class and creation-sequence diagrams. |
-| Direct Rialto - Lifecycle and state machine | The player's lifecycle from construction through `Configure()`, pipeline creation, source attachment, `allSourcesAttached()`, play, pause and stop; the `PlayerStateMachine` states and transitions; the play-hold arbitration. |
-| Direct Rialto - Media data path | How samples travel from the injector threads to Rialto: per-track sources, the needData/haveData handshake, back-pressure, gating, EOS, encrypted samples, codec and caps selection and timestamps. |
-| Direct Rialto - Flush and seek | The flush cycle (`Flush()` to `SEEK_DONE`), staged and authoritative positions, the deferred flush for content without a known position, trickplay interaction and the failure paths. |
-| Direct Rialto - Threading model and locking | The threads that call into the player, the lock hierarchy and the atomics, and the reasons for the design choices (for example scheduler hops for notifications). |
-| Direct Rialto - DRM | How a DRM session is created for an encrypted track: `AampDrmBridge`, the Rialto key system, session adapter and creator, key status and output protection. |
-| Direct Rialto - Subtitles and TTML | The subtitle source in its three forms (raw TTML or WebVTT, TTML in MP4, inband closed caption), the TTML display-offset logic and the CC control interface. |
-| Direct Rialto - Monitoring and diagnostics | Progress reporting, the AV health monitor, pre-roll monitoring and the logging that helps debugging. |
-| Direct Rialto - Integration, configuration and build | How `AampRialtoPlayer` plugs into AAMP core: every `StreamSink` method and what it does, every notification back into `PrivateInstanceAAMP`, the configuration options, CMake and scripts, runtime requirements, aamp-cli usage and the special cases that live outside the folder. |
-| Direct Rialto - Testing | L1 suites and seams, how to build and run them, the Rialto simulator, the L2 suites, the coverage-gap table and testability limits. |
-| Direct Rialto - Workarounds and improvement register | Every known workaround, limitation, stub, stale comment, possible bug and tech-debt item in one place, with location, risk, suggested fix and effort, plus a prioritised shortlist. |
-| Direct Rialto - Troubleshooting and glossary | Symptom-to-cause guide, key log messages and what they mean, debugging tips, and the full glossary. |
+| [Overview](00-direct-rialto-overview.md) | This page. |
+| [Architecture and class model](01-architecture-and-class-model.md) | Layers, a responsibility table for every class and interface, ownership and lifetime of the Rialto objects, the dependency-injection seams used by the tests and the design patterns involved, with component, class and creation-sequence diagrams. |
+| [Lifecycle and state machine](02-player-lifecycle-and-state-machines.md) | The player's lifecycle from construction through `Configure()`, pipeline creation, source attachment, `allSourcesAttached()`, play, pause and stop; the `PlayerStateMachine` states and transitions; the play-hold arbitration. |
+| [Media data path](03-media-data-path.md) | How samples travel from the injector threads to Rialto: per-track sources, the needData/haveData handshake, back-pressure, gating, EOS, encrypted samples, codec and caps selection and timestamps. |
+| [Flush and seek](04-flush-seek-and-preroll.md) | The flush cycle (`Flush()` to `SEEK_DONE`), staged and authoritative positions, the deferred flush for content without a known position, trickplay interaction and the failure paths. |
+| [Threading model and locking](05-threading-and-locking-model.md) | The threads that call into the player, the lock hierarchy and the atomics, and the reasons for the design choices (for example scheduler hops for notifications). |
+| [DRM](06-drm.md) | How a DRM session is created for an encrypted track: `AampDrmBridge`, the Rialto key system, session adapter and creator, key status and output protection. |
+| [Subtitles and TTML](07-subtitles-cc-and-ttml-offset.md) | The subtitle source in its three forms (raw TTML or WebVTT, TTML in MP4, inband closed caption), the TTML display-offset logic and the CC control interface. |
+| [Monitoring and diagnostics](08-av-monitoring-timers-and-position.md) | Progress reporting, the AV health monitor, pre-roll monitoring and the logging that helps debugging. |
+| [Integration, configuration and build](09-integration-configuration-and-build.md) | How `AampRialtoPlayer` plugs into AAMP core: every `StreamSink` method and what it does, every notification back into `PrivateInstanceAAMP`, the configuration options, CMake and scripts, runtime requirements, aamp-cli usage and the special cases that live outside the folder. |
+| [Testing](10-testing.md) | L1 suites and seams, how to build and run them, the Rialto simulator, the L2 suites, the coverage-gap table and testability limits. |
+| [Workarounds and improvement register](11-workarounds-and-improvement-register.md) | Every known workaround, limitation, stub, stale comment, possible bug and tech-debt item in one place, with location, risk, suggested fix and effort, plus a prioritised shortlist. |
+| [Troubleshooting and glossary](12-troubleshooting-and-glossary.md) | Symptom-to-cause guide, key log messages and what they mean, debugging tips, and the full glossary. |
 
-Companion material: the PlantUML sources in `docs/diagrams/direct-rialto-*.puml`. Each page embeds its diagrams from there, so edit the `.puml` file and re-publish rather than editing a diagram in Confluence.
+Diagrams are Mermaid blocks embedded in each page, so GitHub renders them in place. Edit a diagram by editing its block in the page.
 
 ## Recommended reading order
 
-1. This page, then **Architecture and class model** to learn the vocabulary and who owns what.
-2. **Lifecycle and state machine**, then **Media data path**: together these explain normal playback.
-3. **Flush and seek**, then **Threading model and locking**: the hard parts. Read the threading page before changing any lock or atomic.
-4. **DRM** and **Subtitles and TTML** when working on those features.
-5. **Monitoring and diagnostics** when reading logs.
-6. **Integration, configuration and build** when enabling the path, building, or touching code outside the folder.
-7. **Testing** before writing or changing tests.
-8. **Workarounds and improvement register** before planning clean-up work, and **Troubleshooting and glossary** when investigating a field issue.
+1. This page, then [Architecture and class model](01-architecture-and-class-model.md) to learn the vocabulary and who owns what.
+2. [Lifecycle and state machine](02-player-lifecycle-and-state-machines.md), then [Media data path](03-media-data-path.md): together these explain normal playback.
+3. [Flush and seek](04-flush-seek-and-preroll.md), then [Threading model and locking](05-threading-and-locking-model.md): the hard parts. Read the threading page before changing any lock or atomic.
+4. [DRM](06-drm.md) and [Subtitles and TTML](07-subtitles-cc-and-ttml-offset.md) when working on those features.
+5. [Monitoring and diagnostics](08-av-monitoring-timers-and-position.md) when reading logs.
+6. [Integration, configuration and build](09-integration-configuration-and-build.md) when enabling the path, building, or touching code outside the folder.
+7. [Testing](10-testing.md) before writing or changing tests.
+8. [Workarounds and improvement register](11-workarounds-and-improvement-register.md) before planning clean-up work, and [Troubleshooting and glossary](12-troubleshooting-and-glossary.md) when investigating a field issue.
 
 ## Glossary seed
 
-Only terms verified in the code are listed. The full glossary is on **Troubleshooting and glossary**.
+Only terms verified in the code are listed. The full glossary is on [Troubleshooting and glossary](12-troubleshooting-and-glossary.md).
 
 | Term | Meaning |
 | --- | --- |
@@ -120,22 +163,22 @@ Only terms verified in the code are listed. The full glossary is on **Troublesho
 
 ## Related pages
 
-- Direct Rialto - Architecture and class model
-- Direct Rialto - Lifecycle and state machine
-- Direct Rialto - Media data path
-- Direct Rialto - Flush and seek
-- Direct Rialto - Threading model and locking
-- Direct Rialto - DRM
-- Direct Rialto - Subtitles and TTML
-- Direct Rialto - Monitoring and diagnostics
-- Direct Rialto - Integration, configuration and build
-- Direct Rialto - Testing
-- Direct Rialto - Workarounds and improvement register
-- Direct Rialto - Troubleshooting and glossary
+- [Architecture and class model](01-architecture-and-class-model.md)
+- [Lifecycle and state machine](02-player-lifecycle-and-state-machines.md)
+- [Media data path](03-media-data-path.md)
+- [Flush and seek](04-flush-seek-and-preroll.md)
+- [Threading model and locking](05-threading-and-locking-model.md)
+- [DRM](06-drm.md)
+- [Subtitles and TTML](07-subtitles-cc-and-ttml-offset.md)
+- [Monitoring and diagnostics](08-av-monitoring-timers-and-position.md)
+- [Integration, configuration and build](09-integration-configuration-and-build.md)
+- [Testing](10-testing.md)
+- [Workarounds and improvement register](11-workarounds-and-improvement-register.md)
+- [Troubleshooting and glossary](12-troubleshooting-and-glossary.md)
 
 ## Workarounds and improvement candidates
 
-All items are collected on **Workarounds and improvement register**, which starts with a prioritised shortlist. Source fragments live in `docs/direct-rialto/_register/`, one per author tag.
+All items are collected on [Workarounds and improvement register](11-workarounds-and-improvement-register.md), which starts with a prioritised shortlist.
 
 ## Open questions
 

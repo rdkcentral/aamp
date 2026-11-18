@@ -16,7 +16,7 @@ log messages that the Troubleshooting page reuses.
 | `AampRialtoGlibTimer.h` | Thread-safe periodic timer on the default GLib main context; base of every direct-rialto timer |
 | `AampRialtoProgressTimer.h` | Progress-report timer that fires immediately on start and can be "kicked" |
 | `AampRialtoMonitorAV.h`, `AampRialtoMonitorAV.cpp` | AV health classifier (sample timer) and telemetry reporter (report timer) |
-| `AampRialtoPreRollMonitor.h`, `AampRialtoPreRollMonitor.cpp` | Pre-roll completion poller; only its timer use is covered here (algorithm: page "Flush and seek") |
+| `AampRialtoPreRollMonitor.h`, `AampRialtoPreRollMonitor.cpp` | Pre-roll completion poller; only its timer use is covered here (algorithm: [Flush and seek](04-flush-seek-and-preroll.md)) |
 | `AampRialtoTime.h` | Shared unit constants (`kNsPerSecond`, `kNsPerMs`) and rounding conversions |
 | `AampRialtoPlayer.cpp` | `GetPositionMilliseconds`, `GetDurationMilliseconds`, `GetVideoPTS`, `OnDuration`, `OnPosition`, `OnBufferUnderflow`, progress timer start/stop/tick, `CreateMonitorAV`, `GetVideoPlaybackQuality`, `CheckForPTSChangeWithTimeout` |
 | `PrivateInstanceAAMPNotifiable.cpp`, `IStreamSinkNotifiable.h` | Adapter that forwards progress, AV-monitor events and underflow to `PrivateInstanceAAMP` |
@@ -32,8 +32,40 @@ application must (aamp-cli does so in a dedicated thread). If no loop runs,
 progress reports, pre-roll completion and AV monitoring silently never fire
 (see ARCH-22).
 
-[[diagram:direct-rialto-timer-main-context-component]]
+```mermaid
+flowchart LR
+    CT(["AAMP control thread"])
+    RT(["Rialto event thread<br/>(OnPlaybackState PLAYING)"])
+    ML(["Host application GLib main-loop thread<br/>(default GMainContext)"])
+    subgraph player ["AampRialtoPlayer"]
+        PT["m_progressTimer<br/>AampRialtoProgressTimer"]
+        MAV["m_monitorAV<br/>AampRialtoMonitorAV"]
+        PRM["m_preRollMonitor<br/>AampRialtoPreRollMonitor"]
+    end
+    GT["AampRialtoGlibTimer<br/>(State and Handle)"]
+    GL["g_timeout_add_full<br/>(default context)"]
+    NOT["PrivateInstanceAAMPNotifiable"]
+    SCHED(["AAMP scheduler thread<br/>(PrivateInstanceAAMP)"])
+
+    RT -- "StartProgressTimer(): start or kick" --> PT
+    RT -- "start()" --> MAV
+    CT -- "StopProgressTimer() (Configure, Stop)" --> PT
+    CT -- "SetMonitorAV(nullptr) (Stop, Configure recreate)" --> MAV
+    CT -- "Stop() (ArmPreRoll, Pause, Stop)" --> PRM
+    PT -- "1 timer" --> GT
+    MAV -- "sample and report timers" --> GT
+    PRM -- "10 ms poll timer" --> GT
+    GT -- "schedule source" --> GL
+    ML -- iterates --> GL
+    GL -- "Dispatch() under the State mutex" --> GT
+    PT -. "MonitorProgress()" .-> NOT
+    MAV -. "SendMonitorAvEvent()" .-> NOT
+    NOT -. ScheduleAsyncTask .-> SCHED
+```
+
 *Timer owners, the shared GLib timer building block, and the threads that start, stop and run them.*
+
+AAMP core does not run this main loop. Without one there is no progress reporting, no MonitorAV and no pre-roll completion (ARCH-22).
 
 ### 1.1 Why a custom wrapper
 
@@ -108,7 +140,7 @@ and monitor use integer division (`/ kNsPerMs`), which truncates.
 | Progress timer | `AampRialtoPlayer::m_progressTimer` (`AampRialtoProgressTimer`) | `progressReportingInterval` (`eAAMPConfig_ReportProgressInterval`, default 1 s) converted to ms | `StartProgressTimer()` from `HandlePlaybackStarted()` on every Rialto `PLAYING` (Rialto event thread); kicks if already running | GLib default main loop | Calls `IStreamSinkNotifiable::MonitorProgress(false, false)` so AAMP core emits progress events; at TRACE level also logs a per-source snapshot | `StopProgressTimer()` in `Configure()` and `Stop()` (AAMP control thread) and in `~AampRialtoPlayer`. Not stopped on `PAUSED` or during a flush |
 | AV monitor sample timer | `AampRialtoMonitorAV::m_sampleTimer` | Same `progressReportingInterval`, as ms (`SecondsToMs`) | `AampRialtoMonitorAV::start()` from `HandlePlaybackStarted()` (Rialto event thread, under `m_monitorMutex`) | GLib default main loop | Samples `getPosition()` and classifies AV health (section 3) | Only by destroying the monitor: `SetMonitorAV(nullptr)` in `Stop()`, on pipeline re-creation in `Configure()`, and in `~AampRialtoPlayer`. Ticks are skipped while the player is not `PLAYING` |
 | AV monitor report timer | `AampRialtoMonitorAV::m_reportTimer` | `monitorAVReportingInterval` (default 1000 ms) | Same as sample timer | GLib default main loop | Reads `getStats()` and sends `SendMonitorAvEvent` to AAMP core | Same as sample timer. Keeps firing while paused or flushing, re-sending the last classification |
-| Pre-roll poll timer | `AampRialtoPreRollMonitor::m_timer` (owned by `AampRialtoPlayer::m_preRollMonitor`) | `kPreRollPollIntervalMs` = 10 ms (compile-time) | `AampRialtoPlayer::StartPreRoll()` via the playback controller, when only `PlayHold::PreRollIncomplete` blocks `play()` | GLib default main loop | Polls accepted frames until the pre-roll target or the 1000 ms timeout is met, then releases the hold (algorithm: page "Flush and seek") | Self-stops when the poll completes (tick returns `false`); `Stop()` from `ArmPreRoll()` (Configure/Flush), `Pause()`, `Stop()` and `~AampRialtoPlayer` |
+| Pre-roll poll timer | `AampRialtoPreRollMonitor::m_timer` (owned by `AampRialtoPlayer::m_preRollMonitor`) | `kPreRollPollIntervalMs` = 10 ms (compile-time) | `AampRialtoPlayer::StartPreRoll()` via the playback controller, when only `PlayHold::PreRollIncomplete` blocks `play()` | GLib default main loop | Polls accepted frames until the pre-roll target or the 1000 ms timeout is met, then releases the hold (algorithm: [Flush and seek](04-flush-seek-and-preroll.md)) | Self-stops when the poll completes (tick returns `false`); `Stop()` from `ArmPreRoll()` (Configure/Flush), `Pause()`, `Stop()` and `~AampRialtoPlayer` |
 
 There are no other GLib timers in direct-rialto. Stall detection for
 discontinuities (`CheckForPTSChangeWithTimeout`) is not a timer: AAMP core
@@ -201,8 +233,41 @@ The source file comment states the `AvSync` limitation explicitly; the
 `VideoFreeze`/`AudioDrop` ones follow from the same cause. Both are
 recorded as MON-02.
 
-[[diagram:direct-rialto-monitor-av-health-state]]
+```mermaid
+stateDiagram-v2
+    [*] --> None : monitor created
+
+    None : None (before first PLAYING sample)
+    Ok : Ok (position advancing)
+    Stall : Stall (position unchanged at normal rate)
+    Jump : Jump (advanced more than wall time<br/>plus monitorAVJumpThreshold)
+    Eos : Eos (getPosition() failed)
+    Trickplay : Trickplay (rate != 1, position valid)
+    state classify <<choice>>
+
+    None --> classify : sample tick (PLAYING only)
+    Ok --> classify : sample tick
+    Stall --> classify : sample tick
+    Jump --> classify : sample tick
+    Eos --> classify : sample tick
+    Trickplay --> classify : sample tick
+
+    classify --> Eos : getPosition() fails
+    classify --> Trickplay : rate != 1
+    classify --> Stall : rate == 1 and<br/>position == previous
+    classify --> Jump : previous == Ok and<br/>jump detected
+    classify --> Ok : otherwise
+
+    note right of classify
+        Not PLAYING (PAUSED, FLUSHING...):
+        the tick returns early and the state is kept.
+        A change of state logs two MonitorAV lines.
+    end note
+```
+
 *AvHealth classification evaluated on each sample tick; only the states reachable with a single Rialto pipeline position are shown as targets.*
+
+`VideoFreeze`, `AudioDrop` and `AvSync` are never produced with Rialto: the audio slot has the same position as video, so a freeze becomes `Stall`, and the video minus audio delta is always 0.
 
 Behaviours worth knowing when reading logs:
 
@@ -276,7 +341,7 @@ Why each term exists:
   value staged at video attach time, or the flush target committed by
   `HandleSeekDone()` via `CommitBaseline()`. A seek may land mid-fragment,
   so the first injected sample's PTS is not a reliable baseline. How the
-  baseline is elected and committed is covered in page "Media data path"
+  baseline is elected and committed is covered in [Media data path](03-media-data-path.md)
   (`direct-rialto-segment-position-sequence`,
   `direct-rialto-position-election-sequence`).
 - **Rate multiplication** mirrors GStreamer's
@@ -293,7 +358,40 @@ Why each term exists:
   `FLUSHING`/`FLUSHED`: until Rialto sends `PLAYING`/`PAUSED` after
   `SEEK_DONE`, `getPosition()` may fail or return a pre-seek value.
 
-[[diagram:direct-rialto-position-report-activity]]
+```mermaid
+flowchart TD
+    start(["GetPositionMilliseconds()<br/>called by AAMP core on any thread,<br/>for example MonitorProgress on the scheduler thread"])
+    d1{"state is FLUSHING<br/>or FLUSHED?"}
+    r1(["INFO: position not yet valid, return 0"])
+    d2{"PlayHold::PositionPending<br/>applied?"}
+    r2(["TRACE: positionPending, return 0"])
+    d3{"GetPipeline()<br/>is null?"}
+    r3(["WARN: pipeline is null, return 0"])
+    d4{"pipeline->getPosition(ns)<br/>fails?"}
+    r4(["WARN: getPosition() failed, return 0"])
+    calc["rawMs = ns / kNsPerMs<br/>startMs = BaselineNs() / kNsPerMs<br/>elapsed = rawMs - startMs<br/>rate = m_rate"]
+    d5{"rate > 0?"}
+    fwd["position = max(0, elapsed) x rate"]
+    rev["position = elapsed x rate<br/>(reverse, not clamped)"]
+    ret(["return position"])
+    n1["AAMP core adds seek_pos_seconds x 1000<br/>and forces 0 while eSTATE_SEEKING"]
+
+    start --> d1
+    d1 -- yes --> r1
+    d1 -- no --> d2
+    d2 -- yes --> r2
+    d2 -- no --> d3
+    d3 -- yes --> r3
+    d3 -- no --> d4
+    d4 -- yes --> r4
+    d4 -- no --> calc --> d5
+    d5 -- yes --> fwd --> ret
+    d5 -- no --> rev --> ret
+    ret -.- n1
+    classDef note fill:#fff8c4,stroke:#c8b560,color:#333
+    class n1 note
+```
+
 *Decision flow of AampRialtoPlayer::GetPositionMilliseconds.*
 
 ### 4.3 Duration
@@ -372,7 +470,43 @@ timer drives that call. With direct-rialto, the progress timer does:
    progress core skips the report ("Progress reporting skipped whilst tune
    (set rate)").
 
-[[diagram:direct-rialto-timer-progress-tick-sequence]]
+```mermaid
+sequenceDiagram
+    participant EV as Rialto event<br/>thread
+    participant P as AampRialtoPlayer
+    participant T as AampRialtoProgressTimer /<br/>AampRialtoGlibTimer
+    participant GL as GLib main loop<br/>(host application)
+    participant N as PrivateInstanceAAMP<br/>Notifiable
+    participant SCHED as AAMP scheduler<br/>thread
+    participant A as PrivateInstanceAAMP
+    participant R as Rialto pipeline
+    EV->>P: HandlePlaybackStarted()
+    P->>N: first-frame notifications (async)
+    alt timer not running
+        P->>N: GetProgressReportIntervalSeconds()
+        P->>T: start(intervalMs, tick)
+        T->>GL: g_timeout_add_full (default context)
+        T->>P: FireNowIfRunning(): OnProgressTimerTick()<br/>(on the EVENT thread, under timer lock)
+    else timer running
+        P->>T: kick(): RestartIfRunning + FireNowIfRunning
+    end
+    P->>N: MonitorProgress(sync=false)<br/>(from the immediate tick)
+    N->>SCHED: ScheduleAsyncTask (no AAMP lock taken here)
+    loop every progressReportingInterval
+        GL->>T: Dispatch
+        T->>P: OnProgressTimerTick()
+        P->>N: MonitorProgress(sync=false)
+        N->>SCHED: ScheduleAsyncTask
+    end
+    SCHED->>A: MonitorProgress()
+    A->>P: GetPositionMilliseconds()
+    P->>R: getPosition() IPC
+    R-->>P: position ns
+    P-->>A: (position - segment start) x rate, or 0 while pending
+    A->>A: emit progress event to the application
+    Note over P,T: Stop() -#gt; StopProgressTimer() waits for a running tick#59;<br/>no tick starts afterwards (see the threading page).
+```
+
 *Progress timer start, kick and tick, from Rialto PLAYING to the AAMP progress event.*
 
 Consequences:
@@ -492,16 +626,16 @@ Search a log for the quoted text. AAMP's log macros add their own prefix (level,
 
 ## Related pages
 
-- Direct Rialto - Lifecycle and state machine
-- Direct Rialto - Flush and seek
-- Direct Rialto - Threading model and locking
-- Direct Rialto - Integration, configuration and build
-- Direct Rialto - Troubleshooting and glossary
-- Direct Rialto - Workarounds and improvement register
+- [Lifecycle and state machine](02-player-lifecycle-and-state-machines.md)
+- [Flush and seek](04-flush-seek-and-preroll.md)
+- [Threading model and locking](05-threading-and-locking-model.md)
+- [Integration, configuration and build](09-integration-configuration-and-build.md)
+- [Troubleshooting and glossary](12-troubleshooting-and-glossary.md)
+- [Workarounds and improvement register](11-workarounds-and-improvement-register.md)
 
 ## Workarounds and improvement candidates
 
-Rows are in `_register/MON.md`. Related rows from other pages: ARCH-12 (test-only public methods), ARCH-14 (unused Rialto notifications), ARCH-16 (underflow never retunes when the AAMP underflow monitor is off), ARCH-17 (dropped scheduler tasks leak), ARCH-22 (timers need a GLib main loop), THR-03 (late PLAYING restarts the progress timer).
+See the [MON rows in the register](11-workarounds-and-improvement-register.md#monitoring-timers-and-position-mon). Related rows from other pages: ARCH-12 (test-only public methods), ARCH-14 (unused Rialto notifications), ARCH-16 (underflow never retunes when the AAMP underflow monitor is off), ARCH-17 (dropped scheduler tasks leak), ARCH-22 (timers need a GLib main loop), THR-03 (late PLAYING restarts the progress timer).
 
 - MON-01: the AV monitor keeps reporting the last classification while paused.
 - MON-02: `VideoFreeze`, `AudioDrop` and `AvSync` can never be detected.

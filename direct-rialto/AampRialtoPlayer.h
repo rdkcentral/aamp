@@ -91,7 +91,8 @@ using SourceCreator =
  *   m_flushCallMutex -> state machine mutex, or -> controller play lock;
  *   m_attachMutex -> controller play lock; every other mutex here is a leaf.
  * Each shared member names its lock (or says it is atomic) at its
- * declaration.  The model is drawn in docs/diagrams/direct-rialto-*.puml.
+ * declaration.  The model is described, with diagrams, in
+ * docs/direct-rialto/05-threading-and-locking-model.md.
  */
 class AampRialtoPlayer : public StreamSink, public IDirectRialtoCC,
 	private IAampRialtoPipelineEvents

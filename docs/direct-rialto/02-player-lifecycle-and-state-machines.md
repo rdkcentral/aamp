@@ -21,7 +21,7 @@ behaviour for an unusual call order without reading the code.
 | `AampRialtoMediaPipelineClient.h/.cpp` | Rialto `IMediaPipelineClient`; forwards events to `IAampRialtoPipelineEvents` (the player) |
 | `AampRialtoPlayer.h/.cpp` | The `StreamSink`: `Configure`, `AttachSource`, `CheckAllSourcesAttached`, `Stream`, `Pause`, `Flush`, `Stop`, `OnPlaybackState` and friends |
 | `IStreamSinkNotifiable.h`, `PrivateInstanceAAMPNotifiable.h/.cpp` | What AAMP core sees: notifications posted to `PrivateInstanceAAMP` (mostly via `ScheduleAsyncTask`) |
-| `RialtoSessionCreator.h/.cpp` | `makeRialtoSessionCreator`: DRM session factory handed to the licence manager by `priv_aamp.cpp`; not part of the pipeline lifecycle (see [Direct Rialto - DRM]) |
+| `RialtoSessionCreator.h/.cpp` | `makeRialtoSessionCreator`: DRM session factory handed to the licence manager by `priv_aamp.cpp`; not part of the pipeline lifecycle (see [DRM](06-drm.md)) |
 
 ## 1. Lifecycle at a glance
 
@@ -58,8 +58,84 @@ rebuild the pipeline). In order:
 
 ## 2. Collaborators
 
-[[diagram:direct-rialto-lifecycle-class]]
-*Classes that take part in the lifecycle and the calls between them. Data-path and DRM classes are omitted; see [Direct Rialto - Architecture and class model].*
+```mermaid
+classDiagram
+    class AampRialtoPlayer {
+        <<StreamSink>>
+        +Configure()
+        +Stream()
+        +Pause(bool)
+        +Flush()
+        +Stop(keepLastFrame)
+        -IssuePlay()
+        -StartPreRoll()
+        -CheckAllSourcesAttached()
+        -HandlePlaybackStarted()
+        -HandleSeekDone()
+        -HandlePlaybackFailure()
+    }
+    class IAampRialtoPipelineEvents {
+        <<interface>>
+        +OnPlaybackState()
+        +OnNeedMediaData()
+        +OnPlaybackError()
+        +OnBufferUnderflow()
+    }
+    class PlayerStateMachine {
+        +onPipelineLoaded()
+        +onStop()
+        +currentState()
+        +waitForFlushComplete(timeout)
+    }
+    class AampRialtoPlaybackController {
+        -m_holds : atomic bitmask
+        -m_playMutex : recursive
+        +RequestPlay()
+        +CancelPlayRequest()
+        +AddHold(PlayHold)
+        +ReleaseHold(PlayHold)
+        +Reset()
+    }
+    class AampRialtoPreRollMonitor {
+        +Start()
+        +Stop()
+        -Poll() on a GLib tick
+    }
+    class AampRialtoPipelineSession {
+        +CreateAndLoad()
+        +GetPipeline()
+        +SetPipeline()
+        +ReleaseControlBackend()
+    }
+    class IRialtoControlBackend {
+        <<interface>>
+        +waitForRunning(timeoutMs)
+    }
+    class AampRialtoControlBackend
+    class AampRialtoMediaPipelineClient {
+        <<IMediaPipelineClient>>
+    }
+    class IStreamSinkNotifiable {
+        <<interface>>
+    }
+    class PrivateInstanceAAMPNotifiable
+
+    IAampRialtoPipelineEvents <|.. AampRialtoPlayer : private
+    AampRialtoPlayer *-- PlayerStateMachine
+    AampRialtoPlayer *-- AampRialtoPlaybackController
+    AampRialtoPlayer *-- AampRialtoPreRollMonitor
+    AampRialtoPlayer *-- AampRialtoPipelineSession
+    AampRialtoPlayer --> IStreamSinkNotifiable : notifications
+    IStreamSinkNotifiable <|.. PrivateInstanceAAMPNotifiable
+    AampRialtoPipelineSession *-- IRialtoControlBackend : unique_ptr, lazy
+    IRialtoControlBackend <|.. AampRialtoControlBackend
+    AampRialtoPipelineSession *-- AampRialtoMediaPipelineClient : shared_ptr
+    AampRialtoMediaPipelineClient --> IAampRialtoPipelineEvents : forwards Rialto events
+    AampRialtoPlaybackController ..> AampRialtoPlayer : IssuePlay, StartPreRoll callbacks
+    AampRialtoPreRollMonitor ..> AampRialtoPlaybackController : ReleaseHold(PreRollIncomplete)
+```
+
+*Classes that take part in the lifecycle and the calls between them. Data-path and DRM classes are omitted; see [Architecture and class model](01-architecture-and-class-model.md).*
 
 | Collaborator | Lifecycle responsibility | Owned by |
 |---|---|---|
@@ -90,8 +166,49 @@ reports only the first failure, `Flush` chooses its strategy from the
 pre-flush state). The table is the single source of truth:
 `AampPlayerStateMachine.cpp:PlayerStateMachine::NextState`.
 
-[[diagram:direct-rialto-state-machine]]
+```mermaid
+stateDiagram-v2
+    [*] --> IDLE
+
+    state "Session active (every state except IDLE, FLUSHING, ERROR)" as ACTIVE {
+        PIPELINE_CREATED --> SOURCES_ATTACHING : onSourceAttaching<br/>(first source attach starts)
+        SOURCES_ATTACHING --> SOURCES_ATTACHED : onAllSourcesAttached<br/>(allSourcesAttached() accepted)
+        SOURCES_ATTACHED --> PLAYING : onPlaybackStarted<br/>(Rialto PLAYING)
+        SOURCES_ATTACHED --> PAUSED : onPlaybackPaused<br/>(Rialto PAUSED, pre-roll pause())
+        PLAYING --> PAUSED : onPlaybackPaused
+        PAUSED --> PLAYING : onPlaybackStarted
+        FLUSHED --> PLAYING : onPlaybackStarted
+        FLUSHED --> PAUSED : onPlaybackPaused
+    }
+
+    IDLE --> PIPELINE_CREATED : onPipelineLoaded<br/>(Configure, load() succeeded)
+    SOURCES_ATTACHED --> FLUSHING : onFlush
+    PLAYING --> FLUSHING : onFlush
+    PAUSED --> FLUSHING : onFlush
+    FLUSHED --> FLUSHING : onFlush<br/>(rapid second seek)
+    FLUSHING --> FLUSHED : onFlushComplete<br/>(SEEK_DONE, setPosition failed,<br/>no pipeline, or wait timeout)
+
+    ACTIVE --> IDLE : onStop, onReconfigure
+    ACTIVE --> ERROR : onError (Rialto FAILURE)
+    FLUSHING --> ERROR : onError (Rialto FAILURE)
+    ERROR --> IDLE : onStop, onReconfigure
+
+    note right of FLUSHING
+        onStop and onReconfigure have no transition here.
+        Stop() and Configure() first wait for the flush
+        to end (waitForFlushComplete), so they never
+        see FLUSHING.
+    end note
+```
+
 *PlayerStateMachine states and transitions, as listed in the transition table.*
+
+Notes on the diagram:
+
+- **FLUSHING**: any event with no transition is ignored with a WARN, for example `onPlaybackPaused` in PAUSED or `onPlaybackStarted` in FLUSHING.
+- **IDLE**: `onStop` is ignored quietly, `onReconfigure` stays IDLE and `onError` is ignored (no session). `onSourceAttaching` is accepted by the guard in IDLE and ERROR but has no transition there, so it logs a WARN.
+- **ERROR**: terminal until `Stop()`, a teardown `Flush()`, or a `Configure()` that rebuilds the pipeline moves the machine back to IDLE. Only the first FAILURE (previous state not IDLE or ERROR) is reported to AAMP.
+- **Threading**: each event dispatch takes the state machine's mutex, so a single call is atomic. A sequence such as "read `currentState()`, then act" is not. The one sequence that must be atomic, entering FLUSHING after waiting for a previous flush, is serialised by the player's `m_flushCallMutex`. Every transition wakes `waitForFlushComplete()`.
 
 ### 3.1 States
 
@@ -134,7 +251,7 @@ Why `FLUSHED` exists and remembers nothing: Rialto always sends
 `SEEK_DONE` before the `PLAYING`/`PAUSED` of the same flush cycle, so the
 machine just waits for that notification instead of guessing the
 pre-flush state (comment in `NextState`). See
-[Direct Rialto - Flush and seek] for the flush cycle itself.
+[Flush and seek](04-flush-seek-and-preroll.md) for the flush cycle itself.
 
 ### 3.3 Waiting for a flush
 
@@ -159,7 +276,53 @@ machine the best first anchor when reading a log.
 
 ## 4. Startup: from construction to PLAYING
 
-[[diagram:direct-rialto-lifecycle-startup-sequence]]
+```mermaid
+sequenceDiagram
+    participant CT as AAMP control<br/>thread
+    participant INJ as Injector<br/>threads
+    participant P as AampRialtoPlayer
+    participant PC as PlaybackController
+    participant S as PipelineSession
+    participant R as Rialto client /<br/>server
+    participant EV as Rialto event<br/>thread
+    CT->>P: Configure(formats)
+    P->>P: WaitForFlushToComplete()<br/>ArmPositionPending (gate sources)
+    P->>P: ShouldRecreatePipeline? yes (no pipeline)
+    P->>P: BeginNewSession()<br/>state IDLE, AddHold(SourcesNotAttached),<br/>ArmPreRoll
+    P->>S: CreateAndLoad()
+    S->>R: IControl::registerClient
+    S->>R: waitForRunning(2000 ms)
+    Note right of S: WARN and proceed on<br/>timeout (ARCH-18)
+    S->>R: createMediaPipeline(3840x2160)
+    S->>S: install player as event sink
+    S->>R: load(MSE, #quot;mse://1#quot;)
+    P->>P: state PIPELINE_CREATED<br/>apply cached volume, create AV monitor
+    P->>P: CreateSources() (each gated)
+    CT->>P: Stream()
+    P->>PC: RequestPlay(#quot;Stream#quot;)
+    Note right of PC: holds remain:<br/>SourcesNotAttached, PositionPending
+    INJ->>P: SetStreamCaps(video)
+    P->>R: attachSource(video)
+    P->>P: SOURCES_ATTACHING#59; commit baseline,<br/>ReleaseHold(PositionPending),<br/>drain deferred audio/subtitle attaches
+    INJ->>P: SetStreamCaps(audio)
+    P->>R: attachSource(audio)
+    P->>R: allSourcesAttached()
+    P->>P: state SOURCES_ATTACHED
+    P->>PC: ReleaseHold(SourcesNotAttached)
+    alt pre-roll enabled (rate 1, GStreamerBufferingBeforePlay)
+        PC->>P: StartPreRoll(): pause(), ungate,<br/>start pre-roll monitor
+        Note right of P: monitor releases PreRollIncomplete<br/>after frame floor / EOS / full / 1 s
+        PC->>P: IssuePlay()
+    else no pre-roll
+        PC->>P: IssuePlay()
+    end
+    P->>R: ungate sources, play()
+    R->>EV: needData ... (data path)
+    R->>EV: PLAYING
+    EV->>P: HandlePlaybackStarted()
+    P->>P: state PLAYING#59; first-frame and<br/>tune-complete notifications#59;<br/>start progress timer, AV monitor
+```
+
 *First tune: RUNNING wait, pipeline creation and load, source attach, allSourcesAttached and the first play().*
 
 ### 4.1 Configure()
@@ -177,7 +340,7 @@ not take `m_flushCallMutex`; it relies on AAMP having stopped injection
    not (HLS fMP4). It is skipped only when the machine is `FLUSHED` after
    an authoritative-position `Flush()` (single-pipeline ad transition),
    because no sample would ever arrive to resolve it and `Stream()` would
-   wait forever. Details: [Direct Rialto - Flush and seek].
+   wait forever. Details: [Flush and seek](04-flush-seek-and-preroll.md).
 4. `TryReuseExistingPipeline`: if `ShouldRecreatePipeline` is false (same
    tracks and codecs, pipeline present, no `bESChangeStatus` or
    `setReadyAfterPipelineCreation`) the pipeline is kept. Rialto does not
@@ -258,7 +421,7 @@ calls `StartPreRoll`: `pause()`, ungate, and start
 buffer full or 1 s timeout) the monitor releases the hold and the
 controller issues `play()`. Pre-roll is enabled only at rate 1 with
 `eAAMPConfig_GStreamerBufferingBeforePlay`. Pre-roll and position
-resolution are covered in [Direct Rialto - Flush and seek].
+resolution are covered in [Flush and seek](04-flush-seek-and-preroll.md).
 
 Rialto then reports `PAUSED` (pre-roll) and `PLAYING`; the first
 `PLAYING` of the session sends AAMP the first-frame and tune-complete
@@ -294,8 +457,35 @@ through `RunIfPreRollCurrent(episode, ...)`, so a stale pre-roll (its
 episode ended by a flush, `Configure()` or `Stop()`) never ungates
 sources or releases a re-armed hold (commit 74b99c21).
 
-[[diagram:direct-rialto-lifecycle-play-hold-activity]]
+```mermaid
+flowchart TD
+    start(["RequestPlay, AddHold or ReleaseHold"])
+    a1["take m_playMutex (recursive), then m_mutex<br/>apply the operation<br/>(set request, add or clear a hold bit)"]
+    d1{"play request pending<br/>and holds == 0?"}
+    play["consume the request (m_playPending = false)<br/>release m_mutex<br/>IssuePlay(): ungate sources, play()"]
+    d2{"play request pending and<br/>holds == PreRollIncomplete only?"}
+    d3{"new pre-roll episode?"}
+    pre["++episode, release m_mutex<br/>unlock one level of m_playMutex<br/>StartPreRoll(episode): pause(), ungate, start monitor<br/>relock m_playMutex"]
+    same["release m_mutex"]
+    none["release m_mutex<br/>nothing to do"]
+    done([return])
+    n1["AddHold always leaves holds != 0, so it can never<br/>issue play(), but it can start pre-roll.<br/>Reset() restores the initial holds without dispatching"]
+
+    start --> a1 --> d1
+    d1 -- yes --> play --> done
+    d1 -- no --> d2
+    d2 -- yes --> d3
+    d3 -- yes --> pre --> done
+    d3 -- no --> same --> done
+    d2 -- no --> none --> done
+    a1 -.- n1
+    classDef note fill:#fff8c4,stroke:#c8b560,color:#333
+    class n1 note
+```
+
 *How a controller operation decides between doing nothing, starting pre-roll, and issuing play().*
+
+Pre-roll steps run through `RunIfPreRollCurrent(episode)`, so a stale pre-roll (its episode ended by `Flush()`, `Configure()` or `Stop()`) can neither ungate the sources nor release a re-armed hold.
 
 ### 5.2 Hold table
 
@@ -339,7 +529,7 @@ blocked by `Flushing` or `PositionPending` (LIFE-02).
 Gating and the play request are two halves of one decision: sources
 created or flushed are gated (samples are held, not dropped), and every
 point that issues `play()` ungates first. See
-[Direct Rialto - Media data path] for gate modes.
+[Media data path](03-media-data-path.md) for gate modes.
 
 ## 6. Rialto playback states and what AAMP core sees
 
@@ -353,8 +543,7 @@ Rialto IPC thread that may hold a Rialto-side lock while AAMP holds its
 own (AB/BA deadlock risk). AAMP therefore sees these events slightly
 later and on its own async-task thread.
 
-[[diagram:direct-rialto-notification-sequence]]
-*Generic event delivery path (owned by page 01).*
+Generic event delivery path (owned by page 01): see the diagram in [Integration, configuration and build](09-integration-configuration-and-build.md).
 
 | Rialto `PlaybackState` | Player handler | State machine | What AAMP core sees (`IStreamSinkNotifiable` -> `PrivateInstanceAAMP`) |
 |---|---|---|---|
@@ -363,7 +552,7 @@ later and on its own async-task thread.
 | `PLAYING`, later, otherwise | same | same (repeat in `PLAYING` ignored) | `NotifyFirstBufferProcessed`, `NotifyFirstFrameReceived` |
 | `PAUSED` | `OnPlaybackState` | `onPlaybackPaused` | Nothing. Sources are not paused either, because `PAUSED` also comes from buffering pauses and Rialto keeps requesting data |
 | `SEEKING` | log only | none | Nothing |
-| `SEEK_DONE` | `HandleSeekDone` (only in `FLUSHING`) | `onFlushComplete` | Nothing directly; the following `PLAYING` produces the seek notifications above. See [Direct Rialto - Flush and seek] |
+| `SEEK_DONE` | `HandleSeekDone` (only in `FLUSHING`) | `onFlushComplete` | Nothing directly; the following `PLAYING` produces the seek notifications above. See [Flush and seek](04-flush-seek-and-preroll.md) |
 | `END_OF_STREAM` | `OnPlaybackState` | none | `NotifyEOSReached` -> `PrivateInstanceAAMP::NotifyEOSReached` |
 | `FAILURE` | `HandlePlaybackFailure` | `onError` | First failure only (previous state not `IDLE`/`ERROR`): `NotifyPlaybackError(AAMP_TUNE_GST_PIPELINE_ERROR, "Rialto PlaybackState FAILURE", retry=true)` -> `SendErrorEvent` |
 | `IDLE`, `STOPPED`, `UNKNOWN` | ignored (`default`) | none | Nothing |
@@ -392,7 +581,7 @@ retune.
 1. AAMP calls `EndOfStreamReached(track)` on the injector thread when a
    track has delivered its last fragment. The source sends
    `haveData(EOS)` (or defers it while gated; see
-   [Direct Rialto - Media data path], section "EOS").
+   [Media data path](03-media-data-path.md), section "EOS").
 2. Rialto emits `END_OF_STREAM` only after every attached source has
    reported EOS. Subtitle has no natural end in many streams (adverts, or
    the subtitle source built from a saved header), so a video EOS
@@ -411,7 +600,37 @@ retune.
 
 ## 8. Error handling
 
-[[diagram:direct-rialto-lifecycle-error-sequence]]
+```mermaid
+sequenceDiagram
+    participant EV as Rialto event<br/>thread
+    participant P as AampRialtoPlayer
+    participant SM as PlayerStateMachine
+    participant N as Notifiable<br/>(AAMP scheduler)
+    participant A as AAMP core
+    participant CT as AAMP control<br/>thread
+    Note over EV,CT: Fatal: PlaybackState FAILURE
+    EV->>P: OnPlaybackState(FAILURE)
+    P->>P: HandlePlaybackFailure()
+    P->>SM: onError()
+    Note right of SM: any active state, including<br/>FLUSHING, -#gt; ERROR#59;<br/>wakes a flush waiter
+    alt previous state not IDLE and not ERROR
+        P->>N: NotifyPlaybackError(<br/>AAMP_TUNE_GST_PIPELINE_ERROR,<br/>retry=true)
+        N->>A: SendErrorEvent (async task)
+    else stale (IDLE) or already reported (ERROR)
+        P->>P: log only
+    end
+    Note over P: In ERROR: PLAYING, PAUSED and SEEK_DONE are ignored.<br/>The Flushing hold, if any, stays until Stop() resets it.
+    Note over EV,CT: Non-fatal: notifyPlaybackError
+    EV->>P: OnPlaybackError(sourceId, error)
+    P->>N: mapped notification<br/>(no state change)
+    Note over EV,CT: Recovery is AAMP's decision
+    A->>CT: retry / ScheduleRetune
+    CT->>P: Stop()
+    P->>SM: onStop(): ERROR -#gt; IDLE
+    CT->>P: Configure() ... Stream()
+    Note right of P: full rebuild#59; see the<br/>startup sequence
+```
+
 *Fatal Rialto FAILURE (including during a flush), non-fatal playback errors, and AAMP's retune.*
 
 The player itself never retunes. It reports to AAMP, which decides
@@ -440,7 +659,35 @@ non-teardown `Flush()` only stages parameters, and a teardown `Flush()`,
 
 ## 9. Stop and teardown
 
-[[diagram:direct-rialto-lifecycle-stop-sequence]]
+```mermaid
+sequenceDiagram
+    participant CT as AAMP control<br/>thread
+    participant P as AampRialtoPlayer
+    participant T as Timers and<br/>monitors
+    participant SRC as Sources /<br/>handshakes
+    participant S as PipelineSession
+    participant R as Rialto
+    participant PC as PlaybackController
+    participant SM as PlayerStateMachine
+    CT->>P: Stop()
+    P->>P: lock m_flushCallMutex
+    P->>SM: waitForFlushComplete(5000 ms)
+    P->>T: progress timer stop(),<br/>pre-roll Stop(), SetMonitorAV(nullptr)
+    Note right of T: each waits for a<br/>running tick
+    P->>SRC: unblockInjection(#quot;Stop#quot;, eos=false)
+    Note right of SRC: generation++, gate DROPPED:<br/>blocked injectors return
+    P->>R: pipeline-#gt;stop()
+    P->>S: SetPipeline(nullptr)
+    P->>S: ReleaseControlBackend()
+    S->>R: IControl deregister
+    P->>PC: Reset(#quot;Stop#quot;)
+    Note right of PC: drops play request and<br/>Flushing/PositionPending#59;<br/>keeps SourcesNotAttached
+    P->>P: ClearForNewSession(),<br/>reset PTS tracking
+    P->>SM: onStop() -#gt; IDLE
+    P-->>CT: return
+    Note over P,SM: Not done by Stop(): destroying sources or the client, clearing the<br/>client's event sink.  keepLastFrame is unused (LIFE-06).
+```
+
 *Stop(): serialise with flushes, wait for any flush, stop timers, wake injectors, stop and release the pipeline, deregister, reset.*
 
 `AampRialtoPlayer::Stop(keepLastFrame)` calls
@@ -537,7 +784,7 @@ after `m_session` are destroyed before it.
 Lock order: `m_flushCallMutex` -> state machine mutex, or ->
 controller play lock; `m_attachMutex` -> controller play lock (and, as
 page 05 found, the state-machine mutex too, THR-01). Full detail is on
-[Direct Rialto - Threading model and locking].
+[Threading model and locking](05-threading-and-locking-model.md).
 
 ## Open questions
 
@@ -548,17 +795,17 @@ page 05 found, the state-machine mutex too, THR-01). Full detail is on
 
 ## Related pages
 
-- Direct Rialto - Overview
-- Direct Rialto - Architecture and class model
-- Direct Rialto - Media data path
-- Direct Rialto - Flush and seek
-- Direct Rialto - Threading model and locking
-- Direct Rialto - Monitoring and diagnostics
-- Direct Rialto - Workarounds and improvement register
+- [Overview](00-direct-rialto-overview.md)
+- [Architecture and class model](01-architecture-and-class-model.md)
+- [Media data path](03-media-data-path.md)
+- [Flush and seek](04-flush-seek-and-preroll.md)
+- [Threading model and locking](05-threading-and-locking-model.md)
+- [Monitoring and diagnostics](08-av-monitoring-timers-and-position.md)
+- [Workarounds and improvement register](11-workarounds-and-improvement-register.md)
 
 ## Workarounds and improvement candidates
 
-Rows are in `_register/LIFE.md`. Related rows from other pages: ARCH-13 (audio waits for video attach), ARCH-16 (underflow never retunes), ARCH-18 (proceed without `RUNNING`), ARCH-19 (hard-coded 4K requirements), ARCH-20 (`isLive=false`).
+See the [LIFE rows in the register](11-workarounds-and-improvement-register.md#lifecycle-and-state-machine-life). Related rows from other pages: ARCH-13 (audio waits for video attach), ARCH-16 (underflow never retunes), ARCH-18 (proceed without `RUNNING`), ARCH-19 (hard-coded 4K requirements), ARCH-20 (`isLive=false`).
 
 - LIFE-01: `Pause(true)` with no pipeline returns early and does not cancel a pending play request.
 - LIFE-02: `Pause(false)` and `StopBuffering` issue `play()` regardless of the `Flushing`/`PositionPending` holds.
