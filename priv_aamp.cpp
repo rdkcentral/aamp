@@ -2334,13 +2334,34 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 				profiler.GetTelemetryParam();
 			}
 
-			if (sync)
+			static std::atomic<int> progressSendCount(0);
+			int progressSendIdx = progressSendCount++;
+			// Throttled: log every 10th progress hand-off to the event manager
+			bool logProgressSend = ((progressSendIdx % 10) == 0);
+			if (!evt)
 			{
-				mEventManager->SendEvent(evt,AAMP_EVENT_SYNC_MODE);
+				AAMPLOG_ERR("Progress event is NULL, not sent (sync=%d state=%d)", sync, (int)state);
 			}
 			else
 			{
-				mEventManager->SendEvent(evt);
+				if (logProgressSend)
+				{
+					AAMPLOG_MIL("Sending progress event #%d to event manager: evt=%p sync=%d state=%d position=%ldms speed=%.2f listenerAvailable=%d",
+						progressSendIdx, evt.get(), sync, (int)state, (long)reportFormattedCurrPos, speed,
+						(int)mEventManager->IsEventListenerAvailable(AAMP_EVENT_PROGRESS));
+				}
+				if (sync)
+				{
+					mEventManager->SendEvent(evt,AAMP_EVENT_SYNC_MODE);
+				}
+				else
+				{
+					mEventManager->SendEvent(evt);
+				}
+				if (logProgressSend)
+				{
+					AAMPLOG_MIL("SendEvent returned for progress event #%d", progressSendIdx);
+				}
 			}
 
 			mReportProgressPosn = position;

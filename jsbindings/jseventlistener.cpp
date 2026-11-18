@@ -27,6 +27,7 @@
 #include "jsevent.h"
 #include "jsutils.h"
 #include "vttCue.h"
+#include <atomic>
 
 
 /**
@@ -1746,6 +1747,10 @@ AAMP_JSEventListener::AAMP_JSEventListener(PrivAAMPStruct_JS *obj, AAMPEventType
  */
 AAMP_JSEventListener::~AAMP_JSEventListener()
 {
+	if (p_type == AAMP_EVENT_PROGRESS)
+	{
+		LOG_WARN_EX("Destroying progress JS listener %p, jsCallback=%p, obj=%p", this, p_jsCallback, p_obj);
+	}
 	if (p_jsCallback != NULL)
 	{
 		JSValueUnprotect(p_obj->_ctx, p_jsCallback);
@@ -1763,6 +1768,17 @@ void AAMP_JSEventListener::Event(const AAMPEventPtr& e)
 	if (evtType < 0 || evtType >= AAMP_MAX_NUM_EVENTS)
 	{
 		return;
+	}
+	if (evtType == AAMP_EVENT_PROGRESS)
+	{
+		// Throttled: log roughly every 10th progress event delivered to JS
+		static std::atomic<int> progressCount(0);
+		int count = progressCount++;
+		if ((count % 10) == 0)
+		{
+			LOG_WARN_EX("Progress event #%d reached JS listener %p, jsCallback=%p, obj=%p, ctx=%p",
+				count, this, p_jsCallback, p_obj, p_obj->_ctx);
+		}
 	}
 	JSObjectRef event = createNewAAMPJSEvent(p_obj->_ctx, aampPlayer_getNameFromEventType(evtType), false, false);
 	if (event)
@@ -1946,6 +1962,8 @@ void AAMP_JSEventListener::AddEventListener(PrivAAMPStruct_JS* obj, AAMPEventTyp
 	}
 
 	obj->_listeners.insert({type,(pListener)});
+	LOG_WARN_EX("Registered JS listener %p for eventType=%d, jsCallback=%p, obj=%p, aamp=%p, total listeners=%zu, listeners for this type=%zu",
+		pListener.get(), type, jsCallback, obj, obj->_aamp, obj->_listeners.size(), obj->_listeners.count(type));
 }
 
 
@@ -1955,6 +1973,7 @@ void AAMP_JSEventListener::AddEventListener(PrivAAMPStruct_JS* obj, AAMPEventTyp
 void AAMP_JSEventListener::RemoveEventListener(PrivAAMPStruct_JS* obj, AAMPEventType type, JSObjectRef jsCallback)
 {
         LOG_TRACE("(%p, %d, %p)", obj, type, jsCallback);
+	bool removed = false;
 	if (obj->_listeners.count(type) > 0)
 	{
 
@@ -1965,17 +1984,24 @@ void AAMP_JSEventListener::RemoveEventListener(PrivAAMPStruct_JS* obj, AAMPEvent
 			auto listener = std::static_pointer_cast<AAMP_JSEventListener>((iter->second));
 			if (listener->p_jsCallback == jsCallback)
 			{
+				LOG_WARN_EX("Removing JS listener %p for eventType=%d, jsCallback=%p, obj=%p, aamp=%p",
+					listener.get(), type, jsCallback, obj, obj->_aamp);
 				if (obj->_aamp != NULL)
 				{
 					obj->_aamp->RemoveEventListener(iter->first, listener);
 				}
 				iter = obj->_listeners.erase(iter);
+				removed = true;
 			}
 			else
 			{
 				iter++;
 			}
 		}
+	}
+	if (!removed)
+	{
+		LOG_WARN_EX("No JS listener found to remove for eventType=%d, jsCallback=%p, obj=%p", type, jsCallback, obj);
 	}
 }
 
@@ -1985,7 +2011,9 @@ void AAMP_JSEventListener::RemoveEventListener(PrivAAMPStruct_JS* obj, AAMPEvent
  */
 void AAMP_JSEventListener::RemoveAllEventListener(PrivAAMPStruct_JS * obj)
 {
-	
+	LOG_WARN_EX("Removing all JS listeners, obj=%p, listeners remaining=%zu, progress listeners=%zu",
+		obj, obj->_listeners.size(), obj->_listeners.count(AAMP_EVENT_PROGRESS));
+
         LOG_TRACE("obj(%p) listeners remaining(%d)", obj, obj->_listeners.size());
 
 	for (auto listenerIter = obj->_listeners.begin(); listenerIter != obj->_listeners.end();)

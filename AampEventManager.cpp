@@ -45,7 +45,7 @@ guint AampEventManager::GetSourceID()
 AampEventManager::AampEventManager(int playerId): mIsFakeTune(false),
 					mAsyncTuneEnabled(false),mEventPriority(G_PRIORITY_DEFAULT_IDLE),mMutexVar(),
 					mPlayerState(eSTATE_IDLE),mEventWorkerDataQue(),mPendingAsyncEvents(),mPlayerId(playerId),
-					mEventProfilingEnabled(false),mEventProfilingThresholdMs(0),mIsFirstProgressSent(false)
+					mEventProfilingEnabled(false),mEventProfilingThresholdMs(0),mIsFirstProgressSent(false),mProgressDropCount(0)
 {
 	for (int i = 0; i < AAMP_MAX_NUM_EVENTS; i++)
 	{
@@ -160,11 +160,17 @@ void AampEventManager::AddEventListener(AAMPEventType eventType, std::shared_ptr
 		ListenerData* pListener = new ListenerData;
 		if (pListener)
 		{
-			AAMPLOG_INFO("EventType:%d, Listener %p new %p", eventType, eventListener.get(), pListener);
 			std::lock_guard<std::mutex> guard(mMutexVar);
 			pListener->eventListener = eventListener;
 			pListener->pNext = mEventListeners[eventType];
 			mEventListeners[eventType] = pListener;
+			int count = 0;
+			for (ListenerData* p = mEventListeners[eventType]; p != NULL; p = p->pNext)
+			{
+				count++;
+			}
+			AAMPLOG_MIL("EventType:%d, Listener %p new %p registered, listeners for this type now=%d (playerState=%d)",
+				eventType, eventListener.get(), pListener, count, (int)mPlayerState);
 		}
 	}
 	else
@@ -189,12 +195,15 @@ void AampEventManager::RemoveEventListener(AAMPEventType eventType, std::shared_
 			if (pListener->eventListener == eventListener)
 			{
 				*ppLast = pListener->pNext;
-				AAMPLOG_INFO("Eventtype:%d %p delete %p use_count = %d", eventType, eventListener.get(), pListener, (int)eventListener.use_count());
+				AAMPLOG_MIL("Eventtype:%d %p delete %p use_count = %d, listeners remaining for this type=%s (playerState=%d)",
+					eventType, eventListener.get(), pListener, (int)eventListener.use_count(),
+					(mEventListeners[eventType] != NULL) ? "yes" : "none", (int)mPlayerState);
 				SAFE_DELETE(pListener);
 				return;
 			}
 			ppLast = &(pListener->pNext);
 		}
+		AAMPLOG_WARN("Eventtype:%d listener %p not found for removal", eventType, eventListener.get());
 	}
 }
 
@@ -283,6 +292,10 @@ void AampEventManager::SendEvent(const AAMPEventPtr &eventData, AAMPEventMode ev
                 return;
 	if(mIsFakeTune && !(AAMP_EVENT_STATE_CHANGED == eventType && eSTATE_COMPLETE == std::dynamic_pointer_cast<StateChangedEvent>(eventData)->getState()) && !(AAMP_EVENT_EOS == eventType))
 	{
+		if (AAMP_EVENT_PROGRESS == eventType && (mProgressDropCount++ % 10) == 0)
+		{
+			AAMPLOG_WARN("Progress event dropped: fake tune enabled (dropCount=%d)", mProgressDropCount.load());
+		}
 		AAMPLOG_TRACE("Events are disabled for fake tune");
 		return;
 	}
@@ -315,6 +328,12 @@ void AampEventManager::SendEvent(const AAMPEventPtr &eventData, AAMPEventMode ev
 			}
 		}
 	}
+	else if (AAMP_EVENT_PROGRESS == eventType && (mProgressDropCount++ % 10) == 0)
+	{
+		AAMPLOG_WARN("Progress event dropped: playerState=%d, progress listeners=%s, all-event listeners=%s (dropCount=%d)",
+			(int)mPlayerState, mEventListeners[AAMP_EVENT_PROGRESS] ? "yes" : "none",
+			mEventListeners[AAMP_EVENT_ALL_EVENTS] ? "yes" : "none", mProgressDropCount.load());
+	}
 }
 
 
@@ -343,6 +362,11 @@ void AampEventManager::AsyncEvent()
 	if(eventData && (IsEventListenerAvailable(eventData->getType())) && (mPlayerState != eSTATE_RELEASED))
 	{
 		SendEventSync(eventData, enqueueTimeMs);
+	}
+	else if (eventData && AAMP_EVENT_PROGRESS == eventData->getType() && (mProgressDropCount++ % 10) == 0)
+	{
+		AAMPLOG_WARN("Async progress event dropped: playerState=%d, listener available=%d (dropCount=%d)",
+			(int)mPlayerState, (int)IsEventListenerAvailable(AAMP_EVENT_PROGRESS), mProgressDropCount.load());
 	}
 }
 
@@ -393,6 +417,10 @@ void AampEventManager::SendEventSync(const AAMPEventPtr &eventData, long long en
 	// Its checked again here ,as async events can come to sync mode after playback is stopped 
 	if(mPlayerState == eSTATE_RELEASED)
 	{
+		if (AAMP_EVENT_PROGRESS == eventType)
+		{
+			AAMPLOG_WARN("Progress event not sent: player state is RELEASED");
+		}
 		return;
 	}
 	
@@ -418,6 +446,7 @@ void AampEventManager::SendEventSync(const AAMPEventPtr &eventData, long long en
 	}
 	// Build list of registered event listeners.
 	ListenerData* pList = NULL;
+	int listenerCount = 0;
 	ListenerData* pListener = mEventListeners[eventType];
 	while (pListener != NULL)
 	{
@@ -426,6 +455,7 @@ void AampEventManager::SendEventSync(const AAMPEventPtr &eventData, long long en
 		pNew->pNext = pList;
 		pList = pNew;
 		pListener = pListener->pNext;
+		listenerCount++;
 	}
 	pListener = mEventListeners[AAMP_EVENT_ALL_EVENTS];  // listeners registered for "all" event types
 	while (pListener != NULL)
@@ -435,6 +465,21 @@ void AampEventManager::SendEventSync(const AAMPEventPtr &eventData, long long en
 		pNew->pNext = pList;
 		pList = pNew;
 		pListener = pListener->pNext;
+		listenerCount++;
+	}
+	if (eventType == AAMP_EVENT_PROGRESS)
+	{
+		// Log every 10th progress event, and every event when there is no listener to deliver to
+		if (listenerCount == 0)
+		{
+			AAMPLOG_WARN("Progress event #%d has no registered listener, not delivered", mEventStats[eventType]);
+		}
+		else if ((mEventStats[eventType] % 10) == 0)
+		{
+			ProgressEventPtr progressEvt = std::dynamic_pointer_cast<ProgressEvent>(eventData);
+			AAMPLOG_MIL("Progress event #%d dispatching to %d listener(s) position:%0.3lfms (session_id=%s)",
+				mEventStats[eventType], listenerCount, progressEvt->getPosition(), eventData->GetSessionId().c_str());
+		}
 	}
 	lock.unlock();
 

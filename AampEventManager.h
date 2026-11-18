@@ -33,6 +33,7 @@
 #include "AampUtils.h"
 #include <signal.h>
 #include <mutex>
+#include <atomic>
 #include <queue>
 #include <glib.h>
 
@@ -80,6 +81,7 @@ private:
 	bool  mEventProfilingEnabled;		  /**< Runtime flag: enable event round-trip time profiling */
 	int   mEventProfilingThresholdMs;	  /**< Log only when measured round-trip time exceeds this value (ms) */
 	bool mIsFirstProgressSent;			  /**< Flag denotes if first progress event is sent */
+	std::atomic<int> mProgressDropCount;			  /**< Count of progress events not delivered, used to throttle debug logs */
 
 
 protected:
