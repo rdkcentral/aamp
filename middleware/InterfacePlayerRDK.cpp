@@ -5543,3 +5543,21 @@ static void DecorateGstBufferWithDrmMetadata(GstBuffer *buffer, const MediaDrmMe
 		gst_buffer_add_protection_meta(buffer, metadata);
 	}
 }
+/**
+ * @brief Get the current state of the GStreamer pipeline.
+ * @param[out] currentState Pointer to store the current state of the pipeline.
+ * @param[out] pendingState Pointer to store the pending state of the pipeline.
+ * @return GstStateChangeReturn indicating the result of the state query.
+ */
+GstStateChangeReturn InterfacePlayerRDK::GetPipelineState(GstState *currentState, GstState *pendingState)
+{
+    if (interfacePlayerPriv->gstPrivateContext->pipeline)
+    {
+        return gst_element_get_state(interfacePlayerPriv->gstPrivateContext->pipeline,
+                                     currentState, pendingState, 100 * GST_MSECOND);
+    }
+    // No pipeline
+    if (currentState) *currentState = GST_STATE_NULL;
+    if (pendingState) *pendingState = GST_STATE_VOID_PENDING;
+    return GST_STATE_CHANGE_SUCCESS;
+}
