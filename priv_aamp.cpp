@@ -7605,36 +7605,54 @@ long long PrivateInstanceAAMP::GetPositionMs()
 
 bool PrivateInstanceAAMP::LockGetPositionMilliseconds()
 {
+	AAMPLOG_WARN("vk::m1 ENTER LockGetPositionMilliseconds player=%p TRY soft mutex=%p",
+		static_cast<void*>(this), static_cast<void*>(&mGetPositionMillisecondsMutexSoft));
 	if(!mGetPositionMillisecondsMutexSoft.try_lock())
 	{
 		//In situations that could have deadlocked, continue & make a log entry instead.
 		AAMPLOG_ERR("Failed to acquire lock.");
+		AAMPLOG_WARN("vk::m1 EXIT LockGetPositionMilliseconds soft mutex=%p acquired=0 returning=false",
+			static_cast<void*>(&mGetPositionMillisecondsMutexSoft));
 		return false;
 	}
+	AAMPLOG_WARN("vk::m1 EXIT LockGetPositionMilliseconds soft mutex=%p acquired=1 returning=true",
+		static_cast<void*>(&mGetPositionMillisecondsMutexSoft));
 	return true;
 }
 
 void PrivateInstanceAAMP::UnlockGetPositionMilliseconds()
 {
+	AAMPLOG_WARN("vk::m1 ENTER UnlockGetPositionMilliseconds player=%p TRY soft mutex=%p",
+		static_cast<void*>(this), static_cast<void*>(&mGetPositionMillisecondsMutexSoft));
 
 	//Avoid the possibility of unlocking an unlocked mutex (undefined behavior).
 	if(mGetPositionMillisecondsMutexSoft.try_lock())
 	{
+		AAMPLOG_WARN("vk::m1 Unexpectedly ACQUIRED soft mutex=%p during unlock check",
+			static_cast<void*>(&mGetPositionMillisecondsMutexSoft));
 		AAMPLOG_WARN("Acquire lock (unexpected condition unless a previous lock has failed or there is a missing call to LockGetPositionMilliseconds()).");
 	}
+	AAMPLOG_WARN("vk::m1 RELEASING soft mutex=%p", static_cast<void*>(&mGetPositionMillisecondsMutexSoft));
 	mGetPositionMillisecondsMutexSoft.unlock();
+	AAMPLOG_WARN("vk::m1 EXIT UnlockGetPositionMilliseconds RELEASED soft mutex=%p",
+		static_cast<void*>(&mGetPositionMillisecondsMutexSoft));
 }
 
 long long PrivateInstanceAAMP::GetPositionRelativeToSeekMilliseconds(long long rate, long long trickStartUTCMS)
 {
+	AAMPLOG_WARN("vk::m1 ENTER GetPositionRelativeToSeekMilliseconds player=%p", static_cast<void*>(this));
 	long long position = -1;
 	//Audio only playback is un-tested. Hence disabled for now
 	if (ISCONFIGSET_PRIV(eAAMPConfig_EnableGstPositionQuery) && !ISCONFIGSET_PRIV(eAAMPConfig_AudioOnlyPlayback) && !mAudioOnlyPb)
 	{
+		AAMPLOG_WARN("vk::m1 BEFORE GetStreamSink player=%p", static_cast<void*>(this));
 		StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+		AAMPLOG_WARN("vk::m1 AFTER GetStreamSink player=%p sink=%p", static_cast<void*>(this), static_cast<void*>(sink));
 		if (sink)
 		{
+			AAMPLOG_WARN("vk::m1 BEFORE sink GetPositionMilliseconds sink=%p", static_cast<void*>(sink));
 			auto gstPosition = sink->GetPositionMilliseconds();
+			AAMPLOG_WARN("vk::m1 AFTER sink GetPositionMilliseconds sink=%p position=%lld", static_cast<void*>(sink), gstPosition);
 
 			/* Prevent spurious values being returned by this function during seek.
 			* PrivateInstanceAAMP::GetPositionMilliseconds() is called elsewhere e.g. setting seek_pos_seconds
@@ -7662,6 +7680,7 @@ long long PrivateInstanceAAMP::GetPositionRelativeToSeekMilliseconds(long long r
 		position = (((elapsedTime > 1000) ? elapsedTime : 0) * rate);
 	}
 
+	AAMPLOG_WARN("vk::m1 EXIT GetPositionRelativeToSeekMilliseconds player=%p returning=%lld", static_cast<void*>(this), position);
 	return position;
 }
 
@@ -7670,6 +7689,8 @@ long long PrivateInstanceAAMP::GetPositionRelativeToSeekMilliseconds(long long r
  */
 long long PrivateInstanceAAMP::GetPositionMilliseconds()
 {
+	AAMPLOG_WARN("vk::m1 ENTER GetPositionMilliseconds player=%p WAIT hard mutex=%p",
+		static_cast<void*>(this), static_cast<void*>(&mGetPositionMillisecondsMutexHard));
 	 /* Ideally between LockGetPositionMilliseconds() & UnlockGetPositionMilliseconds() this function would be blocked
 	 * (i.e. all mGetPositionMillisecondsMutexSoft.try_lock() replaced with lock()) this would
 	 * ensure mState & seek_pos_seconds are synchronized during this function.
@@ -7677,7 +7698,9 @@ long long PrivateInstanceAAMP::GetPositionMilliseconds()
 	 * Instead raise an error and potentially return a spurious position in cases that could have deadlocked.
 	*/
 	std::lock_guard<std::mutex> functionLock{mGetPositionMillisecondsMutexHard};
+	AAMPLOG_WARN("vk::m1 TRY soft mutex=%p", static_cast<void*>(&mGetPositionMillisecondsMutexSoft));
 	bool locked = mGetPositionMillisecondsMutexSoft.try_lock();
+	AAMPLOG_WARN("vk::m1 TRY RESULT soft mutex=%p acquired=%d", static_cast<void*>(&mGetPositionMillisecondsMutexSoft), locked);
 	if(!locked)
 	{
 		AAMPLOG_ERR("Failed to acquire lock. A spurious position value may be calculated.");
@@ -7694,15 +7717,16 @@ long long PrivateInstanceAAMP::GetPositionMilliseconds()
 	{
 		//Local copy to avoid race. Consider further improvements to the thread safety of this variable.
 		auto rate_copy = rate;
-		AAMPLOG_TRACE("rate=%f", rate_copy);
-
+		AAMPLOG_WARN("vk::m1 rate=%f", rate_copy);
 		positionMilliseconds+=GetPositionRelativeToSeekMilliseconds(rate_copy, trickStartUTCMS_copy);
+		AAMPLOG_WARN("vk::m1 AFTER GetPositionRelativeToSeekMilliseconds position=%lld", positionMilliseconds);
 
 		if(AAMP_NORMAL_PLAY_RATE == rate_copy)
 		{
 			/*standardized & tightened validity checking of previous position to
 			  avoid spurious 'restore prev-pos as current-pos!!' around seeks*/
 			const auto prevPositionInfo = mPrevPositionMilliseconds.GetInfo();
+			AAMPLOG_WARN("vk::m1 AFTER position cache GetInfo");
 			if(prevPositionInfo.isPositionValid(seek_pos_seconds_copy))
 			{
 				long long diff = positionMilliseconds - prevPositionInfo.getPosition();
@@ -7742,16 +7766,21 @@ long long PrivateInstanceAAMP::GetPositionMilliseconds()
 				AAMPLOG_WARN("Correcting positionMilliseconds %lld to contentEndMs %lld", positionMilliseconds, contentEndMs);
 				positionMilliseconds = contentEndMs;
 			}
+			AAMPLOG_WARN("vk::m1 AFTER content end calculation and duration queries");
 		}
 	}
 
-	AAMPLOG_DEBUG("Returning Position as %lld (seek_pos_seconds = %f) and updating previous position.", positionMilliseconds, seek_pos_seconds_copy);
+	AAMPLOG_WARN("vk::m1 Returning Position as %lld (seek_pos_seconds = %f) and updating previous position.", positionMilliseconds, seek_pos_seconds_copy);
 	mPrevPositionMilliseconds.Update(positionMilliseconds ,seek_pos_seconds_copy);
+	AAMPLOG_WARN("vk::m1 AFTER position cache Update");
 
 	if(locked)
 	{
 		mGetPositionMillisecondsMutexSoft.unlock();
+		AAMPLOG_WARN("vk::m1 RELEASED soft mutex=%p", static_cast<void*>(&mGetPositionMillisecondsMutexSoft));
 	}
+	AAMPLOG_WARN("vk::m1 EXIT GetPositionMilliseconds player=%p returning=%lld; hard mutex=%p released on scope exit",
+		static_cast<void*>(this), positionMilliseconds, static_cast<void*>(&mGetPositionMillisecondsMutexHard));
 	return positionMilliseconds;
 }
 

@@ -1179,7 +1179,9 @@ static gboolean SeekAfterPrepared(gpointer ptr)
 
 		 /* PositionMillisecondLock is intended to ensure both state and seek_pos_seconds (in TuneHelper)
 		 * are updated before GetPositionMilliseconds() can be used*/
+		AAMPLOG_WARN("vk::m1 BEFORE LockGetPositionMilliseconds player=%p", static_cast<void*>(aamp));
 		auto PositionMillisecondLocked = aamp->LockGetPositionMilliseconds();
+		AAMPLOG_WARN("vk::m1 AFTER LockGetPositionMilliseconds player=%p acquired=%d", static_cast<void*>(aamp), PositionMillisecondLocked);
 		aamp->SetState(eSTATE_SEEKING);
 		/* Clear setting playerrate flag */
 		aamp->mSetPlayerRateAfterFirstframe=false;
@@ -1187,7 +1189,9 @@ static gboolean SeekAfterPrepared(gpointer ptr)
 		aamp->TuneHelper(tuneType);
 		if(PositionMillisecondLocked)
 		{
+			AAMPLOG_WARN("vk::m1 BEFORE UnlockGetPositionMilliseconds player=%p", static_cast<void*>(aamp));
 			aamp->UnlockGetPositionMilliseconds();
+			AAMPLOG_WARN("vk::m1 AFTER UnlockGetPositionMilliseconds player=%p", static_cast<void*>(aamp));
 		}
 		aamp->ReleaseStreamLock();
 		if (sentSpeedChangedEv)
@@ -1384,7 +1388,9 @@ void PlayerInstanceAAMP::SeekInternal(double secondsRelativeToTuneTime, bool kee
 			/*
 			 * PositionMillisecondLock is intended to ensure both state and seek_pos_seconds
 			 * are updated before GetPositionMilliseconds() can be used*/
+			AAMPLOG_WARN("vk::m1 BEFORE LockGetPositionMilliseconds player=%p", static_cast<void*>(aamp));
 			auto PositionMillisecondLocked = aamp->LockGetPositionMilliseconds();
+			AAMPLOG_WARN("vk::m1 AFTER LockGetPositionMilliseconds player=%p acquired=%d", static_cast<void*>(aamp), PositionMillisecondLocked);
 
 			if (tuneType == eTUNETYPE_SEEK)
 			{
@@ -1411,7 +1417,9 @@ void PlayerInstanceAAMP::SeekInternal(double secondsRelativeToTuneTime, bool kee
 				aamp->SetState(eSTATE_SEEKING);
 				if(PositionMillisecondLocked)
 				{
+					AAMPLOG_WARN("vk::m1 BEFORE UnlockGetPositionMilliseconds player=%p", static_cast<void*>(aamp));
 					aamp->UnlockGetPositionMilliseconds();
+					AAMPLOG_WARN("vk::m1 AFTER UnlockGetPositionMilliseconds player=%p", static_cast<void*>(aamp));
 				}
 				/* Clear setting playerrate flag */
 				aamp->mSetPlayerRateAfterFirstframe=false;
@@ -1425,7 +1433,9 @@ void PlayerInstanceAAMP::SeekInternal(double secondsRelativeToTuneTime, bool kee
 			}
 			else if(PositionMillisecondLocked)
 			{
+				AAMPLOG_WARN("vk::m1 BEFORE UnlockGetPositionMilliseconds player=%p", static_cast<void*>(aamp));
 				aamp->UnlockGetPositionMilliseconds();
+				AAMPLOG_WARN("vk::m1 AFTER UnlockGetPositionMilliseconds player=%p", static_cast<void*>(aamp));
 			}
 			if (aamp->mbPlayEnabled)
 			{
