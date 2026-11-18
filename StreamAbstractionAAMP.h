@@ -1737,6 +1737,22 @@ public:
 	void NotifyRateChangeToUnderflowMonitor(float rate);
 
 	/**
+	 * @fn NotifyDiscontinuityStartToUnderflowMonitor
+	 * @brief Notify the underflow monitor that discontinuity processing has
+	 *        started.  Disarms the deadline so the injection/reconfigure gap
+	 *        does not trigger a spurious underflow.
+	 */
+	void NotifyDiscontinuityStartToUnderflowMonitor();
+
+	/**
+	 * @fn NotifyDiscontinuityCompleteToUnderflowMonitor
+	 * @brief Notify the underflow monitor that discontinuity processing has
+	 *        completed.  Re-arms the deadline using the current video buffer position.
+	 * @param[in] playRate  Current play rate.
+	 */
+	void NotifyDiscontinuityCompleteToUnderflowMonitor(float playRate);
+
+	/**
 	 *   @fn GetBufferedAudioDurationSec
 	 *
 	 *   @return duration of currently buffered audio in seconds

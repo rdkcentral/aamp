@@ -2973,6 +2973,28 @@ void StreamAbstractionAAMP::NotifyPipelineResumedToUnderflowMonitor(float playRa
 	}
 }
 
+void StreamAbstractionAAMP::NotifyDiscontinuityStartToUnderflowMonitor()
+{
+	std::lock_guard<std::mutex> lock(mUnderflowMonitorMutex);
+	if (mUnderflowMonitor)
+	{
+		mUnderflowMonitor->NotifyDiscontinuityStart();
+	}
+}
+
+void StreamAbstractionAAMP::NotifyDiscontinuityCompleteToUnderflowMonitor(float playRate)
+{
+	std::lock_guard<std::mutex> lock(mUnderflowMonitorMutex);
+	if (mUnderflowMonitor)
+	{
+		// Reconstruct end-of-buffer position: currentPosition + bufferedDuration.
+		const double positionSec = aamp->GetPositionMs() / 1000.0;
+		const double buffered    = GetBufferedVideoDurationSec();
+		const double endPosition = positionSec + (buffered > 0.0 ? buffered : 0.0);
+		mUnderflowMonitor->NotifyDiscontinuityComplete(endPosition, playRate);
+	}
+}
+
 /**
  *  @brief Check if playback has stalled and update related flags.
  */
