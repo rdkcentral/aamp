@@ -83,6 +83,7 @@ public:
 	long long discontinuityIndex;		/**< Discontinuity index */
 	double PTSOffsetSec; 				/**< PTS offset to apply for this segment */
 	double absPosition;					/**< Absolute position in seconds */
+	bool adPlaying;						/**< Fragment belongs to an ad (CDAI) */
 
 	/**
 	 * @brief Default constructor

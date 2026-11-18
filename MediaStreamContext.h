@@ -54,7 +54,7 @@ public:
 		   , scaledPTO(0)
 		   , failAdjacentSegment(false),httpErrorCode(0)
 	       , mPlaylistUrl(""), mEffectiveUrl(""),freshManifest(false),nextfragmentIndex(-1)
-	       , mReachedFirstFragOnRewind(false),fetchChunkBufferMutex()
+	       , mReachedFirstFragOnRewind(false),fetchChunkBufferMutex(), avlogAd(false)
     {
         AAMPLOG_INFO("[%s] Create new MediaStreamContext",
             GetMediaTypeName(mediaType));
@@ -282,6 +282,7 @@ public:
     int nextfragmentIndex; //CMCD get next index to fetch url from Segment List
     bool mReachedFirstFragOnRewind; /**< flag denotes if we reached the first fragment in a period on rewind */
     std::mutex fetchChunkBufferMutex;
+    bool avlogAd; /**< the period being fetched is an ad period (avlog ad_playing) */
 }; // MediaStreamContext
 
 #endif /* MEDIASTREAMCONTEXT_H */

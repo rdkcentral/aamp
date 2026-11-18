@@ -38,6 +38,8 @@
 #include "libdash/xml/DOMParser.h"
 #include <libxml/xmlreader.h>
 #include <thread>
+#include <set>
+#include <mutex>
 #include "admanager_mpd.h"
 #include "AampMPDDownloader.h"
 #include "AampDRMLicPreFetcher.h"
@@ -1217,6 +1219,8 @@ protected:
 	bool mIsFogTSB;
 	IPeriod *mCurrentPeriod;
 	std::string mBasePeriodId;
+	std::set<std::string> mAvlogAdPeriods;	/**< periods that carry a timed SCTE35 break event (avlog ad_playing) */
+	std::mutex mAvlogAdMutex;
 	double mBasePeriodOffset;
 	class PrivateCDAIObjectMPD *mCdaiObject;
 	std::vector<std::string> mEarlyAvailablePeriodIds;

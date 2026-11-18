@@ -905,6 +905,10 @@ bool StreamAbstractionAAMP_MPD::FetchFragment(MediaStreamContext *pMediaStreamCo
 			pMediaStreamContext->initialization = std::string(fragmentUrl);
 		}
 	}
+	{
+		std::lock_guard<std::mutex> lock(mAvlogAdMutex);
+		pMediaStreamContext->avlogAd = (mCurrentPeriod && mAvlogAdPeriods.count(mCurrentPeriod->GetId()) != 0);
+	}
 	bool fragmentCached = pMediaStreamContext->CacheFragment(fragmentUrl, curlInstance, position, fragmentDuration, NULL, isInitializationSegment, discontinuity
 		,(mCdaiObject->mAdState == AdState::IN_ADBREAK_AD_PLAYING), pto, timeScale);
 	// Check if we have downloaded the fragment and waiting for init fragment download on
@@ -5571,6 +5575,15 @@ bool StreamAbstractionAAMP_MPD::ProcessEventStream(uint64_t startMS, int64_t sta
 				}
 				// Update event break to AAMP's CDAI object so that ad reservations can be processed later.
 				aamp->FoundEventBreak(prdId, eventStartTime, eventInfo);
+				if (eventInfo.duration > 0)
+				{
+					// avlog: a period carrying a timed SCTE35 break event is an ad period; server-side stitched ads keep mAdState at OUTSIDE_ADBREAK
+					std::lock_guard<std::mutex> lock(mAvlogAdMutex);
+					if (mAvlogAdPeriods.insert(prdId).second)
+					{
+						AAMPLOG_WARN("[CDAI] avlog ad period marked %s", prdId.c_str());
+					}
+				}
 
 				// Report the event break info to application as timed metadata. This will be done for both live and recorded content.
 				// Save the event for later reporting. De-duplication happens in ReportTimedMetadata() (non-bulk mode only).
