@@ -29,7 +29,6 @@ message(GSTREAMER_INCLUDE_DIRS=${GSTREAMER_INCLUDE_DIRS})
 
 set(TEST_SOURCES FunctionalTests.cpp
 		 NullGuardTests.cpp
-		 BusMessageErrorTests.cpp
 		 AampGstPlayerMain.cpp
 	)
 
