@@ -1941,3 +1941,7 @@ bool PrivateInstanceAAMP::IsLatencyMonitorEnabled() const
 	return false;
 }
 
+void PrivateInstanceAAMP::DrmSessionError(
+    DrmSession*, const std::string&)
+{
+}

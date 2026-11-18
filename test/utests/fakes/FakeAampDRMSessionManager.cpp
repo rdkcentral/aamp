@@ -24,6 +24,7 @@ std::shared_ptr<MockDRMSessionManager> g_mockDRMSessionManager{};
 
 DrmSessionManager::DrmSessionManager(int maxDrmSessions, void *player, std::function<void(uint32_t, uint32_t, const std::string&)> watermarkSessionUpdateCallback) 
 {
+	drmSessionContexts = nullptr;
 }
 
 DrmSessionManager::~DrmSessionManager()
@@ -146,6 +147,10 @@ KeyState DrmSessionManager::initializeDrmSession(DrmHelperPtr drmHelper, int ses
 
 void DrmSessionManager::clearDrmSession(bool forceClearSession)
 {
+    if (g_mockDRMSessionManager)
+    {
+        g_mockDRMSessionManager->clearDrmSession(forceClearSession);
+    }
 }
 
 void DrmSessionManager::clearFailedKeyIds()
