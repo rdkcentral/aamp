@@ -8696,7 +8696,15 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 		double bufferedDuration = 0.0;
 		if (mpStreamAbstractionAAMP)
 		{
-			mpStreamAbstractionAAMP->UnblockWaitForCachedFragmentInjected(); // avoid mutex lock if waiting for cached fragments
+			//Aborting wait for cached and freeing fragments for all media tracks
+			for (int type = eTRACK_VIDEO; type <= eTRACK_AUX_AUDIO; ++type)
+			{
+				MediaTrack* track = mpStreamAbstractionAAMP->GetMediaTrack(static_cast<TrackType>(type));
+				if (track)
+				{
+					track->AbortWaitForCachedAndFreeFragment(true);
+				}
+			}
 			bufferedDuration = mpStreamAbstractionAAMP->GetBufferedVideoDurationSec();
 		}
 		double latency = GetCurrentLatencyMs();
