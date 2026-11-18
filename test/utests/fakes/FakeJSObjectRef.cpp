@@ -22,6 +22,8 @@
 #include <vector>
 #include <map>
 
+#include "MockJavaScriptCore.h"
+
 typedef enum { eJSON_TYPE_NULL, eJSON_TYPE_INT, eJSON_TYPE_STR, eJSON_TYPE_ARRAY, eJSON_TYPE_OBJ } JsonType;
 
 class JsonValueInternal
@@ -74,6 +76,10 @@ JSObjectRef JSContextGetGlobalObject(JSContextRef ctx)
 
 JSValueRef JSObjectCallAsFunction(JSContextRef ctx, JSObjectRef object, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
 {
+	if (g_mockJavaScriptCore != nullptr)
+	{
+		return g_mockJavaScriptCore->JSObjectCallAsFunction(ctx, object, thisObject, argumentCount, arguments, exception);
+	}
 	return NULL;
 }
 
@@ -154,6 +160,10 @@ bool JSObjectSetPrivate(JSObjectRef object, void* data)
 }
 void JSObjectSetProperty(JSContextRef ctx, JSObjectRef object, JSStringRef propertyName, JSValueRef value, JSPropertyAttributes attributes, JSValueRef* exception)
 {
+	if (g_mockJavaScriptCore != nullptr)
+	{
+		g_mockJavaScriptCore->JSObjectSetProperty(ctx, object, propertyName, value, attributes, exception);
+	}
 }
 
 JSStringRef JSStringCreateWithUTF8CString(const char* string)
@@ -166,20 +176,36 @@ JSStringRef JSStringCreateWithUTF8CString(const char* string)
 
 size_t JSStringGetMaximumUTF8CStringSize(JSStringRef string)
 {
+	if (g_mockJavaScriptCore != nullptr)
+	{
+		return g_mockJavaScriptCore->JSStringGetMaximumUTF8CStringSize(string);
+	}
 	return 0;
 }
 
 size_t JSStringGetUTF8CString(JSStringRef string, char* buffer, size_t bufferSize)
 {
+	if (g_mockJavaScriptCore != nullptr)
+	{
+		return g_mockJavaScriptCore->JSStringGetUTF8CString(string, buffer, bufferSize);
+	}
 	return 0;
 }
 
 void JSStringRelease(JSStringRef string)
 {
+	if (g_mockJavaScriptCore != nullptr)
+	{
+		g_mockJavaScriptCore->JSStringRelease(string);
+	}
 }
 
 JSStringRef JSValueCreateJSONString(JSContextRef ctx, JSValueRef value, unsigned indent, JSValueRef* exception)
 {
+	if (g_mockJavaScriptCore != nullptr)
+	{
+		return g_mockJavaScriptCore->JSValueCreateJSONString(ctx, value, indent, exception);
+	}
 	return NULL;
 }
 
@@ -210,6 +236,10 @@ JSValueRef JSValueMakeUndefined(JSContextRef ctx)
 
 void JSValueProtect(JSContextRef ctx, JSValueRef value)
 {
+	if (g_mockJavaScriptCore != nullptr)
+	{
+		g_mockJavaScriptCore->JSValueProtect(ctx, value);
+	}
 }
 
 bool JSValueToBoolean(JSContextRef ctx, JSValueRef value)
@@ -229,11 +259,19 @@ JSObjectRef JSValueToObject(JSContextRef ctx, JSValueRef value, JSValueRef* exce
 
 JSStringRef JSValueToStringCopy(JSContextRef ctx, JSValueRef value, JSValueRef* exception)
 {
+	if (g_mockJavaScriptCore != nullptr)
+	{
+		return g_mockJavaScriptCore->JSValueToStringCopy(ctx, value, exception);
+	}
 	return NULL;
 }
 
 void JSValueUnprotect(JSContextRef ctx, JSValueRef value)
 {
+	if (g_mockJavaScriptCore != nullptr)
+	{
+		g_mockJavaScriptCore->JSValueUnprotect(ctx, value);
+	}
 }
 
 std::string GetBrowserUA(JSContextRef ctx)

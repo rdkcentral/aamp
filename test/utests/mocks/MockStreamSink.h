@@ -35,9 +35,11 @@ public:
 
     MOCK_METHOD(bool, Discontinuity, (AampMediaType));
 
-    MOCK_METHOD(bool, SendSample, (AampMediaType, AampMediaSample&&));
+    MOCK_METHOD(bool, SendSample, (AampMediaType, AampMediaSample&&, bool));
 
     MOCK_METHOD(bool, SetPlayBackRate, (double rate));
+
+    MOCK_METHOD(void, SetVideoMute, (bool muted), (override));
 
 };
 

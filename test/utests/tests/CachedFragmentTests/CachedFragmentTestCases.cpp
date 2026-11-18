@@ -49,7 +49,6 @@ protected:
         testAbsPosition = 100.555;
         testInitFragment = true;
         testDiscontinuity = false;
-        testIsDummy = false;
         testProfileIndex = 2;
         testTimeScale = 90000;
         testUri = "http://example.com/segment1.ts";
@@ -77,7 +76,6 @@ protected:
     double testAbsPosition;
     bool testInitFragment;
     bool testDiscontinuity;
-    bool testIsDummy;
     int testProfileIndex;
     uint32_t testTimeScale;
     std::string testUri;
@@ -100,7 +98,6 @@ TEST_F(CachedFragmentTest, Constructor_DefaultInitialization_AllFieldsSetToDefau
     EXPECT_DOUBLE_EQ(cachedFragment->absPosition, 0.0);
     EXPECT_EQ(cachedFragment->initFragment, false);
     EXPECT_EQ(cachedFragment->discontinuity, false);
-    EXPECT_EQ(cachedFragment->isDummy, false);
     EXPECT_EQ(cachedFragment->profileIndex, 0);
     EXPECT_EQ(cachedFragment->timeScale, 0U);
     EXPECT_TRUE(cachedFragment->uri.empty());
@@ -128,7 +125,6 @@ TEST_F(CachedFragmentTest, SetMemberVariables_ValidValues_AllFieldsSetCorrectly)
     cachedFragment->absPosition = testAbsPosition;
     cachedFragment->initFragment = testInitFragment;
     cachedFragment->discontinuity = testDiscontinuity;
-    cachedFragment->isDummy = testIsDummy;
     cachedFragment->profileIndex = testProfileIndex;
     cachedFragment->timeScale = testTimeScale;
     cachedFragment->uri = testUri;
@@ -146,7 +142,6 @@ TEST_F(CachedFragmentTest, SetMemberVariables_ValidValues_AllFieldsSetCorrectly)
     EXPECT_DOUBLE_EQ(cachedFragment->absPosition, testAbsPosition);
     EXPECT_EQ(cachedFragment->initFragment, testInitFragment);
     EXPECT_EQ(cachedFragment->discontinuity, testDiscontinuity);
-    EXPECT_EQ(cachedFragment->isDummy, testIsDummy);
     EXPECT_EQ(cachedFragment->profileIndex, testProfileIndex);
     EXPECT_EQ(cachedFragment->timeScale, testTimeScale);
     EXPECT_EQ(cachedFragment->uri, testUri);
@@ -173,7 +168,6 @@ TEST_F(CachedFragmentTest, Copy_PopulatedSource_AllFieldsCopiedCorrectly) {
     sourceCachedFragment->absPosition = testAbsPosition;
     sourceCachedFragment->initFragment = testInitFragment;
     sourceCachedFragment->discontinuity = testDiscontinuity;
-    sourceCachedFragment->isDummy = testIsDummy;
     sourceCachedFragment->profileIndex = testProfileIndex;
     sourceCachedFragment->timeScale = testTimeScale;
     sourceCachedFragment->uri = testUri;
@@ -193,7 +187,6 @@ TEST_F(CachedFragmentTest, Copy_PopulatedSource_AllFieldsCopiedCorrectly) {
     EXPECT_DOUBLE_EQ(cachedFragment->absPosition, testAbsPosition);
     EXPECT_EQ(cachedFragment->initFragment, testInitFragment);
     EXPECT_EQ(cachedFragment->discontinuity, testDiscontinuity);
-    EXPECT_EQ(cachedFragment->isDummy, testIsDummy);
     EXPECT_EQ(cachedFragment->profileIndex, testProfileIndex);
     EXPECT_EQ(cachedFragment->timeScale, testTimeScale);
     EXPECT_EQ(cachedFragment->uri, testUri);
@@ -229,7 +222,6 @@ TEST_F(CachedFragmentTest, Copy_EmptySource_DefaultValuesCopied) {
     EXPECT_DOUBLE_EQ(cachedFragment->absPosition, 0.0);
     EXPECT_EQ(cachedFragment->initFragment, false);
     EXPECT_EQ(cachedFragment->discontinuity, false);
-    EXPECT_EQ(cachedFragment->isDummy, false);
     EXPECT_EQ(cachedFragment->profileIndex, 0);
     EXPECT_EQ(cachedFragment->timeScale, 0U);
     EXPECT_TRUE(cachedFragment->uri.empty());
@@ -253,7 +245,6 @@ TEST_F(CachedFragmentTest, Clear_PopulatedFragment_AllFieldsResetToDefaults) {
     cachedFragment->absPosition = testAbsPosition;
     cachedFragment->initFragment = testInitFragment;
     cachedFragment->discontinuity = testDiscontinuity;
-    cachedFragment->isDummy = testIsDummy;
     cachedFragment->profileIndex = testProfileIndex;
     cachedFragment->timeScale = testTimeScale;
     cachedFragment->uri = testUri;
@@ -277,7 +268,6 @@ TEST_F(CachedFragmentTest, Clear_PopulatedFragment_AllFieldsResetToDefaults) {
     EXPECT_DOUBLE_EQ(cachedFragment->absPosition, 0.0);
     EXPECT_EQ(cachedFragment->initFragment, false);
     EXPECT_EQ(cachedFragment->discontinuity, false);
-    EXPECT_EQ(cachedFragment->isDummy, false);
     EXPECT_EQ(cachedFragment->profileIndex, 0);
     EXPECT_EQ(cachedFragment->timeScale, 0U);
     EXPECT_TRUE(cachedFragment->uri.empty());
@@ -310,7 +300,6 @@ TEST_F(CachedFragmentTest, Clear_EmptyFragment_RemainsInDefaultState) {
     EXPECT_DOUBLE_EQ(cachedFragment->absPosition, 0.0);
     EXPECT_EQ(cachedFragment->initFragment, false);
     EXPECT_EQ(cachedFragment->discontinuity, false);
-    EXPECT_EQ(cachedFragment->isDummy, false);
     EXPECT_EQ(cachedFragment->profileIndex, 0);
     EXPECT_EQ(cachedFragment->timeScale, 0U);
     EXPECT_TRUE(cachedFragment->uri.empty());
@@ -512,7 +501,6 @@ TEST_F(CachedFragmentTest, CopyConstructor_PopulatedSource_AllFieldsCopiedCorrec
     sourceCachedFragment->absPosition = testAbsPosition;
     sourceCachedFragment->initFragment = testInitFragment;
     sourceCachedFragment->discontinuity = testDiscontinuity;
-    sourceCachedFragment->isDummy = testIsDummy;
     sourceCachedFragment->profileIndex = testProfileIndex;
     sourceCachedFragment->timeScale = testTimeScale;
     sourceCachedFragment->uri = testUri;
@@ -532,7 +520,6 @@ TEST_F(CachedFragmentTest, CopyConstructor_PopulatedSource_AllFieldsCopiedCorrec
     EXPECT_DOUBLE_EQ(copiedFragment.absPosition, testAbsPosition);
     EXPECT_EQ(copiedFragment.initFragment, testInitFragment);
     EXPECT_EQ(copiedFragment.discontinuity, testDiscontinuity);
-    EXPECT_EQ(copiedFragment.isDummy, testIsDummy);
     EXPECT_EQ(copiedFragment.profileIndex, testProfileIndex);
     EXPECT_EQ(copiedFragment.timeScale, testTimeScale);
     EXPECT_EQ(copiedFragment.uri, testUri);
@@ -561,7 +548,6 @@ TEST_F(CachedFragmentTest, MoveConstructor_PopulatedSource_ResourcesMovedCorrect
     sourceCachedFragment->absPosition = testAbsPosition;
     sourceCachedFragment->initFragment = testInitFragment;
     sourceCachedFragment->discontinuity = testDiscontinuity;
-    sourceCachedFragment->isDummy = testIsDummy;
     sourceCachedFragment->profileIndex = testProfileIndex;
     sourceCachedFragment->timeScale = testTimeScale;
     sourceCachedFragment->uri = testUri;
@@ -581,7 +567,6 @@ TEST_F(CachedFragmentTest, MoveConstructor_PopulatedSource_ResourcesMovedCorrect
     EXPECT_DOUBLE_EQ(movedFragment.absPosition, testAbsPosition);
     EXPECT_EQ(movedFragment.initFragment, testInitFragment);
     EXPECT_EQ(movedFragment.discontinuity, testDiscontinuity);
-    EXPECT_EQ(movedFragment.isDummy, testIsDummy);
     EXPECT_EQ(movedFragment.profileIndex, testProfileIndex);
     EXPECT_EQ(movedFragment.timeScale, testTimeScale);
     EXPECT_EQ(movedFragment.uri, testUri);
@@ -599,7 +584,6 @@ TEST_F(CachedFragmentTest, MoveConstructor_PopulatedSource_ResourcesMovedCorrect
     EXPECT_DOUBLE_EQ(sourceCachedFragment->absPosition, 0.0);
     EXPECT_EQ(sourceCachedFragment->initFragment, false);
     EXPECT_EQ(sourceCachedFragment->discontinuity, false);
-    EXPECT_EQ(sourceCachedFragment->isDummy, false);
     EXPECT_EQ(sourceCachedFragment->profileIndex, 0);
     EXPECT_EQ(sourceCachedFragment->timeScale, 0U);
     EXPECT_TRUE(sourceCachedFragment->uri.empty());
@@ -627,7 +611,6 @@ TEST_F(CachedFragmentTest, CopyAssignment_PopulatedSource_AllFieldsCopiedCorrect
     sourceCachedFragment->absPosition = testAbsPosition;
     sourceCachedFragment->initFragment = testInitFragment;
     sourceCachedFragment->discontinuity = testDiscontinuity;
-    sourceCachedFragment->isDummy = testIsDummy;
     sourceCachedFragment->profileIndex = testProfileIndex;
     sourceCachedFragment->timeScale = testTimeScale;
     sourceCachedFragment->uri = testUri;
@@ -647,7 +630,6 @@ TEST_F(CachedFragmentTest, CopyAssignment_PopulatedSource_AllFieldsCopiedCorrect
     EXPECT_DOUBLE_EQ(cachedFragment->absPosition, testAbsPosition);
     EXPECT_EQ(cachedFragment->initFragment, testInitFragment);
     EXPECT_EQ(cachedFragment->discontinuity, testDiscontinuity);
-    EXPECT_EQ(cachedFragment->isDummy, testIsDummy);
     EXPECT_EQ(cachedFragment->profileIndex, testProfileIndex);
     EXPECT_EQ(cachedFragment->timeScale, testTimeScale);
     EXPECT_EQ(cachedFragment->uri, testUri);
@@ -709,7 +691,6 @@ TEST_F(CachedFragmentTest, MoveAssignment_PopulatedSource_ResourcesMovedCorrectl
     sourceCachedFragment->absPosition = testAbsPosition;
     sourceCachedFragment->initFragment = testInitFragment;
     sourceCachedFragment->discontinuity = testDiscontinuity;
-    sourceCachedFragment->isDummy = testIsDummy;
     sourceCachedFragment->profileIndex = testProfileIndex;
     sourceCachedFragment->timeScale = testTimeScale;
     sourceCachedFragment->uri = testUri;
@@ -729,7 +710,6 @@ TEST_F(CachedFragmentTest, MoveAssignment_PopulatedSource_ResourcesMovedCorrectl
     EXPECT_DOUBLE_EQ(cachedFragment->absPosition, testAbsPosition);
     EXPECT_EQ(cachedFragment->initFragment, testInitFragment);
     EXPECT_EQ(cachedFragment->discontinuity, testDiscontinuity);
-    EXPECT_EQ(cachedFragment->isDummy, testIsDummy);
     EXPECT_EQ(cachedFragment->profileIndex, testProfileIndex);
     EXPECT_EQ(cachedFragment->timeScale, testTimeScale);
     EXPECT_EQ(cachedFragment->uri, testUri);
@@ -747,7 +727,6 @@ TEST_F(CachedFragmentTest, MoveAssignment_PopulatedSource_ResourcesMovedCorrectl
     EXPECT_DOUBLE_EQ(sourceCachedFragment->absPosition, 0.0);
     EXPECT_EQ(sourceCachedFragment->initFragment, false);
     EXPECT_EQ(sourceCachedFragment->discontinuity, false);
-    EXPECT_EQ(sourceCachedFragment->isDummy, false);
     EXPECT_EQ(sourceCachedFragment->profileIndex, 0);
     EXPECT_EQ(sourceCachedFragment->timeScale, 0U);
     EXPECT_TRUE(sourceCachedFragment->uri.empty());
@@ -797,7 +776,6 @@ TEST_F(CachedFragmentTest, Swap_TwoPopulatedFragments_AllFieldsSwappedCorrectly)
     cachedFragment->absPosition = testAbsPosition;
     cachedFragment->initFragment = testInitFragment;
     cachedFragment->discontinuity = testDiscontinuity;
-    cachedFragment->isDummy = testIsDummy;
     cachedFragment->profileIndex = testProfileIndex;
     cachedFragment->timeScale = testTimeScale;
     cachedFragment->uri = testUri;
@@ -819,7 +797,6 @@ TEST_F(CachedFragmentTest, Swap_TwoPopulatedFragments_AllFieldsSwappedCorrectly)
     sourceCachedFragment->absPosition = 300.0;
     sourceCachedFragment->initFragment = false;
     sourceCachedFragment->discontinuity = true;
-    sourceCachedFragment->isDummy = true;
     sourceCachedFragment->profileIndex = 99;
     sourceCachedFragment->timeScale = 48000;
     sourceCachedFragment->uri = "http://different.com/segment2.ts";
@@ -839,7 +816,6 @@ TEST_F(CachedFragmentTest, Swap_TwoPopulatedFragments_AllFieldsSwappedCorrectly)
     EXPECT_DOUBLE_EQ(cachedFragment->absPosition, 300.0);
     EXPECT_EQ(cachedFragment->initFragment, false);
     EXPECT_EQ(cachedFragment->discontinuity, true);
-    EXPECT_EQ(cachedFragment->isDummy, true);
     EXPECT_EQ(cachedFragment->profileIndex, 99);
     EXPECT_EQ(cachedFragment->timeScale, 48000U);
     EXPECT_EQ(cachedFragment->uri, "http://different.com/segment2.ts");
@@ -856,7 +832,6 @@ TEST_F(CachedFragmentTest, Swap_TwoPopulatedFragments_AllFieldsSwappedCorrectly)
     EXPECT_DOUBLE_EQ(sourceCachedFragment->absPosition, testAbsPosition);
     EXPECT_EQ(sourceCachedFragment->initFragment, testInitFragment);
     EXPECT_EQ(sourceCachedFragment->discontinuity, testDiscontinuity);
-    EXPECT_EQ(sourceCachedFragment->isDummy, testIsDummy);
     EXPECT_EQ(sourceCachedFragment->profileIndex, testProfileIndex);
     EXPECT_EQ(sourceCachedFragment->timeScale, testTimeScale);
     EXPECT_EQ(sourceCachedFragment->uri, testUri);

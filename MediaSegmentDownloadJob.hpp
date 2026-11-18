@@ -56,7 +56,7 @@ namespace aamp
 		// Create a clone of this job for the worker pool
 		AampTrackWorkerJobUniquePtr Clone() const override
 		{
-			return aamp_utils::make_unique<MediaSegmentDownloadJob>(mDownloadInfo, mJobFunction);
+			return std::make_unique<MediaSegmentDownloadJob>(mDownloadInfo, mJobFunction);
 		}
 
 		// Accessor for DownloadInfo

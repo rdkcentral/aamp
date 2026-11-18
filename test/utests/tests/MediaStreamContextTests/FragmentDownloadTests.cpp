@@ -76,10 +76,12 @@ protected:
 		g_mockStreamAbstractionAAMP = std::make_shared<NiceMock<MockStreamAbstractionAAMP>>(mPrivateInstanceAAMP);
 		g_mockPrivateInstanceAAMP = std::make_shared<StrictMock<MockPrivateInstanceAAMP>>();
 		g_mockAampTimeBasedBufferManager = std::make_shared<StrictMock<aamp::MockAampTimeBasedBufferManager>>();
-		// GetBufferedDurationSecs() is called for every video-track fragment via
+		// GetVideo/AudioBufferedDurationSecs() are called for every fragment via
 		// NotifyBufferLevelToLatencyMonitor.  Allow any number of calls so all tests
 		// in this fixture pass without needing per-test EXPECT_CALL boilerplate.
-		EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetBufferedDurationSecs())
+		EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetVideoBufferedDurationSecs())
+			.Times(AnyNumber()).WillRepeatedly(Return(5.0));
+		EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetAudioBufferedDurationSecs())
 			.Times(AnyNumber()).WillRepeatedly(Return(5.0));
 		// IsFragmentCacheFull() delegates to the mock after the fake was updated to
 		// support TSB-aware testing.  Default to false so all pre-existing tests
@@ -433,7 +435,7 @@ TEST_F(FragmentDownloadTests, DownloadFragment_ValidDownloadInfo)
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(true));
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _)).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _)).WillOnce(Return(true));
 
 	EXPECT_NO_THROW({
 		bool result = mMediaStreamContext->DownloadFragment(dlInfo);
@@ -474,7 +476,7 @@ TEST_F(FragmentDownloadTests, DownloadFragment_LLD_TrackDownloadsDisabled_DoesNo
 		.WillRepeatedly(Return(false));
 
 	// Verify no caching/download is attempted.
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _))
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _))
 		.Times(0);
 
 	// Force the low-latency wait loop to execute once and then stop:
@@ -521,7 +523,7 @@ TEST_F(FragmentDownloadTests, DownloadFragment_CacheFull_DoesNotCache)
 		.WillRepeatedly(Return(maxCache));
 
 	// Verify no caching/download is attempted because cache is full.
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _))
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _))
 		.Times(0);
 
 	// Allow the initial entry check to proceed, then disable downloads to
@@ -576,7 +578,7 @@ TEST_F(FragmentDownloadTests, DownloadFragment_LLD_LocalTSBInjection_Caches)
 		.WillRepeatedly(Return(true));
 
 	// Expect exactly one successful "download".
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _))
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _))
 		.WillOnce(Return(true));
 
 	// Build a minimal valid download request.
@@ -621,7 +623,7 @@ TEST_F(FragmentDownloadTests, DownloadFragment_NotBlocked_CachesExpected)
 		.WillRepeatedly(Return(false));
 
 	// Expect one successful "download" per call.
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _))
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _))
 		.Times(numCalls)
 		.WillRepeatedly(Return(true));
 
@@ -926,7 +928,7 @@ TEST_F(FragmentDownloadTests, OnFragmentDownloadSuccess_UnderflowRecoveryRace_Fr
 }
 
 // ---------------------------------------------------------------------------
-// Shared SIDX test fixture data (used by VPAAMP-614 and VPAAMP-363 tests below)
+// Shared SIDX test fixture data
 // ---------------------------------------------------------------------------
 // Minimal SIDX box with 2 references.
 // Reference 0: referenced_size = 0x4000 = 16384 bytes, duration 2000 ticks
@@ -951,259 +953,204 @@ static const uint8_t kSidxBoxForABRTest[] = {
 };
 
 // ---------------------------------------------------------------------------
-// VPAAMP-614 regression: three additional SegmentBase race-condition fixes
+// SegmentBase ABR switch byte range
 // ---------------------------------------------------------------------------
 
 /**
- * @brief Fix 1 regression: IDX cleared under mIdxMutex must be visible
- *        atomically with fragmentOffset and mIdxBaseOffset reset.
- *
- * Simulates FetchAndInjectInitialization clearing the IDX state (as happens on
- * an ABR profile change) by performing the three resets in a single critical
- * section, then verifying that a subsequent DownloadFragment call sees a
- * consistent state: IDX empty, fragmentOffset 0, mIdxBaseOffset 0.
- *
- * Pre-fix: fragmentOffset was reset to 0 BEFORE taking mIdxMutex, so a
- * concurrent DownloadFragment that had already read IDX (non-empty) could
- * compute a byte range using the stale fragmentOffset=0, producing a range
- * starting at byte 0 of the media file (moov box) → GStreamer error 80:1.
- *
- * Post-fix: all three resets are inside one mIdxMutex critical section so the
- * DownloadFragment ABR-switch branch always sees a coherent (IDX, fragmentOffset,
- * mIdxBaseOffset) triple.
+ * @brief DownloadFragment's ABR-switch branch computes no byte range when the
+ *        index has been cleared.
  */
-TEST_F(FragmentDownloadTests, SegmentBase_FetchAndInjectInit_ResetsAreAtomic)
+TEST_F(FragmentDownloadTests, DownloadFragment_SegmentBase_ABRSwitch_ClearedIndex_NoRange)
 {
-	// Simulate a loaded SIDX state (post first PushNextFragment call).
-	mMediaStreamContext->IDX.assign(kSidxBoxForABRTest,
-	                                kSidxBoxForABRTest + sizeof(kSidxBoxForABRTest));
-	mMediaStreamContext->mIdxBaseOffset = 1000;
-	mMediaStreamContext->fragmentOffset = 1000;
+	mMediaStreamContext->IDX.LoadIfEmpty(std::vector<uint8_t>(kSidxBoxForABRTest,
+	                                                          kSidxBoxForABRTest + sizeof(kSidxBoxForABRTest)));
+	mMediaStreamContext->IDX.AnchorAndOffsetOf(1000, 0);
+	mMediaStreamContext->IDX.Clear();
 
-	// Simulate what FetchAndInjectInitialization now does: all three resets
-	// inside a single mIdxMutex critical section (the fix).
-	{
-		std::lock_guard<std::mutex> lk(mMediaStreamContext->mIdxMutex);
-		mMediaStreamContext->fragmentOffset = 0;
-		aamp_utils::ClearAndRelease(mMediaStreamContext->IDX);
-		mMediaStreamContext->mIdxBaseOffset = 0;
-	}
-
-	// After the reset block the three fields must all be in the cleared state.
-	{
-		std::lock_guard<std::mutex> lk(mMediaStreamContext->mIdxMutex);
-		EXPECT_TRUE(mMediaStreamContext->IDX.empty())
-			<< "IDX must be empty after FetchAndInjectInitialization reset";
-		EXPECT_EQ(mMediaStreamContext->fragmentOffset, 0u)
-			<< "fragmentOffset must be 0 after reset";
-		EXPECT_EQ(mMediaStreamContext->mIdxBaseOffset, 0u)
-			<< "mIdxBaseOffset must be 0 after reset";
-	}
-
-	// A DownloadFragment ABR-switch call with IDX empty must not attempt to
-	// compute a byte range (no SIDX to parse).  Verify it exits cleanly when
-	// there is no matching bandwidth entry in uriList.
 	mMediaStreamContext->fragmentDescriptor.Bandwidth = 5000000;
 	auto dlInfo = std::make_shared<DownloadInfo>();
 	dlInfo->bandwidth     = 1400000; // differs → ABR-switch branch
 	dlInfo->fragmentIndex = 0;
 	dlInfo->isInitSegment = false;
-	// uriList empty → returns false before network I/O; no range computed.
-	bool result = mMediaStreamContext->DownloadFragment(dlInfo);
-	EXPECT_FALSE(result);
-	EXPECT_TRUE(dlInfo->range.empty())
-		<< "With IDX empty no byte range must be computed in the ABR-switch branch";
+	// uriList empty → returns false before network I/O.
+	EXPECT_FALSE(mMediaStreamContext->DownloadFragment(dlInfo));
+	EXPECT_TRUE(dlInfo->range.empty());
 }
 
 /**
- * @brief Fix 2 regression: IDX.empty() check in PushNextFragment must be
- *        performed under mIdxMutex to avoid a TOCTOU race with
- *        FetchAndInjectInitialization.
+ * @brief DownloadFragment's ABR-switch branch computes the byte range from the
+ *        index base offset.
  *
- * The original code at PushNextFragment line ~1614 read IDX.empty() without
- * holding mIdxMutex.  A concurrent ClearAndRelease under the mutex between
- * that read and the subsequent snapshot (line ~1709) caused idxSnapshot to be
- * empty, which set eos=true prematurely — reproducing the repeated tune-fail
- * loop seen in VPAAMP-614.
- *
- * This test verifies the fix: when IDX is cleared between the shouldLoadIdx
- * gate and the snapshot, the code detects the empty snapshot and sets eos
- * rather than crashing or computing an invalid range.
- *
- * We exercise this indirectly through DownloadFragment (the ABR-switch branch):
- * after clearing IDX the ABR-switch branch must not compute a range, confirming
- * that an empty IDX is treated as a consistent terminal state.
- */
-TEST_F(FragmentDownloadTests, SegmentBase_IDXEmptyCheck_MutexGuard_NoStaleRead)
-{
-	// Step 1: IDX loaded and base offset set (represents the "IDX non-empty"
-	// state a thread could observe just before another thread clears it).
-	mMediaStreamContext->IDX.assign(kSidxBoxForABRTest,
-	                                kSidxBoxForABRTest + sizeof(kSidxBoxForABRTest));
-	mMediaStreamContext->mIdxBaseOffset = 500;
-	mMediaStreamContext->fragmentOffset = 500;
-	mMediaStreamContext->fragmentDescriptor.Bandwidth = 5000000;
-
-	// Step 2: Simulate concurrent FetchAndInjectInitialization clearing IDX
-	// (the fix ensures this is fully atomic with fragmentOffset/mIdxBaseOffset).
-	{
-		std::lock_guard<std::mutex> lk(mMediaStreamContext->mIdxMutex);
-		mMediaStreamContext->fragmentOffset = 0;
-		aamp_utils::ClearAndRelease(mMediaStreamContext->IDX);
-		mMediaStreamContext->mIdxBaseOffset = 0;
-	}
-
-	// Step 3: After the clear, any reader that acquires mIdxMutex to check
-	// IDX.empty() will see IDX empty — the shouldLoadIdx gate fires correctly.
-	bool shouldLoadIdx = false;
-	{
-		std::lock_guard<std::mutex> lk(mMediaStreamContext->mIdxMutex);
-		shouldLoadIdx = mMediaStreamContext->IDX.empty();
-	}
-	EXPECT_TRUE(shouldLoadIdx)
-		<< "shouldLoadIdx must be true after concurrent ClearAndRelease; "
-		   "without the mutex guard the stale non-empty observation would "
-		   "skip the lazy-load block and produce eos=true prematurely";
-
-	// Step 4: DownloadFragment ABR-switch path with empty IDX must not produce
-	// a byte range (consistent with the eos path in PushNextFragment).
-	auto dlInfo = std::make_shared<DownloadInfo>();
-	dlInfo->bandwidth     = 1400000;
-	dlInfo->fragmentIndex = 0;
-	dlInfo->isInitSegment = false;
-	bool result = mMediaStreamContext->DownloadFragment(dlInfo);
-	EXPECT_FALSE(result);
-	EXPECT_TRUE(dlInfo->range.empty())
-		<< "No range must be computed when IDX is empty after concurrent clear";
-}
-
-/**
- * @brief Fix 3 regression: Stop-path ClearAndRelease(IDX) must hold mIdxMutex.
- *
- * StreamAbstractionAAMP_MPD::Stop() cleared IDX with no lock, creating a
- * data race against any concurrent PushNextFragment or DownloadFragment thread
- * still reading IDX.data().  The fix wraps the call in mIdxMutex.
- *
- * This test validates the invariant: after a locked ClearAndRelease the vector
- * is empty and mIdxBaseOffset is coherent (both observable under the same lock),
- * and a concurrent reader that acquires the lock after the clear sees a
- * consistent empty state rather than a partially-freed buffer.
- */
-TEST_F(FragmentDownloadTests, SegmentBase_StopPath_ClearAndRelease_IsLocked)
-{
-	// Pre-condition: IDX populated and base offset valid.
-	mMediaStreamContext->IDX.assign(kSidxBoxForABRTest,
-	                                kSidxBoxForABRTest + sizeof(kSidxBoxForABRTest));
-	mMediaStreamContext->mIdxBaseOffset = 2000;
-
-	// Simulate the fixed Stop() path: clear under mutex.
-	{
-		std::lock_guard<std::mutex> lk(mMediaStreamContext->mIdxMutex);
-		aamp_utils::ClearAndRelease(mMediaStreamContext->IDX);
-	}
-
-	// A reader acquiring the mutex immediately after must see IDX empty.
-	// This mirrors what PushNextFragment's shouldLoadIdx gate does.
-	{
-		std::lock_guard<std::mutex> lk(mMediaStreamContext->mIdxMutex);
-		EXPECT_TRUE(mMediaStreamContext->IDX.empty())
-			<< "IDX must be empty after Stop-path ClearAndRelease under mIdxMutex";
-		// mIdxBaseOffset is left at whatever value it had; the fix in
-		// FetchAndInjectInitialization/EOS paths already resets it.
-		// Here we only assert the IDX buffer is not dangling.
-		EXPECT_EQ(mMediaStreamContext->IDX.data(), nullptr)
-			<< "ClearAndRelease must free the backing buffer (data()==nullptr)";
-	}
-
-	// DownloadFragment with empty IDX must not dereference the cleared buffer.
-	mMediaStreamContext->fragmentDescriptor.Bandwidth = 5000000;
-	auto dlInfo = std::make_shared<DownloadInfo>();
-	dlInfo->bandwidth     = 1400000;
-	dlInfo->fragmentIndex = 0;
-	dlInfo->isInitSegment = false;
-	EXPECT_NO_FATAL_FAILURE(mMediaStreamContext->DownloadFragment(dlInfo))
-		<< "DownloadFragment must not crash or dereference a cleared IDX buffer";
-}
-
-// ---------------------------------------------------------------------------
-// VPAAMP-363 regression: SegmentBase ABR switch byte-range uses mIdxBaseOffset
-// ---------------------------------------------------------------------------
-// Root cause: VPAAMP-363 removed the SETCONFIGVALUE(...DashParallelFragDownload,
-// false) guard from SkipFragments for SegmentBase streams, enabling parallel
-// downloads.  DownloadFragment's ABR-switch branch previously recomputed the
-// range as (0 + 1 + first_offset), which lands inside the moov/SIDX prefix and
-// fetches garbage.  The parse produces duration=0 → PTS=0 → L2 test_8003_0
-// sees actual=0, expected=76800 → FAIL.
-//
-// Fix: store the correct byte base for segment 0 in mIdxBaseOffset when IDX is
-// loaded (FetchAndInjectInitialization + FetchFragment lazy-load), and use it in
-// DownloadFragment instead of recomputing from 0.
-//
-// This test exercises DownloadFragment's ABR-switch path directly, with no
-// network I/O, so it is deterministic and not affected by the timing race.
-// ---------------------------------------------------------------------------
-
-/**
- * @brief Regression test for VPAAMP-363: DownloadFragment ABR switch must use
- *        mIdxBaseOffset as the byte base for SegmentBase range computation.
- *
- * Setup mimics the race window exposed by VPAAMP-363:
- *   - fragmentDescriptor.Bandwidth = 5000000 (current 1080p profile)
- *   - IDX holds the 1080p SIDX; mIdxBaseOffset = 1000 (segment 0 start)
- *   - dlInfo->bandwidth = 1400000 (stale 480p job queued before ABR switch)
- *   - dlInfo->fragmentIndex = 1 (delivering the second data segment)
- *   - uriList is empty so the function returns false without issuing a network
- *     request; dlInfo->range is still populated before that early return.
- *
- * Expected byte range for fragmentIndex=1:
- *   base    = mIdxBaseOffset            = 1000
- *   + seg0  = kSidxBoxForABRTest ref[0] = 16384  → start of seg1 = 17384
- *   end     = 17384 + ref[1].size - 1   = 17384 + 12288 - 1 = 29671
- *   range   = "17384-29671"
- *
- * Old (buggy) code: base = 0 + 1 + first_offset = 1 → landed inside the moov
- * box → parse returned duration=0 → PTS 0 → L2 restamp assertion FAIL.
+ * Segment 1 starts at base (1000) + ref[0].size (16384) = 17384 and ends
+ * ref[1].size (12288) later, so the range is "17384-29671".
  */
 TEST_F(FragmentDownloadTests, DownloadFragment_SegmentBase_ABRSwitch_UsesIdxBaseOffset)
 {
-	// Establish the current (post-ABR-switch) 1080p profile on the context.
 	mMediaStreamContext->fragmentDescriptor.Bandwidth = 5000000;
 
-	// Load the 1080p SIDX into IDX and record the byte base for segment 0.
-	// kIdxBaseOffset = 1000 represents end_of_SIDX + 1 + first_offset(=0).
-	constexpr uint64_t kIdxBaseOffset = 1000;
-	mMediaStreamContext->IDX.assign(kSidxBoxForABRTest, kSidxBoxForABRTest + sizeof(kSidxBoxForABRTest));
-	mMediaStreamContext->mIdxBaseOffset = kIdxBaseOffset;
-
-	// fragmentIndex=1: the context is advancing past the second data segment.
+	mMediaStreamContext->IDX.LoadIfEmpty(std::vector<uint8_t>(kSidxBoxForABRTest, kSidxBoxForABRTest + sizeof(kSidxBoxForABRTest)));
+	mMediaStreamContext->IDX.AnchorAndOffsetOf(1000, 0);
 	mMediaStreamContext->fragmentIndex = 1;
 
-	// Build a stale 480p DownloadInfo (queued before the ABR switch fired).
-	// uriList is intentionally left empty: DownloadFragment computes the range
-	// but returns false before issuing any network request, so no CacheFragment
-	// mock is needed.
 	auto dlInfo = std::make_shared<DownloadInfo>();
 	dlInfo->bandwidth     = 1400000;   // differs from fragmentDescriptor.Bandwidth
 	dlInfo->fragmentIndex = 1;
 	dlInfo->isInitSegment = false;
 
-	bool result = mMediaStreamContext->DownloadFragment(dlInfo);
-
-	// The function returns false because uriList is empty (url not resolved),
-	// but the ABR switch range computation runs before that check.
-	EXPECT_FALSE(result);
-
-	// REGRESSION ASSERTION: range must start at kIdxBaseOffset + ref[0].size.
-	//   ref[0].size = 16384  =>  seg1 start = 1000 + 16384 = 17384
-	//   ref[1].size = 12288  =>  seg1 end   = 17384 + 12288 - 1 = 29671
-	// Old code produced "1-16384" (base=1), fetching inside the moov/SIDX
-	// prefix and returning a zero-duration fragment that broke PTS continuity.
-	EXPECT_EQ(dlInfo->range, "17384-29671")
-		<< "ABR switch must compute the byte range from mIdxBaseOffset; "
-		   "the old code started from offset 1 (0+1+first_offset), "
-		   "which landed inside the moov/SIDX prefix and produced "
-		   "duration=0, PTS=0, breaking L2 test_8003_0 PTS restamp checks.";
-
-	EXPECT_DOUBLE_EQ(dlInfo->fragmentDurationSec, 2.0)
-		<< "fragmentDurationSec must be set from the SIDX reference duration.";
+	// uriList is empty: the range is computed, then DownloadFragment returns
+	// false before any network request.
+	EXPECT_FALSE(mMediaStreamContext->DownloadFragment(dlInfo));
+	EXPECT_EQ(dlInfo->range, "17384-29671");
+	EXPECT_DOUBLE_EQ(dlInfo->fragmentDurationSec, 2.0);
 }
+
+// ============================================================================
+// VOD iframe synthesis abort flag tests
+// ============================================================================
+
+/**
+ * @brief Helper: set up the minimum mocks needed for a non-LLD DownloadFragment
+ *        that reaches the GetFile call.
+ *
+ * The caller should set EXPECT_CALL for GetFile itself with whatever argument
+ * matchers are needed for the specific test.
+ */
+static void SetupDownloadFragmentBaseMocks()
+{
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
+		.WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection())
+		.WillRepeatedly(Return(false));
+}
+
+/**
+ * @brief Verify synthesizeIframeAbort=true when trickplay rate + synthesizeIframeForVOD is enabled.
+ *
+ * Conditions that should produce doSynthesizeAbort=true:
+ *   - Non-init video segment
+ *   - rate != AAMP_NORMAL_PLAY_RATE (trickplay, e.g. 4x)
+ *   - rate != AAMP_RATE_PAUSE (not paused)
+ *   - mediaType == eMEDIATYPE_VIDEO  (track is VIDEO)
+ *   - IsVODIframeSynthesisEnabled() == true
+ *       => eAAMPConfig_SynthesizeIframeForVOD set AND !mIsLive AND !mLocalAAMPTsb
+ */
+TEST_F(FragmentDownloadTests, SynthesizeAbort_TrickplayVOD_FlagIsTrue)
+{
+	// Trickplay at 4x forward — triggers synthesis abort.
+	mPrivateInstanceAAMP->rate = 4;
+
+	// IsVODSynthesisActive() must return true so doSynthesizeAbort=true.
+	// The default mStreamAbstractionAAMP_MPD has mVODSynthesisIframeActive=false,
+	// so rebuild mMediaStreamContext with the mock MPD as context and configure
+	// the virtual override to return true.
+	delete mMediaStreamContext;
+	ON_CALL(*mMockStreamAbstractionAAMP_MPD, IsVODSynthesisActive())
+		.WillByDefault(Return(true));
+	mMediaStreamContext = new TestableMediaStreamContext(
+		eTRACK_VIDEO, mMockStreamAbstractionAAMP_MPD.get(), mPrivateInstanceAAMP, "SAMPLETEXT");
+
+	// mIsLive and mLocalAAMPTsb are both false by default in the fake, so
+	// IsVODIframeSynthesisEnabled() will return true when the config flag is set.
+	// NiceMock returns false for all IsConfigSet calls by default; override only
+	// the synthesis flag so IsVODIframeSynthesisEnabled() returns true.
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_SynthesizeIframeForVOD))
+		.WillRepeatedly(Return(true));
+
+	SetupDownloadFragmentBaseMocks();
+
+	// The 15th argument (synthesizeIframeAbort) must be true.
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+		GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _, true))
+		.WillOnce(Return(true));
+
+	DownloadInfoPtr dlInfo = std::make_shared<DownloadInfo>();
+	dlInfo->uriList[0].url = "http://example.com/segment.mp4";
+	dlInfo->url            = "http://example.com/segment.mp4";
+	dlInfo->isInitSegment  = false;
+
+	EXPECT_TRUE(mMediaStreamContext->DownloadFragment(dlInfo));
+}
+
+/**
+ * @brief Verify synthesizeIframeAbort=false at normal play rate even when the
+ *        synthesizeIframeForVOD config flag is enabled.
+ *
+ * doSynthesizeAbort requires iCurrentRate != AAMP_NORMAL_PLAY_RATE.
+ */
+TEST_F(FragmentDownloadTests, SynthesizeAbort_NormalRate_FlagIsFalse)
+{
+	// Normal play rate — synthesis abort must not be requested.
+	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
+
+	// Even with the config flag set, normal rate must not trigger synthesis abort.
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_SynthesizeIframeForVOD))
+		.WillRepeatedly(Return(true));
+
+	SetupDownloadFragmentBaseMocks();
+
+	// synthesizeIframeAbort must be false.
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+		GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _, false))
+		.WillOnce(Return(true));
+
+	DownloadInfoPtr dlInfo = std::make_shared<DownloadInfo>();
+	dlInfo->uriList[0].url = "http://example.com/segment.mp4";
+	dlInfo->url            = "http://example.com/segment.mp4";
+	dlInfo->isInitSegment  = false;
+
+	EXPECT_TRUE(mMediaStreamContext->DownloadFragment(dlInfo));
+}
+
+/**
+ * @brief Verify synthesizeIframeAbort=false when synthesizeIframeForVOD config is disabled,
+ *        even when playing at a trickplay rate.
+ */
+TEST_F(FragmentDownloadTests, SynthesizeAbort_ConfigDisabled_FlagIsFalse)
+{
+	// Trickplay rate but feature disabled.
+	mPrivateInstanceAAMP->rate = 4;
+
+	// NiceMock default: all IsConfigSet calls return false — synthesis disabled.
+
+	SetupDownloadFragmentBaseMocks();
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+		GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _, false))
+		.WillOnce(Return(true));
+
+	DownloadInfoPtr dlInfo = std::make_shared<DownloadInfo>();
+	dlInfo->uriList[0].url = "http://example.com/segment.mp4";
+	dlInfo->url            = "http://example.com/segment.mp4";
+	dlInfo->isInitSegment  = false;
+
+	EXPECT_TRUE(mMediaStreamContext->DownloadFragment(dlInfo));
+}
+
+/**
+ * @brief Verify synthesizeIframeAbort=false for init segments even at trickplay rate
+ *        with synthesizeIframeForVOD enabled.
+ *
+ * doSynthesizeAbort has a !initSegment guard; init segments must never be aborted.
+ */
+TEST_F(FragmentDownloadTests, SynthesizeAbort_InitSegment_FlagIsFalse)
+{
+	mPrivateInstanceAAMP->rate = 4;
+
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_SynthesizeIframeForVOD))
+		.WillRepeatedly(Return(true));
+
+	SetupDownloadFragmentBaseMocks();
+
+	// synthesizeIframeAbort must be false for init segments.
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+		GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _, false))
+		.WillOnce(Return(true));
+
+	DownloadInfoPtr dlInfo = std::make_shared<DownloadInfo>();
+	dlInfo->uriList[0].url = "http://example.com/init.mp4";
+	dlInfo->url            = "http://example.com/init.mp4";
+	dlInfo->isInitSegment  = true;
+
+	EXPECT_TRUE(mMediaStreamContext->DownloadFragment(dlInfo));
+}
+

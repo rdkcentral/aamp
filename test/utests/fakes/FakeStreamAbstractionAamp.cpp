@@ -67,16 +67,24 @@ void StreamAbstractionAAMP::NotifyVideoFragmentToUnderflowMonitor(double endPosi
 	}
 }
 
-void StreamAbstractionAAMP::NotifyBufferLevelToLatencyMonitor(double bufferMs)
+void StreamAbstractionAAMP::NotifyBufferLevelToLatencyMonitor(AampMediaType mediaType, double bufferMs)
 {
 }
 
 void StreamAbstractionAAMP::NotifyPipelinePausedToUnderflowMonitor()
 {
+	if (g_mockStreamAbstractionAAMP != nullptr)
+	{
+		g_mockStreamAbstractionAAMP->NotifyPipelinePausedToUnderflowMonitor();
+	}
 }
 
 void StreamAbstractionAAMP::NotifyPipelineResumedToUnderflowMonitor(float playRate)
 {
+	if (g_mockStreamAbstractionAAMP != nullptr)
+	{
+		g_mockStreamAbstractionAAMP->NotifyPipelineResumedToUnderflowMonitor(playRate);
+	}
 }
 
 void StreamAbstractionAAMP::NotifyRateChangeToUnderflowMonitor(float rate)

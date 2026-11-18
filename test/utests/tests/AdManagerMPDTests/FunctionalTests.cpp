@@ -22,6 +22,7 @@
 #include <atomic>
 #include <chrono>
 #include <future>
+#include <functional>
 #include <limits>
 #include <memory>
 #include <thread>
@@ -89,6 +90,15 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
 </MPD>
 )";
 
+namespace
+{
+// Both WaitForNextAdResolved predicates call DownloadsAreEnabled() while the ad is unresolved,
+// so the waiter thread's call tells a test the waiter is about to block. Set up in SetUp(),
+// because changing a mock's expectations while the fulfil-loop thread calls it is unsafe in gmock.
+thread_local bool tlsIsAdWaiter = false;
+std::atomic<bool> gAdWaiterPredEvaluated{false};
+}
+
 /**
  * @brief AdManagerMPDTests tests common base class.
  */
@@ -120,7 +130,13 @@ protected:
 
     g_mockPrivateInstanceAAMP = std::make_shared<StrictMock<MockPrivateInstanceAAMP>>();
 
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Return(true));
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Invoke([]() {
+      if (tlsIsAdWaiter)
+      {
+        gAdWaiterPredEvaluated = true;
+      }
+      return true;
+    }));
     mCdaiObj = new CDAIObjectMPD(mPrivateInstanceAAMP);
     mPrivateCDAIObjectMPD = mCdaiObj->GetPrivateCDAIObjectMPD();
     EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdObjThreadID.joinable());
@@ -170,13 +186,12 @@ public:
   void InitializeAdMPD(const char *manifest, bool isFOG = false, bool fogDownloadSuccess = true, int count = 1, int httpError = 404)
   {
     std::string adManifestUrl = TEST_AD_MANIFEST_URL;
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Return(true));
     if (manifest)
     {
       mManifest = manifest;
       mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
       // remoteUrl, manifest, effectiveUrl
-      EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adManifestUrl, _,_ , _, _, _, _, _, _, _, _, _, _, _))
+      EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adManifestUrl, _,_ , _, _, _, _, _, _, _, _, _, _, _, _))
               .Times(count)
               .WillRepeatedly(WithArgs<0,2,3,4>(Invoke(this, &AdManagerMPDTests::GetManifest)));
       if (isFOG)
@@ -186,19 +201,19 @@ public:
         std::string adFogManifestUrl = TEST_FOG_AD_MANIFEST_URL;
         if (fogDownloadSuccess)
         {
-          EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adFogManifestUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
+          EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adFogManifestUrl, _, _, _, _, _, _, _, _, _, _, _, _, _, _))
               .WillOnce(WithArgs<0,2,3,4>(Invoke(this, &AdManagerMPDTests::GetManifest)));
         }
         else
         {
-          EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adFogManifestUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
+          EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adFogManifestUrl, _, _, _, _, _, _, _, _, _, _, _, _, _, _))
               .WillOnce(Return(false));
         }
       }
     }
     else
     {
-      EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adManifestUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
+      EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adManifestUrl, _, _, _, _, _, _, _, _, _, _, _, _, _, _))
               .WillOnce(WithArgs<4>(Invoke([httpError](int& err){
                 err = httpError;
                 return false;
@@ -448,10 +463,10 @@ TEST_F(AdManagerMPDTests, SetAlternateContentsTests_2)
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
   }
   std::string adInitUrl = GetFullURI(TEST_AD_MANIFEST_HOST, "manifest/track-video-repid-LE5-tc--header.mp4");
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _, _))
               .WillOnce(Return(true));
   adInitUrl = GetFullURI(TEST_AD_MANIFEST_HOST, "manifest-eac3/track-audio-repid-DDen-tc--header.mp4");
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _, _))
               .WillOnce(Return(true));
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, url, startMS, breakdur);
   const auto adResolvedStatus = adResolvedFuture.wait_for(std::chrono::seconds(5));
@@ -533,10 +548,10 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
       .WillOnce(InvokeWithoutArgs([adResolvedPromise]{ adResolvedPromise->set_value(); }));
 
   std::string adInitUrl = GetFullURI(TEST_FOG_AD_MANIFEST_HOST, "manifest/track-video-repid-LE5-tc--header.mp4");
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _, _))
               .WillOnce(Return(true));
   adInitUrl = GetFullURI(TEST_FOG_AD_MANIFEST_HOST, "manifest-eac3/track-audio-repid-DDen-tc--header.mp4");
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _, _))
               .WillOnce(Return(true));
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, url, startMS, breakdur);
   ASSERT_EQ(adResolvedFuture.wait_for(std::chrono::seconds(5)), std::future_status::ready);
@@ -672,10 +687,10 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
       .Times(1)
       .WillOnce(InvokeWithoutArgs([adResolvedPromise]{ adResolvedPromise->set_value(); }));
   std::string adInitUrl = GetFullURI(TEST_AD_MANIFEST_HOST, "manifest/track-video-repid-LE5-tc--header.mp4");
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _, _))
               .WillOnce(Return(true));
   adInitUrl = GetFullURI(TEST_AD_MANIFEST_HOST, "manifest-eac3/track-audio-repid-DDen-tc--header.mp4");
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _, _))
               .WillOnce(Return(true));
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, url, startMS, breakdur);
   ASSERT_EQ(adResolvedFuture.wait_for(std::chrono::seconds(5)), std::future_status::ready);
@@ -758,10 +773,10 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
   EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId2, true, startMS + adDuration, 10000, adErrorCode))
       .Times(1).WillOnce(InvokeWithoutArgs(adResolvedLatch));
   std::string adInitUrl = GetFullURI(TEST_AD_MANIFEST_HOST, "manifest/track-video-repid-LE5-tc--header.mp4");
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _, _))
               .WillRepeatedly(Return(true));
   adInitUrl = GetFullURI(TEST_AD_MANIFEST_HOST, "manifest-eac3/track-audio-repid-DDen-tc--header.mp4");
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _, _))
               .WillRepeatedly(Return(true));
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId1, url, startMS, adDuration);
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId2, url, startMS, adDuration);
@@ -1014,13 +1029,13 @@ TEST_F(AdManagerMPDTests, SetAlternateContentsTests_13)
 
     // Set up GetFile expectations for video and audio init segments
     std::string videoInitUrl = TEST_AD_MANIFEST_HOST + std::string("video_init.mp4");
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(videoInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(videoInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _, _))
       .WillOnce(Return(true));
     std::string audioInitUrl = TEST_AD_MANIFEST_HOST + std::string("audio_init.mp4");
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(audioInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(audioInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _, _))
       .WillOnce(Return(true));
     // Set up the mock for GetFile before any SetAlternateContents calls
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(url, _, _, _, _, _, _, _, _, _, _, _, _, _))
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(url, _, _, _, _, _, _, _, _, _, _, _, _, _, _))
       .WillOnce(WithArgs<0,2,3,4>(Invoke([this, periodId, manifest](std::string remoteUrl, std::vector<uint8_t> &buffer, std::string& effectiveUrl, int& httpError)
         {
             buffer.clear();
@@ -4990,7 +5005,7 @@ TEST_F(AdManagerMPDTests, StaticManifest_NotifyComplete_TriggersPlacement)
   // Step 3: set up the mock to serve the ad manifest on download.
   mManifest = kSharedTenSecondAdManifest;
   EXPECT_CALL(*g_mockPrivateInstanceAAMP,
-      GetFile(std::string(TEST_AD_MANIFEST_URL), _, _, _, _, _, _, _, _, _, _, _, _, _))
+      GetFile(std::string(TEST_AD_MANIFEST_URL), _, _, _, _, _, _, _, _, _, _, _, _, _, _))
       .WillOnce(WithArgs<0,2,3,4>(Invoke(this, &AdManagerMPDTests::GetManifest)));
   EXPECT_CALL(*g_mockPrivateInstanceAAMP,
       SendAdResolvedEvent(adId, true, startMS, 10000u, eCDAI_ERROR_NONE))
@@ -4998,10 +5013,10 @@ TEST_F(AdManagerMPDTests, StaticManifest_NotifyComplete_TriggersPlacement)
     .WillOnce(InvokeWithoutArgs([adResolvedPromise]{ adResolvedPromise->set_value(); }));
 
   std::string adInitUrl = GetFullURI(TEST_AD_MANIFEST_HOST, "manifest/track-video-repid-LE5-tc--header.mp4");
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _, _))
             .WillOnce(Return(true));
   adInitUrl = GetFullURI(TEST_AD_MANIFEST_HOST, "manifest-eac3/track-audio-repid-DDen-tc--header.mp4");
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _, _))
             .WillOnce(Return(true));
 
   // Step 4: trigger the fulfillment loop.
@@ -5074,7 +5089,7 @@ TEST_F(AdManagerMPDTests, StaticManifest_TwoAds_CompleteTwentySecondBreak)
   // Step 3: each ad fulfillment downloads the same 10s ad manifest.
   mManifest = kSharedTenSecondAdManifest;
   EXPECT_CALL(*g_mockPrivateInstanceAAMP,
-      GetFile(std::string(TEST_AD_MANIFEST_URL), _, _, _, _, _, _, _, _, _, _, _, _, _))
+      GetFile(std::string(TEST_AD_MANIFEST_URL), _, _, _, _, _, _, _, _, _, _, _, _, _, _))
       .Times(2)
       .WillRepeatedly(WithArgs<0,2,3,4>(Invoke(this, &AdManagerMPDTests::GetManifest)));
 
@@ -5093,10 +5108,10 @@ TEST_F(AdManagerMPDTests, StaticManifest_TwoAds_CompleteTwentySecondBreak)
 
   // Expecting the ad init fragment to be downloaded twice (once for each ad fulfillment).
   std::string adInitUrl = GetFullURI(TEST_AD_MANIFEST_HOST, "manifest/track-video-repid-LE5-tc--header.mp4");
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _, _))
             .WillRepeatedly(Return(true));
   adInitUrl = GetFullURI(TEST_AD_MANIFEST_HOST, "manifest-eac3/track-audio-repid-DDen-tc--header.mp4");
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _, _))
             .WillRepeatedly(Return(true));
 
   // Step 4: fulfill ad1 and validate partial placement state.
@@ -5173,7 +5188,7 @@ TEST_F(AdManagerMPDTests, StaticManifest_NoBaseHelper_NotifyComplete_DoesNotPlac
   // Step 2: mock ad manifest download.
   mManifest = kSharedTenSecondAdManifest;
   EXPECT_CALL(*g_mockPrivateInstanceAAMP,
-      GetFile(std::string(TEST_AD_MANIFEST_URL), _, _, _, _, _, _, _, _, _, _, _, _, _))
+      GetFile(std::string(TEST_AD_MANIFEST_URL), _, _, _, _, _, _, _, _, _, _, _, _, _, _))
       .WillOnce(WithArgs<0,2,3,4>(Invoke(this, &AdManagerMPDTests::GetManifest)));
   EXPECT_CALL(*g_mockPrivateInstanceAAMP,
       SendAdResolvedEvent(adId, true, startMS, 10000u, eCDAI_ERROR_NONE))
@@ -5181,10 +5196,10 @@ TEST_F(AdManagerMPDTests, StaticManifest_NoBaseHelper_NotifyComplete_DoesNotPlac
     .WillOnce(InvokeWithoutArgs([adResolvedPromise]{ adResolvedPromise->set_value(); }));
 
   std::string adInitUrl = GetFullURI(TEST_AD_MANIFEST_HOST, "manifest/track-video-repid-LE5-tc--header.mp4");
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _, _))
             .WillOnce(Return(true));
   adInitUrl = GetFullURI(TEST_AD_MANIFEST_HOST, "manifest-eac3/track-audio-repid-DDen-tc--header.mp4");
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _, _))
             .WillOnce(Return(true));
 
   // Step 3: trigger fulfillment.
@@ -5242,7 +5257,7 @@ TEST_F(AdManagerMPDTests, StaticManifest_AdDownloadFails_NotifyComplete_DoesNotP
 
   // Step 3: make the ad manifest download fail with HTTP 404.
   EXPECT_CALL(*g_mockPrivateInstanceAAMP,
-      GetFile(std::string(TEST_AD_MANIFEST_URL), _, _, _, _, _, _, _, _, _, _, _, _, _))
+      GetFile(std::string(TEST_AD_MANIFEST_URL), _, _, _, _, _, _, _, _, _, _, _, _, _, _))
       .WillOnce(WithArgs<4>(Invoke([](int& err){ err = 404; return false; })));
   EXPECT_CALL(*g_mockPrivateInstanceAAMP,
       SendAdResolvedEvent(adId, false, 0, 0, eCDAI_ERROR_DELIVERY_HTTP_ERROR))
@@ -5274,7 +5289,7 @@ TEST_F(AdManagerMPDTests, StaticManifest_AdDownloadFails_NotifyComplete_DoesNotP
 }
 
 // ---------------------------------------------------------------------------
-// VOD CDAI stitching path tests (VPAAMP-657)
+// VOD CDAI stitching path tests
 // These tests exercise PrivateCDAIObjectMPD state changes driven by
 // RegisterVodAdBreak + SetAlternateContents without any network access.
 // They verify that:
@@ -5446,4 +5461,433 @@ TEST_F(AdManagerMPDTests, VodCdai_BreakRegistrationOrder_Preserved)
   EXPECT_EQ(order[0], "zzz-post");
   EXPECT_EQ(order[1], "aaa-pre");
   EXPECT_EQ(order[2], "mmm-mid");
+}
+
+/**
+ * @brief Regression test: GetAdMPD must propagate 302 redirect
+ *        effective URL back to the caller's manifestUrl parameter.
+ *
+ * This test ensures that when an ad manifest download encounters a 302 redirect,
+ * the effective URL (CDN hostname) is propagated back to the caller via the
+ * manifestUrl parameter. This prevents fragment requests from using the origin
+ * URL and triggering additional 302 redirects.
+ */
+TEST_F(AdManagerMPDTests, GetAdMPD_RedirectPropagation)
+{
+  const char *manifest = kSharedTenSecondAdManifest;
+  mManifest = manifest;
+  
+  const std::string originUrl = "http://origin.example.com/ad/manifest.mpd";
+  const std::string cdnUrl = "http://cdn.example.com/ad/manifest.mpd";
+  
+  // Mock GetFile to simulate a 302 redirect by returning a different effective URL
+  // We use a more permissive matcher to catch all GetFile calls since GetAdMPD makes multiple calls
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _))
+      .WillRepeatedly(WithArgs<0, 2, 3, 4>(Invoke([this, originUrl, cdnUrl](std::string remoteUrl, std::vector<uint8_t> &buffer, 
+                                                       std::string& effectiveUrl, int& httpError) {
+        // For the manifest URL, simulate redirect
+        if (remoteUrl == originUrl) {
+          buffer.clear();
+          buffer.assign(mManifest, mManifest + strlen(mManifest));
+          effectiveUrl = cdnUrl;  // Simulate 302 redirect to CDN
+          httpError = 200;
+          return true;
+        }
+        // For other URLs (init headers, etc.), just return success
+        effectiveUrl = remoteUrl;
+        httpError = 200;
+        return true;
+      })));
+  
+  std::string manifestUrl = originUrl;
+  bool finalManifest = false;
+  int http_error = 0;
+  double downloadTime = 0.0;
+  AAMPCDAIError errorCode = eCDAI_ERROR_NONE;
+  
+  // Call GetAdMPD with the origin URL
+  MPD* adMpd = mPrivateCDAIObjectMPD->GetAdMPD(manifestUrl, finalManifest, http_error, downloadTime, errorCode, false);
+  
+  // Verify that the manifestUrl parameter was updated to the effective URL
+  EXPECT_EQ(manifestUrl, cdnUrl) 
+      << "GetAdMPD must propagate effective URL back to manifestUrl parameter after 302 redirect";
+  
+  // Verify that the MPD was successfully parsed
+  EXPECT_NE(adMpd, nullptr) << "GetAdMPD should return valid MPD after redirect";
+  
+  // Clean up
+  if (adMpd)
+  {
+    delete adMpd;
+  }
+}
+
+/**
+ * @brief SetAlternateContents takes mVodAllAdsResolvedMtx before notifying,
+ *        so it blocks while a waiter holds that mutex.
+ */
+TEST_F(AdManagerMPDTests, VodCdai_SetAlternateContents_NotifiesUnderWaiterMutex)
+{
+  mPrivateCDAIObjectMPD->RegisterVodAdBreak(VodAdBreakInfo{"brk-sync", 0.0, 10.0, "preroll"});
+
+  // The test thread plays a waiter that has checked its predicate but not yet blocked.
+  std::unique_lock<std::mutex> waiterLk(mPrivateCDAIObjectMPD->mVodAllAdsResolvedMtx);
+  auto fut = std::async(std::launch::async, [&]() {
+    mPrivateCDAIObjectMPD->SetAlternateContents("brk-sync", "ad-sync", "https://cdn.example.com/ad-sync.mpd", 0, 0);
+  });
+
+  // Negative assertion, bounded to 20 ms: nothing observable signals that a thread is blocked on a mutex.
+  EXPECT_EQ(fut.wait_for(std::chrono::milliseconds(20)), std::future_status::timeout)
+      << "The notifier must wait for the waiter's mutex before notifying";
+
+  waiterLk.unlock();
+  EXPECT_EQ(fut.wait_for(std::chrono::seconds(5)), std::future_status::ready);
+}
+
+namespace
+{
+struct WaitOutcome
+{
+  bool completed;
+  std::chrono::milliseconds elapsed;
+};
+
+void ArmAdWaiterProbe()
+{
+  gAdWaiterPredEvaluated = false;
+}
+
+bool WaitForFlag(const std::atomic<bool> &flag)
+{
+  const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+  while (!flag && std::chrono::steady_clock::now() < deadline)
+  {
+    std::this_thread::yield();
+  }
+  return flag;
+}
+
+// Holds a worker open until Release(); Release() is idempotent.
+class OneShotGate
+{
+public:
+  OneShotGate() : mFuture(mPromise.get_future().share()) {}
+  void Release()
+  {
+    if (!mReleased.exchange(true))
+    {
+      mPromise.set_value();
+    }
+  }
+  void Wait() const { mFuture.wait_for(std::chrono::seconds(5)); }
+
+private:
+  std::promise<void> mPromise;
+  std::shared_future<void> mFuture;
+  std::atomic<bool> mReleased{false};
+};
+
+// Runs the callable on scope exit, so gates open on every exit path.
+struct ScopedRelease
+{
+  std::function<void()> release;
+  ~ScopedRelease() { release(); }
+};
+}
+
+/**
+ * @brief Resolving the last VOD ad wakes a blocked stitcher well before its timeout.
+ */
+TEST_F(AdManagerMPDTests, VodCdai_StitcherWait_ConcurrentResolve_NoStallNoDeadlock)
+{
+  for (int i = 0; i < 50; i++)
+  {
+    const std::string breakId = "brk-" + std::to_string(i);
+    mPrivateCDAIObjectMPD->RegisterVodAdBreak(VodAdBreakInfo{breakId, 10.0 * i, 5.0, "midroll"});
+
+    std::atomic<bool> predFalse{false};
+    auto waiter = std::async(std::launch::async, [&]() {
+      const auto start = std::chrono::steady_clock::now();
+      std::unique_lock<std::mutex> lk(mPrivateCDAIObjectMPD->mVodAllAdsResolvedMtx);
+      bool done = mPrivateCDAIObjectMPD->mVodAllAdsResolvedCV.wait_for(
+          lk, std::chrono::seconds(5),
+          [&]{
+            bool resolved = mPrivateCDAIObjectMPD->AreAllVodAdsResolved();
+            if (!resolved)
+            {
+              predFalse = true;
+            }
+            return resolved;
+          });
+      return WaitOutcome{done, std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start)};
+    });
+
+    ASSERT_TRUE(WaitForFlag(predFalse)) << "iteration " << i;
+    // The waiter keeps its mutex until it blocks, so once acquired it is blocked.
+    { std::lock_guard<std::mutex> lk(mPrivateCDAIObjectMPD->mVodAllAdsResolvedMtx); }
+    mPrivateCDAIObjectMPD->SetAlternateContents(breakId, "ad-" + std::to_string(i), "https://cdn.example.com/ad.mpd", 0, 0);
+
+    ASSERT_EQ(waiter.wait_for(std::chrono::seconds(10)), std::future_status::ready) << "iteration " << i;
+    const WaitOutcome outcome = waiter.get();
+    ASSERT_TRUE(outcome.completed) << "iteration " << i;
+    ASSERT_LT(outcome.elapsed.count(), 2000) << "stitcher was not woken promptly in iteration " << i;
+  }
+}
+
+/**
+ * @brief Resolving an ad break wakes a blocked WaitForNextAdResolved(timeout, periodId) well before its timeout.
+ */
+TEST_F(AdManagerMPDTests, WaitForNextAdResolved_PeriodId_ReturnsWhenBreakResolved)
+{
+  const std::string periodId = "brk-wait";
+  mPrivateCDAIObjectMPD->SetAlternateContents(periodId, "", "", 0, 30000);
+  ASSERT_TRUE(mPrivateCDAIObjectMPD->isAdBreakObjectExist(periodId));
+  ArmAdWaiterProbe();
+
+  auto waiter = std::async(std::launch::async, [&]() {
+    tlsIsAdWaiter = true;
+    const auto start = std::chrono::steady_clock::now();
+    bool completed = mPrivateCDAIObjectMPD->WaitForNextAdResolved(5000, periodId);
+    return WaitOutcome{completed, std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start)};
+  });
+
+  ASSERT_TRUE(WaitForFlag(gAdWaiterPredEvaluated)) << "waiter predicate never evaluated unresolved";
+  // The waiter keeps mAdPlacementMtx until it blocks, so once acquired it is blocked.
+  { std::lock_guard<std::mutex> lk(mPrivateCDAIObjectMPD->mAdPlacementMtx); }
+  // An empty reservation resolves the break and aborts the wait.
+  mPrivateCDAIObjectMPD->NotifyReservationComplete(periodId);
+
+  ASSERT_EQ(waiter.wait_for(std::chrono::seconds(10)), std::future_status::ready);
+  const WaitOutcome outcome = waiter.get();
+  EXPECT_TRUE(outcome.completed);
+  EXPECT_LT(outcome.elapsed.count(), 2000) << "waiter was not woken promptly";
+}
+
+/**
+ * @brief A timed-out wait marks the ad break invalid; waiting on an unknown
+ *        break returns false and must not create a map entry.
+ */
+TEST_F(AdManagerMPDTests, WaitForNextAdResolved_PeriodId_TimeoutMarksInvalid_UnknownBreakNotInserted)
+{
+  const std::string periodId = "brk-timeout";
+  mPrivateCDAIObjectMPD->SetAlternateContents(periodId, "", "", 0, 30000);
+  ASSERT_TRUE(mPrivateCDAIObjectMPD->isAdBreakObjectExist(periodId));
+
+  EXPECT_FALSE(mPrivateCDAIObjectMPD->WaitForNextAdResolved(50, periodId));
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks.at(periodId).invalid);
+
+  EXPECT_FALSE(mPrivateCDAIObjectMPD->WaitForNextAdResolved(50, "brk-unknown"));
+  EXPECT_FALSE(mPrivateCDAIObjectMPD->isAdBreakObjectExist("brk-unknown"));
+}
+
+/**
+ * @brief Resolving the current fulfilment ad wakes a blocked WaitForNextAdResolved(timeout) well before its timeout.
+ */
+TEST_F(AdManagerMPDTests, WaitForNextAdResolved_ReturnsWhenAdResolved)
+{
+  const std::string periodId = "brk-ad";
+  const std::string adId = "ad-1";
+  mPrivateCDAIObjectMPD->SetAlternateContents(periodId, "", "", 0, 30000);
+  ASSERT_TRUE(mPrivateCDAIObjectMPD->isAdBreakObjectExist(periodId));
+  mPrivateCDAIObjectMPD->mAdBreaks.at(periodId).ads->emplace_back(
+      AdNode{false, false, false, adId, "https://cdn.example.com/ad.mpd", 0, "", 0, nullptr});
+  mPrivateCDAIObjectMPD->mAdFulfillObj = AdFulfillObj(periodId, adId, "https://cdn.example.com/ad.mpd");
+  ArmAdWaiterProbe();
+
+  auto waiter = std::async(std::launch::async, [&]() {
+    tlsIsAdWaiter = true;
+    const auto start = std::chrono::steady_clock::now();
+    bool completed = mPrivateCDAIObjectMPD->WaitForNextAdResolved(5000);
+    return WaitOutcome{completed, std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start)};
+  });
+
+  ASSERT_TRUE(WaitForFlag(gAdWaiterPredEvaluated)) << "waiter predicate never evaluated unresolved";
+  // The waiter keeps mAdPlacementMtx until it blocks, so once acquired it is blocked.
+  { std::lock_guard<std::mutex> lk(mPrivateCDAIObjectMPD->mAdPlacementMtx); }
+  {
+    std::lock_guard<std::recursive_mutex> lock(mPrivateCDAIObjectMPD->mDaiMtx);
+    mPrivateCDAIObjectMPD->mAdBreaks.at(periodId).ads->at(0).resolved = true;
+  }
+  mPrivateCDAIObjectMPD->AbortWaitForNextAdResolved();
+
+  ASSERT_EQ(waiter.wait_for(std::chrono::seconds(10)), std::future_status::ready);
+  const WaitOutcome outcome = waiter.get();
+  EXPECT_TRUE(outcome.completed);
+  EXPECT_LT(outcome.elapsed.count(), 2000) << "waiter was not woken promptly";
+}
+
+/**
+ * @brief A second GetAdMPD cannot enter GetFile on the shared DAI handle
+ *        while the first download is in flight.
+ */
+TEST_F(AdManagerMPDTests, GetAdMPD_ConcurrentDownloadsAreSerialised)
+{
+  mManifest = kSharedTenSecondAdManifest;
+  const std::string manifestUrl = "http://origin.example.com/ad/manifest.mpd";
+  std::promise<void> firstEntered;
+  OneShotGate gate;
+  std::atomic<int> getFileCalls{0};
+  std::atomic<bool> secondAboutToDownload{false};
+
+  // The first GetFile call is held open until the gate is released.
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _))
+      .WillRepeatedly(WithArgs<0, 2, 3, 4>(Invoke([&](std::string remoteUrl, std::vector<uint8_t> &buffer,
+                                                       std::string &effectiveUrl, int &httpError) {
+        if (getFileCalls.fetch_add(1) == 0)
+        {
+          firstEntered.set_value();
+          gate.Wait();
+        }
+        if (remoteUrl == manifestUrl)
+        {
+          buffer.assign(mManifest, mManifest + strlen(mManifest));
+        }
+        effectiveUrl = remoteUrl;
+        httpError = 200;
+        return true;
+      })));
+
+  auto download = [&]() {
+    std::string url = manifestUrl;
+    bool finalManifest = false;
+    int http_error = 0;
+    double downloadTime = 0.0;
+    AAMPCDAIError errorCode = eCDAI_ERROR_NONE;
+    MPD *mpd = mPrivateCDAIObjectMPD->GetAdMPD(url, finalManifest, http_error, downloadTime, errorCode, false);
+    delete mpd;
+  };
+
+  std::future<void> first;
+  std::future<void> second;
+  // Declared after the futures so the gate is released before they are joined on any exit path.
+  ScopedRelease guard{[&]() { gate.Release(); }};
+
+  first = std::async(std::launch::async, download);
+  ASSERT_EQ(firstEntered.get_future().wait_for(std::chrono::seconds(5)), std::future_status::ready);
+
+  {
+    // The first transfer is inside GetFile, so the download mutex must be held.
+    std::unique_lock<std::mutex> probe(mPrivateCDAIObjectMPD->mDaiDownloadMtx, std::try_to_lock);
+    EXPECT_FALSE(probe.owns_lock()) << "GetFile ran without the DAI download mutex";
+  }
+
+  second = std::async(std::launch::async, [&]() {
+    secondAboutToDownload = true;
+    download();
+  });
+  ASSERT_TRUE(WaitForFlag(secondAboutToDownload));
+  // Negative assertion, bounded to 50 ms: nothing observable signals that a thread is blocked on a mutex.
+  const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(50);
+  while (getFileCalls.load() == 1 && std::chrono::steady_clock::now() < deadline)
+  {
+    std::this_thread::yield();
+  }
+  EXPECT_EQ(getFileCalls.load(), 1) << "second download entered GetFile while the first was in flight";
+
+  gate.Release();
+  ASSERT_EQ(first.wait_for(std::chrono::seconds(10)), std::future_status::ready);
+  ASSERT_EQ(second.wait_for(std::chrono::seconds(10)), std::future_status::ready);
+  EXPECT_GT(getFileCalls.load(), 1);
+}
+
+/**
+ * @brief WaitForAdFulfilmentIdle blocks while an ad fulfilment is in flight and
+ *        returns only once the fulfilment, including the resolved event, has
+ *        completed, without mDaiMtx being held across the download.
+ */
+TEST_F(AdManagerMPDTests, WaitForAdFulfilmentIdle_BlocksUntilInFlightAdResolved)
+{
+  const std::string periodId = "brk-inflight";
+  const std::string adId = "ad-inflight";
+  mManifest = kSharedTenSecondAdManifest;
+  mPrivateCDAIObjectMPD->SetAlternateContents(periodId, "", "", 0, 10000);
+
+  std::promise<void> downloadEntered;
+  std::atomic<bool> downloadEnteredSet{false};
+  OneShotGate downloadGate;
+  OneShotGate eventGate;
+  std::atomic<bool> eventEntered{false};
+  std::atomic<bool> eventCompleted{false};
+  ScopedRelease guard{[&]() {
+    downloadGate.Release();
+    eventGate.Release();
+    mPrivateCDAIObjectMPD->StopFulfillAdLoop();
+  }};
+
+  // The fulfilment is held inside SendAdResolvedEvent, after the ad is resolved, until the test releases it.
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, true, _, _, eCDAI_ERROR_NONE))
+      .WillOnce(InvokeWithoutArgs([&]() {
+        eventEntered = true;
+        eventGate.Wait();
+        eventCompleted = true;
+      }));
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _))
+      .WillRepeatedly(WithArgs<0, 2, 3, 4>(Invoke([&](std::string remoteUrl, std::vector<uint8_t> &buffer,
+                                                       std::string &effectiveUrl, int &httpError) {
+        if (remoteUrl == TEST_AD_MANIFEST_URL)
+        {
+          if (!downloadEnteredSet.exchange(true))
+          {
+            downloadEntered.set_value();
+          }
+          downloadGate.Wait();
+          buffer.assign(mManifest, mManifest + strlen(mManifest));
+        }
+        effectiveUrl = remoteUrl;
+        httpError = 200;
+        return true;
+      })));
+
+  mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, TEST_AD_MANIFEST_URL, 0, 10000);
+  ASSERT_EQ(downloadEntered.get_future().wait_for(std::chrono::seconds(5)), std::future_status::ready);
+
+  {
+    // mDaiMtx must stay available to other threads while the ad MPD downloads.
+    std::unique_lock<std::recursive_mutex> daiProbe(mPrivateCDAIObjectMPD->mDaiMtx, std::try_to_lock);
+    EXPECT_TRUE(daiProbe.owns_lock()) << "mDaiMtx held across the ad MPD download";
+  }
+  {
+    // The fulfilment is inside the download, so the in-flight mutex must be held.
+    std::unique_lock<std::mutex> inFlightProbe(mPrivateCDAIObjectMPD->mAdFulfillInFlightMtx, std::try_to_lock);
+    EXPECT_FALSE(inFlightProbe.owns_lock()) << "ad fulfilment ran without the in-flight mutex";
+  }
+
+  std::atomic<bool> idleStarted{false};
+  std::atomic<bool> resolvedOnReturn{false};
+  std::atomic<bool> eventCompletedOnReturn{false};
+  auto idle = std::async(std::launch::async, [&]() {
+    idleStarted = true;
+    mPrivateCDAIObjectMPD->WaitForAdFulfilmentIdle();
+    // Sampled before the test can release or resolve anything else.
+    bool resolved = false;
+    resolvedOnReturn = mPrivateCDAIObjectMPD->TryGetAdResolved(periodId, adId, resolved) && resolved;
+    eventCompletedOnReturn = eventCompleted.load();
+  });
+  ASSERT_TRUE(WaitForFlag(idleStarted));
+
+  // Negative assertion, bounded to 50 ms: nothing observable signals that a thread is blocked on a mutex.
+  EXPECT_EQ(idle.wait_for(std::chrono::milliseconds(50)), std::future_status::timeout)
+      << "WaitForAdFulfilmentIdle returned while the ad was still downloading";
+
+  downloadGate.Release();
+  // The ad is now resolved but the fulfilment is still running, held inside SendAdResolvedEvent.
+  ASSERT_TRUE(WaitForFlag(eventEntered)) << "ad fulfilment never reached SendAdResolvedEvent";
+  EXPECT_EQ(idle.wait_for(std::chrono::milliseconds(50)), std::future_status::timeout)
+      << "WaitForAdFulfilmentIdle returned before the fulfilment completed";
+
+  eventGate.Release();
+  ASSERT_EQ(idle.wait_for(std::chrono::seconds(10)), std::future_status::ready);
+  EXPECT_TRUE(resolvedOnReturn);
+  EXPECT_TRUE(eventCompletedOnReturn);
+}
+
+/**
+ * @brief WaitForAdFulfilmentIdle returns immediately when no ad is being fulfilled.
+ */
+TEST_F(AdManagerMPDTests, WaitForAdFulfilmentIdle_ReturnsImmediatelyWhenIdle)
+{
+  auto idle = std::async(std::launch::async, [&]() {
+    mPrivateCDAIObjectMPD->WaitForAdFulfilmentIdle();
+  });
+  EXPECT_EQ(idle.wait_for(std::chrono::seconds(5)), std::future_status::ready);
 }

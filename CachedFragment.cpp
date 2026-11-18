@@ -43,7 +43,6 @@ CachedFragment::CachedFragment()
 	, timeScale(0)
 	, PTSOffsetSec(0)
 	, absPosition(0.0)
-	, isDummy(false)
 	, discontinuityIndex(0)
 {
 }
@@ -67,7 +66,6 @@ void CachedFragment::Copy(const CachedFragment& other)
 	this->timeScale = other.timeScale;
 	this->PTSOffsetSec = other.PTSOffsetSec;
 	this->absPosition = other.absPosition;
-	this->isDummy = other.isDummy;
 	this->discontinuityIndex = other.discontinuityIndex;
 	
 	// Copy fragment data
@@ -85,7 +83,6 @@ void CachedFragment::Clear()
 	duration = 0.0;
 	initFragment = false;
 	discontinuity = false;
-	isDummy = false;
 	profileIndex = 0;
 	timeScale = 0;
 	uri = "";
@@ -106,7 +103,6 @@ CachedFragment::CachedFragment(const CachedFragment& other)
 	, duration(other.duration)
 	, initFragment(other.initFragment)
 	, discontinuity(other.discontinuity)
-	, isDummy(other.isDummy)
 	, profileIndex(other.profileIndex)
 	, timeScale(other.timeScale)
 	, uri(other.uri)
@@ -128,7 +124,6 @@ CachedFragment::CachedFragment(CachedFragment&& other) noexcept
 	, duration(other.duration)
 	, initFragment(other.initFragment)
 	, discontinuity(other.discontinuity)
-	, isDummy(other.isDummy)
 	, profileIndex(other.profileIndex)
 	, timeScale(other.timeScale)
 	, uri(std::move(other.uri))
@@ -144,7 +139,6 @@ CachedFragment::CachedFragment(CachedFragment&& other) noexcept
 	other.duration = 0.0;
 	other.initFragment = false;
 	other.discontinuity = false;
-	other.isDummy = false;
 	other.profileIndex = 0;
 	other.timeScale = 0;
 	other.type = eMEDIATYPE_DEFAULT;
@@ -165,7 +159,6 @@ CachedFragment& CachedFragment::operator=(const CachedFragment& other)
 		duration = other.duration;
 		initFragment = other.initFragment;
 		discontinuity = other.discontinuity;
-		isDummy = other.isDummy;
 		profileIndex = other.profileIndex;
 		timeScale = other.timeScale;
 		uri = other.uri;
@@ -190,7 +183,6 @@ CachedFragment& CachedFragment::operator=(CachedFragment&& other) noexcept
 		duration = other.duration;
 		initFragment = other.initFragment;
 		discontinuity = other.discontinuity;
-		isDummy = other.isDummy;
 		profileIndex = other.profileIndex;
 		timeScale = other.timeScale;
 		uri = std::move(other.uri);
@@ -206,7 +198,6 @@ CachedFragment& CachedFragment::operator=(CachedFragment&& other) noexcept
 		other.duration = 0.0;
 		other.initFragment = false;
 		other.discontinuity = false;
-		other.isDummy = false;
 		other.profileIndex = 0;
 		other.timeScale = 0;
 		other.type = eMEDIATYPE_DEFAULT;
@@ -230,7 +221,6 @@ void CachedFragment::swap(CachedFragment& other) noexcept
 	swap(duration, other.duration);
 	swap(initFragment, other.initFragment);
 	swap(discontinuity, other.discontinuity);
-	swap(isDummy, other.isDummy);
 	swap(profileIndex, other.profileIndex);
 	swap(timeScale, other.timeScale);
 	swap(uri, other.uri);

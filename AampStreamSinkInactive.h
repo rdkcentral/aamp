@@ -47,8 +47,11 @@ public:
      *   @fn Configure
 	 *   @brief stub implementation for Inactive aamp instance
 	 */
-	virtual void Configure(StreamOutputFormat format, StreamOutputFormat audioFormat, StreamOutputFormat subFormat, bool bESChangeStatus, bool setReadyAfterPipelineCreation=false)
+	virtual void Configure(StreamCodecInfo&& codecInfo, bool bESChangeStatus, bool setReadyAfterPipelineCreation=false)
 	{
+		(void)codecInfo;
+		(void)bESChangeStatus;
+		(void)setReadyAfterPipelineCreation;
 		AAMPLOG_WARN("Called AAMPGstPlayer()::%s stub", __FUNCTION__);
 	}
 	/**
@@ -78,9 +81,10 @@ public:
 	 *   @param[in] sample - Media sample; ownership would be consumed (rvalue-ref
 	 *                       to match the StreamSink interface), but this stub
 	 *                       discards the sample and returns false.
+	 *   @param[in] morePending - True if more samples are available to inject after this one (default: false).
 	 *   @return Always false.
 	 */
-	virtual bool SendSample( AampMediaType mediaType, AampMediaSample&& sample)
+	virtual bool SendSample( AampMediaType mediaType, AampMediaSample&& sample, bool morePending = false)
 	{
 		AAMPLOG_WARN("Called AAMPGstPlayer()::%s stub", __FUNCTION__);
 		return false;
@@ -113,7 +117,7 @@ public:
      *   @fn Flush
 	 *   @brief stub implementation for Inactive aamp instance
 	 */
-	virtual void Flush(double position = 0, int rate = AAMP_NORMAL_PLAY_RATE, bool shouldTearDown = true)
+	virtual void Flush(double position = 0, int rate = AAMP_NORMAL_PLAY_RATE, bool shouldTearDown = true, bool positionIsAuthoritative = false)
 	{
 		AAMPLOG_WARN("Called AAMPGstPlayer()::%s stub", __FUNCTION__);
 	}

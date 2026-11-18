@@ -372,22 +372,6 @@ public:
 	void SubscribeResponseHeaders(std::vector<std::string> responseHeaders);
 
 	/**
-	 *   @fn LoadJS
-	 *
-	 *   @param[in]  context - JS context.
-	 *   @return void
-	 */
-	void LoadJS(void* context);
-
-	/**
-	 *   @fn UnloadJS
-	 *
-	 *   @param[in]  context - JS context.
-	 *   @return void
-	 */
-	void UnloadJS(void* context);
-
-	/**
 	 *   @fn AddEventListener
 	 *
 	 *   @param[in]  eventType - type of event.
@@ -723,11 +707,11 @@ public:
 	std::vector<BitsPerSecond> GetVideoBitrates(void);
 
 	/**
-		 *   @fn GetManifest
-		 *
-		 *   @return available manifest
-		 */
-		std::string GetManifest(void);
+	 *   @fn GetManifest
+	 *
+	 *   @return available manifest
+	 */
+	std::string GetManifest(void);
 
 	/**
 	 *   @fn GetAudioBitrates
@@ -1509,7 +1493,6 @@ private:
 	 */
 	void StopInternal(bool sendStateChangeEvent, bool forceCleanup);
 
-	void* mJSBinding_DL;                /**< Handle to AAMP plugin dynamic lib.  */
 	static std::mutex mPrvAampMtx;      /**< Mutex to protect aamp instance in GetState() */
 	bool mAsyncRunning;                 /**< Flag denotes if async mode is on or not */
 	bool mAsyncTuneEnabled;		    /**< Flag indicating async tune status */

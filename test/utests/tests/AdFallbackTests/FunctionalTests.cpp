@@ -278,12 +278,12 @@ class AdFallbackTests : public ::testing::Test
 			{
 				mAdManifest = manifest;
 				// remoteUrl, manifest, effectiveUrl
-				EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adManifestUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
+				EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adManifestUrl, _, _, _, _, _, _, _, _, _, _, _, _, _, _))
 					.WillOnce(WithArgs<0,2,3,4>(Invoke(this, &AdFallbackTests::GetManifest)));
 			}
 			else
 			{
-				EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adManifestUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
+				EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adManifestUrl, _, _, _, _, _, _, _, _, _, _, _, _, _, _))
 					.WillOnce(Return(true));
 			}
 		}
@@ -415,7 +415,7 @@ TEST_F(AdFallbackTests, AdInitFailureTest)
 	InitializeAdMPD(adManifest);
 
 	// Need to fail ad init fragment, This will be called from FetchAndCacheInitHeaders in admanager during fulfilling ad
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitFragmentUrl, eMEDIATYPE_INIT_VIDEO, _, _, _, _, _, _, _, _, _, _, _, _))
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitFragmentUrl, eMEDIATYPE_INIT_VIDEO, _, _, _, _, _, _, _, _, _, _, _, _, _))
               .WillOnce(Return(false));
 	// Called again to populate mAdBreaks and other variables
 	mStreamAbstractionAAMP_MPD->mCdaiObject->SetAlternateContents(periodId, adId, adurl, startMS, breakdur);

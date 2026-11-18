@@ -32,7 +32,6 @@ CachedFragment::CachedFragment()
 	, timeScale(0)
 	, PTSOffsetSec(0)
 	, absPosition(0.0)
-	, isDummy(false)
 	, discontinuityIndex(0)
 {
 }

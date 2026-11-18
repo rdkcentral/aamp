@@ -92,7 +92,7 @@ void AampLatencyMonitor::ResetToNormalRate()
 {
 }
 
-void AampLatencyMonitor::OnBufferLevelUpdate(double bufferMs)
+void AampLatencyMonitor::OnBufferLevelUpdate(AampMediaType mediaType, double bufferMs)
 {
 }
 

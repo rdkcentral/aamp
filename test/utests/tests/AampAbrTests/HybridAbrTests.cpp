@@ -111,7 +111,7 @@ TEST_F(HybridAbrTests, CheckRampupFromSteadyState_LoopIsPerInstance)
  * @brief CheckRampupFromSteadyState allows ramp-up when newBandwidth (target
  *        profile bitrate) is slightly below nwBandwidth, producing a negative
  *        abrThreshold that is still within the 30% limit.
- *        Regression for the VPAAMP-175 fix: the old code blocked rampup
+ *        Regression for the previos fix: the old code blocked rampup
  *        whenever abrThreshold was negative.
  */
 TEST_F(HybridAbrTests, CheckRampupFromSteadyState_NegativeThreshold_RampsUp)

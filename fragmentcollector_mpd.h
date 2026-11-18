@@ -38,6 +38,8 @@
 #include "libdash/xml/DOMParser.h"
 #include <libxml/xmlreader.h>
 #include <thread>
+#include <array>
+#include <memory>
 #include "admanager_mpd.h"
 #include "AampMPDDownloader.h"
 #include "AampDRMLicPreFetcher.h"
@@ -48,6 +50,8 @@
 
 // Sentinel for invalid base period offset in ad nodes
 constexpr int32_t INVALID_BASE_PERIOD_OFFSET = -1;
+
+class MediaStreamContext;
 
 using namespace dash;
 using namespace std;
@@ -129,7 +133,7 @@ public:
 	 */
 	aamp::AampTrackWorkerJobUniquePtr Clone() const override
 	{
-		return aamp_utils::make_unique<AampDashWorkerJob>(mJobFunction);
+		return std::make_unique<AampDashWorkerJob>(mJobFunction);
 	}
 };
 
@@ -561,6 +565,23 @@ public:
 
 protected:
 	/**
+	 * @fn AddIfUnique
+	 * @brief Adds a text track to the list if it is not already present.
+	 *
+	 * @param[in,out] tTracks Collection of text tracks to update.
+	 * @param[in] value Text track passed by value. The function may move from
+	 *        this local copy when inserting into @p tTracks.
+	 *
+	 * @return true if the text track was added, false otherwise.
+	 */
+	bool AddIfUnique(std::vector<TextTrackInfo> &tTracks, TextTrackInfo value);
+
+	/**
+	 * @brief Send a manifest content error event and return its status.
+	 */
+	AAMPStatusType ReportManifestContentError();
+
+	/**
 	 * @fn StartFromAampLocalTsb
 	 *
 	 * @brief Start streaming from AAMP Local TSB
@@ -709,6 +730,16 @@ protected:
 	AAMPStatusType  EnableAndSetLiveOffsetForLLDashPlayback(const MPD* mpd);
 
 	/**
+	 * @fn IsVideoDRMLicenseRequired
+	 * @brief Returns true if an encrypted video adaptation set has a DRM helper and
+	 *        an unprocessed key ID, indicating that licence acquisition is required.
+	 *        Returns false for clear streams, missing DRM data, unavailable DRM
+	 *        session management, or already processed keys.
+	 * @retval bool true if the video stream requires DRM licence acquisition
+	 */
+	bool IsVideoDRMLicenseRequired();
+
+	/**
 	 * @fn GetLowLatencyParams
 	 * @param[In] const mpd Pointer to FragmentCollector
 	 * @param[Out] LLDashData Reference to LowLatency element parsed data
@@ -740,7 +771,7 @@ protected:
 	 * @param init true if this is the first playlist download for a tune/seek/trickplay
 	 * @param reportBulkMeta true if bulkTimedMetadata feature is enabled
 	 */
-	void FindTimedMetadata(MPD* mpd, Node* root, bool init = false, bool reportBulkMet = false);
+	void FindTimedMetadata(MPD* mpd, Node* root, AampMPDParseHelperPtr mpdParseHelper, bool init = false, bool reportBulkMet = false);
 	/**
 	 * @fn ProcessPeriodSupplementalProperty
 	 * @param node SupplementalProperty node
@@ -874,9 +905,23 @@ protected:
 	 */
 	std::string GetCurrentMimeType(AampMediaType mediaType);
 	/**
+	 * @fn GetCurrentCodec
+	 * @param AampMediaType type of media
+	 * @retval codec string
+	 */
+	std::string GetCurrentCodec(AampMediaType mediaType);
+	/**
 	 * @fn UpdateTrackInfo
 	 */
 	virtual AAMPStatusType UpdateTrackInfo(bool modifyDefaultBW, bool resetTimeLineIndex = false, bool isInit = false);
+	/**
+	 * @fn ResolveAdaptationSetForTrack
+	 * @param pMediaStreamContext Track object pointer
+	 * @param period Current period
+	 * @brief Resolve the track's AdaptationSet by its selected id, tolerant of AdaptationSet reordering across periods
+	 * @retval eAAMPSTATUS_OK on success, eAAMPSTATUS_MANIFEST_CONTENT_ERROR if the selected AdaptationSet id is not found
+	 */
+	AAMPStatusType ResolveAdaptationSetForTrack(class MediaStreamContext *pMediaStreamContext, IPeriod *period);
 	/**
 	 * @fn SkipToEnd
 	 * @param pMediaStreamContext Track object pointer
@@ -1148,7 +1193,8 @@ protected:
 	AampMPDParseHelperPtr	mMPDParseHelper;
 	bool mLowLatencyMode;
 	dash::mpd::IMPD *mpd;
-	class MediaStreamContext *mMediaStreamContext[AAMP_TRACK_COUNT];
+	// MediaStreamContext is incomplete here; any class destroying this array needs MediaStreamContext.h.
+	std::array<std::unique_ptr<MediaStreamContext>, AAMP_TRACK_COUNT> mMediaStreamContext;
 	int mNumberOfTracks;
 	int mCurrentPeriodIdx;
 	int mNumberOfPeriods;	// Number of periods in the updated manifest
@@ -1198,7 +1244,6 @@ protected:
 
 	double mLiveEndPosition;    // Live end absolute position
 	double mCulledSeconds;      // Culled absolute position
-	double mPrevFirstPeriodStart;
 	bool mAdPlayingFromCDN;   /*Note: TRUE: Ad playing currently & from CDN. FALSE: Ad "maybe playing", but not from CDN.*/
 	bool mPostRollAdPlaybackDone; /**< Set in onAdEvent when the post-roll ad playback has fully completed; triggers EOS path in SelectSourceOrAdPeriod */
 	double mAvailabilityStartTime;
@@ -1235,7 +1280,7 @@ protected:
 	/**
 	 * @fn FindPeriodGapsAndReport
 	 */
-	void FindPeriodGapsAndReport();
+	void FindPeriodGapsAndReport(AampMPDParseHelperPtr mpdParseHelper);
 	/**
 	 * @fn IndexNewMPDDocument
 	 */
@@ -1365,8 +1410,27 @@ protected:
 	bool mShortAdOffsetCalc;
 	AampTime mNextPts;					/*For PTS restamping*/
 	bool mIsFinalFirstPTS; /**< Flag to indicate if the first PTS is final or not */
+	bool mVODSynthesisIframeActive; /**< True only when the synthesis trickplay branch
+	                                     activated in StreamSelection (no real iframe
+	                                     adaptation was selected for the current period).
+	                                     Guards UseIframeTrack() and
+	                                     ShouldCheckOnlyIframeAdaptation() so that they
+	                                     do not bypass a real iframe adaptation. */
 
 public:
+	/**
+	 * @brief Returns true when VOD iframe synthesis is active for the current
+	 *        period — i.e. StreamSelection chose a regular video adaptation for
+	 *        trickplay because no real iframe AdaptationSet was present.
+	 *        Returns false when a real iframe track was selected, preventing
+	 *        the early-abort and ConvertToKeyFrame() paths in
+	 *        MediaStreamContext::CacheFragment from being applied to real
+	 *        iframe-track segments.
+	 *        Virtual so that MockStreamAbstractionAAMP_MPD can override it
+	 *        in L1 tests.
+	 */
+	virtual bool IsVODSynthesisActive() const { return mVODSynthesisIframeActive; }
+
 	/**
 	 * @brief Client used for server time synchronization.
 	 *

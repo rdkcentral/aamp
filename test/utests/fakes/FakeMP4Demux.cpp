@@ -126,3 +126,13 @@ Mp4ParseError Mp4Demux::GetLastError() const
 	}
 	return MP4_PARSE_OK;
 }
+
+/**
+ * @brief Fake SetFallbackTimeScale implementation - delegates to mock if available
+ */
+void Mp4Demux::SetFallbackTimeScale(uint32_t ts)
+{
+	if (g_mockMp4Demux) {
+		g_mockMp4Demux->SetFallbackTimeScale(ts);
+	}
+}

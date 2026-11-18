@@ -64,7 +64,27 @@
 #include "AampLLDASHData.h"
 #include "AampMPDUtils.h"
 
+class TailDropTracker;
+
 typedef void (*ManifestUpdateCallbackFunc)(void *);
+
+/**
+ * @brief Manifest-refresh status shared between downloader and player private instance.
+ */
+struct ManifestRefreshStatus
+{
+	AAMPStatusType type;  /**< Refresh status from the latest manifest refresh */
+	int errorCode;        /**< HTTP/curl code if manifest failed */
+	long long failingForMs; /**< How long refreshes have been failing continuously; 0 when the latest refresh succeeded */
+
+	ManifestRefreshStatus(
+		AAMPStatusType retryType = AAMPStatusType::eAAMPSTATUS_OK,
+		int code = 0,
+		long long failingMs = 0)
+		: type(retryType), errorCode(code), failingForMs(failingMs)
+	{
+	}
+};
 
 /**
  * @struct _manifestDownloadConfig
@@ -78,6 +98,7 @@ typedef struct _manifestDownloadConfig
 	MPDStichOptions	mMPDStichOption;
 	bool mIsLLDConfigEnabled;
 	bool mCullManifestAtTuneStart;	// Remove the Start of the Manifest to the liveOffset
+	bool mTrimPeriodTailSegments;	// Drop Period-tail segments that overrun @duration
 	int  mTSBDuration;			// pass the TSB duration of the manifest to be managed
 	int  mStartPosnToTSB;		// Position where MPD has to be truncated at the start of playback
 
@@ -90,13 +111,13 @@ typedef struct _manifestDownloadConfig
 
 
 	_manifestDownloadConfig( int playerId ) :mDnldConfig(std::make_shared<DownloadConfig> ()),mTuneUrl(),mStichUrl(),
-									mIsLLDConfigEnabled(false),	mCullManifestAtTuneStart(false),mTSBDuration(-1),
+									mIsLLDConfigEnabled(false),	mCullManifestAtTuneStart(false),mTrimPeriodTailSegments(false),mTSBDuration(-1),
 									mStartPosnToTSB(-1),mCMCDCollector(nullptr),mMPDStichOption(OPT_1_FULL_MANIFEST_TUNE),
 									mHarvestCountLimit(0),mHarvestConfig(0),mHarvestPathConfigured(),mPreProcessedManifest(),mPlayerId(playerId) {}
 
 	_manifestDownloadConfig(const _manifestDownloadConfig& other): mDnldConfig(other.mDnldConfig),mTuneUrl(other.mTuneUrl),
 								mStichUrl(other.mStichUrl),mIsLLDConfigEnabled(other.mIsLLDConfigEnabled),
-								mCullManifestAtTuneStart(other.mCullManifestAtTuneStart), mTSBDuration(other.mTSBDuration),
+								mCullManifestAtTuneStart(other.mCullManifestAtTuneStart), mTrimPeriodTailSegments(other.mTrimPeriodTailSegments), mTSBDuration(other.mTSBDuration),
 								mStartPosnToTSB(other.mStartPosnToTSB),mCMCDCollector(other.mCMCDCollector),
 								mMPDStichOption(other.mMPDStichOption),mHarvestCountLimit(other.mHarvestCountLimit),
 								mHarvestConfig(other.mHarvestConfig),mHarvestPathConfigured(other.mHarvestPathConfigured),mPreProcessedManifest(other.mPreProcessedManifest),mPlayerId(other.mPlayerId) {}
@@ -127,6 +148,8 @@ typedef struct _manifestDownloadResponse
 	std::shared_ptr<dash::mpd::IMPD> mMPDInstance;
 	bool mIsLiveManifest;
 	bool mRefreshRequired;
+	bool mTrimPeriodTailSegments; /**< Enables TrimPeriodTailSegments() in parseMPD() */
+	std::shared_ptr<TailDropTracker> mTailDropTracker; /**< Shared with the downloader; null means dropped segments are not reported */
 	AAMPStatusType mMPDStatus;
 	Node *mRootNode;
 	std::shared_ptr<DashMPDDocument> mDashMpdDoc;
@@ -134,8 +157,10 @@ typedef struct _manifestDownloadResponse
 private:
 	AampMPDParseHelperPtr	mMPDParseHelper;
 
+	void trimPeriodTails();
+
 public:
-	_manifestDownloadResponse() : mMPDDownloadResponse(std::make_shared<DownloadResponse>()), mMPDInstance(nullptr), mIsLiveManifest(false), mRefreshRequired(false), mMPDStatus(AAMPStatusType::eAAMPSTATUS_OK), mRootNode(NULL), mDashMpdDoc(nullptr), mLastPlaylistDownloadTimeMs(0), mMPDParseHelper(std::make_shared<AampMPDParseHelper>()) {}
+	_manifestDownloadResponse() : mMPDDownloadResponse(std::make_shared<DownloadResponse>()), mMPDInstance(nullptr), mIsLiveManifest(false), mRefreshRequired(false), mTrimPeriodTailSegments(false), mMPDStatus(AAMPStatusType::eAAMPSTATUS_OK), mRootNode(NULL), mDashMpdDoc(nullptr), mLastPlaylistDownloadTimeMs(0), mMPDParseHelper(std::make_shared<AampMPDParseHelper>()) {}
 
 	_manifestDownloadResponse& operator=(const _manifestDownloadResponse& other)
 	{
@@ -150,12 +175,14 @@ public:
 	: mMPDDownloadResponse(other.mMPDDownloadResponse),
 	  mMPDInstance(other.mMPDInstance),
 	  mIsLiveManifest(other.mIsLiveManifest),
+	  mRefreshRequired(other.mRefreshRequired),
+	  mTrimPeriodTailSegments(other.mTrimPeriodTailSegments),
+	  mTailDropTracker(other.mTailDropTracker),
 	  mMPDStatus(other.mMPDStatus),
 	  mRootNode(other.mRootNode),
-	  mRefreshRequired(other.mRefreshRequired),
 	  mDashMpdDoc(other.mDashMpdDoc),
-	  mMPDParseHelper(std::make_shared<AampMPDParseHelper>(*(other.mMPDParseHelper))), // Copy the content
-	  mLastPlaylistDownloadTimeMs(other.mLastPlaylistDownloadTimeMs){}
+	  mLastPlaylistDownloadTimeMs(other.mLastPlaylistDownloadTimeMs),
+	  mMPDParseHelper(std::make_shared<AampMPDParseHelper>(*(other.mMPDParseHelper))){} // Copy the content
 
 
 public:
@@ -188,6 +215,7 @@ public:
 	 * @return A shared pointer to the AampMPDParseHelper.
 	 */
 	AampMPDParseHelperPtr 	GetMPDParseHelper() { return mMPDParseHelper;}
+	void 					SetMPDParseHelper(AampMPDParseHelperPtr helper) { mMPDParseHelper = helper; }
 }ManifestDownloadResponse;
 
 typedef std::shared_ptr<ManifestDownloadResponse> ManifestDownloadResponsePtr;
@@ -281,6 +309,11 @@ public:
 	 */
 	void RegisterCallback(ManifestUpdateCallbackFunc fnPtr, void *);
 	/**
+	 * @fn GetManifestRefreshStatus
+	 * @brief Return latest manifest-refresh state.
+	 */
+	ManifestRefreshStatus GetManifestRefreshStatus() const;
+	/**
 	 * @fn UnRegisterCallback
 	 * @brief Unregister the callback function for manifest update notifications.
 	 */
@@ -369,6 +402,17 @@ private:
 	 */
 	bool waitForRefreshInterval(uint32_t waitMs);
 	/**
+	*	@fn keepManifestTimeline
+	*	@brief Function to maintain the manifest timeline across live and static transitions
+	*
+	*	@param parseHelper Parse helper for the manifest
+	*	@param isLiveManifest Boolean indicating if the manifest is live
+	*	@param playlistDownloadTimeMs Download time of the playlist in milliseconds
+	*
+	*	@return true if static transition is detected, false otherwise
+	*/
+	bool keepManifestTimeline(const AampMPDParseHelperPtr& parseHelper,	bool isLiveManifest, uint64_t playlistDownloadTimeMs);
+	/**
 	*	@fn pushDownloadDataToQueue
 	*	@brief Function to push the download MPD to Queue for collector to read it
 	*/
@@ -412,6 +456,8 @@ private:
 	std::recursive_mutex mMPDDnldMutex;
 	// Download network configuration
 	ManifestDownloadConfigPtr mMPDDnldCfg;
+	// Remembers which tail-segment drops were already reported; reset by Initialize()
+	std::shared_ptr<TailDropTracker> mTailDropTracker;
 	// Download data
 	ManifestDownloadResponsePtr mMPDData;
 	ManifestDownloadResponsePtr mCachedMPDData;
@@ -429,13 +475,12 @@ private:
 	std::mutex mRefreshMtx;
 	std::condition_variable mRefreshCondVar;
 
-	std::mutex mMPDDnldDataMtx;
-	std::condition_variable mMPDDnldDataCondVar;
+	std::condition_variable mMPDDnldDataCondVar; // waits on mMPDBufferMutex
 
 	std::mutex mMPDNotifierMtx;
 	std::condition_variable mMPDNotifierCondVar;
 
-	bool mReleaseCalled;
+	std::atomic<bool> mReleaseCalled;
 	bool mCheckedLLDData;
 	std::string mAppName;
 	ManifestUpdateCallbackFunc mManifestUpdateCb;
@@ -451,6 +496,11 @@ private:
 	std::atomic_bool mMPDNotifyPending ; /*To allow wait for downloadNotifier based on NotifyPending Status */
 	std::function<std::pair<std::string,int>()> mMpdPreProcessFuncptr; /* function invoked to read the available preprocessed manifest data or to send event if manifest data is not available */
 	int mPreProcessErrorCode; /**< curl/HTTP error injected when mMpdPreProcessFuncptr returns empty; default CURLE_OPERATION_TIMEDOUT */
+	std::atomic<int> mManifestRefreshErrorCode;
+	std::atomic<AAMPStatusType> mManifestRefreshErrorType;
+	std::atomic<long long> mManifestRefreshFailureStartMs{-1}; /**< Steady-clock start of the current refresh outage; -1 when refreshes are succeeding */
+	double mLastLiveFirstPeriodStart{0.0};
+	double mLastLiveFirstSegmentStart{-1.0};
 };
 
 #endif /* __AAMP_MPD_DOWNLOADER_H__ */

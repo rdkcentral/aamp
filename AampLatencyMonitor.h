@@ -29,10 +29,12 @@
 #include <chrono>
 #include <condition_variable>
 #include <deque>
+#include <limits>
 #include <mutex>
 #include <thread>
 #include <tuple>
 #include "AampDefine.h"
+#include "AampMediaType.h"
 
 class PrivateInstanceAAMP;
 
@@ -73,15 +75,20 @@ struct LatencyConfig
 	/// thresholds.  Zero means no cap.
 	double rebufferingLatencyMaxIncrementMs {0.0};
 
-	/// Buffer level (ms) that counts as healthy runway for restoration.
-	/// If bufferMs >= this value for latencyStableSec consecutive seconds,
-	/// one restoration step is applied.  Zero disables dynamic restoration entirely.
+	/// Buffer level (ms) below which a danger episode is considered active.
+	/// If bufferMs < this value, one upward threshold shift may be applied
+	/// for a danger episode. Zero disables dynamic threshold shifting entirely.
 	double dangerBufferMs {0.0};
 
-	/// Duration (s) of consecutive polls with buffer >= dangerBufferMs
+	/// Duration (s) of consecutive polls with buffer >= restorationBufferMs
 	/// required before one restoration step is taken.
 	/// Zero disables dynamic restoration entirely.
 	double latencyStableSec {0.0};
+
+	/// Buffer level (ms) required to sustain the restoration window.
+	/// If bufferMs >= this value for latencyStableSec consecutive seconds,
+	/// one restoration step is applied. Zero disables dynamic restoration entirely.
+	double restorationBufferMs {0.0};
 
 	LatencyConfig() = default;
 
@@ -90,7 +97,8 @@ struct LatencyConfig
 				  double minLatency, double targetLatency, double maxLatency,
 				  int monitorDelay, int monitorInterval, double bufferLevel,
 				  double rebufferingStepMs = 0.0, double rebufferingMaxIncrMs = 0.0,
-				  double dangerBufferMs = 0.0, double latencyStableSec = 0.0)
+				  double dangerBufferMs = 0.0, double latencyStableSec = 0.0,
+				  double restorationBufferMs = 0.0)
 		: normalPlaybackRate(normalRate)
 		, minPlaybackRate(minRate)
 		, maxPlaybackRate(maxRate)
@@ -104,6 +112,7 @@ struct LatencyConfig
 		, rebufferingLatencyMaxIncrementMs(rebufferingMaxIncrMs)
 		, dangerBufferMs(dangerBufferMs)
 		, latencyStableSec(latencyStableSec)
+		, restorationBufferMs(restorationBufferMs)
 	{}
 };
 
@@ -225,20 +234,16 @@ public:
 	double GetAccumulatedLatencyIncrementMs() const;
 
 	/**
-	 * @brief Notify the monitor of the current buffer level.
-	 * When @p bufferMs is **below** dangerBufferMs and the episode guard
-	 * (mBelowDangerShifted) is clear, the worker thread is signalled to wake
-	 * early so it can apply the threshold shift on its next iteration rather
-	 * than waiting for the next scheduled poll interval.  Subsequent
-	 * notifications within the same episode are no-ops (the episode guard
-	 * suppresses redundant wake-ups).
-	 *
-	 * When @p bufferMs is **at or above** dangerBufferMs and a danger episode
-	 * is active (mBelowDangerShifted is set), Run() is woken once so it can
-	 * clear the episode guard and start the restoration timer from the accurate
-	 * moment of recovery. Run() owns all state transitions; mBelowDangerShifted
-	 * is never written here.
-	 *
+	 * @brief Notify the monitor of the current buffer level for one track.
+	 * The effective buffer level is the minimum of the last-known video and
+	 * audio buffer levels.  The monitor uses this to determine whether the stream is
+	 * healthy or in danger of rebuffering, and to apply the adaptive threshold
+	 * shift when the buffer is below dangerBufferMs.
+	 * signalled to wake early so it can apply the threshold shift on its next
+	 * iteration rather than waiting for the next scheduled poll interval.
+	 * Subsequent notifications within the same episode are no-ops (the episode
+	 * guard suppresses redundant wake-ups).
+
 	 * A negative @p bufferMs (the sentinel returned by
 	 * GetBufferedDurationSecs() on lock-contention) is silently ignored so
 	 * that a transient read failure cannot trigger a spurious wakeup.
@@ -250,10 +255,11 @@ public:
 	 *
 	 * Thread-safe (mBelowDangerShifted is atomic; wakeup uses mSleepMutex).
 	 *
-	 * @param[in] bufferMs  Current buffered duration in milliseconds,
-	 *                      or a negative sentinel if the measurement is unavailable.
+	 * @param[in] mediaType  Track type (eMEDIATYPE_VIDEO or eMEDIATYPE_AUDIO).
+	 * @param[in] bufferMs   Current buffered duration for that track in milliseconds,
+	 *                       or a negative sentinel if the measurement is unavailable.
 	 */
-	void OnBufferLevelUpdate(double bufferMs);
+	void OnBufferLevelUpdate(AampMediaType mediaType, double bufferMs);
 
 private:
 
@@ -340,7 +346,7 @@ private:
 	/**
 	 * @brief Attempt one restoration step toward the config-default thresholds.
 	 *
-	 * Called from Run() once the buffer has remained at or above dangerBufferMs
+	 * Called from Run() once the buffer has remained at or above restorationBufferMs
 	 * for latencyStableSec consecutive seconds (measured across polling intervals).
 	 * Decrements mLatencyIncrementAccumulatedMs by rebufferingLatencyStepMs (floored
 	 * at zero) and recomputes the three dynamic thresholds.  Has no effect
@@ -366,7 +372,7 @@ private:
 	/// Reset to zero on Start() and Stop().
 	double mLatencyIncrementAccumulatedMs {0.0};
 
-	/// Time point when the buffer first reached dangerBufferMs, marking the
+	/// Time point when the buffer first reached restorationBufferMs, marking the
 	/// start of the current restoration window.  Reset to epoch (default-constructed) on
 	/// Start(), Stop(), and whenever a rebuffering event interrupts the healthy streak.
 	std::chrono::steady_clock::time_point mRestorationWindowStartTime {};

@@ -42,16 +42,21 @@ public:
 	MOCK_METHOD(bool, GetFile, (std::string remoteUrl, AampMediaType mediaType, std::vector<uint8_t> &buffer, std::string& effectiveUrl,
 				int& http_error, double *downloadTime, const char *range, unsigned int curlInstance,
 				bool resetBuffer, BitsPerSecond *bitrate, int * fogError,
-				double fragmentDurationSeconds, ProfilerBucketType bucketType, int maxInitDownloadTimeMS));
+				double fragmentDurationSeconds, ProfilerBucketType bucketType, int maxInitDownloadTimeMS, bool synthesizeIframeAbort));
 	MOCK_METHOD(void, SetStreamFormat, (StreamOutputFormat videoFormat, StreamOutputFormat audioFormat));
 
 	MOCK_METHOD(std::string, GetAvailableAudioTracks, (bool allTrack));
 	MOCK_METHOD(int,GetAudioTrack,());
 	MOCK_METHOD(void, SendErrorEvent, (AAMPTuneFailure, const char *, bool, int32_t, int32_t, int32_t, const std::string &));
 	MOCK_METHOD(void, SendDownloadErrorEvent, (AAMPTuneFailure, long));
+	MOCK_METHOD(void, SendStalledErrorEvent, ());
 	MOCK_METHOD(void, SendStreamTransfer, (AampMediaType, std::vector<uint8_t>&, double, double, double, double, bool, bool));
-	MOCK_METHOD(void, SendStreamTransfer, (AampMediaType, AampMediaSample&&));
+	MOCK_METHOD(void, SendStreamTransfer, (AampMediaType, AampMediaSample&&, bool));
 	MOCK_METHOD(void, SetStreamCaps, (AampMediaType, MediaCodecInfo&&));
+	MOCK_METHOD(void, QueueProtectionEvent, (AampMediaType, const std::vector<MediaProtectionInfo>&));
+	MOCK_METHOD(void, FlushStreamSink, (double position, double rate));
+	MOCK_METHOD(void, SetTrackEncrypted, (AampMediaType, bool));
+	MOCK_METHOD(MediaCodecInfo, GetMediaCodecInfo, (AampMediaType));
 	MOCK_METHOD(bool, SendStreamCopy, (AampMediaType mediaType, const std::vector<uint8_t>& buffer, double fpts, double fdts, double fDuration));
 	MOCK_METHOD(bool, SendStreamCopy, (AampMediaType mediaType, const void *ptr, size_t len, double fpts, double fdts, double fDuration));
 	MOCK_METHOD(MediaFormat,GetMediaFormatTypeEnum,());
@@ -82,6 +87,7 @@ public:
 	MOCK_METHOD(void, StopDownloads, ());
 	MOCK_METHOD(void, ResumeDownloads, ());
 	MOCK_METHOD(void, DisableDownloads, ());
+	MOCK_METHOD(void, ApplyPausedDownloadPolicy, ());
 	MOCK_METHOD(void, TuneHelper, (TuneType tuneType, bool seekWhilePaused));
 	MOCK_METHOD(AampTSBSessionManager*, GetTSBSessionManager, ());
 	MOCK_METHOD(void, NotifyOnEnteringLive, ());
@@ -95,13 +101,23 @@ public:
 	MOCK_METHOD(void, SetLLDashChunkMode, (bool enable));
 	MOCK_METHOD(void, NotifySpeedChanged, (float rate, bool changeState));
 	MOCK_METHOD(bool, PausePipeline, (bool pause, bool forceStopPreBuffering));
+	MOCK_METHOD(void, NotifyFirstBufferProcessed, (const std::string& videoRectangle));
+	MOCK_METHOD(bool, SetStateBufferingIfRequired, ());
+	MOCK_METHOD(bool, CancelPauseOnFirstVideoFrame, ());
+	MOCK_METHOD(bool, RearmPauseOnFirstVideoFrame, ());
+	MOCK_METHOD(void, ApplySpeedChangeEffects, (float rate));
 	MOCK_METHOD(void, SetVideoMute, (bool muted));
 	MOCK_METHOD(void, SetCCStatusSetByApp, ());
 	MOCK_METHOD(bool, IsAtLivePoint, ());
 	MOCK_METHOD(bool, IsLiveStream, ());
 	MOCK_METHOD(bool, TrackDownloadsAreEnabled, (AampMediaType type));
+	MOCK_METHOD(bool, WillFlushOnDiscontinuity, ());
+	MOCK_METHOD(bool, ReconfigureForElementaryStreamUpdate, ());
+	MOCK_METHOD(void, CompleteDiscontinuityDataDeliverForPTSRestamp, (AampMediaType type));
 	MOCK_METHOD(long, GetCurrentLatencyMs, ());
 	MOCK_METHOD(double, GetBufferedDurationSecs, ());
+	MOCK_METHOD(double, GetVideoBufferedDurationSecs, ());
+	MOCK_METHOD(double, GetAudioBufferedDurationSecs, ());
 	MOCK_METHOD(bool, IsAdPlaying, ());
 	MOCK_METHOD(bool, IsLatencyExceedingTrickplayThreshold, (), (const));
 	MOCK_METHOD(void, EnableLatencyMonitor, (bool enabled));
@@ -110,6 +126,9 @@ public:
 	MOCK_METHOD(void, NotifyReservationComplete, (const std::string& reservationId));
 	MOCK_METHOD(void, LoadIDX, (ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl, std::vector<uint8_t>& fragment, unsigned int curlInstance, const char *range, int& http_code, double *downloadTime, AampMediaType mediaType, int *fogError));
 	MOCK_METHOD(void, UpdateUseSinglePipeline, ());
+	MOCK_METHOD(void, ResumeTrackDownloads, (AampMediaType type));
+	MOCK_METHOD(void, StopTrackDownloads, (AampMediaType type));
+	MOCK_METHOD(bool, HandleManifestRefreshFailureOnBuffering, ());
 };
 
 extern std::shared_ptr<MockPrivateInstanceAAMP> g_mockPrivateInstanceAAMP;

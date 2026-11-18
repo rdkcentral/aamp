@@ -109,7 +109,7 @@ public:
 		mUsableKeys.clear();
 	}
 
-	const std::vector<std::vector<uint8_t>> &getUsableKeys() const override
+	std::vector<std::vector<uint8_t>> getUsableKeys() const override
 	{
 		return mUsableKeys;
 	}
@@ -203,6 +203,12 @@ public:
 	{
 		std::lock_guard<std::mutex> lock(const_cast<std::mutex &>(mQVssMutex));
 		return mVssFetchQueue.size();
+	}
+	/** Place an object on the VSS queue without starting mVssPreFetchThread */
+	void pushVssFetchObjectWithoutThread(LicensePreFetchObjectPtr obj)
+	{
+		std::lock_guard<std::mutex> lock(mQVssMutex);
+		mVssFetchQueue.push_back(std::move(obj));
 	}
 	bool getExitLoopFlag() const { return mExitLoop; }
 	bool getTrackStatus(AampMediaType type) const
@@ -341,6 +347,25 @@ TEST_F(AampDRMLicPreFetcherTests, Term_WithQueuedItems_ClearsQueue)
 	EXPECT_TRUE(result);
 	EXPECT_EQ(mTestablePreFetcher->getFetchQueueSize(), 0);
 	EXPECT_EQ(mTestablePreFetcher->getVssFetchQueueSize(), 0);
+}
+
+/**
+ * @brief Term() must also clear pending VSS content protection objects
+ *
+ * The object is placed on the VSS queue without starting the VSS thread so
+ * that the thread cannot consume it before Term() runs.
+ */
+TEST_F(AampDRMLicPreFetcherTests, Term_WithQueuedVssItems_ClearsVssQueue)
+{
+	mTestablePreFetcher->Init();
+	auto drmHelper = CreateDrmHelper(CreateKeyIdFromHex(TEST_KEY_ID_SLOT_0));
+	mTestablePreFetcher->pushVssFetchObjectWithoutThread(
+		std::make_shared<LicensePreFetchObject>(drmHelper, "vss_period1", 0, eMEDIATYPE_VIDEO, true));
+	ASSERT_EQ(mTestablePreFetcher->getVssFetchQueueSize(), 1u);
+
+	EXPECT_TRUE(mTestablePreFetcher->Term());
+
+	EXPECT_EQ(mTestablePreFetcher->getVssFetchQueueSize(), 0u);
 }
 
 /**
@@ -621,7 +646,7 @@ TEST_F(AampDRMLicPreFetcherTests, MultiKey_UHDFailedHDSuccess_BothProcessed)
 }
 
 /**
- * @brief Test VSS period with failed key (VPLAY-11304)
+ * @brief Test VSS period with failed key
  */
 TEST_F(AampDRMLicPreFetcherTests, VPLAY11304_VssPreFetchThread_FailedKey_Handled)
 {

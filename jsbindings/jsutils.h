@@ -30,6 +30,7 @@
 #include <JavaScriptCore/JavaScript.h>
 #include <stdio.h>
 #include <string.h>
+#include <string>
 #include <vector>
 
 
@@ -85,18 +86,18 @@ JSValueRef aamp_CStringToJSValue(JSContextRef context, const char* sz);
  * @param[in] context JS execution context
  * @param[in] value JSValue of JSString to be converted
  * @param[out] exception pointer to a JSValueRef in which to store an exception, if any
- * @retval converted C string
+ * @retval converted C string, owned by the caller via RAII (no manual free needed)
  */
-char* aamp_JSValueToCString(JSContextRef context, JSValueRef value, JSValueRef* exception);
+std::string aamp_JSValueToCString(JSContextRef context, JSValueRef value, JSValueRef* exception);
 
 /**
  * @fn aamp_JSValueToJSONCString
  * @param[in] context JS execution context
  * @param[in] value JSValue of JSString to be converted
  * @param[out] exception pointer to a JSValueRef in which to store an exception, if any
- * @retval converted C string
+ * @retval converted C string, owned by the caller via RAII (no manual free needed)
  */
-char* aamp_JSValueToJSONCString(JSContextRef context, JSValueRef value, JSValueRef* exception);
+std::string aamp_JSValueToJSONCString(JSContextRef context, JSValueRef value, JSValueRef* exception);
 
 /**
  * @fn aamp_JSValueIsArray
@@ -128,7 +129,7 @@ JSValueRef aamp_GetException(JSContextRef context, ErrorCode error, const char *
  * @param[in] szName JS event name
  * @retval AAMPEventType of corresponding AAMP event
  */
-AAMPEventType aamp_getEventTypeFromName(const char* szName);
+AAMPEventType aamp_getEventTypeFromName(const std::string& szName);
 
 /**
  * @fn aamp_dispatchEventToJS
@@ -143,7 +144,7 @@ void aamp_dispatchEventToJS(JSContextRef context, JSObjectRef callback, JSObject
  * @param[in] szName JS event name
  * @retval AAMPEventType of corresponding AAMP event
  */
-AAMPEventType aampPlayer_getEventTypeFromName(const char* szName);
+AAMPEventType aampPlayer_getEventTypeFromName(const std::string& szName);
 
 /**
  * @fn aampPlayer_getNameFromEventType
@@ -175,6 +176,6 @@ JSObjectRef aamp_CreateBodyResponseJSObject(JSContextRef context, const char *pB
 
 void jsBindingLogprintf(int playerId, const char* functionName, int line, int logLevel, const char *format, ...)  __attribute__ ((format (printf, 5, 6)));
 
-VideoZoomMode MapZoomMode( const char *zoomStr );
+VideoZoomMode MapZoomMode( const std::string& zoomStr );
 
 #endif /* __AAMP_JSUTILS_H__ */

@@ -107,7 +107,7 @@ namespace aamp
 	 */
 	std::unique_ptr<AampTrackWorkerJob> AampTrackWorkerJob::Clone() const
 	{
-		return aamp_utils::make_unique<AampTrackWorkerJob>();
+		return std::make_unique<AampTrackWorkerJob>();
 	}
 
 	/**

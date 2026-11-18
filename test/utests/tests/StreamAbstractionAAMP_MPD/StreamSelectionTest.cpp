@@ -327,7 +327,7 @@ protected:
 
 		class MediaStreamContext *GetMediaStreamContext(AampMediaType type)
 		{
-			return mMediaStreamContext[type];
+			return mMediaStreamContext[type].get();
 		}
 	};
 
@@ -355,6 +355,7 @@ protected:
 			{eAAMPConfig_AudioOnlyPlayback, false},
 			{eAAMPConfig_LimitResolution, false},
 			{eAAMPConfig_Disable4K, false},
+			{eAAMPConfig_DisableTTML, false},
 			{eAAMPConfig_PersistHighNetworkBandwidth, false},
 			{eAAMPConfig_PersistLowNetworkBandwidth, false},
 			{eAAMPConfig_MidFragmentSeek, false},
@@ -369,6 +370,7 @@ protected:
 			{eAAMPConfig_EnablePTSReStamp, false},
 			{eAAMPConfig_LocalTSBEnabled, false},
 			{eAAMPConfig_EnableIFrameTrackExtract, false},
+			{eAAMPConfig_SynthesizeIframeForVOD, false},
 			{eAAMPConfig_EnableABR, true},
 			{eAAMPConfig_MPDDiscontinuityHandling, true},
 			{eAAMPConfig_MPDDiscontinuityHandlingCdvr, true},
@@ -376,6 +378,7 @@ protected:
 			{eAAMPConfig_SuppressDecode, false},
 			{eAAMPConfig_InterruptHandling, false},
 			{eAAMPConfig_useRialtoSink, false},
+			{eAAMPConfig_useDirectRialto, false},
 			{eAAMPConfig_UseMp4Demux, false},
 			{eAAMPConfig_ProcessLicenseFromEAP, false},
 			{eAAMPConfig_EnableProducerReferenceDelay, true},

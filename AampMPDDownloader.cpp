@@ -25,6 +25,7 @@
 
 #include "AampCurlDownloader.h"
 #include "AampMPDDownloader.h"
+#include "AampMPDTailTrim.h"
 #include "AampUtils.h"
 #include "AampLogManager.h"
 #include <inttypes.h>
@@ -85,9 +86,26 @@ std::shared_ptr<_manifestDownloadResponse> _manifestDownloadResponse::clone()
 	clonedDoc->mMPDDownloadResponse->mDownloadData = mMPDDownloadResponse->mDownloadData;
 	clonedDoc->mMPDParseHelper = std::make_shared<AampMPDParseHelper>(*this->mMPDParseHelper);
 	clonedDoc->mRootNode = NULL;
+
+	// No reporting: this is a backup clone used for manifest refresh fallback.
+	// The original manifest was already parsed and drops were reported.
+	// Re-parsing the same timeline should not re-report the same segments.
+	clonedDoc->mTailDropTracker = nullptr;
 	clonedDoc->parseMPD();
 	AAMPLOG_TRACE("Exit");
 	return clonedDoc;
+}
+
+void _manifestDownloadResponse::trimPeriodTails()
+{
+	const std::vector<DroppedSegment> dropped = TrimPeriodTailSegments(mMPDInstance.get(), AAMP_DASH_PERIOD_TAIL_START_TOLERANCE_SEC, AAMP_DASH_PERIOD_TAIL_MIN_OVERHANG_SEC);
+	if (mTailDropTracker)
+	{
+		for (const DroppedSegment &segment : mTailDropTracker->Update(dropped))
+		{
+			LogDroppedSegment(segment);
+		}
+	}
 }
 
 /**
@@ -96,7 +114,7 @@ std::shared_ptr<_manifestDownloadResponse> _manifestDownloadResponse::clone()
 */
 void _manifestDownloadResponse::parseMPD()
 {
-	std::string manifestStr;	
+	std::string manifestStr;
 	xmlTextReaderPtr mXMLReader =   NULL; // Initialize to nullptr
 
 	if(this->mMPDDownloadResponse)
@@ -129,6 +147,11 @@ void _manifestDownloadResponse::parseMPD()
 						mpd->SetFetchTime(fetchTime);
 						std::shared_ptr<dash::mpd::IMPD> tmp_ptr(mpd);
 						mMPDInstance = std::move(tmp_ptr);
+						if (mTrimPeriodTailSegments)
+						{
+							// Must precede Initialize(), which caches Period start/duration/end
+							trimPeriodTails();
+						}
 						mMPDStatus = AAMPStatusType::eAAMPSTATUS_OK;
 						mMPDParseHelper->Initialize(mpd);
 					}
@@ -166,8 +189,10 @@ AampMPDDownloader::AampMPDDownloader() :  mMPDBufferQ(),mMPDBufferSize(1),mMPDBu
 	mMPDDnldCfg(NULL),mDownloaderThread_t1(),mDownloaderThread_t2(),mDownloader1(),mDownloader2(),mMPDData(nullptr),mAppName(""),
 	mManifestUpdateCb(NULL),mManifestUpdateCbArg(NULL),mDownloadNotifierThread(),mCachedMPDData(nullptr),
 	mCheckedLLDData(false),mMPDNotifierMtx(),mMPDNotifierCondVar(),mManifestRefreshCount(0),mIsLowLatency(false),
-	mMPDDnldDataMtx(),mMPDDnldDataCondVar()
-	,mLLDashData(),mCurrentposDeltaToManifestEnd(-1),mPublishTime(0),mMinimalRefreshRetryCount(0),mMPDNotifyPending(false),mPreProcessErrorCode(CURLE_OPERATION_TIMEDOUT)
+	mMPDDnldDataCondVar(),
+	mLLDashData(),mCurrentposDeltaToManifestEnd(-1),mPublishTime(0),mMinimalRefreshRetryCount(0),
+	mMPDNotifyPending(false),mPreProcessErrorCode(CURLE_OPERATION_TIMEDOUT),
+	mManifestRefreshErrorCode(0),mManifestRefreshErrorType(AAMPStatusType::eAAMPSTATUS_OK)
 {
 }
 
@@ -178,6 +203,16 @@ AampMPDDownloader::AampMPDDownloader() :  mMPDBufferQ(),mMPDBufferSize(1),mMPDBu
 AampMPDDownloader::~AampMPDDownloader()
 {
 	// Clear the queue and release all the objects
+	if ( mReleaseCalled && (mDownloaderThread_t1.joinable() || mDownloaderThread_t2.joinable() || mDownloadNotifierThread.joinable()) )
+	{
+		// NOTE: mReleaseCalled is initialised to true in the constructor.  Threads started
+		// inside StreamAbstraction::Init() are not joined if mReleaseCalled remains true when
+		// the destructor runs.  This guard defensively resets the flag and calls Release() to
+		// perform all pending thread joins, preventing a thread-leak crash in this state.
+		AAMPLOG_ERR("mReleaseCalled=true, but t1 = %d, t2 = %d, t3 = %d. Force mReleaseCalled=false before Release() to avoid a crash",
+			mDownloaderThread_t1.joinable() , mDownloaderThread_t2.joinable() , mDownloadNotifierThread.joinable());
+		mReleaseCalled=false;	// check for and force thread cleanups + join, since we're in a bad state
+	}
 	Release();
 	// reset the pointers , its shared pointer, it will released automatically
 	mMPDData = nullptr;
@@ -207,12 +242,14 @@ void AampMPDDownloader::Initialize(ManifestDownloadConfigPtr mpdDnldCfg, std::st
 
 	std::lock_guard<std::recursive_mutex> lock(mMPDDnldMutex);
 	mMPDDnldCfg = std::move(mpdDnldCfg);
+	mTailDropTracker = std::make_shared<TailDropTracker>();
+	mLastLiveFirstPeriodStart = 0.0;
+	mLastLiveFirstSegmentStart = -1.0;
 
 	if(mpdPreProcessFuncptr)
 	{
 		mMpdPreProcessFuncptr = std::move(mpdPreProcessFuncptr);
 	}
-
 }
 
 /**
@@ -274,11 +311,11 @@ void AampMPDDownloader::Release()
 		{
 			std::lock_guard<std::recursive_mutex> lock(mMPDDnldMutex);
 			mReleaseCalled = true;
-			mRefreshCondVar.notify_all();
-			mMPDDnldDataCondVar.notify_all();
+			NotifyAllSynchronised(mRefreshMtx, mRefreshCondVar);
+			NotifyAllSynchronised(mMPDBufferMutex, mMPDDnldDataCondVar);
 			mMPDNotifierCondVar.notify_all();
 		}
-		// Disable downloads before joining the threads,which will exit the download loops gracefully 
+		// Disable downloads before joining the threads,which will exit the download loops gracefully
 		mDownloader1.Release();
 		mDownloader2.Release();
 
@@ -297,16 +334,22 @@ void AampMPDDownloader::Release()
 		}
 		if(mDownloadNotifierThread.joinable())
 			mDownloadNotifierThread.join();
-		while (!mMPDBufferQ.empty())
 		{
-			mMPDBufferQ.pop();
+			// Swap under the lock so GetManifest never reads front() during the drain;
+			// the drained entries are destroyed after the lock is released.
+			std::queue<ManifestDownloadResponsePtr> drained;
+			std::lock_guard<std::mutex> lock(mMPDBufferMutex);
+			drained.swap(mMPDBufferQ);
+
 		}
 
 		/**< Reset LLD Data*/
 		mLLDashData.clear();
 		mMinimalRefreshRetryCount = 0; //Reset the refresh interval retry counter
+		mManifestRefreshErrorType.store(AAMPStatusType::eAAMPSTATUS_OK);
+		mManifestRefreshErrorCode.store(0);
+		mManifestRefreshFailureStartMs.store(-1);
 		AAMPLOG_INFO("Release Called in MPD Downloader - Exit %ld %ld", mMPDData.use_count(),mMPDDnldCfg.use_count());
-
 	}
 }
 
@@ -335,6 +378,51 @@ void AampMPDDownloader::Start()
 	{
 		AAMPLOG_ERR("No Tune Url provided for download ");
 	}
+}
+
+/**
+*   @fn keepManifestTimeline
+*   @brief Function to maintain the manifest timeline across live and static transitions
+*/
+bool AampMPDDownloader::keepManifestTimeline(const AampMPDParseHelperPtr& parseHelper, bool isLiveManifest,	uint64_t playlistDownloadTimeMs)
+{
+	if (isLiveManifest)
+	{
+		mLastLiveFirstPeriodStart = 0.0;
+		mLastLiveFirstSegmentStart = -1.0;
+		if (parseHelper && parseHelper->GetNumberOfPeriods() > 0)
+		{
+			mLastLiveFirstSegmentStart = parseHelper->GetFirstPeriodSegmentStart();
+			if (mLastLiveFirstSegmentStart >= 0.0)
+			{
+				mLastLiveFirstPeriodStart =	parseHelper->GetPeriodStartTime(0, playlistDownloadTimeMs);
+			}
+			else
+			{
+				AAMPLOG_ERR("Unable to capture first video segment start from live manifest");
+			}
+		}
+		return false;
+	}
+
+	if (parseHelper && mLastLiveFirstSegmentStart >= 0.0)
+	{
+		const double staticFirstSegmentStart = parseHelper->GetFirstPeriodSegmentStart();
+		if (staticFirstSegmentStart >= 0.0)
+		{
+			const double timelineDelta = staticFirstSegmentStart - mLastLiveFirstSegmentStart;
+			const double adjustedEpochStartTime = mLastLiveFirstPeriodStart + timelineDelta;
+			AAMPLOG_WARN("Dynamic to static: setting adjusted timeline origin to %lf "
+				"(segment start delta %lf)", adjustedEpochStartTime, timelineDelta);
+			parseHelper->SetAvailabilityStartTime(adjustedEpochStartTime);
+		}
+		else
+		{
+			AAMPLOG_WARN("Unable to rebase static manifest without first video segment start");
+		}
+	}
+
+	return true;
 }
 
 /**
@@ -370,6 +458,8 @@ void AampMPDDownloader::downloadMPDThread1()
 			//mDownloader1.Clear();
 			AAMPLOG_INFO("aamp url:%d,%d,%d,%f,%s", eMEDIATYPE_TELEMETRY_MANIFEST, eMEDIATYPE_MANIFEST,eCURLINSTANCE_VIDEO,0.000000, tuneUrl.c_str());
 			mMPDData = MakeSharedManifestDownloadResponsePtr();
+			mMPDData->mTrimPeriodTailSegments = mMPDDnldCfg->mTrimPeriodTailSegments;
+			mMPDData->mTailDropTracker = mTailDropTracker;
 		}
 		//If Manifest data already provided use it ,not required to download the Manifest
 		if (!mMPDDnldCfg->mPreProcessedManifest.empty())
@@ -397,6 +487,17 @@ void AampMPDDownloader::downloadMPDThread1()
 			}
 			else
 			{
+				if(mReleaseCalled)
+				{
+					AAMPLOG_INFO("Skipping manifest download since Release was called");
+					break;
+				}
+				// KNOWN LIMITATION: There is a narrow window between the mReleaseCalled check above
+				// and mDownloader1.Download() below where an external Release() call can arrive.  If
+				// Release() fires in this window, Download() proceeds regardless (mDownloader1 is
+				// re-initialised before each attempt); the progress_callback abort via
+				// mDownloadActive=false remains the fallback mechanism.  Taking mMPDDnldMutex here
+				// to close the window would deadlock Release().
 				mDownloader1.Download(tuneUrl, mMPDData->mMPDDownloadResponse);
 			}
 		}
@@ -475,41 +576,89 @@ void AampMPDDownloader::downloadMPDThread1()
 			AAMPLOG_ERR("curl request %s %s Error Code [%u]",mEffectiveUrl.c_str(), (mMPDData->mMPDDownloadResponse->iHttpRetValue < 100) ? "Curl" : "HTTP", mMPDData->mMPDDownloadResponse->iHttpRetValue);
 
 			mMPDData->mMPDStatus	=	AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR;
-			
-			if( !IS_HTTP_SUCCESS(mMPDData->mMPDDownloadResponse->iHttpRetValue) )
-			{ 
-				if( mMPDData->mMPDDownloadResponse->iHttpRetValue == CURLE_OPERATION_TIMEDOUT )
-				{
-					mMPDData->mMPDDownloadResponse->iHttpRetValue = GetCurlTimeoutFailureReason(mDownloader1.GetCurlHandle());
-					AampLogManager::LogNetworkError (mEffectiveUrl.c_str(), AAMPNetworkErrorTimeout, mMPDData->mMPDDownloadResponse->iHttpRetValue, eMEDIATYPE_MANIFEST);
-				}
-				else
-				{
-					AampLogManager::LogNetworkError (mEffectiveUrl.c_str(), AAMPNetworkErrorHttp, mMPDData->mMPDDownloadResponse->iHttpRetValue, eMEDIATYPE_MANIFEST);
-				}
-				//Use DownloadResponse Show call instead of printheaderresponse fn -since it is not scope
-				mMPDData->mMPDDownloadResponse->show();
+
+			if( mMPDData->mMPDDownloadResponse->iHttpRetValue == CURLE_OPERATION_TIMEDOUT )
+			{
+				mMPDData->mMPDDownloadResponse->iHttpRetValue = GetCurlTimeoutFailureReason(mDownloader1.GetCurlHandle());
+				AampLogManager::LogNetworkError (mEffectiveUrl.c_str(), AAMPNetworkErrorTimeout, mMPDData->mMPDDownloadResponse->iHttpRetValue, eMEDIATYPE_MANIFEST);
 			}
+			else
+			{
+				AampLogManager::LogNetworkError (mEffectiveUrl.c_str(), AAMPNetworkErrorHttp, mMPDData->mMPDDownloadResponse->iHttpRetValue, eMEDIATYPE_MANIFEST);
+			}
+			//Use DownloadResponse Show call instead of printheaderresponse fn -since it is not scope
+			mMPDData->mMPDDownloadResponse->show();
 		}
 		showDownloadMetrics(mMPDData->mMPDDownloadResponse, (int)(tEndTime - tStartTime));
+
+		if(mMPDData->mMPDStatus == AAMPStatusType::eAAMPSTATUS_OK && mMPDData->mMPDInstance)
+		{
+			auto manifest = mCachedMPDData ? mCachedMPDData : mMPDData;
+			auto parseHelper = manifest->GetMPDParseHelper();
+			if(mMPDData->mIsLiveManifest)
+			{
+				// Save the start values from the dynamic manifest
+				keepManifestTimeline(parseHelper, true,	mMPDData->mLastPlaylistDownloadTimeMs);
+			}
+			else if(!firstDownload)
+			{
+				// Recover the timeline for static manifest
+				doPush = keepManifestTimeline(parseHelper, false, 0) || doPush;
+			}
+		}
+
+		if (!firstDownload)
+		{
+			int errorCode = 0;
+			if (mMPDData->mMPDStatus == AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR)
+			{
+				errorCode = mMPDData->mMPDDownloadResponse->iHttpRetValue;
+			}
+			// Update the outage timer first so a reader never sees an OK status with a stale timer
+			if (mMPDData->mMPDStatus == AAMPStatusType::eAAMPSTATUS_OK)
+			{
+				mManifestRefreshFailureStartMs.store(-1);
+			}
+			else if (mMPDData->mMPDDownloadResponse->iHttpRetValue == 404)
+			{
+				// HTTP 404 is not retried; the download loop exits after this attempt.
+				// Force failingForMs >= MANIFEST_REFRESH_FAILURE_GRACE_MS so
+				// HandleManifestRefreshFailureOnBuffering() sends the fatal error immediately
+				// rather than waiting for a grace period that can never complete.
+				mManifestRefreshFailureStartMs.store(tStartTime - MANIFEST_REFRESH_FAILURE_GRACE_MS);
+			}
+			else
+			{
+				// Outage starts when the first failed attempt began, so slow failures count their full duration
+				long long expected = -1;
+				mManifestRefreshFailureStartMs.compare_exchange_strong(expected, tStartTime);
+			}
+			mManifestRefreshErrorType.store(mMPDData->mMPDStatus);
+			mManifestRefreshErrorCode.store(errorCode);
+		}
+
 		if(doPush)
 		{
 			// Push the output to Queue for Consumer to take
 			pushDownloadDataToQueue();
 		}
-		// harvest downloaded manifest 
+		// harvest downloaded manifest
 		harvestManifest();
 
 		if(mCachedMPDData != nullptr)
 		{
+			// Create a backup before refresh; if refresh fails, this will be used for stitching.
+			// Clear the tracker to avoid re-reporting drops that were already logged.
 			cachedBackupData = mCachedMPDData->clone();
 			AAMPLOG_TRACE("Created copy of cached:%p backup:%p", mCachedMPDData.get(), cachedBackupData.get());
 			AAMPLOG_TRACE("Created copy of cachedMPD:%p backupMPD:%p", mCachedMPDData->mDashMpdDoc.get(), cachedBackupData->mDashMpdDoc.get());
 			AAMPLOG_TRACE("Created copy of cachedDwnResp:%p backupDwnldResp:%p", mCachedMPDData->mMPDDownloadResponse.get(), cachedBackupData->mMPDDownloadResponse.get());
 			AAMPLOG_TRACE("Created copy of cachedMPDInst:%p backupMPDInst:%p", mCachedMPDData->mMPDInstance.get(), cachedBackupData->mMPDInstance.get());
 		}
-		//Wait for duration before refresh
-		if(mMPDData->mIsLiveManifest && !mReleaseCalled)
+
+		// Wait for duration before refresh if the manifest is proper, live and release not called
+		if(mMPDData->mIsLiveManifest && !mReleaseCalled &&
+		   mMPDData->mMPDStatus == AAMPStatusType::eAAMPSTATUS_OK)
 		{
 			// Subtract the time already spent downloading, parsing, and
 			// post-processing from the target refresh interval so the total
@@ -523,29 +672,30 @@ void AampMPDDownloader::downloadMPDThread1()
 			refreshNeeded = waitForRefreshInterval(waitMs);
 		}
 
-		//Timeout/connect failure during live refresh
-		if(!firstDownload && (IsCurlTimeoutFailure(mMPDData->mMPDDownloadResponse->iHttpRetValue) || CURLE_COULDNT_CONNECT == mMPDData->mMPDDownloadResponse->iHttpRetValue))
+		// Fast retry strategy for manifest download failures and parse/content errors during live refresh.
+		// After initial tune completes (firstDownload=false), any download error triggers
+		// a 500ms fast-retry to recover quickly from transient network issues without
+		// permanently affecting the normal refresh interval. This minimizes buffer impact
+		// on low-latency streams while maintaining resilience during established playback.
+		// Skipping HTTP 404 as its not likely to recover on retry
+		if (!firstDownload &&
+			mMPDData->mMPDStatus != AAMPStatusType::eAAMPSTATUS_OK &&
+			mMPDData->mMPDDownloadResponse->iHttpRetValue != 404 &&
+			!mReleaseCalled)
 		{
-			AAMPLOG_WARN("Refresh after 500ms to handle a manifest timeout error.");
-			//Forcefully go with 500 ms refresh after a download failure
-			mRefreshInterval = MIN_DELAY_BETWEEN_PLAYLIST_UPDATE_MS;
+			const uint32_t fastRetryMs = MIN_DELAY_BETWEEN_PLAYLIST_UPDATE_MS;
+			bool isTimeoutOrConnectionFailure = IsCurlTimeoutFailure(mMPDData->mMPDDownloadResponse->iHttpRetValue)
+												|| (CURLE_COULDNT_CONNECT == mMPDData->mMPDDownloadResponse->iHttpRetValue);
+			AAMPLOG_WARN("Manifest %s [%d], fast retry after %ums.",
+							 isTimeoutOrConnectionFailure ? "timeout/connection failure" : "download error",
+							 mMPDData->mMPDDownloadResponse->iHttpRetValue, fastRetryMs);
+
 			downloadFailed = true;
-			refreshNeeded = waitForRefreshInterval(mRefreshInterval);
-		}
-		else if(!firstDownload && !IS_HTTP_SUCCESS(mMPDData->mMPDDownloadResponse->iHttpRetValue) && !mReleaseCalled)
-		{
-			// Other download failures (e.g. curl 56 CURLE_RECV_ERROR, transient HTTP errors)
-			// during an established live session: keep the refresh loop alive so the next
-			// manifest fetch is attempted rather than killing the downloader thread.
-			// Use 500ms fast-retry (same as timeout/COULDNT_CONNECT) to minimise buffer impact
-			// on LLD streams; mRefreshInterval is not permanently overwritten.
-			uint32_t fastRetry = MIN_DELAY_BETWEEN_PLAYLIST_UPDATE_MS;
-			AAMPLOG_WARN("Manifest download error [%d], will retry after %ums.", mMPDData->mMPDDownloadResponse->iHttpRetValue, fastRetry);
-			downloadFailed = true;
-			refreshNeeded = waitForRefreshInterval(fastRetry);
+			refreshNeeded = waitForRefreshInterval(fastRetryMs);
+			// Note: mRefreshInterval unchanged; normal refresh cadence resumes after recovery
 		}
 
-	}while(refreshNeeded && !mReleaseCalled);
+	} while(refreshNeeded && !mReleaseCalled);
 	AAMPLOG_INFO("Out of Manifest Download loop ...");
 }
 
@@ -553,7 +703,7 @@ void AampMPDDownloader::downloadMPDThread1()
  * @brief Harvest the manifest.
  *
  * This function is responsible for harvesting the manifest file to the specified harvest path
- * 
+ *
  * return void
  */
 void AampMPDDownloader::harvestManifest()
@@ -572,7 +722,7 @@ void AampMPDDownloader::harvestManifest()
 					getDefaultHarvestPath(harvestPath);
 					AAMPLOG_WARN("Harvest path has not configured, taking default path %s", harvestPath.c_str());
 				}
-				std::string dataStr =  mMPDData->mMPDDownloadResponse->getString(); 
+				std::string dataStr =  mMPDData->mMPDDownloadResponse->getString();
 				if(!dataStr.empty() )
 				{
 					if(aamp_WriteFile(mMPDData->mMPDDownloadResponse->sEffectiveUrl, dataStr.c_str(),(int) dataStr.length(), mediaType, mManifestRefreshCount,harvestPath.c_str()))
@@ -721,71 +871,61 @@ ManifestDownloadResponsePtr AampMPDDownloader::GetManifest(bool bWait, int iWait
 			return respPtr;
 		}
 
+		std::unique_lock<std::mutex> lck(mMPDBufferMutex);
+		if(!mMPDBufferQ.empty())
 		{
-			std::unique_lock<std::mutex> lck1(mMPDBufferMutex);
-			if(mMPDBufferQ.size())
-			{
-				return mMPDBufferQ.front();
-			}
+			return mMPDBufferQ.front();
 		}
 
-
-		// if Q is not available with any data ( for very first tune )
-		if(bWait)
+		// Q is empty (very first tune)
+		if(!bWait)
 		{
-			std::unique_lock<std::mutex> lck2(mMPDDnldDataMtx);
-			if (mMPDDnldDataCondVar.wait_for(lck2, std::chrono::milliseconds(iWaitDurationMs)) == std::cv_status::timeout)
-			{
-				// Timed out
-				respPtr->mMPDDownloadResponse->iHttpRetValue = CURLE_OPERATION_TIMEDOUT;
-
-				CURL *curlHandle = mDownloader1.GetCurlHandle();
-
-				// Optionally, log or use the handle
-				if (curlHandle)
-				{
-					/*  As the curl being properly initialized and the nameLookupTime and connectTime are populated properly
-						so we can safely assume that the timeout was due to a timeout error, we can able to get the reason through 
-						curl_easy_getinfo() and can able to obtain the reason behind the timeout error,
-					*/
-					respPtr->mMPDDownloadResponse->iHttpRetValue = GetCurlTimeoutFailureReason(curlHandle);
-				}
-				else
-				{
-					AAMPLOG_WARN("GetManifest: CURL handle is null");
-				}
-				AAMPLOG_INFO("GetManifest timer exited after timeout ...%d",iWaitDurationMs);
-				return respPtr;
-			}
-			else
-			{
-				// check if it exited the timer due to Release call
-				if(mReleaseCalled)
-				{
-					// Release called , so send error
-					respPtr->mMPDDownloadResponse->iHttpRetValue = CURLE_ABORTED_BY_CALLBACK;
-					AAMPLOG_INFO("GetManifest timer exited after Release call ...");
-					return respPtr;
-				}
-				else
-				{
-					// data received
-					AAMPLOG_INFO("GetManifest timer exited after new data received ...");
-					std::unique_lock<std::mutex> lck3(mMPDBufferMutex);
-					if(mMPDBufferQ.size())
-					{
-						return mMPDBufferQ.front();
-					}
-				}
-			}
-		}
-		else
-		{
-			// No wait
 			respPtr->mMPDDownloadResponse->iHttpRetValue = CURLE_OPERATION_TIMEDOUT;
 			AAMPLOG_INFO("GetManifest exited with no Wait call ...");
 			return respPtr;
 		}
+
+		const bool ready = mMPDDnldDataCondVar.wait_for(lck, std::chrono::milliseconds(iWaitDurationMs),
+			[this] { return mReleaseCalled || !mMPDBufferQ.empty(); });
+
+		// The queue can be empty even when ready if Release() drained it and
+		// Initialize() cleared mReleaseCalled before this point, so check both.
+		if(ready && !mReleaseCalled && !mMPDBufferQ.empty())
+		{
+			AAMPLOG_INFO("GetManifest timer exited after new data received ...");
+			return mMPDBufferQ.front();
+		}
+		lck.unlock(); // queue is not accessed below
+
+		if(!ready)
+		{
+			// Timed out
+			respPtr->mMPDDownloadResponse->iHttpRetValue = CURLE_OPERATION_TIMEDOUT;
+
+			CURL *curlHandle = mDownloader1.GetCurlHandle();
+
+			// Optionally, log or use the handle
+			if (curlHandle)
+			{
+				/*  As the curl being properly initialized and the nameLookupTime and connectTime are populated properly
+					so we can safely assume that the timeout was due to a timeout error, we can able to get the reason through
+					curl_easy_getinfo() and can able to obtain the reason behind the timeout error,
+				*/
+				respPtr->mMPDDownloadResponse->iHttpRetValue = GetCurlTimeoutFailureReason(curlHandle);
+			}
+			else
+			{
+				AAMPLOG_WARN("GetManifest: CURL handle is null");
+			}
+			AAMPLOG_INFO("GetManifest timer exited after timeout ...%d",iWaitDurationMs);
+		}
+		else
+		{
+			// Release called , so send error
+			respPtr->mMPDDownloadResponse->iHttpRetValue = CURLE_ABORTED_BY_CALLBACK;
+			AAMPLOG_INFO("GetManifest timer exited after Release call ...");
+		}
+		return respPtr;
 	}
 
 	return respPtr;
@@ -809,7 +949,7 @@ bool AampMPDDownloader::waitForRefreshInterval(uint32_t waitMs)
 	}
 
 	std::unique_lock<std::mutex> lck(mRefreshMtx);
-	if (mRefreshCondVar.wait_for(lck, std::chrono::milliseconds(waitMs)) == std::cv_status::timeout)
+	if (!mRefreshCondVar.wait_for(lck, std::chrono::milliseconds(waitMs), [this] { return mReleaseCalled.load(); }))
 	{
 		refreshNeeded = true;
 	}
@@ -844,22 +984,22 @@ bool AampMPDDownloader::readMPDData(ManifestDownloadResponsePtr dnldManifest)
 	AAMPLOG_TRACE("Publish Time of Updated manifest %" PRIu64 ", Previous manifest update time %" PRIu64, publishTimeMSec, mPublishTime);
 
 	/* If there is no update in the manifest and publish time is not zero, Set the refresh interval to a minimal value (500ms). This is done for a maximum of two times to avoid frequent manifest refresh.*/
-	if (publishTimeMSec == mPublishTime && publishTimeMSec != 0) 
+	if (publishTimeMSec == mPublishTime && publishTimeMSec != 0)
 	{
-		if (mMinimalRefreshRetryCount < 2) 
+		if (mMinimalRefreshRetryCount < 2)
 		{
 			mRefreshInterval = (uint32_t)(MIN_DELAY_BETWEEN_MPD_UPDATE_MS);
 			AAMPLOG_INFO("No update detected in manifest. Setting refresh interval to minimal refresh interval %u", mRefreshInterval);
 			mMinimalRefreshRetryCount++;
 			/* To avoid race condition when GetNetworkTime is executed ,meanwhile manifest refresh is done for next attempt */
 			retVal = false;
-		} 
+		}
 		else
 		{
 			mRefreshInterval = getMeNextManifestDownloadWaitTime(std::move(dnldManifest));
 		}
-	} 
-	else 
+	}
+	else
 	{
 		mPublishTime = publishTimeMSec;
 		mRefreshInterval = getMeNextManifestDownloadWaitTime(std::move(dnldManifest));
@@ -871,7 +1011,7 @@ bool AampMPDDownloader::readMPDData(ManifestDownloadResponsePtr dnldManifest)
 /**
 * @fn IsMPDLowLatency
 * @brief Checks if the MPD has low latency mode enabled.
-* @param LLDashData Reference to AampLLDashServiceData object 
+* @param LLDashData Reference to AampLLDashServiceData object
 * @return True if low latency mode is enabled in the MPD, false otherwise.
 */
 bool AampMPDDownloader::IsMPDLowLatency(AampLLDashServiceData &LLDashData)
@@ -957,12 +1097,12 @@ bool AampMPDDownloader::isMPDLowLatency(ManifestDownloadResponsePtr dnldManifest
 									break;
 								}
 							}
-				
+
 						}
 					}
 				}
 			}
-			
+
 			if (!isSuccess)
 			{
 				AAMPLOG_INFO("Latency availabilityTimeOffset attribute not available");
@@ -1100,9 +1240,9 @@ uint32_t AampMPDDownloader::getMeNextManifestDownloadWaitTime(ManifestDownloadRe
 			minDelayBetweenPlaylistUpdates = (uint32_t)minUpdateDuration;
 		}
 		// When the buffer hits zero, it is worth refreshing frequently in order to rebuild the buffer
-		if (bufferAvailable <= 0.5 && mIsLowLatency) 
+		if (bufferAvailable <= 0.5 && mIsLowLatency)
 		{
-			// Set the minimum delay between playlist updates 
+			// Set the minimum delay between playlist updates
 			minDelayBetweenPlaylistUpdates = (uint32_t)(MIN_DELAY_BETWEEN_MPD_UPDATE_MS);
 		}
 
@@ -1116,15 +1256,15 @@ uint32_t AampMPDDownloader::getMeNextManifestDownloadWaitTime(ManifestDownloadRe
 * @brief Registers a callback function for manifest update notifications.
 * @param fnPtr Pointer to the callback function.
 * @param cbArg Pointer to data passed to the callback function.
-* return void 
+* return void
 */
 void AampMPDDownloader::RegisterCallback(ManifestUpdateCallbackFunc fnPtr, void *cbArg)
 {
 	std::unique_lock<std::mutex> lck2(mMPDNotifierMtx);
 	AAMPLOG_INFO("Register for Callback ");
 	if(fnPtr !=NULL && mManifestUpdateCb == NULL)
-	{	
-		lck2.unlock(); 
+	{
+		lck2.unlock();
 		if(mDownloadNotifierThread.joinable())
 		{
 			AAMPLOG_INFO("Joining MPD Download thread [%zx]", GetPrintableThreadID(mDownloadNotifierThread));
@@ -1138,6 +1278,16 @@ void AampMPDDownloader::RegisterCallback(ManifestUpdateCallbackFunc fnPtr, void 
 		mDownloadNotifierThread = std::thread(&AampMPDDownloader::downloadNotifierThread, this);
 		AAMPLOG_INFO("Thread created for MPD Download notification [%zx]", GetPrintableThreadID(mDownloadNotifierThread));
 	}
+}
+
+ManifestRefreshStatus AampMPDDownloader::GetManifestRefreshStatus() const
+{
+	const long long failureStartMs = mManifestRefreshFailureStartMs.load();
+	const long long failingForMs = (failureStartMs >= 0) ? (NOW_STEADY_TS_MS - failureStartMs) : 0;
+	return ManifestRefreshStatus(
+		mManifestRefreshErrorType.load(),
+		mManifestRefreshErrorCode.load(),
+		failingForMs);
 }
 
 /**
@@ -1173,10 +1323,7 @@ void AampMPDDownloader::downloadNotifierThread()
 	// infinite wait for download notification
 	while (!mReleaseCalled && mManifestUpdateCb)
 	{
-		if(!mMPDNotifyPending.load())
-		{
-			mMPDNotifierCondVar.wait(lck2);
-		}
+		mMPDNotifierCondVar.wait(lck2, [this] { return mMPDNotifyPending.load() || mReleaseCalled || !mManifestUpdateCb; });
 
 		if(!mReleaseCalled && mManifestUpdateCb)
 		{

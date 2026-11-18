@@ -30,6 +30,11 @@
 #include "DrmSession.h"
 #include "AampCurlDownloader.h"
 #include "DrmSessionManager.h"
+#include <condition_variable>
+#include <deque>
+#include <functional>
+#include <mutex>
+#include <thread>
 
 enum ProfilerAction
 {
@@ -43,7 +48,8 @@ public:
 	/**
 	 *  @fn AampDRMLicenseManager
 	 */
-	AampDRMLicenseManager(int maxDrmSessions, PrivateInstanceAAMP *aamp);
+	AampDRMLicenseManager(int maxDrmSessions, PrivateInstanceAAMP *aamp,
+	                      DrmSessionCreator creator = nullptr);
 
 	/**
 	 *  @fn ~AampDRMLicenseManager
@@ -226,6 +232,15 @@ public:
 	bool QueueContentProtection(std::shared_ptr<DrmHelper> drmHelper, std::string periodId, uint32_t adapIdx, AampMediaType type, bool isVssPeriod = false);
 
 	/**
+	 * @brief Check whether a key ID has already been processed by the DRM session manager.
+	 *
+	 * @param[in] keyId key ID to check
+	 * @param[out] keyStatus processing status when the key was found
+	 * @return true if the key was already processed, false otherwise
+	 */
+	bool IsKeyIdProcessed(const std::vector<uint8_t>& keyId, bool& keyStatus);
+
+	/**
 	 * @brief Queue a content protection event to the pipeline
 	 * 
 	 * @param drmHelper DrmHelper shared_ptr
@@ -343,4 +358,15 @@ public:
 		const unsigned char* contentMetadataPtr = nullptr, bool isPrimarySession = false);
 
 	AAMPTuneFailure MapDrmToAampTuneFailure(DrmTuneFailure drmError);
+
+private:
+	void WatermarkWorkerThread();
+	bool EnqueueWatermarkTask(std::function<void()> task);
+	void StopWatermarkWorker();
+
+	std::mutex mWatermarkTaskMutex;
+	std::condition_variable mWatermarkTaskCondition;
+	std::deque<std::function<void()>> mWatermarkTaskQueue;
+	bool mWatermarkWorkerStopping{false};
+	std::thread mWatermarkWorker;
 };

@@ -27,6 +27,7 @@
 #include <array>
 #include <mutex>
 #include <condition_variable>
+#include <atomic>
 #include "DrmHelper.h"
 #include "AampLogManager.h"
 #include "AampDefine.h"
@@ -228,7 +229,7 @@ protected:
 	std::thread mPreFetchThread;                        /** Thread for pre-fetching license*/
 	std::deque<LicensePreFetchObjectPtr> mFetchQueue;   /** Queue for storing content protection objects*/
 	std::mutex mQMutex;                                 /** Mutex for accessing the mFetchQueue*/
-	bool mExitLoop;                                     /** Flag denotes if pre-fetch thread has to be exited*/
+	std::atomic<bool> mExitLoop;                        /** Flag denotes if pre-fetch threads have to be exited; read by both license fetching threads*/
 	std::array<bool, AAMP_TRACK_COUNT> mTrackStatus;    /** To mark the status of license acquisition for tracks*/
 
 	std::thread mVssPreFetchThread;                     /** Thread for pre-fetching VSS license*/

@@ -76,6 +76,28 @@ TEST_F(MediaStreamContextTest, GetContextTest)
     mMediaStreamContext->GetContext();
 }
 
+/** @brief ABRProfileChanged with no representation selected returns without consulting the profile map. */
+TEST_F(MediaStreamContextTest, ABRProfileChanged_NullRepresentation_ReturnsWithoutChange)
+{
+    mMediaStreamContext->profileChanged = false;
+
+    // The fake profile lookup throws on an empty profile map, so reaching it fails the test.
+    EXPECT_NO_THROW(mMediaStreamContext->ABRProfileChanged());
+    EXPECT_FALSE(mMediaStreamContext->profileChanged);
+    EXPECT_EQ(mMediaStreamContext->representation, nullptr);
+}
+
+TEST_F(MediaStreamContextTest, GetManifestTimeScaleTest)
+{
+    //Assert: FragmentDescriptor defaults TimeScale to 1 before any manifest is parsed
+    EXPECT_EQ(mMediaStreamContext->GetManifestTimeScale(), 1u);
+
+    //Act: set the manifest-declared timescale, as manifest parsing would
+    mMediaStreamContext->fragmentDescriptor.TimeScale = 90000;
+    //Assert: reflects the fragment descriptor's timescale
+    EXPECT_EQ(mMediaStreamContext->GetManifestTimeScale(), 90000u);
+}
+
 TEST_F(MediaStreamContextTest, CacheFragmentChunkTest)
 {
     //Act:call CacheFragmentChunk function
@@ -235,4 +257,47 @@ TEST_F(MediaStreamContextTest, CacheFragmentChunkTestWithDurationInTicks)
     // Confirm chunkDuration is updated in DownloadInfo
     EXPECT_EQ(downloadInfo->chunkDurationSec, durationInSeconds);
     EXPECT_EQ(mMediaStreamContext->lastDownloadedPosition.load(), absTime + durationInSeconds);
+}
+
+TEST_F(MediaStreamContextTest, CacheFragmentChunkUsesDownloadInfoPTSOffsetNotContext)
+{
+    uint8_t testData[] = "This is a test data buffer";
+    size_t testDataSize = sizeof(testData) - 1; // Exclude null terminator
+    std::string remoteUrl = "http://example.com";
+    uint64_t dnldStartTime = 123456789;
+    uint64_t durationInTicks = 90000;
+    uint32_t timeScale = 90000;
+    double absTime = 10000;
+
+    // ptsOffset captured on the DownloadInfo at fetch-start time, deliberately
+    // different from the context's live mPTSOffset (which a concurrent
+    // manifest update could change before this chunk is cached).
+    constexpr double kCapturedPtsOffsetSec = 7.5;
+    constexpr double kContextPtsOffsetAtDownloadTimeSec = 2.0;
+
+    DownloadInfoPtr downloadInfo = std::make_shared<DownloadInfo>();
+    downloadInfo->absolutePosition = absTime;
+    downloadInfo->timeScale = timeScale;
+    downloadInfo->ptsOffset = AampTime(kCapturedPtsOffsetSec);
+    mMediaStreamContext->mActiveDownloadInfo = downloadInfo;
+    mMediaStreamContext->context->mPTSOffset = AampTime(kContextPtsOffsetAtDownloadTimeSec);
+
+    CachedFragment cachedFragment;
+    EXPECT_CALL(*g_mockMediaTrack, GetFetchBuffer(true))
+        .WillOnce(Return(&cachedFragment));
+
+    bool result = mMediaStreamContext->CacheFragmentChunk(eMEDIATYPE_VIDEO, testData, testDataSize, remoteUrl, dnldStartTime, durationInTicks);
+
+    ASSERT_TRUE(result);
+    // Must reflect the value captured on DownloadInfo at fetch-start time...
+    EXPECT_DOUBLE_EQ(cachedFragment.PTSOffsetSec, kCapturedPtsOffsetSec);
+    // ...and NOT the context's live value, proving the two are decoupled.
+    EXPECT_NE(cachedFragment.PTSOffsetSec, kContextPtsOffsetAtDownloadTimeSec);
+
+    // Simulate a manifest-driven update to the context's PTS offset arriving
+    // after this chunk was cached (the exact race fixes).
+    mMediaStreamContext->context->mPTSOffset = AampTime(99.0);
+
+    // The already-cached fragment's PTSOffsetSec must remain unaffected.
+    EXPECT_DOUBLE_EQ(cachedFragment.PTSOffsetSec, kCapturedPtsOffsetSec);
 }

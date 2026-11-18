@@ -24,6 +24,12 @@
 #include <memory>
 #include <curl/curl.h>
 
+/* Same fallback as AampCurlDefine.h: only active when AAMP_HTTP3_SUPPORTED is
+ * set so that mock expectations using CURL_HTTP_VERSION_3ONLY compile on CI
+ * toolchains with older libcurl headers. */
+#if defined(AAMP_HTTP3_SUPPORTED) && !defined(CURL_HTTP_VERSION_3ONLY)
+#define CURL_HTTP_VERSION_3ONLY 31
+#endif
 
 typedef int (*curl_progress_callback_t)(void *clientp, double dltotal, double dlnow, double ultotal, double ulnow);
 typedef int (*curl_write_func_t)(void *buffer, size_t sz, size_t nmemb, void *userdata);

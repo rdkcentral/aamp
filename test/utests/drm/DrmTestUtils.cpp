@@ -50,7 +50,7 @@ TestUtilJsonWrapper::~TestUtilJsonWrapper()
 TestUtilDrm::TestUtilDrm(PrivateInstanceAAMP* privAamp)
 	: mAamp(privAamp)
 {
-	mLicenseManager = aamp_utils::make_unique<AampDRMLicenseManager>(2, mAamp);
+	mLicenseManager = std::make_unique<AampDRMLicenseManager>(2, mAamp);
 }
 
 TestUtilDrm::~TestUtilDrm()
@@ -177,7 +177,7 @@ DrmMetaDataEventPtr TestUtilDrm::createDrmMetaDataEvent()
 
 void TestUtilDrm::setupCurlPerformResponse(std::string response)
 {
-	static string responseStr = response;
+	static std::string responseStr = response;
 
 	MockCurlSetPerformCallback(
 		[](CURL* curl, MockCurlWriteCallback writeCallback, void* writeData, void* userData)

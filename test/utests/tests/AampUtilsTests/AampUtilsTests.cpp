@@ -476,6 +476,50 @@ TEST(_AampUtils, aamp_WriteFile2)
 	EXPECT_TRUE(result);
 }
 
+TEST(_AampUtils, IsTraversalFreePath)
+{
+	EXPECT_TRUE(IsTraversalFreePath(""));
+	EXPECT_TRUE(IsTraversalFreePath("/"));
+	EXPECT_TRUE(IsTraversalFreePath("/opt/aamp"));
+	EXPECT_TRUE(IsTraversalFreePath("host:8080/a/b/seg.ts"));
+	EXPECT_TRUE(IsTraversalFreePath("host/a..b/...ts/.hidden/..x"));
+	EXPECT_TRUE(IsTraversalFreePath("host//a/"));
+	EXPECT_TRUE(IsTraversalFreePath("host/%2e%2e/seg.ts"));
+
+	EXPECT_FALSE(IsTraversalFreePath(".."));
+	EXPECT_FALSE(IsTraversalFreePath("."));
+	EXPECT_FALSE(IsTraversalFreePath("../etc"));
+	EXPECT_FALSE(IsTraversalFreePath("host/../../etc/passwd"));
+	EXPECT_FALSE(IsTraversalFreePath("host/a/.."));
+	EXPECT_FALSE(IsTraversalFreePath("host/./seg.ts"));
+	EXPECT_FALSE(IsTraversalFreePath("/opt/aamp/../../nvram"));
+}
+
+TEST(_AampUtils, aamp_WriteFile_RejectsUrlTraversal)
+{
+	const char *prefix = "harvest_traversal_prefix";
+	const char *escaped = "harvest_traversal_escaped.ts";
+	std::remove(escaped);
+
+	EXPECT_FALSE(aamp_WriteFile("http://host/../../harvest_traversal_escaped.ts", teststr, strlen(teststr), eMEDIATYPE_VIDEO, 0, prefix));
+	EXPECT_FALSE(std::ifstream(escaped).good()) << "file was written outside of the harvest prefix";
+
+	EXPECT_FALSE(aamp_WriteFile("http://host/./seg.ts", teststr, strlen(teststr), eMEDIATYPE_VIDEO, 0, prefix));
+	EXPECT_FALSE(aamp_WriteFile("http://../seg.ts", teststr, strlen(teststr), eMEDIATYPE_VIDEO, 0, prefix));
+	EXPECT_FALSE(aamp_WriteFile("http://host/../../x/master.m3u8?a=b", teststr, strlen(teststr), eMEDIATYPE_MANIFEST, 1, prefix));
+	EXPECT_FALSE(aamp_WriteFile("http://host/../media.m3u8", teststr, strlen(teststr), eMEDIATYPE_PLAYLIST_VIDEO, 1, prefix));
+
+	EXPECT_TRUE(aamp_WriteFile("http://host/a..b/seg.ts", teststr, strlen(teststr), eMEDIATYPE_VIDEO, 0, prefix));
+	EXPECT_TRUE(std::ifstream(std::string(prefix) + "/host/a..b/seg.ts").good());
+}
+
+TEST(_AampUtils, aamp_WriteFile_RejectsUnsafePrefix)
+{
+	EXPECT_FALSE(aamp_WriteFile("http://host/seg.ts", teststr, strlen(teststr), eMEDIATYPE_VIDEO, 0, "harvest_prefix/../.."));
+	EXPECT_FALSE(aamp_WriteFile("http://host/seg.ts", teststr, strlen(teststr), eMEDIATYPE_VIDEO, 0, ""));
+	EXPECT_FALSE(aamp_WriteFile("http://host/seg.ts", teststr, strlen(teststr), eMEDIATYPE_VIDEO, 0, nullptr));
+}
+
 TEST(_AampUtils, getWorkingTrickplayRate)
 {
 	float rate[]        = { 4, 16, 32,  -4, -16, -32, 100};
@@ -592,6 +636,45 @@ TEST(_AampUtils, GetVideoFormatForCodec)
 	EXPECT_EQ(result->format, FORMAT_VIDEO_ES_MPEG2);
 	result = GetVideoFormatForCodec("");
 	EXPECT_EQ(result, nullptr);
+}
+
+
+TEST(_AampUtils, GetMp4DemuxVideoFormatForCodec)
+{
+	EXPECT_EQ(GetMp4DemuxVideoFormatForCodec("avc1.64001f"), FORMAT_VIDEO_ES_H264);
+	EXPECT_EQ(GetMp4DemuxVideoFormatForCodec("hvc1.2.4.L120.90"), FORMAT_VIDEO_ES_HEVC);
+	EXPECT_EQ(GetMp4DemuxVideoFormatForCodec("hev1.2.4.L120.90"), FORMAT_VIDEO_ES_HEVC);
+	// A HLS profile lists video and audio codecs together; the video lookup must pick out its own
+	EXPECT_EQ(GetMp4DemuxVideoFormatForCodec("avc1.64001f,mp4a.40.2"), FORMAT_VIDEO_ES_H264);
+	// mpeg2v has no codec configuration box AampMp4Demuxer recognizes, so it must not be predicted
+	EXPECT_EQ(GetMp4DemuxVideoFormatForCodec("mpeg2v"), FORMAT_UNKNOWN);
+	// an audio-only codec string must not yield a video format
+	EXPECT_EQ(GetMp4DemuxVideoFormatForCodec("mp4a.40.2"), FORMAT_UNKNOWN);
+	EXPECT_EQ(GetMp4DemuxVideoFormatForCodec(""), FORMAT_UNKNOWN);
+	EXPECT_EQ(GetMp4DemuxVideoFormatForCodec(nullptr), FORMAT_UNKNOWN);
+}
+
+
+TEST(_AampUtils, GetMp4DemuxAudioFormatForCodec)
+{
+	// AampMp4Demuxer strips the container and reports raw AAC, not the ADTS-framed
+	// FORMAT_AUDIO_ES_AAC that GetAudioFormatForCodec returns for these same strings
+	EXPECT_EQ(GetMp4DemuxAudioFormatForCodec("mp4a.40.2"), FORMAT_AUDIO_ES_AAC_RAW);
+	EXPECT_EQ(GetMp4DemuxAudioFormatForCodec("mp4a.40.5"), FORMAT_AUDIO_ES_AAC_RAW);
+	EXPECT_EQ(GetMp4DemuxAudioFormatForCodec("ec-3"), FORMAT_AUDIO_ES_EC3);
+	EXPECT_EQ(GetMp4DemuxAudioFormatForCodec("eac3"), FORMAT_AUDIO_ES_EC3);
+	EXPECT_EQ(GetMp4DemuxAudioFormatForCodec("ac-4.02.01.01"), FORMAT_AUDIO_ES_AC4);
+	EXPECT_EQ(GetMp4DemuxAudioFormatForCodec("ac-4.02.01.02"), FORMAT_AUDIO_ES_AC4);
+	EXPECT_EQ(GetMp4DemuxAudioFormatForCodec("avc1.64001f,mp4a.40.2"), FORMAT_AUDIO_ES_AAC_RAW);
+	// ac-3 is reported by AampMp4Demuxer via dac3
+	EXPECT_EQ(GetMp4DemuxAudioFormatForCodec("ac-3"), FORMAT_AUDIO_ES_AC3);
+	// ATMOS has no dec3-distinguishable mapping in AampMp4Demuxer, so it must
+	// fall through to FORMAT_UNKNOWN rather than being predicted incorrectly
+	EXPECT_EQ(GetMp4DemuxAudioFormatForCodec("ec+3"), FORMAT_UNKNOWN);
+	// a video-only codec string must not yield an audio format
+	EXPECT_EQ(GetMp4DemuxAudioFormatForCodec("avc1.64001f"), FORMAT_UNKNOWN);
+	EXPECT_EQ(GetMp4DemuxAudioFormatForCodec(""), FORMAT_UNKNOWN);
+	EXPECT_EQ(GetMp4DemuxAudioFormatForCodec(nullptr), FORMAT_UNKNOWN);
 }
 
 static void PrintableStdThreadHelper( size_t *out )
@@ -767,10 +850,13 @@ TEST(_AampUtils, parseAndValidateSCTE35ProgramResumption_invalid)
 
 TEST(_AampUtils, parseAndValidateSCTE35ProgramResumption_true)
 {
-	/* Start with a known-good SCTE35 signal and mutate the segmentation_type_id
-	 * byte to PROGRAM_IMMEDIATE_RESUMPTION (0x1A), then recompute CRC32.
+	/* Start with a known-good SCTE35 signal that contains no resumption type
+	 * (0x1A) and mutate the segmentation_type_id byte to
+	 * PROGRAM_IMMEDIATE_RESUMPTION (0x1A), then recompute CRC32.
+	 * The previous string ("/DBcAABMcsOF…") was a multi-descriptor payload
+	 * that already contained a 0x1A descriptor, making EXPECT_FALSE fail.
 	 */
-	const std::string providerAdvertisementStart = "/DBcAABMcsOF///wBQb+MrpDwgBGAjNDVUVJAAAACX+/ASQ1MzhlNGMzOC1iYWFjLTQ1OGEtODE1MS1mYmJiNDU3OGM1NGE1AAACD0NVRUkAAAAKf78AABoAAMkTIBk=";
+	const std::string providerAdvertisementStart = "/DB3AACRDm31AP/wBQb++u5TsABhAl9DVUVJAABhSH/AAAANu6ANSw4pYXZhaWxpZD04OTc1NTc3OTkmYml0bWFwPSZpbmFjdGl2aXR5PTM0ODAPHnVybjpjb21jYXN0OmFsdGNvbjphZGRyZXNzYWJsZTAAAC2N6xw=";
 	EXPECT_FALSE(parseAndValidateSCTE35ProgramResumption(providerAdvertisementStart));
 
 	size_t decodedLen = 0;
@@ -864,12 +950,13 @@ TEST(_AampUtils, hex_char_to_int )
 }
 
 /**
- * @brief Verify ClearAndRelease empties the vector and releases its heap storage.
+ * @brief Verify ClearAndRelease empties the vector and unconditionally releases its heap storage.
  *
  * A non-empty vector with reserved capacity is passed to ClearAndRelease.
  * Afterwards the size must be zero and the capacity must equal that of a
  * freshly default-constructed vector of the same element type, confirming
- * that the swap-with-temporary idiom actually frees the backing allocation.
+ * that the swap-with-temporary idiom releases the backing allocation.
+ * (shrink_to_fit() is non-binding and cannot be relied upon for this guarantee.)
  */
 TEST(_AampUtils, ClearAndRelease_EmptiesAndReleasesMemory)
 {
@@ -898,3 +985,4 @@ TEST(_AampUtils, ClearAndRelease_OnEmptyVector_IsNoOp)
 	EXPECT_TRUE(v.empty());
 	EXPECT_EQ(v.capacity(), std::vector<int>().capacity());
 }
+

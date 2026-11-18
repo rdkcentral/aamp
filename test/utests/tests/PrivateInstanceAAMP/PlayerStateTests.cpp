@@ -241,6 +241,10 @@ TEST_F(PlayerStateTests, PlayerState_VerifyBuffering_Playing)
 	// fake base class to g_mockStreamAbstractionAAMP.
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, IsInitialCachingSupported())
 		.WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP,
+		NotifyPipelinePausedToUnderflowMonitor()).Times(1);
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP,
+		NotifyPipelineResumedToUnderflowMonitor(AAMP_NORMAL_PLAY_RATE)).Times(1);
 
 	g_mockStreamAbstractionAAMP_MPD = std::make_shared<MockStreamAbstractionAAMP_MPD>(
 		mPrivateInstanceAAMP, 0, AAMP_NORMAL_PLAY_RATE);
@@ -270,6 +274,118 @@ TEST_F(PlayerStateTests, PlayerState_VerifyBuffering_Playing)
 	EXPECT_EQ(mPrivateInstanceAAMP->GetState(), eSTATE_PLAYING);
 
 	// Verify Stop() transitions to IDLE from PLAYING
+	mPrivateInstanceAAMP->Stop(false);
+	EXPECT_EQ(mPrivateInstanceAAMP->GetState(), eSTATE_IDLE);
+
+	g_mockStreamAbstractionAAMP_MPD.reset();
+}
+
+
+/**
+ * @test PlayerState_VerifyBuffering_AfterSeekToAd
+ * @brief Regression test for VPAAMP-705: AD markers intermittently not
+ *        displayed when a user seeks to an AD boundary on VOD.
+ *
+ *        After an initial tune reaches PLAYING (no fragment caching), a
+ *        seek to an AD boundary causes AAMP to re-tune, which re-enables
+ *        fragment caching (mFragmentCachingRequired is set again via
+ *        TuneHelper).  NotifyFirstVideoFrameDisplayed() then calls
+ *        SetStateBufferingIfRequired(), which must:
+ *          1. Disarm the underflow monitor (NotifyPipelinePausedToUnderflowMonitor)
+ *          2. Set state to BUFFERING
+ *        and NotifyFragmentCachingComplete() must:
+ *          3. Re-arm the underflow monitor (NotifyPipelineResumedToUnderflowMonitor)
+ *          4. Set state back to PLAYING
+ *
+ *        Without the VPAAMP-705 fix neither notification was made in the
+ *        fragment-caching code path, leaving the underflow monitor armed.
+ *        The false underflow it would subsequently fire suppressed the AD
+ *        marker delivery event.
+ *
+ *        The initial caching flag (IsInitialCachingSupported) is false for
+ *        the first tune and true for the seek, so mFragmentCachingRequired
+ *        is set only during the second TuneHelper call, mirroring the real
+ *        seek-to-AD code path.  State sequence:
+ *          RELEASED → INITIALIZING → PREPARED → PLAYING   (initial tune)
+ *          PLAYING  → INITIALIZING → PREPARED → BUFFERING (seek/re-tune to AD)
+ *          BUFFERING → PLAYING                             (caching complete)
+ */
+TEST_F(PlayerStateTests, PlayerState_VerifyBuffering_AfterSeekToAd)
+{
+	// ── Common config defaults ────────────────────────────────────────────
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_))
+		.WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampConfig,
+		GetConfigValue(testing::Matcher<AAMPConfigSettingInt>(_)))
+		.WillRepeatedly(Return(0));
+	EXPECT_CALL(*g_mockAampConfig,
+		GetConfigValue(testing::Matcher<AAMPConfigSettingFloat>(_)))
+		.WillRepeatedly(Return(0.0));
+	EXPECT_CALL(*g_mockAampConfig,
+		GetConfigValue(testing::Matcher<AAMPConfigSettingString>(_)))
+		.WillRepeatedly(Return(""));
+	// InitialBuffer is non-zero throughout.  Whether fragment caching is
+	// actually engaged depends on IsInitialCachingSupported() (see below).
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_InitialBuffer))
+		.WillRepeatedly(Return(1));
+
+	g_mockStreamAbstractionAAMP_MPD = std::make_shared<MockStreamAbstractionAAMP_MPD>(
+		mPrivateInstanceAAMP, 0, AAMP_NORMAL_PLAY_RATE);
+
+	// Let Tune() create its own protocol abstraction by clearing the
+	// fixture's pointer; the MPD fake routes Init() calls to our mock.
+	mPrivateInstanceAAMP->mpStreamAbstractionAAMP = nullptr;
+
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, Init(_))
+		.WillRepeatedly(Return(eAAMPSTATUS_OK));
+
+	// ── Phase 1: Initial tune → PLAYING (no fragment caching) ────────────
+	// IsInitialCachingSupported() is false here: even with InitialBuffer > 0
+	// TuneHelper will not set mFragmentCachingRequired.  This models the
+	// initial play of the VOD content before the user seeks to an AD.
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, IsInitialCachingSupported())
+		.WillRepeatedly(Return(false));
+
+	const char *testUrl = "http://localhost:80/test/manifest.mpd";
+	mPrivateInstanceAAMP->Tune(testUrl, true, "VOD");
+	ASSERT_EQ(mPrivateInstanceAAMP->GetState(), eSTATE_PREPARED);
+
+	// mFirstVideoFrameDisplayedEnabled is false (no caching), so
+	// NotifyFirstFrameReceived() transitions directly to PLAYING.
+	mPrivateInstanceAAMP->NotifyFirstFrameReceived(0);
+	ASSERT_EQ(mPrivateInstanceAAMP->GetState(), eSTATE_PLAYING);
+
+	// ── Phase 2: Seek to AD → fragment caching re-triggered ──────────────
+	// From this point IsInitialCachingSupported() returns true.  The second
+	// Tune() call (representing the internal re-tune AAMP performs on seek)
+	// causes TuneHelper to set mFragmentCachingRequired = true.
+	// GMock resolves the most-recently registered EXPECT_CALL first, so
+	// this supersedes the Phase 1 expectation above.
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, IsInitialCachingSupported())
+		.WillRepeatedly(Return(true));
+
+	// These are the two notifications that VPAAMP-705 was missing.
+	// Each must be called exactly once: the first when entering BUFFERING
+	// and the second when fragment caching completes and PLAYING resumes.
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP,
+		NotifyPipelinePausedToUnderflowMonitor()).Times(1);
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP,
+		NotifyPipelineResumedToUnderflowMonitor(AAMP_NORMAL_PLAY_RATE)).Times(1);
+
+	// Simulate the seek to AD: AAMP internally re-tunes when seeking across
+	// a period boundary, which goes through TuneHelper with InitialBuffer > 0
+	// and IsInitialCachingSupported() = true.
+	mPrivateInstanceAAMP->Tune(testUrl, true, "VOD");
+	ASSERT_EQ(mPrivateInstanceAAMP->GetState(), eSTATE_PREPARED);
+
+	// mFragmentCachingRequired is now true.  NotifyFirstVideoFrameDisplayed()
+	// drives PREPARED → BUFFERING via SetStateBufferingIfRequired().
+	mPrivateInstanceAAMP->NotifyFirstVideoFrameDisplayed();
+	EXPECT_EQ(mPrivateInstanceAAMP->GetState(), eSTATE_BUFFERING);
+
+	mPrivateInstanceAAMP->NotifyFragmentCachingComplete();
+	EXPECT_EQ(mPrivateInstanceAAMP->GetState(), eSTATE_PLAYING);
+
 	mPrivateInstanceAAMP->Stop(false);
 	EXPECT_EQ(mPrivateInstanceAAMP->GetState(), eSTATE_IDLE);
 

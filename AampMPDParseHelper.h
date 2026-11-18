@@ -249,6 +249,16 @@ public :
 	*/
 	double GetAvailabilityStartTime() { return mAvailabilityStartTime;}
 	/**
+	*   @fn SetAvailabilityStartTime
+	*   @brief  Sets AvailabilityStartTime in the helper
+	* 	@retval None
+	*/
+	void SetAvailabilityStartTime(double availabilityStartTime)
+	{
+		mAvailabilityStartTime = availabilityStartTime;
+		mMPDPeriodDetails.clear();
+	}
+	/**
 	*
 	*   @fn GetPublishTime
 	*   @brief  Returns PublishTime from the manifest
@@ -424,6 +434,7 @@ public :
 	 * @retval start time
 	 */
 	double GetFirstSegmentScaledStartTime(IPeriod * period, AampMediaType type);
+	double GetFirstPeriodSegmentStart() const { return mFirstPeriodSegmentStart; }
 
 	/**
 	 * @brief Get duration though representation iteration
@@ -561,6 +572,7 @@ private:
 	double mDeltaTime;
 	/* Vector to store the current MPD period details */
 	std::vector<PeriodInfo> mMPDPeriodDetails;
+	double mFirstPeriodSegmentStart{-1.0};
 };
 
 typedef std::shared_ptr<AampMPDParseHelper> AampMPDParseHelperPtr;

@@ -143,6 +143,11 @@ protected:
 			ConfigureTextTrack();
 		}
 
+		void SetHasDrm(bool value)
+		{
+			hasDrm = value;
+		}
+
 		void CallCachePlaylistThreadFunction()
 		{
 			CachePlaylistThreadFunction();
@@ -2048,12 +2053,6 @@ TEST_F(TrackStateTests, WaitForFreeFragmentAvailableTests)
 TEST_F(TrackStateTests, AbortWaitForCachedFragmentTests)
 {
 	TrackStateobj->AbortWaitForCachedFragment();
-}
-
-TEST_F(TrackStateTests, ProcessFragmentChunkTests)
-{
-	double result = TrackStateobj->ProcessFragmentChunk();
-	ASSERT_FALSE(result);
 }
 
 TEST_F(TrackStateTests, GetTotalInjectedDurationtest)

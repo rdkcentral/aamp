@@ -810,7 +810,7 @@ void PrivateInstanceAAMP::StopTrackDownloads(AampMediaType type)
 {
 }
 
-void PrivateInstanceAAMP::StopTrackInjection(AampMediaType type)
+void PrivateInstanceAAMP::StopTrackInjection(AampMediaType type, bool discard)
 {
 }
 
@@ -981,7 +981,7 @@ void PrivateInstanceAAMP::ResetTrackDiscontinuityIgnoredStatusForTrack(AampMedia
 {
 }
 
-void PrivateInstanceAAMP::ScheduleRetune(PlaybackErrorType errorType, AampMediaType trackType, bool bufferFull )
+void PrivateInstanceAAMP::ScheduleRetune(PlaybackErrorType errorType, AampMediaType trackType)
 {
 }
 
@@ -1284,6 +1284,20 @@ void PrivateInstanceAAMP::InitializeCC(unsigned long)
 bool PrivateInstanceAAMP::IsFirstVideoFrameDisplayedRequired()
 {
 	return false;
+}
+
+bool PrivateInstanceAAMP::CancelPauseOnFirstVideoFrame()
+{
+	return false;
+}
+
+bool PrivateInstanceAAMP::RearmPauseOnFirstVideoFrame()
+{
+	return false;
+}
+
+void PrivateInstanceAAMP::ApplySpeedChangeEffects(float rate)
+{
 }
 
 void PrivateInstanceAAMP::UpdateSubtitleTimestamp()
