@@ -3614,23 +3614,29 @@ public:
 	/**
 	 *   @fn AcquireStreamLock
 	 *
+	 *   @param[in] caller Calling function, captured automatically at the call site.
+	 *   @param[in] callerLine Calling line, captured automatically at the call site.
 	 *   @return void
 	 */
-	void AcquireStreamLock();
+	void AcquireStreamLock(const char* caller = __builtin_FUNCTION(), int callerLine = __builtin_LINE());
 
 	/**
 	 *   @fn TryStreamLock
 	 *
+	 *   @param[in] caller Calling function, captured automatically at the call site.
+	 *   @param[in] callerLine Calling line, captured automatically at the call site.
 	 *   @return True if it could I acquire it successfully else false
 	 */
-	bool TryStreamLock();
+	bool TryStreamLock(const char* caller = __builtin_FUNCTION(), int callerLine = __builtin_LINE());
 
 	/**
 	 *   @fn ReleaseStreamLock
 	 *
+	 *   @param[in] caller Calling function, captured automatically at the call site.
+	 *   @param[in] callerLine Calling line, captured automatically at the call site.
 	 *   @return void
 	 */
-	void ReleaseStreamLock();
+	void ReleaseStreamLock(const char* caller = __builtin_FUNCTION(), int callerLine = __builtin_LINE());
 
 	/**
 	 *  @fn UpdateLiveOffset

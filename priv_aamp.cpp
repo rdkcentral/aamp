@@ -11868,27 +11868,40 @@ bool PrivateInstanceAAMP::RemoveAsyncTask(int taskId)
 /**
  *  @brief acquire streamsink lock
  */
-void PrivateInstanceAAMP::AcquireStreamLock()
+void PrivateInstanceAAMP::AcquireStreamLock(const char* caller, int callerLine)
 {
+	AAMPLOG_WARN("vk::m2 ENTER AcquireStreamLock caller=%s:%d player=%p WAIT stream mutex=%p",
+		caller, callerLine, static_cast<void*>(this), static_cast<void*>(&mStreamLock));
 	mStreamLock.lock();
+	AAMPLOG_WARN("vk::m2 EXIT AcquireStreamLock caller=%s:%d player=%p ACQUIRED stream mutex=%p",
+		caller, callerLine, static_cast<void*>(this), static_cast<void*>(&mStreamLock));
 }
 
 /**
  * @brief try to acquire streamsink lock
  *
  */
-bool PrivateInstanceAAMP::TryStreamLock()
+bool PrivateInstanceAAMP::TryStreamLock(const char* caller, int callerLine)
 {
-	return mStreamLock.try_lock();
+	AAMPLOG_WARN("vk::m2 ENTER TryStreamLock caller=%s:%d player=%p TRY stream mutex=%p",
+		caller, callerLine, static_cast<void*>(this), static_cast<void*>(&mStreamLock));
+	bool locked = mStreamLock.try_lock();
+	AAMPLOG_WARN("vk::m2 EXIT TryStreamLock caller=%s:%d player=%p stream mutex=%p acquired=%d returning=%d",
+		caller, callerLine, static_cast<void*>(this), static_cast<void*>(&mStreamLock), locked, locked);
+	return locked;
 }
 
 /**
  * @brief release streamsink lock
  *
  */
-void PrivateInstanceAAMP::ReleaseStreamLock()
+void PrivateInstanceAAMP::ReleaseStreamLock(const char* caller, int callerLine)
 {
+	AAMPLOG_WARN("vk::m2 ENTER ReleaseStreamLock caller=%s:%d player=%p RELEASING stream mutex=%p",
+		caller, callerLine, static_cast<void*>(this), static_cast<void*>(&mStreamLock));
 	mStreamLock.unlock();
+	AAMPLOG_WARN("vk::m2 EXIT ReleaseStreamLock caller=%s:%d player=%p RELEASED one recursion level of stream mutex=%p",
+		caller, callerLine, static_cast<void*>(this), static_cast<void*>(&mStreamLock));
 }
 
 /**

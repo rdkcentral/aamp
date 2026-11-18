@@ -311,7 +311,7 @@ void PrivateInstanceAAMP::EnableDownloads()
 {
 }
 
-void PrivateInstanceAAMP::AcquireStreamLock()
+void PrivateInstanceAAMP::AcquireStreamLock(const char*, int)
 {
 }
 
@@ -319,7 +319,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 {
 }
 
-void PrivateInstanceAAMP::ReleaseStreamLock()
+void PrivateInstanceAAMP::ReleaseStreamLock(const char*, int)
 {
 }
 
@@ -340,7 +340,7 @@ void PrivateInstanceAAMP::SetVideoZoom(VideoZoomMode zoom)
 {
 }
 
-bool PrivateInstanceAAMP::TryStreamLock()
+bool PrivateInstanceAAMP::TryStreamLock(const char*, int)
 {
 	return false;
 }
