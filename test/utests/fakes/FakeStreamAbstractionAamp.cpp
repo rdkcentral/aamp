@@ -305,7 +305,8 @@ bool MediaTrack::isPlaylistDownloaderThreadStarted()
 	return true;
 }
 
-MediaTrack::MediaTrack(TrackType type, PrivateInstanceAAMP* aamp, const char* name) : name(name), aamp(aamp), type(type), abort(false), abortInject(false)
+MediaTrack::MediaTrack(TrackType type, PrivateInstanceAAMP* aamp, const char* name) :
+	name(name), type(type), aamp(aamp)
 {
 }
 
