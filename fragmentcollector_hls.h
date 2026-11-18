@@ -440,23 +440,15 @@ class TrackState : public MediaTrack
 		/***************************************************************************
 		 * @fn GetEffectivePlaylistUrl
 		 *
-		 * @return string - copy of the original playlist URL(redirected), taken under the playlist lock
+		 * @return string - original playlist URL(redirected)
 		 ***************************************************************************/
-		std::string GetEffectivePlaylistUrl() override
-		{
-			std::lock_guard<std::mutex> guard(mPlaylistMutex);
-			return mEffectiveUrl;
-		}
+		std::string& GetEffectivePlaylistUrl() override { return mEffectiveUrl; }
 		/***************************************************************************
 		 * @fn SetEffectivePlaylistUrl
 		 *
 		 * @return none
 		 ***************************************************************************/
-		void SetEffectivePlaylistUrl(std::string url) override
-		{
-			std::lock_guard<std::mutex> guard(mPlaylistMutex);
-			mEffectiveUrl = std::move(url);
-		}
+		void SetEffectivePlaylistUrl(std::string url) override { mEffectiveUrl = std::move(url); }
 		/***************************************************************************
 		 * @fn GetLastPlaylistDownloadTime
 		 *
