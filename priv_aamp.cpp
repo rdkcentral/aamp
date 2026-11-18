@@ -5307,7 +5307,9 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		lastUnderFlowTimeMs[i] = 0;
 	}
 	{
+		AAMPLOG_WARN("vk::m3 WAIT fragment caching mutex=%p", static_cast<void*>(&mFragmentCachingLock));
 		std::lock_guard<std::recursive_mutex> guard(mFragmentCachingLock);
+		AAMPLOG_WARN("vk::m3 ACQUIRED fragment caching mutex=%p", static_cast<void*>(&mFragmentCachingLock));
 		EnableAllMediaDownloads();
 		//LazilyLoadConfigIfNeeded();
 		mFragmentCachingRequired = false;
@@ -5315,6 +5317,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		mPauseOnFirstVideoFrameCancelled = false;
 		mFirstVideoFrameDisplayedEnabled = false;
 		prevFirstPeriodStartTime = 0;
+		AAMPLOG_WARN("vk::m3 RELEASING one recursion level of fragment caching mutex=%p on scope exit", static_cast<void*>(&mFragmentCachingLock));
 	}
 	if( seekWhilePaused )
 	{ // Player state not updated correctly after seek
@@ -5738,9 +5741,12 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			&& rate == AAMP_NORMAL_PLAY_RATE
 			&& mpStreamAbstractionAAMP->IsInitialCachingSupported())
 		{
+			AAMPLOG_WARN("vk::m3 WAIT fragment caching mutex=%p", static_cast<void*>(&mFragmentCachingLock));
 			std::lock_guard<std::recursive_mutex> guard(mFragmentCachingLock);
+			AAMPLOG_WARN("vk::m3 ACQUIRED fragment caching mutex=%p", static_cast<void*>(&mFragmentCachingLock));
 			mFirstVideoFrameDisplayedEnabled = true;
 			mFragmentCachingRequired = true;
+			AAMPLOG_WARN("vk::m3 RELEASING one recursion level of fragment caching mutex=%p on scope exit", static_cast<void*>(&mFragmentCachingLock));
 		}
 
 		AAMPLOG_INFO("TuneHelper - seek_pos: %f", seek_pos_seconds);
@@ -7068,7 +7074,9 @@ void PrivateInstanceAAMP::EndOfStreamReached(AampMediaType mediaType)
 
 		// If EOS during Buffering, set Playing and let buffer to dry out
 		// Sink is already unpaused by EndOfStreamReached()
+		AAMPLOG_WARN("vk::m3 WAIT fragment caching mutex=%p", static_cast<void*>(&mFragmentCachingLock));
 		std::lock_guard<std::recursive_mutex> guard(mFragmentCachingLock);
+		AAMPLOG_WARN("vk::m3 ACQUIRED fragment caching mutex=%p", static_cast<void*>(&mFragmentCachingLock));
 		mFragmentCachingRequired = false;
 		AAMPPlayerState state = GetState();
 		if(state == eSTATE_BUFFERING)
@@ -7079,6 +7087,7 @@ void PrivateInstanceAAMP::EndOfStreamReached(AampMediaType mediaType)
 			}
 			SetState(eSTATE_PLAYING);
 		}
+		AAMPLOG_WARN("vk::m3 RELEASING one recursion level of fragment caching mutex=%p on scope exit", static_cast<void*>(&mFragmentCachingLock));
 	}
 }
 
@@ -7605,8 +7614,8 @@ long long PrivateInstanceAAMP::GetPositionMs()
 
 bool PrivateInstanceAAMP::LockGetPositionMilliseconds()
 {
-	AAMPLOG_WARN("vk::m1 ENTER LockGetPositionMilliseconds player=%p TRY soft mutex=%p",
-		static_cast<void*>(this), static_cast<void*>(&mGetPositionMillisecondsMutexSoft));
+	AAMPLOG_WARN("vk::m1 ENTER LockGetPositionMilliseconds TRY soft mutex=%p",
+		static_cast<void*>(&mGetPositionMillisecondsMutexSoft));
 	if(!mGetPositionMillisecondsMutexSoft.try_lock())
 	{
 		//In situations that could have deadlocked, continue & make a log entry instead.
@@ -7622,8 +7631,8 @@ bool PrivateInstanceAAMP::LockGetPositionMilliseconds()
 
 void PrivateInstanceAAMP::UnlockGetPositionMilliseconds()
 {
-	AAMPLOG_WARN("vk::m1 ENTER UnlockGetPositionMilliseconds player=%p TRY soft mutex=%p",
-		static_cast<void*>(this), static_cast<void*>(&mGetPositionMillisecondsMutexSoft));
+	AAMPLOG_WARN("vk::m1 ENTER UnlockGetPositionMilliseconds TRY soft mutex=%p",
+		static_cast<void*>(&mGetPositionMillisecondsMutexSoft));
 
 	//Avoid the possibility of unlocking an unlocked mutex (undefined behavior).
 	if(mGetPositionMillisecondsMutexSoft.try_lock())
@@ -7640,14 +7649,14 @@ void PrivateInstanceAAMP::UnlockGetPositionMilliseconds()
 
 long long PrivateInstanceAAMP::GetPositionRelativeToSeekMilliseconds(long long rate, long long trickStartUTCMS)
 {
-	AAMPLOG_WARN("vk::m1 ENTER GetPositionRelativeToSeekMilliseconds player=%p", static_cast<void*>(this));
+	AAMPLOG_WARN("vk::m1 ENTER GetPositionRelativeToSeekMilliseconds");
 	long long position = -1;
 	//Audio only playback is un-tested. Hence disabled for now
 	if (ISCONFIGSET_PRIV(eAAMPConfig_EnableGstPositionQuery) && !ISCONFIGSET_PRIV(eAAMPConfig_AudioOnlyPlayback) && !mAudioOnlyPb)
 	{
-		AAMPLOG_WARN("vk::m1 BEFORE GetStreamSink player=%p", static_cast<void*>(this));
+		AAMPLOG_WARN("vk::m1 BEFORE GetStreamSink");
 		StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
-		AAMPLOG_WARN("vk::m1 AFTER GetStreamSink player=%p sink=%p", static_cast<void*>(this), static_cast<void*>(sink));
+		AAMPLOG_WARN("vk::m1 AFTER GetStreamSink sink=%p", static_cast<void*>(sink));
 		if (sink)
 		{
 			AAMPLOG_WARN("vk::m1 BEFORE sink GetPositionMilliseconds sink=%p", static_cast<void*>(sink));
@@ -7680,7 +7689,7 @@ long long PrivateInstanceAAMP::GetPositionRelativeToSeekMilliseconds(long long r
 		position = (((elapsedTime > 1000) ? elapsedTime : 0) * rate);
 	}
 
-	AAMPLOG_WARN("vk::m1 EXIT GetPositionRelativeToSeekMilliseconds player=%p returning=%lld", static_cast<void*>(this), position);
+	AAMPLOG_WARN("vk::m1 EXIT GetPositionRelativeToSeekMilliseconds returning=%lld", position);
 	return position;
 }
 
@@ -7689,8 +7698,8 @@ long long PrivateInstanceAAMP::GetPositionRelativeToSeekMilliseconds(long long r
  */
 long long PrivateInstanceAAMP::GetPositionMilliseconds()
 {
-	AAMPLOG_WARN("vk::m1 ENTER GetPositionMilliseconds player=%p WAIT hard mutex=%p",
-		static_cast<void*>(this), static_cast<void*>(&mGetPositionMillisecondsMutexHard));
+	AAMPLOG_WARN("vk::m1 ENTER GetPositionMilliseconds WAIT hard mutex=%p",
+		static_cast<void*>(&mGetPositionMillisecondsMutexHard));
 	 /* Ideally between LockGetPositionMilliseconds() & UnlockGetPositionMilliseconds() this function would be blocked
 	 * (i.e. all mGetPositionMillisecondsMutexSoft.try_lock() replaced with lock()) this would
 	 * ensure mState & seek_pos_seconds are synchronized during this function.
@@ -7779,8 +7788,8 @@ long long PrivateInstanceAAMP::GetPositionMilliseconds()
 		mGetPositionMillisecondsMutexSoft.unlock();
 		AAMPLOG_WARN("vk::m1 RELEASED soft mutex=%p", static_cast<void*>(&mGetPositionMillisecondsMutexSoft));
 	}
-	AAMPLOG_WARN("vk::m1 EXIT GetPositionMilliseconds player=%p returning=%lld; hard mutex=%p released on scope exit",
-		static_cast<void*>(this), positionMilliseconds, static_cast<void*>(&mGetPositionMillisecondsMutexHard));
+	AAMPLOG_WARN("vk::m1 EXIT GetPositionMilliseconds returning=%lld; hard mutex=%p released on scope exit",
+		positionMilliseconds, static_cast<void*>(&mGetPositionMillisecondsMutexHard));
 	return positionMilliseconds;
 }
 
@@ -8734,7 +8743,9 @@ void PrivateInstanceAAMP::ResetEOSSignalledFlag()
  */
 void PrivateInstanceAAMP::NotifyFragmentCachingComplete()
 {
+	AAMPLOG_WARN("vk::m3 WAIT fragment caching mutex=%p", static_cast<void*>(&mFragmentCachingLock));
 	std::lock_guard<std::recursive_mutex> guard(mFragmentCachingLock);
+	AAMPLOG_WARN("vk::m3 ACQUIRED fragment caching mutex=%p", static_cast<void*>(&mFragmentCachingLock));
 	mFragmentCachingRequired = false;
 	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 	if (sink)
@@ -8750,6 +8761,7 @@ void PrivateInstanceAAMP::NotifyFragmentCachingComplete()
 		}
 		SetState(eSTATE_PLAYING);
 	}
+	AAMPLOG_WARN("vk::m3 RELEASING one recursion level of fragment caching mutex=%p on scope exit", static_cast<void*>(&mFragmentCachingLock));
 }
 
 /**
@@ -10830,7 +10842,9 @@ bool PrivateInstanceAAMP::IsFirstVideoFrameDisplayedRequired()
  */
 bool PrivateInstanceAAMP::CancelPauseOnFirstVideoFrame()
 {
+	AAMPLOG_WARN("vk::m3 WAIT fragment caching mutex=%p", static_cast<void*>(&mFragmentCachingLock));
 	std::lock_guard<std::recursive_mutex> guard(mFragmentCachingLock);
+	AAMPLOG_WARN("vk::m3 ACQUIRED fragment caching mutex=%p", static_cast<void*>(&mFragmentCachingLock));
 	bool pending = (mFirstVideoFrameDisplayedEnabled && mPauseOnFirstVideoFrameDisp);
 	if (pending)
 	{
@@ -10843,6 +10857,7 @@ bool PrivateInstanceAAMP::CancelPauseOnFirstVideoFrame()
 		mPauseOnFirstVideoFrameDisp = false;
 		mPauseOnFirstVideoFrameCancelled = true;
 	}
+	AAMPLOG_WARN("vk::m3 RELEASING one recursion level of fragment caching mutex=%p on return", static_cast<void*>(&mFragmentCachingLock));
 	return pending;
 }
 
@@ -10851,7 +10866,9 @@ bool PrivateInstanceAAMP::CancelPauseOnFirstVideoFrame()
  */
 bool PrivateInstanceAAMP::RearmPauseOnFirstVideoFrame()
 {
+	AAMPLOG_WARN("vk::m3 WAIT fragment caching mutex=%p", static_cast<void*>(&mFragmentCachingLock));
 	std::lock_guard<std::recursive_mutex> guard(mFragmentCachingLock);
+	AAMPLOG_WARN("vk::m3 ACQUIRED fragment caching mutex=%p", static_cast<void*>(&mFragmentCachingLock));
 	bool rearmed = (mFirstVideoFrameDisplayedEnabled && mPauseOnFirstVideoFrameCancelled);
 	if (rearmed)
 	{
@@ -10859,6 +10876,7 @@ bool PrivateInstanceAAMP::RearmPauseOnFirstVideoFrame()
 		mPauseOnFirstVideoFrameDisp = true;
 		mPauseOnFirstVideoFrameCancelled = false;
 	}
+	AAMPLOG_WARN("vk::m3 RELEASING one recursion level of fragment caching mutex=%p on return", static_cast<void*>(&mFragmentCachingLock));
 	return rearmed;
 }
 
@@ -10888,9 +10906,12 @@ void PrivateInstanceAAMP::NotifyFirstVideoFrameDisplayed()
 	// Serialises with CancelPauseOnFirstVideoFrame()/RearmPauseOnFirstVideoFrame() in SetRate().
 	// Unlock before calling SetState(). This ensures that any state change notifications triggered by SetState()
 	// do not cause a deadlock with mFragmentCachingLock.
+	AAMPLOG_WARN("vk::m3 WAIT fragment caching mutex=%p", static_cast<void*>(&mFragmentCachingLock));
 	std::unique_lock<std::recursive_mutex> lock(mFragmentCachingLock);
+	AAMPLOG_WARN("vk::m3 ACQUIRED fragment caching mutex=%p", static_cast<void*>(&mFragmentCachingLock));
 	if(!mFirstVideoFrameDisplayedEnabled)
 	{
+		AAMPLOG_WARN("vk::m3 RELEASING one recursion level of fragment caching mutex=%p on early return", static_cast<void*>(&mFragmentCachingLock));
 		return;
 	}
 
@@ -10902,6 +10923,7 @@ void PrivateInstanceAAMP::NotifyFirstVideoFrameDisplayed()
 	if (state == eSTATE_IDLE)
 	{
 		AAMPLOG_WARN( "skipped as in IDLE state" );
+		AAMPLOG_WARN("vk::m3 RELEASING one recursion level of fragment caching mutex=%p on early return", static_cast<void*>(&mFragmentCachingLock));
 		return;
 	}
 
@@ -10912,6 +10934,7 @@ void PrivateInstanceAAMP::NotifyFirstVideoFrameDisplayed()
 		AAMPPlayerState state = GetState();
 		if(state != eSTATE_SEEKING)
 		{
+			AAMPLOG_WARN("vk::m3 RELEASING one recursion level of fragment caching mutex=%p on early return", static_cast<void*>(&mFragmentCachingLock));
 			return;
 		}
 
@@ -10923,7 +10946,9 @@ void PrivateInstanceAAMP::NotifyFirstVideoFrameDisplayed()
 		ApplyPausedDownloadPolicy();
 		if(PausePipeline(true, false))
 		{
+			AAMPLOG_WARN("vk::m3 RELEASING fragment caching mutex=%p", static_cast<void*>(&mFragmentCachingLock));
 			lock.unlock();
+			AAMPLOG_WARN("vk::m3 RELEASED one recursion level of fragment caching mutex=%p", static_cast<void*>(&mFragmentCachingLock));
 			SetState(eSTATE_PAUSED);
 		}
 		else
@@ -10935,8 +10960,14 @@ void PrivateInstanceAAMP::NotifyFirstVideoFrameDisplayed()
 	else if(!SetStateBufferingIfRequired())
 	{
 		// If Buffering state was not needed, set PLAYING state
+		AAMPLOG_WARN("vk::m3 RELEASING fragment caching mutex=%p", static_cast<void*>(&mFragmentCachingLock));
 		lock.unlock();
+		AAMPLOG_WARN("vk::m3 RELEASED one recursion level of fragment caching mutex=%p", static_cast<void*>(&mFragmentCachingLock));
 		SetState(eSTATE_PLAYING);
+	}
+	if (lock.owns_lock())
+	{
+		AAMPLOG_WARN("vk::m3 RELEASING one recursion level of fragment caching mutex=%p on scope exit", static_cast<void*>(&mFragmentCachingLock));
 	}
 }
 
@@ -10946,7 +10977,9 @@ void PrivateInstanceAAMP::NotifyFirstVideoFrameDisplayed()
 bool PrivateInstanceAAMP::SetStateBufferingIfRequired()
 {
 	bool bufferingSet = false;
+	AAMPLOG_WARN("vk::m3 WAIT fragment caching mutex=%p", static_cast<void*>(&mFragmentCachingLock));
 	std::lock_guard<std::recursive_mutex> guard(mFragmentCachingLock);
+	AAMPLOG_WARN("vk::m3 ACQUIRED fragment caching mutex=%p", static_cast<void*>(&mFragmentCachingLock));
 	if(IsFragmentCachingRequired())
 	{
 		bufferingSet = true;
@@ -10966,6 +10999,7 @@ bool PrivateInstanceAAMP::SetStateBufferingIfRequired()
 			SetState(eSTATE_BUFFERING);
 		}
 	}
+	AAMPLOG_WARN("vk::m3 RELEASING one recursion level of fragment caching mutex=%p on return", static_cast<void*>(&mFragmentCachingLock));
 	return bufferingSet;
 }
 
@@ -11870,11 +11904,11 @@ bool PrivateInstanceAAMP::RemoveAsyncTask(int taskId)
  */
 void PrivateInstanceAAMP::AcquireStreamLock(const char* caller, int callerLine)
 {
-	AAMPLOG_WARN("vk::m2 ENTER AcquireStreamLock caller=%s:%d player=%p WAIT stream mutex=%p",
-		caller, callerLine, static_cast<void*>(this), static_cast<void*>(&mStreamLock));
+	AAMPLOG_WARN("vk::m2 ENTER AcquireStreamLock caller=%s:%d WAIT stream mutex=%p",
+		caller, callerLine, static_cast<void*>(&mStreamLock));
 	mStreamLock.lock();
-	AAMPLOG_WARN("vk::m2 EXIT AcquireStreamLock caller=%s:%d player=%p ACQUIRED stream mutex=%p",
-		caller, callerLine, static_cast<void*>(this), static_cast<void*>(&mStreamLock));
+	AAMPLOG_WARN("vk::m2 EXIT AcquireStreamLock caller=%s:%d ACQUIRED stream mutex=%p",
+		caller, callerLine, static_cast<void*>(&mStreamLock));
 }
 
 /**
@@ -11883,11 +11917,11 @@ void PrivateInstanceAAMP::AcquireStreamLock(const char* caller, int callerLine)
  */
 bool PrivateInstanceAAMP::TryStreamLock(const char* caller, int callerLine)
 {
-	AAMPLOG_WARN("vk::m2 ENTER TryStreamLock caller=%s:%d player=%p TRY stream mutex=%p",
-		caller, callerLine, static_cast<void*>(this), static_cast<void*>(&mStreamLock));
+	AAMPLOG_WARN("vk::m2 ENTER TryStreamLock caller=%s:%d TRY stream mutex=%p",
+		caller, callerLine, static_cast<void*>(&mStreamLock));
 	bool locked = mStreamLock.try_lock();
-	AAMPLOG_WARN("vk::m2 EXIT TryStreamLock caller=%s:%d player=%p stream mutex=%p acquired=%d returning=%d",
-		caller, callerLine, static_cast<void*>(this), static_cast<void*>(&mStreamLock), locked, locked);
+	AAMPLOG_WARN("vk::m2 EXIT TryStreamLock caller=%s:%d stream mutex=%p acquired=%d returning=%d",
+		caller, callerLine, static_cast<void*>(&mStreamLock), locked, locked);
 	return locked;
 }
 
@@ -11897,11 +11931,11 @@ bool PrivateInstanceAAMP::TryStreamLock(const char* caller, int callerLine)
  */
 void PrivateInstanceAAMP::ReleaseStreamLock(const char* caller, int callerLine)
 {
-	AAMPLOG_WARN("vk::m2 ENTER ReleaseStreamLock caller=%s:%d player=%p RELEASING stream mutex=%p",
-		caller, callerLine, static_cast<void*>(this), static_cast<void*>(&mStreamLock));
+	AAMPLOG_WARN("vk::m2 ENTER ReleaseStreamLock caller=%s:%d RELEASING stream mutex=%p",
+		caller, callerLine, static_cast<void*>(&mStreamLock));
 	mStreamLock.unlock();
-	AAMPLOG_WARN("vk::m2 EXIT ReleaseStreamLock caller=%s:%d player=%p RELEASED one recursion level of stream mutex=%p",
-		caller, callerLine, static_cast<void*>(this), static_cast<void*>(&mStreamLock));
+	AAMPLOG_WARN("vk::m2 EXIT ReleaseStreamLock caller=%s:%d RELEASED one recursion level of stream mutex=%p",
+		caller, callerLine, static_cast<void*>(&mStreamLock));
 }
 
 /**

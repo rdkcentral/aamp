@@ -926,7 +926,9 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 						{
 							// Serialise with NotifyFirstVideoFrameDisplayed(): resolve the pending first-frame seek before
 							// entering BUFFERING, then keep the cancellation and sink resume atomic.
+							AAMPLOG_WARN("vk::m3 BEFORE LockFragmentCaching");
 							auto cachingLock = aamp->LockFragmentCaching();
+							AAMPLOG_WARN("vk::m3 AFTER LockFragmentCaching");
 							// A pending seek's callback must decide whether to enter BUFFERING or PLAYING after its first frame.
 							firstFrameDeferral = aamp->CancelPauseOnFirstVideoFrame();
 							deferredNotifyRate = aamp->rate;
@@ -948,7 +950,9 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 							// and a listener calling SetRate(0) must then not be dropped by the "already paused" check.
 							aamp->pipeline_paused = false;
 							aamp->ResumeDownloads();
+							AAMPLOG_WARN("vk::m3 RELEASING one recursion level of fragment caching lock on scope exit");
 						}
+						AAMPLOG_WARN("vk::m3 RELEASED one recursion level of fragment caching lock");
 						if(!bufferingSet && !firstFrameDeferral)
 						{
 							// required since buffers are already cached in paused state
@@ -966,7 +970,9 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 						// Re-arming the pause and committing pipeline_paused must be one transaction with respect to
 						// NotifyFirstVideoFrameDisplayed(). Otherwise the callback can pause the sink, publish PAUSED and a
 						// listener can resume before pipeline_paused = true is written, which would then be a stale value.
+						AAMPLOG_WARN("vk::m3 BEFORE LockFragmentCaching");
 						auto cachingLock = aamp->LockFragmentCaching();
+						AAMPLOG_WARN("vk::m3 AFTER LockFragmentCaching");
 						// A resume may have cancelled the pause on first frame of a seek while paused; keep the latest pause intent.
 						firstFrameDeferral = aamp->RearmPauseOnFirstVideoFrame();
 						if (firstFrameDeferral)
@@ -974,7 +980,9 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 							deferredNotifyRate = 0;
 							aamp->pipeline_paused = true;
 						}
+						AAMPLOG_WARN("vk::m3 RELEASING one recursion level of fragment caching lock on scope exit");
 					}
+					AAMPLOG_WARN("vk::m3 RELEASED one recursion level of fragment caching lock");
 					if (firstFrameDeferral)
 					{
 						// The seek's first frame has not been displayed yet. Stopping downloads would block injection and
@@ -1179,9 +1187,9 @@ static gboolean SeekAfterPrepared(gpointer ptr)
 
 		 /* PositionMillisecondLock is intended to ensure both state and seek_pos_seconds (in TuneHelper)
 		 * are updated before GetPositionMilliseconds() can be used*/
-		AAMPLOG_WARN("vk::m1 BEFORE LockGetPositionMilliseconds player=%p", static_cast<void*>(aamp));
+		AAMPLOG_WARN("vk::m1 BEFORE LockGetPositionMilliseconds");
 		auto PositionMillisecondLocked = aamp->LockGetPositionMilliseconds();
-		AAMPLOG_WARN("vk::m1 AFTER LockGetPositionMilliseconds player=%p acquired=%d", static_cast<void*>(aamp), PositionMillisecondLocked);
+		AAMPLOG_WARN("vk::m1 AFTER LockGetPositionMilliseconds acquired=%d", PositionMillisecondLocked);
 		aamp->SetState(eSTATE_SEEKING);
 		/* Clear setting playerrate flag */
 		aamp->mSetPlayerRateAfterFirstframe=false;
@@ -1189,9 +1197,9 @@ static gboolean SeekAfterPrepared(gpointer ptr)
 		aamp->TuneHelper(tuneType);
 		if(PositionMillisecondLocked)
 		{
-			AAMPLOG_WARN("vk::m1 BEFORE UnlockGetPositionMilliseconds player=%p", static_cast<void*>(aamp));
+			AAMPLOG_WARN("vk::m1 BEFORE UnlockGetPositionMilliseconds");
 			aamp->UnlockGetPositionMilliseconds();
-			AAMPLOG_WARN("vk::m1 AFTER UnlockGetPositionMilliseconds player=%p", static_cast<void*>(aamp));
+			AAMPLOG_WARN("vk::m1 AFTER UnlockGetPositionMilliseconds");
 		}
 		aamp->ReleaseStreamLock();
 		if (sentSpeedChangedEv)
@@ -1388,9 +1396,9 @@ void PlayerInstanceAAMP::SeekInternal(double secondsRelativeToTuneTime, bool kee
 			/*
 			 * PositionMillisecondLock is intended to ensure both state and seek_pos_seconds
 			 * are updated before GetPositionMilliseconds() can be used*/
-			AAMPLOG_WARN("vk::m1 BEFORE LockGetPositionMilliseconds player=%p", static_cast<void*>(aamp));
+			AAMPLOG_WARN("vk::m1 BEFORE LockGetPositionMilliseconds");
 			auto PositionMillisecondLocked = aamp->LockGetPositionMilliseconds();
-			AAMPLOG_WARN("vk::m1 AFTER LockGetPositionMilliseconds player=%p acquired=%d", static_cast<void*>(aamp), PositionMillisecondLocked);
+			AAMPLOG_WARN("vk::m1 AFTER LockGetPositionMilliseconds acquired=%d", PositionMillisecondLocked);
 
 			if (tuneType == eTUNETYPE_SEEK)
 			{
@@ -1417,14 +1425,16 @@ void PlayerInstanceAAMP::SeekInternal(double secondsRelativeToTuneTime, bool kee
 				aamp->SetState(eSTATE_SEEKING);
 				if(PositionMillisecondLocked)
 				{
-					AAMPLOG_WARN("vk::m1 BEFORE UnlockGetPositionMilliseconds player=%p", static_cast<void*>(aamp));
+					AAMPLOG_WARN("vk::m1 BEFORE UnlockGetPositionMilliseconds");
 					aamp->UnlockGetPositionMilliseconds();
-					AAMPLOG_WARN("vk::m1 AFTER UnlockGetPositionMilliseconds player=%p", static_cast<void*>(aamp));
+					AAMPLOG_WARN("vk::m1 AFTER UnlockGetPositionMilliseconds");
 				}
 				/* Clear setting playerrate flag */
 				aamp->mSetPlayerRateAfterFirstframe=false;
 				aamp->AcquireStreamLock();
+				AAMPLOG_WARN("vk::g BEFORE TuneHelper player");
 				aamp->TuneHelper(tuneType, seekWhilePause);
+				AAMPLOG_WARN("vk::g AFTER TuneHelper player");
 				aamp->ReleaseStreamLock();
 				if (sentSpeedChangedEv && (!seekWhilePause) )
 				{
@@ -1433,9 +1443,9 @@ void PlayerInstanceAAMP::SeekInternal(double secondsRelativeToTuneTime, bool kee
 			}
 			else if(PositionMillisecondLocked)
 			{
-				AAMPLOG_WARN("vk::m1 BEFORE UnlockGetPositionMilliseconds player=%p", static_cast<void*>(aamp));
+				AAMPLOG_WARN("vk::m1 BEFORE UnlockGetPositionMilliseconds");
 				aamp->UnlockGetPositionMilliseconds();
-				AAMPLOG_WARN("vk::m1 AFTER UnlockGetPositionMilliseconds player=%p", static_cast<void*>(aamp));
+				AAMPLOG_WARN("vk::m1 AFTER UnlockGetPositionMilliseconds");
 			}
 			if (aamp->mbPlayEnabled)
 			{

@@ -3340,7 +3340,10 @@ public:
 	 */
 	std::unique_lock<std::recursive_mutex> LockFragmentCaching()
 	{
-		return std::unique_lock<std::recursive_mutex>(mFragmentCachingLock);
+		AAMPLOG_WARN("vk::m3 WAIT fragment caching mutex=%p", static_cast<void*>(&mFragmentCachingLock));
+		std::unique_lock<std::recursive_mutex> lock(mFragmentCachingLock);
+		AAMPLOG_WARN("vk::m3 ACQUIRED fragment caching mutex=%p; returning owning lock", static_cast<void*>(&mFragmentCachingLock));
+		return lock;
 	}
 
 	/**
@@ -3352,7 +3355,10 @@ public:
 	 */
 	std::unique_lock<std::recursive_mutex> TryLockFragmentCaching()
 	{
-		return std::unique_lock<std::recursive_mutex>(mFragmentCachingLock, std::try_to_lock);
+		AAMPLOG_WARN("vk::m3 TRY fragment caching mutex=%p", static_cast<void*>(&mFragmentCachingLock));
+		std::unique_lock<std::recursive_mutex> lock(mFragmentCachingLock, std::try_to_lock);
+		AAMPLOG_WARN("vk::m3 TRY RESULT fragment caching mutex=%p acquired=%d", static_cast<void*>(&mFragmentCachingLock), lock.owns_lock());
+		return lock;
 	}
 
 	/**
