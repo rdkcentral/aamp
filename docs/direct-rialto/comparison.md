@@ -88,9 +88,8 @@ maintainer; benchmark figures and the measurement setup are not included here.
   setup, state changes and buffering are expected to help. One mechanism is
   visible in the source: with Rialto sinks, the Rialto pipeline and each source
   are created only once playbin has activated the sinks and caps have reached
-  them (118 ms and 137 ms after `Configure()` in one device log), whereas
-  Direct Rialto does both from `Configure()` and the init segment. That
-  observation is a single tune and does not show the effect on total tune time.
+  them, whereas Direct Rialto does both from `Configure()` and the init
+  segment. That does not show the effect on total tune time.
   See [Playback startup](#playback-startup-existing-path-with-rialto-gstreamer-sinks).
   Reconfirm using
   elapsed time from the tune request to the first video image actually
@@ -176,8 +175,8 @@ sequenceDiagram
 ```
 
 *Figure 4. Startup through `AAMPGstPlayer` with Rialto sinks. The step
-"playbin activates each sink" is inferred from the device log below, because
-GStreamer's own source was not read. Which GStreamer thread runs each callback
+"playbin activates each sink" is inferred, because GStreamer's own source was
+not read. Which GStreamer thread runs each callback
 is not established and is not claimed here.*
 
 ### What triggers each Rialto call
@@ -197,50 +196,6 @@ All of these are confirmed in the plugin source under
 AAMP creates the sink elements in `Configure()` (`SetupStream`) but makes no
 Rialto call there. Every Rialto call above happens later, when playbin
 activates the sinks and caps reach them.
-
-### Observed timing on a device
-
-The second rotated messages log in `aamp_test_internal/test/l3test/AAMP_Logs/`
-(`*-messages.log.2`, lines 5507 to
-6060) holds one tune on a device with Rialto sinks. It interleaves AAMP logs
-with `RialtoServer` IPC logs, so client-side events can be lined up with the
-server's receipt of each call. Offsets are from `ConfigurePipeline`
-(13:59:10.839).
-
-| Offset | Event |
-|---|---|
-| +0 ms | `ConfigurePipeline` starts and creates the playbins |
-| +10 to +13 ms | AAMP finds the appsrc for each track |
-| +118 ms | Server receives `createSession` (`createMediaPipeline`) |
-| +123 ms | Server receives `load` |
-| +129 ms | First video media fragment sent into the pipeline |
-| +137 ms | `attachSource` for video |
-| +139 ms | `attachSource` for audio |
-| +331 ms | First subtitle fragment sent into the pipeline |
-| +337 ms | `attachSource` for subtitle |
-| +338 ms | `allSourcesAttached` |
-| +342 ms | `pause` |
-| +372 ms | First `needMediaData` (subtitle) |
-
-Limits of this observation. It is one tune, with the default configuration
-(`IsoBmffProcessor` and `qtdemux` in the pipeline, `useMp4Demux` off) and
-clear content, so it says nothing about DRM or about `useMp4Demux`. The device
-build may differ from the sources in this tree.
-
-### Is `attachSource` delayed until media data arrives?
-
-Largely yes, for the observed configuration.
-
-- **Mechanism.** The plugin attaches a source when the caps event reaches the
-  sink, so it depends on playbin delivering caps, not on appsrc itself. In the
-  log each video and audio `attachSource` followed the first media fragments
-  by under 10 ms, and `createSession` coincided with the first injection.
-- **Slowest track gates `allSourcesAttached`.** The subtitle fragment was
-  injected about 200 ms after the video and audio, because it was downloaded
-  later. Its attach, and so `allSourcesAttached`, waited for it.
-- **Not measured.** With `useMp4Demux`, AAMP sets caps on appsrc itself
-  (`SetStreamCaps`). Whether caps then reach the sink before the first media
-  buffer depends on playbin and was not tested.
 
 ## Playback startup: Direct Rialto
 
@@ -287,8 +242,8 @@ DRM and position handling is in [playback-flow.md](playback-flow.md#startup).*
 | Step | Rialto GStreamer sinks | Direct Rialto |
 |---|---|---|
 | `IControl` register and wait for `RUNNING` | Sink `NULL` to `READY`, so after playbin activates the sink. Waits 1 s, and a timeout **fails** the state change. | In `Configure()`. Waits 2 s, then **continues**. |
-| `createMediaPipeline` and `load` | Sink `READY` to `PAUSED`. Observed 118 ms after `Configure()` in the device log above. | In `Configure()`, before any media is injected. |
-| `attachSource` trigger | Caps event at that track's sink. Observed after the first media fragment. | DASH: the init segment parsed by `AampMp4Demuxer` (`SetStreamCaps`), so no media sample is needed. HLS-TS: the first `SendCopy`, which attaches every source. Video attaches first. |
+| `createMediaPipeline` and `load` | Sink `READY` to `PAUSED`. | In `Configure()`, before any media is injected. |
+| `attachSource` trigger | Caps event at that track's sink. | DASH: the init segment parsed by `AampMp4Demuxer` (`SetStreamCaps`), so no media sample is needed. HLS-TS: the first `SendCopy`, which attaches every source. Video attaches first. |
 | `allSourcesAttached` trigger | Every stream in `streams-info` has attached. | Every created source has attached. |
 | DRM session on the attach path | Not established, see below. | `AttachSource()` calls `createSession` before `attachSource`. |
 | First media to Rialto | After `needMediaData`. | After `needMediaData`. |
