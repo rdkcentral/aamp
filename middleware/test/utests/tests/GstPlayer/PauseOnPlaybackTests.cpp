@@ -23,6 +23,7 @@
 #include "MockGStreamer.h"
 #include "MockGLib.h"
 #include "MockGstHandlerControl.h"
+#include "MockPlayerScheduler.h"
 #include "InterfacePlayerRDK.h"
 #include "InterfacePlayerPriv.h"
 #include "GstUtils.h"
@@ -51,6 +52,7 @@ protected:
 		g_mockGStreamer = new NiceMock<MockGStreamer>();//new MockGStreamer();
 		g_mockGLib = new NiceMock<MockGLib>();
 		g_mockGstHandlerControl = new MockGstHandlerControl();
+		g_mockPlayerScheduler = new MockPlayerScheduler();
 	mInterfaceGstPlayer = new InterfacePlayerRDK();
 
 		//init callback to avoid bad_function_call error
@@ -86,6 +88,9 @@ protected:
 
 		delete g_mockGstHandlerControl;
 		g_mockGstHandlerControl = nullptr;
+
+	    delete g_mockPlayerScheduler;
+	    g_mockPlayerScheduler = nullptr;
 	}
 
 public:
