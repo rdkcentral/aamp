@@ -1425,8 +1425,8 @@ protected:
 		std::this_thread::sleep_for(std::chrono::milliseconds(100));
 	}
 
-	// Stops the injector without touching the monitor, which must stay asleep
-	void StopInjectorOnly(MediaTrack& track)
+	// Stops the injector and the monitor started by its inject loop
+	void StopInjectorAndMonitor(MediaTrack& track)
 	{
 		track.AbortWaitForCachedAndFreeFragment(true);
 		track.StopInjectLoop();
@@ -1443,18 +1443,18 @@ protected:
 };
 
 /**
- * @brief StopBufferMonitor() wakes and joins a monitor that is in its initial sleep
+ * @brief StopInjectLoop() wakes and joins the monitor started by the injector
  *
- * Downloads stay enabled and abort is not set, so only the stop request can
- * end the sleep early.
+ * Downloads stay enabled while the injector is aborted; StopInjectLoop()
+ * then requests the monitor to stop and interrupts its initial sleep.
  */
-TEST_F(MediaTrackBufferMonitorTests, StopBufferMonitor_InterruptsSleepingMonitor)
+TEST_F(MediaTrackBufferMonitorTests, StopInjectLoop_InterruptsSleepingMonitor)
 {
 	TestableMediaTrack track(eTRACK_VIDEO, mPrivateInstanceAAMP, "video", mStreamAbstractionAAMP_MPD);
 	StartMonitorAndWaitForSleep(track);
-	StopInjectorOnly(track);
+	track.AbortWaitForCachedAndFreeFragment(true);
 
-	const auto elapsed = TimeIt([&]() { track.StopBufferMonitor(); });
+	const auto elapsed = TimeIt([&]() { track.StopInjectLoop(); });
 
 	EXPECT_LT(elapsed, MAX_STOP_DURATION);
 }
@@ -1466,12 +1466,14 @@ TEST_F(MediaTrackBufferMonitorTests, StopBufferMonitor_SecondCallReturnsImmediat
 {
 	TestableMediaTrack track(eTRACK_VIDEO, mPrivateInstanceAAMP, "video", mStreamAbstractionAAMP_MPD);
 	StartMonitorAndWaitForSleep(track);
-	StopInjectorOnly(track);
 	track.StopBufferMonitor();
 
 	const auto elapsed = TimeIt([&]() { track.StopBufferMonitor(); });
 
 	EXPECT_LT(elapsed, MAX_STOP_DURATION);
+
+	track.AbortWaitForCachedAndFreeFragment(true);
+	track.StopInjectLoop();
 }
 
 /**
@@ -1487,18 +1489,16 @@ TEST_F(MediaTrackBufferMonitorTests, StopBufferMonitor_NoMonitorStarted_ReturnsI
 }
 
 /**
- * @brief Destroying a MediaStreamContext does not wait for, or race with, the monitor
+ * @brief Destroying a MediaStreamContext after stopping its monitor does not block
  *
- * Regression test: Init() replaces mMediaStreamContext[] entries, which
- * destroys the old context while its monitor thread is still asleep. The
- * destructor must stop the monitor itself rather than leave it to
- * ~MediaTrack(), where GetContext() is pure virtual.
+ * The inject loop owns shutdown of the monitor it starts. The context can then
+ * be destroyed without leaving a joinable monitor thread behind.
  */
-TEST_F(MediaTrackBufferMonitorTests, DestroyMediaStreamContext_WhileMonitorSleeping_DoesNotBlock)
+TEST_F(MediaTrackBufferMonitorTests, DestroyMediaStreamContext_AfterInjectLoopStopsMonitor_DoesNotBlock)
 {
 	auto* videoCtx = new MediaStreamContext(eTRACK_VIDEO, mStreamAbstractionAAMP_MPD, mPrivateInstanceAAMP, "video");
 	StartMonitorAndWaitForSleep(*videoCtx);
-	StopInjectorOnly(*videoCtx);
+	StopInjectorAndMonitor(*videoCtx);
 
 	const auto elapsed = TimeIt([&]() { delete videoCtx; });
 

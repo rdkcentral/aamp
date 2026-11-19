@@ -1351,6 +1351,7 @@ void MediaTrack::StartInjectLoop()
 			abort = false;
 			abortInject = false;
 			discontinuityProcessed = false;
+			bufferMonitorStop = false;
 
 			fragmentInjectorThreadID = std::thread(&MediaTrack::RunInjectLoop, this);
 			AAMPLOG_INFO("Thread created for RunInjectLoop [%zx]", GetPrintableThreadID(fragmentInjectorThreadID));
@@ -1542,6 +1543,8 @@ void MediaTrack::StopInjectLoop()
 		fragmentInjectorThreadID.join();
 		AAMPLOG_INFO("Fragment injector thread joined");
 	}
+    //Monitor started in the injector, stop it here
+	StopBufferMonitor();
 }
 
 /**
@@ -1732,7 +1735,6 @@ void MediaTrack::StopBufferMonitor()
 {
 	if (!bufferMonitorThreadID.joinable())
 	{
-		bufferMonitorStop = true;
 		return;
 	}
 	{
@@ -1750,9 +1752,6 @@ void MediaTrack::StopBufferMonitor()
  */
 MediaTrack::~MediaTrack()
 {
-	// Derived classes must have already called StopBufferMonitor(); the
-	// monitor calls the pure virtual GetContext() which is invalid here.
-	StopBufferMonitor();
 	if ((UpdateSubtitleClockTaskStarted) && (type == eTRACK_SUBTITLE))
 	{
 		AAMPLOG_TRACE("joining subtitleClockThreadID for UpdateSubtitleClockTask");
