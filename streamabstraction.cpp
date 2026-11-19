@@ -1733,18 +1733,17 @@ MediaTrack::MediaTrack(TrackType type, PrivateInstanceAAMP* aamp, const char* na
  */
 void MediaTrack::StopBufferMonitor()
 {
-	if (!bufferMonitorThreadID.joinable())
+	if (bufferMonitorThreadID.joinable())
 	{
-		return;
+		{
+			// Set under the lock the monitor waits on so the request cannot be missed
+			std::lock_guard<std::recursive_mutex> guard(aamp->mLock);
+			bufferMonitorStop = true;
+			aamp->mDownloadsDisabled.notify_all();
+		}
+		bufferMonitorThreadID.join();
+		AAMPLOG_TRACE("joined bufferMonitorThreadID");
 	}
-	{
-		// Set under the lock the monitor waits on so the request cannot be missed
-		std::lock_guard<std::recursive_mutex> guard(aamp->mLock);
-		bufferMonitorStop = true;
-		aamp->mDownloadsDisabled.notify_all();
-	}
-	bufferMonitorThreadID.join();
-	AAMPLOG_TRACE("joined bufferMonitorThreadID");
 }
 
 /**
