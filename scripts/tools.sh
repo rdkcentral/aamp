@@ -119,10 +119,14 @@ curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh"
     elif [[ "${OSTYPE}" == "linux"* ]]; then
 
         echo "Checking VSCode..."
-        sudo snap install --classic code || RC=$?
-	if [ "${RC}" != 0 ] ; then
-	    INSTALL_STATUS_ARR+=("WARNING tools_install_fn: snap install VSCode failed, not halting the build.")
-	    return 0
+        # Do not install the snap build over an existing VSCode (e.g. the
+        # Microsoft apt package); the snap build breaks Copilot on some hosts.
+        if ! command -v code >/dev/null 2>&1 ; then
+            sudo snap install --classic code || RC=$?
+            if [ "${RC}" != 0 ] ; then
+                INSTALL_STATUS_ARR+=("WARNING tools_install_fn: snap install VSCode failed, not halting the build.")
+                return 0
+            fi
         fi
 
         echo "Installing VSCode Dependencies..."
