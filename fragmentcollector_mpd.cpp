@@ -9292,7 +9292,8 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 						std::string fragmentUrl;
 						ConstructFragmentURL(fragmentUrl, &pMediaStreamContext->fragmentDescriptor, "", aamp->mConfig);
 
-						if(pMediaStreamContext->WaitForFreeFragmentAvailable(0))
+						// Paused by the user with AAMP TSB: the init segment goes to the TSB only, so don't skip it on a full cache
+						if(aamp->IsLocalAAMPTsbPausedByUser() || pMediaStreamContext->WaitForFreeFragmentAvailable(0))
 						{
 							if(!nextrange.empty())
 							{
@@ -9395,7 +9396,8 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 									AAMPLOG_INFO("%s [%s]", GetMediaTypeName(pMediaStreamContext->mediaType),
 											range.c_str());
 
-									if(pMediaStreamContext->WaitForFreeFragmentAvailable(0))
+									// Paused by the user with AAMP TSB: the init segment goes to the TSB only, so don't skip it on a full cache
+									if(aamp->IsLocalAAMPTsbPausedByUser() || pMediaStreamContext->WaitForFreeFragmentAvailable(0))
 									{
 										if(nextsegurl != NULL && (mIsFogTSB != true))
 										{

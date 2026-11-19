@@ -1729,6 +1729,17 @@ public:
 	/* Buffer Under flow status flag, under flow Start(buffering stopped) is true and under flow end is false*/
 	std::atomic<bool> mBufUnderFlowStatus{false};
 	bool GetBufUnderFlowStatus() { return mBufUnderFlowStatus.load(); }
+	/**
+	 * @brief Is the pipeline paused by the user, i.e. not paused due to underflow.
+	 *        With AAMP TSB, fragments downloaded in this state are written to the
+	 *        TSB only and are not injected.
+	 */
+	bool IsSinkPausedByUser() { return mSinkPaused.load() && !mBufUnderFlowStatus.load(); }
+	/**
+	 * @brief AAMP TSB enabled and paused by the user, so downloaded fragments are
+	 *        written to the TSB only and do not need an injection cache slot.
+	 */
+	bool IsLocalAAMPTsbPausedByUser() { return IsLocalAAMPTsb() && IsSinkPausedByUser(); }
 	void SetBufUnderFlowStatus(bool statusFlag) { mBufUnderFlowStatus.store(statusFlag); }
 	void ResetBufUnderFlowStatus() { mBufUnderFlowStatus.store(false);}
 	/** Returns the steady-clock timestamp (ms) at which the current buffering episode began,

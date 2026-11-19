@@ -28,7 +28,6 @@
 #include "StreamAbstractionAAMP.h"
 #include "fragmentcollector_mpd.h"
 #include "SegmentIndex.h"
-#include <functional>
 
 /**
  * @class MediaStreamContext
@@ -356,20 +355,6 @@ private:
 	 *        thread (non-LLD DASH path only).
 	 */
 	void CacheStagingFragmentForInjection();
-
-	/**
-	 * @fn WaitForInjectionCacheWithTsb
-	 * @brief AAMP TSB variant of the "wait for a free injection cache slot"
-	 *        throttle in DownloadFragment().
-	 *
-	 * With AAMP TSB enabled the downloader must keep the TSB growing while
-	 * the pipeline is paused. Waits for a free slot as usual, but returns
-	 * without one while paused (not for underflow): such fragments are
-	 * written to the TSB only and never cached for injection.
-	 *
-	 * @param[in] downloadsEnabled - predicate: downloads still enabled
-	 */
-	void WaitForInjectionCacheWithTsb(const std::function<bool()> &downloadsEnabled);
 }; // MediaStreamContext
 
 #endif /* MEDIASTREAMCONTEXT_H */

@@ -759,7 +759,7 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 	// That call may invoke SetBufferingState(false), which clears mBufUnderFlowStatus and
 	// resumes the GStreamer pipeline.  Shortly afterwards GStreamer may fire a buffering(0)
 	// event on another thread, re-setting mSinkPaused=true.  The TSB discard check below
-	// (isPipelinePaused && !GetBufUnderFlowStatus()) would then incorrectly throw away this
+	// (IsSinkPausedByUser()) would then incorrectly throw away this
 	// fragment — the one that just ended the underflow — leaving the inject loop starved and
 	// the player in a permanent stall.  Carrying the pre-notify flag forward ensures we
 	// always inject the fragment that triggered underflow recovery.
@@ -849,12 +849,11 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 	// Use wasUnderFlowActive (captured before the underflow-monitor notify above) to guard against a race where
 	// GStreamer's buffering(0) message re-sets mSinkPaused=true after SetBufferingState(false) has already
 	// cleared mBufUnderFlowStatus — which would otherwise cause this recovery fragment to be discarded.
-	bool isPipelinePaused = aamp->mSinkPaused.load();
 	if (tsbSessionManager &&
-		(IsLocalTSBInjection() || (isPipelinePaused && !aamp->GetBufUnderFlowStatus() && !wasUnderFlowActive)))
+		(IsLocalTSBInjection() || (aamp->IsSinkPausedByUser() && !wasUnderFlowActive)))
 	{
 		AAMPLOG_TRACE("[%s] cachedFragment %p ptr %p not injecting IsLocalTSBInjection %d, aamp->mSinkPaused %d, aamp->GetBufUnderFlowStatus() %d",
-			name, cachedFragment, cachedFragment->fragment.data(), IsLocalTSBInjection(), isPipelinePaused, aamp->GetBufUnderFlowStatus());
+			name, cachedFragment, cachedFragment->fragment.data(), IsLocalTSBInjection(), aamp->mSinkPaused.load(), aamp->GetBufUnderFlowStatus());
 		aamp_utils::ClearAndRelease(cachedFragment->fragment);
 		auto timeBasedBufferManager = GetTimeBasedBufferManager();
 		if(timeBasedBufferManager)
@@ -1182,13 +1181,20 @@ bool MediaStreamContext::DownloadFragment(DownloadInfoPtr dlInfo)
 		{
 			return aamp->DownloadsAreEnabled() && !abort;
 		};
+		// Paused by the user with AAMP TSB: the fragment is written to the TSB
+		// only, so neither the injection cache nor enoughData should block it.
+		auto TsbPausedByUser = [this]()
+		{
+			return aamp->IsLocalAAMPTsbPausedByUser();
+		};
 		// In low-latency mode, wait for needData/enoughData signals before
 		// downloading the next fragment. Skip this wait when injecting from
 		// the local AAMP TSB.
-		auto WaitForLowLatencyDashDownloads = [this, DownloadsEnabled]()
+		auto WaitForLowLatencyDashDownloads = [this, DownloadsEnabled, TsbPausedByUser]()
 		{
 			return DownloadsEnabled() &&
 				   !aamp->IsLocalAAMPTsbInjection() &&
+				   !TsbPausedByUser() &&
 				   aamp->GetLLDashServiceData()->lowLatencyMode &&
 				   !aamp->TrackDownloadsAreEnabled(mediaType);
 		};
@@ -1198,16 +1204,9 @@ bool MediaStreamContext::DownloadFragment(DownloadInfoPtr dlInfo)
 		// Skip the wait when playing from local TSB
 		if (IsFragmentCacheFull() && !aamp->IsLocalAAMPTsbInjection())
 		{
-			if (aamp->IsLocalAAMPTsb())
+			while (DownloadsEnabled() && !TsbPausedByUser() && !WaitForFreeFragmentAvailable(MAX_WAIT_TIMEOUT_MS))
 			{
-				WaitForInjectionCacheWithTsb(DownloadsEnabled);
-			}
-			else
-			{
-				while (DownloadsEnabled() && !WaitForFreeFragmentAvailable(MAX_WAIT_TIMEOUT_MS))
-				{
-					AAMPLOG_TRACE("Waiting for free fragment");
-				}
+				AAMPLOG_TRACE("Waiting for free fragment");
 			}
 		}
 		while (WaitForLowLatencyDashDownloads())
@@ -1223,26 +1222,4 @@ bool MediaStreamContext::DownloadFragment(DownloadInfoPtr dlInfo)
 	}
 
 	return retval;
-}
-
-/**
- * @fn WaitForInjectionCacheWithTsb
- * @param[in] downloadsEnabled - predicate: downloads still enabled
- */
-void MediaStreamContext::WaitForInjectionCacheWithTsb(const std::function<bool()> &downloadsEnabled)
-{
-	while (downloadsEnabled())
-	{
-		if (aamp->mSinkPaused.load() && !aamp->GetBufUnderFlowStatus())
-		{
-			// Paused: OnFragmentDownloadSuccess() writes to the TSB only.
-			AAMPLOG_TRACE("[%s] paused, not waiting for injection cache", name);
-			return;
-		}
-		if (WaitForFreeFragmentAvailable(MAX_WAIT_TIMEOUT_MS))
-		{
-			return;
-		}
-		AAMPLOG_TRACE("Waiting for free fragment");
-	}
 }
