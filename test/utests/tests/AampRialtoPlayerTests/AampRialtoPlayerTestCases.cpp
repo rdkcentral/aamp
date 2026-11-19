@@ -2400,6 +2400,21 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	PostPlaybackState(firebolt::rialto::PlaybackState::END_OF_STREAM);
 }
 
+/**
+ * @test Rialto FAILURE ignores every later NeedMediaData, so the player must
+ *       ask AAMP to recover (retune) rather than stay frozen silently.
+ */
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	OnPlaybackState_Failure_CallsNotifyPipelineFailure)
+{
+	Configure();
+
+	EXPECT_CALL(m_mockNotifiable, NotifyPipelineFailure()).Times(1);
+	EXPECT_CALL(m_mockNotifiable, NotifyEOSReached()).Times(0);
+
+	PostPlaybackState(firebolt::rialto::PlaybackState::FAILURE);
+}
+
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	OnPlaybackState_EndOfStream_DoesNotCallFirstFrameNotifications)
 {

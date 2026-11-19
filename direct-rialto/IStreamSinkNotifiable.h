@@ -209,6 +209,18 @@ public:
 	 */
 	virtual void NotifyOutputProtectionRecovered() = 0;
 
+	/**
+	 * @brief Notify that Rialto's media pipeline entered
+	 *        PlaybackState::FAILURE.
+	 *
+	 * Rialto accepts no further data in this state (every NeedMediaData is
+	 * ignored), so playback is frozen until the pipeline is recreated. The
+	 * implementation should schedule an internal retune, which tears the
+	 * failed pipeline down and resumes at the current position (from the
+	 * AAMP TSB when enabled).
+	 */
+	virtual void NotifyPipelineFailure() = 0;
+
 	// -----------------------------------------------------------------------
 	// Discontinuity
 	// -----------------------------------------------------------------------
