@@ -630,7 +630,7 @@ protected:
 		void CallApplyLiveOffsetWorkaroundForSAP(double seekPositionSeconds)
 		{
 			//TestableStreamAbstractionAAMP_MPD::FetchAndInjectInitFragments(false);
-			StreamAbstractionAAMP_MPD::mNumberOfTracks = 2;
+			mActiveTracks.Store({eMEDIATYPE_VIDEO, eMEDIATYPE_AUDIO});
 			ApplyLiveOffsetWorkaroundForSAP(seekPositionSeconds);
 		}
 
@@ -779,9 +779,9 @@ protected:
 		 * @brief Test-only helpers for FetchAndInjectInitFragments tests.
 		 *
 		 * Creates real MediaStreamContext objects for the requested track
-		 * count, sets mNumberOfTracks and mMaxTracks so the destructor
-		 * cleans them up, and marks every track disabled so that
-		 * FetchAndInjectInitialization does no real work.
+		 * count, makes the same number of leading tracks active and sets
+		 * mMaxTracks so the destructor cleans them up, and marks every track
+		 * disabled so that FetchAndInjectInitialization does no real work.
 		 */
 		void SetupMediaStreamContexts(int numTracks)
 		{
@@ -795,7 +795,11 @@ protected:
 					mMediaStreamContext[i]->enabled = false;
 				}
 			}
-			mNumberOfTracks = numTracks;
+			mActiveTracks.Clear();
+			for (int i = 0; i < numTracks; i++)
+			{
+				mActiveTracks.Add(static_cast<AampMediaType>(i));
+			}
 			mMaxTracks = numTracks;
 		}
 
