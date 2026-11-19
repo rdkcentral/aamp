@@ -46,7 +46,7 @@ flowchart TD
     E4 -->|no| E5["ScheduleRetune underflow"]
     E4 -->|yes| E6["no retune, monitor handles it"]
     EOS --> E7["NotifyEOSReached"]
-    PS --> E8["state machine to ERROR<br/>wake flush waiters<br/>no AAMP event"]
+    PS --> E8["state machine to ERROR, wake flush waiters<br/>NotifyPipelineFailure<br/>ScheduleRetune GST_PIPELINE_INTERNAL"]
     FAILS --> E9["log only, return false or continue<br/>no AAMP event"]
 
     E1 --> SCHED["scheduled on AAMP scheduler"]
@@ -54,9 +54,12 @@ flowchart TD
     E3 --> SCHED
     E5 --> SCHED
     E7 --> SCHED
+    E8 --> SCHED
 ```
 
-*Figure 17. Error routing. Only the paths ending at the scheduler reach AAMP.*
+*Figure 17. Error routing. Only the paths ending at the scheduler reach AAMP.
+`FAILURE` reaches AAMP as a retune request, not as an error event. AAMP's
+`ScheduleRetune()` may ignore it (see the scenario table).*
 
 ## Error scenario table
 
@@ -80,7 +83,7 @@ Classification uses the terms in [limitations.md](limitations.md).
 | `PlaybackError::DECRYPTION` | event thread | Scheduled `SendErrorEvent(AAMP_TUNE_DRM_DECRYPT_FAILED)`, retry enabled | Yes |
 | `PlaybackError::OUTPUT_PROTECTION` | event thread | Mute video, `ScheduleRetune(eGST_ERROR_OUTPUT_PROTECTION_ERROR)`. Not an error event, by design (HDCP recovery). | Yes (retune) |
 | `PlaybackError::UNKNOWN` | event thread | Scheduled `SendErrorEvent(AAMP_TUNE_GST_PIPELINE_ERROR)`, retry enabled | Yes |
-| `PlaybackState::FAILURE` | event thread | State machine to `ERROR`, wakes flush waiters. Nothing else. | **No** |
+| `PlaybackState::FAILURE` | event thread | State machine to `ERROR`, wakes flush waiters, then `NotifyPipelineFailure()` schedules `ScheduleRetune(eGST_ERROR_GST_PIPELINE_INTERNAL, eMEDIATYPE_VIDEO)`. No error event is raised. `ScheduleRetune()` can ignore the request, for example when the state is not `PLAYING` or a seek is in progress (at normal rate), or when `InternalReTune` is disabled. | Yes (retune request, which may be ignored) |
 | Buffer underflow | event thread | Retune, or nothing when `AampUnderflowMonitor` handles it | Yes |
 | Video PTS not advancing | `CheckForPTSChangeWithTimeout` | Returns false, so AAMP retunes. A PTS of 0 is treated as "still moving". | Yes (caller) |
 | Rialto application state `INACTIVE` | control event thread | Recorded. Nothing reacts except the next `waitForRunning()`. The Rialto client then drops `needMediaData`. | No (*server-side effects unverified*) |
@@ -108,7 +111,8 @@ distinguishes more cases (`HandleBusMessage()` in
   `NO_AVAILABLE_SAMPLES` (see [lifecycle.md](lifecycle.md#3-needdata-request-lifecycle)).
   A cancel from Rialto clears it silently.
 - **Asynchronous failure.** A fatal failure arriving while a thread is in
-  `WaitForFlushToComplete()` wakes it through `m_flushCv`. A failure while an
+  `WaitForFlushToComplete()` wakes it through `m_flushCv`, and a retune is
+  requested as above. A failure while an
   injector blocks in `injectOneSample()` does not wake it. The injector waits
   for a generation change, which only `Flush()`, `Stop()` or
   `UnblockTrackInjection()` produce.

@@ -64,7 +64,7 @@ cell says so.
 
 | Finding and location | Why it matters | Apparent reason | Possible improvement |
 |---|---|---|---|
-| **L1 (CL).** `PlaybackState::FAILURE` only moves the state machine to `ERROR` (`OnPlaybackState`). No AAMP error is raised. | A fatal pipeline failure can leave playback stalled with no event. Rialto may also send `notifyPlaybackError`, which is handled, but that was not verified for every failure. | No comment. | Call `NotifyPlaybackError` from the `FAILURE` case. |
+| **L1 (CL).** `PlaybackState::FAILURE` moves the state machine to `ERROR` and calls `NotifyPipelineFailure()`, which schedules `ScheduleRetune(eGST_ERROR_GST_PIPELINE_INTERNAL)` (`OnPlaybackState`, `PrivateInstanceAAMPNotifiable.cpp`). No AAMP error event is raised. | `ScheduleRetune()` can ignore the request, for example when the state is not `PLAYING` or a seek is in progress at normal rate, or when `InternalReTune` is disabled. Rialto ignores further `needMediaData` in `FAILURE`, so playback then stays frozen with no event. Rialto may also send `notifyPlaybackError`, which is handled, but that was not verified for every failure. | The player comment says playback stays frozen unless AAMP recreates the pipeline. | Raise a playback error when the retune is not processed. |
 | **L2 (CL).** Setup failures are only logged: no factory, `createMediaPipeline` null, `load()` failure, `attachSource` failure, unsupported codec, `allSourcesAttached` failure (`Configure`, `AttachSource`, `CheckAllSourcesAttached`). | The tune appears to proceed, then stalls. | No comment. | Report a tune failure from these points. |
 | **L3 (CL).** Audio MP3 and Atmos cannot attach: `AampRialtoAudioSource::mapCodecToMime` has no mapping, although `isAudioOutputFormat()` in the player treats them as audio. | Such tracks fail to attach (see L2). | No comment. | Map or reject early with a clear error. |
 | **L4 (CL).** First frame is reported on the first `PLAYING` notification. `notifyFirstFrameReceived` in the pipeline client is a stub. | Time to first frame is likely reported earlier than the first rendered frame (inferred). | Rialto exposes `notifyFirstFrameReceived`, unused here. | Use it, if the server sends it. |
@@ -73,7 +73,6 @@ cell says so.
 | **L7 (CL).** `ShouldRecreatePipeline()` rebuilds the Direct Rialto pipeline for source-set or codec changes, with exceptions such as audio EOS during trick play. | This is not a demonstrated disadvantage relative to Rialto GStreamer sinks: those sinks share the server restriction on adding sources after `allSourcesAttached()`. Retaining a client-side GStreamer container does not imply retaining a usable Rialto session. The plugin also uses the narrower `switchSource()` API for audio caps changes. | Plugin `GStreamerMSEMediaPlayerClient::sendAllSourcesAttachedIfPossibleInternal()` documents the server restriction; `PullModeAudioPlaybackDelegate` uses `switchSource()`. | Evaluate supported source-switching cases separately from changes to the complete source set. See [comparison.md](comparison.md#advantages-and-trade-offs). |
 | **L8 (CL).** `AampRialtoMonitorAV` cannot detect AV sync loss: both tracks use the pipeline position. | The `avsync` class never triggers. | Header comment states it. | Document in the monitor's user docs. |
 | **L9 (CL).** `notifyPosition`, `notifyQos`, `notifyNetworkState`, `notifyNativeSize`, `notifyVideoData`, `notifyAudioData` are ignored. | Information Rialto already provides is unused. | Not implemented. | Use where useful. |
-| **L10 (CL).** `useDirectRialto` is absent from `README.md` and `CONFIGURATION.md`. | Operators cannot discover it. | n/a | Document it. |
 
 ## Dead code and stale comments
 
@@ -101,10 +100,10 @@ stated.
 
 | Finding and location | Why it matters | Apparent reason | Possible improvement |
 |---|---|---|---|
-| **C2 (PR).** `m_pipeline` (`shared_ptr`) and `m_sources[]` are read on injector, event and timer threads and written by `Configure`/`Stop` with no lock. Injectors hold `IMediaPipeline &` taken from `*m_pipeline`. The `SEEK_DONE` handler dereferences `m_pipeline` without a null check. | Concurrent `shared_ptr` read and reset is a data race. Safe only if injection is stopped (joined) before `Stop()` and `Configure()`. That holds in `TeardownStream` but is not enforced by the sink. | Not stated. | Copy `m_pipeline` to a local `shared_ptr` at each use, or guard with a mutex. Add a debug assertion for quiesced injection. |
+| **C2 (PR).** `m_pipeline` (`shared_ptr`) and `m_sources[]` are read on injector, event and timer threads and written by `Configure`/`Stop` with no lock. Injectors hold `IMediaPipeline &` taken from `*m_pipeline`. The `SEEK_DONE` handler dereferences `m_pipeline` without a null check. | Concurrent `shared_ptr` read and reset is a data race. Safe only if injection is stopped (joined) before `Stop()` and `Configure()`. That holds in `TeardownStream` but is not enforced by the sink. | Not stated. | Guard `m_pipeline` and `m_sources[]` with a mutex taken by **both** readers and writers, and copy `m_pipeline` to a local `shared_ptr` under that lock. A copy made without the lock still races with the assignment in `Configure()` and `StopInternal()`. The copy only keeps the object alive after it has been acquired safely. Add a debug assertion for quiesced injection. |
 | **C3 (PR).** `AttachSource()` can block on a DRM licence round trip while the caller holds `m_attachMutex` (`SetStreamCaps`, `SendTransfer`). The `SEEK_DONE` handler on the Rialto event thread, and the mute setters on the control thread, take the same mutex. | A seek or mute during licence acquisition stalls the event thread (and so flush completion) or the control thread. | Comment: serialises attach across download threads. | Do DRM session creation outside `m_attachMutex`. See IO7. |
 | **C4 (PR).** `Flush()` decides "flushable" and then claims `FLUSHING` in two steps. The comment says only the control thread calls it, but `MaybeFlushForPendingPosition()` calls it from an injector thread. | A control-thread `Flush()` between the two steps can double-claim. | Comment relies on thread confinement. | Claim `FLUSHING` atomically with the state check. |
-| **C5 (PR).** `~AampRialtoPlayer` does not release `m_pipeline` first, and `m_pipeline` is declared before `m_sources`, `m_stateMachine`, `m_monitorAV`. | If the player is destroyed without `Stop()`, those members die while the pipeline event thread can still call back. | Normal flows call `Stop()` first. | `m_pipeline.reset()` at the start of the destructor. |
+| **C5 (PR).** `~AampRialtoPlayer` does not release `m_pipeline` first, and `m_pipeline` is declared before `m_sources`, `m_stateMachine`, `m_monitorAV`. | If the player is destroyed without `Stop()`, those members die while the pipeline event thread can still call back. | Normal flows call `Stop()` first. | At the start of the destructor, stop and release `m_monitorAV` first, because it holds its own `shared_ptr` to the pipeline (`AampRialtoMonitorAV.h`), and then `m_pipeline.reset()`. Resetting only `m_pipeline` would not destroy the pipeline or join its event thread while the monitor still holds a reference. The last reference must go before the callback-accessed members (`m_stateMachine`, sources) are destroyed. |
 | **C6 (PR).** `AampRialtoControlBackend` declares its mutex and condition variable after `m_control`, so they are destroyed first. | A `notifyApplicationState` in flight at destruction would lock a destroyed mutex. Narrow window. | Not stated. | Reorder members, or unregister first. |
 | **C7 (PR).** `ProgressTimer` and `AampRialtoMonitorAV` use `g_timeout_add` on the default context. `started` and `source_id` are plain members written from the event thread and the control thread. Destructors call `g_source_remove`, which does not wait for a running callback. `AampRialtoMonitorAV` also makes blocking `getPosition()` / `getStats()` IPC calls on the main context. | Race on timer state. A callback can run on a destroyed object. A slow Rialto call stalls the application main loop. | Not stated. | Guard timer state, and move the IPC off the main loop. |
 | **C8 (PR).** `RialtoMediaKeySystem::MediaKeysClient::onKeyStatusesChanged` invokes adapter callbacks while holding its mutex, unlike `onLicenseRequest`. | Calling `deregisterSession` from one of those callbacks would self-deadlock. Currently the callbacks do not do that. | Not stated. | Copy callbacks under the lock and call outside it. |
@@ -124,8 +123,11 @@ stated.
 - **IO3.** Reduce `ENTRY` / `EXIT` INFO logging on per-sample paths.
 - **IO4.** Add a simulator mode that overlaps two pipelines or delays
   `SEEK_DONE`, to exercise C1 and L5.
-- **IO5.** Document `useDirectRialto` (L10).
-- **IO6.** Report setup failures and `FAILURE` to AAMP (L1, L2).
+- **IO6.** Report setup failures (L2), and a `FAILURE` whose retune is not
+  processed (L1), to AAMP.
+
+Numbers are stable. L10 and IO5, which covered documenting `useDirectRialto`,
+were completed and removed.
 - **IO7.** Decouple `attachSource` from DRM session creation, to shorten tune
   time for encrypted content.
   - *Current behaviour.* `AampRialtoMediaSource::attachOrUpdate()` calls
@@ -158,10 +160,14 @@ stated.
   - *Risk to check.* That a real Rialto server accepts `play()` with an
     encrypted source attached and no key session yet. This follows from the
     server code but has not been run.
-  - *Measure first.* In a DRM tune log, the gap between
-    `createSession returned mksId=` and the following `Attached source id=`
-    (both INFO lines) is the DRM wait on the attach path. If it is small, the
-    change is not worth the added concurrency. The same logs would show whether
+  - *Measure first.* In a DRM tune log, the DRM wait on the attach path is
+    the gap between the `AampDrmBridge::createSession systemId=` entry line and
+    the `createSession returned mksId=` line for the same source, both INFO
+    lines on the same injector thread. The `createSession returned` line is
+    written after the blocking call returns, so the gap from it to
+    `Attached source id=` covers only source construction and `attachSource()`
+    and would hide a long licence wait. If the DRM wait is small, the change is
+    not worth the added concurrency. The same logs would show whether
     the Rialto GStreamer path waits on DRM before its `attachSource`, which is
     still open in [comparison.md](comparison.md#drm-licence-acquisition-and-the-attach-path).
 

@@ -82,7 +82,7 @@ transitions and the header comment is stale).*
 | `onFlush` | `Flush()` | `SOURCES_ATTACHED`, `PLAYING`, `PAUSED`, `FLUSHED` | `FLUSHING` | Claimed under `m_flushMutex`. |
 | `onFlushComplete` | `OnPlaybackState(SEEK_DONE)` (event thread), or `Flush()` on `setPosition` failure or no pipeline | `FLUSHING` | `FLUSHED` | Wakes `WaitForFlushToComplete()` waiters. |
 | `onStop` | `StopInternal()` | all except `IDLE`, `FLUSHING` | `IDLE` | `Stop()` first waits for any flush to finish. |
-| `onError` | `OnPlaybackState(FAILURE)` (event thread) | all except `IDLE`, `ERROR` | `ERROR` | Wakes flush waiters. No pipeline teardown happens here. |
+| `onError` | `OnPlaybackState(FAILURE)` (event thread) | all except `IDLE`, `ERROR` | `ERROR` | Wakes flush waiters. No pipeline teardown happens here. The player then calls `NotifyPipelineFailure()`, which schedules an AAMP retune. |
 | `onReconfigure` | `Configure()` when the pipeline is recreated | all except `FLUSHING` | `IDLE` | `Configure()` waits for a flush first. |
 
 ### State assumptions and invalid transitions
@@ -96,9 +96,10 @@ transitions and the header comment is stale).*
   (not verified), the machine logs a warning and stays put.
 - **`END_OF_STREAM` does not change state.** `NotifyEOSReached()` is scheduled
   and the machine stays `PLAYING`.
-- **`ERROR` is a dead end until the next `Stop()` or `Configure()`.** Nothing
-  in the sink escalates `FAILURE` to AAMP. See
-  [error-handling.md](error-handling.md).
+- **`ERROR` is left only by the next `Stop()` or `Configure()`.** On `FAILURE`
+  the player schedules an AAMP retune (`NotifyPipelineFailure()`), and the
+  retune's `Stop()` and `Configure()` leave `ERROR`. If AAMP ignores the retune
+  request, nothing else recovers. See [error-handling.md](error-handling.md).
 - **Not valid:** `Flush()` from `IDLE`, `PIPELINE_CREATED`, `SOURCES_ATTACHING`
   or `ERROR`. `Flush()` handles this explicitly. See
   [Flush decision](#flush-decision).
@@ -311,7 +312,7 @@ know whether the caller will flush explicitly (HLS fMP4 never does). See
 | Fragment caching hold | `NotifyFragmentCachingOngoing()` sets `m_pendingPlayOnFragCaching` and calls `pause()` unless the state is already `PAUSED`. `NotifyFragmentCachingComplete()` calls `play()` only if that flag is set. `Pause(true)` clears the flag, so an explicit pause wins. The flag is a plain `bool` (see [threading.md](threading.md#members-with-no-synchronisation)). |
 | Trick play and seek | `Flush(position, rate)`. See [playback-flow.md](playback-flow.md#flush-and-seek). |
 | Stop | Waits for any flush, stops timers and the AV monitor, `DROPPED` on all sources, `stop()`, releases pipeline **and control backend**, resets staged positions, `onStop`. |
-| Error | `FAILURE` moves to `ERROR`. Non-fatal `PlaybackError` is mapped to an AAMP event. No automatic recovery in the sink. |
+| Error | `FAILURE` moves to `ERROR` and schedules an AAMP retune. Non-fatal `PlaybackError` is mapped to an AAMP event. The sink has no recovery of its own. |
 | Destruction | Stops the progress timer, drops injection, invalidates the CC handle. The pipeline is released by member destruction. See [threading.md](threading.md#shutdown-and-destruction). |
 
 ### Flush decision
