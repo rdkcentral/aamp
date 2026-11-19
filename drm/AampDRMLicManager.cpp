@@ -269,6 +269,8 @@ KeyState AampDRMLicenseManager::acquireLicense( int& responseCode, const std::sh
 		if (mDrmSessionManager->drmSessionContexts[sessionSlot].drmSession == NULL)
 		{
 			AAMPLOG_WARN("DRM session at slot %d was cleared before the license request", sessionSlot);
+			/** Slot cleared by Stop/teardown; AAMP_TUNE_DRM_SELF_ABORT suppresses the error event */
+			eventHandle->setFailure(AAMP_TUNE_DRM_SELF_ABORT);
 			return KEY_ERROR;
 		}
 		ChallengeInfo challengeInfo;
@@ -538,10 +540,8 @@ KeyState AampDRMLicenseManager::processLicenseResponse(std::shared_ptr<DrmHelper
 		if (drmSession == NULL || !drmSession->AcquireForUse())
 		{
 			AAMPLOG_WARN("DRM session at slot %d was cleared before the license could be applied", sessionSlot);
-			if (AAMP_TUNE_FAILURE_UNKNOWN == eventHandle->getFailure())
-			{
-				eventHandle->setFailure(AAMP_TUNE_DRM_KEY_UPDATE_FAILED);
-			}
+			/** Slot cleared by Stop/teardown; AAMP_TUNE_DRM_SELF_ABORT suppresses the error event */
+			eventHandle->setFailure(AAMP_TUNE_DRM_SELF_ABORT);
 			return KEY_ERROR;
 		}
 	}
@@ -561,6 +561,13 @@ KeyState AampDRMLicenseManager::processLicenseResponse(std::shared_ptr<DrmHelper
 	KeyState code = drmSession->getState();
 	drmSession->ReleaseAfterUse();
 
+	if (code == KEY_ERROR && licenseRequestAbort.load(std::memory_order_acquire))
+	{
+		/** Key wait aborted by Stop; AAMP_TUNE_DRM_SELF_ABORT suppresses the error event */
+		AAMPLOG_WARN("License apply aborted by Stop for slot %d", sessionSlot);
+		eventHandle->setFailure(AAMP_TUNE_DRM_SELF_ABORT);
+		return code;
+	}
 	if (code == KEY_ERROR)
 	{
 		if (AAMP_TUNE_FAILURE_UNKNOWN == eventHandle->getFailure())

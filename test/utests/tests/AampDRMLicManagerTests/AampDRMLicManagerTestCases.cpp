@@ -108,7 +108,7 @@ public:
 	{
 		// Test implementation - return success
 		processDRMKeyCalls++;
-		mState = KEY_READY;
+		mState = processResult;
 		return 0;
 	}
 
@@ -140,6 +140,7 @@ public:
 	}
 
 	int processDRMKeyCalls = 0;
+	KeyState processResult = KEY_READY;
 
 #ifdef DRMSESSION_HAS_LIFECYCLE_GUARD
 	void MarkForDestruction()
@@ -660,7 +661,17 @@ protected:
 			delete contexts[i].drmSession;
 			contexts[i].drmSession = nullptr;
 		}
+		g_mockDrmMetaDataEvent.reset();
 		AampDRMLicManagerTests::TearDown();
+	}
+
+	/** Expects exactly one setFailure(failure) on the DRM metadata event and no other failure. */
+	void ExpectFailure(AAMPTuneFailure failure)
+	{
+		g_mockDrmMetaDataEvent = std::make_shared<MockDrmMetaDataEvent>(AAMP_TUNE_FAILURE_UNKNOWN, "", 0, 0, false, "");
+		EXPECT_CALL(*g_mockDrmMetaDataEvent, getFailure()).WillRepeatedly(Return(AAMP_TUNE_FAILURE_UNKNOWN));
+		EXPECT_CALL(*g_mockDrmMetaDataEvent, setFailure(_)).Times(0);
+		EXPECT_CALL(*g_mockDrmMetaDataEvent, setFailure(failure)).Times(1);
 	}
 
 	KeyState AcquireLicense(const std::shared_ptr<DrmHelper> &helper, int &cdmError)
@@ -676,6 +687,7 @@ protected:
  */
 TEST_F(AampDRMLicManagerStopTests, ClearedSlotBeforeRequest_ReturnsKeyError)
 {
+	ExpectFailure(AAMP_TUNE_DRM_SELF_ABORT);
 	auto helper = std::make_shared<TestDrmHelper>(DrmInfo(), std::vector<uint8_t>{0x01, 0x02});
 	int cdmError = 0;
 	EXPECT_EQ(AcquireLicense(helper, cdmError), KEY_ERROR);
@@ -686,13 +698,9 @@ TEST_F(AampDRMLicManagerStopTests, ClearedSlotBeforeRequest_ReturnsKeyError)
  */
 TEST_F(AampDRMLicManagerStopTests, ClearedSlotBeforeProcessDRMKey_ReturnsKeyError)
 {
-	g_mockDrmMetaDataEvent = std::make_shared<MockDrmMetaDataEvent>(AAMP_TUNE_FAILURE_UNKNOWN, "", 0, 0, false, "");
-	EXPECT_CALL(*g_mockDrmMetaDataEvent, getFailure()).WillRepeatedly(Return(AAMP_TUNE_FAILURE_UNKNOWN));
-	EXPECT_CALL(*g_mockDrmMetaDataEvent, setFailure(AAMP_TUNE_DRM_KEY_UPDATE_FAILED)).Times(1);
-
+	ExpectFailure(AAMP_TUNE_DRM_SELF_ABORT);
 	int cdmError = 0;
 	EXPECT_EQ(AcquireLicense(std::make_shared<ExternalLicenseDrmHelper>(), cdmError), KEY_ERROR);
-	g_mockDrmMetaDataEvent.reset();
 }
 
 /**
@@ -724,5 +732,38 @@ TEST_F(AampDRMLicManagerStopTests, LiveSession_AppliesLicenseAndReleasesGuard)
 	EXPECT_EQ(cdmError, 0);
 	EXPECT_EQ(session->processDRMKeyCalls, 1);
 	EXPECT_EQ(session->ActiveOperations(), 0);
+}
+
+/**
+ * @brief Key wait ended with KEY_ERROR because the app called Stop: reported as
+ *        AAMP_TUNE_DRM_SELF_ABORT, so no error event goes to the application.
+ */
+TEST_F(AampDRMLicManagerStopTests, KeyErrorAfterStop_ReportsSelfAbort)
+{
+	auto *session = new TestDrmSession();
+	session->setState(KEY_PENDING);
+	session->processResult = KEY_ERROR;
+	mTestableDRMLicenseManager->mDrmSessionManager->drmSessionContexts[kSlot].drmSession = session;
+	mTestableDRMLicenseManager->setLicenseRequestAbort(true);
+	ExpectFailure(AAMP_TUNE_DRM_SELF_ABORT);
+
+	int cdmError = 0;
+	EXPECT_EQ(AcquireLicense(std::make_shared<ExternalLicenseDrmHelper>(), cdmError), KEY_ERROR);
+	EXPECT_EQ(session->ActiveOperations(), 0);
+}
+
+/**
+ * @brief A real key failure (no Stop) is still reported as AAMP_TUNE_DRM_KEY_UPDATE_FAILED.
+ */
+TEST_F(AampDRMLicManagerStopTests, KeyErrorWithoutStop_ReportsKeyUpdateFailed)
+{
+	auto *session = new TestDrmSession();
+	session->setState(KEY_PENDING);
+	session->processResult = KEY_ERROR;
+	mTestableDRMLicenseManager->mDrmSessionManager->drmSessionContexts[kSlot].drmSession = session;
+	ExpectFailure(AAMP_TUNE_DRM_KEY_UPDATE_FAILED);
+
+	int cdmError = 0;
+	EXPECT_EQ(AcquireLicense(std::make_shared<ExternalLicenseDrmHelper>(), cdmError), KEY_ERROR);
 }
 #endif
