@@ -20,6 +20,7 @@ cmake_minimum_required(VERSION 3.5)
 project(Playergstinterface)
 
 option(DISABLE_SECURITY_TOKEN "Disable security token" OFF)
+option(ENABLE_RDKPERF "Enable RDKPerf API timing" OFF)
 
 if(DISABLE_SECURITY_TOKEN)
   add_definitions(-DDISABLE_SECURITY_TOKEN)
@@ -374,6 +375,11 @@ target_link_libraries(playergstinterface ${LIBPLAYERGSTINTERFACE_DEPENDS})
 target_link_libraries(playergstinterface ${GST_LINK_LIBRARIES} ${GSTREAMER_LINK_LIBRARIES} ${GSTREAMERBASE_LINK_LIBRARIES} ${GSTREAMERBASE_LINK_LIBRARIES})
 
 target_link_libraries(playergstinterface ${GSTVIDEO_LIBRARIES} ${LIBPLAYERGSTINTERFACE_DEPENDS})
+
+if(ENABLE_RDKPERF)
+	target_compile_definitions(playergstinterface PRIVATE ENABLE_RDKPERF)
+	target_link_libraries(playergstinterface rdkperf)
+endif()
 
 if (CMAKE_RDK_SVP)
 	target_link_libraries(playergstinterface gstsvpext)

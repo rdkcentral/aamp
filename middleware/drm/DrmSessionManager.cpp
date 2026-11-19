@@ -29,6 +29,7 @@
 #include "DrmHelper.h"
 #include <inttypes.h>
 #include "PlayerUtils.h"
+#include "PlayerLogManager.h"
 #include "ContentSecurityManager.h"
 #define DRM_METADATA_TAG_START "<ckm:policy xmlns:ckm=\"urn:ccp:ckm\">"
 #define DRM_METADATA_TAG_END "</ckm:policy>"
@@ -473,7 +474,10 @@ DrmSession* DrmSessionManager::createDrmSession(int &responseCode, int &err, std
 	/**
 	 * Create drm session without primaryKeyId markup OR retrieve old DRM session.
 	 */
-	code = getDrmSession(err, drmHelper, selectedSlot,  Instance);
+	{
+		PI_PROFILE_SCOPE("drm_session_lookup");
+		code = getDrmSession(err, drmHelper, selectedSlot, Instance);
+	}
 	/**
 	 * KEY_READY code indicates that a previously created session is being reused.
 	 */
@@ -496,7 +500,10 @@ DrmSession* DrmSessionManager::createDrmSession(int &responseCode, int &err, std
 		MW_LOG_WARN(" Unable to get DrmSession : Key State %d ", code);
 		return nullptr;
 	}
-	code = initializeDrmSession(drmHelper, selectedSlot,  err);
+	{
+		PI_PROFILE_SCOPE("drm_session_init");
+		code = initializeDrmSession(drmHelper, selectedSlot, err);
+	}
 	if (code != KEY_INIT)
 	{
 		MW_LOG_WARN(" Unable to initialize DrmSession : Key State %d ", code);
@@ -528,7 +535,10 @@ DrmSession* DrmSessionManager::createDrmSession(int &responseCode, int &err, std
 	 */
 	bool reusingPooledSession = mContentSecurityManagerSession.isSessionValid();
 	auto licenseRetryHelper = drmHelper;
-	code =this->AcquireLicenseCb(responseCode, std::move(drmHelper), selectedSlot, cdmError,  (GstMediaType)streamType, metaDataPtr, false);
+	{
+		PI_PROFILE_SCOPE("drm_license_acquire");
+		code = this->AcquireLicenseCb(responseCode, std::move(drmHelper), selectedSlot, cdmError, (GstMediaType)streamType, metaDataPtr, false);
+	}
 	if (code != KEY_READY && reusingPooledSession &&
 			sessionMgrState != SessionMgrState::eSESSIONMGR_INACTIVE)
 	{
@@ -548,7 +558,10 @@ DrmSession* DrmSessionManager::createDrmSession(int &responseCode, int &err, std
 			mContentSecurityManagerSession.setSessionInvalid();
 			ContentSecurityManager::GetInstance()->ReleaseSession(localSession.getSessionID());
 		}
-		code =this->AcquireLicenseCb(responseCode, std::move(licenseRetryHelper), selectedSlot, cdmError,  (GstMediaType)streamType, metaDataPtr, false);
+		{
+			PI_PROFILE_SCOPE("drm_license_acquire");
+			code = this->AcquireLicenseCb(responseCode, std::move(licenseRetryHelper), selectedSlot, cdmError, (GstMediaType)streamType, metaDataPtr, false);
+		}
 	}
 	if (code != KEY_READY)
 	{

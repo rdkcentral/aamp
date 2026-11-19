@@ -85,6 +85,27 @@ static std::hash<std::thread::id> std_thread_hasher;
 
 // Sequential log counter for tracking missing log lines
 static std::atomic<uint32_t> gMwLogCounter(0);
+static std::atomic<uint32_t> gActiveTuneProfileCount(0);
+
+void PIStartTuneProfile()
+{
+	gActiveTuneProfileCount.fetch_add(1, std::memory_order_acq_rel);
+}
+
+void PIStopTuneProfile()
+{
+	uint32_t activeCount = gActiveTuneProfileCount.load(std::memory_order_acquire);
+	while (activeCount > 0 && !gActiveTuneProfileCount.compare_exchange_weak(
+		activeCount, activeCount - 1, std::memory_order_acq_rel))
+	{
+	}
+}
+
+bool PIIsTuneProfileActive()
+{
+	return gActiveTuneProfileCount.load(std::memory_order_acquire) > 0;
+}
+
 std::size_t GetPlayerPrintableThreadID( void )
 {
 	return std_thread_hasher( std::this_thread::get_id() );

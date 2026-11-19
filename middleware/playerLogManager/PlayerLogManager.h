@@ -31,6 +31,33 @@
 #include <iomanip>
 #include <algorithm>
 #include <cstdint>
+
+void PIStartTuneProfile();
+void PIStopTuneProfile();
+bool PIIsTuneProfileActive();
+
+#ifdef ENABLE_RDKPERF
+#include <memory>
+#include <rdk_perf.h>
+class PIProfileScope
+{
+public:
+	explicit PIProfileScope(const char* name)
+	{
+		if (PIIsTuneProfileActive())
+		{
+			mPerf.reset(new RDKPerf(name));
+		}
+	}
+
+private:
+	std::unique_ptr<RDKPerf> mPerf;
+};
+#define PI_PROFILE_SCOPE(name) PIProfileScope piProfileScope(name)
+#else
+#define PI_PROFILE_SCOPE(name) do {} while (0)
+#endif
+
 /**
  * @brief Log level's of Middleware
  */

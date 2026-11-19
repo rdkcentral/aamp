@@ -173,6 +173,55 @@ struct GstPlayerPriv
 	std::mutex TaskControlMutex; /**< For scheduling/de-scheduling or resetting async tasks/variables and timers */
 	GstTaskControlData firstProgressCallbackIdleTask;
 	guint periodicProgressCallbackIdleTaskId; /**< ID of timed handler created for notifying progress events. */
+#ifdef ENABLE_RDKPERF
+	std::mutex configureToFirstFrameProfileMutex;
+	RDKPerfHandle configureToFirstFramePerfHandle = nullptr;
+	bool configureToFirstFrameProfileActive = false;
+#endif
+	void StartConfigureToFirstFrameProfile()
+	{
+#ifdef ENABLE_RDKPERF
+		std::lock_guard<std::mutex> lock(configureToFirstFrameProfileMutex);
+		if (configureToFirstFrameProfileActive)
+		{
+			if (configureToFirstFramePerfHandle)
+			{
+				RDKPerfStop(configureToFirstFramePerfHandle);
+			}
+			PIStopTuneProfile();
+		}
+		configureToFirstFramePerfHandle = RDKPerfStart("configure_to_first_frame_client_or_timeout");
+		configureToFirstFrameProfileActive = true;
+		PIStartTuneProfile();
+#endif
+	}
+	void StopConfigureToFirstFramePerfHandle()
+	{
+#ifdef ENABLE_RDKPERF
+		std::lock_guard<std::mutex> lock(configureToFirstFrameProfileMutex);
+		if (configureToFirstFrameProfileActive && configureToFirstFramePerfHandle)
+		{
+			RDKPerfStop(configureToFirstFramePerfHandle);
+			configureToFirstFramePerfHandle = nullptr;
+		}
+#endif
+	}
+	void StopConfigureToFirstFrameProfile()
+	{
+#ifdef ENABLE_RDKPERF
+		std::lock_guard<std::mutex> lock(configureToFirstFrameProfileMutex);
+		if (configureToFirstFrameProfileActive)
+		{
+			configureToFirstFrameProfileActive = false;
+			PIStopTuneProfile();
+			if (configureToFirstFramePerfHandle)
+			{
+				RDKPerfStop(configureToFirstFramePerfHandle);
+				configureToFirstFramePerfHandle = nullptr;
+			}
+		}
+#endif
+	}
 	guint bufferingTimeoutTimerId;                    /**< ID of timer handler created for buffering timeout. */
 	GstElement *video_dec;                                    /**< Video decoder used by pipeline. */
 	GstElement *audio_dec;                                    /**< Audio decoder used by pipeline. */

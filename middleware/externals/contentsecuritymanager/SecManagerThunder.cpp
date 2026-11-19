@@ -513,6 +513,7 @@ bool SecManagerThunder::SetPlaybackPosition(int64_t sessionId, float playback_sp
 bool SecManagerThunder::loadClutWatermark(int64_t sessionId, int64_t graphicId, int64_t watermarkClutBufferKey, int64_t watermarkImageBufferKey, int64_t clutPaletteSize,
 		const char* clutPaletteFormat, int64_t watermarkWidth, int64_t watermarkHeight, float aspectRatio)
 {
+	PI_PROFILE_SCOPE("watermark_load_clut_rpc");
 	bool rpcResult = false;
 	JsonObject result;
 	JsonObject param;
@@ -798,6 +799,7 @@ void SecManagerThunder::showWatermarkHandler(const JsonObject& parameters)
  */
 void SecManagerThunder::ShowWatermark(bool show)
 {
+	PI_PROFILE_SCOPE("watermark_show_rpc");
 	JsonObject param;
 	JsonObject result;
 	bool rpcResult = false;
@@ -829,6 +831,7 @@ void SecManagerThunder::ShowWatermark(bool show)
  */
 void SecManagerThunder::CreateWatermark(int graphicId, int zIndex )
 {
+	PI_PROFILE_SCOPE("watermark_create_rpc");
 	JsonObject param;
 	JsonObject result;
 	bool rpcResult = false;
@@ -861,6 +864,7 @@ void SecManagerThunder::CreateWatermark(int graphicId, int zIndex )
  */
 void SecManagerThunder::DeleteWatermark(int graphicId)
 {
+	PI_PROFILE_SCOPE("watermark_delete_rpc");
 	JsonObject param;
 	JsonObject result;
 	bool rpcResult = false;
@@ -892,6 +896,7 @@ void SecManagerThunder::DeleteWatermark(int graphicId)
  */
 void SecManagerThunder::UpdateWatermark(int graphicId, int smKey, int smSize )
 {
+	PI_PROFILE_SCOPE("watermark_update_rpc");
 	JsonObject param;
 	JsonObject result;
 	bool rpcResult = false;
@@ -926,6 +931,7 @@ void SecManagerThunder::UpdateWatermark(int graphicId, int smKey, int smSize )
  */
 void SecManagerThunder::AlwaysShowWatermarkOnTop(bool show)
 {
+	PI_PROFILE_SCOPE("watermark_always_on_top_rpc");
 	JsonObject param;
 	JsonObject result;
 	bool rpcResult = false;
@@ -996,6 +1002,7 @@ void SecManagerThunder::GetWaterMarkPalette(int sessionId, int graphicId, std::u
 	param["id"] = graphicId;
 	MW_LOG_WARN("ContentSecurityManager %s:%d Graphic id: %d ", __FUNCTION__, __LINE__, graphicId);
 	{
+		PI_PROFILE_SCOPE("watermark_get_palette_rpc");
 		std::lock_guard<std::mutex> lock(mWatMutex);
 		rpcResult =  mWatermarkPluginObj.InvokeJSONRPC("getPalettedWatermark", param, result);
 	}
@@ -1051,6 +1058,7 @@ void SecManagerThunder::ModifyWatermarkPalette(int graphicId, int clutKey, int i
 	JsonObject result;
 
 	bool rpcResult = false;
+	PI_PROFILE_SCOPE("watermark_modify_palette_rpc");
 	param["id"] = graphicId;
 	param["clutKey"] = clutKey;
 	param["imageKey"] = imageKey;

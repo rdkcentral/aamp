@@ -459,6 +459,7 @@ bool ContentProtectionFirebolt::AcquireLicenseOpenOrUpdate( std::string clientId
 
 void ContentProtectionFirebolt::CloseDrmSession(int64_t sessionId)
 {
+	PI_PROFILE_SCOPE("drm_session_close");
 	// Check if Firebolt is active before proceeding
 	if (!IsActive())
 	{
