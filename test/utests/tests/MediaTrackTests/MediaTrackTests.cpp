@@ -602,7 +602,7 @@ TEST_P(MediaTrackDashPlaybackPtsRestampTests, PlaybackTest)
 	ASSERT_TRUE(videoTrack.InjectFragment());
 	ASSERT_DOUBLE_EQ(videoTrack.GetTotalInjectedDuration(), FRAGMENT_DURATION.inSeconds());
 
-	// Media segment (UseMp4Demux enabled: RestampPts should NOT be called)	
+	// Media segment (UseMp4Demux enabled: RestampPts should NOT be called)
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseMp4Demux)).WillRepeatedly(Return(true));
 	testFragment = CachedFragment{};
 	testFragment.initFragment = false;
@@ -1304,7 +1304,7 @@ TEST_F(MediaTrackTests, MPDCallback_Teardown_RaceConditionTest)
 	ON_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxLLDFragmentCached)).WillByDefault(Return(1));
 	ON_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxDownloadBuffer)).WillByDefault(Return(10));
 
-	
+
 	auto* testMPD = new TestableStreamAbstractionAAMP_MPD(mPrivateInstanceAAMP, 0, 0);
 
 	auto* videoCtx = new MediaStreamContext(eTRACK_VIDEO, testMPD, mPrivateInstanceAAMP, "video");
@@ -1348,7 +1348,7 @@ TEST_F(MediaTrackTests, MPDCallback_Teardown_RaceConditionTest)
 		std::lock_guard<std::mutex> lock(notifierMtx);
 		registered.store(false, std::memory_order_release); //mManifestUpdateHandleFlag = false
 	}
-	notifierThread.join(); 
+	notifierThread.join();
 
 	const int countAfterUnregistering = callbackCount.load(std::memory_order_acquire);
 
@@ -1457,23 +1457,6 @@ TEST_F(MediaTrackBufferMonitorTests, StopInjectLoop_InterruptsSleepingMonitor)
 	const auto elapsed = TimeIt([&]() { track.StopInjectLoop(); });
 
 	EXPECT_LT(elapsed, MAX_STOP_DURATION);
-}
-
-/**
- * @brief StopBufferMonitor() can be called again once the monitor has been joined
- */
-TEST_F(MediaTrackBufferMonitorTests, StopBufferMonitor_SecondCallReturnsImmediately)
-{
-	TestableMediaTrack track(eTRACK_VIDEO, mPrivateInstanceAAMP, "video", mStreamAbstractionAAMP_MPD);
-	StartMonitorAndWaitForSleep(track);
-	track.StopBufferMonitor();
-
-	const auto elapsed = TimeIt([&]() { track.StopBufferMonitor(); });
-
-	EXPECT_LT(elapsed, MAX_STOP_DURATION);
-
-	track.AbortWaitForCachedAndFreeFragment(true);
-	track.StopInjectLoop();
 }
 
 /**

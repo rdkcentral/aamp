@@ -318,10 +318,6 @@ void MediaTrack::StopInjectLoop()
 {
 }
 
-void MediaTrack::StopBufferMonitor()
-{
-}
-
 void MediaTrack::StopPlaylistDownloaderThread()
 {
 }

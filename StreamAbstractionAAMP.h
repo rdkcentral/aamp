@@ -509,8 +509,6 @@ public:
 	/**
 	 * @brief Stop and join the buffer monitor thread
 	 *
-	 * Must be called from the destructor of every class derived from
-	 * MediaTrack, while the derived part (and so GetContext()) is still valid.
 	 */
 	void StopBufferMonitor();
 	/**
@@ -678,7 +676,7 @@ public:
 	virtual void ResetTrickModePtsRestamping(void);
 
 	/**
-	 * @fn GetTimeBasedBufferManager 
+	 * @fn GetTimeBasedBufferManager
 	 *
 	 * @brief Get the time based buffer manager for this track
 	 *
@@ -729,7 +727,7 @@ protected:
 	double GetLastInjectedFragmentPosition() { return lastInjectedPosition; }
 
 private:
-	
+
 	/**
 	 * @fn GetBufferHealthStatusString
 	 *
@@ -1675,7 +1673,7 @@ public:
 	 *   @return duration of currently buffered video in seconds
 	 */
 	double GetBufferedVideoDurationSec();
-	
+
 	/**
 	 * @fn StartUnderflowMonitor
 	 * @brief Start UnderflowMonitor Thread.
@@ -2034,7 +2032,7 @@ public:
 	 *   @fn ReinitializeInjection
 	 *   @brief Re-Initialize the injection logic
 	 *   @param[in] rate - play rate
-	 */	
+	 */
 	void ReinitializeInjection(double rate);
 
 protected:
