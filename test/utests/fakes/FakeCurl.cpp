@@ -103,6 +103,7 @@ CURLcode curl_easy_setopt(CURL *handle, CURLoption option, ...)
 
         switch (option)
         {
+            case CURLOPT_HEADERDATA:
             case CURLOPT_PROGRESSDATA:
             case CURLOPT_WRITEDATA:
             case CURLOPT_SHARE:          // pooled-handle re-bind (CurlStore refactor)

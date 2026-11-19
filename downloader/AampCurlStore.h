@@ -317,15 +317,16 @@ struct CurlCallbackContext
 	size_t synthesizeIframeByteCap = 0;    /**< Computed cap (moofSize+8+firstSampleSize); 0 until MOOF fully buffered */
 	BitsPerSecond profileBps = 0; /**< Current video profile bits per second used for early abort calculation*/
 	uint64_t chunkDurationInTicks = 0; /**< Duration of the current chunk in ticks, used while caching chunks */
-	long long downloadUpdatedTime = -1;
-	int startTimeout = -1;
-	int stallTimeout = -1;
-	int lowBWTimeout = -1;
-	double downloadSize = -1;
-	double downloadNow = -1;
-	long long downloadNowUpdatedTime = -1;
-	bool dlStarted = false;
-	int fragmentDurationMs = -1;
+	// Progress callback (XFERINFOFUNCTION) state, shared with the write/header callbacks through this single context
+	long long downloadUpdatedTime = -1; /**< Time (ms) downloadSize last changed; stall detection compares it with stallTimeout */
+	int startTimeout = -1; /**< Seconds to wait for the first byte before aborting with START_TIMEDOUT; 0 disables (manifests/playlists) */
+	int stallTimeout = -1; /**< Seconds without new bytes before aborting with STALL_TIMEDOUT; <= 0 disables */
+	int lowBWTimeout = -1; /**< Seconds after request start before low bandwidth checks apply (video only); <= 0 disables */
+	double downloadSize = -1; /**< Bytes downloaded at the last observed change (-1 until first bytes arrive); stall detection baseline */
+	double downloadNow = -1; /**< Bytes downloaded at the last LL-DASH ABR progress report; avoids reporting the same value twice */
+	long long downloadNowUpdatedTime = -1; /**< Time (ms) of the last LL-DASH ABR progress report; recorded but not currently read */
+	bool dlStarted = false; /**< True until the first LL-DASH speed sample; tells getCurrentContentDownloadSpeed to restart its byte counter */
+	int fragmentDurationMs = -1; /**< Fragment duration (ms) of the request; recorded but not currently read */
 
 	/**
 	 * @brief Constructor to initialize CurlCallbackContext
@@ -359,8 +360,13 @@ struct CurlCallbackContext
 		downloadIsEncoded = false;
 		contentLength = 0;
 		bitrate = 0;
+		// Progress state must not leak from a previous attempt: a stale downloadNow can suppress the first
+		// ABR progress report, and dlStarted must be true again so the speed cache restarts its byte counter
 		downloadUpdatedTime = -1;
 		downloadSize = -1;
+		downloadNow = -1;
+		downloadNowUpdatedTime = -1;
+		dlStarted = true;
 	}
 };
 

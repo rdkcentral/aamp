@@ -4737,7 +4737,6 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 			}
 			CURL_EASY_SETOPT_LONG(curl, CURLOPT_SSLVERSION, mSupportedTLSVersion);
 
-			context.dlStarted = true;
 			context.fragmentDurationMs = fragmentDurationMs;
 
 			SetCMCDTrackData(mediaType);
@@ -5085,6 +5084,17 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 					// Retrying is futile under memory pressure; do not set loopAgain.
 					// Report as a distinct resource failure rather than a network error.
 					AAMPLOG_ERR("Curl download aborted due to buffer allocation failure (OOM); not retrying");
+					http_code = res; // preserve CURLE_WRITE_ERROR (23) for telemetry
+				}
+				else if (res == CURLE_WRITE_ERROR)
+				{
+					// Any other write callback failure (e.g. CHUNKED_PARSER_ERROR, INVALID_CHUNK_BOUNDARY) is not a
+					// progress timeout. The abort reason is now shared with the progress callback, so classifying it
+					// below would turn it into a retried start/stall timeout. Keep CURLE_WRITE_ERROR (23) and do not retry.
+					if (context.abortReason != eCURL_ABORT_REASON_NONE)
+					{
+						AAMPLOG_ERR("[%d] Curl download aborted by write callback, abortReason:%d; not retrying", mediaType, context.abortReason);
+					}
 					http_code = res; // preserve CURLE_WRITE_ERROR (23) for telemetry
 				}
 				else if (context.chunkInjectionUsed &&
