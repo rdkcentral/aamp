@@ -18,6 +18,7 @@
  */
 
 #include <gtest/gtest.h>
+#include <atomic>
 #include <gmock/gmock.h>
 #include <memory>
 #include <mutex>
@@ -623,6 +624,23 @@ TEST_F(AampDRMLicManagerTests, TriggerLAProfileErrorCb_SelfAbort_DoesNotSendErro
 	void *callbackData = static_cast<void *>(&eventHandle);
 
 	mTestableDRMLicenseManager->TriggerLAProfileErrorCb(callbackData);
+}
+
+extern std::atomic<int> g_fakeAampCurlDownloaderReleaseCalls;
+
+/**
+ * @brief RDKEMW-29034: Stop (setLicenseRequestAbort(true)) releases every per-slot license
+ *        downloader so an in-flight license transfer is aborted; clearing the flag does not.
+ */
+TEST_F(AampDRMLicManagerTests, SetLicenseRequestAbort_ReleasesAllLicenseDownloaders)
+{
+	g_fakeAampCurlDownloaderReleaseCalls = 0;
+	mTestableDRMLicenseManager->setLicenseRequestAbort(true);
+	EXPECT_EQ(g_fakeAampCurlDownloaderReleaseCalls.load(), 5);
+
+	g_fakeAampCurlDownloaderReleaseCalls = 0;
+	mTestableDRMLicenseManager->setLicenseRequestAbort(false);
+	EXPECT_EQ(g_fakeAampCurlDownloaderReleaseCalls.load(), 0);
 }
 
 #ifdef DRMSESSION_HAS_LIFECYCLE_GUARD
