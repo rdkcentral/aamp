@@ -474,6 +474,12 @@ st = subtitle track
 ```
 ---
 
+## RDKPerf profiling
+
+Middleware profiling is disabled by default. Configure with `-DENABLE_RDKPERF=ON` to enable it; CMake requires both `rdk_perf.h` and `librdkperf` and reports a configuration error if either is missing. `InterfacePlayerRDK` scopes are recorded only within that player's tune window. DRM and security scopes without a player context are recorded while any tune is active. Set `PLAYER_RDKPERF_ALWAYS=1` in the process environment to record scopes outside those windows as well.
+
+The tune duration is logged as `PI_PERF configure_to_first_frame <ms>`. This AAMP branch does not contain a first-frame timeout callback, so it cannot emit the separate `first_frame_timeout` measurement.
+
 # AAMP Simulator Installation
 
 ## Setting up AAMP Simulator (Mac/OSX)

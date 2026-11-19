@@ -175,51 +175,81 @@ struct GstPlayerPriv
 	guint periodicProgressCallbackIdleTaskId; /**< ID of timed handler created for notifying progress events. */
 #ifdef ENABLE_RDKPERF
 	std::mutex configureToFirstFrameProfileMutex;
-	RDKPerfHandle configureToFirstFramePerfHandle = nullptr;
+	std::chrono::steady_clock::time_point configureToFirstFrameStart;
 	bool configureToFirstFrameProfileActive = false;
+	bool configureToFirstFrameRecorded = false;
 #endif
+	/* Starts this player's tune profile window. The window can end on a different
+	 * thread than it started on, so it is measured with steady_clock instead of an
+	 * RDKPerf handle (RDKPerf nodes must be closed on the thread that opened them). */
 	void StartConfigureToFirstFrameProfile()
 	{
 #ifdef ENABLE_RDKPERF
 		std::lock_guard<std::mutex> lock(configureToFirstFrameProfileMutex);
 		if (configureToFirstFrameProfileActive)
 		{
-			if (configureToFirstFramePerfHandle)
-			{
-				RDKPerfStop(configureToFirstFramePerfHandle);
-			}
 			PIStopTuneProfile();
 		}
-		configureToFirstFramePerfHandle = RDKPerfStart("configure_to_first_frame_client_or_timeout");
+		configureToFirstFrameStart = std::chrono::steady_clock::now();
 		configureToFirstFrameProfileActive = true;
+		configureToFirstFrameRecorded = false;
 		PIStartTuneProfile();
 #endif
 	}
-	void StopConfigureToFirstFramePerfHandle()
+	/* Records configure_to_first_frame once per tune; the window stays open for
+	 * the first-frame client callback and closes in StopConfigureToFirstFrameProfile(). */
+	bool RecordConfigureToFirstFrame()
 	{
+		bool recorded = false;
 #ifdef ENABLE_RDKPERF
 		std::lock_guard<std::mutex> lock(configureToFirstFrameProfileMutex);
-		if (configureToFirstFrameProfileActive && configureToFirstFramePerfHandle)
+		if (configureToFirstFrameProfileActive && !configureToFirstFrameRecorded)
 		{
-			RDKPerfStop(configureToFirstFramePerfHandle);
-			configureToFirstFramePerfHandle = nullptr;
+			configureToFirstFrameRecorded = true;
+			recorded = true;
+			MW_LOG_MIL("PI_PERF configure_to_first_frame %lld ms", ElapsedSinceConfigureMs());
 		}
 #endif
+		return recorded;
 	}
-	void StopConfigureToFirstFrameProfile()
+	bool StopConfigureToFirstFrameProfile(bool timedOut = false)
 	{
+		bool timeoutReported = false;
 #ifdef ENABLE_RDKPERF
 		std::lock_guard<std::mutex> lock(configureToFirstFrameProfileMutex);
 		if (configureToFirstFrameProfileActive)
 		{
-			configureToFirstFrameProfileActive = false;
-			PIStopTuneProfile();
-			if (configureToFirstFramePerfHandle)
+			if (timedOut && !configureToFirstFrameRecorded)
 			{
-				RDKPerfStop(configureToFirstFramePerfHandle);
-				configureToFirstFramePerfHandle = nullptr;
+				timeoutReported = true;
+				MW_LOG_WARN("PI_PERF first_frame_timeout %lld ms", ElapsedSinceConfigureMs());
 			}
+			configureToFirstFrameProfileActive = false;
+			configureToFirstFrameRecorded = true;
+			PIStopTuneProfile();
 		}
+#else
+		(void)timedOut;
+#endif
+		return timeoutReported;
+	}
+	bool IsConfigureToFirstFrameProfileActive()
+	{
+#ifdef ENABLE_RDKPERF
+		std::lock_guard<std::mutex> lock(configureToFirstFrameProfileMutex);
+		return configureToFirstFrameProfileActive;
+#else
+		return false;
+#endif
+	}
+#ifdef ENABLE_RDKPERF
+private:
+	long long ElapsedSinceConfigureMs() const
+	{
+		return static_cast<long long>(std::chrono::duration_cast<std::chrono::milliseconds>(
+			std::chrono::steady_clock::now() - configureToFirstFrameStart).count());
+	}
+public:
 #endif
 	}
 	guint bufferingTimeoutTimerId;                    /**< ID of timer handler created for buffering timeout. */

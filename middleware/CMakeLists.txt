@@ -21,6 +21,14 @@ project(Playergstinterface)
 
 option(DISABLE_SECURITY_TOKEN "Disable security token" OFF)
 option(ENABLE_RDKPERF "Enable RDKPerf API timing" OFF)
+if(ENABLE_RDKPERF)
+	find_path(RDKPERF_INCLUDE_DIR rdk_perf.h PATH_SUFFIXES rdkperf)
+	find_library(RDKPERF_LIBRARY rdkperf)
+	if(NOT RDKPERF_INCLUDE_DIR OR NOT RDKPERF_LIBRARY)
+		message(FATAL_ERROR "ENABLE_RDKPERF=ON but rdkperf was not found (rdk_perf.h: ${RDKPERF_INCLUDE_DIR}, librdkperf: ${RDKPERF_LIBRARY}). Install rdkperf or configure with -DENABLE_RDKPERF=OFF.")
+	endif()
+	message(STATUS "RDKPerf enabled: ${RDKPERF_LIBRARY}")
+endif()
 
 if(DISABLE_SECURITY_TOKEN)
   add_definitions(-DDISABLE_SECURITY_TOKEN)
@@ -378,7 +386,8 @@ target_link_libraries(playergstinterface ${GSTVIDEO_LIBRARIES} ${LIBPLAYERGSTINT
 
 if(ENABLE_RDKPERF)
 	target_compile_definitions(playergstinterface PRIVATE ENABLE_RDKPERF)
-	target_link_libraries(playergstinterface rdkperf)
+	target_include_directories(playergstinterface PRIVATE ${RDKPERF_INCLUDE_DIR})
+	target_link_libraries(playergstinterface ${RDKPERF_LIBRARY})
 endif()
 
 if (CMAKE_RDK_SVP)

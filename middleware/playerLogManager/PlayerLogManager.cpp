@@ -28,6 +28,7 @@
 #include <stdio.h>
 #include <cstdarg>
 #include <cstring>
+#include <cstdlib>
 #include <atomic>
 #include "PlayerLogManager.h"
 #include "PlayerUtils.h"
@@ -104,6 +105,26 @@ void PIStopTuneProfile()
 bool PIIsTuneProfileActive()
 {
 	return gActiveTuneProfileCount.load(std::memory_order_acquire) > 0;
+}
+
+static std::atomic<bool>& ProfileAlwaysOnFlag()
+{
+	static std::atomic<bool> alwaysOn([]()
+	{
+		const char* env = getenv("PLAYER_RDKPERF_ALWAYS");
+		return (env != nullptr) && (strcmp(env, "1") == 0);
+	}());
+	return alwaysOn;
+}
+
+bool PIIsProfileAlwaysOn()
+{
+	return ProfileAlwaysOnFlag().load(std::memory_order_acquire);
+}
+
+void PISetProfileAlwaysOn(bool alwaysOn)
+{
+	ProfileAlwaysOnFlag().store(alwaysOn, std::memory_order_release);
 }
 
 std::size_t GetPlayerPrintableThreadID( void )
