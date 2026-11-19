@@ -192,6 +192,7 @@ sendUserAgentInLicense		Enable/disable sending user agent in the DRM license req
 useSinglePipeline		Enable/Disable using single gstreamer pipeline for main and secondary assets
 earlyProcessing			Enable/Disable processing fragments on download to extract ID3 metadata
 useRialtoSink              Enable/Disable player to use Rialto sink based video and audio pipeline
+useDirectRialto			Enable/Disable player to call the Rialto client API directly, without a GStreamer pipeline. Read before player creation (device config, environment or operator settings), not changeable dynamically. Forces useMp4Demux on. See docs/direct-rialto/README.md
 disableTTML			Disable TTML subtitle tracks in DASH; in-band closed captions remain available. Default: false
 // Integer inputs
 ptsErrorThreshold		aamp maximum number of back-to-back pts errors to be considered for triggering a retune

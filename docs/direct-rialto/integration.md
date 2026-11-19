@@ -59,7 +59,7 @@ Only items that exist in the repository.
 
 | Option | Type | Effect on Direct Rialto |
 |---|---|---|
-| `useDirectRialto` | bool, default false | Enables the mode. Not listed in `README.md` or `CONFIGURATION.md` (only `useRialtoSink` is). |
+| `useDirectRialto` | bool, default false | Enables the mode. Read before the player is created, so it cannot be changed dynamically. |
 | `useRialtoSink` | bool | A different mode. Both flags make `UsingRialto()` true. Setting both is not specifically handled here. |
 | `useMp4Demux` | bool | Forced on. |
 | `monitorAV` | bool | Creates `AampRialtoMonitorAV`. |
