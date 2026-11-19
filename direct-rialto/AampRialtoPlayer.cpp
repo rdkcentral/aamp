@@ -503,8 +503,8 @@ void AampRialtoPlayer::Configure(
 		audioInVideoSlot ? reportedVideoFormat : reportedAudioFormat;
 
 	AAMPLOG_INFO("videoFormat=%d videoEncrypted=%d audioFormat=%d audioEncrypted=%d subFormat=%d subtitleEncrypted=%d bESChangeStatus=%d setReadyAfterPipelineCreation=%d audioInVideoSlot=%d",
-		static_cast<int>(videoFormat), static_cast<int>(codecInfo.video.mIsEncrypted),
-		static_cast<int>(audioFormat), static_cast<int>(codecInfo.audio.mIsEncrypted),
+		static_cast<int>(reportedVideoFormat), static_cast<int>(codecInfo.video.mIsEncrypted),
+		static_cast<int>(reportedAudioFormat), static_cast<int>(codecInfo.audio.mIsEncrypted),
 		static_cast<int>(subFormat), static_cast<int>(codecInfo.subtitle.mIsEncrypted),
 		bESChangeStatus, setReadyAfterPipelineCreation, audioInVideoSlot);
 
