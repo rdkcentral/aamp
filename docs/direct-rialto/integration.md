@@ -142,3 +142,7 @@ simulator. Counts are approximate and were taken by counting test macros.
   threads concurrently.
 - CI runs L2 against the simulator, so real Rialto server behaviour (for example
   event ordering and pipeline overlap) is not exercised in CI.
+
+---
+
+Previous: [error-handling.md](error-handling.md) | Next: [limitations.md](limitations.md) | [Overview](README.md)

@@ -340,3 +340,7 @@ has not been measured. See the tune-time note in
 - **Single-pipeline mode** is supported through `ChangeAamp`,
   `SetEncryptedAamp` and `ResetFirstFrame`, with `positionIsAuthoritative`
   on `Flush()` for ad transitions.
+
+---
+
+Previous: [architecture.md](architecture.md) | Next: [lifecycle.md](lifecycle.md) | [Overview](README.md)

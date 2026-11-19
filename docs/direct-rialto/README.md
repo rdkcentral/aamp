@@ -246,6 +246,9 @@ The full list with source locations and classification is in
 
 ## Document map
 
+The documents are listed in the suggested reading order. Each page ends with
+links to the previous and next page.
+
 | Document | Contents |
 |---|---|
 | [architecture.md](architecture.md) | Classes, responsibilities, ownership, class diagram |

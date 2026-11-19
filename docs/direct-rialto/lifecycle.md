@@ -334,3 +334,7 @@ flowchart TD
 
 *Figure 10. `Flush()` branches. The non-flushable, no-teardown branch covers
 a position staged before the pipeline exists.*
+
+---
+
+Previous: [comparison.md](comparison.md) | Next: [playback-flow.md](playback-flow.md) | [Overview](README.md)

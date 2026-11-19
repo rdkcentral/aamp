@@ -164,3 +164,7 @@ stated.
     change is not worth the added concurrency. The same logs would show whether
     the Rialto GStreamer path waits on DRM before its `attachSource`, which is
     still open in [comparison.md](comparison.md#drm-licence-acquisition-and-the-attach-path).
+
+---
+
+Previous: [integration.md](integration.md) | [Overview](README.md)

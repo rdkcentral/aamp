@@ -227,3 +227,7 @@ The main hazards are:
    destroys the pipeline, which joins the event thread. During a `Configure()`
    recreation without `Stop()`, the old pipeline lives until reassignment.
 5. Timer and destructor orderings.
+
+---
+
+Previous: [playback-flow.md](playback-flow.md) | Next: [error-handling.md](error-handling.md) | [Overview](README.md)
