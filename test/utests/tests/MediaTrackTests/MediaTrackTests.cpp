@@ -1452,7 +1452,7 @@ TEST_F(MediaTrackBufferMonitorTests, StopInjectLoop_InterruptsSleepingMonitor)
 {
 	TestableMediaTrack track(eTRACK_VIDEO, mPrivateInstanceAAMP, "video", mStreamAbstractionAAMP_MPD);
 	StartMonitorAndWaitForSleep(track);
-	track.AbortWaitForCachedAndFreeFragment(true);
+	track.AbortWaitForCachedFragment();
 
 	const auto elapsed = TimeIt([&]() { track.StopInjectLoop(); });
 
