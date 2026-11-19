@@ -166,6 +166,14 @@ void AampDRMLicenseManager::setLicenseRequestAbort(bool isAbort)
 {
 	MW_LOG_INFO("isAbort : %s", isAbort ? "true" : "false");
 	licenseRequestAbort.store(isAbort, std::memory_order_release);
+	if (isAbort && mLicenseDownloader)
+	{
+		// Abort any in-flight license transfer so acquireLicense() releases the slot's sessionMutex promptly
+		for (int i = 0; i < mMaxDRMSessions; i++)
+		{
+			mLicenseDownloader[i].Release();
+		}
+	}
 }
 
 void AampDRMLicenseManager::licenseRenewalThread(std::shared_ptr<DrmHelper> drmHelper, int sessionSlot, PrivateInstanceAAMP* aampInstance)
@@ -258,6 +266,11 @@ KeyState AampDRMLicenseManager::acquireLicense( int& responseCode, const std::sh
 		 */
 		AAMPLOG_INFO("Request to generate license challenge to the aampDRMSession(CDM)");
 
+		if (mDrmSessionManager->drmSessionContexts[sessionSlot].drmSession == NULL)
+		{
+			AAMPLOG_WARN("DRM session at slot %d was cleared before the license request", sessionSlot);
+			return KEY_ERROR;
+		}
 		ChallengeInfo challengeInfo;
 		challengeInfo.data.reset(mDrmSessionManager->drmSessionContexts[sessionSlot].drmSession->generateKeyRequest(challengeInfo.url, drmHelper->licenseGenerateTimeout()));
 		code = mDrmSessionManager->drmSessionContexts[sessionSlot].drmSession->getState();
@@ -518,19 +531,35 @@ KeyState AampDRMLicenseManager::processLicenseResponse(std::shared_ptr<DrmHelper
 	 * for processing and the DRM session should await the key from the DRM implementation
 	 */
 	AAMPLOG_INFO("Updating the license response to the aampDRMSession(CDM)");
+	DrmSession *drmSession = NULL;
+	{
+		std::lock_guard<std::mutex> guard(mDrmSessionManager->drmSessionContexts[sessionSlot].sessionMutex);
+		drmSession = mDrmSessionManager->drmSessionContexts[sessionSlot].drmSession;
+		if (drmSession == NULL || !drmSession->AcquireForUse())
+		{
+			AAMPLOG_WARN("DRM session at slot %d was cleared before the license could be applied", sessionSlot);
+			if (AAMP_TUNE_FAILURE_UNKNOWN == eventHandle->getFailure())
+			{
+				eventHandle->setFailure(AAMP_TUNE_DRM_KEY_UPDATE_FAILED);
+			}
+			return KEY_ERROR;
+		}
+	}
+
 	if(!isLicenseRenewal)
 	{
 		aampInstance->profiler.ProfileBegin(PROFILE_BUCKET_LA_POSTPROC);
 	}
 
-	cdmError = mDrmSessionManager->drmSessionContexts[sessionSlot].drmSession->processDRMKey(licenseResponse.get(), drmHelper->keyProcessTimeout());
+	cdmError = drmSession->processDRMKey(licenseResponse.get(), drmHelper->keyProcessTimeout());
 
 	if(!isLicenseRenewal)
 	{
 		aampInstance->profiler.ProfileEnd(PROFILE_BUCKET_LA_POSTPROC);
 	}
 
-	KeyState code = mDrmSessionManager->drmSessionContexts[sessionSlot].drmSession->getState();
+	KeyState code = drmSession->getState();
+	drmSession->ReleaseAfterUse();
 
 	if (code == KEY_ERROR)
 	{
