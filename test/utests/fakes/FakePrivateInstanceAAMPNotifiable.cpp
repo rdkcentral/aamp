@@ -67,6 +67,8 @@ AAMPPlayerState PrivateInstanceAAMPNotifiable::GetState()
 void PrivateInstanceAAMPNotifiable::NotifyBufferUnderflow(
 	AampMediaType /*type*/) {}
 
+void PrivateInstanceAAMPNotifiable::NotifyPipelineFailure() {}
+
 void PrivateInstanceAAMPNotifiable::ChangeAamp(
 	PrivateInstanceAAMP * /*newAamp*/) noexcept {}
 

@@ -572,6 +572,15 @@ public:
 	void OnSinkBufferFull();
 
 	/**
+	 * @fn CompleteInitialCachingIfTargetMet
+	 * @brief Mark initial fragment caching complete if the duration already
+	 *        cached meets the target.
+	 * @param[in] minInitialCacheSeconds - target cached duration in seconds
+	 * @return bool - true if caching is complete, false if more is needed
+	 */
+	bool CompleteInitialCachingIfTargetMet(int minInitialCacheSeconds);
+
+	/**
 	 * @fn FlushFetchedFragments
 	 * @return void
  	 */
@@ -763,43 +772,43 @@ private:
 	void ClearMediaHeaderDuration(CachedFragment* cachedFragment);
 
 public:
-	bool eosReached;                    /**< set to true when a vod asset has been played to completion */
-	bool enabled;                       /**< set to true if track is enabled */
-	int numberOfFragmentsCached;        /**< Number of fragments cached in this track*/
-	const char* name;                   /**< Track name used for debugging*/
-	double fragmentDurationSeconds;     /**< duration in seconds for current fragment-of-interest */
-	int segDLFailCount;                 /**< Segment download fail count*/
-	int segDrmDecryptFailCount;         /**< Segment decryption failure count*/
-	int mSegInjectFailCount;            /**< Segment Inject/Decode fail count */
-	TrackType type;                     /**< Media type of the track*/
+	bool eosReached{false};             /**< set to true when a vod asset has been played to completion */
+	bool enabled{false};                /**< set to true if track is enabled */
+	int numberOfFragmentsCached{0};     /**< Number of fragments cached in this track*/
+	const char* name{nullptr};          /**< Track name used for debugging*/
+	double fragmentDurationSeconds{0};  /**< duration in seconds for current fragment-of-interest */
+	int segDLFailCount{0};              /**< Segment download fail count*/
+	int segDrmDecryptFailCount{0};      /**< Segment decryption failure count*/
+	int mSegInjectFailCount{0};         /**< Segment Inject/Decode fail count */
+	TrackType type{eTRACK_VIDEO};       /**< Media type of the track*/
 	std::unique_ptr<SubtitleParser> mSubtitleParser;    /**< Parser for subtitle data*/
-	bool refreshSubtitles;              /**< Switch subtitle track in the FetchLoop */
-	bool refreshAudio;                  /** Switch audio track in the FetcherLoop */
-	int maxLLDCachedFragmentsPerTrack;
+	bool refreshSubtitles{false};       /**< Switch subtitle track in the FetchLoop */
+	bool refreshAudio{false};           /** Switch audio track in the FetcherLoop */
+	int maxLLDCachedFragmentsPerTrack{0};
 	std::condition_variable fragmentFetched;/**< Signaled after a fragment is fetched*/
-	double m_totalDurationForPtsRestamping;
+	double m_totalDurationForPtsRestamping{0.0};
 	std::shared_ptr<MediaProcessor> playContext;		/**< state for s/w demuxer / pts/pcr restamper module */
-	bool seamlessAudioSwitchInProgress; /**< Flag to indicate seamless audio track switch in progress */
-	bool seamlessSubtitleSwitchInProgress;
-	bool mCheckForRampdown;		        /**< flag to indicate if the track is undergoing rampdown or not */
+	bool seamlessAudioSwitchInProgress{false}; /**< Flag to indicate seamless audio track switch in progress */
+	bool seamlessSubtitleSwitchInProgress{false};
+	bool mCheckForRampdown{false};       /**< flag to indicate if the track is undergoing rampdown or not */
 
 protected:
-	PrivateInstanceAAMP* aamp;          /**< Pointer to the PrivateInstanceAAMP*/
+	PrivateInstanceAAMP* aamp{nullptr}; /**< Pointer to the PrivateInstanceAAMP*/
 	std::shared_ptr<IsoBmffHelper> mIsoBmffHelper; /**< Helper class for ISO BMFF parsing */
 	/** Per-track ring buffer; capacity is MAX_CACHED_FRAGMENTS_PER_TRACK slots.
 	 *  The active window is `mCachedFragmentSize` (set via SetCachedFragmentSize()),
 	 *  which never exceeds MAX_CACHED_FRAGMENTS_PER_TRACK. */
 	std::array<CachedFragment, MAX_CACHED_FRAGMENTS_PER_TRACK> mCachedFragment{};
-	bool abort;                         /**< Abort all operations if flag is set*/
+	bool abort{false};                  /**< Abort all operations if flag is set*/
 	std::mutex mutex;                   /**< protection of track variables accessed from multiple threads */
-	bool ptsError;                      /**< flag to indicate if last injected fragment has ptsError */
-	bool abortInject;                   /**< Abort inject operations if flag is set*/
+	bool ptsError{false};               /**< flag to indicate if last injected fragment has ptsError */
+	bool abortInject{false};            /**< Abort inject operations if flag is set*/
 	std::mutex audioMutex;              /**< protection of audio track reconfiguration */
-	bool loadNewAudio;                  /**< Flag to indicate new audio loading started on seamless audio switch */
+	bool loadNewAudio{false};           /**< Flag to indicate new audio loading started on seamless audio switch */
 	std::mutex subtitleMutex;
-	bool loadNewSubtitle;
-	int fragmentIdxToInject;       	/**< Write position */
-	int fragmentIdxToFetch;        	/**< Read position */
+	bool loadNewSubtitle{false};
+	int fragmentIdxToInject{0};       	/**< Write position */
+	int fragmentIdxToFetch{0};        	/**< Read position */
 
 	StreamOutputFormat mSourceFormat {StreamOutputFormat::FORMAT_INVALID};
 	std::shared_ptr<aamp::AampTimeBasedBufferManager> mTimeBasedBufferManager; /**< Time based buffer for managing fragment download and playback */
@@ -818,38 +827,38 @@ private:
 	std::condition_variable fragmentInjected;	/**< Signaled after a fragment is injected*/
 	std::thread bufferMonitorThreadID;    	/**< Buffer Monitor thread id */
 	std::thread subtitleClockThreadID;    	/**< subtitle clock synchronisation thread id */
-	int totalFragmentsDownloaded;       	/**< Total fragments downloaded since start by track*/
-	bool UpdateSubtitleClockTaskStarted;    /**< Subtitle clock synchronization thread started, or not */
-	bool bufferMonitorThreadDisabled;    	/**< Buffer Monitor thread Disabled or not */
-	double totalInjectedDuration;       	/**< Total fragment injected duration*/
-	int currentInitialCacheDurationSeconds; /**< Current cached fragments duration before playing*/
-	bool sinkBufferIsFull;                	/**< True if sink buffer is full and do not want new fragments*/
-	bool cachingCompleted;              	/**< Fragment caching completed or not*/
-	BitsPerSecond bandwidthBitsPerSecond;        	/**< Bandwidth of last selected profile*/
-	double totalFetchedDuration;        	/**< Total fragment fetched duration*/
-	bool discontinuityProcessed;
-	BufferHealthStatus bufferStatus;     /**< Buffer status of the track*/
-	BufferHealthStatus prevBufferStatus; /**< Previous buffer status of the track*/
+	int totalFragmentsDownloaded{0};       	/**< Total fragments downloaded since start by track*/
+	bool UpdateSubtitleClockTaskStarted{false}; /**< Subtitle clock synchronization thread started, or not */
+	bool bufferMonitorThreadDisabled{false};    /**< Buffer Monitor thread Disabled or not */
+	double totalInjectedDuration{0};       	/**< Total fragment injected duration*/
+	int currentInitialCacheDurationSeconds{0}; /**< Current cached fragments duration before playing*/
+	bool sinkBufferIsFull{false};           /**< True if sink buffer is full and do not want new fragments*/
+	bool cachingCompleted{false};           /**< Fragment caching completed or not*/
+	BitsPerSecond bandwidthBitsPerSecond{0};    /**< Bandwidth of last selected profile*/
+	double totalFetchedDuration{0};         /**< Total fragment fetched duration*/
+	bool discontinuityProcessed{false};
+	BufferHealthStatus bufferStatus{BUFFER_STATUS_GREEN}; /**< Buffer status of the track*/
+	BufferHealthStatus prevBufferStatus{BUFFER_STATUS_GREEN}; /**< Previous buffer status of the track*/
 
-	std::thread *playlistDownloaderThread;	/**< PlaylistDownloadThread of track*/
-	bool abortPlaylistDownloader;			/**< Flag used to abort playlist downloader*/
-	std::condition_variable plDownloadWait;	/**< Conditional variable for signaling timed wait*/
-	std::mutex dwnldMutex;					/**< Download mutex for conditional timed wait, used for playlist and fragment downloads*/
-	uint32_t mManifestUpdateCounter;		/**< Monotonically increasing counter incremented by AbortWaitForManifestUpdate. */
-	std::condition_variable mManifestUpdateWait;	/**< Conditional variable for signaling manifest update */
+	std::thread *playlistDownloaderThread{nullptr}; /**< PlaylistDownloadThread of track*/
+	bool abortPlaylistDownloader{true};     /**< Flag used to abort playlist downloader*/
+	std::condition_variable plDownloadWait; /**< Conditional variable for signaling timed wait*/
+	std::mutex dwnldMutex;                  /**< Download mutex for conditional timed wait, used for playlist and fragment downloads*/
+	uint32_t mManifestUpdateCounter{0};     /**< Monotonically increasing counter incremented by AbortWaitForManifestUpdate. */
+	std::condition_variable mManifestUpdateWait;  /**< Conditional variable for signaling manifest update */
 	std::condition_variable audioFragmentCached;  /**< Signal after a audio fragment cached after reconfigure */
-	bool audioFragmentCachedReady;        /**< Predicate flag for audioFragmentCached; set under audioMutex */
-	double lastInjectedPosition;			/**< Last injected position */
-	double lastInjectedDuration;			/**< Last injected fragment end position */
+	bool audioFragmentCachedReady{false};   /**< Predicate flag for audioFragmentCached; set under audioMutex */
+	double lastInjectedPosition{0};         /**< Last injected position */
+	double lastInjectedDuration{0};         /**< Last injected fragment end position */
 	std::condition_variable subtitleFragmentCached;
-	bool subtitleFragmentCachedReady;     /**< Predicate flag for subtitleFragmentCached; set under subtitleMutex */
-	std::atomic_bool mIsLocalTSBInjection;
-	size_t mCachedFragmentSize;				/**< Active window size of the fragment ring buffer */	
-	AampTime mLastFragmentPts;				/**< pts of the previous fragment, used in trick modes */
-	AampTime mRestampedPts;					/**< Restamped Pts of the segment, used in trick modes */
-	AampTime mRestampedDuration;			/**< Restamped segment duration, used in trick modes */
-	TrickmodeState mTrickmodeState;			/**< Current trick mode state */
-	std::mutex mTrackParamsMutex;			/**< Mutex for track parameters */
+	bool subtitleFragmentCachedReady{false}; /**< Predicate flag for subtitleFragmentCached; set under subtitleMutex */
+	std::atomic_bool mIsLocalTSBInjection{false};
+	size_t mCachedFragmentSize{0};          /**< Active window size of the fragment ring buffer */
+	AampTime mLastFragmentPts;              /**< pts of the previous fragment, used in trick modes */
+	AampTime mRestampedPts;                 /**< Restamped Pts of the segment, used in trick modes */
+	AampTime mRestampedDuration;            /**< Restamped segment duration, used in trick modes */
+	TrickmodeState mTrickmodeState{TrickmodeState::UNDEF}; /**< Current trick mode state */
+	std::mutex mTrackParamsMutex;           /**< Mutex for track parameters */
 };
 
 /**

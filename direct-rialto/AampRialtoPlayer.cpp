@@ -2743,6 +2743,9 @@ void AampRialtoPlayer::OnPlaybackState(firebolt::rialto::PlaybackState state)
 				m_stateMachine.onError();
 			}
 			m_flushCv.notify_all();
+			// Rialto ignores all further NeedMediaData in FAILURE, so playback
+			// stays frozen unless AAMP recreates the pipeline.
+			m_notifiable->NotifyPipelineFailure();
 			break;
 		case firebolt::rialto::PlaybackState::SEEKING:
 			AAMPLOG_INFO("SEEKING notification received (state=%s)",

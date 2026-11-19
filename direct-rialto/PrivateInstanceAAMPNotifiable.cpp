@@ -297,6 +297,19 @@ void PrivateInstanceAAMPNotifiable::NotifyOutputProtectionRecovered()
 	}, m_aamp, "NotifyOutputProtectionRecovered");
 }
 
+void PrivateInstanceAAMPNotifiable::NotifyPipelineFailure()
+{
+	AAMPLOG_WARN("Rialto pipeline FAILURE - scheduling retune");
+	if (m_aamp->ScheduleAsyncTask([](void *p) -> int {
+		auto *aamp = static_cast<PrivateInstanceAAMP *>(p);
+		aamp->ScheduleRetune(eGST_ERROR_GST_PIPELINE_INTERNAL, eMEDIATYPE_VIDEO);
+		return 0;
+	}, m_aamp, "NotifyPipelineFailure") == AAMP_TASK_ID_INVALID)
+	{
+		AAMPLOG_ERR("Failed to schedule retune for Rialto pipeline FAILURE");
+	}
+}
+
 // CompleteDiscontinuityDataDeliverForPTSRestamp() and
 // NotifyPipelinePausedToUnderflowMonitor() are called synchronously, unlike
 // the notifications above.  Those are deferred via ScheduleAsyncTask because
