@@ -1343,6 +1343,10 @@ protected:
 	double mFragmentTimeOffset;     /**< denotes the offset added to fragment time when absolute timeline is disabled, holds currentPeriodOffset*/
 	bool mShortAdOffsetCalc;
 	AampTime mNextPts;					/*For PTS restamping*/
+	AampTime mAvlogAudioStart;		/**< avlog: last per-track timeline start/duration from GetStartAndDurationForPtsRestamping */
+	AampTime mAvlogVideoStart;
+	AampTime mAvlogAudioDuration;
+	AampTime mAvlogVideoDuration;
 	std::vector<std::unique_ptr<aamp::AampTrackWorker>> mTrackWorkers;	/**< Track workers for fetching fragments*/
 	bool mIsFinalFirstPTS; /**< Flag to indicate if the first PTS is final or not */
 };

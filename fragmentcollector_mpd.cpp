@@ -54,6 +54,7 @@
 #include "AampTSBSessionManager.h"
 //#define DEBUG_TIMELINE
 #include "PlayerCCManager.h"
+#include "AampAvlog.h"
 
 /**
  * @addtogroup AAMP_COMMON_TYPES
@@ -9735,6 +9736,10 @@ void StreamAbstractionAAMP_MPD::GetStartAndDurationForPtsRestamping(AampTime &st
 	}
 
 	start = std::min(audioStart, videoStart);
+	mAvlogAudioStart = audioStart;
+	mAvlogVideoStart = videoStart;
+	mAvlogAudioDuration = audioDuration;
+	mAvlogVideoDuration = videoDuration;
 
 	AAMPLOG_INFO("Idx %d Id %s aDur %f vDur %f aStart %f vStart %f",
 				 mCurrentPeriodIdx, period->GetId().c_str(), audioDuration.inSeconds(), videoDuration.inSeconds(), audioStart.inSeconds(), videoStart.inSeconds());
@@ -9784,6 +9789,7 @@ void StreamAbstractionAAMP_MPD::UpdatePtsOffset(bool isNewPeriod)
 
 	if (isNewPeriod)
 	{
+		const AampTime avlogPrevOffset = mPTSOffset;
 
 		if (mShortAdOffsetCalc && mMediaStreamContext[eMEDIATYPE_VIDEO])
 		{
@@ -9811,6 +9817,11 @@ void StreamAbstractionAAMP_MPD::UpdatePtsOffset(bool isNewPeriod)
 
 		AAMPLOG_INFO("Idx %d Id %s mPTSOffsetSec %f mNextPts %f timelineStartSec %f",
 					mCurrentPeriodIdx, period->GetId().c_str(), mPTSOffset.inSeconds(), mNextPts.inSeconds(), timelineStart.inSeconds());
+		// avlog: one record per new period, also when the offset step is 0
+		AampAvlogPeriod(mCurrentPeriodIdx, period->GetId(), mAvlogAudioStart.inSeconds(), mAvlogVideoStart.inSeconds(),
+						mAvlogAudioDuration.inSeconds(), mAvlogVideoDuration.inSeconds(),
+						(mPTSOffset - avlogPrevOffset).inSeconds(),
+						mCdaiObject && mCdaiObject->mAdState == AdState::IN_ADBREAK_AD_PLAYING);
 	}
 
 	mNextPts = duration + timelineStart;

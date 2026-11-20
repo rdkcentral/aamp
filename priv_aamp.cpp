@@ -23,6 +23,7 @@
  */
 #include "isobmffprocessor.h"
 #include "priv_aamp.h"
+#include "AampAvlog.h"
 #include "AampJsonObject.h"
 #include "isobmffbuffer.h"
 #include "AampConstants.h"
@@ -9663,6 +9664,7 @@ void PrivateInstanceAAMP::FoundEventBreak(const std::string &adBreakId, uint64_t
 	if(ISCONFIGSET_PRIV(eAAMPConfig_EnableClientDai) && !adBreakId.empty())
 	{
 		AAMPLOG_WARN("[CDAI] Found Adbreak on period[%s] Duration[%d] isDAIEvent[%d]", adBreakId.c_str(), brInfo.duration, brInfo.isDAIEvent);
+		AampAvlogAd(brInfo.isDAIEvent, adBreakId, brInfo.duration, startMS);	// avlog: break/ad announced
 		if (brInfo.isDAIEvent)
 		{
 			std::string adId("");
