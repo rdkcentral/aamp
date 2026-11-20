@@ -52,6 +52,7 @@
 #include "AampMPDUtils.h"
 #include <chrono>
 #include "AampTSBSessionManager.h"
+#include "AampTelemetry2.hpp"
 //#define DEBUG_TIMELINE
 #include "PlayerCCManager.h"
 
@@ -2298,17 +2299,18 @@ bool StreamAbstractionAAMP_MPD::HandleSeekEOSAndPeriodTransition(double remainin
 {
 	bool switchToNextPeriod = false;
 
-	// Check whether any track hit EOS during the seek. Any enabled track reaching EOS
-	// is sufficient to trigger a period transition: DASH spec requires all tracks in a
-	// period to end at the same presentation time, so this is safe for well-formed content.
-	// The mPlayRate and remainingSeek guards (comment 2 & 3) prevent false positives:
+	// Check whether any *enabled* track hit EOS during the seek.  Only enabled tracks
+	// participate in period transition: a disabled track (e.g. an audio track deselected
+	// mid-playback, or a subtitle track the app has not activated) cannot reliably signal
+	// a period boundary and must not drive a forward switch on its own.
+	// The mPlayRate and remainingSeek guards prevent false positives:
 	//   - mPlayRate >= AAMP_RATE_PAUSE: for reverse playback (mPlayRate < 0), EOS means
 	//     beginning-of-period, not end-of-period, so we must not advance to the next period.
-	//   - remainingSeek >= 0: a negative remainder also indicates the seek overshot backward
+	//   - remainingSeek >= 0: a negative remainder indicates the seek overshot backward
 	//     rather than forward, so no forward period transition is appropriate.
 	for (int i = 0; i < mNumberOfTracks; i++)
 	{
-		if (mMediaStreamContext[i] != NULL && mMediaStreamContext[i]->eos && (mPlayRate >= AAMP_RATE_PAUSE) &&  remainingSeek >= 0)
+		if (mMediaStreamContext[i] != NULL && mMediaStreamContext[i]->enabled && mMediaStreamContext[i]->eos && (mPlayRate >= AAMP_RATE_PAUSE) && remainingSeek >= 0)
 		{
 			switchToNextPeriod = true;
 			break;
@@ -2333,6 +2335,74 @@ bool StreamAbstractionAAMP_MPD::HandleSeekEOSAndPeriodTransition(double remainin
 		return false;
 	}
 
+	// Snapshot period state before applying the switch.  UpdateTrackInfo may fail (e.g.
+	// malformed or codec-incompatible period discovered during a live manifest refresh).
+	// Without a rollback, the object is left in a partially-switched state: period index
+	// and id advanced to nextPeriodIdx while the track contexts still reflect the old
+	// period.  Subsequent fetcher-loop iterations would attempt to download fragments from
+	// a period that was never successfully initialised.
+	//
+	// StreamSelection() and UpdateTrackInfo() are not atomic: they iterate over tracks in
+	// order and mutate each context's adaptation/representation pointers, fragment number,
+	// eos flag, and timeline index one track at a time.  If UpdateTrackInfo() returns an
+	// error mid-way (e.g. a null context for a later track), earlier tracks already point
+	// at the new period's data while the period identity fields are about to be restored to
+	// the old period.  Snapshot and restore the full set of mutable per-track and ABR state
+	// so that a failed transition leaves the object in its pre-attempt state.
+	struct TrackSnapshot
+	{
+		bool                  enabled;
+		int                   adaptationSetIdx;
+		uint32_t              adaptationSetId;
+		int                   representationIndex;
+		bool                  profileChanged;
+		const IAdaptationSet  *adaptationSet;
+		const IRepresentation *representation;
+		BitsPerSecond         bandwidth;
+		uint64_t              number;
+		double                time;
+		bool                  eos;
+		int                   timeLineIndex;
+		int                   fragmentRepeatCount;
+		double                scaledPTO;
+	};
+	std::vector<TrackSnapshot> trackSnapshots(mMaxTracks);
+	for (int i = 0; i < mMaxTracks; i++)
+	{
+		if (mMediaStreamContext[i])
+		{
+			const auto *ctx = mMediaStreamContext[i];
+			trackSnapshots[i] = {
+				ctx->enabled,
+				ctx->adaptationSetIdx,
+				ctx->adaptationSetId,
+				ctx->representationIndex,
+				ctx->profileChanged,
+				ctx->adaptationSet,
+				ctx->representation,
+				ctx->fragmentDescriptor.Bandwidth,
+				ctx->fragmentDescriptor.Number,
+				ctx->fragmentDescriptor.Time,
+				ctx->eos,
+				ctx->timeLineIndex,
+				ctx->fragmentRepeatCount,
+				ctx->scaledPTO
+			};
+		}
+	}
+	int                        savedNumberOfTracks     = mNumberOfTracks;
+	bool                       savedUpdateStreamInfo   = mUpdateStreamInfo;
+	ABRMode                    savedABRMode             = mABRMode;
+	std::vector<StreamInfo>    savedStreamInfo          = mStreamInfo;
+	std::vector<BitsPerSecond> savedBitrateIndexVector  = mBitrateIndexVector;
+
+	int         savedPeriodIdx       = mCurrentPeriodIdx;
+	IPeriod    *savedCurrentPeriod   = mCurrentPeriod;
+	std::string savedBasePeriodId    = mBasePeriodId;
+	double      savedPeriodStartTime = mPeriodStartTime;
+	double      savedPeriodDuration  = mPeriodDuration;
+	double      savedPeriodEndTime   = mPeriodEndTime;
+
 	mCurrentPeriodIdx = nextPeriodIdx;
 	mCurrentPeriod = mpd->GetPeriods().at(mCurrentPeriodIdx);
 	mBasePeriodId = mCurrentPeriod->GetId();
@@ -2345,7 +2415,48 @@ bool StreamAbstractionAAMP_MPD::HandleSeekEOSAndPeriodTransition(double remainin
 	AAMPStatusType ret = UpdateTrackInfo(true, true);
 	if (ret != eAAMPSTATUS_OK)
 	{
-		AAMPLOG_WARN("SeekInPeriod: UpdateTrackInfo failed while switching to period %d", mCurrentPeriodIdx);
+		AAMPLOG_ERR("HandleSeekEOSAndPeriodTransition: UpdateTrackInfo failed switching from period %d (%s) to period %d (%s); rolling back",
+				savedPeriodIdx, savedBasePeriodId.c_str(), mCurrentPeriodIdx, mBasePeriodId.c_str());
+#ifdef AAMP_TELEMETRY_SUPPORT
+		AAMPTelemetry2 at2(aamp->GetAppName());
+		std::map<std::string, int> intData;
+		intData["from_period"] = savedPeriodIdx;
+		intData["to_period"]   = mCurrentPeriodIdx;
+		at2.send("PERIOD_SWITCH_FAILED", intData, {/*string data*/}, {/*float data*/});
+#endif // AAMP_TELEMETRY_SUPPORT
+		mCurrentPeriodIdx   = savedPeriodIdx;
+		mCurrentPeriod      = savedCurrentPeriod;
+		mBasePeriodId       = savedBasePeriodId;
+		mPeriodStartTime    = savedPeriodStartTime;
+		mPeriodDuration     = savedPeriodDuration;
+		mPeriodEndTime      = savedPeriodEndTime;
+		mNumberOfTracks     = savedNumberOfTracks;
+		mUpdateStreamInfo   = savedUpdateStreamInfo;
+		mABRMode            = savedABRMode;
+		mStreamInfo         = std::move(savedStreamInfo);
+		mBitrateIndexVector = std::move(savedBitrateIndexVector);
+		for (int i = 0; i < mMaxTracks; i++)
+		{
+			if (mMediaStreamContext[i])
+			{
+				auto       *ctx  = mMediaStreamContext[i];
+				const auto &snap = trackSnapshots[i];
+				ctx->enabled             = snap.enabled;
+				ctx->adaptationSetIdx    = snap.adaptationSetIdx;
+				ctx->adaptationSetId     = snap.adaptationSetId;
+				ctx->representationIndex = snap.representationIndex;
+				ctx->profileChanged      = snap.profileChanged;
+				ctx->adaptationSet       = snap.adaptationSet;
+				ctx->representation      = snap.representation;
+				ctx->fragmentDescriptor.Bandwidth = snap.bandwidth;
+				ctx->fragmentDescriptor.Number    = snap.number;
+				ctx->fragmentDescriptor.Time      = snap.time;
+				ctx->eos                 = snap.eos;
+				ctx->timeLineIndex       = snap.timeLineIndex;
+				ctx->fragmentRepeatCount = snap.fragmentRepeatCount;
+				ctx->scaledPTO           = snap.scaledPTO;
+			}
+		}
 		return false;
 	}
 
@@ -2376,8 +2487,14 @@ void StreamAbstractionAAMP_MPD::SeekInPeriod( double seekPositionSeconds, bool s
 
 		if (eMEDIATYPE_SUBTITLE == i)
 		{
+			// Subtitle segment boundaries can differ from the A/V grid, so the subtitle
+			// SkipFragments return value must not overwrite the A/V remaining-seek.
+			// If it did, HandleSeekEOSAndPeriodTransition could receive a carry-over seek
+			// offset (and the EOS sign check) from the subtitle rather than the primary
+			// A/V track, which could suppress a valid period transition or set the wrong
+			// seek position in the next period.  Discard the subtitle result here.
 			double skipTime = seekPositionSeconds;
-			trackRemainingSeek = SkipFragments(mMediaStreamContext[i], skipTime, true);
+			SkipFragments(mMediaStreamContext[i], skipTime, true);
 		}
 		else
 		{
@@ -2385,11 +2502,46 @@ void StreamAbstractionAAMP_MPD::SeekInPeriod( double seekPositionSeconds, bool s
 		}
 
 	}
-	// trackRemainingSeek holds the SkipFragments return value of the last processed
-	// track (comment 1). All non-subtitle tracks seek to the same seekPositionSeconds so
-	// their remaining-seek values are expected to converge. HandleSeekEOSAndPeriodTransition
-	// only uses this value for a sign check (>= 0) and as the carry-over seek offset into
-	// the next period, so using the last track's value is acceptable in practice.
+
+	// After SkipFragments, check if tracks selected fragments in different periods
+	// This can happen when seeking near a period boundary where audio/video fragments have
+	// slightly different end times. Ensure both tracks start in the same period.
+	bool videoEOS = false, audioEOS = false;
+
+	if (mMediaStreamContext[eMEDIATYPE_VIDEO] && mMediaStreamContext[eMEDIATYPE_VIDEO]->enabled)
+	{
+		videoEOS = mMediaStreamContext[eMEDIATYPE_VIDEO]->eos;
+	}
+	if (mMediaStreamContext[eMEDIATYPE_AUDIO] && mMediaStreamContext[eMEDIATYPE_AUDIO]->enabled)
+	{
+		audioEOS = mMediaStreamContext[eMEDIATYPE_AUDIO]->eos;
+	}
+
+	// If any track hit EOS but the original seek position is within the current period,
+	// this is a spurious EOS caused by seeking near the period boundary or tracks having
+	// slightly different durations. Clear the EOS flags to prevent unwanted period transition.
+	// For live streams, use < to allow seeks at period boundary to trigger manifest refresh.
+	// For VOD, use <= to handle exact boundary seeks (e.g., 28.8s in 28.8s period).
+	// If seeking BEYOND the period (e.g., 12s in 10s period), allow the EOS and
+	// period transition to occur with the remaining seek value.
+	double periodDurationSeconds = mPeriodDuration / 1000.0;
+	bool seekWithinPeriod = mIsLiveStream ? (seekPositionSeconds < periodDurationSeconds)
+	                                       : (seekPositionSeconds <= periodDurationSeconds);
+	if ((videoEOS || audioEOS) && seekWithinPeriod)
+	{
+		AAMPLOG_INFO("Track(s) hit EOS during seek to %.3f, but seek target is within period (duration=%.3f) - clearing EOS to stay in current period",
+			seekPositionSeconds, periodDurationSeconds);
+		if (mMediaStreamContext[eMEDIATYPE_VIDEO])
+			mMediaStreamContext[eMEDIATYPE_VIDEO]->eos = false;
+		if (mMediaStreamContext[eMEDIATYPE_AUDIO])
+			mMediaStreamContext[eMEDIATYPE_AUDIO]->eos = false;
+		trackRemainingSeek = 0; // No remaining seek - we're done
+	}
+
+	// trackRemainingSeek is the SkipFragments remaining-seek value from the last A/V
+	// (non-subtitle) track.  Subtitle seek result is intentionally excluded (see comment
+	// above).  HandleSeekEOSAndPeriodTransition uses this value for a sign check (>= 0)
+	// and as the carry-over seek offset into the next period.
 	HandleSeekEOSAndPeriodTransition(trackRemainingSeek, skipToEnd);
 }
 
@@ -2564,7 +2716,8 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 				std::vector<ITimeline *>&timelines = segmentTimeline->GetTimelines();
 				if (pMediaStreamContext->timeLineIndex >= timelines.size() || pMediaStreamContext->timeLineIndex < 0)
 				{
-					AAMPLOG_INFO("Type[%d] EOS. timeLineIndex[%d] size [%zu]",pMediaStreamContext->type, pMediaStreamContext->timeLineIndex, timelines.size());
+					AAMPLOG_INFO("Type[%d] EOS triggered! timeLineIndex[%d] >= size[%zu] - This causes period transition",
+						pMediaStreamContext->type, pMediaStreamContext->timeLineIndex, timelines.size());
 					pMediaStreamContext->eos = true;
 					break;
 				}
@@ -2676,10 +2829,57 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 					//Content Audio and Video Played for 1-2 seconds when we seek after Ad break.
 					//Even if skiptime is equal to fragmentduration(eg: skipTime = 1.190600 & fragmentDuration=1.190600 this is based on logs)
 					//it is not entering the loop which is leading to go back to 2 seconds of previous period content and play,
-					//then jump to next period. The issue here is complier is optimizing the value to 1.18999 for skiptime where as
+					//then jump to next period. The issue here is compiler is optimizing the value to 1.18999 for skiptime where as
 					//fragment duration is optimized to 1.190600. so adding floating point precision.
 					else if (skipTime >= fragmentDuration - FLOATING_POINT_EPSILON)
 					{
+						// Check if this is the last fragment in the period AND remaining skipTime after
+						// this fragment would be very small (< EPSILON). If so, select it to avoid invalid
+						// fragment indices. But if skipTime is still significant, allow advancing past to
+						// return proper remainingSeek for period transition.
+						double skipTimeAfterFragment = skipTime - fragmentDuration;
+						if ((pMediaStreamContext->fragmentRepeatCount == repeatCount) &&
+							(pMediaStreamContext->timeLineIndex + 1 >= timelines.size()) &&
+							(skipTimeAfterFragment < FLOATING_POINT_EPSILON))
+						{
+							AAMPLOG_INFO("Type[%d] Last fragment in period with small remaining skipTime %.3f - selecting",
+								pMediaStreamContext->type, skipTimeAfterFragment);
+							if (updateFirstPTS && pMediaStreamContext->type == eTRACK_VIDEO)
+							{
+								if ((mFirstPTS == 0) || (firstPTS < mFirstPTS))
+								{
+									AAMPLOG_INFO("[%s] mFirstPTS %f -> %f ", pMediaStreamContext->name, mFirstPTS, firstPTS);
+									mFirstPTS = firstPTS;
+									mIsFinalFirstPTS = true;
+									mVideoPosRemainder = skipTime;
+									if(ISCONFIGSET(eAAMPConfig_MidFragmentSeek))
+									{
+										mFirstPTS += mVideoPosRemainder;
+										if(mVideoPosRemainder > fragmentDuration/2)
+										{
+											if(aamp->GetInitialBufferDuration() == 0)
+											{
+												AAMPPlayerState state = aamp->GetState();
+												if(state == eSTATE_SEEKING)
+												{
+													SETCONFIGVALUE(AAMP_STREAM_SETTING,eAAMPConfig_InitialBuffer,(int)fragmentDuration + 1);
+													aamp->midFragmentSeekCache = true;
+												}
+											}
+										}
+										else if(aamp->midFragmentSeekCache)
+										{
+											SETCONFIGVALUE(AAMP_STREAM_SETTING,eAAMPConfig_InitialBuffer,0);
+											aamp->midFragmentSeekCache = false;
+										}
+									}
+									AAMPLOG_INFO("[%s] mFirstPTS %f  mVideoPosRemainder %f", pMediaStreamContext->name, mFirstPTS, mVideoPosRemainder);
+								}
+							}
+							skipTime = 0;
+							break;
+						}
+
 						if (updateFirstPTS)
 						{
 							pMediaStreamContext->lastSegmentTime = pMediaStreamContext->fragmentDescriptor.Time;
@@ -7398,6 +7598,10 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 	for (int i = 0; i < mMaxTracks; i++)
 	{
 		class MediaStreamContext *pMediaStreamContext = mMediaStreamContext[i];
+		if (!pMediaStreamContext)
+		{
+			continue;
+		}
 		size_t numAdaptationSets = period->GetAdaptationSets().size();
 		int  selAdaptationSetIndex = -1;
 		int selRepresentationIndex = -1;
