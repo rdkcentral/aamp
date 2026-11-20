@@ -35,10 +35,10 @@ struct SourceEvent
 const char *toString(SourceEvent::Kind kind);
 
 /** Receives events and Objects. Called on source threads: implementations must not block. */
-class IObjectSourceListener
+class ObjectSourceListener
 {
 public:
-	virtual ~IObjectSourceListener() = default;
+	virtual ~ObjectSourceListener() = default;
 	virtual void onSourceEvent(const SourceEvent &event) = 0;
 	virtual void onObject(uint64_t subId, ReceivedObject object) = 0;
 };
@@ -56,11 +56,11 @@ struct TrackSubscription
  * Where Objects come from: the live MOQT adapter or a capture replay. Both
  * emit the same ReceivedObject model.
  */
-class IObjectSource
+class ObjectSource
 {
 public:
-	virtual ~IObjectSource() = default;
-	virtual bool start(IObjectSourceListener *listener) = 0;
+	virtual ~ObjectSource() = default;
+	virtual bool start(ObjectSourceListener *listener) = 0;
 	virtual bool subscribe(const TrackSubscription &subscription) = 0;
 	virtual bool unsubscribe(uint64_t subId) = 0;
 	/** Idempotent; no listener call happens after it returns. */
@@ -78,6 +78,6 @@ struct LiveSourceSettings
 };
 
 /** The live MOQT adapter (implemented in src/transport over the selected library). */
-std::unique_ptr<IObjectSource> createLiveObjectSource(const LiveSourceSettings &settings);
+std::unique_ptr<ObjectSource> createLiveObjectSource(const LiveSourceSettings &settings);
 
 } // namespace nmqe

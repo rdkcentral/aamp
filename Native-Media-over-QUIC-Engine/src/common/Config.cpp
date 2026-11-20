@@ -32,7 +32,7 @@ std::string PlayerConfig::toJson() const
 		.add("audio_track", audioTrack)
 		.add("replay_path", replayPath)
 		.add("capture_path", capturePath)
-		.add("replay_realtime", replayRealtime)
+		.add("replay_real_time", replayRealTime)
 		.add("pipeline", pipeline)
 		.add("audio_enabled", audioEnabled)
 		.add("video_enabled", videoEnabled)

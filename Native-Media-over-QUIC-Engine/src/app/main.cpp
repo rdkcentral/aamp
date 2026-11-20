@@ -88,7 +88,7 @@ bool parse(int argc, char **argv, nmqe::PlayerConfig &config)
 			if (!ok) fprintf(stderr, "platform profile: %s\n", error.c_str());
 		}
 		else if (arg == "--replay") ok = value(config.replayPath);
-		else if (arg == "--replay-fast") config.replayRealtime = false;
+		else if (arg == "--replay-fast") config.replayRealTime = false;
 		else if (arg == "--capture") ok = value(config.capturePath);
 		else if (arg == "--duration") ok = number(config.runDurationSec);
 		else if (arg == "--status-ms") ok = number(config.statusIntervalMs);
@@ -152,10 +152,10 @@ int run(int argc, char **argv, void *)
 		return 2;
 	}
 
-	std::unique_ptr<nmqe::IObjectSource> source;
+	std::unique_ptr<nmqe::ObjectSource> source;
 	if (!config.replayPath.empty())
 	{
-		source = std::make_unique<nmqe::ReplayObjectSource>(config.replayPath, config.replayRealtime);
+		source = std::make_unique<nmqe::ReplayObjectSource>(config.replayPath, config.replayRealTime);
 	}
 	else
 	{

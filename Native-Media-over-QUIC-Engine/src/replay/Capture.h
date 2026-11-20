@@ -13,7 +13,7 @@
 namespace nmqe {
 
 /**
- * Capture file: "NMQECAP1\n" followed by little-endian records
+ * Capture file: "NMQE CAPTURE 1\n" followed by little-endian records
  *   u8 type = 1 track:  u64 subId, str track
  *   u8 type = 2 object: u64 subId, u64 group, u64 object, i64 monoNs, i64 wallMs, u32 size, bytes
  *   u8 type = 3 event:  u8 kind, u64 subId, u64 group, u64 count, i64 monoNs, i64 wallMs, str detail
@@ -38,12 +38,12 @@ private:
  * Decorates any Object source and records what passes through it, so the
  * player has no dependency on capture.
  */
-class RecordingObjectSource final : public IObjectSource, private IObjectSourceListener
+class RecordingObjectSource final : public ObjectSource, private ObjectSourceListener
 {
 public:
-	RecordingObjectSource(std::unique_ptr<IObjectSource> inner, std::shared_ptr<CaptureWriter> writer);
+	RecordingObjectSource(std::unique_ptr<ObjectSource> inner, std::shared_ptr<CaptureWriter> writer);
 
-	bool start(IObjectSourceListener *listener) override;
+	bool start(ObjectSourceListener *listener) override;
 	bool subscribe(const TrackSubscription &subscription) override;
 	bool unsubscribe(uint64_t subId) override { return mInner->unsubscribe(subId); }
 	void stop() override { mInner->stop(); }
@@ -53,24 +53,24 @@ private:
 	void onSourceEvent(const SourceEvent &event) override;
 	void onObject(uint64_t subId, ReceivedObject object) override;
 
-	std::unique_ptr<IObjectSource> mInner;
+	std::unique_ptr<ObjectSource> mInner;
 	std::shared_ptr<CaptureWriter> mWriter;
-	IObjectSourceListener *mListener = nullptr;
+	ObjectSourceListener *mListener = nullptr;
 };
 
 /**
- * Replays a capture through the same IObjectSource seam as the live adapter.
+ * Replays a capture through the same ObjectSource seam as the live adapter.
  * Objects keep their captured relative timing (or run as fast as possible),
  * get fresh receive stamps, and are held per track until that track is
  * subscribed.
  */
-class ReplayObjectSource final : public IObjectSource
+class ReplayObjectSource final : public ObjectSource
 {
 public:
-	ReplayObjectSource(std::string path, bool realtime);
+	ReplayObjectSource(std::string path, bool realTime);
 	~ReplayObjectSource() override;
 
-	bool start(IObjectSourceListener *listener) override;
+	bool start(ObjectSourceListener *listener) override;
 	bool subscribe(const TrackSubscription &subscription) override;
 	bool unsubscribe(uint64_t subId) override;
 	void stop() override;
@@ -94,8 +94,8 @@ private:
 	void deliver(const Record &record, const std::string &track);
 
 	std::string mPath;
-	bool mRealtime;
-	IObjectSourceListener *mListener = nullptr;
+	bool mRealTime;
+	ObjectSourceListener *mListener = nullptr;
 	std::vector<Record> mRecords;
 	std::map<uint64_t, std::string> mCapturedTracks;     // captured subId -> track
 

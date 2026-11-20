@@ -28,7 +28,7 @@ Catalog referenceCatalog()
 }
 
 /** Collects every Object of a capture, per track, without pacing. */
-class Collector : public IObjectSourceListener
+class Collector : public ObjectSourceListener
 {
 public:
 	void onSourceEvent(const SourceEvent &event) override
@@ -49,7 +49,7 @@ public:
 	std::map<std::string, std::vector<ReceivedObject>> objects;
 };
 
-const std::string kCapture = std::string(NMQE_FIXTURES) + "/captures/reference.nmqecap";
+const std::string kCapture = std::string(NMQE_FIXTURES) + "/captures/reference.capture";
 
 std::vector<uint8_t> prftBox(uint8_t version, uint64_t ntp, uint64_t media)
 {

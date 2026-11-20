@@ -13,18 +13,18 @@ namespace nmqe {
 
 namespace {
 
-class MoqObjectSource final : public IObjectSource
+class MoqObjectSource final : public ObjectSource
 {
 public:
 	explicit MoqObjectSource(LiveSourceSettings settings) : mSettings(std::move(settings)) {}
 	~MoqObjectSource() override { stop(); }
 
-	bool start(IObjectSourceListener *listener) override
+	bool start(ObjectSourceListener *listener) override
 	{
 		std::lock_guard<std::mutex> lock(mMutex);
 		if (mSession) return true;
 		mListener = listener;
-		moqshim_config config{};
+		moq_shim_config config{};
 		config.url = mSettings.url.c_str();
 		config.version = mSettings.version.empty() ? nullptr : mSettings.version.c_str();
 		config.ns = mSettings.ns.c_str();
@@ -32,7 +32,7 @@ public:
 		config.on_event = &MoqObjectSource::onEvent;
 		config.on_object = &MoqObjectSource::onObject;
 		config.ctx = this;
-		mSession = moqshim_session_open(&config);
+		mSession = moq_shim_session_open(&config);
 		if (!mSession) LOG_ERROR("transport", "invalid live source settings (url=%s version=%s)", mSettings.url.c_str(), mSettings.version.c_str());
 		return mSession != nullptr;
 	}
@@ -41,53 +41,53 @@ public:
 	{
 		std::lock_guard<std::mutex> lock(mMutex);
 		if (!mSession) return false;
-		moqshim_subscribe request{};
+		moq_shim_subscribe request{};
 		request.track = subscription.track.c_str();
 		request.sub_id = subscription.subId;
 		request.priority = subscription.priority;
 		request.max_delay_ms = subscription.maxDelayMs;
 		request.live_join = subscription.liveJoin ? 1 : 0;
-		return moqshim_subscribe_track(mSession, &request) == 0;
+		return moq_shim_subscribe_track(mSession, &request) == 0;
 	}
 
 	bool unsubscribe(uint64_t subId) override
 	{
 		std::lock_guard<std::mutex> lock(mMutex);
-		return mSession && moqshim_unsubscribe_track(mSession, subId) == 0;
+		return mSession && moq_shim_unsubscribe_track(mSession, subId) == 0;
 	}
 
 	void stop() override
 	{
-		moqshim_session *session = nullptr;
+		moq_shim_session *session = nullptr;
 		{
 			std::lock_guard<std::mutex> lock(mMutex);
 			session = mSession;
 			mSession = nullptr;
 		}
 		// Joins the shim's runtime: no callback runs after this returns.
-		if (session) moqshim_session_close(session);
+		if (session) moq_shim_session_close(session);
 	}
 
 	std::string describe() const override
 	{
-		return std::string(moqshim_implementation()) + " " + mSettings.version + " " + mSettings.url;
+		return std::string(moq_shim_implementation()) + " " + mSettings.version + " " + mSettings.url;
 	}
 
 private:
-	static void onEvent(void *ctx, const moqshim_event *raw)
+	static void onEvent(void *ctx, const moq_shim_event *raw)
 	{
 		auto *self = static_cast<MoqObjectSource *>(ctx);
 		SourceEvent event;
 		switch (raw->kind)
 		{
-			case MOQSHIM_EVENT_CONNECTING: event.kind = SourceEvent::Kind::Connecting; break;
-			case MOQSHIM_EVENT_CONNECTED: event.kind = SourceEvent::Kind::Connected; break;
-			case MOQSHIM_EVENT_BROADCAST_READY: event.kind = SourceEvent::Kind::BroadcastReady; break;
-			case MOQSHIM_EVENT_SUBSCRIBED: event.kind = SourceEvent::Kind::Subscribed; break;
-			case MOQSHIM_EVENT_GROUP_BEGIN: event.kind = SourceEvent::Kind::GroupBegin; break;
-			case MOQSHIM_EVENT_GROUP_END: event.kind = SourceEvent::Kind::GroupEnd; break;
-			case MOQSHIM_EVENT_SUBSCRIPTION_ENDED: event.kind = SourceEvent::Kind::SubscriptionEnded; break;
-			case MOQSHIM_EVENT_CLOSED: event.kind = SourceEvent::Kind::Closed; break;
+			case MOQ_SHIM_EVENT_CONNECTING: event.kind = SourceEvent::Kind::Connecting; break;
+			case MOQ_SHIM_EVENT_CONNECTED: event.kind = SourceEvent::Kind::Connected; break;
+			case MOQ_SHIM_EVENT_BROADCAST_READY: event.kind = SourceEvent::Kind::BroadcastReady; break;
+			case MOQ_SHIM_EVENT_SUBSCRIBED: event.kind = SourceEvent::Kind::Subscribed; break;
+			case MOQ_SHIM_EVENT_GROUP_BEGIN: event.kind = SourceEvent::Kind::GroupBegin; break;
+			case MOQ_SHIM_EVENT_GROUP_END: event.kind = SourceEvent::Kind::GroupEnd; break;
+			case MOQ_SHIM_EVENT_SUBSCRIPTION_ENDED: event.kind = SourceEvent::Kind::SubscriptionEnded; break;
+			case MOQ_SHIM_EVENT_CLOSED: event.kind = SourceEvent::Kind::Closed; break;
 			default: event.kind = SourceEvent::Kind::Error; break;
 		}
 		event.subId = raw->sub_id;
@@ -99,7 +99,7 @@ private:
 		if (self->mListener) self->mListener->onSourceEvent(event);
 	}
 
-	static void onObject(void *ctx, const moqshim_object *raw)
+	static void onObject(void *ctx, const moq_shim_object *raw)
 	{
 		auto *self = static_cast<MoqObjectSource *>(ctx);
 		ReceivedObject object;
@@ -113,13 +113,13 @@ private:
 
 	LiveSourceSettings mSettings;
 	std::mutex mMutex;
-	moqshim_session *mSession = nullptr;
-	IObjectSourceListener *mListener = nullptr;
+	moq_shim_session *mSession = nullptr;
+	ObjectSourceListener *mListener = nullptr;
 };
 
 } // namespace
 
-std::unique_ptr<IObjectSource> createLiveObjectSource(const LiveSourceSettings &settings)
+std::unique_ptr<ObjectSource> createLiveObjectSource(const LiveSourceSettings &settings)
 {
 	return std::make_unique<MoqObjectSource>(settings);
 }

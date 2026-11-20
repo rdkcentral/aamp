@@ -36,7 +36,7 @@ struct PlayerConfig
 	// Object source.
 	std::string replayPath;            // non-empty = replay a capture instead of the live relay
 	std::string capturePath;           // non-empty = record received Objects
-	bool replayRealtime = true;        // replay with the captured timing
+	bool replayRealTime = true;        // replay with the captured timing
 
 	// Media pipeline: "gst" or "null".
 	std::string pipeline = "gst";

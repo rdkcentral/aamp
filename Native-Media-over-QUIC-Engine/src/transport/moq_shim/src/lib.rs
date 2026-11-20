@@ -29,7 +29,7 @@ const EVENT_ERROR: i32 = 8;
 const EVENT_CLOSED: i32 = 9;
 
 #[repr(C)]
-pub struct moqshim_event {
+pub struct moq_shim_event {
 	kind: i32,
 	sub_id: u64,
 	group: u64,
@@ -38,7 +38,7 @@ pub struct moqshim_event {
 }
 
 #[repr(C)]
-pub struct moqshim_object {
+pub struct moq_shim_object {
 	sub_id: u64,
 	group: u64,
 	object: u64,
@@ -46,11 +46,11 @@ pub struct moqshim_object {
 	size: usize,
 }
 
-type EventCb = Option<extern "C" fn(*mut c_void, *const moqshim_event)>;
-type ObjectCb = Option<extern "C" fn(*mut c_void, *const moqshim_object)>;
+type EventCb = Option<extern "C" fn(*mut c_void, *const moq_shim_event)>;
+type ObjectCb = Option<extern "C" fn(*mut c_void, *const moq_shim_object)>;
 
 #[repr(C)]
-pub struct moqshim_config {
+pub struct moq_shim_config {
 	url: *const c_char,
 	version: *const c_char,
 	ns: *const c_char,
@@ -61,7 +61,7 @@ pub struct moqshim_config {
 }
 
 #[repr(C)]
-pub struct moqshim_subscribe {
+pub struct moq_shim_subscribe {
 	track: *const c_char,
 	sub_id: u64,
 	priority: i8,
@@ -84,7 +84,7 @@ impl Sink {
 	fn event(&self, kind: i32, sub_id: u64, group: u64, object: u64, detail: Option<&str>) {
 		let Some(cb) = self.on_event else { return };
 		let detail = detail.and_then(|text| CString::new(text.replace('\0', " ")).ok());
-		let event = moqshim_event {
+		let event = moq_shim_event {
 			kind,
 			sub_id,
 			group,
@@ -96,7 +96,7 @@ impl Sink {
 
 	fn object(&self, sub_id: u64, group: u64, object: u64, data: &[u8]) {
 		let Some(cb) = self.on_object else { return };
-		let object = moqshim_object {
+		let object = moq_shim_object {
 			sub_id,
 			group,
 			object,
@@ -121,7 +121,7 @@ enum Command {
 	Close,
 }
 
-pub struct moqshim_session {
+pub struct moq_shim_session {
 	commands: mpsc::UnboundedSender<Command>,
 	thread: Option<std::thread::JoinHandle<()>>,
 }
@@ -140,7 +140,7 @@ unsafe fn text(ptr: *const c_char) -> Option<String> {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn moqshim_implementation() -> *const c_char {
+pub extern "C" fn moq_shim_implementation() -> *const c_char {
 	static IMPLEMENTATION: std::sync::OnceLock<CString> = std::sync::OnceLock::new();
 	IMPLEMENTATION
 		.get_or_init(|| CString::new(format!("{}@{MOQ_REV}", moq_net::IMPLEMENTATION)).unwrap_or_default())
@@ -148,9 +148,9 @@ pub extern "C" fn moqshim_implementation() -> *const c_char {
 }
 
 /// # Safety
-/// `config` must point to a valid `moqshim_config` whose strings are NUL-terminated.
+/// `config` must point to a valid `moq_shim_config` whose strings are NUL-terminated.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn moqshim_session_open(config: *const moqshim_config) -> *mut moqshim_session {
+pub unsafe extern "C" fn moq_shim_session_open(config: *const moq_shim_config) -> *mut moq_shim_session {
 	let Some(config) = (unsafe { config.as_ref() }) else {
 		return std::ptr::null_mut();
 	};
@@ -206,7 +206,7 @@ pub unsafe extern "C" fn moqshim_session_open(config: *const moqshim_config) -> 
 	});
 
 	match thread {
-		Ok(thread) => Box::into_raw(Box::new(moqshim_session {
+		Ok(thread) => Box::into_raw(Box::new(moq_shim_session {
 			commands,
 			thread: Some(thread),
 		})),
@@ -215,9 +215,9 @@ pub unsafe extern "C" fn moqshim_session_open(config: *const moqshim_config) -> 
 }
 
 /// # Safety
-/// `session` must come from `moqshim_session_open`; `request` must be valid.
+/// `session` must come from `moq_shim_session_open`; `request` must be valid.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn moqshim_subscribe_track(session: *mut moqshim_session, request: *const moqshim_subscribe) -> i32 {
+pub unsafe extern "C" fn moq_shim_subscribe_track(session: *mut moq_shim_session, request: *const moq_shim_subscribe) -> i32 {
 	let (Some(session), Some(request)) = (unsafe { session.as_ref() }, unsafe { request.as_ref() }) else {
 		return -1;
 	};
@@ -235,9 +235,9 @@ pub unsafe extern "C" fn moqshim_subscribe_track(session: *mut moqshim_session, 
 }
 
 /// # Safety
-/// `session` must come from `moqshim_session_open`.
+/// `session` must come from `moq_shim_session_open`.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn moqshim_unsubscribe_track(session: *mut moqshim_session, sub_id: u64) -> i32 {
+pub unsafe extern "C" fn moq_shim_unsubscribe_track(session: *mut moq_shim_session, sub_id: u64) -> i32 {
 	let Some(session) = (unsafe { session.as_ref() }) else {
 		return -1;
 	};
@@ -245,9 +245,9 @@ pub unsafe extern "C" fn moqshim_unsubscribe_track(session: *mut moqshim_session
 }
 
 /// # Safety
-/// `session` must come from `moqshim_session_open` and must not be used afterwards.
+/// `session` must come from `moq_shim_session_open` and must not be used afterwards.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn moqshim_session_close(session: *mut moqshim_session) {
+pub unsafe extern "C" fn moq_shim_session_close(session: *mut moq_shim_session) {
 	if session.is_null() {
 		return;
 	}

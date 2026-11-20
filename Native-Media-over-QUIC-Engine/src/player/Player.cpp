@@ -45,12 +45,12 @@ const char *toString(Player::State state)
 	return "unknown";
 }
 
-std::shared_ptr<Player> Player::create(PlayerConfig config, std::unique_ptr<IObjectSource> source)
+std::shared_ptr<Player> Player::create(PlayerConfig config, std::unique_ptr<ObjectSource> source)
 {
 	return std::shared_ptr<Player>(new Player(std::move(config), std::move(source)));
 }
 
-Player::Player(PlayerConfig config, std::unique_ptr<IObjectSource> source)
+Player::Player(PlayerConfig config, std::unique_ptr<ObjectSource> source)
 	: mConfig(std::move(config)), mSource(std::move(source)), mEnded(mEndedPromise.get_future().share())
 {
 }
@@ -897,7 +897,7 @@ void Player::tick()
 					floor = std::min(floor, d);
 				}
 				const int64_t drift = recentFloor - olderFloor;
-				if (std::llabs(drift) <= kLiveEdgeStableToleranceMs * kNsPerMs && !behind)
+				if (std::abs(drift) <= kLiveEdgeStableToleranceMs * kNsPerMs && !behind)
 				{
 					mStableLiveEdge = true;
 					Json m;

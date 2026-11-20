@@ -4,7 +4,7 @@
 //   appsrc(video) ! h264parse|h265parse ! <decoder> ! queue ! videoconvert ! <video sink>
 //   appsrc(audio) ! aacparse ! <decoder> ! queue ! audioconvert ! audioresample ! <audio sink>
 //
-// Buffers are timestamped relative to the shared start position from
+// Buffer timestamps are relative to the shared start position from
 // setPosition(), so both branches share one running time and the pipeline
 // clock provides A/V presentation.
 

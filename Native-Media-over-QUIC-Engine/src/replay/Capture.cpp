@@ -9,7 +9,7 @@ namespace nmqe {
 
 namespace {
 
-constexpr char kMagic[] = "NMQECAP1\n";
+constexpr char kMagic[] = "NMQE CAPTURE 1\n";
 constexpr size_t kMagicSize = sizeof(kMagic) - 1;
 constexpr uint8_t kTrackRecord = 1;
 constexpr uint8_t kObjectRecord = 2;
@@ -105,12 +105,12 @@ void CaptureWriter::writeEvent(const SourceEvent &event)
 	putString(mFile, event.detail);
 }
 
-RecordingObjectSource::RecordingObjectSource(std::unique_ptr<IObjectSource> inner, std::shared_ptr<CaptureWriter> writer)
+RecordingObjectSource::RecordingObjectSource(std::unique_ptr<ObjectSource> inner, std::shared_ptr<CaptureWriter> writer)
 	: mInner(std::move(inner)), mWriter(std::move(writer))
 {
 }
 
-bool RecordingObjectSource::start(IObjectSourceListener *listener)
+bool RecordingObjectSource::start(ObjectSourceListener *listener)
 {
 	mListener = listener;
 	return mInner->start(this);
@@ -134,7 +134,7 @@ void RecordingObjectSource::onObject(uint64_t subId, ReceivedObject object)
 	mListener->onObject(subId, std::move(object));
 }
 
-ReplayObjectSource::ReplayObjectSource(std::string path, bool realtime) : mPath(std::move(path)), mRealtime(realtime) {}
+ReplayObjectSource::ReplayObjectSource(std::string path, bool realTime) : mPath(std::move(path)), mRealTime(realTime) {}
 
 ReplayObjectSource::~ReplayObjectSource()
 {
@@ -143,7 +143,7 @@ ReplayObjectSource::~ReplayObjectSource()
 
 std::string ReplayObjectSource::describe() const
 {
-	return "replay " + mPath + (mRealtime ? " (realtime)" : " (fast)");
+	return "replay " + mPath + (mRealTime ? " (real time)" : " (fast)");
 }
 
 bool ReplayObjectSource::load(std::string &error)
@@ -197,7 +197,7 @@ bool ReplayObjectSource::load(std::string &error)
 	return true;
 }
 
-bool ReplayObjectSource::start(IObjectSourceListener *listener)
+bool ReplayObjectSource::start(ObjectSourceListener *listener)
 {
 	std::string error;
 	if (!load(error))
@@ -297,7 +297,7 @@ void ReplayObjectSource::run()
 	const int64_t firstCaptured = mRecords.empty() ? 0 : mRecords.front().monoNs;
 	for (const Record &record : mRecords)
 	{
-		if (mRealtime)
+		if (mRealTime)
 		{
 			const int64_t due = startMono + (record.monoNs - firstCaptured);
 			std::unique_lock<std::mutex> lock(mMutex);

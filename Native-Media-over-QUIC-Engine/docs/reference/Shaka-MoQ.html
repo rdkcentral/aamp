@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1">
+
+  <title>Shaka MoQ Player</title>
+
+  <!-- Shaka experimental build required for MoQ/MSF -->
+  <script src="https://shaka-project.github.io/shaka-player/dist/shaka-player.experimental.debug.js"></script>
+
+  <style>
+
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      background: black;
+      width: 100%;
+      height: 100%;
+    }
+
+    video {
+      width: 100%;
+      height: 100%;
+      background: black;
+    }
+
+  </style>
+
+</head>
+
+
+<body>
+
+  <video
+    id="video"
+    autoplay
+    muted
+    controls
+    playsinline>
+  </video>
+
+
+  <script>
+
+    'use strict';
+
+
+    /*
+     * The relay is not committed: open this page as
+     *   Shaka-MoQ.html?relay=https://<relay-host>:4443/
+     */
+    const RELAY_URL =
+      new URLSearchParams(window.location.search).get('relay') || '';
+
+
+    async function initPlayer() {
+
+      console.log('Initializing Shaka MoQ player...');
+
+      if (!RELAY_URL) {
+        console.error('Missing ?relay=<relay URL> query parameter.');
+        return;
+      }
+
+
+      /*
+       * Install Shaka polyfills
+       */
+
+      shaka.polyfill.installAll();
+
+
+      /*
+       * Verify browser support
+       */
+
+      if (!shaka.Player.isBrowserSupported()) {
+
+        console.error(
+          'Browser is not supported by Shaka Player.'
+        );
+
+        return;
+      }
+
+
+      const video =
+        document.getElementById('video');
+
+
+      /*
+       * Create Shaka player
+       */
+
+      const player =
+        new shaka.Player();
+
+
+      await player.attach(video);
+
+
+      /*
+       * Display useful Shaka errors
+       */
+
+      player.addEventListener(
+        'error',
+        (event) => {
+
+          console.error(
+            'Shaka error:',
+            event.detail
+          );
+
+        }
+      );
+
+
+      /*
+       * Configure MoQ/MSF.
+       *
+       * Explicitly specifying the namespace prevents Shaka
+       * from waiting for namespace discovery and eventually
+       * reporting MSF_CATALOG_TIMEOUT.
+       */
+
+      player.configure({
+
+        manifest: {
+
+          msf: {
+
+            namespaces: [
+              'mediakind-test'
+            ],
+
+            version: 'draft-22'
+
+          }
+
+        }
+
+      });
+
+
+      try {
+
+        console.log(
+          'Loading MoQ stream:',
+          RELAY_URL
+        );
+
+
+        /*
+         * application/msf tells Shaka to use its
+         * Media over QUIC/MSF manifest parser.
+         */
+
+        await player.load(
+          RELAY_URL,
+          null,
+          'application/msf'
+        );
+
+
+        console.log(
+          'MoQ stream loaded.'
+        );
+
+
+        /*
+         * Start playback automatically.
+         *
+         * Chrome normally allows autoplay when the
+         * video is muted.
+         */
+
+        await video.play();
+
+
+        console.log(
+          'Playback started.'
+        );
+
+
+      } catch (error) {
+
+        console.error(
+          'Failed to load/play MoQ stream:',
+          error
+        );
+
+      }
+
+    }
+
+
+    /*
+     * Start automatically when the page loads.
+     */
+
+    window.addEventListener(
+      'load',
+      initPlayer
+    );
+
+  </script>
+
+</body>
+
+</html>

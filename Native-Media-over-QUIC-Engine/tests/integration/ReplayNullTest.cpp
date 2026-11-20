@@ -14,7 +14,7 @@
 using namespace nmqe;
 
 namespace {
-const std::string kCapture = std::string(NMQE_FIXTURES) + "/captures/reference.nmqecap";
+const std::string kCapture = std::string(NMQE_FIXTURES) + "/captures/reference.capture";
 
 std::vector<std::string> lines(const std::string &path)
 {

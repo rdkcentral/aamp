@@ -5,7 +5,7 @@
 
 ## Context
 
-The plan calls for a bake-off between `moq-dev/moq` (libmoq) and `Quicr/libquicr`. Interoperability
+The plan calls for a bake-off between `moq-dev/moq` (libmoq) and `Quicr/libquicr`. Compatibility
 with the actual relay at MOQT draft-22 is a hard gate.
 
 Facts at decision time:
@@ -21,8 +21,8 @@ The reference relay identifies as a moq-dev relay: its SETUP carries moq-dev's `
 ## Decision
 
 Use **moq-dev/moq pinned at `b3de94d65ba542aa52fd64aba34136b04d078175`** (`moq-net` 0.3.10 and
-`moq-tokio` 0.19.23). It sits behind our own narrow C ABI (`src/transport/moq_shim`, Rust
-staticlib), and the only consumer is `src/transport/MoqObjectSource.cpp`.
+`moq-tokio` 0.19.23). It sits behind our own narrow C ABI (`src/transport/moq_shim`, a Rust
+static library), and the only consumer is `src/transport/MoqObjectSource.cpp`.
 
 - Endpoint mode: WebTransport (`https://`) by default, which matches the browser path; raw QUIC
   (`moqt://`) works too and is selected with `--relay`.
@@ -32,7 +32,7 @@ staticlib), and the only consumer is `src/transport/MoqObjectSource.cpp`.
 - Subscription: `Range::live()` (current Group from Object 0), `Delay::max` = `--max-delay-ms`
   (default 1000), priority audio > video.
 
-We did not use the generated `moq-ffi` C++ bindings. They need a forked `uniffi-bindgen-cpp`, and
+We did not use the generated `moq-ffi` C++ bindings. They need a forked C++ binding generator, and
 they pull in moq-mux, hang and codec crates that we don't need. Our shim is about 400 lines and
 exposes only the ReceivedObject inputs.
 
@@ -43,7 +43,7 @@ exposes only the ReceivedObject inputs.
   Played H.264/AAC through GStreamer on macOS for 20 s with 0 stalls and 0 dropped frames.
 - The same over raw QUIC.
 - Lifecycle: the session opens and closes on each run, and the shim joins its runtime before
-  `moqshim_session_close` returns.
+  `moq_shim_session_close` returns.
 
 ## Consequences
 
@@ -52,7 +52,7 @@ exposes only the ReceivedObject inputs.
 - RDK: the shim must be cross-compiled with `NMQE_RUST_TARGET` for the SDK ABI (rustls; no OpenSSL
   dependency). This is still untested and is the main risk for Phase 5.
 - moq-dev treats IETF drafts as a "low-effort compatibility layer". A relay or draft change
-  can break us, so re-run the relay interop check when you change the pin.
+  can break us, so re-run the relay compatibility check when you change the pin.
 
 ## Follow-up (bake-off remainder)
 

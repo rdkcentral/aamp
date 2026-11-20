@@ -24,14 +24,14 @@ namespace nmqe {
  * live-edge observation and stall/recovery state. All mutable state lives on
  * the player event loop; transport and media callbacks only post to it.
  */
-class Player final : public IObjectSourceListener,
+class Player final : public ObjectSourceListener,
                      public media::IMediaPipelineClient,
                      public std::enable_shared_from_this<Player>
 {
 public:
 	enum class State { Idle, Tuning, Playing, Stopped, Failed };
 
-	static std::shared_ptr<Player> create(PlayerConfig config, std::unique_ptr<IObjectSource> source);
+	static std::shared_ptr<Player> create(PlayerConfig config, std::unique_ptr<ObjectSource> source);
 	~Player() override;
 
 	/** Starts the tune; returns immediately. */
@@ -41,7 +41,7 @@ public:
 	/** Resolves once the player stops or fails on its own (e.g. session closed). */
 	std::shared_future<State> ended() const { return mEnded; }
 
-	// IObjectSourceListener (source threads)
+	// ObjectSourceListener (source threads)
 	void onSourceEvent(const SourceEvent &event) override;
 	void onObject(uint64_t subId, ReceivedObject object) override;
 
@@ -102,7 +102,7 @@ private:
 		uint64_t qosDropped = 0, qosProcessed = 0;
 	};
 
-	Player(PlayerConfig config, std::unique_ptr<IObjectSource> source);
+	Player(PlayerConfig config, std::unique_ptr<ObjectSource> source);
 
 	void post(EventLoop::Task task);
 	void milestone(const char *name, Json fields = Json());
@@ -127,7 +127,7 @@ private:
 	void finish(State state, const std::string &reason);
 
 	PlayerConfig mConfig;
-	std::unique_ptr<IObjectSource> mSource;
+	std::unique_ptr<ObjectSource> mSource;
 	std::unique_ptr<media::IMediaPipeline> mPipeline;
 	EventLoop mLoop;
 

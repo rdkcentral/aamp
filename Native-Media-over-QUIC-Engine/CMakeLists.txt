@@ -12,7 +12,7 @@ endif()
 option(NMQE_BUILD_TESTS "Build unit and integration tests" ON)
 set(NMQE_AAMP_DIR "${CMAKE_CURRENT_SOURCE_DIR}/.." CACHE PATH "AAMP checkout providing mp4demux")
 set(NMQE_MIDDLEWARE_DIR "${NMQE_AAMP_DIR}/../middleware-player-interface" CACHE PATH "middleware-player-interface checkout (DemuxDataTypes.h)")
-set(NMQE_RUST_TARGET "" CACHE STRING "Rust target triple for cross builds (e.g. armv7-unknown-linux-gnueabihf); empty = host")
+set(NMQE_RUST_TARGET "" CACHE STRING "Rust target triple for cross builds; empty = host")
 
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(GST REQUIRED IMPORTED_TARGET gstreamer-1.0>=1.18 gstreamer-app-1.0 gstreamer-base-1.0)
@@ -47,13 +47,13 @@ target_link_libraries(nmqe_catalog PUBLIC nmqe_common PRIVATE PkgConfig::CJSON)
 add_library(nmqe_media_api STATIC src/media/api/MediaPipeline.cpp)
 target_link_libraries(nmqe_media_api PUBLIC nmqe_common)
 
-# CMAF parsing reuses AAMP's mp4demux, compiled standalone: aamp_compat stands in for AAMP's
+# CMAF parsing reuses AAMP's mp4demux, compiled standalone: aamp_overrides stands in for AAMP's
 # logging/defines and fences off GStreamer so this layer stays above the media boundary.
 add_library(nmqe_mediaformat STATIC
 	src/mediaformat/CmafTrackParser.cpp
 	"${NMQE_AAMP_DIR}/mp4demux/MP4Demux.cpp")
 target_include_directories(nmqe_mediaformat
-	PRIVATE src/mediaformat/aamp_compat "${NMQE_AAMP_DIR}/mp4demux" "${NMQE_AAMP_DIR}")
+	PRIVATE src/mediaformat/aamp_overrides "${NMQE_AAMP_DIR}/mp4demux" "${NMQE_AAMP_DIR}")
 target_compile_definitions(nmqe_mediaformat
 	PRIVATE NMQE_MIDDLEWARE_DEMUX_DATA_TYPES="${NMQE_MIDDLEWARE_DIR}/DemuxDataTypes.h")
 target_link_libraries(nmqe_mediaformat PUBLIC nmqe_media_api)
