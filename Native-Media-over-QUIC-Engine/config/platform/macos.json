@@ -1,0 +1,11 @@
+{
+  "name": "macos",
+  "video_decoder": "",
+  "audio_decoder": "",
+  "video_sink": "autovideosink",
+  "audio_sink": "autoaudiosink",
+  "sink_sync": true,
+  "appsrc_max_bytes": 4194304,
+  "sink_processing_deadline_ms": 20,
+  "pipeline_latency_ms": 0
+}

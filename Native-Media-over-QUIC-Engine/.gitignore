@@ -1,0 +1,7 @@
+/build/
+# Media captures from the reference publication are not committed (content rights).
+/tests/fixtures/captures/*.capture
+/runs/
+# Local helper scripts (run.sh holds the internal relay URL).
+/build.sh
+/run.sh

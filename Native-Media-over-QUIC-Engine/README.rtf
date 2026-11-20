@@ -1,0 +1,79 @@
+{\rtf1\ansi\deff0{\fonttbl{\f0 \fswiss Helvetica;}{\f1 \fmodern Courier;}}
+{\colortbl;\red255\green0\blue0;\red0\green0\blue255;}
+\widowctrl\hyphauto
+
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel0 \b \fs36 Native Video over MoQ Player\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel1 \b \fs32 Project TLDR\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 This project develops a native video-over-MoQ proof of concept for macOS and RDK. The first working path will consume the actual H.264/AAC reference publication. H.265/HEVC is the likely next codec iteration and should reuse the same transport, player, media-pipeline, and telemetry architecture.\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 The native POC is being developed to demonstrate MoQ playback on native platforms.\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel1 \b \fs32 Expected performance outcome\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 The project begins with the assumption that MoQ will outperform the selected vanilla DASH path for:\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab playback closer to the live edge; and\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab less post-tune live catch-up.\sa180\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 The questions are how much improvement is realized, how consistent it is, and whether it is practically and statistically significant.\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 The comparison also measures:\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab tune-to-first-frame and tune-to-stable-playback;\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab end-to-end (capture-to-display) and player receive-to-present latency;\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab stalls and discontinuities;\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab recovery time;\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab A/V offset and dropped media;\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab queue depth, CPU, RSS, and long-run stability.\sa180\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 The MoQ and DASH paths should use the same sports or reference source wherever possible. Results will record test configuration and report repeated-run distributions, deltas, variability, confidence intervals, and material confounders.\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel1 \b \fs32 Reference publication\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 The current reference publication is:\par}
+{\pard \ql \f0 \sa180 \li720 \fi0 MOQT draft-22 using an MSF version 1 catalog that describes CMAF-packaged H.264/AAC media.\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 Known values include:\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab namespace {\f1 mediakind-test};\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab H.264/AVC {\f1 avc1.4d4020}, 1280x720, track {\f1 video0.m4s};\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab AAC-LC {\f1 mp4a.40.2}, 48 kHz, track {\f1 audio0.m4s};\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab video and audio in {\f1 renderGroup: 1}.\sa180\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 CMSF conformance is not yet established. Native endpoint details, authentication, Group/Object mapping, initialization-data delivery, producer-reference timestamps, the demo sports source, and the demo codec remain integration questions.\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel1 \b \fs32 What we are building\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \f1 native MOQT transport\line
+  -> MSF/CMSF catalog and CMAF interpretation\line
+  -> bounded live-player policy\line
+  -> Rialto-shaped Media Pipeline API\line
+  -> lean GStreamer backend\line
+  -> platform decoder and sinks on macOS and RDK\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 The architecture keeps the selected MOQT library and GStreamer behind narrow ownership boundaries. Live transport and deterministic capture/replay feed the same received-object model.\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel1 \b \fs32 Initial scope\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab native C++20 player;\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab H.264/AAC against the actual reference publication;\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab macOS playback, followed by RDK;\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab H.265/HEVC as a bounded codec follow-on;\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab objective MoQ-versus-DASH measurement;\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab bounded queues and repeatable tune/status/stop;\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab demo runbook and diagnostics.\sa180\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel1 \b \fs32 Assumptions and deferred work\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 Simplifying assumptions are encouraged when they do not conflict with the reference publication. The first implementation may use one video and one audio track, one codec/profile at a time, configured catalog conventions, one confirmed join policy, and fixed initial queue limits.\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 Assumptions are documented and validated against the actual stream. A conflict is resolved in favor of the reference contract.\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 Strategically deferred work includes ABR, generalized multi-track support, DRM integration, alternate audio, text, trickplay, LOC, generalized discovery, production UI, and browser-client work.\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel1 \b \fs32 Backend questions to resolve\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 1.\tx360\tab How will CMSF conformance be established?\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 2.\tx360\tab Will the demo use H.264 or H.265/HEVC?\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 3.\tx360\tab What sports content will replace the current news source, and what encoding contract will it use?\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 4.\tx360\tab What native endpoint, port, ALPN, certificate behavior, and MOQT version should the client use?\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 5.\tx360\tab What authentication and authorization are required?\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 6.\tx360\tab How are CMAF fragments mapped to MOQT Groups and Objects, and what is the random-access contract?\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 7.\tx360\tab How is initialization data delivered?\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 8.\tx360\tab What {\f1 prft} or burned source-time information is available for latency measurement?\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 9.\tx360\tab What vanilla DASH publication, player, device, and configuration form the comparison baseline?\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 10.\tx360\tab Which Git repository will own the native client and its engineering documentation?\sa180\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 The execution plan contains the detailed version of these questions.\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel1 \b \fs32 Success\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 The POC succeeds when:\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab one pinned MOQT implementation consumes the actual reference publication;\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab the native player tunes, plays H.264/AAC, reports status, and stops reliably on macOS and RDK;\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab H.265/HEVC is added if required by the demo publication without redesigning the architecture;\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab queues and lifecycle remain bounded and stable;\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab telemetry measures live-edge position, post-tune catch-up, tune time, latency, stalls, stability, and recovery;\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab the MoQ-versus-DASH comparison reports the improvement magnitude and uncertainty;\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab the demo setup and runbook are reproducible.\sa180\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel1 \b \fs32 Read next\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab {\f1 plan-6f8d294dfdb2dd26-revised.md} - implementation phases, gates, backend questions, risks, and actions;\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab {\f1 ARCHITECTURE.md} - components, ownership, data flow, threading, and measurement boundaries;\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab {\f1 FAQ.md} - scope and technical rationale;\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab {\f1 docs/integration-contract.md} - confirmed publication, relay, demo, and comparison details once created;\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab {\f1 docs/adr/} - durable technical decisions;\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab {\f1 docs/run-reports/} - measured results and comparisons.\sa180\par}
+}

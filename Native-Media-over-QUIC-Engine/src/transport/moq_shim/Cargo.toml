@@ -1,0 +1,26 @@
+[package]
+name = "moq_shim"
+version = "0.1.0"
+edition = "2024"
+publish = false
+description = "Narrow C ABI over moq-dev/moq (moq-net + moq-tokio) for the native MoQ player transport adapter"
+license = "Apache-2.0"
+
+[lib]
+name = "moq_shim"
+crate-type = ["staticlib"]
+
+# The MOQT implementation is pinned to one moq-dev/moq commit (see docs/ADR-001-transport.md).
+# Change the rev only together with the ADR and a relay interop re-run.
+[dependencies]
+moq-net = { git = "https://github.com/moq-dev/moq", rev = "b3de94d65ba542aa52fd64aba34136b04d078175", features = ["async"] }
+moq-tokio = { git = "https://github.com/moq-dev/moq", rev = "b3de94d65ba542aa52fd64aba34136b04d078175", default-features = false }
+tokio = { version = "1.48", features = ["rt-multi-thread", "sync", "macros", "time"] }
+tokio-util = "0.7"
+url = "2"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[profile.release]
+debug = 1
+panic = "abort"
