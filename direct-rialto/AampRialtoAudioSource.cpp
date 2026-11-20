@@ -100,7 +100,7 @@ AampRialtoAudioSource::createRialtoSource(
 	return std::make_unique<
 		firebolt::rialto::IMediaPipeline::MediaSourceAudio>(
 		mimeType,
-		/* hasDrm */ false,
+		/* hasDrm */ true,
 		audioConfig,
 		firebolt::rialto::SegmentAlignment::UNDEFINED,
 		streamFormat,
