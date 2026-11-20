@@ -251,7 +251,6 @@ private:
 	}
 public:
 #endif
-	}
 	guint bufferingTimeoutTimerId;                    /**< ID of timer handler created for buffering timeout. */
 	GstElement *video_dec;                                    /**< Video decoder used by pipeline. */
 	GstElement *audio_dec;                                    /**< Audio decoder used by pipeline. */
