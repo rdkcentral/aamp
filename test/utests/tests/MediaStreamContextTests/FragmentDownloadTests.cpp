@@ -560,7 +560,7 @@ static DownloadInfoPtr MakeMediaDownloadInfo()
 }
 
 /**
- * @brief AAMP TSB enabled and paused by the user: the fragment is written to the
+ * @brief AAMP TSB enabled and paused: the fragment is written to the
  *        TSB only, so the download must not wait for the injection cache.
  */
 TEST_F(FragmentDownloadTests, DownloadFragment_TsbCacheFullPaused_DownloadsWithoutWaiting)
@@ -570,11 +570,36 @@ TEST_F(FragmentDownloadTests, DownloadFragment_TsbCacheFullPaused_DownloadsWitho
 	mPrivateInstanceAAMP->mSinkPaused.store(true);
 
 	EXPECT_CALL(*g_mockMediaTrack, IsFragmentCacheFull()).WillRepeatedly(Return(true));
+	// ON_CALL ends the wait loop if the fix regresses, so the test fails instead of hanging
+	ON_CALL(*g_mockMediaTrack, WaitForFreeFragmentAvailable(_)).WillByDefault(Return(true));
 	EXPECT_CALL(*g_mockMediaTrack, WaitForFreeFragmentAvailable(_)).Times(0);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _))
 		.WillOnce(Return(true));
+
+	EXPECT_TRUE(mMediaStreamContext->DownloadFragment(MakeMediaDownloadInfo()));
+}
+
+/**
+ * @brief AAMP TSB disabled and paused: fragments are injected, so the download
+ *        must still wait for a free injection cache slot.
+ */
+TEST_F(FragmentDownloadTests, DownloadFragment_NoTsbCacheFullPaused_WaitsForFreeFragment)
+{
+	mPrivateInstanceAAMP->SetLocalAAMPTsb(false);
+	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
+	mPrivateInstanceAAMP->mSinkPaused.store(true);
+
+	EXPECT_CALL(*g_mockMediaTrack, IsFragmentCacheFull()).WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Return(true));
+	{
+		InSequence seq;
+		EXPECT_CALL(*g_mockMediaTrack, WaitForFreeFragmentAvailable(_)).WillOnce(Return(true));
+		EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _))
+			.WillOnce(Return(true));
+	}
 
 	EXPECT_TRUE(mMediaStreamContext->DownloadFragment(MakeMediaDownloadInfo()));
 }
@@ -604,7 +629,7 @@ TEST_F(FragmentDownloadTests, DownloadFragment_TsbCacheFullPausedUnderflow_Waits
 }
 
 /**
- * @brief AAMP TSB enabled, cache full and the user pauses while the downloader is
+ * @brief AAMP TSB enabled, cache full and the pipeline is paused while the downloader is
  *        already waiting for a free slot: the wait must end without a free slot.
  */
 TEST_F(FragmentDownloadTests, DownloadFragment_TsbCacheFullPauseDuringWait_DownloadsWithoutFreeSlot)
@@ -616,9 +641,11 @@ TEST_F(FragmentDownloadTests, DownloadFragment_TsbCacheFullPauseDuringWait_Downl
 	EXPECT_CALL(*g_mockMediaTrack, IsFragmentCacheFull()).WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Return(true));
+	// ON_CALL ends the wait loop if the pause is not re-checked, so the test fails instead of hanging
+	ON_CALL(*g_mockMediaTrack, WaitForFreeFragmentAvailable(_)).WillByDefault(Return(true));
 	{
 		InSequence seq;
-		// The wait times out with no free slot, then the user pauses
+		// The wait times out with no free slot, then the pipeline is paused
 		EXPECT_CALL(*g_mockMediaTrack, WaitForFreeFragmentAvailable(_))
 			.WillOnce(Invoke([this](int)
 			{
@@ -633,7 +660,7 @@ TEST_F(FragmentDownloadTests, DownloadFragment_TsbCacheFullPauseDuringWait_Downl
 }
 
 /**
- * @brief AAMP TSB enabled and paused by the user in low-latency mode: the fragment
+ * @brief AAMP TSB enabled and paused in low-latency mode: the fragment
  *        is written to the TSB only, so the download must not wait for the
  *        track downloads to be enabled (enoughData).
  */
@@ -646,7 +673,9 @@ TEST_F(FragmentDownloadTests, DownloadFragment_LLD_TsbPaused_DownloadsWithoutTra
 
 	EXPECT_CALL(*g_mockMediaTrack, IsFragmentCacheFull()).WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, TrackDownloadsAreEnabled(_)).WillRepeatedly(Return(false));
+	// ON_CALL ends the wait loop if the fix regresses, so the test fails instead of hanging
+	ON_CALL(*g_mockPrivateInstanceAAMP, TrackDownloadsAreEnabled(_)).WillByDefault(Return(true));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, TrackDownloadsAreEnabled(_)).Times(0);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _))
 		.WillOnce(Return(true));

@@ -1204,8 +1204,8 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 			bool isChunkMode = context->aamp->GetLLDashServiceData()->lowLatencyMode &&
 							   context->aamp->GetLLDashChunkMode() &&
 							   !mCtx->IsLocalTSBInjection();
-			// Prevent injection if the user paused the playback, but not if the playback was paused due to underflow
-			bool injectionPaused = IsLocalAAMPTsbPausedByUser();
+			// Prevent injection if playback is paused, but not if it was paused due to underflow
+			bool injectionPaused = IsLocalAAMPTsbPausedWithoutUnderflow();
 			if (isChunkMode && ptr && (numBytesForBlock > 0) && !injectionPaused &&
 				(context->mediaType == eMEDIATYPE_VIDEO ||
 				context->mediaType ==  eMEDIATYPE_AUDIO ||

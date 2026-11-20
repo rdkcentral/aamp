@@ -1729,19 +1729,15 @@ public:
 	/* Buffer Under flow status flag, under flow Start(buffering stopped) is true and under flow end is false*/
 	std::atomic<bool> mBufUnderFlowStatus{false};
 	bool GetBufUnderFlowStatus() { return mBufUnderFlowStatus.load(); }
-	/**
-	 * @brief Is the pipeline paused by the user, i.e. not paused due to underflow.
-	 *        With AAMP TSB, fragments downloaded in this state are written to the
-	 *        TSB only and are not injected.
-	 */
-	bool IsSinkPausedByUser() { return mSinkPaused.load() && !mBufUnderFlowStatus.load(); }
-	/**
-	 * @brief AAMP TSB enabled and paused by the user, so downloaded fragments are
-	 *        written to the TSB only and do not need an injection cache slot.
-	 */
-	bool IsLocalAAMPTsbPausedByUser() { return IsLocalAAMPTsb() && IsSinkPausedByUser(); }
 	void SetBufUnderFlowStatus(bool statusFlag) { mBufUnderFlowStatus.store(statusFlag); }
 	void ResetBufUnderFlowStatus() { mBufUnderFlowStatus.store(false);}
+	/**
+	 * @brief Is the pipeline paused, other than for underflow? With AAMP TSB,
+	 *        fragments downloaded in this state are written to the TSB only
+	 *        and are not injected.
+	 */
+	bool IsSinkPausedWithoutUnderflow() { return mSinkPaused.load() && !mBufUnderFlowStatus.load(); }
+	bool IsLocalAAMPTsbPausedWithoutUnderflow() { return IsLocalAAMPTsb() && IsSinkPausedWithoutUnderflow(); }
 	/** Returns the steady-clock timestamp (ms) at which the current buffering episode began,
 	 *  or -1 if no episode is in progress. Exposed for unit testing. */
 	long long GetBufferingStartTimeMS() const { return mBufferingStartTimeMS.load(); }

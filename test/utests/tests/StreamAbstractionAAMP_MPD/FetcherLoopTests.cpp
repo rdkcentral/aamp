@@ -3536,7 +3536,7 @@ TEST_F(FetcherLoopTests, SegmentBase_MediaFragment_ExecutesSynchronously)
  *
  * FetchAndInjectInitialization() skips the SegmentBase / SegmentList init
  * fetch when WaitForFreeFragmentAvailable(0) reports no free slot, and then
- * clears profileChanged. With AAMP TSB paused by the user the init segment
+ * clears profileChanged. With AAMP TSB paused (not for underflow) the init segment
  * is written to the TSB only, so it must be fetched regardless of the cache.
  */
 class FullCacheInitSegmentTests : public FetcherLoopTests
@@ -3545,8 +3545,10 @@ protected:
 	void SetUp() override
 	{
 		FetcherLoopTests::SetUp();
-		// A zero-sized fragment cache is always full, so the real
-		// MediaTrack::WaitForFreeFragmentAvailable(0) reports no free slot.
+		// MediaTrack::SetCachedFragmentSize() rejects 0, so the cache size stays at its
+		// default of 0 and, with nothing cached, IsFragmentCacheFull() is true and the
+		// real WaitForFreeFragmentAvailable(0) reports no free slot. The NotPaused and
+		// Underflow tests rely on this: they fail if the cache stops being full.
 		mIntConfigSettings[eAAMPConfig_MaxFragmentCached] = 0;
 		EXPECT_CALL(*g_mockPrivateInstanceAAMP, LoadIDX(_, _, _, _, _, _, _, _, _, _))
 			.WillRepeatedly(WithArg<3>(Invoke([](std::vector<uint8_t> &idxBuffer)
@@ -3601,17 +3603,17 @@ static constexpr const char *kSegmentListVodManifest = R"(<?xml version="1.0" en
 </MPD>)";
 
 /**
- * @brief SegmentBase init is fetched while paused by the user with AAMP TSB,
+ * @brief SegmentBase init is fetched while paused with AAMP TSB,
  *        even though the injection cache is full.
  */
-TEST_F(FullCacheInitSegmentTests, SegmentBase_TsbPausedByUser_InitFetchedWithFullCache)
+TEST_F(FullCacheInitSegmentTests, SegmentBase_TsbPaused_InitFetchedWithFullCache)
 {
 	SetTsbPaused(false);
 	InitAndExpectInitFetches(kSegmentBaseVodManifest, 1);
 }
 
 /**
- * @brief Without a user pause a full cache still skips the SegmentBase init.
+ * @brief Without a pause a full cache still skips the SegmentBase init.
  */
 TEST_F(FullCacheInitSegmentTests, SegmentBase_NotPaused_InitSkippedWithFullCache)
 {
@@ -3620,7 +3622,7 @@ TEST_F(FullCacheInitSegmentTests, SegmentBase_NotPaused_InitSkippedWithFullCache
 }
 
 /**
- * @brief A pause due to underflow is not a user pause: the init segment is
+ * @brief A pause due to underflow does not count: the init segment is
  *        injected, so a full cache still skips it.
  */
 TEST_F(FullCacheInitSegmentTests, SegmentBase_TsbPausedByUnderflow_InitSkippedWithFullCache)
@@ -3630,17 +3632,17 @@ TEST_F(FullCacheInitSegmentTests, SegmentBase_TsbPausedByUnderflow_InitSkippedWi
 }
 
 /**
- * @brief SegmentList init is fetched while paused by the user with AAMP TSB,
+ * @brief SegmentList init is fetched while paused with AAMP TSB,
  *        even though the injection cache is full.
  */
-TEST_F(FullCacheInitSegmentTests, SegmentList_TsbPausedByUser_InitFetchedWithFullCache)
+TEST_F(FullCacheInitSegmentTests, SegmentList_TsbPaused_InitFetchedWithFullCache)
 {
 	SetTsbPaused(false);
 	InitAndExpectInitFetches(kSegmentListVodManifest, 1);
 }
 
 /**
- * @brief Without a user pause a full cache still skips the SegmentList init.
+ * @brief Without a pause a full cache still skips the SegmentList init.
  */
 TEST_F(FullCacheInitSegmentTests, SegmentList_NotPaused_InitSkippedWithFullCache)
 {
