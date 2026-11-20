@@ -220,7 +220,9 @@ TEST_F(BlockProgressMonitorTests, SetRateWaitsForInFlightMonitorProgress)
     EXPECT_TRUE(mPrivateInstanceAAMP->mSetRateActive.load());
 
     EXPECT_CALL(*g_mockAampEventManager, SendEvent(_, _)).Times(0);
-    mPrivateInstanceAAMP->MonitorProgress();
+	auto progress = std::async(std::launch::async,
+		[this] { mPrivateInstanceAAMP->MonitorProgress(); });
+	AbortIfNotReady(progress, "MonitorProgress() while SetRate active");
 
     release.set_value();
     setRateThread.join();
