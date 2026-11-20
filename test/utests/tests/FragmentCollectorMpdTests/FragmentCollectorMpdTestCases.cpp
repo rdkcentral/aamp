@@ -590,39 +590,34 @@ TEST_F(StreamAbstractionAAMP_MPD_Test,
 }
 
 /**
- * @class CacheEncryptedHeaderMp4DemuxTest
- * @brief Runs CacheEncryptedHeader tests with eAAMPConfig_UseMp4Demux enabled and disabled.
- */
-class CacheEncryptedHeaderMp4DemuxTest : public StreamAbstractionAAMP_MPD_Test,
-	public ::testing::WithParamInterface<bool>
-{
-};
-
-/**
  * @brief Whatever the UseMp4Demux setting, a successful init segment download must go
  *        through OnFragmentDownloadComplete, which resets profileChanged and discontinuity.
  */
-TEST_P(CacheEncryptedHeaderMp4DemuxTest,
+TEST_F(StreamAbstractionAAMP_MPD_Test,
 	CacheEncryptedHeader_SuccessfulDownload_ProfileChangedAndDiscontinuityReset)
 {
 	const int trackIdx = eMEDIATYPE_VIDEO;
 	MediaStreamContext* ctx = MakeContext(trackIdx, mPrivateInstanceAAMP);
-	ctx->profileChanged = true;
-	ctx->discontinuity  = true;
 	mMpdStream->SetMediaStreamContext(trackIdx, ctx);
 
-	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseMp4Demux))
-		.WillRepeatedly(Return(GetParam()));
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, _, _, _, _))
-		.WillOnce(Return(true));
+	for (const bool useMp4Demux : {true, false})
+	{
+		SCOPED_TRACE(::testing::Message() << "UseMp4Demux=" << useMp4Demux);
+		ctx->profileChanged = true;
+		ctx->discontinuity = true;
 
-	mMpdStream->TestCacheEncryptedHeader(trackIdx, "http://cdn/header.mp4");
+		EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseMp4Demux))
+			.WillRepeatedly(Return(useMp4Demux));
+		EXPECT_CALL(*g_mockMediaStreamContext,
+			CacheFragment(_, _, _, _, _, _, _, _, _))
+			.WillOnce(Return(true));
 
-	EXPECT_FALSE(ctx->profileChanged);
-	EXPECT_FALSE(ctx->discontinuity);
+		mMpdStream->TestCacheEncryptedHeader(trackIdx, "http://cdn/header.mp4");
+
+		EXPECT_FALSE(ctx->profileChanged);
+		EXPECT_FALSE(ctx->discontinuity);
+	}
 }
-
-INSTANTIATE_TEST_SUITE_P(UseMp4Demux, CacheEncryptedHeaderMp4DemuxTest, ::testing::Bool());
 
 /**
  * @brief When UseMp4Demux is disabled, DownloadFragment must still be used and
