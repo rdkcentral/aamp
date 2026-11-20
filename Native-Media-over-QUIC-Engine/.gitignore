@@ -1,0 +1,14 @@
+/build/
+# Media captures from the reference publication are not committed (content rights).
+/tests/fixtures/captures/*.nmqecap
+/runs/
+# Internal project documents kept local until an archive location is chosen.
+/ARCHITECTURE.md
+/FAQ.md
+/README.md
+/README.rtf
+/docs/EXECUTION_PLAN.md
+/docs/integration-contract.md
+/docs/telemetry.md
+/docs/reference/Shaka-MoQ.html
+/docs/reference/internal-streams-README.txt

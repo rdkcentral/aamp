@@ -1,0 +1,22 @@
+{
+  "tracks": [
+    {
+      "codec": "avc1.4d4020",
+      "height": 720,
+      "name": "video0.m4s",
+      "packaging": "cmaf",
+      "renderGroup": 1,
+      "role": "video",
+      "width": 1280
+    },
+    {
+      "codec": "mp4a.40.2",
+      "name": "audio0.m4s",
+      "packaging": "cmaf",
+      "renderGroup": 1,
+      "role": "audio",
+      "samplerate": 48000
+    }
+  ],
+  "version": 1
+}
