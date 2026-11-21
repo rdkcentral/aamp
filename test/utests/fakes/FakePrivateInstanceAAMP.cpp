@@ -421,6 +421,11 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 {
 }
 
+std::mutex& PrivateInstanceAAMP::GetDRMTeardownMutex()
+{
+	return mDRMTeardownLock;
+}
+
 void PrivateInstanceAAMP::SetVideoRectangle(int x, int y, int w, int h)
 {
 }
