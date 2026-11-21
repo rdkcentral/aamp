@@ -7565,6 +7565,40 @@ bool StreamAbstractionAAMP_HLS::SelectPreferredTextTrack(TextTrackInfo &selected
 			score += AAMP_TYPE_SCORE;
 		}
 
+		// Score codec preference if specified
+		if (!aamp->preferredTextCodecsList.empty() && !track.codec.empty())
+		{
+			auto codecIter = std::find(aamp->preferredTextCodecsList.cbegin(),
+									   aamp->preferredTextCodecsList.cend(),
+									   track.codec);
+			if (codecIter != aamp->preferredTextCodecsList.cend())
+			{
+				size_t position = std::distance(aamp->preferredTextCodecsList.cbegin(), codecIter);
+				size_t priorityMultiplier = aamp->preferredTextCodecsList.size() - position;
+				score += priorityMultiplier * AAMP_CODEC_SCORE;
+				AAMPLOG_TRACE("Track '%s' codec='%s' matches position %zu (bonus: %llu)",
+							  track.name.c_str(), track.codec.c_str(),
+							  position, priorityMultiplier * AAMP_CODEC_SCORE);
+			}
+		}
+
+		// Score format preference if specified
+		if (!aamp->preferredTextFormatsList.empty() && !track.codec.empty())
+		{
+			auto formatIter = std::find(aamp->preferredTextFormatsList.cbegin(),
+										aamp->preferredTextFormatsList.cend(),
+										track.codec);
+			if (formatIter != aamp->preferredTextFormatsList.cend())
+			{
+				size_t position = std::distance(aamp->preferredTextFormatsList.cbegin(), formatIter);
+				size_t priorityMultiplier = aamp->preferredTextFormatsList.size() - position;
+				score += priorityMultiplier * AAMP_FORMAT_SCORE;
+				AAMPLOG_TRACE("Track '%s' format='%s' matches position %zu (bonus: %llu)",
+							  track.name.c_str(), track.codec.c_str(),
+							  position, priorityMultiplier * AAMP_FORMAT_SCORE);
+			}
+		}
+
 		// Update best if this score is higher
 		if (score > bestScore)
 		{

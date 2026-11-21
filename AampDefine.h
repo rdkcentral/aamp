@@ -251,6 +251,7 @@ static_assert(DEFAULT_CACHED_FRAGMENTS_PER_TRACK <= MAX_CACHED_FRAGMENTS_PER_TRA
 #define AAMP_LABEL_SCORE      10000000ULL  /**< 3rd priority to label matching **/
 #define AAMP_ROLE_SCORE        1000000ULL  /**< 4th priority to role/rendition matching **/
 #define AAMP_TYPE_SCORE         100000ULL  /**< 5th priority to type matching **/
+#define AAMP_FORMAT_SCORE        10000ULL  /**< Format/container matching (e.g., CEA-608, CEA-708, WebVTT) **/
 #define AAMP_CODEC_SCORE          1000ULL  /**< Lowest priority: matching codec **/
 #define THRESHOLD_TOIGNORE_TINYPERIOD 500  /**<in milliseconds**/
 

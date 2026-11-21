@@ -1772,6 +1772,10 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	, preferredAudioAccessibilityNode()
 	, preferredTextLanguagesString("")
 	, preferredTextLanguagesList()
+	, preferredTextFormatsString("")
+	, preferredTextFormatsList()
+	, preferredTextCodecsString("")
+	, preferredTextCodecsList()
 	, preferredTextRenditionString("")
 	, preferredTextTypeString("")
 	, preferredTextLabelString("")
@@ -13622,6 +13626,36 @@ void PrivateInstanceAAMP::SavePreferredTextLanguages(const char *param, bool &is
 			}
 		}
 
+		std::vector<std::string> inputTextFormatsList;
+		/** Get format Properties*/
+		if(jsObject->isArray("formats"))
+		{
+			jsObject->get("formats", inputTextFormatsList);
+		}
+		else if (jsObject->isString("formats"))
+		{
+			std::string inputTextFormatsString;
+			if (jsObject->get("formats", inputTextFormatsString))
+			{
+				inputTextFormatsList.push_back(std::move(inputTextFormatsString));
+			}
+		}
+
+		std::vector<std::string> inputTextCodecsList;
+		/** Get codec Properties*/
+		if(jsObject->isArray("codecs"))
+		{
+			jsObject->get("codecs", inputTextCodecsList);
+		}
+		else if (jsObject->isString("codecs"))
+		{
+			std::string inputTextCodecsString;
+			if (jsObject->get("codecs", inputTextCodecsString))
+			{
+				inputTextCodecsList.push_back(std::move(inputTextCodecsString));
+			}
+		}
+
 		Accessibility  inputTextAccessibilityNode;
 		/** Get accessibility Properties*/
 		if (jsObject->isObject("accessibility"))
@@ -13652,6 +13686,29 @@ void PrivateInstanceAAMP::SavePreferredTextLanguages(const char *param, bool &is
 		preferredInstreamIdString = std::move(inputInstreamIdString);
 		preferredTextNameString = std::move(inputTextNameString);
 		preferredTextSubTypeString = std::move(inputTextSubTypeString);
+		preferredTextFormatsList = std::move(inputTextFormatsList);
+		preferredTextCodecsList = std::move(inputTextCodecsList);
+
+		// Rebuild format and codec strings
+		preferredTextFormatsString.clear();
+		for (const auto& fmt : preferredTextFormatsList)
+		{
+			if (!preferredTextFormatsString.empty())
+			{
+				preferredTextFormatsString += ",";
+			}
+			preferredTextFormatsString += fmt;
+		}
+
+		preferredTextCodecsString.clear();
+		for (const auto& codec : preferredTextCodecsList)
+		{
+			if (!preferredTextCodecsString.empty())
+			{
+				preferredTextCodecsString += ",";
+			}
+			preferredTextCodecsString += codec;
+		}
 
 		SETCONFIGVALUE_PRIV(AAMP_APPLICATION_SETTING,eAAMPConfig_PreferredTextRendition,preferredTextRenditionString);
 		SETCONFIGVALUE_PRIV(AAMP_APPLICATION_SETTING,eAAMPConfig_PreferredTextLabel,preferredTextLabelString);
@@ -13690,6 +13747,10 @@ void PrivateInstanceAAMP::SavePreferredTextLanguages(const char *param, bool &is
 
 	AAMPLOG_INFO("Number of preferred Text languages: %zu", preferredTextLanguagesList.size());
 	AAMPLOG_INFO("Preferred Text languages string: %s", preferredTextLanguagesString.c_str());
+	AAMPLOG_INFO("Number of preferred Text formats: %zu", preferredTextFormatsList.size());
+	AAMPLOG_INFO("Preferred Text formats string: %s", preferredTextFormatsString.c_str());
+	AAMPLOG_INFO("Number of preferred Text codecs: %zu", preferredTextCodecsList.size());
+	AAMPLOG_INFO("Preferred Text codecs string: %s", preferredTextCodecsString.c_str());
 
 	SETCONFIGVALUE_PRIV(AAMP_APPLICATION_SETTING,eAAMPConfig_PreferredTextLanguage,preferredTextLanguagesString);
 }

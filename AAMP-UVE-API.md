@@ -1441,6 +1441,8 @@ playerInstance.setPreferredAudioLanguage( trackPreferenceObject );
 | rendition | String | Optional preferred rendition for automatic text selection |
 | instreamId | String | Optional preferred instreamId (i.e. CC1, CC2) for automatic text selection |
 | label	| String | Optional preferred label for automatic text selection |
+| formats | String or String[] | Optional preferred text format(s) in priority order (for example, ["cea-708", "webvtt"]). Supported values include: "cea-608", "cea-708", "webvtt", "ttml", "stpp", "vtt", and other standard subtitle formats. Used for pre-tune selection to ensure playback starts with the best available format match. |
+| codecs | String or String[] | Optional preferred text codec(s) in priority order (for example, ["stpp", "wvtt"]). Matches against the codec field in track information. Codec preferences are applied during pre-tune track selection to avoid post-tune switches. |
 | accessibilityType | String | Optional preferred DASH role/type string for text track selection. This is used as the `preferred-text-type` value and is matched against `<Accessibility ... value=...>` entries with scheme `urn:mpeg:dash:role:2011`. |
 | accessibility | Object | Optional preferred Accessibility node criteria for text (for example, to select descriptive / VI tracks). This corresponds to the full `<Accessibility ...>` element and is independent of `accessibilityType`. |
 | accessibility.scheme | String | Preferred Accessibility scheme Id for the Accessibility node. |
@@ -1454,12 +1456,38 @@ var trackPreferenceObject =
     "languages": ["en", "de", "mul"],
     "rendition": "subtitle",
     "label": "native",
+    "formats": ["cea-708", "webvtt"],
+    "codecs": ["stpp", "wvtt"],
     "accessibility":
     {
         "scheme": "urn:tva:metadata:cs:AudioPurposeCS:2007",
         "int_value": 2
     }
 }
+playerInstance.setPreferredTextLanguage( trackPreferenceObject );
+```
+
+- ###### Pre-tune Format Selection Example (starts playback with best format match):
+```js
+var trackPreferenceObject =
+{
+    "languages": ["eng"],
+    "formats": ["cea-708", "cea-608"],
+    "codecs": ["stpp"]
+}
+// Call before tune - player will start with the best matching format/codec
+playerInstance.setPreferredTextLanguage( trackPreferenceObject );
+playerInstance.tune(url);
+```
+
+- ###### Backward Compatibility:
+```js
+// Language-only preferences continue to work as before
+var trackPreferenceObject =
+{
+    "languages": ["eng", "spa"]
+}
+// Format and codec preferences are optional - omitting them does not change behavior
 playerInstance.setPreferredTextLanguage( trackPreferenceObject );
 ```
 ---
