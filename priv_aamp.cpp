@@ -5019,7 +5019,9 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 	{
 		// Using StreamLock to make sure this is not interfering with GetFile() from PreCachePlaylistDownloadTask
 		AcquireStreamLock();
+		const auto streamStopStartMs = NOW_STEADY_TS_MS;
 		mpStreamAbstractionAAMP->Stop(disableDownloads);
+		AAMPLOG_MIL("Stream stop took %lld ms", (long long)(NOW_STEADY_TS_MS - streamStopStartMs));
 
 		if(mContentType == ContentType_HDMIIN)
 		{
@@ -5039,6 +5041,7 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 			}
 		}
 		ReleaseStreamLock();
+		AAMPLOG_MIL("Stream stop + cleanup total took %lld ms", (long long)(NOW_STEADY_TS_MS - streamStopStartMs));
 	}
 	m_lastSubClockSyncTime = std::chrono::system_clock::time_point();
 
@@ -5062,7 +5065,9 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 				StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 				if (sink)
 				{
+					const auto sinkFlushStartMs = NOW_STEADY_TS_MS;
 					sink->Flush(0, rate);
+					AAMPLOG_MIL("Sink flush took %lld ms", (long long)(NOW_STEADY_TS_MS - sinkFlushStartMs));
 				}
 			}
 		}
@@ -5083,7 +5088,9 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 				StreamSink *sink = AampStreamSinkManager::GetInstance().GetStoppingStreamSink(this);
 				if (sink)
 				{
+					const auto sinkStopStartMs = NOW_STEADY_TS_MS;
 					sink->Stop(!newTune);
+					AAMPLOG_MIL("Sink stop took %lld ms", (long long)(NOW_STEADY_TS_MS - sinkStopStartMs));
 				}
 			}
 		}
