@@ -33,6 +33,7 @@ public:
     MOCK_METHOD(DrmSession*, createDrmSession, (int &responseCode, int &err, DrmHelperPtr drmHelper, DrmCallbacks* Instance, int streamType, void* metaDataPtr));
     // Captures whether a non-null DrmSessionCreator reached the DrmSessionManager constructor.
     MOCK_METHOD(void, CaptureSessionCreator, (bool hasCreator));
+    MOCK_METHOD(void, clearDrmSession, (bool forceClearSession));
 };
 
 extern std::shared_ptr<MockDRMSessionManager> g_mockDRMSessionManager;
