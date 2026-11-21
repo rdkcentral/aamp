@@ -199,6 +199,7 @@ public:
 	 * @param[out]  subtitleOutputFormat - format of subtitle track
 	 */
 	void GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &subtitleOutputFormat) override;
+	bool IsAudioAtmos(void) const override { return mPreviousAudioType == eAUDIO_ATMOS; }
 	/**
 	 * @fn GetStreamPosition
 	 */
@@ -1220,6 +1221,7 @@ protected:
 	double mVideoPosRemainder;
 	double mFirstVideoFragPTS;
 	AudioType mAudioType;
+	AudioType mPreviousAudioType;
 	int mPrevAdaptationSetCount;
 	std::vector<BitsPerSecond> mBitrateIndexVector;
 	double mLivePeriodCulledSeconds;
