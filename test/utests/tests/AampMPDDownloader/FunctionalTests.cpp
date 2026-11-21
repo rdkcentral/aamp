@@ -29,6 +29,9 @@
 #include <thread>
 #include <unistd.h>
 #include <atomic>
+#include <condition_variable>
+#include <future>
+#include <mutex>
 
 using ::testing::_;
 using ::testing::An;
@@ -296,7 +299,7 @@ TEST_F(FunctionalTests, AampMPDDownloader_NotifyLockup)
     std::shared_ptr<ManifestDownloadConfig> inpData = std::make_shared<ManifestDownloadConfig>(-1);
     EXPECT_NO_THROW(mAampMPDDownloader->Initialize(inpData));
 //    EXPECT_NO_THROW(mAampMPDDownloader->Start());
-	
+
 	EXPECT_NO_THROW(mAampMPDDownloader->RegisterCallback( [](void *arg){ ASSERT_TRUE(0); }, NULL));
 	usleep(100000); // allow thread to start
 
@@ -492,4 +495,291 @@ TEST_F(FunctionalTests,
 	EXPECT_EQ(thirdManifest->mMPDDownloadResponse->iHttpRetValue, CURLE_RECV_ERROR);
 
 	mAampMPDDownloader->Release();
+}
+
+// p0 declares a 10s duration but its audio timeline ends with a 3.2s segment starting 0.2s before that end.
+static const char *kTailOverhangManifest =
+	"<?xml version=\"1.0\" encoding=\"utf-8\"?>"
+	"<MPD xmlns=\"urn:mpeg:dash:schema:mpd:2011\" type=\"static\" mediaPresentationDuration=\"PT20S\">"
+	"<Period id=\"p0\" start=\"PT0S\" duration=\"PT10S\"><AdaptationSet contentType=\"audio\" mimeType=\"audio/mp4\">"
+	"<SegmentTemplate timescale=\"1000\" initialization=\"init.mp4\" media=\"$Time$.m4s\"><SegmentTimeline>"
+	"<S t=\"0\" d=\"2000\" r=\"3\" /><S t=\"8000\" d=\"1800\" /><S t=\"9800\" d=\"3200\" />"
+	"</SegmentTimeline></SegmentTemplate><Representation id=\"1\" bandwidth=\"1000\" codecs=\"x\"/></AdaptationSet></Period></MPD>";
+
+static size_t AudioTimelineEntries(const _manifestDownloadResponse &response)
+{
+	return response.mMPDInstance->GetPeriods().at(0)->GetAdaptationSets().at(0)->GetSegmentTemplate()->GetSegmentTimeline()->GetTimelines().size();
+}
+
+static void LoadTailOverhangManifest(_manifestDownloadResponse &response, bool trimPeriodTailSegments)
+{
+	const std::string manifest = kTailOverhangManifest;
+	response.mMPDDownloadResponse->mDownloadData.assign(manifest.begin(), manifest.end());
+	response.mMPDDownloadResponse->sEffectiveUrl = "http://host/asset/manifest.mpd";
+	response.mTrimPeriodTailSegments = trimPeriodTailSegments;
+}
+
+TEST_F(FunctionalTests, ParseMPD_TrimsPeriodTailWhenEnabled)
+{
+	_manifestDownloadResponse response;
+	LoadTailOverhangManifest(response, true);
+
+	response.parseMPD();
+
+	ASSERT_EQ(response.mMPDStatus, AAMPStatusType::eAAMPSTATUS_OK);
+	EXPECT_EQ(AudioTimelineEntries(response), 2u);
+}
+
+TEST_F(FunctionalTests, ParseMPD_LeavesPeriodTailWhenDisabled)
+{
+	_manifestDownloadResponse response;
+	LoadTailOverhangManifest(response, false);
+
+	response.parseMPD();
+
+	ASSERT_EQ(response.mMPDStatus, AAMPStatusType::eAAMPSTATUS_OK);
+	EXPECT_EQ(AudioTimelineEntries(response), 3u);
+}
+
+TEST_F(FunctionalTests, ParseMPD_CloneKeepsTrimSetting)
+{
+	_manifestDownloadResponse original;
+	LoadTailOverhangManifest(original, true);
+
+	std::shared_ptr<_manifestDownloadResponse> cloned = original.clone();
+
+	EXPECT_TRUE(cloned->mTrimPeriodTailSegments);
+	ASSERT_EQ(cloned->mMPDStatus, AAMPStatusType::eAAMPSTATUS_OK);
+	EXPECT_EQ(AudioTimelineEntries(*cloned), 2u);
+}
+
+TEST_F(FunctionalTests, ManifestDownloadConfig_CopyKeepsTrimSetting)
+{
+	ManifestDownloadConfig config(-1);
+	EXPECT_FALSE(config.mTrimPeriodTailSegments);
+	config.mTrimPeriodTailSegments = true;
+
+	ManifestDownloadConfig copy(config);
+
+	EXPECT_TRUE(copy.mTrimPeriodTailSegments);
+}
+
+// Live manifest with a 30s minimumUpdatePeriod; the downloader caps its refresh wait at ~3s.
+static const char *kLongRefreshLiveMpd =
+	R"(<?xml version="1.0" encoding="UTF-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="dynamic" profiles="urn:mpeg:dash:profile:isoff-live:2011" minBufferTime="PT2.000S" maxSegmentDuration="PT0H0M1.92S" minimumUpdatePeriod="PT30S" availabilityStartTime="1977-05-25T18:00:00.000Z" timeShiftBufferDepth="PT0H0M30.000S" publishTime="2024-11-08T12:53:09.725Z">
+    <Period id="901591170" start="PT416006H37M27.854S">
+        <AdaptationSet id="2" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+            <SegmentTemplate initialization="init-$RepresentationID$.mp4" media="seg-$Number$.m4s" timescale="90000" startNumber="901599260" presentationTimeOffset="20213">
+                <SegmentTimeline>
+                    <S t="1377581813" d="172800" r="14"/>
+                </SegmentTimeline>
+            </SegmentTemplate>
+            <Representation id="root_video4" bandwidth="562800" codecs="hvc1.1.6.L63.90" width="640" height="360" frameRate="25000/1000"/>
+        </AdaptationSet>
+    </Period>
+</MPD>
+)";
+
+struct NotifyContext
+{
+	std::mutex mtx;
+	std::condition_variable cv;
+	int count{0};
+};
+
+static void CountingNotifyCallback(void *arg)
+{
+	auto *ctx = static_cast<NotifyContext *>(arg);
+	{
+		std::lock_guard<std::mutex> lock(ctx->mtx);
+		++ctx->count;
+	}
+	ctx->cv.notify_all();
+}
+
+// Calls Release() on scope exit so downloader threads never outlive test locals.
+struct DownloaderReleaseGuard
+{
+	AampMPDDownloader *downloader;
+	~DownloaderReleaseGuard() { downloader->Release(); }
+};
+
+static std::function<std::pair<std::string,int>()> MakeLiveManifestPreProcess(std::shared_ptr<std::atomic<int>> calls)
+{
+	return [calls]() -> std::pair<std::string,int>
+	{
+		calls->fetch_add(1);
+		return { std::string(kLongRefreshLiveMpd), 200 };
+	};
+}
+
+// A GetManifest(wait) caller blocked on an empty queue must receive the first manifest pushed by the downloader.
+TEST_F(FunctionalTests, GetManifest_WaitReceivesManifestPushedByDownloader)
+{
+	auto calls = std::make_shared<std::atomic<int>>(0);
+	std::shared_ptr<ManifestDownloadConfig> inpData = std::make_shared<ManifestDownloadConfig>(-1);
+	inpData->mTuneUrl = url1;
+	mAampMPDDownloader->Initialize(inpData, appName, MakeLiveManifestPreProcess(calls));
+	DownloaderReleaseGuard guard{mAampMPDDownloader};
+
+	std::atomic<bool> waiterStarted(false);
+	std::promise<ManifestDownloadResponsePtr> result;
+	std::future<ManifestDownloadResponsePtr> resultFuture = result.get_future();
+	std::thread waiter([&]()
+	{
+		waiterStarted = true;
+		result.set_value(mAampMPDDownloader->GetManifest(true, 10000));
+	});
+	while (!waiterStarted)
+	{
+		std::this_thread::yield();
+	}
+
+	mAampMPDDownloader->Start();
+
+	const bool delivered = resultFuture.wait_for(std::chrono::seconds(10)) == std::future_status::ready;
+	mAampMPDDownloader->Release();
+	waiter.join();
+
+	ASSERT_TRUE(delivered);
+	ManifestDownloadResponsePtr manifest = resultFuture.get();
+	ASSERT_TRUE(manifest != nullptr);
+	EXPECT_EQ(manifest->mMPDStatus, AAMPStatusType::eAAMPSTATUS_OK);
+	EXPECT_TRUE(IS_HTTP_SUCCESS(manifest->mMPDDownloadResponse->iHttpRetValue));
+	EXPECT_TRUE(manifest->mIsLiveManifest);
+}
+
+// Verify timeout of GetManifest(wait) returns curl 28.
+TEST_F(FunctionalTests, GetManifest_ManifestTimeout)
+{
+	auto calls = std::make_shared<std::atomic<int>>(0);
+	std::shared_ptr<ManifestDownloadConfig> inpData = std::make_shared<ManifestDownloadConfig>(-1);
+	inpData->mTuneUrl = url1;
+	mAampMPDDownloader->Initialize(inpData, appName, MakeLiveManifestPreProcess(calls));
+	DownloaderReleaseGuard guard{mAampMPDDownloader};
+
+	std::atomic<bool> waiterStarted(false);
+	std::promise<ManifestDownloadResponsePtr> result;
+	std::future<ManifestDownloadResponsePtr> resultFuture = result.get_future();
+	std::thread waiter([&]()
+	{
+		waiterStarted = true;
+		result.set_value(mAampMPDDownloader->GetManifest(true, 1000));
+	});
+	while (!waiterStarted)
+	{
+		std::this_thread::yield();
+	}
+
+	const bool delivered = resultFuture.wait_for(std::chrono::seconds(10)) == std::future_status::ready;
+
+	waiter.join();
+
+	ASSERT_TRUE(delivered);
+	ManifestDownloadResponsePtr manifest = resultFuture.get();
+	ASSERT_TRUE(manifest != nullptr);
+	EXPECT_EQ(manifest->mMPDStatus, AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR);
+	EXPECT_EQ(manifest->mMPDDownloadResponse->iHttpRetValue,CURLE_OPERATION_TIMEDOUT);
+
+}
+
+// Release() must wake a GetManifest(wait) caller instead of leaving it to run out its full timeout.
+TEST_F(FunctionalTests, GetManifest_WaitReturnsPromptlyWhenReleaseCalled)
+{
+	std::shared_ptr<ManifestDownloadConfig> inpData = std::make_shared<ManifestDownloadConfig>(-1);
+	inpData->mTuneUrl = url1;
+	mAampMPDDownloader->Initialize(inpData);
+
+	const int waitMs = 30000;
+	const long long maxElapsedMs = 5000;
+	std::atomic<bool> waiterStarted(false);
+	ManifestDownloadResponsePtr manifest;
+	long long elapsedMs = -1;
+	std::thread waiter([&]()
+	{
+		waiterStarted = true;
+		const auto start = std::chrono::steady_clock::now();
+		manifest = mAampMPDDownloader->GetManifest(true, waitMs);
+		elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
+	});
+	while (!waiterStarted)
+	{
+		std::this_thread::yield();
+	}
+
+	mAampMPDDownloader->Release();
+	waiter.join();
+
+	ASSERT_TRUE(manifest != nullptr);
+	EXPECT_LT(elapsedMs, maxElapsedMs);
+	EXPECT_EQ(manifest->mMPDStatus, AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR);
+	EXPECT_FALSE(IS_HTTP_SUCCESS(manifest->mMPDDownloadResponse->iHttpRetValue));
+	// A timeout result would mean the Release() wakeup was missed.
+	EXPECT_NE(manifest->mMPDDownloadResponse->iHttpRetValue, CURLE_OPERATION_TIMEDOUT);
+}
+
+// Release() must interrupt the refresh-interval wait and stop the download loop without another refresh.
+TEST_F(FunctionalTests, Release_InterruptsRefreshWaitWithoutFurtherRefresh)
+{
+	auto calls = std::make_shared<std::atomic<int>>(0);
+	std::shared_ptr<ManifestDownloadConfig> inpData = std::make_shared<ManifestDownloadConfig>(-1);
+	inpData->mTuneUrl = url1;
+	mAampMPDDownloader->Initialize(inpData, appName, MakeLiveManifestPreProcess(calls));
+	DownloaderReleaseGuard guard{mAampMPDDownloader};
+	mAampMPDDownloader->Start();
+
+	ManifestDownloadResponsePtr first = mAampMPDDownloader->GetManifest(true, 5000);
+	ASSERT_TRUE(first != nullptr);
+	ASSERT_TRUE(IS_HTTP_SUCCESS(first->mMPDDownloadResponse->iHttpRetValue));
+	ASSERT_TRUE(first->mIsLiveManifest);
+
+	// The downloader now waits ~3s before its next refresh; Release() must not sit out that interval.
+	const auto start = std::chrono::steady_clock::now();
+	mAampMPDDownloader->Release();
+	const long long releaseMs = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
+
+	EXPECT_LT(releaseMs, 2000);
+	EXPECT_EQ(calls->load(), 1);
+	EXPECT_TRUE(mAampMPDDownloader->IsDownloaderDisabled());
+}
+
+// The notifier thread must invoke the registered callback when the downloader publishes a manifest.
+TEST_F(FunctionalTests, RegisterCallback_InvokedWhenManifestPublished)
+{
+	NotifyContext ctx;
+	auto calls = std::make_shared<std::atomic<int>>(0);
+	std::shared_ptr<ManifestDownloadConfig> inpData = std::make_shared<ManifestDownloadConfig>(-1);
+	inpData->mTuneUrl = url1;
+	mAampMPDDownloader->Initialize(inpData, appName, MakeLiveManifestPreProcess(calls));
+	DownloaderReleaseGuard guard{mAampMPDDownloader};
+	mAampMPDDownloader->RegisterCallback(CountingNotifyCallback, &ctx);
+	mAampMPDDownloader->Start();
+
+	bool notified;
+	{
+		std::unique_lock<std::mutex> lock(ctx.mtx);
+		notified = ctx.cv.wait_for(lock, std::chrono::seconds(10), [&ctx] { return ctx.count >= 1; });
+	}
+
+	EXPECT_TRUE(notified);
+	mAampMPDDownloader->UnRegisterCallback();
+	mAampMPDDownloader->Release();
+}
+
+// Waking the notifier thread for unregister/release must not be reported to the callback as a manifest update.
+TEST_F(FunctionalTests, RegisterCallback_NotInvokedWhenNoManifestPublished)
+{
+	NotifyContext ctx;
+	std::shared_ptr<ManifestDownloadConfig> inpData = std::make_shared<ManifestDownloadConfig>(-1);
+	inpData->mTuneUrl = url1;
+	mAampMPDDownloader->Initialize(inpData);
+	DownloaderReleaseGuard guard{mAampMPDDownloader};
+	mAampMPDDownloader->RegisterCallback(CountingNotifyCallback, &ctx);
+
+	mAampMPDDownloader->UnRegisterCallback();
+	mAampMPDDownloader->Release();
+
+	std::lock_guard<std::mutex> lock(ctx.mtx);
+	EXPECT_EQ(ctx.count, 0);
 }
