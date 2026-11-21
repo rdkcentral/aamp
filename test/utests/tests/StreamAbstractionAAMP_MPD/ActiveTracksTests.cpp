@@ -133,7 +133,7 @@ namespace
 			response->mMPDDownloadResponse->mDownloadData.assign(mManifest, mManifest + strlen(mManifest));
 
 			std::string manifestStr(response->mMPDDownloadResponse->mDownloadData.begin(),
-				response->mMPDDownloadResponse->mDownloadData.end());
+									response->mMPDDownloadResponse->mDownloadData.end());
 			xmlTextReaderPtr reader = xmlReaderForMemory(manifestStr.c_str(), static_cast<int>(manifestStr.length()), NULL, NULL, 0);
 			if (reader != NULL)
 			{
@@ -289,7 +289,7 @@ namespace
 		bool hasSubtitle;
 		AampTrackSet expectedActive;
 		const char *expectedVideoSlotMime; ///< Content carried by the video slot (empty when the slot is unused)
-		bool expectAudioOnlyPb; ///< Whether the tune is flagged as audio-only playback
+		bool expectAudioOnlyPb;			   ///< Whether the tune is flagged as audio-only playback
 	};
 
 	/**
@@ -313,87 +313,86 @@ namespace
 	class ActiveTracksTests : public TrackSelectionTests, public ::testing::WithParamInterface<ActiveTracksParams>
 	{
 	};
-}
 
-/**
- * @brief The tracks selected for a period are exactly the ones whose adaptation sets exist.
- *
- * Oracle: a track is active when the manifest offers it, so the active set and the
- * per-type MIME type lookups must agree with the manifest contents. Audio-only content is
- * the one deliberate exception: the audio is carried in the video slot, so the video slot is
- * active, reports the audio MIME type, and the audio slot is not active.
- *
- * Video plus subtitle and audio plus subtitle (no video) are the regression cases: the subtitle
- * slot is not adjacent to the occupied slots, so a count of active tracks cannot express it. Audio
- * plus subtitle is not audio-only, so no swap happens and the video slot stays unused.
- */
-TEST_P(ActiveTracksTests, StreamSelection_TrackMix_ActivatesExpectedTracks)
-{
-	const ActiveTracksParams &params = GetParam();
-	const std::string manifest = ManifestFor(params);
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, _, _, _, _))
-		.WillRepeatedly(Return(true));
-	if (params.expectedActive.Contains(eMEDIATYPE_SUBTITLE))
+	/**
+	 * @brief The tracks selected for a period are exactly the ones whose adaptation sets exist.
+	 *
+	 * Oracle: a track is active when the manifest offers it, so the active set and the
+	 * per-type MIME type lookups must agree with the manifest contents. Audio-only content is
+	 * the one deliberate exception: the audio is carried in the video slot, so the video slot is
+	 * active, reports the audio MIME type, and the audio slot is not active.
+	 *
+	 * Video plus subtitle and audio plus subtitle (no video) are the regression cases: the subtitle
+	 * slot is not adjacent to the occupied slots, so a count of active tracks cannot express it. Audio
+	 * plus subtitle is not audio-only, so no swap happens and the video slot stays unused.
+	 */
+	TEST_P(ActiveTracksTests, StreamSelection_TrackMix_ActivatesExpectedTracks)
 	{
-		// A selected subtitle track has its initialization segment fetched while the tune is
-		// initialised (the 6th CacheFragment argument, true, marks an initialization segment)
-		EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, eCURLINSTANCE_SUBTITLE, _, _, _, true, _, _, _))
-			.Times(1)
+		const ActiveTracksParams &params = GetParam();
+		const std::string manifest = ManifestFor(params);
+		EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, _, _, _, _))
 			.WillRepeatedly(Return(true));
-	}
-	else
-	{
-		EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, eCURLINSTANCE_SUBTITLE, _, _, _, true, _, _, _))
-			.Times(0);
-	}
-
-	const AAMPStatusType status = InitializeMPD(manifest.c_str());
-
-	ASSERT_EQ(status, eAAMPSTATUS_OK);
-	// Deliberate white-box check: the audio-only slot move is only visible in the active set
-	EXPECT_EQ(mCollector->PublicActiveTracks(), params.expectedActive);
-	for (const AampMediaType type : {eMEDIATYPE_VIDEO, eMEDIATYPE_AUDIO, eMEDIATYPE_SUBTITLE})
-	{
-		SCOPED_TRACE(GetMediaTypeName(type));
-		const std::string mime = mCollector->PublicGetCurrentMimeType(type);
-		if (params.expectedActive.Contains(type))
+		if (params.expectedActive.Contains(eMEDIATYPE_SUBTITLE))
 		{
-			EXPECT_FALSE(mime.empty());
+			// A selected subtitle track has its initialization segment fetched while the tune is
+			// initialised (the 6th CacheFragment argument, true, marks an initialization segment)
+			EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, eCURLINSTANCE_SUBTITLE, _, _, _, true, _, _, _))
+				.Times(1)
+				.WillRepeatedly(Return(true));
 		}
 		else
 		{
-			EXPECT_TRUE(mime.empty());
+			EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, eCURLINSTANCE_SUBTITLE, _, _, _, true, _, _, _))
+				.Times(0);
 		}
+
+		const AAMPStatusType status = InitializeMPD(manifest.c_str());
+
+		ASSERT_EQ(status, eAAMPSTATUS_OK);
+		// Deliberate white-box check: the audio-only slot move is only visible in the active set
+		EXPECT_EQ(mCollector->PublicActiveTracks(), params.expectedActive);
+		for (const AampMediaType type : {eMEDIATYPE_VIDEO, eMEDIATYPE_AUDIO, eMEDIATYPE_SUBTITLE})
+		{
+			SCOPED_TRACE(GetMediaTypeName(type));
+			const std::string mime = mCollector->PublicGetCurrentMimeType(type);
+			if (params.expectedActive.Contains(type))
+			{
+				EXPECT_FALSE(mime.empty());
+			}
+			else
+			{
+				EXPECT_TRUE(mime.empty());
+			}
+		}
+		// The video slot carries the audio for audio-only content, and is unused without video or the swap
+		EXPECT_EQ(mCollector->PublicGetCurrentMimeType(eMEDIATYPE_VIDEO),
+				  std::string{params.expectedVideoSlotMime});
+		EXPECT_EQ(mPrivateInstanceAAMP->mAudioOnlyPb, params.expectAudioOnlyPb);
 	}
-	// The video slot carries the audio for audio-only content, and is unused without video or the swap
-	EXPECT_EQ(mCollector->PublicGetCurrentMimeType(eMEDIATYPE_VIDEO),
-		std::string{params.expectedVideoSlotMime});
-	EXPECT_EQ(mPrivateInstanceAAMP->mAudioOnlyPb, params.expectAudioOnlyPb);
-}
 
-INSTANTIATE_TEST_SUITE_P(TrackMixes, ActiveTracksTests,
-	::testing::Values(
-		ActiveTracksParams{"VideoOnly", true, false, false, AampTrackSet{eMEDIATYPE_VIDEO}, "video/mp4", false},
-		ActiveTracksParams{"VideoAndAudio", true, true, false, AampTrackSet{eMEDIATYPE_VIDEO, eMEDIATYPE_AUDIO}, "video/mp4", false},
-		ActiveTracksParams{"VideoAudioAndSubtitle", true, true, true, AampTrackSet{eMEDIATYPE_VIDEO, eMEDIATYPE_AUDIO, eMEDIATYPE_SUBTITLE}, "video/mp4", false},
-		ActiveTracksParams{"VideoAndSubtitleNoAudio", true, false, true, AampTrackSet{eMEDIATYPE_VIDEO, eMEDIATYPE_SUBTITLE}, "video/mp4", false},
-		ActiveTracksParams{"AudioAndSubtitleNoVideo", false, true, true, AampTrackSet{eMEDIATYPE_AUDIO, eMEDIATYPE_SUBTITLE}, "", false},
-		ActiveTracksParams{"AudioOnlyIsCarriedInVideoSlot", false, true, false, AampTrackSet{eMEDIATYPE_VIDEO}, "audio/mp4", true}),
-	[](const ::testing::TestParamInfo<ActiveTracksParams> &info)
+	INSTANTIATE_TEST_SUITE_P(TrackMixes, ActiveTracksTests,
+							 ::testing::Values(
+								 ActiveTracksParams{"VideoOnly", true, false, false, AampTrackSet{eMEDIATYPE_VIDEO}, "video/mp4", false},
+								 ActiveTracksParams{"VideoAndAudio", true, true, false, AampTrackSet{eMEDIATYPE_VIDEO, eMEDIATYPE_AUDIO}, "video/mp4", false},
+								 ActiveTracksParams{"VideoAudioAndSubtitle", true, true, true, AampTrackSet{eMEDIATYPE_VIDEO, eMEDIATYPE_AUDIO, eMEDIATYPE_SUBTITLE}, "video/mp4", false},
+								 ActiveTracksParams{"VideoAndSubtitleNoAudio", true, false, true, AampTrackSet{eMEDIATYPE_VIDEO, eMEDIATYPE_SUBTITLE}, "video/mp4", false},
+								 ActiveTracksParams{"AudioAndSubtitleNoVideo", false, true, true, AampTrackSet{eMEDIATYPE_AUDIO, eMEDIATYPE_SUBTITLE}, "", false},
+								 ActiveTracksParams{"AudioOnlyIsCarriedInVideoSlot", false, true, false, AampTrackSet{eMEDIATYPE_VIDEO}, "audio/mp4", true}),
+							 [](const ::testing::TestParamInfo<ActiveTracksParams> &info)
+							 {
+								 return std::string{info.param.name};
+							 });
+
+	/**
+	 * @brief Encrypted initialization headers are looked up for every selected, protected track.
+	 *
+	 * Oracle: each protected track contributes one header URL, stored under its own media type, built
+	 * from that track's initialization template with the bandwidth of the representation chosen for it
+	 * (the URL template uses $Bandwidth$, so a header built without the bandwidth would be wrong).
+	 */
+	TEST_F(TrackSelectionTests, GetEncryptedHeaders_VideoAndAudioProtected_ReturnsHeaderPerTrackWithItsBandwidth)
 	{
-		return std::string{info.param.name};
-	});
-
-/**
- * @brief Encrypted initialization headers are looked up for every selected, protected track.
- *
- * Oracle: each protected track contributes one header URL, stored under its own media type, built
- * from that track's initialization template with the bandwidth of the representation chosen for it
- * (the URL template uses $Bandwidth$, so a header built without the bandwidth would be wrong).
- */
-TEST_F(TrackSelectionTests, GetEncryptedHeaders_VideoAndAudioProtected_ReturnsHeaderPerTrackWithItsBandwidth)
-{
-	const std::string manifest = R"(<?xml version="1.0" encoding="utf-8"?>
+		const std::string manifest = R"(<?xml version="1.0" encoding="utf-8"?>
 <MPD xmlns="urn:mpeg:dash:schema:mpd:2011" profiles="urn:mpeg:dash:profile:isoff-live:2011" type="static" mediaPresentationDuration="PT2M0.0S" minBufferTime="PT4.0S">
 	<Period id="0" start="PT0.0S">
 		<AdaptationSet id="1" contentType="video">
@@ -419,17 +418,18 @@ TEST_F(TrackSelectionTests, GetEncryptedHeaders_VideoAndAudioProtected_ReturnsHe
 	</Period>
 </MPD>
 )";
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, _, _, _, _))
-		.WillRepeatedly(Return(true));
-	ASSERT_EQ(InitializeMPD(manifest.c_str()), eAAMPSTATUS_OK);
+		EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, _, _, _, _))
+			.WillRepeatedly(Return(true));
+		ASSERT_EQ(InitializeMPD(manifest.c_str()), eAAMPSTATUS_OK);
 
-	std::map<int, std::string> headers;
-	const bool found = mCollector->PublicGetEncryptedHeaders(headers);
+		std::map<int, std::string> headers;
+		const bool found = mCollector->PublicGetEncryptedHeaders(headers);
 
-	EXPECT_TRUE(found);
-	ASSERT_EQ(headers.size(), 2u);
-	ASSERT_EQ(headers.count(eMEDIATYPE_VIDEO), 1u);
-	ASSERT_EQ(headers.count(eMEDIATYPE_AUDIO), 1u);
-	EXPECT_NE(headers[eMEDIATYPE_VIDEO].find("video_init_800000.mp4"), std::string::npos) << headers[eMEDIATYPE_VIDEO];
-	EXPECT_NE(headers[eMEDIATYPE_AUDIO].find("audio_init_64000.mp4"), std::string::npos) << headers[eMEDIATYPE_AUDIO];
+		EXPECT_TRUE(found);
+		ASSERT_EQ(headers.size(), 2u);
+		ASSERT_EQ(headers.count(eMEDIATYPE_VIDEO), 1u);
+		ASSERT_EQ(headers.count(eMEDIATYPE_AUDIO), 1u);
+		EXPECT_NE(headers[eMEDIATYPE_VIDEO].find("video_init_800000.mp4"), std::string::npos) << headers[eMEDIATYPE_VIDEO];
+		EXPECT_NE(headers[eMEDIATYPE_AUDIO].find("audio_init_64000.mp4"), std::string::npos) << headers[eMEDIATYPE_AUDIO];
+	}
 }

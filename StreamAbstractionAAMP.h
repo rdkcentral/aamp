@@ -34,6 +34,7 @@
 #include <vector>
 #include <array>
 #include <condition_variable>
+#include <atomic>
 
 #include <glib.h>
 #include "subtitleParser.h"
@@ -504,6 +505,12 @@ public:
 	bool isFragmentInjectorThreadStarted();
 	bool isPlaylistDownloaderThreadStarted();
 	void MonitorBufferHealth();
+
+	/**
+	 * @brief Stop and join the buffer monitor thread
+	 *
+	 */
+	void StopBufferMonitor();
 	/**
 	 * @brief Signal the clock to subtitle module
 	 */
@@ -669,7 +676,7 @@ public:
 	virtual void ResetTrickModePtsRestamping(void);
 
 	/**
-	 * @fn GetTimeBasedBufferManager 
+	 * @fn GetTimeBasedBufferManager
 	 *
 	 * @brief Get the time based buffer manager for this track
 	 *
@@ -720,7 +727,7 @@ protected:
 	double GetLastInjectedFragmentPosition() { return lastInjectedPosition; }
 
 private:
-	
+
 	/**
 	 * @fn GetBufferHealthStatusString
 	 *
@@ -826,6 +833,7 @@ private:
 	std::thread fragmentInjectorThreadID;  	/**< Fragment injector thread id*/
 	std::condition_variable fragmentInjected;	/**< Signaled after a fragment is injected*/
 	std::thread bufferMonitorThreadID;    	/**< Buffer Monitor thread id */
+	std::atomic_bool bufferMonitorStop{false};	/**< Set to request the Buffer Monitor thread to exit */
 	std::thread subtitleClockThreadID;    	/**< subtitle clock synchronisation thread id */
 	int totalFragmentsDownloaded{0};       	/**< Total fragments downloaded since start by track*/
 	bool UpdateSubtitleClockTaskStarted{false}; /**< Subtitle clock synchronization thread started, or not */
@@ -1665,7 +1673,7 @@ public:
 	 *   @return duration of currently buffered video in seconds
 	 */
 	double GetBufferedVideoDurationSec();
-	
+
 	/**
 	 * @fn StartUnderflowMonitor
 	 * @brief Start UnderflowMonitor Thread.
@@ -2024,7 +2032,7 @@ public:
 	 *   @fn ReinitializeInjection
 	 *   @brief Re-Initialize the injection logic
 	 *   @param[in] rate - play rate
-	 */	
+	 */
 	void ReinitializeInjection(double rate);
 
 protected:
