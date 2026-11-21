@@ -418,6 +418,7 @@ typedef enum
 	eAAMPConfig_TsbType,
 	eAAMPConfig_TsbLocation,                                                        /**< tsbType location for local TSB storage*/
 	eAAMPConfig_NetworkPersonaFile,                                                 /**< Path to network persona JSON for simulated latency injection (test only) */
+	eAAMPConfig_RialtoSimBackend,                                                   /**< Rialto simulator pipeline backend for Direct Rialto: "sim" or "gst"; exported as RIALTO_SIM_BACKEND (simulator builds only) */
 	eAAMPConfig_StringMaxValue						/**< Max value for string config always last element */
 } AAMPConfigSettingString;
 #define AAMPCONFIG_STRING_COUNT (eAAMPConfig_StringMaxValue)

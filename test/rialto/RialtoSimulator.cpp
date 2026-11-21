@@ -40,6 +40,10 @@
 #include "IClientLogControl.h"
 #include "IControl.h"
 
+#ifdef RIALTO_SIM_GST_REFERENCE
+#include "rialto-reference/GstReferencePipeline.h"
+#endif
+
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
@@ -1427,6 +1431,25 @@ private:
 // SimMediaPipelineFactory
 // ===========================================================================
 
+// The pipeline backend is chosen per pipeline from RIALTO_SIM_BACKEND:
+//   "sim" (default) - SimMediaPipeline above: no decode, modelled clock.
+//   "gst"           - rialto-reference GStreamer pipeline: real decode and
+//                     render (when built with RIALTO_SIM_GST_REFERENCE).
+static bool UseGstBackend()
+{
+	const char *backend = std::getenv("RIALTO_SIM_BACKEND");
+	if (!backend || std::string(backend) != "gst")
+	{
+		return false;
+	}
+#ifdef RIALTO_SIM_GST_REFERENCE
+	return true;
+#else
+	RIALTO_SIM_LOG("RIALTO_SIM_BACKEND=gst requested but the GStreamer reference pipeline is not built in; using sim");
+	return false;
+#endif
+}
+
 class SimMediaPipelineFactory : public IMediaPipelineFactory
 {
 public:
@@ -1434,7 +1457,16 @@ public:
 		std::weak_ptr<IMediaPipelineClient> client,
 		const VideoRequirements &videoRequirements) const override
 	{
-		RIALTO_SIM_LOG("createMediaPipeline");
+#ifdef RIALTO_SIM_GST_REFERENCE
+		if (UseGstBackend())
+		{
+			RIALTO_SIM_LOG("createMediaPipeline: backend=gst");
+			return rialto_reference::createGstMediaPipeline(client, videoRequirements);
+		}
+#else
+		(void)UseGstBackend();
+#endif
+		RIALTO_SIM_LOG("createMediaPipeline: backend=sim");
 		return std::make_unique<SimMediaPipeline>(client, videoRequirements);
 	}
 };

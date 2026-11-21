@@ -59,6 +59,12 @@ find_package(Rialto)
 # can still compile.  The simulator drives DirectRialto callbacks for L2 tests.
 if(NOT RIALTO_FOUND)
 	message(STATUS "Rialto client library not found — building simulator from test/rialto/")
+	# Optional GStreamer reference pipeline, selectable at runtime in the
+	# simulator with RIALTO_SIM_BACKEND=gst (or the rialtoSimBackend config).
+	option(RIALTO_SIM_GST_REFERENCE "Build the GStreamer reference pipeline into the Rialto simulator" ON)
+	if(RIALTO_SIM_GST_REFERENCE)
+		add_subdirectory(rialto-reference)
+	endif()
 	add_subdirectory(test/rialto)
 	set(RIALTO_LIBRARIES RialtoSimulator)
 	if(NOT RIALTO_INCLUDE_DIRS)

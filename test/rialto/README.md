@@ -32,6 +32,22 @@ The simulator implements:
   installed to `.libs/lib/`. CMake finds the real library and uses it
   directly — the simulator is never built.
 
+## Pipeline backends
+
+`IMediaPipelineFactory::createMediaPipeline()` picks a backend for each
+pipeline from the `RIALTO_SIM_BACKEND` environment variable. With
+`useDirectRialto=true`, AAMP sets it from the `rialtoSimBackend` config:
+
+| Value | Backend |
+|-------|---------|
+| unset or `sim` | `SimMediaPipeline`: no decoding, modelled clock (default, used by L2 tests) |
+| `gst` | GStreamer reference pipeline from [`rialto-reference/`](../../rialto-reference/README.md): real decoding and rendering |
+
+The `gst` backend is built in when GStreamer is available and the CMake option
+`RIALTO_SIM_GST_REFERENCE` is on (the default). Otherwise a request for `gst`
+logs a warning and uses `sim`. The rest of this document describes the `sim`
+backend.
+
 ## Runtime behaviour
 
 When linked against the simulator:
