@@ -177,7 +177,7 @@ static int xferinfo_callback(
 		curl_off_t ulnow)
 {
 	int ret = 0;
-	CurlProgressCbContext *context = (CurlProgressCbContext *)clientp;
+	CurlCallbackContext *context = static_cast<CurlCallbackContext *>(clientp);
 	if(context)
 	{
 		ret = context->aamp->HandleSSLProgressCallback( clientp, dltotal, dlnow, ultotal, ulnow );
@@ -204,7 +204,7 @@ static int progress_callback(
 	)
 {
 	int ret = 0;
-	CurlProgressCbContext *context = (CurlProgressCbContext *)clientp;
+	CurlCallbackContext *context = static_cast<CurlCallbackContext *>(clientp);
 	if(context)
 	{
 		ret = context->aamp->HandleSSLProgressCallback ( clientp, dltotal, dlnow, ultotal, ulnow );
