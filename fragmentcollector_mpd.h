@@ -614,6 +614,7 @@ protected:
 	 * @param[out] duration - duration of the current period returned
 	 */
 	void GetStartAndDurationForPtsRestamping(AampTime &start, AampTime &duration);
+	bool AvlogInAdBreak(void);	/**< avlog: in an ad break (SCTE35 ad period or CDAI IN_ADBREAK_*) */
 
 	/**
 	 * @fn UpdatePtsOffset

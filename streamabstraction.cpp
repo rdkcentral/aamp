@@ -2301,6 +2301,10 @@ void StreamAbstractionAAMP::NotifyBitRateUpdate(int profileIndex, const StreamIn
 
 			// Send bitrate notification
 			aamp->profiler.IncrementChangeCount(Count_BitrateChange);
+			// avlog: one record per video profile change at injection (resolution change arms a capture)
+			AampAvlogBitrate((long long)cacheFragStreamInfo.bandwidthBitsPerSecond, (int)cacheFragStreamInfo.reason,
+							 cacheFragStreamInfo.resolution.width, cacheFragStreamInfo.resolution.height,
+							 cacheFragStreamInfo.resolution.framerate, profileIndex);
 			aamp->NotifyBitRateChangeEvent( (int)cacheFragStreamInfo.bandwidthBitsPerSecond,
 										   cacheFragStreamInfo.reason, cacheFragStreamInfo.resolution.width,
 										   cacheFragStreamInfo.resolution.height, cacheFragStreamInfo.resolution.framerate, position, lGetBWIndex);

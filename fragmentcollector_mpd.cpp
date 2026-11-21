@@ -906,10 +906,7 @@ bool StreamAbstractionAAMP_MPD::FetchFragment(MediaStreamContext *pMediaStreamCo
 			pMediaStreamContext->initialization = std::string(fragmentUrl);
 		}
 	}
-	{
-		std::lock_guard<std::mutex> lock(mAvlogAdMutex);
-		pMediaStreamContext->avlogAd = (mCurrentPeriod && mAvlogAdPeriods.count(mCurrentPeriod->GetId()) != 0);
-	}
+	pMediaStreamContext->avlogAd = AvlogInAdBreak();
 	bool fragmentCached = pMediaStreamContext->CacheFragment(fragmentUrl, curlInstance, position, fragmentDuration, NULL, isInitializationSegment, discontinuity
 		,(mCdaiObject->mAdState == AdState::IN_ADBREAK_AD_PLAYING), pto, timeScale);
 	// Check if we have downloaded the fragment and waiting for init fragment download on
@@ -9821,10 +9818,34 @@ void StreamAbstractionAAMP_MPD::UpdatePtsOffset(bool isNewPeriod)
 		AampAvlogPeriod(mCurrentPeriodIdx, period->GetId(), mAvlogAudioStart.inSeconds(), mAvlogVideoStart.inSeconds(),
 						mAvlogAudioDuration.inSeconds(), mAvlogVideoDuration.inSeconds(),
 						(mPTSOffset - avlogPrevOffset).inSeconds(),
+						AvlogInAdBreak(),
 						mCdaiObject && mCdaiObject->mAdState == AdState::IN_ADBREAK_AD_PLAYING);
 	}
 
 	mNextPts = duration + timelineStart;
+}
+
+/**
+ * @brief avlog: true while in an ad break - the period carries a timed SCTE35 break
+ * (stream's own ads, CDAI stays OUTSIDE_ADBREAK) or CDAI is in a break (replaced DAI ads)
+ */
+bool StreamAbstractionAAMP_MPD::AvlogInAdBreak(void)
+{
+	if (mCdaiObject)
+	{
+		switch (mCdaiObject->mAdState)
+		{
+			case AdState::IN_ADBREAK_AD_NOT_PLAYING:
+			case AdState::IN_ADBREAK_AD_PLAYING:
+			case AdState::IN_ADBREAK_AD_READY2PLAY:
+			case AdState::IN_ADBREAK_WAIT2CATCHUP:
+				return true;
+			default:
+				break;
+		}
+	}
+	std::lock_guard<std::mutex> lock(mAvlogAdMutex);
+	return mCurrentPeriod && mAvlogAdPeriods.count(mCurrentPeriod->GetId()) != 0;
 }
 
 void StreamAbstractionAAMP_MPD::RestorePtsOffsetCalculation(void)

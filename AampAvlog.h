@@ -11,22 +11,33 @@
  *   AAMP_JUMP     MediaTrack::HandleFragmentPositionJump: the new fragment does
  *                 not start where the last one ended. Written for |delta| > 10 us
  *                 (smaller values are float rounding); arms a capture window when
- *                 |delta| >= AAMP_AVLOG_ARM_US.
+ *                 |delta| >= AAMP_AVLOG_ARM_US (1 s: a real discontinuity, not the
+ *                 normal <= 360 ms period-boundary jumps).
  *   AAMP_RESTAMP  every MediaTrack call site of IsoBmffHelper::RestampPts: the PTS
  *                 offset applied to this track or the ad flag changed; written once
- *                 per change. Arms a capture window when the offset moves by
- *                 >= AAMP_AVLOG_ARM_US while playing, and once per ad break at the
- *                 return to the programme (video ad flag 1 -> 0).
+ *                 per change. Arms a capture window once per ad break, at the return
+ *                 to the programme (video ad flag 1 -> 0), and once per tune (first
+ *                 video offset of a new channel: previous offset 0 or a step of
+ *                 >= AAMP_AVLOG_TUNE_US outside an ad break). Other offset steps
+ *                 (0/8/16 ms periods, 10-30 s DAI ads) never arm.
  *   AAMP_PERIOD   StreamAbstractionAAMP_MPD::UpdatePtsOffset at every new DASH period,
  *                 also when the offset step is 0: per-track start/duration from the
- *                 manifest timeline and the offset step. Written when the period is
- *                 selected for download, ahead of injection. Never arms.
+ *                 manifest timeline and the offset step (clamped to 32 bit). Written
+ *                 when the period is selected for download, ahead of injection. Never arms.
  *   AAMP_AD       PrivateInstanceAAMP::FoundEventBreak: ad break or ad announced in
  *                 the manifest. Never arms.
- * AAMP_PERIOD and AAMP_AD use the HAL's generic avlog_hal_write(); with an older HAL
+ *   AAMP_BITRATE  StreamAbstractionAAMP::NotifyBitRateUpdate: the video profile being
+ *                 injected changed (ABR, tune, buffer, ramp-down...). User id 5, layout
+ *                 below (struct avlog_aamp_bitrate, to be added to <linux/avlog.h>).
+ *                 Arms a capture window when the resolution changes (not the first
+ *                 profile after start): the decoder reconfiguration loses ~0.4 s of video.
+ * AAMP_PERIOD, AAMP_AD and AAMP_BITRATE use the HAL's generic avlog_hal_write(); with an older HAL
  * without it they are skipped and JUMP/RESTAMP still work.
  * A failed write is reported once per process on stderr (AAMP log).
- * adPlaying comes from the fragment (CachedFragment::adPlaying).
+ * adPlaying / the PERIOD AD_PLAYING bit = "in an ad break": the period carries a timed SCTE35
+ * break (channel's own ads) or the CDAI state is IN_ADBREAK_* (replaced DAI ads).
+ * The PERIOD DAI_AD bit is set only for a replaced ad (CDAI IN_ADBREAK_AD_PLAYING), so
+ * own ads = AD_PLAYING only, replaced ads = AD_PLAYING | DAI_AD, programme = neither.
  */
 #ifndef AAMP_AVLOG_H
 #define AAMP_AVLOG_H
@@ -40,9 +51,10 @@
 #include <cstring>
 #include <string>
 
-/* arm a capture window only above the normal 0/8/16 ms period steps and the
- * <= 24 ms jumps seen at every ad boundary */
-#define AAMP_AVLOG_ARM_US        50000
+/* arm a capture window only for a real discontinuity: period-boundary jumps are <= ~360 ms */
+#define AAMP_AVLOG_ARM_US        1000000
+/* an offset step this large outside an ad break is a new tune (channels differ by hours) */
+#define AAMP_AVLOG_TUNE_US       60000000LL
 /* |jump| at or below this is float rounding, not recorded */
 #define AAMP_AVLOG_NOISE_US      10
 
@@ -50,13 +62,15 @@
 #define AAMP_AVLOG_TYPE_USER     6u
 #define AAMP_AVLOG_USER_PERIOD   3u
 #define AAMP_AVLOG_USER_AD       4u
+#define AAMP_AVLOG_USER_BITRATE  5u
 #define AAMP_AVLOG_MEDIA_ANY     0u
 #define AAMP_AVLOG_MEDIA_VIDEO   1u
 #define AAMP_AVLOG_MEDIA_AUDIO   2u
 #define AAMP_AVLOG_MEDIA_SUB     3u
 #define AAMP_AVLOG_UF_ARM_TIMER  (1u << 0)
 #define AAMP_AVLOG_PERIOD_IDX_MASK   0xFFFFu
-#define AAMP_AVLOG_PERIOD_AD_PLAYING (1u << 17)
+#define AAMP_AVLOG_PERIOD_DAI_AD     (1u << 16)   /* replaced ad (CDAI IN_ADBREAK_AD_PLAYING) */
+#define AAMP_AVLOG_PERIOD_AD_PLAYING (1u << 17)   /* in an ad break (own or replaced ads) */
 #define AAMP_AVLOG_AD_BREAK      1u
 #define AAMP_AVLOG_AD_AD         2u
 #define AAMP_AVLOG_PAYLOAD_WORDS 13      /* 52 bytes */
@@ -196,8 +210,10 @@ static inline void AampAvlogRestamp(int trackType, double ptsOffsetSec, double a
         return;
 
     uint32_t flags = 0;
-    if (prevUs != 0 && AampAvlogArm(offUs - prevUs))
-        flags |= AAMP_AVLOG_UF_ARM_TIMER;      /* large offset change while playing */
+    const long long stepUs = offUs - prevUs;
+    if (media == AAMP_AVLOG_MEDIA_VIDEO && !prevAd && !adPlaying && offUs != prevUs &&
+        (prevUs == 0 || stepUs >= AAMP_AVLOG_TUNE_US || stepUs <= -AAMP_AVLOG_TUNE_US))
+        flags |= AAMP_AVLOG_UF_ARM_TIMER;      /* new tune: the tune glitch is ~8-10 s later */
     if (media == AAMP_AVLOG_MEDIA_VIDEO && prevAd && !adPlaying)
         flags |= AAMP_AVLOG_UF_ARM_TIMER;      /* return from the ad break: one window per break */
     AampAvlogCheck(hal->restamp(media, flags, offUs, prevUs, AampAvlogUs(absPosition), timeScale,
@@ -209,7 +225,7 @@ static inline void AampAvlogRestamp(int trackType, double ptsOffsetSec, double a
 static inline void AampAvlogPeriod(int periodIdx, const std::string &periodId,
                                    double audioStart, double videoStart,
                                    double audioDuration, double videoDuration,
-                                   double offsetStep, bool adPlaying)
+                                   double offsetStep, bool adPlaying, bool daiAd)
 {
     AampAvlogHal *hal = AampAvlogGet();
     if (!hal || !hal->write)
@@ -220,13 +236,17 @@ static inline void AampAvlogPeriod(int periodIdx, const std::string &periodId,
     w[2] = AAMP_AVLOG_MEDIA_ANY;
     w[3] = 0;                                   /* never arms */
     w[4] = (static_cast<uint32_t>(periodIdx) & AAMP_AVLOG_PERIOD_IDX_MASK) |
-           (adPlaying ? AAMP_AVLOG_PERIOD_AD_PLAYING : 0u);
+           (adPlaying ? AAMP_AVLOG_PERIOD_AD_PLAYING : 0u) |
+           (daiAd ? AAMP_AVLOG_PERIOD_DAI_AD : 0u);
     w[5] = AampAvlogHash(periodId);
     AampAvlogPut64(&w[6], AampAvlogUs(audioStart));
     AampAvlogPut64(&w[8], AampAvlogUs(videoStart));
     w[10] = AampAvlogU32(AampAvlogUs(audioDuration));
     w[11] = AampAvlogU32(AampAvlogUs(videoDuration));
-    w[12] = static_cast<uint32_t>(AampAvlogUs(offsetStep));   /* signed */
+    long long stepUs = AampAvlogUs(offsetStep);   /* signed; first period / DAI entry can exceed 32 bit */
+    if (stepUs > INT32_MAX) stepUs = INT32_MAX;
+    if (stepUs < INT32_MIN) stepUs = INT32_MIN;
+    w[12] = static_cast<uint32_t>(static_cast<int32_t>(stepUs));
     AampAvlogCheck(hal->write(w), "AAMP_PERIOD");
 }
 
@@ -247,6 +267,39 @@ static inline void AampAvlogAd(bool isDAIEvent, const std::string &periodId,
     w[6] = durationMs;
     AampAvlogPut64(&w[7], static_cast<long long>(startMs));
     AampAvlogCheck(hal->write(w), "AAMP_AD");
+}
+
+/* NotifyBitRateUpdate: video profile change at injection.
+ * payload words: 0 type, 1 user (5), 2 media (video), 3 flags,
+ * 4 bitrate (bps), 5 previous bitrate, 6 width, 7 height, 8 previous width, 9 previous height,
+ * 10 reason (AAMP BitrateChangeReason: 0 ABR, 1 ramp-down, 2 tune, 3 seek, 4 trickplay,
+ *    5 buffer full, 6 buffer empty, 7 fog ABR), 11 frame rate * 1000, 12 profile index */
+static inline void AampAvlogBitrate(long long bitrate, int reason, int width, int height,
+                                    double frameRate, int profileIndex)
+{
+    static long long lastBitrate = 0;
+    static int lastW = 0, lastH = 0;
+    const long long prevBitrate = lastBitrate;
+    const int prevW = lastW, prevH = lastH;
+    lastBitrate = bitrate; lastW = width; lastH = height;
+    AampAvlogHal *hal = AampAvlogGet();
+    if (!hal || !hal->write)
+        return;
+    uint32_t w[AAMP_AVLOG_PAYLOAD_WORDS] = {};
+    w[0] = AAMP_AVLOG_TYPE_USER;
+    w[1] = AAMP_AVLOG_USER_BITRATE;
+    w[2] = AAMP_AVLOG_MEDIA_VIDEO;
+    w[3] = (prevH != 0 && (width != prevW || height != prevH)) ? AAMP_AVLOG_UF_ARM_TIMER : 0u;
+    w[4] = AampAvlogU32(bitrate);
+    w[5] = AampAvlogU32(prevBitrate);
+    w[6] = static_cast<uint32_t>(width);
+    w[7] = static_cast<uint32_t>(height);
+    w[8] = static_cast<uint32_t>(prevW);
+    w[9] = static_cast<uint32_t>(prevH);
+    w[10] = static_cast<uint32_t>(reason);
+    w[11] = AampAvlogU32(std::llround(frameRate * 1000.0));
+    w[12] = static_cast<uint32_t>(profileIndex);
+    AampAvlogCheck(hal->write(w), "AAMP_BITRATE");
 }
 
 #endif /* AAMP_AVLOG_H */
