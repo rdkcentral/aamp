@@ -146,6 +146,13 @@ StreamSink* AampStreamSinkManager::CreateSinkInstance(PrivateInstanceAAMP *aamp,
 	StreamSink *sink = nullptr;
 	if (ISCONFIGSET(eAAMPConfig_useDirectRialto))
 	{
+		// Only the Rialto simulator reads this; the real Rialto client ignores it.
+		std::string simBackend = GETCONFIGVALUE(eAAMPConfig_RialtoSimBackend);
+		if (!simBackend.empty())
+		{
+			AAMPLOG_MIL("Setting RIALTO_SIM_BACKEND=%s", simBackend.c_str());
+			setenv("RIALTO_SIM_BACKEND", simBackend.c_str(), 1);
+		}
 		AAMPLOG_MIL("Creating AampRialtoPlayer");
 		sink = new AampRialtoPlayer(aamp, std::move(id3HandlerCallback), std::move(exportFrames));
 	}

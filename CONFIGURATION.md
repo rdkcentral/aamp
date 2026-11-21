@@ -248,6 +248,7 @@ Network timeout configurations control how long AAMP waits for various network o
 | `fog` | Boolean | true | Enable Fog |
 | `useWesterosSink` | Boolean | false | Use Westeros sink for video decoding |
 | `useDirectRialto` | Boolean | false | Call the Rialto client API directly instead of using a GStreamer pipeline. Read before player creation (device config, environment or operator settings), so it cannot be changed dynamically. Forces `useMp4Demux` on. See [Direct Rialto](docs/direct-rialto/README.md) |
+| `rialtoSimBackend` | String | "" | Simulator builds only, with `useDirectRialto`: Rialto simulator pipeline backend, `sim` (no decoding) or `gst` (GStreamer reference pipeline with real decoding and rendering). Sets `RIALTO_SIM_BACKEND`; empty leaves the environment unchanged. See [rialto-reference](rialto-reference/README.md) |
 | `useNewAdBreaker` | Boolean | false | Use new discontinuity processing based on PDT |
 | `useRetuneForUnpairedDiscontinuity` | Boolean | true | Retune on unpaired discontinuity |
 | `enableNetworkPersonaLogging` | Boolean | false | Collect network metrics and log a JSON persona when the last active player in the process stops |

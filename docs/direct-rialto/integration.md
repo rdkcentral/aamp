@@ -131,6 +131,7 @@ says real Rialto on Ubuntu locks up intermittently without a text-track sink).
 | L2 | Most other `aamp_test_internal/test/l2test` tests | CI runs nearly the full suite with `useDirectRialto` set |
 | L3 | A widget with `useDirectRialto` set in its AAMP configuration | Playback on a device or full stack (reported by the feature owners, not checked in this repository) |
 | Simulator | [`test/rialto/`](../../test/rialto) ([README](../../test/rialto/README.md)) | In-process `libRialtoClient.so` that fires playback, need-data and position callbacks. It stands in for the Rialto client and server |
+| Reference pipeline | [`rialto-reference/`](../../rialto-reference) ([README](../../rialto-reference/README.md)) | GStreamer implementation of `IMediaPipeline`, selected in the simulator with `rialtoSimBackend=gst` (`RIALTO_SIM_BACKEND=gst`). Decodes and renders real A/V for manual testing and A/B comparison with real Rialto |
 
 L2 tests can run against the simulator or a real Rialto server. CI uses the
 simulator. Counts are approximate and were taken by counting test macros.
