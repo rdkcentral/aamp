@@ -42,6 +42,7 @@ public:
 	MOCK_METHOD(int, getLowestIframeProfile, ());
 	MOCK_METHOD(int, getProfileIndexByBitrateRampUpOrDown, (int currentProfileIndex, BitsPerSecond currentBandwidth, BitsPerSecond networkBandwidth, int nwConsistencyCnt, const std::string& periodId));
 	MOCK_METHOD(int, getRampedUpProfileIndex, (int currentProfileIndex, const std::string& periodId));
+	MOCK_METHOD(void, CheckRampupFromSteadyState, (int currProfileIndex, int &newProfileIndex, BitsPerSecond nwBandwidth, double bufferValue, BitsPerSecond newBandwidth, ABRManager::BitrateChangeReason &mhBitrateReason, int &mMaxBufferCountCheck, const std::string& periodId));
 	MOCK_METHOD(bool, isProfileIndexBitrateLowest, (int currentProfileIndex, const std::string& periodId));
 };
 
