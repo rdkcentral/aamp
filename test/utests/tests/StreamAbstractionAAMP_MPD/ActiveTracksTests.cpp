@@ -83,6 +83,18 @@ namespace
 		{
 			return GetEncryptedHeaders(mappedHeaders);
 		}
+
+		/** @return a held lock on the mutex that UpdateMPD() holds */
+		std::unique_lock<std::recursive_mutex> PublicLockPrimaryContext()
+		{
+			return LockPrimaryContext();
+		}
+
+		/** @return the mutex of the stream context for a media type */
+		std::recursive_mutex &PublicContextMutex(AampMediaType mediaType)
+		{
+			return mMediaStreamContext[mediaType]->mMediaStreamContextMutex;
+		}
 	};
 
 	/**
@@ -326,6 +338,9 @@ namespace
  * Video plus subtitle and audio plus subtitle (no video) are the regression cases: the subtitle
  * slot is not adjacent to the occupied slots, so a count of active tracks cannot express it. Audio
  * plus subtitle is not audio-only, so no swap happens and the video slot stays unused.
+ *
+ * The primary track is video for every mix, including audio-only, because the audio is carried in
+ * the video slot.
  */
 TEST_P(ActiveTracksTests, StreamSelection_TrackMix_ActivatesExpectedTracks)
 {
@@ -369,6 +384,8 @@ TEST_P(ActiveTracksTests, StreamSelection_TrackMix_ActivatesExpectedTracks)
 	EXPECT_EQ(mCollector->PublicGetCurrentMimeType(eMEDIATYPE_VIDEO),
 		std::string{params.expectedVideoSlotMime});
 	EXPECT_EQ(mPrivateInstanceAAMP->mAudioOnlyPb, params.expectAudioOnlyPb);
+	// Audio-only content is carried in the video slot, so video is the primary track for every mix
+	EXPECT_EQ(mCollector->GetPrimaryTrackType(), eTRACK_VIDEO);
 }
 
 INSTANTIATE_TEST_SUITE_P(TrackMixes, ActiveTracksTests,
@@ -432,4 +449,51 @@ TEST_F(TrackSelectionTests, GetEncryptedHeaders_VideoAndAudioProtected_ReturnsHe
 	ASSERT_EQ(headers.count(eMEDIATYPE_AUDIO), 1u);
 	EXPECT_NE(headers[eMEDIATYPE_VIDEO].find("video_init_800000.mp4"), std::string::npos) << headers[eMEDIATYPE_VIDEO];
 	EXPECT_NE(headers[eMEDIATYPE_AUDIO].find("audio_init_64000.mp4"), std::string::npos) << headers[eMEDIATYPE_AUDIO];
+}
+
+namespace
+{
+	/**
+	 * @param[in] mutex Mutex to probe
+	 * @return true if another thread could take the mutex (a recursive mutex always re-locks on its owner)
+	 */
+	bool CanLockFromOtherThread(std::recursive_mutex &mutex)
+	{
+		bool locked = false;
+		std::thread prober([&mutex, &locked]()
+		{
+			locked = mutex.try_lock();
+			if (locked)
+			{
+				mutex.unlock();
+			}
+		});
+		prober.join();
+		return locked;
+	}
+}
+
+/**
+ * @brief The lock UpdateMPD() takes is the primary context's mutex, held until the returned lock is released.
+ *
+ * Oracle: while the lock is held no other thread can take the primary context's mutex, and no other
+ * context's mutex is affected; once released the mutex is free again. The primary track is video.
+ */
+TEST_F(TrackSelectionTests, LockPrimaryContext_Held_BlocksOtherThreadsOnPrimaryContextOnly)
+{
+	const std::string manifest = ManifestFor({"VideoAndAudio", true, true, false, AampTrackSet{}, "", false});
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, _, _, _, _))
+		.WillRepeatedly(Return(true));
+	ASSERT_EQ(InitializeMPD(manifest.c_str()), eAAMPSTATUS_OK);
+	ASSERT_EQ(mCollector->GetPrimaryTrackType(), eTRACK_VIDEO);
+
+	{
+		auto lock = mCollector->PublicLockPrimaryContext();
+
+		EXPECT_TRUE(lock.owns_lock());
+		EXPECT_FALSE(CanLockFromOtherThread(mCollector->PublicContextMutex(eMEDIATYPE_VIDEO)));
+		EXPECT_TRUE(CanLockFromOtherThread(mCollector->PublicContextMutex(eMEDIATYPE_AUDIO)));
+	}
+
+	EXPECT_TRUE(CanLockFromOtherThread(mCollector->PublicContextMutex(eMEDIATYPE_VIDEO)));
 }

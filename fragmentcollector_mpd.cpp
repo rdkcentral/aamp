@@ -713,7 +713,7 @@ bool StreamAbstractionAAMP_MPD::FetchFragment(MediaStreamContext *pMediaStreamCo
 	if (mPlayRate > AAMP_RATE_PAUSE)
 	{
 		pMediaStreamContext->fragmentTime += fragmentDuration;
-		if (pMediaStreamContext->mediaType == eMEDIATYPE_VIDEO)
+		if (pMediaStreamContext->mediaType == PrimaryMediaType())
 		{
 			mBasePeriodOffset += fragmentDuration;
 		}
@@ -721,7 +721,7 @@ bool StreamAbstractionAAMP_MPD::FetchFragment(MediaStreamContext *pMediaStreamCo
 	else
 	{
 		pMediaStreamContext->fragmentTime -= fragmentDuration;
-		if (pMediaStreamContext->mediaType == eMEDIATYPE_VIDEO)
+		if (pMediaStreamContext->mediaType == PrimaryMediaType())
 		{
 			mBasePeriodOffset -= fragmentDuration;
 		}
@@ -2490,7 +2490,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 						{
 							AAMPLOG_INFO("Type[%d] Last fragment in period with small remaining skipTime %.3f - selecting",
 								pMediaStreamContext->type, skipTimeAfterFragment);
-							if (updateFirstPTS && pMediaStreamContext->type == eTRACK_VIDEO)
+							if (updateFirstPTS && pMediaStreamContext->type == GetPrimaryTrackType())
 							{
 								if ((mFirstPTS == 0) || (firstPTS < mFirstPTS))
 								{
@@ -2574,7 +2574,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 							//If we land at the mid of a segment, the position reminder is added to fragment time. This corrects the epoch value to its original segment start time
 							pMediaStreamContext->fragmentTime += mVideoPosRemainder;
 							/*Keep the lower PTS */
-							if ( ((mFirstPTS == 0) || (firstPTS < mFirstPTS)) && (pMediaStreamContext->type == eTRACK_VIDEO))
+							if ( ((mFirstPTS == 0) || (firstPTS < mFirstPTS)) && (pMediaStreamContext->type == GetPrimaryTrackType()))
 							{
 								AAMPLOG_INFO("[%s] mFirstPTS %f -> %f ", pMediaStreamContext->name, mFirstPTS, firstPTS);
 								mFirstPTS = firstPTS;
@@ -3755,7 +3755,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::InitTsbReader(TuneType tuneType)
 		if(eAAMPSTATUS_OK == retVal)
 		{
 			seekPosition = position;
-			mFirstPTS = tsbSessionManager->GetTsbReader(eMEDIATYPE_VIDEO)->GetFirstPTS();
+			mFirstPTS = tsbSessionManager->GetTsbReader(PrimaryMediaType())->GetFirstPTS();
 			AAMPLOG_MIL("Updated position: %lfs, pts:%lfs", seekPosition, mFirstPTS);
 			if (aamp->IsLocalAAMPTsbInjection())
 			{
@@ -4403,7 +4403,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 			if(!newTune && mIsFogTSB)
 			{
 				double culled = 0;
-				if(mMediaStreamContext[eMEDIATYPE_VIDEO]->enabled)
+				if(PrimaryContext()->enabled)
 				{
 					culled = GetCulledSeconds(currMPDPeriodDetails);
 				}
@@ -4439,7 +4439,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 				 (tuneType == eTUNETYPE_NEW_END))
 			{
 				SeekInPeriod( 0, true );
-				seekPosition = mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentTime;
+				seekPosition = PrimaryContext()->fragmentTime;
 			}
 			else
 			{
@@ -4469,11 +4469,11 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 
 			if(!ISCONFIGSET(eAAMPConfig_MidFragmentSeek))
 			{
-				seekPosition = mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentTime;
+				seekPosition = PrimaryContext()->fragmentTime;
 			}
 			else
 			{
-				seekPosition = mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentTime + mVideoPosRemainder;
+				seekPosition = PrimaryContext()->fragmentTime + mVideoPosRemainder;
 			}
 
 			for (const AampMediaType mediaType : mActiveTracks.Load())
@@ -4785,7 +4785,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::IndexNewMPDDocument(bool updateTrackIn
 				mMPDParseHelper->SetMPDPeriodDetails(currMPDPeriodDetails);
 				double culled = 0;
 
-				if(mMediaStreamContext[eMEDIATYPE_VIDEO]->enabled)
+				if(PrimaryContext()->enabled)
 				{
 					culled = GetCulledSeconds(currMPDPeriodDetails);
 				}
@@ -7923,9 +7923,9 @@ std::string StreamAbstractionAAMP_MPD::GetCurrentMimeType(AampMediaType mediaTyp
 		auto pMediaStreamContext = mMediaStreamContext[mediaType].get();
 		if( pMediaStreamContext )
 		{
-			// UpdateMPD() holds mMediaStreamContext[eMEDIATYPE_VIDEO]->mMediaStreamContextMutex and we do
+			// UpdateMPD() holds the primary context's mMediaStreamContextMutex and we do
 			// not want to access representation at the same time as it is being updated by UpdateMPD()
-			std::lock_guard<std::recursive_mutex> lock(mMediaStreamContext[eMEDIATYPE_VIDEO]->mMediaStreamContextMutex);
+			auto lock = LockPrimaryContext();
 			if( pMediaStreamContext->representation )
 			{
 				mimeType = pMediaStreamContext->representation->GetMimeType();
@@ -7964,9 +7964,9 @@ std::string StreamAbstractionAAMP_MPD::GetCurrentCodec(AampMediaType mediaType)
 		auto pMediaStreamContext = mMediaStreamContext[mediaType].get();
 		if( pMediaStreamContext )
 		{
-			// UpdateMPD() holds mMediaStreamContext[eMEDIATYPE_VIDEO]->mMediaStreamContextMutex and we do
+			// UpdateMPD() holds the primary context's mMediaStreamContextMutex and we do
 			// not want to access representation at the same time as it is being updated by UpdateMPD()
-			std::lock_guard<std::recursive_mutex> lock(mMediaStreamContext[eMEDIATYPE_VIDEO]->mMediaStreamContextMutex);
+			auto lock = LockPrimaryContext();
 			if( pMediaStreamContext->representation )
 			{
 				const auto& repCodecs = pMediaStreamContext->representation->GetCodecs();
@@ -8787,7 +8787,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 							}
 						}
 
-						if(mediaType == eMEDIATYPE_VIDEO)
+						if(mediaType == PrimaryMediaType())
 						{
 							mFirstPTS = pMediaStreamContext->scaledPTO;
 
@@ -8825,7 +8825,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 					}
 					if(!aamp->IsLive())
 					{
-						if(mediaType == eMEDIATYPE_VIDEO)
+						if(mediaType == PrimaryMediaType())
 						{
 							mFirstPTS = pMediaStreamContext->scaledPTO;
 
@@ -8907,7 +8907,7 @@ double StreamAbstractionAAMP_MPD::GetCulledSeconds(std::vector<PeriodInfo> &curr
 {
 	double newStartTimeSeconds = 0;
 	double culled = 0;
-	MediaStreamContext *pMediaStreamContext = mMediaStreamContext[eMEDIATYPE_VIDEO].get();
+	MediaStreamContext *pMediaStreamContext = PrimaryContext();
 	if (pMediaStreamContext->adaptationSet || pMediaStreamContext->representation)
 	{
 		if(mCurrentPeriod && mMPDParseHelper->aamp_HasSegmentTemplate(mCurrentPeriod))
@@ -9655,7 +9655,7 @@ bool StreamAbstractionAAMP_MPD::GetEncryptedHeaders(std::map<int, std::string>& 
 										}
 										else
 										{
-											fragmentDescriptor->manifestUrl = mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentDescriptor.manifestUrl;
+											fragmentDescriptor->manifestUrl = PrimaryContext()->fragmentDescriptor.manifestUrl;
 										}
 
 										QueueContentProtection(period, iAdaptationSet, mediaType);
@@ -9745,7 +9745,7 @@ bool StreamAbstractionAAMP_MPD::ExtractAndAddSubtitleMediaHeader()
 								auto subtitleHeader = std::make_shared<AampStreamSinkManager::MediaHeader>();
 
 								fragmentDescriptor->bUseMatchingBaseUrl = ISCONFIGSET(eAAMPConfig_MatchBaseUrl);
-								fragmentDescriptor->manifestUrl = mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentDescriptor.manifestUrl;
+								fragmentDescriptor->manifestUrl = PrimaryContext()->fragmentDescriptor.manifestUrl;
 								fragmentDescriptor->Bandwidth = representation->GetBandwidth();
 								fragmentDescriptor->ClearMatchingBaseUrl();
 								fragmentDescriptor->AppendMatchingBaseUrl(&mpd->GetBaseUrls());
@@ -10202,7 +10202,7 @@ bool StreamAbstractionAAMP_MPD::SelectSourceOrAdPeriod(bool &periodChanged, bool
 				// If not: playing from aamp tsb, or paused on live before entering tsb
 				// Then wait for ad discontinuity to be processed by stream injection before continuing
 				if (aamp->GetIsPeriodChangeMarked() &&
-					!mMediaStreamContext[eMEDIATYPE_VIDEO]->IsLocalTSBInjection() &&
+					!PrimaryContext()->IsLocalTSBInjection() &&
 					!(aamp->IsLocalAAMPTsb() && aamp->mSinkPaused.load()))
 				{
 					aamp->WaitForDiscontinuityProcessToComplete();
@@ -10217,7 +10217,7 @@ bool StreamAbstractionAAMP_MPD::SelectSourceOrAdPeriod(bool &periodChanged, bool
 					mPrevAdaptationSetCount = adaptationSetCount;
 					periodChanged = true;
 					if ((mPlayRate == AAMP_NORMAL_PLAY_RATE) &&
-						!mMediaStreamContext[eMEDIATYPE_VIDEO]->IsLocalTSBInjection() &&
+						!PrimaryContext()->IsLocalTSBInjection() &&
 						!(aamp->IsLocalAAMPTsb() && aamp->mSinkPaused.load()))
 					{
 						aamp->SetIsPeriodChangeMarked(true);
@@ -10438,10 +10438,10 @@ void StreamAbstractionAAMP_MPD::DetectDiscontinuityAndFetchInit(bool periodChang
 	bool discontinuity = false;
 
 	/*Discontinuity handling on period change*/
-	if (periodChanged && ISCONFIGSET(eAAMPConfig_MPDDiscontinuityHandling) && mMediaStreamContext[eMEDIATYPE_VIDEO]->enabled &&
+	if (periodChanged && ISCONFIGSET(eAAMPConfig_MPDDiscontinuityHandling) && PrimaryContext()->enabled &&
 		(ISCONFIGSET(eAAMPConfig_MPDDiscontinuityHandlingCdvr) || (!aamp->IsInProgressCDVR())))
 	{
-		MediaStreamContext *pMediaStreamContext = mMediaStreamContext[eMEDIATYPE_VIDEO].get();
+		MediaStreamContext *pMediaStreamContext = PrimaryContext();
 		SegmentTemplates segmentTemplates(pMediaStreamContext->representation->GetSegmentTemplate(),
 										pMediaStreamContext->adaptationSet->GetSegmentTemplate());
 		bool ignoreDiscontinuity = false;
@@ -10459,7 +10459,7 @@ void StreamAbstractionAAMP_MPD::DetectDiscontinuityAndFetchInit(bool periodChang
 		{
 			if (segmentTemplates.HasSegmentTemplate())
 			{
-				// Trying to maintain parity with GetFirstSegmentStartTime() logic, and get video start time
+				// Trying to maintain parity with GetFirstSegmentStartTime() logic, and get primary track start time
 				uint64_t segmentStartTime = 0;
 				bool usingPTO = false;
 				const ISegmentTimeline *segmentTimeline = segmentTemplates.GetSegmentTimeline();
@@ -10623,7 +10623,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 	bool resetIterator = true;
 	bool mpdChanged = false;
 
-	MediaStreamContext *playlistDownloaderContext = mMediaStreamContext[eMEDIATYPE_VIDEO].get();
+	MediaStreamContext *playlistDownloaderContext = PrimaryContext();
 
 	IPeriod *currPeriod = mCurrentPeriod;
 	if (currPeriod == NULL)
@@ -10788,7 +10788,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 				}
 			}
 
-			uint64_t nextSegmentTime = mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentDescriptor.Time;
+			uint64_t nextSegmentTime = PrimaryContext()->fragmentDescriptor.Time;
 			/*
 			 * Index selected period from ad or source content
 			 */
@@ -11381,13 +11381,13 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateMPD(bool init)
 		{
 			if(tmpManifestDnldRespPtr->mMPDInstance != mManifestDnldRespPtr->mMPDInstance)
 			{
-				// Drain before taking the video track mutex to keep it free during the ad download; GetMPDFromManifest waits again for any later fulfilment.
+				// Drain before taking the primary track mutex to keep it free during the ad download; GetMPDFromManifest waits again for any later fulfilment.
 				if (ISCONFIGSET(eAAMPConfig_EnableClientDai) && mCdaiObject)
 				{
 					mCdaiObject->WaitForAdFulfilmentIdle();
 				}
-				// Acquire lock to update current period to sync with ABR changes on video track
-				std::lock_guard<std::recursive_mutex> lock(mMediaStreamContext[eMEDIATYPE_VIDEO]->mMediaStreamContextMutex);
+				// Acquire lock to update current period to sync with ABR changes on the primary track
+				auto lock = LockPrimaryContext();
 				mManifestDnldRespPtr = std::move(tmpManifestDnldRespPtr);
 				ret = GetMPDFromManifest(mManifestDnldRespPtr , false);
 				// if no parse error
@@ -12004,13 +12004,35 @@ MediaTrack* StreamAbstractionAAMP_MPD::GetMediaTrack(TrackType type)
 	return mMediaStreamContext[type].get();
 }
 
+TrackType StreamAbstractionAAMP_MPD::GetPrimaryTrackType() const
+{
+	// Audio-only content is carried in the video slot (see StreamSelection)
+	return eTRACK_VIDEO;
+}
+
+AampMediaType StreamAbstractionAAMP_MPD::PrimaryMediaType() const
+{
+	// TrackType and AampMediaType share their first values, as GetMediaTrack() relies on
+	return static_cast<AampMediaType>(GetPrimaryTrackType());
+}
+
+MediaStreamContext *StreamAbstractionAAMP_MPD::PrimaryContext() const
+{
+	return mMediaStreamContext[PrimaryMediaType()].get();
+}
+
+std::unique_lock<std::recursive_mutex> StreamAbstractionAAMP_MPD::LockPrimaryContext()
+{
+	return std::unique_lock<std::recursive_mutex>(PrimaryContext()->mMediaStreamContextMutex);
+}
+
 double StreamAbstractionAAMP_MPD::GetBufferedDuration()
 {
-	MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
+	MediaTrack *primary = GetMediaTrack(GetPrimaryTrackType());
 	double retval = -1.0;
-	if (video && video->enabled)
+	if (primary && primary->enabled)
 	{
-		retval = video->GetBufferedDuration();
+		retval = primary->GetBufferedDuration();
 	}
 	return retval;
 }
@@ -12147,14 +12169,14 @@ double StreamAbstractionAAMP_MPD::GetFirstPTS()
 
 	if (tsbSessionManager)
 	{
-		MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
-		if (!video)
+		MediaTrack *primary = GetMediaTrack(GetPrimaryTrackType());
+		if (!primary)
 		{
-			AAMPLOG_WARN("Video track unavailable, cannot determine if local tsb injection");
+			AAMPLOG_WARN("Primary track unavailable, cannot determine if local tsb injection");
 		}
-		else if (video->IsLocalTSBInjection())
+		else if (primary->IsLocalTSBInjection())
 		{
-			reader = tsbSessionManager->GetTsbReader(eMEDIATYPE_VIDEO);
+			reader = tsbSessionManager->GetTsbReader(PrimaryMediaType());
 		}
 		else
 		{
@@ -12210,8 +12232,8 @@ double StreamAbstractionAAMP_MPD::GetStartTimeOfFirstPTS()
 {
 	AampTSBSessionManager* tsbSessionManager = aamp->GetTSBSessionManager();
 	double startTime = mStartTimeOfFirstPTS;
-	MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
-	if (tsbSessionManager && video && video->IsLocalTSBInjection())
+	MediaTrack *primary = GetMediaTrack(GetPrimaryTrackType());
+	if (tsbSessionManager && primary && primary->IsLocalTSBInjection())
 	{
 		startTime = 0;
 	}
@@ -15027,17 +15049,17 @@ uint32_t StreamAbstractionAAMP_MPD::GetSegmentRepeatCount(MediaStreamContext *pM
 
 /**
 * @fn SetSubtitleTrackOffset
-* @brief Function to calculate the start time offset between subtitle and video tracks
+* @brief Function to calculate the start time offset between subtitle and primary tracks
 */
 void StreamAbstractionAAMP_MPD::SetSubtitleTrackOffset()
 {
-	double videoSegmentStartTime = mMPDParseHelper->GetFirstSegmentScaledStartTime(mCurrentPeriod, eMEDIATYPE_VIDEO);
+	double primarySegmentStartTime = mMPDParseHelper->GetFirstSegmentScaledStartTime(mCurrentPeriod, PrimaryMediaType());
 	double subtitleSegmentStartTime = mMPDParseHelper->GetFirstSegmentScaledStartTime(mCurrentPeriod, eMEDIATYPE_SUBTITLE);
 
-	if (videoSegmentStartTime != -1 && subtitleSegmentStartTime != -1)
+	if (primarySegmentStartTime != -1 && subtitleSegmentStartTime != -1)
 	{
-		AAMPLOG_INFO("Calculating offset, videoSegmentStartTime=%lf, subtitleSegmentStartTime=%lf", videoSegmentStartTime, subtitleSegmentStartTime);
-		double offsetInSecs = subtitleSegmentStartTime - videoSegmentStartTime;
+		AAMPLOG_INFO("Calculating offset, primarySegmentStartTime=%lf, subtitleSegmentStartTime=%lf", primarySegmentStartTime, subtitleSegmentStartTime);
+		double offsetInSecs = subtitleSegmentStartTime - primarySegmentStartTime;
 		if (mMediaStreamContext[eMEDIATYPE_SUBTITLE]->playContext)
 		{
 			mMediaStreamContext[eMEDIATYPE_SUBTITLE]->playContext->setTrackOffset(offsetInSecs);
@@ -15518,38 +15540,37 @@ bool StreamAbstractionAAMP_MPD::IsEmptyPeriod(int iPeriodIndex) const
 
 /**
  * @fn GetManifestUpdateCounter
- * @brief Returns the current manifest update counter from the video track.
+ * @brief Returns the current manifest update counter from the primary track.
  *        Callers should snapshot this before performing any check or download work
  *        that leads to WaitForManifestUpdate(sinceGeneration).
  */
 uint32_t StreamAbstractionAAMP_MPD::GetManifestUpdateCounter()
 {
-	MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
-	if (video)
+	MediaTrack *primary = GetMediaTrack(GetPrimaryTrackType());
+	if (primary)
 	{
-		return video->GetManifestUpdateCounter();
+		return primary->GetManifestUpdateCounter();
 	}
-	AAMPLOG_WARN("BUG! Video track is not available to get manifest update counter");
+	AAMPLOG_WARN("BUG! Primary track is not available to get manifest update counter");
 	return 0;
 }
 
 /**
  * @fn WaitForManifestUpdate
- * @brief Waits for the manifest update to complete by waiting on the video track's manifest update condition variable.
+ * @brief Waits for the manifest update to complete by waiting on the primary track's manifest update condition variable.
  */
 void StreamAbstractionAAMP_MPD::WaitForManifestUpdate()
 {
-	// Let's use video as the primary track for synchronizing manifest updates.
-	// Compared to HLS, there is only one fetcher thread for DASH for video, audio and subtitle tracks.
-	MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
-	if (video)
+	// Compared to HLS, there is only one fetcher thread for DASH for video, audio and subtitle tracks,
+	// so the primary track is used for synchronizing manifest updates.
+	MediaTrack *primary = GetMediaTrack(GetPrimaryTrackType());
+	if (primary)
 	{
-		video->WaitForManifestUpdate();
+		primary->WaitForManifestUpdate();
 	}
 	else
 	{
-		// Video should be always present. In case of audio-only playback, it's currently masked as a video track.
-		AAMPLOG_WARN("BUG! Video track is not available to wait for manifest update");
+		AAMPLOG_WARN("BUG! Primary track is not available to wait for manifest update");
 	}
 }
 
@@ -15562,31 +15583,30 @@ void StreamAbstractionAAMP_MPD::WaitForManifestUpdate()
  */
 void StreamAbstractionAAMP_MPD::WaitForManifestUpdate(uint32_t snapshotCounter)
 {
-	MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
-	if (video)
+	MediaTrack *primary = GetMediaTrack(GetPrimaryTrackType());
+	if (primary)
 	{
-		video->WaitForManifestUpdate(snapshotCounter);
+		primary->WaitForManifestUpdate(snapshotCounter);
 	}
 	else
 	{
-		AAMPLOG_WARN("BUG! Video track is not available to wait for manifest update");
+		AAMPLOG_WARN("BUG! Primary track is not available to wait for manifest update");
 	}
 }
 
 /**
  * @fn AbortWaitForManifestUpdate
- * @brief Aborts waiting for the manifest update by signaling the video track's manifest update condition variable.
+ * @brief Aborts waiting for the manifest update by signaling the primary track's manifest update condition variable.
  */
 void StreamAbstractionAAMP_MPD::AbortWaitForManifestUpdate()
 {
-	MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
-	if (video)
+	MediaTrack *primary = GetMediaTrack(GetPrimaryTrackType());
+	if (primary)
 	{
-		video->AbortWaitForManifestUpdate();
+		primary->AbortWaitForManifestUpdate();
 	}
 	else
 	{
-		// Video should be always present. In case of audio-only playback, it's currently masked as a video track.
-		AAMPLOG_WARN("BUG! Video track is not available to abort wait for manifest update");
+		AAMPLOG_WARN("BUG! Primary track is not available to abort wait for manifest update");
 	}
 }
