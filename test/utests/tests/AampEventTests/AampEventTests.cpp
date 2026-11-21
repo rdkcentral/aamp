@@ -986,7 +986,7 @@ TEST_F(HTTPResponseHeaderEventTest, HTTPResponseHeaderEventMethodsTest) {
 class WatermarkSessionUpdateEventTest : public ::testing::Test {
 protected:
     void SetUp() override {
-        sessionHandle = 123;
+        sessionHandle = "f47ac10b-58cc-4372-a567-0e02b2c3d479";
         status = 456;
         system = "WatermarkSession";
     }
@@ -995,7 +995,7 @@ protected:
         
     }
 
-    uint32_t sessionHandle;
+    std::string sessionHandle;
     uint32_t status;
     std::string system;
 };
@@ -1009,6 +1009,17 @@ TEST_F(WatermarkSessionUpdateEventTest, WatermarkSessionTestMethod)
     EXPECT_EQ(event.getSessionHandle(), sessionHandle);
     EXPECT_EQ(event.getStatus(), status);
     EXPECT_EQ(event.getSystem(), system);
+}
+
+/**
+ * @brief The event owns the opaque handle after the callback returns.
+ */
+TEST_F(WatermarkSessionUpdateEventTest, SessionHandleOwnsUuidString)
+{
+	const std::string expected = sessionHandle;
+	WatermarkSessionUpdateEvent event(sessionHandle, status, system, session_id);
+	sessionHandle.clear();
+	EXPECT_EQ(event.getSessionHandle(), expected);
 }
 
 class ContentProtectionDataEventTest : public testing::Test {

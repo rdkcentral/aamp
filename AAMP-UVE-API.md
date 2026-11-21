@@ -2548,7 +2548,8 @@ Keys present only when `req` = `0` (DRM_GET_LICENSE — direct HTTP/curl path). 
 
 **Event Payload:**
 - sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details.
-- sessionHandle:string
+- sessionHandle:string Opaque SecManager playback session identifier, preserved
+  unchanged from the service. This is separate from the application's sessionId.
 - system:string Identifies the content watermarking protection provider, i.e. "fmts_asid" (FriendMTS).  Note: this is only valid when using SecManager.
 - status:string Additional information regarding security system state.  See below table:
 

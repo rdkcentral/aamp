@@ -24,7 +24,7 @@
 
 #include "ContentSecurityManagerSession.h"
 
-std::shared_ptr<ContentSecurityManagerSession::SessionManager> ContentSecurityManagerSession::SessionManager::getInstance(int64_t sessionID, std::size_t inputSummaryHash)
+std::shared_ptr<ContentSecurityManagerSession::SessionManager> ContentSecurityManagerSession::SessionManager::getInstance(const std::string& sessionID, std::size_t inputSummaryHash)
 {
 	std::shared_ptr<SessionManager> returnValue = nullptr;
 	return returnValue;
@@ -38,15 +38,15 @@ void ContentSecurityManagerSession::SessionManager::setInputSummaryHash(std::siz
 }
 
 
-ContentSecurityManagerSession::SessionManager::SessionManager(int64_t sessionID, std::size_t inputSummaryHash)
+ContentSecurityManagerSession::SessionManager::SessionManager(const std::string& sessionID, std::size_t inputSummaryHash)
 {};
 
-ContentSecurityManagerSession::ContentSecurityManagerSession(int64_t sessionID, std::size_t inputSummaryHash)
+ContentSecurityManagerSession::ContentSecurityManagerSession(const std::string& sessionID, std::size_t inputSummaryHash)
 {};
 
-int64_t ContentSecurityManagerSession::getSessionID(void) const
+std::string ContentSecurityManagerSession::getSessionID(void) const
 {
-	int64_t ID = CONTENT_SECURITY_MGR_INVALID_SESSION_ID;
+	std::string ID = CONTENT_SECURITY_MGR_INVALID_SESSION_ID;
 	return ID;
 }
 
