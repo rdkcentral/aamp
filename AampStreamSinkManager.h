@@ -25,6 +25,7 @@
 #ifndef AAMPSTREAMSINKMANAGER_H
 #define AAMPSTREAMSINKMANAGER_H
 
+#include <map>
 #include <vector>
 #include <stddef.h>
 #include "aampgstplayer.h"
@@ -187,23 +188,29 @@ public:
 	virtual void UpdateTuningPlayer(PrivateInstanceAAMP *aamp);
 	/**
 	 *  @fn AddMediaHeader
-	 *  @brief Store the media init headers collected from the main VOD asset
+	 *  @brief Store the media init headers collected from the main VOD asset.
+	 *         Headers are scoped to the pipeline: shared by all players in single
+	 *         pipeline mode, private to each player otherwise.
+	 *  @param[in] aamp - the PrivateInstanceAAMP storing the header
 	 *  @param[in] track - the media(subtitle,video or audio) for which the headers to be saved
 	 *  @param[in] header - contains the init url and mimeType of the media
 	 */
-	virtual void AddMediaHeader(unsigned track, std::shared_ptr<MediaHeader> header);
+	virtual void AddMediaHeader(PrivateInstanceAAMP *aamp, unsigned track, std::shared_ptr<MediaHeader> header);
 	/**
 	 *  @fn RemoveMediaHeader
 	 *  @brief Removes the media init headers collected from the main VOD asset
+	 *  @param[in] aamp - the PrivateInstanceAAMP removing the header
 	 *  @param[in] track - the media(subtitle,video or audio) for which the headers to be removed
 	 */
-	virtual void RemoveMediaHeader(unsigned track);
+	virtual void RemoveMediaHeader(PrivateInstanceAAMP *aamp, unsigned track);
 	/**
 	 *  @fn GetMediaHeader
 	 *  @brief Returns the media init headers collected from the main VOD asset
+	 *         visible to the pipeline used by aamp
+	 *  @param[in] aamp - the PrivateInstanceAAMP requesting the header
 	 *  @param[in] track - the media(subtitle,video or audio) for which the headers to be retrieved
 	 */
-	virtual std::shared_ptr<MediaHeader> GetMediaHeader(unsigned track);
+	virtual std::shared_ptr<MediaHeader> GetMediaHeader(PrivateInstanceAAMP *aamp, unsigned track);
 
 protected:
 
@@ -245,10 +252,25 @@ private:
 
 	/**
 	 *  @fn ClearMediaHeaders
-	 *  @brief Releases the cached media header of every track.
+	 *  @brief Releases every cached media header.
 	 *         Caller must hold mStreamSinkMutex where applicable.
 	 */
 	void ClearMediaHeaders();
+	/**
+	 *  @fn ClearMediaHeaders
+	 *  @brief Releases the cached media headers owned by aamp (multi pipeline mode).
+	 *         Caller must hold mStreamSinkMutex.
+	 *  @param[in] aamp - the PrivateInstanceAAMP whose headers are released
+	 */
+	void ClearMediaHeaders(PrivateInstanceAAMP *aamp);
+	/**
+	 *  @fn GetMediaHeaderOwner
+	 *  @brief Returns the key under which aamp's media headers are cached:
+	 *         nullptr (shared) in single pipeline mode, otherwise aamp itself.
+	 *         Caller must hold mStreamSinkMutex.
+	 *  @param[in] aamp - the PrivateInstanceAAMP accessing the cache
+	 */
+	PrivateInstanceAAMP* GetMediaHeaderOwner(PrivateInstanceAAMP *aamp) const;
 
 	StreamSink *mStreamPlayer;
 
@@ -257,7 +279,7 @@ private:
 	std::map<PrivateInstanceAAMP*, AampStreamSinkInactive*> mInactivePlayersMap;			/**< To maintain information on currently inactive PrivateInstanceAAMP*/
 	std::map<int, std::string> mEncryptedHeaders;
 
-	std::vector<std::shared_ptr<MediaHeader> > mMediaHeaders;
+	std::map<PrivateInstanceAAMP*, std::vector<std::shared_ptr<MediaHeader>>> mMediaHeaders;	/**< Cached media headers per pipeline; nullptr key is the shared single pipeline */
 
 	PipelineMode mPipelineMode;
 
