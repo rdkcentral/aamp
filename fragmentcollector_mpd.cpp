@@ -5580,6 +5580,16 @@ bool StreamAbstractionAAMP_MPD::ProcessEventStream(uint64_t startMS, int64_t sta
 					if (mAvlogAdPeriods.insert(prdId).second)
 					{
 						AAMPLOG_WARN("[CDAI] avlog ad period marked %s", prdId.c_str());
+						if (!eventInfo.isDAIEvent)
+						{
+							// outer break: the period id is its start in ms, so the break ends at id + duration; periods inside it without an own event (last ad) are ad too
+							char *end = nullptr;
+							const long long startId = (long long)strtoull(prdId.c_str(), &end, 10);
+							if (end != prdId.c_str())
+							{
+								mAvlogBreakEndMs = std::max(mAvlogBreakEndMs, startId + (long long)eventInfo.duration);
+							}
+						}
 					}
 				}
 
@@ -9815,11 +9825,13 @@ void StreamAbstractionAAMP_MPD::UpdatePtsOffset(bool isNewPeriod)
 		AAMPLOG_INFO("Idx %d Id %s mPTSOffsetSec %f mNextPts %f timelineStartSec %f",
 					mCurrentPeriodIdx, period->GetId().c_str(), mPTSOffset.inSeconds(), mNextPts.inSeconds(), timelineStart.inSeconds());
 		// avlog: one record per new period, also when the offset step is 0
+		AvlogNewPeriod();
 		AampAvlogPeriod(mCurrentPeriodIdx, period->GetId(), mAvlogAudioStart.inSeconds(), mAvlogVideoStart.inSeconds(),
 						mAvlogAudioDuration.inSeconds(), mAvlogVideoDuration.inSeconds(),
 						(mPTSOffset - avlogPrevOffset).inSeconds(),
 						AvlogInAdBreak(),
-						mCdaiObject && mCdaiObject->mAdState == AdState::IN_ADBREAK_AD_PLAYING);
+						mCdaiObject && mCdaiObject->mAdState == AdState::IN_ADBREAK_AD_PLAYING,
+						AvlogUnmarkedAd());
 	}
 
 	mNextPts = duration + timelineStart;
@@ -9845,7 +9857,33 @@ bool StreamAbstractionAAMP_MPD::AvlogInAdBreak(void)
 		}
 	}
 	std::lock_guard<std::mutex> lock(mAvlogAdMutex);
-	return mCurrentPeriod && mAvlogAdPeriods.count(mCurrentPeriod->GetId()) != 0;
+	return mAvlogUnmarkedAd || (mCurrentPeriod && mAvlogAdPeriods.count(mCurrentPeriod->GetId()) != 0);
+}
+
+bool StreamAbstractionAAMP_MPD::AvlogUnmarkedAd(void)
+{
+	std::lock_guard<std::mutex> lock(mAvlogAdMutex);
+	return mAvlogUnmarkedAd;
+}
+
+/**
+ * @brief avlog: at a new period, decide whether it is an ad without an own event (the last ad of a break has none):
+ * it follows a marked period and starts before the announced end of the break (period ids are start times in ms)
+ */
+void StreamAbstractionAAMP_MPD::AvlogNewPeriod(void)
+{
+	const std::string id = mCurrentPeriod ? mCurrentPeriod->GetId() : std::string();
+	char *end = nullptr;
+	const long long startMs = (long long)strtoull(id.c_str(), &end, 10);
+	const bool idOk = (end != id.c_str());
+	std::lock_guard<std::mutex> lock(mAvlogAdMutex);
+	const bool marked = mAvlogAdPeriods.count(id) != 0;
+	mAvlogUnmarkedAd = !marked && mAvlogPrevMarked && idOk && startMs + AAMP_AVLOG_BREAK_END_MS < mAvlogBreakEndMs;
+	if (mAvlogUnmarkedAd)
+	{
+		AAMPLOG_WARN("[CDAI] avlog ad period inferred %s break end %lld", id.c_str(), mAvlogBreakEndMs);
+	}
+	mAvlogPrevMarked = marked;
 }
 
 void StreamAbstractionAAMP_MPD::RestorePtsOffsetCalculation(void)

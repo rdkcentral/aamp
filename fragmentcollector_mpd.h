@@ -614,6 +614,8 @@ protected:
 	 * @param[out] duration - duration of the current period returned
 	 */
 	void GetStartAndDurationForPtsRestamping(AampTime &start, AampTime &duration);
+	bool AvlogUnmarkedAd(void);	/**< avlog: current period is an ad inferred from the announced break time */
+	void AvlogNewPeriod(void);	/**< avlog: ad-break accounting at a new period */
 	bool AvlogInAdBreak(void);	/**< avlog: in an ad break (SCTE35 ad period or CDAI IN_ADBREAK_*) */
 
 	/**
@@ -1222,6 +1224,9 @@ protected:
 	std::string mBasePeriodId;
 	std::set<std::string> mAvlogAdPeriods;	/**< periods that carry a timed SCTE35 break event (avlog ad_playing) */
 	std::mutex mAvlogAdMutex;
+	long long mAvlogBreakEndMs = 0;	/**< avlog: announced end of the outer SCTE35 break, ms in period id time */
+	bool mAvlogPrevMarked = false;	/**< avlog: previous period carried its own break event */
+	bool mAvlogUnmarkedAd = false;	/**< avlog: current period has no event but is inside the announced break */
 	double mBasePeriodOffset;
 	class PrivateCDAIObjectMPD *mCdaiObject;
 	std::vector<std::string> mEarlyAvailablePeriodIds;

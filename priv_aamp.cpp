@@ -5349,6 +5349,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 
 	newTune = IsNewTune();
 	AAMPLOG_INFO("tuneType %d newTune %d mediaFormat %d", tuneType, newTune, mMediaFormat);
+	AampAvlogTune((int)tuneType, newTune, mManifestUrl, seek_pos_seconds, rate);	// avlog: tune / retune / seek
 
 	// Get position before pipeline is teared down
 	if (eTUNETYPE_RETUNE == tuneType)

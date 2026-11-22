@@ -31,7 +31,10 @@
  *                 below (struct avlog_aamp_bitrate, to be added to <linux/avlog.h>).
  *                 Arms a capture window when the resolution changes (not the first
  *                 profile after start): the decoder reconfiguration loses ~0.4 s of video.
- * AAMP_PERIOD, AAMP_AD and AAMP_BITRATE use the HAL's generic avlog_hal_write(); with an older HAL
+ *   AAMP_TUNE     PrivateInstanceAAMP::TuneHelper: every tune, retune and seek, before the
+ *                 pipeline is torn down. User id 6, layout below. Never arms (the restamps
+ *                 of the new stream do).
+ * AAMP_PERIOD, AAMP_AD, AAMP_BITRATE and AAMP_TUNE use the HAL's generic avlog_hal_write(); with an older HAL
  * without it they are skipped and JUMP/RESTAMP still work.
  * A failed write is reported once per process on stderr (AAMP log).
  * adPlaying / the PERIOD AD_PLAYING bit = "in an ad break": the period carries a timed SCTE35
@@ -63,6 +66,7 @@
 #define AAMP_AVLOG_USER_PERIOD   3u
 #define AAMP_AVLOG_USER_AD       4u
 #define AAMP_AVLOG_USER_BITRATE  5u
+#define AAMP_AVLOG_USER_TUNE     6u
 #define AAMP_AVLOG_MEDIA_ANY     0u
 #define AAMP_AVLOG_MEDIA_VIDEO   1u
 #define AAMP_AVLOG_MEDIA_AUDIO   2u
@@ -71,6 +75,9 @@
 #define AAMP_AVLOG_PERIOD_IDX_MASK   0xFFFFu
 #define AAMP_AVLOG_PERIOD_DAI_AD     (1u << 16)   /* replaced ad (CDAI IN_ADBREAK_AD_PLAYING) */
 #define AAMP_AVLOG_PERIOD_AD_PLAYING (1u << 17)   /* in an ad break (own or replaced ads) */
+#define AAMP_AVLOG_PERIOD_INFERRED   (1u << 18)   /* ad_playing inferred from the announced break time (no own event) */
+/* a period starting this close to the announced end of the break (or later) is the programme */
+#define AAMP_AVLOG_BREAK_END_MS  3000LL
 #define AAMP_AVLOG_AD_BREAK      1u
 #define AAMP_AVLOG_AD_AD         2u
 #define AAMP_AVLOG_PAYLOAD_WORDS 13      /* 52 bytes */
@@ -225,7 +232,7 @@ static inline void AampAvlogRestamp(int trackType, double ptsOffsetSec, double a
 static inline void AampAvlogPeriod(int periodIdx, const std::string &periodId,
                                    double audioStart, double videoStart,
                                    double audioDuration, double videoDuration,
-                                   double offsetStep, bool adPlaying, bool daiAd)
+                                   double offsetStep, bool adPlaying, bool daiAd, bool inferred)
 {
     AampAvlogHal *hal = AampAvlogGet();
     if (!hal || !hal->write)
@@ -237,7 +244,8 @@ static inline void AampAvlogPeriod(int periodIdx, const std::string &periodId,
     w[3] = 0;                                   /* never arms */
     w[4] = (static_cast<uint32_t>(periodIdx) & AAMP_AVLOG_PERIOD_IDX_MASK) |
            (adPlaying ? AAMP_AVLOG_PERIOD_AD_PLAYING : 0u) |
-           (daiAd ? AAMP_AVLOG_PERIOD_DAI_AD : 0u);
+           (daiAd ? AAMP_AVLOG_PERIOD_DAI_AD : 0u) |
+           (inferred ? AAMP_AVLOG_PERIOD_INFERRED : 0u);
     w[5] = AampAvlogHash(periodId);
     AampAvlogPut64(&w[6], AampAvlogUs(audioStart));
     AampAvlogPut64(&w[8], AampAvlogUs(videoStart));
@@ -300,6 +308,30 @@ static inline void AampAvlogBitrate(long long bitrate, int reason, int width, in
     w[11] = AampAvlogU32(std::llround(frameRate * 1000.0));
     w[12] = static_cast<uint32_t>(profileIndex);
     AampAvlogCheck(hal->write(w), "AAMP_BITRATE");
+}
+
+/* TuneHelper: one record per tune / retune / seek.
+ * payload words: 0 type, 1 user (6), 2 media (any), 3 flags (0),
+ * 4 tune type (priv_aamp.h TuneType: 0 new, 1 new+seek, 2 seek, 3 seek to live, 4 retune, 6 new from end, 7 seek to end),
+ * 5 manifest URL hash (FNV-1a; the URL itself is not logged, it can carry a token),
+ * 6 new tune (1) or same channel (0), 7 seek position ms (signed), 8 play rate * 1000 (signed) */
+static inline void AampAvlogTune(int tuneType, bool newTune, const std::string &url,
+                                 double seekPosSeconds, double rate)
+{
+    AampAvlogHal *hal = AampAvlogGet();
+    if (!hal || !hal->write)
+        return;
+    uint32_t w[AAMP_AVLOG_PAYLOAD_WORDS] = {};
+    w[0] = AAMP_AVLOG_TYPE_USER;
+    w[1] = AAMP_AVLOG_USER_TUNE;
+    w[2] = AAMP_AVLOG_MEDIA_ANY;
+    w[3] = 0;                                   /* never arms */
+    w[4] = static_cast<uint32_t>(tuneType);
+    w[5] = AampAvlogHash(url);
+    w[6] = newTune ? 1u : 0u;
+    w[7] = static_cast<uint32_t>(static_cast<int32_t>(std::llround(seekPosSeconds * 1000.0)));
+    w[8] = static_cast<uint32_t>(static_cast<int32_t>(std::llround(rate * 1000.0)));
+    AampAvlogCheck(hal->write(w), "AAMP_TUNE");
 }
 
 #endif /* AAMP_AVLOG_H */
