@@ -114,8 +114,11 @@ protected:
 		guint callbackId =	g_source_get_id(g_main_current_source());
 		AampEventManager *evtMgr = (AampEventManager *)This;
 		UsingPlayerId playerId( evtMgr->mPlayerId );
+		AAMPLOG_WARN("vk::EventManagerThreadFunction - CALLED by GLib, callbackId=%u", callbackId);
 		evtMgr->SetCallbackAsDispatched(callbackId);
+		AAMPLOG_WARN("vk::EventManagerThreadFunction - calling AsyncEvent() for callbackId=%u", callbackId);
 		evtMgr->AsyncEvent();
+		AAMPLOG_WARN("vk::EventManagerThreadFunction - AsyncEvent() completed for callbackId=%u, returning G_SOURCE_REMOVE", callbackId);
 		return G_SOURCE_REMOVE ;
 	}
 	/**

@@ -716,6 +716,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 			if ( AAMP_SLOWMOTION_RATE != rate && !aamp->mIsIframeTrackPresent && rate != AAMP_NORMAL_PLAY_RATE && rate != 0 && aamp->mMediaFormat != eMEDIAFORMAT_PROGRESSIVE)
 			{
 				AAMPLOG_WARN("Ignoring trickplay. No iframe tracks in stream");
+				AAMPLOG_WARN("vk::Caller_7 (SetRate_NoIframes) - calling NotifySpeedChanged(rate=AAMP_NORMAL_PLAY_RATE) - no iframe tracks");
 				aamp->NotifySpeedChanged(AAMP_NORMAL_PLAY_RATE); // Send speed change event to XRE to reset the speed to normal play since the trickplay ignored at player level.
 				return;
 			}
@@ -882,6 +883,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 			{
 				/* Handling of fwd slowmotion playback */
 				SetSlowMotionPlayRate(rate);
+				AAMPLOG_WARN("vk::Caller_8 (SetRate_SlowMotion) - calling NotifySpeedChanged(rate=AAMP_SLOWMOTION_RATE, changeState=false)");
 				aamp->NotifySpeedChanged(rate, false);
 				return;
 			}

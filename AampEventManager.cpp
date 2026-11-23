@@ -79,25 +79,42 @@ AampEventManager::~AampEventManager()
 void AampEventManager::FlushPendingEvents()
 {
 	std::lock_guard<std::mutex> guard(mMutexVar);
+	
+	AAMPLOG_WARN("vk::FlushPendingEvents - START, queueSize=%zu, pendingCallbacks=%zu", 
+		mEventWorkerDataQue.size(), mPendingAsyncEvents.size());
+	
+	int queuedEvents = 0;
 	while(!mEventWorkerDataQue.empty())
 	{
 		// Remove each AampEventPtr from the queue, not deleting the shared_ptr
 		mEventWorkerDataQue.pop();
+		queuedEvents++;
+	}
+	
+	if (queuedEvents > 0)
+	{
+		AAMPLOG_WARN("vk::FlushPendingEvents - CLEARED %d queued events from mEventWorkerDataQue", queuedEvents);
 	}
 
 	if (mPendingAsyncEvents.size() > 0)
 	{
+		AAMPLOG_WARN("vk::FlushPendingEvents - CLEARING %zu pending GLib callbacks", mPendingAsyncEvents.size());
 		AAMPLOG_WARN("mPendingAsyncEvents.size - %zu", mPendingAsyncEvents.size());
+		
+		int callbacksRemoved = 0;
 		for (AsyncEventListIter it = mPendingAsyncEvents.begin(); it != mPendingAsyncEvents.end(); it++)
 		{
 			if ((it->first != 0) && (it->second))
 			{
+				AAMPLOG_WARN("vk::FlushPendingEvents - Removing GLib callback id=%u (pending=%d)", it->first, it->second);
 				AAMPLOG_WARN("remove id - %d", (int) it->first);
 				g_source_remove(it->first);
-
+				callbacksRemoved++;
 			}
 		}
+		AAMPLOG_WARN("vk::FlushPendingEvents - Removed %d pending GLib callbacks via g_source_remove", callbacksRemoved);
 		mPendingAsyncEvents.clear();
+		AAMPLOG_WARN("vk::FlushPendingEvents - Cleared mPendingAsyncEvents map");
 	}
 
 	if (mEventProfilingEnabled)
@@ -112,6 +129,7 @@ void AampEventManager::FlushPendingEvents()
 		mEventStats[i] = 0;
 
 	mIsFirstProgressSent = false;
+	AAMPLOG_WARN("vk::FlushPendingEvents - END, all events flushed");
 }
 
 /**
@@ -258,6 +276,12 @@ void AampEventManager::SetAsyncTuneState(bool isAsyncTuneSetting)
 void AampEventManager::SetPlayerState(AAMPPlayerState state)
 {
 	std::lock_guard<std::mutex> guard(mMutexVar);
+	AAMPLOG_WARN("vk::SetPlayerState - EventManager playerState changing to %d (released=%d)", state, (state == eSTATE_RELEASED) ? 1 : 0);
+	if (mPlayerState != state)
+	{
+		AAMPLOG_WARN("vk::SetPlayerState - EventManager playerState=%d → %d, pendingQueue=%zu, pendingCallbacks=%zu", 
+			mPlayerState, state, mEventWorkerDataQue.size(), mPendingAsyncEvents.size());
+	}
 	mPlayerState = state;
 }
 
@@ -281,6 +305,9 @@ void AampEventManager::SendEvent(const AAMPEventPtr &eventData, AAMPEventMode ev
 	AAMPEventType eventType = eventData->getType();
 	if ((eventType < AAMP_EVENT_ALL_EVENTS) || (eventType >= AAMP_MAX_NUM_EVENTS))  //CID:81883 - Resolve OVER_RUN
                 return;
+	
+	AAMPLOG_WARN("vk::SendEvent - eventType=%d, eventMode=%d, mPlayerState=%d", eventType, eventMode, mPlayerState);
+	
 	if(mIsFakeTune && !(AAMP_EVENT_STATE_CHANGED == eventType && eSTATE_COMPLETE == std::dynamic_pointer_cast<StateChangedEvent>(eventData)->getState()) && !(AAMP_EVENT_EOS == eventType))
 	{
 		AAMPLOG_TRACE("Events are disabled for fake tune");
@@ -293,13 +320,16 @@ void AampEventManager::SendEvent(const AAMPEventPtr &eventData, AAMPEventMode ev
 	if((mPlayerState != eSTATE_RELEASED) && (mEventListeners[AAMP_EVENT_ALL_EVENTS] || mEventListeners[eventType]))
 	{
 		guint sId = GetSourceID();
+		AAMPLOG_WARN("vk::SendEvent - has listeners, sId=%u, proceeding to send", sId);
 		// if caller is asking for Sync Event , ensure it has proper source Id, else it has to go async event
 		if(eventMode==AAMP_EVENT_SYNC_MODE &&  sId != 0)
 		{
+			AAMPLOG_WARN("vk::SendEvent - sending eventType=%d as SYNC", eventType);
 			SendEventSync(eventData);
 		}
 		else if(eventMode==AAMP_EVENT_ASYNC_MODE)
 		{
+			AAMPLOG_WARN("vk::SendEvent - sending eventType=%d as ASYNC", eventType);
 			SendEventAsync(eventData);
 		}
 		else
@@ -307,13 +337,21 @@ void AampEventManager::SendEvent(const AAMPEventPtr &eventData, AAMPEventMode ev
 			//For other events if asyncTune enabled or callee from non-UI thread , then send the event as Async
 			if (mAsyncTuneEnabled || sId == 0)
 			{
+				AAMPLOG_WARN("vk::SendEvent - sending eventType=%d as ASYNC (default mode)", eventType);
 				SendEventAsync(eventData);
 			}
 			else
 			{
+				AAMPLOG_WARN("vk::SendEvent - sending eventType=%d as SYNC (default mode)", eventType);
 				SendEventSync(eventData);
 			}
 		}
+	}
+	else
+	{
+		AAMPLOG_WARN("vk::SendEvent - eventType=%d NOT sent, mPlayerState=%d (released=%d), hasListeners=%d", 
+			eventType, mPlayerState, (mPlayerState == eSTATE_RELEASED), 
+			(mEventListeners[AAMP_EVENT_ALL_EVENTS] || mEventListeners[eventType]) ? 1 : 0);
 	}
 }
 
@@ -334,15 +372,41 @@ void AampEventManager::AsyncEvent()
 			AsyncEventEntry& entry = mEventWorkerDataQue.front();
 			eventData      = std::move(entry.event);
 			enqueueTimeMs  = entry.enqueueTimeMs;
+			AAMPEventType eventType = eventData->getType();
+			AAMPLOG_WARN("vk::AsyncEvent - popping eventType=%d from queue, queue size before pop: %zu", eventType, mEventWorkerDataQue.size());
 			mEventWorkerDataQue.pop();
+			AAMPLOG_WARN("vk::AsyncEvent - eventType=%d popped, queue size after pop: %zu", eventType, mEventWorkerDataQue.size());
+		}
+		else
+		{
+			AAMPLOG_WARN("vk::AsyncEvent - queue is empty!");
 		}
 	}
 	// Push the new event in sync mode from the idle task.
 	// enqueueTimeMs is forwarded so SendEventSync can compute the full async round-trip
 	// (queue dwell time + sync delivery time) for profiling.
-	if(eventData && (IsEventListenerAvailable(eventData->getType())) && (mPlayerState != eSTATE_RELEASED))
+	if(eventData)
 	{
-		SendEventSync(eventData, enqueueTimeMs);
+		AAMPEventType eventType = eventData->getType();
+		bool hasListeners = IsEventListenerAvailable(eventData->getType());
+		bool isNotReleased = (mPlayerState != eSTATE_RELEASED);
+		AAMPLOG_WARN("vk::AsyncEvent - eventType=%d, hasListeners=%d, playerNotReleased=%d, mPlayerState=%d", 
+			eventType, hasListeners ? 1 : 0, isNotReleased ? 1 : 0, mPlayerState);
+		
+		if(hasListeners && isNotReleased)
+		{
+			AAMPLOG_WARN("vk::AsyncEvent - dispatching eventType=%d via SendEventSync", eventType);
+			SendEventSync(eventData, enqueueTimeMs);
+		}
+		else
+		{
+			AAMPLOG_WARN("vk::AsyncEvent - eventType=%d NOT dispatched (hasListeners=%d, playerNotReleased=%d)", 
+				eventType, hasListeners ? 1 : 0, isNotReleased ? 1 : 0);
+		}
+	}
+	else
+	{
+		AAMPLOG_WARN("vk::AsyncEvent - eventData is null!");
 	}
 }
 
@@ -353,21 +417,40 @@ void AampEventManager::SendEventAsync(const AAMPEventPtr &eventData)
 {
 	AAMPEventType eventType = eventData->getType();
 	std::unique_lock<std::mutex> lock(mMutexVar);
+	
+	AAMPLOG_WARN("vk::SendEventAsync - eventType=%d, mPlayerState=%d", eventType, mPlayerState);
+	
 	// Check if already player in release state , then no need to send any events
 	if(mPlayerState != eSTATE_RELEASED)
 	{
 		AAMPLOG_INFO("Sending event %d to AsyncQ", eventType);
+		AAMPLOG_WARN("vk::SendEventAsync - queuing eventType=%d, queue size before push: %zu", eventType, mEventWorkerDataQue.size());
+		
 		AsyncEventEntry entry;
 		entry.event         = eventData;
 		entry.enqueueTimeMs = mEventProfilingEnabled ? NOW_STEADY_TS_MS : 0;
 		mEventWorkerDataQue.push(std::move(entry));
+		
+		AAMPLOG_WARN("vk::SendEventAsync - eventType=%d queued, queue size after push: %zu", eventType, mEventWorkerDataQue.size());
+		
 		lock.unlock();
 		// Every event need a idle task to execute it
 		guint callbackID = g_idle_add_full(mEventPriority, EventManagerThreadFunction, this, NULL);
+		AAMPLOG_WARN("vk::SendEventAsync - g_idle_add_full returned callbackID=%u for eventType=%d", callbackID, eventType);
+		
 		if(callbackID != 0)
 		{
 			SetCallbackAsPending(callbackID);
+			AAMPLOG_WARN("vk::SendEventAsync - callbackID=%u set as pending for eventType=%d", callbackID, eventType);
 		}
+		else
+		{
+			AAMPLOG_WARN("vk::SendEventAsync - ERROR: g_idle_add_full returned 0 for eventType=%d", eventType);
+		}
+	}
+	else
+	{
+		AAMPLOG_WARN("vk::SendEventAsync - eventType=%d NOT queued, player in RELEASED state", eventType);
 	}
 }
 
@@ -379,6 +462,9 @@ void AampEventManager::SendEventSync(const AAMPEventPtr &eventData, long long en
 {
 	AAMPEventType eventType = eventData->getType();
 	std::unique_lock<std::mutex> lock(mMutexVar);
+	
+	AAMPLOG_WARN("vk::SendEventSync - eventType=%d, enqueueTimeMs=%lld, mPlayerState=%d", eventType, enqueueTimeMs, mPlayerState);
+	
 	// Snapshot profiling config under the lock. mEventProfilingEnabled and
 	// mEventProfilingThresholdMs are written by SetEventProfilingConfig (also under
 	// mMutexVar). Reading them after lock.unlock() without a snapshot would be a data
@@ -393,6 +479,7 @@ void AampEventManager::SendEventSync(const AAMPEventPtr &eventData, long long en
 	// Its checked again here ,as async events can come to sync mode after playback is stopped 
 	if(mPlayerState == eSTATE_RELEASED)
 	{
+		AAMPLOG_WARN("vk::SendEventSync - eventType=%d NOT sent, player in RELEASED state", eventType);
 		return;
 	}
 	
@@ -401,10 +488,12 @@ void AampEventManager::SendEventSync(const AAMPEventPtr &eventData, long long en
 	{
 		if (eventType != AAMP_EVENT_STATE_CHANGED)
 		{
+			AAMPLOG_WARN("vk::SendEventSync - dispatching eventType=%d (session_id=%s)", eventType, eventData->GetSessionId().c_str());
 			AAMPLOG_INFO("(type=%d)(session_id=%s)", eventType, eventData->GetSessionId().c_str());
 		}
 		else
 		{
+			AAMPLOG_WARN("vk::SendEventSync - dispatching STATE_CHANGED eventType=%d (session_id=%s)", eventType, eventData->GetSessionId().c_str());
 			AAMPLOG_MIL("(type=%d)(state=%d)(session_id=%s)", eventType, std::dynamic_pointer_cast<StateChangedEvent>(eventData)->getState(),
 				eventData->GetSessionId().c_str());
 		}
@@ -419,6 +508,7 @@ void AampEventManager::SendEventSync(const AAMPEventPtr &eventData, long long en
 	// Build list of registered event listeners.
 	ListenerData* pList = NULL;
 	ListenerData* pListener = mEventListeners[eventType];
+	int listenerCount = 0;
 	while (pListener != NULL)
 	{
 		ListenerData* pNew = new ListenerData;
@@ -426,8 +516,10 @@ void AampEventManager::SendEventSync(const AAMPEventPtr &eventData, long long en
 		pNew->pNext = pList;
 		pList = pNew;
 		pListener = pListener->pNext;
+		listenerCount++;
 	}
 	pListener = mEventListeners[AAMP_EVENT_ALL_EVENTS];  // listeners registered for "all" event types
+	int allEventListenerCount = 0;
 	while (pListener != NULL)
 	{
 		ListenerData* pNew = new ListenerData;
@@ -435,21 +527,31 @@ void AampEventManager::SendEventSync(const AAMPEventPtr &eventData, long long en
 		pNew->pNext = pList;
 		pList = pNew;
 		pListener = pListener->pNext;
+		allEventListenerCount++;
 	}
+	
+	AAMPLOG_WARN("vk::SendEventSync - eventType=%d, typeListeners=%d, allEventListeners=%d, totalListeners=%d", 
+		eventType, listenerCount, allEventListenerCount, listenerCount + allEventListenerCount);
+	
 	lock.unlock();
 
 	// After releasing the lock, dispatch each of the registered listeners.
 	// This allows event handlers to add/remove listeners for future events.
+	int dispatchCount = 0;
 	while (pList != NULL)
 	{
 		ListenerData* pCurrent = pList;
 		if (pCurrent->eventListener != NULL)
 		{
+			AAMPLOG_WARN("vk::SendEventSync - dispatching eventType=%d to listener #%d", eventType, dispatchCount + 1);
 			pCurrent->eventListener->SendEvent(eventData);
+			dispatchCount++;
 		}
 		pList = pCurrent->pNext;
 		SAFE_DELETE(pCurrent);
 	}
+	
+	AAMPLOG_WARN("vk::SendEventSync - eventType=%d dispatched to %d listeners", eventType, dispatchCount);
 
 	if (profilingEnabled && dispatchStartMs > 0)
 	{
@@ -475,17 +577,23 @@ void AampEventManager::SendEventSync(const AAMPEventPtr &eventData, long long en
 void AampEventManager::SetCallbackAsDispatched(guint id)
 {
 	std::lock_guard<std::mutex> guard(mMutexVar);
+	AAMPLOG_WARN("vk::SetCallbackAsDispatched - id=%u, pendingCount=%zu", id, mPendingAsyncEvents.size());
+	
 	AsyncEventListIter  itr = mPendingAsyncEvents.find(id);
 	if(itr != mPendingAsyncEvents.end())
 	{
+		AAMPLOG_WARN("vk::SetCallbackAsDispatched - id=%u FOUND in pending list, State=%d, erasing", id, itr->second);
 		AAMPLOG_TRACE("id:%d in mPendingAsyncEvents, erasing it. State:%d", id,itr->second);
 		assert (itr->second);
 		mPendingAsyncEvents.erase(itr);
+		AAMPLOG_WARN("vk::SetCallbackAsDispatched - id=%u erased, pendingCount now=%zu", id, mPendingAsyncEvents.size());
 	}
 	else
 	{
+		AAMPLOG_WARN("vk::SetCallbackAsDispatched - id=%u NOT in pending list, adding with State=false", id);
 		AAMPLOG_TRACE("id:%d not in mPendingAsyncEvents, insert and mark as not pending", id);
 		mPendingAsyncEvents[id] = false;
+		AAMPLOG_WARN("vk::SetCallbackAsDispatched - id=%u added, pendingCount now=%zu", id, mPendingAsyncEvents.size());
 	}
 }
 
@@ -495,16 +603,22 @@ void AampEventManager::SetCallbackAsDispatched(guint id)
 void AampEventManager::SetCallbackAsPending(guint id)
 {
 	std::lock_guard<std::mutex> guard(mMutexVar);
+	AAMPLOG_WARN("vk::SetCallbackAsPending - id=%u, pendingCount=%zu", id, mPendingAsyncEvents.size());
+	
 	AsyncEventListIter  itr = mPendingAsyncEvents.find(id);
 	if(itr != mPendingAsyncEvents.end())
 	{
+		AAMPLOG_WARN("vk::SetCallbackAsPending - id=%u ALREADY in pending list with State=%d, erasing", id, itr->second);
 		AAMPLOG_TRACE("id:%d already in mPendingAsyncEvents and completed, erase it State:%d",id,itr->second);
 		assert (!itr->second);
 		mPendingAsyncEvents.erase(itr);
+		AAMPLOG_WARN("vk::SetCallbackAsPending - id=%u erased, pendingCount now=%zu", id, mPendingAsyncEvents.size());
 	}
 	else
 	{
+		AAMPLOG_WARN("vk::SetCallbackAsPending - id=%u NOT in list, adding with State=true", id);
 		mPendingAsyncEvents[id] = true;
 		AAMPLOG_TRACE("id:%d in mPendingAsyncEvents, added to list", id);
+		AAMPLOG_WARN("vk::SetCallbackAsPending - id=%u added to pending, pendingCount now=%zu", id, mPendingAsyncEvents.size());
 	}
 }

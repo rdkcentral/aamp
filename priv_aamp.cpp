@@ -322,6 +322,7 @@ static gboolean PrivateInstanceAAMP_Resume(gpointer ptr)
 	aamp->ResumeDownloads();
 	if(retValue)
 	{
+		AAMPLOG_WARN("vk::Caller_1 (IdleTask_ResumeDownloads) - calling NotifySpeedChanged(rate=%f)", aamp->rate);
 		aamp->NotifySpeedChanged(aamp->rate);
 	}
 	aamp->mAutoResumeTaskPending = false;
@@ -1531,6 +1532,7 @@ static gboolean PrivateInstanceAAMP_PausePosition(gpointer ptr)
 		}
 
 		// Notify the client that play has paused
+		AAMPLOG_WARN("vk::Caller_2 (IdleTask_PausePosition) - calling NotifySpeedChanged(rate=0, changeState=true)");
 		aamp->NotifySpeedChanged(0, true);
 	}
 	return G_SOURCE_REMOVE;
@@ -1776,6 +1778,7 @@ void PrivateInstanceAAMP::NotifyPauseOnStartPlayback(void)
 
 		StopDownloads();
 
+		AAMPLOG_WARN("vk::Caller_3 (PrivateInstanceAAMP_ProcessDiscontinuity) - calling NotifySpeedChanged(rate=0, changeState=true)");
 		NotifySpeedChanged(0, true);
 
 		if (mpStreamAbstractionAAMP)
@@ -2925,6 +2928,7 @@ void PrivateInstanceAAMP::SendErrorEvent(AAMPTuneFailure tuneFailure, const char
 
 		if (rate != AAMP_NORMAL_PLAY_RATE)
 		{
+			AAMPLOG_WARN("vk::Caller_4 (ReportAdBreakError) - calling NotifySpeedChanged(rate=AAMP_NORMAL_PLAY_RATE, changeState=false) - trickplay failure recovery");
 			NotifySpeedChanged(AAMP_NORMAL_PLAY_RATE, false); // During trick play if the playback failed, send speed change event to XRE to reset its current speed rate.
 		}
 
@@ -2989,6 +2993,8 @@ void PrivateInstanceAAMP::LicenseRenewal(DrmHelperPtr drmHelper, void* userData)
  */
 void PrivateInstanceAAMP::SendEvent(AAMPEventPtr eventData, AAMPEventMode eventMode)
 {
+	AAMPEventType eventType = eventData->getType();
+	AAMPLOG_WARN("vk::PrivateInstanceAAMP::SendEvent - eventType=%d, eventMode=%d", eventType, eventMode);
 	mEventManager->SendEvent(eventData, eventMode);
 }
 
@@ -3098,15 +3104,19 @@ void PrivateInstanceAAMP::ApplySpeedChangeEffects(float rate)
  */
 void PrivateInstanceAAMP::NotifySpeedChanged(float rate, bool changeState)
 {
+	AAMPLOG_WARN("vk::NotifySpeedChanged - rate=%f, changeState=%d, currentState=%d", rate, changeState ? 1 : 0, GetState());
+	
 	if (changeState)
 	{
 		if (rate == 0)
 		{
+			AAMPLOG_WARN("vk::NotifySpeedChanged - setting state to PAUSED");
 			SetState(eSTATE_PAUSED);
 		}
 		ApplySpeedChangeEffects(rate);
 		if (rate == AAMP_NORMAL_PLAY_RATE)
 		{
+			AAMPLOG_WARN("vk::NotifySpeedChanged - setting state to PLAYING");
 			SetState(eSTATE_PLAYING);
 		}
 	}
@@ -3115,24 +3125,29 @@ void PrivateInstanceAAMP::NotifySpeedChanged(float rate, bool changeState)
 	{
 		if (rate == AAMP_NORMAL_PLAY_RATE)
 		{
+			AAMPLOG_WARN("vk::NotifySpeedChanged - setting TrickplayStatus to false");
 			PlayerCCManager::GetInstance()->SetTrickplayStatus(false);
 		}
 		else
 		{
+			AAMPLOG_WARN("vk::NotifySpeedChanged - setting TrickplayStatus to true");
 			PlayerCCManager::GetInstance()->SetTrickplayStatus(true);
 		}
 	}
 	if(ISCONFIGSET_PRIV(eAAMPConfig_RepairIframes))
 	{
-		AAMPLOG_WARN("mRepairIframes is set, sending pseudo rate %f for the actual rate %f", getPseudoTrickplayRate(rate), rate);
-		SendEvent(std::make_shared<SpeedChangedEvent>(getPseudoTrickplayRate(rate), GetSessionId()),AAMP_EVENT_ASYNC_MODE);
+		float pseudoRate = getPseudoTrickplayRate(rate);
+		AAMPLOG_WARN("vk::NotifySpeedChanged - RepairIframes enabled, sending pseudo rate %f for actual rate %f", pseudoRate, rate);
+		SendEvent(std::make_shared<SpeedChangedEvent>(pseudoRate, GetSessionId()),AAMP_EVENT_ASYNC_MODE);
 	}
 	else
 	{
+		AAMPLOG_WARN("vk::NotifySpeedChanged - sending SpeedChangedEvent with rate=%f", rate);
 		SendEvent(std::make_shared<SpeedChangedEvent>(rate, GetSessionId()),AAMP_EVENT_ASYNC_MODE);
 	}
 	if(ISCONFIGSET_PRIV(eAAMPConfig_UseSecManager) || ISCONFIGSET_PRIV(eAAMPConfig_UseFireboltSDK))
 	{
+		AAMPLOG_WARN("vk::NotifySpeedChanged - updating DRM license manager playback speed state");
 		mDRMLicenseManager->setPlaybackSpeedState(IsLive(), GetCurrentLatency(), IsAtLivePoint(), GetLiveOffsetMs(),rate, GetStreamPositionMs());
 	}
 }
@@ -3398,6 +3413,7 @@ void PrivateInstanceAAMP::PlayFromTsbStart()
 		TuneHelper(eTUNETYPE_SEEK);
 		ReleaseStreamLock();
 	}
+	AAMPLOG_WARN("vk::Caller_5 (PlayFromTsbStart) - calling NotifySpeedChanged(rate=%f)", rate);
 	NotifySpeedChanged(rate);
 }
 
@@ -3472,6 +3488,7 @@ void PrivateInstanceAAMP::NotifyEOSReached()
 			AcquireStreamLock();
 			TuneHelper(eTUNETYPE_SEEKTOLIVE);
 			ReleaseStreamLock();
+			AAMPLOG_WARN("vk::Caller_6 (NotifyEOSReached) - calling NotifySpeedChanged(rate=%f) - rate>AAMP_NORMAL_PLAY_RATE case", rate);
 			NotifySpeedChanged(rate);
 		}
 	}
@@ -8628,6 +8645,9 @@ void PrivateInstanceAAMP::SetState(AAMPPlayerState state)
 	{ // noop
 		return;
 	}
+	
+	AAMPLOG_WARN("vk::SetState - transitioning from %s (%d) to %s (%d)", 
+		AAMPPlayerStateName(mState), mState, AAMPPlayerStateName(state), state);
 	AAMPLOG_MIL("Player state changed: %s -> %s", AAMPPlayerStateName(mState), AAMPPlayerStateName(state));
 
 	// Handle SEEKED event based on the actual previous state
@@ -8635,6 +8655,7 @@ void PrivateInstanceAAMP::SetState(AAMPPlayerState state)
 	if ((state == eSTATE_PLAYING || state == eSTATE_BUFFERING || state == eSTATE_PAUSED)
 		&& mState == eSTATE_SEEKING && (mEventManager->IsEventListenerAvailable(AAMP_EVENT_SEEKED)))
 	{
+		AAMPLOG_WARN("vk::SetState - sending AAMP_EVENT_SEEKED (state transition from SEEKING)");
 		SeekedEventPtr event = std::make_shared<SeekedEvent>(GetPositionMilliseconds(), GetSessionId());
 		mEventManager->SendEvent(event,AAMP_EVENT_SYNC_MODE);
 	}
@@ -8648,10 +8669,12 @@ void PrivateInstanceAAMP::SetState(AAMPPlayerState state)
 	{
 		if (mState == eSTATE_PREPARING)
 		{
+			AAMPLOG_WARN("vk::SetState - sending AAMP_EVENT_STATE_CHANGED (eSTATE_INITIALIZED)");
 			StateChangedEventPtr eventData = std::make_shared<StateChangedEvent>(eSTATE_INITIALIZED, GetSessionId());
 			mEventManager->SendEvent(eventData,AAMP_EVENT_SYNC_MODE);
 		}
 
+		AAMPLOG_WARN("vk::SetState - sending AAMP_EVENT_STATE_CHANGED (state=%s)", AAMPPlayerStateName(mState));
 		StateChangedEventPtr eventData = std::make_shared<StateChangedEvent>(mState, GetSessionId());
 		mEventManager->SendEvent(eventData,AAMP_EVENT_SYNC_MODE);
 	}
