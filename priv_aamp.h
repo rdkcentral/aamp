@@ -3084,7 +3084,7 @@ public:
 	 *   @param[in] manifestData : Manifest info to be updated to partner apps
 	 *   @return void
 	 */
-	void UpdateVideoEndMetrics(AampMediaType mediaType, BitsPerSecond bitrate, int curlOrHTTPCode, const std::string& strUrl, double curlDownloadTime, ManifestData * manifestData = NULL);
+	void UpdateVideoEndMetrics(AampMediaType mediaType, BitsPerSecond bitrate, int curlOrHTTPCode, std::string& strUrl, double curlDownloadTime, ManifestData * manifestData = NULL);
 
 	/**
 	 *   @fn UpdateVideoEndProfileResolution
@@ -3123,7 +3123,7 @@ public:
 	 *   @param[in] manifestData : Manifest info to be updated to partner apps
 	 *   @return void
 	 */
-	void UpdateVideoEndMetrics(AampMediaType mediaType, BitsPerSecond bitrate, int curlOrHTTPCode, const std::string& strUrl, double duration,double curlDownloadTime, bool keyChanged, bool isEncrypted, ManifestData * manifestData = NULL);
+	void UpdateVideoEndMetrics(AampMediaType mediaType, BitsPerSecond bitrate, int curlOrHTTPCode, std::string& strUrl, double duration,double curlDownloadTime, bool keyChanged, bool isEncrypted, ManifestData * manifestData = NULL);
 
 	/**
 	 *   @fn UpdateVideoEndMetrics
@@ -3134,7 +3134,7 @@ public:
 	 *   @param[in]  strUrl - URL in case of failures
 	 *   @return void
 	 */
-	void UpdateVideoEndMetrics(AampMediaType mediaType, BitsPerSecond bitrate, int curlOrHTTPCode, const std::string& strUrl, double duration, double curlDownloadTime);
+	void UpdateVideoEndMetrics(AampMediaType mediaType, BitsPerSecond bitrate, int curlOrHTTPCode, std::string& strUrl, double duration, double curlDownloadTime);
 
 
 	/**
