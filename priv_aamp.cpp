@@ -8646,8 +8646,9 @@ void PrivateInstanceAAMP::SetState(AAMPPlayerState state)
 		return;
 	}
 	
+	AAMPPlayerState currentState = mState;
 	AAMPLOG_WARN("vk::SetState - transitioning from %s (%d) to %s (%d)", 
-		AAMPPlayerStateName(mState), mState, AAMPPlayerStateName(state), state);
+		AAMPPlayerStateName(currentState), (int)currentState, AAMPPlayerStateName(state), (int)state);
 	AAMPLOG_MIL("Player state changed: %s -> %s", AAMPPlayerStateName(mState), AAMPPlayerStateName(state));
 
 	// Handle SEEKED event based on the actual previous state
@@ -8674,7 +8675,8 @@ void PrivateInstanceAAMP::SetState(AAMPPlayerState state)
 			mEventManager->SendEvent(eventData,AAMP_EVENT_SYNC_MODE);
 		}
 
-		AAMPLOG_WARN("vk::SetState - sending AAMP_EVENT_STATE_CHANGED (state=%s)", AAMPPlayerStateName(mState));
+		AAMPPlayerState newState = mState;
+		AAMPLOG_WARN("vk::SetState - sending AAMP_EVENT_STATE_CHANGED (state=%s)", AAMPPlayerStateName(newState));
 		StateChangedEventPtr eventData = std::make_shared<StateChangedEvent>(mState, GetSessionId());
 		mEventManager->SendEvent(eventData,AAMP_EVENT_SYNC_MODE);
 	}
