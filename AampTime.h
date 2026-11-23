@@ -21,7 +21,7 @@
 #include <ostream>
 #include <cmath>
 #include <limits>
-
+	
 #ifndef AAMPTIME_H
 #define AAMPTIME_H
 
