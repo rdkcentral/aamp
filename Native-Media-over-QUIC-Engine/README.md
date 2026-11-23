@@ -79,7 +79,8 @@ tools/test_runner/run_test_runner.sh
 ```
 
 The runner launches either `nmqe-player` or the Shaka reference page (`docs/reference/Shaka-MoQ.html`,
-served locally and opened in a throwaway Chrome profile) against a saved or ad-hoc endpoint. It exposes
+served locally and opened in a throwaway Chrome profile that allows autoplay with sound) against a
+saved or ad-hoc endpoint. It exposes
 the common player options (`--transport-log`, pipeline, platform, log level, extra args), supports
 repeated runs, and prints a summary per run naming the furthest tune stage reached. Run files go to
 `runs/`: `<stamp>.jsonl` / `<stamp>.log` for native runs, `<stamp>-shaka.jsonl` for the page's reported

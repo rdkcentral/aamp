@@ -87,12 +87,15 @@
     /*
      * The relay is not committed: open this page as
      *   Shaka-MoQ.html?relay=https://<relay-host>:4443/
-     * Optional: &ns=<namespace> (default mediakind-test), &version=<draft-NN> (default draft-22)
+     * Optional: &ns=<namespace> (default mediakind-test), &version=<draft-NN> (default draft-22),
+     * &muted=0 to start with sound (needs a browser autoplay policy that allows it, otherwise
+     * playback falls back to muted).
      */
     const PARAMS = new URLSearchParams(window.location.search);
     const RELAY_URL = PARAMS.get('relay') || '';
     const NAMESPACE = PARAMS.get('ns') || 'mediakind-test';
     const VERSION = PARAMS.get('version') || 'draft-22';
+    const START_MUTED = PARAMS.get('muted') !== '0';
 
 
     async function initPlayer() {
@@ -129,6 +132,8 @@
       const video =
         document.getElementById('video');
 
+      video.muted = START_MUTED;
+
       if (window.nmqeReport) {
         for (const name of ['loadedmetadata', 'playing', 'waiting', 'stalled', 'error', 'ended']) {
           video.addEventListener(name, () => window.nmqeReport({
@@ -143,6 +148,7 @@
             current_time: video.currentTime,
             buffered_end: buffered.length ? buffered.end(buffered.length - 1) : 0,
             paused: video.paused,
+            muted: video.muted,
             ready_state: video.readyState,
             total_frames: quality.totalVideoFrames,
             dropped_frames: quality.droppedVideoFrames
@@ -234,11 +240,19 @@
         /*
          * Start playback automatically.
          *
-         * Chrome normally allows autoplay when the
-         * video is muted.
+         * Chrome normally allows autoplay only when the
+         * video is muted, so an unmuted start that the
+         * autoplay policy refuses retries muted.
          */
 
-        await video.play();
+        try {
+          await video.play();
+        } catch (error) {
+          if (error.name !== 'NotAllowedError' || video.muted) throw error;
+          console.warn('Autoplay with sound was blocked; playing muted.');
+          video.muted = true;
+          await video.play();
+        }
 
 
         console.log(

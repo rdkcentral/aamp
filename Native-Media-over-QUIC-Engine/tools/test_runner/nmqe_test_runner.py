@@ -204,9 +204,9 @@ class ShakaRun:
             f"Diagnosis: {diagnosis}",
             "Tune:      " + " ".join(f"{name}={m[name]} ms" for name in
                                      ("connected", "setup", "loaded", "playing", "progressing") if name in m),
-            "Playback:  position={:.1f}s buffered_end={:.1f}s frames={} dropped={}".format(
+            "Playback:  position={:.1f}s buffered_end={:.1f}s frames={} dropped={} muted={}".format(
                 s.get("current_time", 0), s.get("buffered_end", 0), s.get("total_frames", 0),
-                s.get("dropped_frames", 0)),
+                s.get("dropped_frames", 0), s.get("muted", "-")),
         ]
         lines += [f"Error:     {error}" for error in self.errors[:5]]
         return status, lines
@@ -298,6 +298,8 @@ class TestRunner:
         ttk.Label(line, text="Repeat:").pack(side=tk.LEFT, padx=(15, 2))
         self.repeat_var = tk.StringVar(value="1")
         ttk.Spinbox(line, from_=1, to=100, textvariable=self.repeat_var, width=4).pack(side=tk.LEFT)
+        self.shaka_muted_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(line, text="Shaka: start muted", variable=self.shaka_muted_var).pack(side=tk.LEFT, padx=(15, 0))
 
         native = ttk.LabelFrame(main, text="Native options", padding=6)
         native.pack(fill=tk.X, pady=4)
@@ -469,6 +471,7 @@ class TestRunner:
             "version": self.version_var.get().strip(),
             "duration": duration,
             "repeat": repeat,
+            "shaka_muted": self.shaka_muted_var.get(),
         }
         if not settings["relay"]:
             messagebox.showerror("Run", "Enter a relay URL.")
@@ -598,12 +601,14 @@ class TestRunner:
         server.on_event = on_event
         threading.Thread(target=server.serve_forever, daemon=True).start()
         query = urlencode({"relay": settings["relay"], "ns": settings["namespace"],
-                           "version": shaka_version(settings["version"]), "report": 1})
+                           "version": shaka_version(settings["version"]), "report": 1,
+                           "muted": 1 if settings["shaka_muted"] else 0})
         url = f"http://127.0.0.1:{server.server_address[1]}/{SHAKA_PAGE}?{query}"
         # A throwaway profile makes this a separate Chrome instance we can stop, with a cold cache.
+        # The autoplay policy lets the page start with sound without a click.
         profile = tempfile.mkdtemp(prefix="nmqe-chrome-")
         cmd = [CHROME, f"--user-data-dir={profile}", "--no-first-run", "--no-default-browser-check",
-               "--new-window", url]
+               "--autoplay-policy=no-user-gesture-required", "--new-window", url]
         self.log("$ " + shlex.join(cmd))
         try:
             self.process = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
