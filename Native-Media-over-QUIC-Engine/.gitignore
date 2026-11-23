@@ -5,3 +5,6 @@
 # Local helper scripts (run.sh holds the internal relay URL).
 /build.sh
 /run.sh
+/run-shaka.sh
+# Test runner endpoints hold internal relay URLs; see config/endpoints.example.json.
+/config/endpoints.json

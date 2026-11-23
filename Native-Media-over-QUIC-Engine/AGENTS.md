@@ -10,6 +10,9 @@ cmake -S . -B build -G Ninja && ninja -C build && ctest --test-dir build --outpu
 - cargo is at `~/.cargo/bin` (rustup). The Rust shim builds through CMake (`cmake/MoqShim.cmake`) with `--locked`.
 - A live smoke test needs the VPN and the relay URL in `NMQE_RELAY_URL` (not committed):
   `./build/nmqe-player --pipeline null --duration 10 --telemetry /dev/null`.
+- GUI runner for native/Shaka runs: `tools/test_runner/run_test_runner.sh` (python3.14 + Tk). Endpoints
+  are in `config/endpoints.json` (not committed). The logic can be driven without clicks by importing
+  `nmqe_test_runner` and calling `TestRunner.start()`.
 - Two tests skip unless `tests/fixtures/captures/reference.capture` exists. Record it with
   `--capture`. Never commit it (it contains broadcast media).
 

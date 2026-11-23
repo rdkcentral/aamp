@@ -10,6 +10,39 @@
 
   <title>Shaka MoQ Player</title>
 
+  <!--
+    Opened by tools/test_runner with ?report=1: mirror console output and playback
+    events to the runner's local server. Installed before Shaka so its logging is
+    captured too. Without ?report the page behaves as before.
+  -->
+  <script>
+    (function () {
+      if (!new URLSearchParams(window.location.search).get('report')) return;
+      const start = performance.now();
+      const send = (event) => {
+        event.t_ms = Math.round(performance.now() - start);
+        fetch('/report', { method: 'POST', body: JSON.stringify(event), keepalive: true }).catch(() => {});
+      };
+      const describe = (value) => {
+        if (value instanceof Error) return `${value.name}: ${value.message}`;
+        if (value && typeof value === 'object') {
+          try { return JSON.stringify(value); } catch (e) { return String(value); }
+        }
+        return String(value);
+      };
+      for (const level of ['debug', 'log', 'info', 'warn', 'error']) {
+        const original = console[level].bind(console);
+        console[level] = (...args) => {
+          original(...args);
+          send({ type: 'log', level, text: args.map(describe).join(' ') });
+        };
+      }
+      window.addEventListener('error', (e) => send({ type: 'log', level: 'error', text: e.message }));
+      window.addEventListener('unhandledrejection', (e) => send({ type: 'log', level: 'error', text: describe(e.reason) }));
+      window.nmqeReport = send;
+    })();
+  </script>
+
   <!-- Shaka experimental build required for MoQ/MSF -->
   <script src="https://shaka-project.github.io/shaka-player/dist/shaka-player.experimental.debug.js"></script>
 
@@ -54,9 +87,12 @@
     /*
      * The relay is not committed: open this page as
      *   Shaka-MoQ.html?relay=https://<relay-host>:4443/
+     * Optional: &ns=<namespace> (default mediakind-test), &version=<draft-NN> (default draft-22)
      */
-    const RELAY_URL =
-      new URLSearchParams(window.location.search).get('relay') || '';
+    const PARAMS = new URLSearchParams(window.location.search);
+    const RELAY_URL = PARAMS.get('relay') || '';
+    const NAMESPACE = PARAMS.get('ns') || 'mediakind-test';
+    const VERSION = PARAMS.get('version') || 'draft-22';
 
 
     async function initPlayer() {
@@ -92,6 +128,27 @@
 
       const video =
         document.getElementById('video');
+
+      if (window.nmqeReport) {
+        for (const name of ['loadedmetadata', 'playing', 'waiting', 'stalled', 'error', 'ended']) {
+          video.addEventListener(name, () => window.nmqeReport({
+            type: 'video', name, current_time: video.currentTime
+          }));
+        }
+        setInterval(() => {
+          const quality = video.getVideoPlaybackQuality();
+          const buffered = video.buffered;
+          window.nmqeReport({
+            type: 'status',
+            current_time: video.currentTime,
+            buffered_end: buffered.length ? buffered.end(buffered.length - 1) : 0,
+            paused: video.paused,
+            ready_state: video.readyState,
+            total_frames: quality.totalVideoFrames,
+            dropped_frames: quality.droppedVideoFrames
+          });
+        }, 1000);
+      }
 
 
       /*
@@ -137,10 +194,10 @@
           msf: {
 
             namespaces: [
-              'mediakind-test'
+              NAMESPACE
             ],
 
-            version: 'draft-22'
+            version: VERSION
 
           }
 

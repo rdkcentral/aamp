@@ -1,0 +1,10 @@
+{
+  "endpoints": [
+    {
+      "name": "reference publication",
+      "relay": "https://<relay-host>:4443/",
+      "namespace": "mediakind-test",
+      "moqt_version": "moq-transport-22"
+    }
+  ]
+}
