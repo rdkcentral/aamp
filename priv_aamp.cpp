@@ -2889,7 +2889,9 @@ void PrivateInstanceAAMP::SendErrorEvent(AAMPTuneFailure tuneFailure, const char
 			T1.Download(remoteUrl, std::move(respData));
 		}
 		sendErrorEvent = true;
+		AAMPLOG_WARN("vk::1 Tune failure handler - Setting mState to eSTATE_ERROR from %s, instance=%p", AAMPPlayerStateName(mState), (void*)this);
 		mState = eSTATE_ERROR;
+		AAMPLOG_WARN("vk::1 Tune failure handler - mState now set to %s (%d)", AAMPPlayerStateName(mState), (int)mState);
 	}
 	lock.unlock();
 	if (sendErrorEvent)
@@ -8662,7 +8664,9 @@ void PrivateInstanceAAMP::SetState(AAMPPlayerState state)
 {
 	//bool sentSync = true;
 
-	AAMPLOG_WARN("vk::1 SetState() - Entry: state=%s (%d)", AAMPPlayerStateName(state), (int)state);
+	AAMPLOG_WARN("vk::1 SetState() - Entry: state=%s (%d), instance=%p, thread=%p, currentState=%s (%d)", 
+		AAMPPlayerStateName(state), (int)state, (void*)this, (void*)pthread_self(), 
+		AAMPPlayerStateName(mState), (int)mState);
 
 	if (state == eSTATE_PLAYING || state == eSTATE_BUFFERING || state == eSTATE_PAUSED)
 	{
@@ -8677,8 +8681,9 @@ void PrivateInstanceAAMP::SetState(AAMPPlayerState state)
 	}
 	
 	AAMPPlayerState currentState = mState;
-	AAMPLOG_WARN("vk::SetState - transitioning from %s (%d) to %s (%d)", 
-		AAMPPlayerStateName(currentState), (int)currentState, AAMPPlayerStateName(state), (int)state);
+	AAMPLOG_WARN("vk::SetState - transitioning from %s (%d) to %s (%d), instance=%p, thread=%p", 
+		AAMPPlayerStateName(currentState), (int)currentState, AAMPPlayerStateName(state), (int)state, 
+		(void*)this, (void*)pthread_self());
 	AAMPLOG_MIL("Player state changed: %s -> %s", AAMPPlayerStateName(mState), AAMPPlayerStateName(state));
 
 	// Handle SEEKED event based on the actual previous state
@@ -8691,11 +8696,13 @@ void PrivateInstanceAAMP::SetState(AAMPPlayerState state)
 		mEventManager->SendEvent(event,AAMP_EVENT_SYNC_MODE);
 	}
 	{
-		AAMPLOG_WARN("vk::1 SetState() - Acquiring mLock to update mState");
+		AAMPLOG_WARN("vk::1 SetState() - Acquiring mLock to update mState, instance=%p, thread=%p", (void*)this, (void*)pthread_self());
 		std::lock_guard<std::recursive_mutex> guard(mLock);
-		AAMPLOG_WARN("vk::1 SetState() - mLock acquired, updating mState from %s to %s", AAMPPlayerStateName(mState), AAMPPlayerStateName(state));
+		AAMPLOG_WARN("vk::1 SetState() - mLock acquired, updating mState from %s to %s, instance=%p", 
+			AAMPPlayerStateName(mState), AAMPPlayerStateName(state), (void*)this);
 		mState = state;
-		AAMPLOG_WARN("vk::1 SetState() - mState updated to %s (%d)", AAMPPlayerStateName(mState), (int)mState);
+		AAMPLOG_WARN("vk::1 SetState() - mState updated to %s (%d), instance=%p, thread=%p", 
+			AAMPPlayerStateName(mState), (int)mState, (void*)this, (void*)pthread_self());
 	}
 
 	AAMPLOG_WARN("vk::1 SetState() - Calling mScheduler->SetState(%s)", AAMPPlayerStateName(mState));
@@ -8730,7 +8737,9 @@ void PrivateInstanceAAMP::SetState(AAMPPlayerState state)
 AAMPPlayerState PrivateInstanceAAMP::GetState(void)
 {
 	std::lock_guard<std::recursive_mutex> guard(mLock);
-	return mState;
+	AAMPPlayerState currentState = mState.load();
+	AAMPLOG_WARN("vk::GetState() - Retrieving state from instance=%p, mState=%s (%d), thread=%p", (void*)this, AAMPPlayerStateName(currentState), (int)currentState, (void*)pthread_self());
+	return currentState;
 }
 
 /**

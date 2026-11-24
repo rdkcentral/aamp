@@ -322,6 +322,12 @@ void AampEventManager::SendEvent(const AAMPEventPtr &eventData, AAMPEventMode ev
 	
 	if(mIsFakeTune && !(AAMP_EVENT_STATE_CHANGED == eventType && eSTATE_COMPLETE == std::dynamic_pointer_cast<StateChangedEvent>(eventData)->getState()) && !(AAMP_EVENT_EOS == eventType))
 	{
+		AAMPLOG_WARN("vk::1 SendEvent - Fake tune mode: checking StateChangedEvent state");
+		if(AAMP_EVENT_STATE_CHANGED == eventType)
+		{
+			AAMPPlayerState eventState = std::dynamic_pointer_cast<StateChangedEvent>(eventData)->getState();
+			AAMPLOG_WARN("vk::1 SendEvent - Fake tune: StateChangedEvent state=%s (%d), events disabled", AAMPPlayerStateName(eventState), (int)eventState);
+		}
 		AAMPLOG_TRACE("Events are disabled for fake tune");
 		return;
 	}

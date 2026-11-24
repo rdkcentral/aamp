@@ -764,7 +764,7 @@ const std::string &BulkTimedMetadataEvent::getContent() const
 StateChangedEvent::StateChangedEvent(AAMPPlayerState state, std::string sid):
 		AAMPEventObject(AAMP_EVENT_STATE_CHANGED, std::move(sid)), mState(state)
 {
-
+	AAMPLOG_WARN("vk::1 StateChangedEvent::Constructor - state=%s (%d), sessionId=%s", AAMPPlayerStateName(state), (int)state, sid.c_str());
 }
 
 /**
@@ -774,6 +774,7 @@ StateChangedEvent::StateChangedEvent(AAMPPlayerState state, std::string sid):
  */
 AAMPPlayerState StateChangedEvent::getState() const
 {
+	AAMPLOG_WARN("vk::1 StateChangedEvent::getState() - Returning state=%s (%d)", AAMPPlayerStateName(mState), (int)mState);
 	return mState;
 }
 

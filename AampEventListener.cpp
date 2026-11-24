@@ -159,8 +159,11 @@ static void GenerateLegacyAAMPEvent(const AAMPEventPtr &e, AAMPEvent &event)
 		}
 		case AAMP_EVENT_STATE_CHANGED:
 		{
+			AAMPLOG_WARN("vk::1 AampEventListener - Processing AAMP_EVENT_STATE_CHANGED");
 			StateChangedEventPtr ev = std::dynamic_pointer_cast<StateChangedEvent>(e);
+			AAMPLOG_WARN("vk::1 AampEventListener - Calling getState() on StateChangedEvent");
 			event.data.stateChanged.state = ev->getState();
+			AAMPLOG_WARN("vk::1 AampEventListener - StateChanged event processed, state=%s (%d)", AAMPPlayerStateName(event.data.stateChanged.state), (int)event.data.stateChanged.state);
 			break;
 		}
 		case AAMP_EVENT_SPEEDS_CHANGED:

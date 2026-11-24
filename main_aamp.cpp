@@ -689,11 +689,17 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 {
 	if( aamp )
 	{
+		AAMPLOG_WARN("vk::1 SetRateInternal() - Entry: rate=%.2f, overshootcorrection=%d, mPlayerId=%d", rate, overshootcorrection, aamp->mPlayerId);
+		AAMPLOG_WARN("vk::1 SetRateInternal() - Instance info: mState=%s (%d), was_initialized_to_eSTATE_RELEASED in constructor", AAMPPlayerStateName(aamp->mState), (int)aamp->mState);
+		
 		AAMPLOG_INFO("PLAYER[%d] rate=%f.", aamp->mPlayerId, rate);
 		AAMPPlayerState state = GetState();
 		AAMPLOG_INFO("PLAYER[%d] Current state = %s", aamp->mPlayerId, AAMPPlayerStateName(state));
+		AAMPLOG_WARN("vk::1 SetRateInternal() - GetState() returned: %s (%d)", AAMPPlayerStateName(state), (int)state);
+		
 		if (state == eSTATE_ERROR)
 		{
+			AAMPLOG_WARN("vk::1 SetRateInternal() - ERROR: operation not allowed when player in eSTATE_ERROR state");
 			AAMPLOG_WARN("operation is not allowed when player in eSTATE_ERROR state !");
 			return;
 		}
@@ -701,10 +707,12 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 		//convert the incoming rates into acceptable rates
 		if(ISCONFIGSET(eAAMPConfig_RepairIframes))
 		{
+			AAMPLOG_WARN("vk::1 SetRateInternal() - RepairIframes enabled, converting rate %.2f to %.2f", rate, getWorkingTrickplayRate(rate));
 			AAMPLOG_WARN("mRepairIframes is true, setting actual rate %f for the received rate %f", getWorkingTrickplayRate(rate), rate);
 			rate = getWorkingTrickplayRate(rate);
 		}
 
+		AAMPLOG_WARN("vk::1 SetRateInternal() - Calling StopPausePositionMonitoring()");
 		aamp->StopPausePositionMonitoring("SetRate() called");
 
 		if (aamp->mpStreamAbstractionAAMP && !(aamp->mbUsingExternalPlayer))
@@ -716,15 +724,18 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 			}
 			if ( AAMP_SLOWMOTION_RATE != rate && !aamp->mIsIframeTrackPresent && rate != AAMP_NORMAL_PLAY_RATE && rate != 0 && aamp->mMediaFormat != eMEDIAFORMAT_PROGRESSIVE)
 			{
+				AAMPLOG_WARN("vk::1 SetRateInternal() - No iframe tracks, ignoring trickplay");
 				AAMPLOG_WARN("Ignoring trickplay. No iframe tracks in stream");
 				AAMPLOG_WARN("vk::Caller_7 (SetRate_NoIframes) - calling NotifySpeedChanged(rate=AAMP_NORMAL_PLAY_RATE) - no iframe tracks");
 				aamp->NotifySpeedChanged(AAMP_NORMAL_PLAY_RATE); // Send speed change event to XRE to reset the speed to normal play since the trickplay ignored at player level.
+				AAMPLOG_WARN("vk::1 SetRateInternal() - Exit (early): No iframe tracks");
 				return;
 			}
 			// Special case where playback has not started due to autoplay being false and
 			// first rate is paused, set to pause with first frame shown
 			if ((AAMP_RATE_PAUSE == rate) && aamp->pipeline_paused && !aamp->mbPlayEnabled && !aamp->mbDetached)
 			{
+				AAMPLOG_WARN("vk::1 SetRateInternal() - Special case: Pause on autoplay=false, converting rate to NORMAL");
 				rate = AAMP_NORMAL_PLAY_RATE;
 				aamp->SetPauseOnStartPlayback(true);
 			}
@@ -735,6 +746,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 
 			if(!(aamp->mbPlayEnabled) && aamp->pipeline_paused && (AAMP_RATE_PAUSE != rate) && (aamp->mbSeeked || !aamp->mbDetached))
 			{
+				AAMPLOG_WARN("vk::1 SetRateInternal() - Transitioning from BACKGROUND to FOREGROUND");
 				AAMPLOG_WARN("PLAYER[%d] Player %s=>%s.", aamp->mPlayerId, STRBGPLAYER, STRFGPLAYER );
 				aamp->mbPlayEnabled = true;
 				if (AAMP_NORMAL_PLAY_RATE == rate)
@@ -1070,8 +1082,10 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 		}
 		else
 		{
+			AAMPLOG_WARN("vk::1 SetRateInternal() - mpStreamAbstractionAAMP is NULL or mbUsingExternalPlayer=true");
 			AAMPLOG_WARN("aamp_SetRate rate[%f] - mpStreamAbstractionAAMP[%p] state[%d]", aamp->rate, aamp->mpStreamAbstractionAAMP, state);
 		}
+		AAMPLOG_WARN("vk::1 SetRateInternal() - Exit: rate now=%.2f, final_mState=%s (%d), mPlayerId=%d", aamp->rate, AAMPPlayerStateName(aamp->mState), (int)aamp->mState, aamp->mPlayerId);
 	}
 }
 
