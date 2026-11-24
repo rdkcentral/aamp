@@ -2380,7 +2380,7 @@ bool StreamAbstractionAAMP_MPD::HandleSeekEOSAndPeriodTransition(double remainin
 				ctx->profileChanged,
 				ctx->adaptationSet,
 				ctx->representation,
-				ctx->fragmentDescriptor.Bandwidth,
+				(BitsPerSecond)ctx->fragmentDescriptor.Bandwidth,
 				ctx->fragmentDescriptor.Number,
 				ctx->fragmentDescriptor.Time,
 				ctx->eos,
