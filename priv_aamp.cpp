@@ -2349,7 +2349,8 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 		if (reachedStart)
 		{
 			// Check the rate so that PlayFromTsbStart() is not called more than once
-			if (rate < AAMP_RATE_PAUSE)
+			// Only do this if the instance is not detached
+			if (rate < AAMP_RATE_PAUSE && !mbDetached)
 			{
 				PlayFromTsbStart();
 			}

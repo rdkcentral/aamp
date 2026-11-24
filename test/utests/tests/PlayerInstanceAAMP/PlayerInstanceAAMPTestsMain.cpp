@@ -336,6 +336,121 @@ TEST_F(PlayerInstanceAAMPTests, SetRateInternal_AtLivePoint_Detached_AllowsOpera
 }
 
 /**
+ * @brief Test SetRateInternal re-enables event processing when SetRate() is
+ * called directly on a detached instance, without an intervening Seek().
+ *
+ * Regression test for a bug where events (e.g. Progress) were permanently
+ * dropped after a detached player was brought back to foreground, because
+ * mbDetached got reset to false (by TuneHelper/stream Init) before
+ * enableEventProcessing() was ever called for this particular code path
+ * ("Enable playback if setRate call after detach" branch).
+ */
+TEST_F(PlayerInstanceAAMPTests, SetRateInternal_DirectSetRateAfterDetach_EnablesEventProcessing)
+{
+	float rate = AAMP_NORMAL_PLAY_RATE;
+	int overshootcorrection = TEST_OVERSHOOT_CORRECTION;
+
+	// Setup: Mimic state left behind by detach() - mbDetached true, pipeline
+	// paused, play disabled - with SetRate() called directly (mbSeeked still
+	// false, i.e. no Seek() happened in between).
+	mPlayerInstance->aamp->mbDetached = true;
+	mPlayerInstance->aamp->mbSeeked = false;
+	mPlayerInstance->aamp->mbPlayEnabled = false;
+	mPlayerInstance->aamp->pipeline_paused = true;
+	mPlayerInstance->aamp->rate = 0.0f; // Different from target rate
+	mPrivateInstanceAAMP->mIsIframeTrackPresent = true;
+	g_mockStreamAbstractionAAMP->mIsAtLivePoint = true;
+
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_))
+		.WillRepeatedly(Return(false));
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsAtLivePoint())
+		.WillOnce(Return(false));
+
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, SetIsAtLivePoint(false))
+		.Times(1);
+
+	// This is the fix under test: event processing must be re-enabled
+	// before mbDetached gets cleared by TuneHelper().
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, enableEventProcessing())
+		.Times(1);
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, TuneHelper(eTUNETYPE_SEEK, false))
+		.Times(1);
+
+	mPlayerInstance->SetRate(rate, overshootcorrection);
+
+	EXPECT_TRUE(mPlayerInstance->aamp->mbPlayEnabled);
+}
+
+/**
+ * @brief Test SetRateInternal re-enables event processing on a plain
+ * (never-detached) background-to-foreground transition.
+ *
+ * Covers the enableEventProcessing() call inside the BG->FG block, which
+ * replaced the old unconditional top-of-function `if (mbDetached)` check.
+ */
+TEST_F(PlayerInstanceAAMPTests, SetRateInternal_BackgroundToForeground_EnablesEventProcessing)
+{
+	float rate = AAMP_NORMAL_PLAY_RATE;
+	int overshootcorrection = TEST_OVERSHOOT_CORRECTION;
+
+	// Setup: Plain background player (never detached) being brought to foreground
+	mPlayerInstance->aamp->mbDetached = false;
+	mPlayerInstance->aamp->mbSeeked = false;
+	mPlayerInstance->aamp->mbPlayEnabled = false;
+	mPlayerInstance->aamp->pipeline_paused = true;
+	mPlayerInstance->aamp->rate = 0.0f; // Different from target rate
+	mPrivateInstanceAAMP->mIsIframeTrackPresent = true;
+
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_))
+		.WillRepeatedly(Return(false));
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, enableEventProcessing())
+		.Times(1);
+
+	mPlayerInstance->SetRate(rate, overshootcorrection);
+
+	EXPECT_TRUE(mPlayerInstance->aamp->mbPlayEnabled);
+}
+
+/**
+ * @brief Regression test: a detached player that already had the reattach
+ * Seek() called on it (mbSeeked=true) must still re-enable event processing
+ * when finally brought to the foreground via SetRate().
+ *
+ * This is the exact scenario from the original bug report: detach() ->
+ * reattach Seek() (which already calls enableEventProcessing() once) ->
+ * SetRate() to bring the instance to foreground. This test guards the
+ * BG->FG block's own enableEventProcessing() call for this path too.
+ */
+TEST_F(PlayerInstanceAAMPTests, SetRateInternal_DetachedAndSeeked_ForegroundTransition_EnablesEventProcessing)
+{
+	float rate = AAMP_NORMAL_PLAY_RATE;
+	int overshootcorrection = TEST_OVERSHOOT_CORRECTION;
+
+	// Setup: Detached instance that already had its reattach Seek() called
+	mPlayerInstance->aamp->mbDetached = true;
+	mPlayerInstance->aamp->mbSeeked = true;
+	mPlayerInstance->aamp->mbPlayEnabled = false;
+	mPlayerInstance->aamp->pipeline_paused = true;
+	mPlayerInstance->aamp->rate = 0.0f; // Different from target rate
+	mPrivateInstanceAAMP->mIsIframeTrackPresent = true;
+
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_))
+		.WillRepeatedly(Return(false));
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, enableEventProcessing())
+		.Times(1);
+
+	mPlayerInstance->SetRate(rate, overshootcorrection);
+
+	EXPECT_TRUE(mPlayerInstance->aamp->mbPlayEnabled);
+	EXPECT_FALSE(mPlayerInstance->aamp->mbSeeked);
+	EXPECT_FALSE(mPlayerInstance->aamp->pipeline_paused);
+}
+
+/**
  * @brief Test SetRateInternal verifies mIsAtLivePoint flag is updated
  *
  * After any rate change (except when skipped at live point),

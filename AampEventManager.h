@@ -95,6 +95,14 @@ protected:
 	 */
 	guint GetSourceID();
 	/**
+	 * @fn CountEventListeners
+	 * @brief Count the number of listeners registered for a given event type.
+	 *        Caller must hold mMutexVar before calling this.
+	 * @param eventType - Aamp Event type
+	 * @return Number of listeners registered for eventType
+	 */
+	int CountEventListeners(AAMPEventType eventType);
+	/**
 	 * @fn SetCallbackAsDispatched
 	 * @param id - CallbackId for the IdleEvent
 	 * @return void
