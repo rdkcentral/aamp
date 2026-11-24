@@ -26,6 +26,7 @@
 #include "AampLogManager.h"
 #include "admanager_mpd.h"
 #include "fragmentcollector_mpd.h"
+#include "MediaStreamContext.h"
 #include "MockPrivateInstanceAAMP.h"
 #include "MockAampUtils.h"
 #include "MockAampConfig.h"

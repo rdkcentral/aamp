@@ -402,6 +402,17 @@ private:
 	 */
 	bool waitForRefreshInterval(uint32_t waitMs);
 	/**
+	*	@fn keepManifestTimeline
+	*	@brief Function to maintain the manifest timeline across live and static transitions
+	*
+	*	@param parseHelper Parse helper for the manifest
+	*	@param isLiveManifest Boolean indicating if the manifest is live
+	*	@param playlistDownloadTimeMs Download time of the playlist in milliseconds
+	*
+	*	@return true if static transition is detected, false otherwise
+	*/
+	bool keepManifestTimeline(const AampMPDParseHelperPtr& parseHelper,	bool isLiveManifest, uint64_t playlistDownloadTimeMs);
+	/**
 	*	@fn pushDownloadDataToQueue
 	*	@brief Function to push the download MPD to Queue for collector to read it
 	*/
@@ -488,6 +499,8 @@ private:
 	std::atomic<int> mManifestRefreshErrorCode;
 	std::atomic<AAMPStatusType> mManifestRefreshErrorType;
 	std::atomic<long long> mManifestRefreshFailureStartMs{-1}; /**< Steady-clock start of the current refresh outage; -1 when refreshes are succeeding */
+	double mLastLiveFirstPeriodStart{0.0};
+	double mLastLiveFirstSegmentStart{-1.0};
 };
 
 #endif /* __AAMP_MPD_DOWNLOADER_H__ */

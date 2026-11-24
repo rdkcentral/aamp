@@ -50,6 +50,7 @@ public:
 	MOCK_METHOD(void, SendErrorEvent, (AAMPTuneFailure, const char *, bool, int32_t, int32_t, int32_t, const std::string &));
 	MOCK_METHOD(void, SendDownloadErrorEvent, (AAMPTuneFailure, long));
 	MOCK_METHOD(void, SendStalledErrorEvent, ());
+	MOCK_METHOD(void, ScheduleRetune, (PlaybackErrorType errorType, AampMediaType trackType));
 	MOCK_METHOD(void, SendStreamTransfer, (AampMediaType, std::vector<uint8_t>&, double, double, double, double, bool, bool));
 	MOCK_METHOD(void, SendStreamTransfer, (AampMediaType, AampMediaSample&&, bool));
 	MOCK_METHOD(void, SetStreamCaps, (AampMediaType, MediaCodecInfo&&));
@@ -87,6 +88,7 @@ public:
 	MOCK_METHOD(void, StopDownloads, ());
 	MOCK_METHOD(void, ResumeDownloads, ());
 	MOCK_METHOD(void, DisableDownloads, ());
+	MOCK_METHOD(void, ApplyPausedDownloadPolicy, ());
 	MOCK_METHOD(void, TuneHelper, (TuneType tuneType, bool seekWhilePaused));
 	MOCK_METHOD(AampTSBSessionManager*, GetTSBSessionManager, ());
 	MOCK_METHOD(void, NotifyOnEnteringLive, ());
@@ -100,6 +102,11 @@ public:
 	MOCK_METHOD(void, SetLLDashChunkMode, (bool enable));
 	MOCK_METHOD(void, NotifySpeedChanged, (float rate, bool changeState));
 	MOCK_METHOD(bool, PausePipeline, (bool pause, bool forceStopPreBuffering));
+	MOCK_METHOD(void, NotifyFirstBufferProcessed, (const std::string& videoRectangle));
+	MOCK_METHOD(bool, SetStateBufferingIfRequired, ());
+	MOCK_METHOD(bool, CancelPauseOnFirstVideoFrame, ());
+	MOCK_METHOD(bool, RearmPauseOnFirstVideoFrame, ());
+	MOCK_METHOD(void, ApplySpeedChangeEffects, (float rate));
 	MOCK_METHOD(void, SetVideoMute, (bool muted));
 	MOCK_METHOD(void, SetCCStatusSetByApp, ());
 	MOCK_METHOD(bool, IsAtLivePoint, ());

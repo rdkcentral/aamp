@@ -705,7 +705,7 @@ void PrivateInstanceAAMP::SetContentType(const char *cType)
 }
 
 void PrivateInstanceAAMP::UpdateVideoEndMetrics(AampMediaType mediaType, BitsPerSecond bitrate,
-												int curlOrHTTPCode, std::string &strUrl,
+												int curlOrHTTPCode, const std::string &strUrl,
 												double duration, double curlDownloadTime)
 {
 }
@@ -828,7 +828,7 @@ void PrivateInstanceAAMP::UpdateRefreshPlaylistInterval(float maxIntervalSecs)
 }
 
 void PrivateInstanceAAMP::UpdateVideoEndMetrics(AampMediaType mediaType, BitsPerSecond bitrate,
-												int curlOrHTTPCode, std::string &strUrl,
+												int curlOrHTTPCode, const std::string &strUrl,
 												double duration, double curlDownloadTime,
 												bool keyChanged, bool isEncrypted,
 												ManifestData *manifestData)
@@ -840,7 +840,7 @@ void PrivateInstanceAAMP::UpdateVideoEndMetrics(AAMPAbrInfo &info)
 }
 
 void PrivateInstanceAAMP::UpdateVideoEndMetrics(AampMediaType mediaType, BitsPerSecond bitrate,
-												int curlOrHTTPCode, std::string &strUrl,
+												int curlOrHTTPCode, const std::string &strUrl,
 												double curlDownloadTime, ManifestData *manifestData)
 {
 }
@@ -1284,6 +1284,20 @@ void PrivateInstanceAAMP::InitializeCC(unsigned long)
 bool PrivateInstanceAAMP::IsFirstVideoFrameDisplayedRequired()
 {
 	return false;
+}
+
+bool PrivateInstanceAAMP::CancelPauseOnFirstVideoFrame()
+{
+	return false;
+}
+
+bool PrivateInstanceAAMP::RearmPauseOnFirstVideoFrame()
+{
+	return false;
+}
+
+void PrivateInstanceAAMP::ApplySpeedChangeEffects(float rate)
+{
 }
 
 void PrivateInstanceAAMP::UpdateSubtitleTimestamp()

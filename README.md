@@ -192,6 +192,7 @@ sendUserAgentInLicense		Enable/disable sending user agent in the DRM license req
 useSinglePipeline		Enable/Disable using single gstreamer pipeline for main and secondary assets
 earlyProcessing			Enable/Disable processing fragments on download to extract ID3 metadata
 useRialtoSink              Enable/Disable player to use Rialto sink based video and audio pipeline
+useDirectRialto			Enable/Disable player to call the Rialto client API directly, without a GStreamer pipeline. Read before player creation (device config, environment or operator settings), not changeable dynamically. Forces useMp4Demux on. See docs/direct-rialto/README.md
 disableTTML			Disable TTML subtitle tracks in DASH; in-band closed captions remain available. Default: false
 // Integer inputs
 ptsErrorThreshold		aamp maximum number of back-to-back pts errors to be considered for triggering a retune
@@ -273,7 +274,7 @@ showDiagnosticsOverlay		Configures the diagnostics overlay: 0 (none), 1 (minimal
 
 // String inputs
 licenseServerUrl		URL to be used for license requests for encrypted(PR/WV) assets
-harvestPath			Specify the path where fragments has to be harvested,check folder permissions specifying the path
+harvestPath			Specify the path where fragments has to be harvested,check folder permissions specifying the path. Only honored from device configuration (e.g. aamp.cfg); ignored if set by application (initConfig), stream or tune settings
 networkProxy			proxy address to set for all file downloads. Default: None  
 licenseProxy			proxy address to set for license fetch. Default: None
 AuthToken			SessionToken string to override from Application. Default: None

@@ -470,7 +470,7 @@ set(LIBAAMP_SOURCES
 	rmf_shim.cpp rmf_shim.h
 	fragmentcollector_progressive.cpp fragmentcollector_progressive.h
 	fragmentcollector_hls.cpp fragmentcollector_hls.h
-	fragmentcollector_mpd.cpp fragmentcollector_mpd.h
+	fragmentcollector_mpd.cpp fragmentcollector_mpd.h AampTrackSet.h
 	admanager_mpd.cpp admanager_mpd.h
 	AampUnderflowMonitor.cpp AampUnderflowMonitor.h
 	streamabstraction.cpp
@@ -509,7 +509,7 @@ set(LIBAAMP_SOURCES
 	isobmff/isobmffbuffer.cpp isobmff/isobmffbuffer.h
 	isobmff/isobmffprocessor.cpp isobmff/isobmffprocessor.h
 	isobmff/isobmffhelper.cpp isobmff/isobmffhelper.h
-	MediaStreamContext.cpp MediaStreamContext.h
+	MediaStreamContext.cpp MediaStreamContext.h SegmentIndex.h
 	downloader/AampCurlStore.cpp downloader/AampCurlStore.h downloader/AampCurlDefine.h
 	AampDRMLicPreFetcher.cpp AampDRMLicPreFetcher.h
 	AampCMCDCollector.cpp AampCMCDCollector.h

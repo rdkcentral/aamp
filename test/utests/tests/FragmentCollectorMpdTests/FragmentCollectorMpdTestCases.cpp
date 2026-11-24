@@ -56,7 +56,7 @@ public:
 	{
 		if (trackIdx >= 0 && trackIdx < AAMP_TRACK_COUNT)
 		{
-			mMediaStreamContext[trackIdx] = context;
+			mMediaStreamContext[trackIdx].reset(context);
 		}
 	}
 

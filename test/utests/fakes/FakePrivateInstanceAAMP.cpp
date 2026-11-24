@@ -340,11 +340,27 @@ long long PrivateInstanceAAMP::GetPositionMilliseconds()
 
 bool PrivateInstanceAAMP::SetStateBufferingIfRequired()
 {
+	if (g_mockPrivateInstanceAAMP)
+	{
+		return g_mockPrivateInstanceAAMP->SetStateBufferingIfRequired();
+	}
 	return false;
 }
 
-void PrivateInstanceAAMP::NotifyFirstBufferProcessed(const std::string&)
+void PrivateInstanceAAMP::NotifyFirstBufferProcessed(const std::string& videoRectangle)
 {
+	if (g_mockPrivateInstanceAAMP)
+	{
+		g_mockPrivateInstanceAAMP->NotifyFirstBufferProcessed(videoRectangle);
+	}
+}
+
+void PrivateInstanceAAMP::ApplyPausedDownloadPolicy()
+{
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		g_mockPrivateInstanceAAMP->ApplyPausedDownloadPolicy();
+	}
 }
 
 void PrivateInstanceAAMP::StopDownloads()
@@ -967,7 +983,7 @@ void PrivateInstanceAAMP::SetContentType(const char *cType)
 	}
 }
 
-void PrivateInstanceAAMP::UpdateVideoEndMetrics(AampMediaType mediaType, BitsPerSecond bitrate, int curlOrHTTPCode, std::string& strUrl, double duration, double curlDownloadTime)
+void PrivateInstanceAAMP::UpdateVideoEndMetrics(AampMediaType mediaType, BitsPerSecond bitrate, int curlOrHTTPCode, const std::string& strUrl, double duration, double curlDownloadTime)
 {
 }
 
@@ -1118,7 +1134,7 @@ void PrivateInstanceAAMP::UpdateRefreshPlaylistInterval(float maxIntervalSecs)
 {
 }
 
-void PrivateInstanceAAMP::UpdateVideoEndMetrics(AampMediaType mediaType, BitsPerSecond bitrate, int curlOrHTTPCode, std::string& strUrl, double duration, double curlDownloadTime, bool keyChanged, bool isEncrypted, ManifestData * manifestData)
+void PrivateInstanceAAMP::UpdateVideoEndMetrics(AampMediaType mediaType, BitsPerSecond bitrate, int curlOrHTTPCode, const std::string& strUrl, double duration, double curlDownloadTime, bool keyChanged, bool isEncrypted, ManifestData * manifestData)
 {
 }
 
@@ -1126,7 +1142,7 @@ void PrivateInstanceAAMP::UpdateVideoEndMetrics(AAMPAbrInfo & info)
 {
 }
 
-void PrivateInstanceAAMP::UpdateVideoEndMetrics(AampMediaType mediaType, BitsPerSecond bitrate, int curlOrHTTPCode, std::string& strUrl, double curlDownloadTime, ManifestData * manifestData)
+void PrivateInstanceAAMP::UpdateVideoEndMetrics(AampMediaType mediaType, BitsPerSecond bitrate, int curlOrHTTPCode, const std::string& strUrl, double curlDownloadTime, ManifestData * manifestData)
 {
 }
 
@@ -1274,6 +1290,10 @@ void PrivateInstanceAAMP::ResetTrackDiscontinuityIgnoredStatusForTrack(AampMedia
 
 void PrivateInstanceAAMP::ScheduleRetune(PlaybackErrorType errorType, AampMediaType trackType)
 {
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		g_mockPrivateInstanceAAMP->ScheduleRetune(errorType, trackType);
+	}
 }
 
 void PrivateInstanceAAMP::SendStalledErrorEvent()
@@ -1718,6 +1738,32 @@ void PrivateInstanceAAMP::InitializeCC(unsigned long)
 bool PrivateInstanceAAMP::IsFirstVideoFrameDisplayedRequired()
 {
 	return mFirstVideoFrameDisplayedEnabled;
+}
+
+bool PrivateInstanceAAMP::CancelPauseOnFirstVideoFrame()
+{
+	if (g_mockPrivateInstanceAAMP)
+	{
+		return g_mockPrivateInstanceAAMP->CancelPauseOnFirstVideoFrame();
+	}
+	return false;
+}
+
+bool PrivateInstanceAAMP::RearmPauseOnFirstVideoFrame()
+{
+	if (g_mockPrivateInstanceAAMP)
+	{
+		return g_mockPrivateInstanceAAMP->RearmPauseOnFirstVideoFrame();
+	}
+	return false;
+}
+
+void PrivateInstanceAAMP::ApplySpeedChangeEffects(float rate)
+{
+	if (g_mockPrivateInstanceAAMP)
+	{
+		g_mockPrivateInstanceAAMP->ApplySpeedChangeEffects(rate);
+	}
 }
 
 void PrivateInstanceAAMP::UpdateSubtitleTimestamp()
