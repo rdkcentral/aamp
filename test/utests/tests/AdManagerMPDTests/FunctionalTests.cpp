@@ -5506,7 +5506,7 @@ TEST_F(AdManagerMPDTests, GetAdMPD_RedirectPropagation)
   AAMPCDAIError errorCode = eCDAI_ERROR_NONE;
   
   // Call GetAdMPD with the origin URL
-  MPD* adMpd = mPrivateCDAIObjectMPD->GetAdMPD(manifestUrl, finalManifest, http_error, downloadTime, errorCode, false);
+  std::shared_ptr<MPD> adMpd = mPrivateCDAIObjectMPD->GetAdMPD(manifestUrl, finalManifest, http_error, downloadTime, errorCode, false);
   
   // Verify that the manifestUrl parameter was updated to the effective URL
   EXPECT_EQ(manifestUrl, cdnUrl) 
@@ -5514,12 +5514,6 @@ TEST_F(AdManagerMPDTests, GetAdMPD_RedirectPropagation)
   
   // Verify that the MPD was successfully parsed
   EXPECT_NE(adMpd, nullptr) << "GetAdMPD should return valid MPD after redirect";
-  
-  // Clean up
-  if (adMpd)
-  {
-    delete adMpd;
-  }
 }
 
 /**
@@ -5753,8 +5747,7 @@ TEST_F(AdManagerMPDTests, GetAdMPD_ConcurrentDownloadsAreSerialised)
     int http_error = 0;
     double downloadTime = 0.0;
     AAMPCDAIError errorCode = eCDAI_ERROR_NONE;
-    MPD *mpd = mPrivateCDAIObjectMPD->GetAdMPD(url, finalManifest, http_error, downloadTime, errorCode, false);
-    delete mpd;
+    auto mpd = mPrivateCDAIObjectMPD->GetAdMPD(url, finalManifest, http_error, downloadTime, errorCode, false);
   };
 
   std::future<void> first;

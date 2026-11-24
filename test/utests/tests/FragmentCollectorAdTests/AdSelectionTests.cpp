@@ -186,7 +186,7 @@ protected:
 	static constexpr const char *TEST_BASE_URL = "http://host/asset/";
 	static constexpr const char *TEST_MANIFEST_URL = "http://host/asset/manifest.mpd";
 	static constexpr const char *TEST_AD_MANIFEST_URL = "http://host/ad/manifest.mpd";
-	MPD* mAdMPD;
+	std::shared_ptr<MPD> mAdMPD;
 	static constexpr const char *mVodManifest = R"(<?xml version="1.0" encoding="utf-8"?>
 <MPD xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="urn:mpeg:dash:schema:mpd:2011" xmlns:xlink="http://www.w3.org/1999/xlink" xsi:schemaLocation="urn:mpeg:DASH:schema:MPD:2011 http://standards.iso.org/ittf/PubliclyAvailableStandards/MPEG-DASH_schema_files/DASH-MPD.xsd" profiles="urn:mpeg:dash:profile:isoff-live:2011" type="static" mediaPresentationDuration="PT15M0.0S" minBufferTime="PT4.0S">
 	<Period id="p0" start="PT0S">
@@ -475,8 +475,7 @@ protected:
 		mAdManifest = nullptr;
 		if(mAdMPD)
 		{
-			delete mAdMPD;
-			mAdMPD = nullptr;
+			mAdMPD.reset();
 		}
 	}
 
@@ -626,10 +625,9 @@ public:
 					{
 						if (mAdMPD)
 						{
-							delete mAdMPD;
-							mAdMPD = nullptr;
+							mAdMPD.reset();
 						}
-						mAdMPD = rootNode->ToMPD();
+						mAdMPD.reset(rootNode->ToMPD());
 						delete rootNode;
 					}
 				}

@@ -267,7 +267,7 @@ protected:
 	TestableStreamAbstractionAAMP_MPD *mTestableStreamAbstractionAAMP_MPD;
 	CDAIObject *mCdaiObj;
 	const char *mManifest;
-	MPD *mAdMPD;
+	std::shared_ptr<MPD> mAdMPD;
 	const char *mAdManifest;
 	static constexpr const char *TEST_AD_MANIFEST_URL = "http://host/ad/manifest.mpd";
 	static constexpr const char *TEST_BASE_URL = "http://host/asset/";
@@ -531,8 +531,7 @@ protected:
 		mResponse = nullptr;
 		if(mAdMPD)
 		{
-			delete mAdMPD;
-			mAdMPD = nullptr;
+			mAdMPD.reset();
 		}
 	}
 
@@ -679,10 +678,9 @@ public:
 					{
 						if (mAdMPD)
 						{
-							delete mAdMPD;
-							mAdMPD = nullptr;
+							mAdMPD.reset();
 						}
-						mAdMPD = rootNode->ToMPD();
+						mAdMPD.reset(rootNode->ToMPD());
 						delete rootNode;
 					}
 				}

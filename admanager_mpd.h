@@ -30,6 +30,7 @@
 #include <mutex>
 #include <condition_variable>
 #include <vector>
+#include <memory>
 #include "libdash/INode.h"
 #include "libdash/IDASHManager.h"
 #include "libdash/xml/Node.h"
@@ -166,12 +167,12 @@ struct AdNode {
 	uint32_t     placedDuration;   /**< Duration of the Ad placed so far in milliseconds */
 	std::string  basePeriodId;     /**< Id of the base period at the beginning of the Ad */
 	int          basePeriodOffset; /**< Offset of the base period at the beginning of the Ad in milliseconds */
-	MPD*         mpd;              /**< Pointer to the MPD object */
+	std::shared_ptr<MPD> mpd;      /**< Shared ownership of the MPD object */
 
 	/**
 	* @brief AdNode default constructor
 	*/
-	AdNode() : invalid(false), placed(false), resolved(false), cancelled(false), adId(), url(), duration(0), placedDuration(0), basePeriodId(), basePeriodOffset(0), mpd(nullptr)
+	AdNode() : invalid(false), placed(false), resolved(false), cancelled(false), adId(), url(), duration(0), placedDuration(0), basePeriodId(), basePeriodOffset(0), mpd()
 	{
 
 	}
@@ -191,9 +192,9 @@ struct AdNode {
 	* @param[in] cancelled - Is Ad playback cancelled
 	*/
 	AdNode(bool invalid, bool placed, bool resolved, std::string adId, std::string url, uint64_t duration,
-		std::string basePeriodId, int basePeriodOffset, MPD* mpd, bool cancelled = false)
+		std::string basePeriodId, int basePeriodOffset, std::shared_ptr<MPD> mpd, bool cancelled = false)
 		: invalid(invalid), placed(placed), resolved(resolved), cancelled(cancelled), adId(std::move(adId)), url(std::move(url)), duration(duration), placedDuration(0), basePeriodId(std::move(basePeriodId)),
-		basePeriodOffset(basePeriodOffset), mpd(mpd)
+		basePeriodOffset(basePeriodOffset), mpd(std::move(mpd))
 	{
 
 	}
@@ -598,9 +599,9 @@ public:
 	 * @param[out] http_error - http error code
 	 * @param[out] downloadTime - Time taken to download the manifest
 	 * @param[in]  tryFog - Attempt to download from FOG or not
-	 * @return MPD* MPD instance
+	 * @return std::shared_ptr<MPD> MPD instance, null on failure
 	 */
-	MPD* GetAdMPD(std::string &url, bool &finalManifest, int &http_error, double &downloadTime, AAMPCDAIError &adErrorCode, bool tryFog = false);
+	std::shared_ptr<MPD> GetAdMPD(std::string &url, bool &finalManifest, int &http_error, double &downloadTime, AAMPCDAIError &adErrorCode, bool tryFog = false);
 
 	/**
 	 * @fn InsertToPeriodMap

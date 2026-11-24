@@ -178,7 +178,7 @@ void PrivateCDAIObjectMPD::PrunePeriodMaps(std::vector<std::string> &newPeriodId
 			{
 				for(AdNode &ad: *adNodes)
 				{
-					SAFE_DELETE(ad.mpd);
+					ad.mpd.reset();
 				}
 			}
 			RemovePlacementObj(it->first);
@@ -245,7 +245,7 @@ void PrivateCDAIObjectMPD::ClearMaps()
 		{
 			for(AdNode &ad: *adNodes)
 			{
-				SAFE_DELETE(ad.mpd);
+				ad.mpd.reset();
 			}
 		}
 	}
@@ -1017,11 +1017,11 @@ bool PrivateCDAIObjectMPD::isPeriodInAdbreak(const std::string &periodId)
  * @param[out] downloadTime - Time taken to download the manifest
  * @param[out] errorCode - AAMPCDAIError Error code if any.
  * @param[in]  tryFog - Attempt to download from FOG or not
- * @return MPD* MPD instance
+ * @return std::shared_ptr<MPD> MPD instance, null on failure
  */
-MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifest, int &http_error, double &downloadTime, AAMPCDAIError &errorCode, bool tryFog)
+std::shared_ptr<MPD> PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifest, int &http_error, double &downloadTime, AAMPCDAIError &errorCode, bool tryFog)
 {
-	MPD* adMpd = NULL;
+	std::shared_ptr<MPD> adMpd;
 	std::vector<uint8_t> manifest;
 	bool gotManifest = false;
 	std::string effectiveUrl;
@@ -1163,7 +1163,7 @@ MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifes
 								break;
 							}
 						}
-						adMpd = root->ToMPD();
+						adMpd.reset(root->ToMPD());
 						SAFE_DELETE(root);
 					}
 					else
@@ -1417,11 +1417,11 @@ bool PrivateCDAIObjectMPD::FulFillAdObject()
 	// Held for the whole run so WaitForAdFulfilmentIdle() can wait for this ad.
 	std::lock_guard<std::mutex> inFlightLock(mAdFulfillInFlightMtx);
 	// Downloads are serialised by mDaiDownloadMtx, not mDaiMtx, so waiters that read ad state under mDaiMtx are not stalled by them.
-	MPD *ad = GetAdMPD(mAdFulfillObj.url, finalManifest, http_error, downloadTime, adErrorCode, true);
+	std::shared_ptr<MPD> ad = GetAdMPD(mAdFulfillObj.url, finalManifest, http_error, downloadTime, adErrorCode, true);
 	std::unique_lock<std::recursive_mutex> lock( mDaiMtx );
 	if(ad)
 	{
-		adMPDParseHelper.Initialize(ad);
+		adMPDParseHelper.Initialize(ad.get());
 		ValidateAdManifest(adMPDParseHelper, adErrorCode);
 		const auto &periodId = mAdFulfillObj.periodId;
 		if(isAdBreakObjectExist(periodId))	// Ad has periods && ensuring that the adbreak still exists
@@ -1445,7 +1445,7 @@ bool PrivateCDAIObjectMPD::FulFillAdObject()
 			if(!finalManifest)
 			{
 				AAMPLOG_INFO("Final manifest to be downloaded from the FOG later. Deleting the manifest got from CDN.");
-				SAFE_DELETE(ad);
+				ad.reset();
 				adMPDParseHelper.Clear();
 			}
 			if (!adBreakAssets->empty())
@@ -1527,7 +1527,7 @@ bool PrivateCDAIObjectMPD::FulFillAdObject()
 		{
 			adErrorCode = eCDAI_ERROR_UNKNOWN;
 			AAMPLOG_ERR("AdBreakId[%s] not existing. Dropping the Ad.", periodId.c_str());
-			SAFE_DELETE(ad);
+			ad.reset();
 		}
 	}
 	else

@@ -54,9 +54,9 @@ PrivateCDAIObjectMPD::~PrivateCDAIObjectMPD()
 {
 }
 
-MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &url, bool &finalManifest, int &http_error, double &downloadTime, AAMPCDAIError &errorCode, bool tryFog)
+std::shared_ptr<MPD> PrivateCDAIObjectMPD::GetAdMPD(std::string &url, bool &finalManifest, int &http_error, double &downloadTime, AAMPCDAIError &errorCode, bool tryFog)
 {
-	return NULL;
+	return nullptr;
 }
 
 void PrivateCDAIObjectMPD::PlaceAds(AampMPDParseHelperPtr adMPDParseHelper)

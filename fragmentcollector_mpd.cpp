@@ -8142,7 +8142,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 		if(mCdaiObject->mAdState == AdState::IN_ADBREAK_AD_PLAYING)
 		{
 			AdNode &adNode = mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx);
-			if(adNode.mpd != NULL)
+			if(adNode.mpd)
 			{
 				pMediaStreamContext->fragmentDescriptor.manifestUrl = adNode.url.c_str();
 			}
@@ -13375,7 +13375,7 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 		if(AdState::IN_ADBREAK_AD_PLAYING == mCdaiObject->mAdState)
 		{
 			AdNode &adNode = mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx);
-			if(NULL == adNode.mpd)
+			if(!adNode.mpd)
 			{
 				//Need to ensure that mpd is available, if not available, download it (mostly from FOG)
 				bool finalManifest = false;
@@ -13386,7 +13386,7 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 				{
 					AAMPLOG_WARN("[CDAI]: Ad playback failed. Not able to download Ad manifest. Aborted by callback.");
 				}
-				if(NULL == adNode.mpd)
+				if(!adNode.mpd)
 				{
 					AAMPLOG_WARN("[CDAI]: Ad playback failed. Not able to download Ad manifest from FOG.");
 					mCdaiObject->mAdState = AdState::IN_ADBREAK_AD_NOT_PLAYING;
