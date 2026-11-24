@@ -1378,20 +1378,20 @@ protected:
 	AampMediaType PrimaryMediaType() const;
 
 	/**
-	 * @fn PrimaryContext
+	 * @fn PrimaryMediaStreamContext
 	 * @brief Stream context of the primary track
 	 * @retval Context pointer; null before the contexts are allocated
 	 */
-	MediaStreamContext *PrimaryContext() const;
+	MediaStreamContext *PrimaryMediaStreamContext() const;
 
 	/**
-	 * @fn LockPrimaryContext
+	 * @fn LockPrimaryMediaStreamContext
 	 * @brief Locks the primary context's mMediaStreamContextMutex (recursive), the mutex UpdateMPD() holds.
 	 *        The lock is held until the returned object is released.
 	 * @note The primary context must be allocated.
 	 * @retval Held lock on the primary context's mutex
 	 */
-	std::unique_lock<std::recursive_mutex> LockPrimaryContext();
+	std::unique_lock<std::recursive_mutex> LockPrimaryMediaStreamContext();
 
 	/**
 	 * @fn GetManifestUpdateCounter

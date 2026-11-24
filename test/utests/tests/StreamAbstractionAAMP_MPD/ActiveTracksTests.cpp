@@ -85,9 +85,9 @@ namespace
 		}
 
 		/** @return a held lock on the mutex that UpdateMPD() holds */
-		std::unique_lock<std::recursive_mutex> PublicLockPrimaryContext()
+		std::unique_lock<std::recursive_mutex> PublicLockPrimaryMediaStreamContext()
 		{
-			return LockPrimaryContext();
+			return LockPrimaryMediaStreamContext();
 		}
 
 		/** @return the mutex of the stream context for a media type */
@@ -479,7 +479,7 @@ namespace
  * Oracle: while the lock is held no other thread can take the primary context's mutex, and no other
  * context's mutex is affected; once released the mutex is free again. The primary track is video.
  */
-TEST_F(TrackSelectionTests, LockPrimaryContext_Held_BlocksOtherThreadsOnPrimaryContextOnly)
+TEST_F(TrackSelectionTests, LockPrimaryMediaStreamContext_Held_BlocksOtherThreadsOnPrimaryMutexOnly)
 {
 	const std::string manifest = ManifestFor({"VideoAndAudio", true, true, false, AampTrackSet{}, "", false});
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, _, _, _, _))
@@ -488,7 +488,7 @@ TEST_F(TrackSelectionTests, LockPrimaryContext_Held_BlocksOtherThreadsOnPrimaryC
 	ASSERT_EQ(mCollector->GetPrimaryTrackType(), eTRACK_VIDEO);
 
 	{
-		auto lock = mCollector->PublicLockPrimaryContext();
+		auto lock = mCollector->PublicLockPrimaryMediaStreamContext();
 
 		EXPECT_TRUE(lock.owns_lock());
 		EXPECT_FALSE(CanLockFromOtherThread(mCollector->PublicContextMutex(eMEDIATYPE_VIDEO)));
