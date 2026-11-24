@@ -4081,6 +4081,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 			mProgramStartTime = programStartTime.inSeconds();
 			// Delay "preparing" state until all tracks have been processed.
 			// JS Player assumes all onTimedMetadata event fire before "preparing" state.
+			AAMPLOG_WARN("vk::1 Before SetState(eSTATE_PREPARING) - HLS init complete");
 			aamp->SetState(eSTATE_PREPARING);
 		}
 

@@ -122,6 +122,7 @@ void StreamAbstractionAAMP_HDMIIN::ResetInstance()
 	{
 		if(mHdmiinInstance->aamp != NULL)
 		{
+			AAMPLOG_WARN("vk::1 Before SetState(eSTATE_STOPPED) - HDMI input stop");
 			mHdmiinInstance->aamp->SetState(eSTATE_STOPPED);
 		}
 		//clear aamp

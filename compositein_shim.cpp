@@ -110,6 +110,7 @@ void StreamAbstractionAAMP_COMPOSITEIN::ResetInstance()
 	{
 		if(mCompositeinInstance->aamp != NULL)
 		{
+			AAMPLOG_WARN("vk::1 Before SetState(eSTATE_STOPPED) - Composite input stop");
 			mCompositeinInstance->aamp->SetState(eSTATE_STOPPED);
 		}
 		//clear aamp

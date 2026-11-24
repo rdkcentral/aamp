@@ -424,6 +424,7 @@ void AampEventManager::SendEventAsync(const AAMPEventPtr &eventData)
 	if(mPlayerState != eSTATE_RELEASED)
 	{
 		AAMPLOG_INFO("Sending event %d to AsyncQ", eventType);
+		AAMPLOG_WARN("vk::1 SendEventAsync - CHECK PASSED: mPlayerState=%s (%d) != RELEASED, eventType=%d will be queued", AAMPPlayerStateName(mPlayerState), (int)mPlayerState, eventType);
 		AAMPLOG_WARN("vk::SendEventAsync - queuing eventType=%d, queue size before push: %zu", eventType, mEventWorkerDataQue.size());
 		
 		AsyncEventEntry entry;
@@ -450,6 +451,7 @@ void AampEventManager::SendEventAsync(const AAMPEventPtr &eventData)
 	}
 	else
 	{
+		AAMPLOG_WARN("vk::1 SendEventAsync - CHECK FAILED: mPlayerState=%s (%d) == RELEASED, eventType=%d DROPPED (hasListeners would be ignored)", AAMPPlayerStateName(mPlayerState), (int)mPlayerState, eventType);
 		AAMPLOG_WARN("vk::SendEventAsync - eventType=%d NOT queued, player in RELEASED state", eventType);
 	}
 }

@@ -3111,12 +3111,14 @@ void PrivateInstanceAAMP::NotifySpeedChanged(float rate, bool changeState)
 		if (rate == 0)
 		{
 			AAMPLOG_WARN("vk::NotifySpeedChanged - setting state to PAUSED");
+			AAMPLOG_WARN("vk::1 Before SetState(eSTATE_PAUSED) - current state=%s, rate=%.2f", AAMPPlayerStateName(GetState()), rate);
 			SetState(eSTATE_PAUSED);
 		}
 		ApplySpeedChangeEffects(rate);
 		if (rate == AAMP_NORMAL_PLAY_RATE)
 		{
 			AAMPLOG_WARN("vk::NotifySpeedChanged - setting state to PLAYING");
+			AAMPLOG_WARN("vk::1 Before SetState(eSTATE_PLAYING) - current state=%s, rate=%.2f", AAMPPlayerStateName(GetState()), rate);
 			SetState(eSTATE_PLAYING);
 		}
 	}
@@ -3142,6 +3144,8 @@ void PrivateInstanceAAMP::NotifySpeedChanged(float rate, bool changeState)
 	}
 	else
 	{
+		int64_t eventQueueTimeMs = aamp_GetCurrentTimeMS();
+		AAMPLOG_WARN("vk::1 NotifySpeedChanged - Queueing AAMP_EVENT_SPEED_CHANGED at %lld ms, rate=%.2f, mPlayerState=%s (%d)", eventQueueTimeMs, rate, AAMPPlayerStateName(GetState()), (int)GetState());
 		AAMPLOG_WARN("vk::NotifySpeedChanged - sending SpeedChangedEvent with rate=%f", rate);
 		SendEvent(std::make_shared<SpeedChangedEvent>(rate, GetSessionId()),AAMP_EVENT_ASYNC_MODE);
 	}
@@ -3469,6 +3473,7 @@ void PrivateInstanceAAMP::NotifyEOSReached()
 			// Flush any queued CDAI ad events (e.g. post-roll placement/reservation end)
 			// before notifying the application that playback has ended.
 			DeliverAdEvents(true);
+				AAMPLOG_WARN("vk::1 Before SetState(eSTATE_COMPLETE) - EOS reached, current state=%s", AAMPPlayerStateName(GetState()));
 			SetState(eSTATE_COMPLETE);
 			SendEvent(std::make_shared<AAMPEventObject>(AAMP_EVENT_EOS, GetSessionId()),AAMP_EVENT_ASYNC_MODE);
 			SendAnomalyEvent(ANOMALY_TRACE, "Generating EOS event");
@@ -5425,6 +5430,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 
 		mTsbRecordingId.clear();
 		// initialize defaults
+		AAMPLOG_WARN("vk::1 Before SetState(eSTATE_INITIALIZING) - Tune started, current state=%s", AAMPPlayerStateName(GetState()));
 		SetState(eSTATE_INITIALIZING);
 		culledSeconds = 0;
 		durationSeconds = 60 * 60; // 1 hour
@@ -5644,6 +5650,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			}
 			else
 			{
+				AAMPLOG_WARN("vk::1 Before SetState(eSTATE_COMPLETE) - Fake tune complete, current state=%s", AAMPPlayerStateName(GetState()));
 				SetState(eSTATE_COMPLETE);
 				mEventManager->SendEvent(std::make_shared<AAMPEventObject>(AAMP_EVENT_EOS, GetSessionId()));
 				AAMPLOG_MIL( "Stopping fake tune playback");
@@ -5925,6 +5932,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		if((state != eSTATE_ERROR) && (mMediaFormat != eMEDIAFORMAT_OTA) && (mMediaFormat != eMEDIAFORMAT_RMF))
 		{
 			/*For OTA/RMF this event will be generated from StreamAbstractionAAMP_OTA*/
+			AAMPLOG_WARN("vk::1 Before SetState(eSTATE_PREPARED) - TuneHelper complete, current state=%s", AAMPPlayerStateName(GetState()));
 			SetState(eSTATE_PREPARED);
 			SendMediaMetadataEvent();
 		}
@@ -6937,7 +6945,9 @@ bool PrivateInstanceAAMP::IsPlayEnabled() const
 void PrivateInstanceAAMP::enableEventProcessing()
 {
 	// Reset Event Manager State to IDLE to resume event processing
+	AAMPLOG_WARN("vk::1 enableEventProcessing - before: mPlayerState=%s (%d)", AAMPPlayerStateName(mState), (int)mState);
 	mEventManager->SetPlayerState(eSTATE_IDLE);
+	AAMPLOG_WARN("vk::1 enableEventProcessing - after: mPlayerState set to IDLE, checking current mState=%s (%d)", AAMPPlayerStateName(mState), (int)mState);
 }
 
 /**
@@ -6946,7 +6956,9 @@ void PrivateInstanceAAMP::enableEventProcessing()
 void PrivateInstanceAAMP::disableEventProcessing()
 {
 	// Set Event Manager State to RELEASED to avoid further event processing
+	AAMPLOG_WARN("vk::1 disableEventProcessing - before: mPlayerState=%s (%d)", AAMPPlayerStateName(mState), (int)mState);
 	mEventManager->SetPlayerState(eSTATE_RELEASED);
+	AAMPLOG_WARN("vk::1 disableEventProcessing - after: mPlayerState set to RELEASED, checking current mState=%s (%d)", AAMPPlayerStateName(mState), (int)mState);
 }
 
 /**
@@ -6984,6 +6996,7 @@ void PrivateInstanceAAMP::detach()
 			sink->Stop(true);
 		}
 		mbPlayEnabled = false;
+		AAMPLOG_WARN("vk::1 mbDetached changed from %d to true (detach scenario)", mbDetached);
 		mbDetached=true;
 		mPlayerPreBuffered  = false;
 		mTelemetryInterval = 0;
@@ -7096,6 +7109,7 @@ void PrivateInstanceAAMP::EndOfStreamReached(AampMediaType mediaType)
 			{
 				mpStreamAbstractionAAMP->NotifyPlaybackPaused(false);
 			}
+			AAMPLOG_WARN("vk::1 Before SetState(eSTATE_PLAYING) - Resume from buffering, current state=%s", AAMPPlayerStateName(GetState()));
 			SetState(eSTATE_PLAYING);
 		}
 	}
@@ -7849,6 +7863,7 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 	mEventManager->FlushPendingEvents();
 	if( !isDestructing )
 	{
+		AAMPLOG_WARN("vk::1 Before SetState(eSTATE_STOPPING) - Stop called, current state=%s", AAMPPlayerStateName(GetState()));
 		SetState(eSTATE_STOPPING);
 	}
 
@@ -7996,6 +8011,7 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 
 	if( !isDestructing )
 	{
+		AAMPLOG_WARN("vk::1 Before SetState(eSTATE_IDLE) - Release called, current state=%s", AAMPPlayerStateName(GetState()));
 		SetState(eSTATE_IDLE);
 	}
 
@@ -8357,6 +8373,7 @@ void PrivateInstanceAAMP::NotifyFirstFrameReceived(unsigned long ccDecoderHandle
 	if(!mFirstVideoFrameDisplayedEnabled)
 	{
 		AAMPLOG_MIL("Player changing state to PLAYING on first frame received");
+		AAMPLOG_WARN("vk::1 Before SetState(eSTATE_PLAYING) - First frame received, current state=%s", AAMPPlayerStateName(GetState()));
 		SetState(eSTATE_PLAYING);
 	}
 	{
@@ -8746,6 +8763,7 @@ void PrivateInstanceAAMP::NotifyFragmentCachingComplete()
 		{
 			mpStreamAbstractionAAMP->NotifyPlaybackPaused(false);
 		}
+		AAMPLOG_WARN("vk::1 Before SetState(eSTATE_PLAYING) - Fragment caching complete, current state=%s", AAMPPlayerStateName(GetState()));
 		SetState(eSTATE_PLAYING);
 	}
 }
@@ -9334,6 +9352,7 @@ void PrivateInstanceAAMP::NotifyFirstBufferProcessed(const std::string& videoRec
 	if (!mFirstVideoFrameDisplayedEnabled
 			&& state == eSTATE_SEEKING)
 	{
+			AAMPLOG_WARN("vk::1 Before SetState(eSTATE_PLAYING) - Resuming from trickplay, current state=%s, seek_pos=%.3f", AAMPPlayerStateName(GetState()), seek_pos_seconds);
 		SetState(eSTATE_PLAYING);
 	}
 	trickStartUTCMS = aamp_GetCurrentTimeMS();
@@ -10922,6 +10941,7 @@ void PrivateInstanceAAMP::NotifyFirstVideoFrameDisplayed()
 		if(PausePipeline(true, false))
 		{
 			lock.unlock();
+			AAMPLOG_WARN("vk::1 Before SetState(eSTATE_PAUSED) - PauseOnFirstVideoFrame, current state=%s", AAMPPlayerStateName(GetState()));
 			SetState(eSTATE_PAUSED);
 		}
 		else
@@ -10934,6 +10954,7 @@ void PrivateInstanceAAMP::NotifyFirstVideoFrameDisplayed()
 	{
 		// If Buffering state was not needed, set PLAYING state
 		lock.unlock();
+		AAMPLOG_WARN("vk::1 Before SetState(eSTATE_PLAYING) - NotifyFirstVideoFrameDisplayed, current state=%s", AAMPPlayerStateName(GetState()));
 		SetState(eSTATE_PLAYING);
 	}
 }
@@ -10961,6 +10982,7 @@ bool PrivateInstanceAAMP::SetStateBufferingIfRequired()
 			{
 				sink->NotifyFragmentCachingOngoing();
 			}
+			AAMPLOG_WARN("vk::1 Before SetState(eSTATE_BUFFERING) - Fragment caching required, current state=%s", AAMPPlayerStateName(GetState()));
 			SetState(eSTATE_BUFFERING);
 		}
 	}

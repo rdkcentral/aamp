@@ -285,5 +285,8 @@ void AampScheduler::DisableScheduleTask()
  */
 void AampScheduler::SetState(AAMPPlayerState sstate)
 {
+	AAMPPlayerState previousState = mState;
 	mState = sstate;
+	AAMPLOG_WARN("vk::1 AampScheduler::SetState - transitioning from %s (%d) to %s (%d)", 
+		AAMPPlayerStateName(previousState), (int)previousState, AAMPPlayerStateName(sstate), (int)sstate);
 }

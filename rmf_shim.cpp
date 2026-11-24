@@ -46,6 +46,7 @@ void StreamAbstractionAAMP_RMF::onPlayerStatusHandler(std::string title) {
 			aamp->LogFirstFrame();
 			aamp->LogTuneComplete();
 		}
+		AAMPLOG_WARN("vk::1 Before SetState(eSTATE_PLAYING) - RMF playing");
 		aamp->SetState(eSTATE_PLAYING);
 	}
 }
@@ -53,6 +54,7 @@ void StreamAbstractionAAMP_RMF::onPlayerStatusHandler(std::string title) {
 void StreamAbstractionAAMP_RMF::onPlayerErrorHandler(std::string error_message) {
 	
 	aamp->SendAnomalyEvent(ANOMALY_WARNING, error_message.c_str());
+	AAMPLOG_WARN("vk::1 Before SetState(eSTATE_ERROR) - RMF error: %s", error_message.c_str());
 	aamp->SetState(eSTATE_ERROR);
 }
 
@@ -128,6 +130,7 @@ void StreamAbstractionAAMP_RMF::Stop(bool clearChannelData)
 		return;
 
 	thunderAccessObj.StopRmf();
+	AAMPLOG_WARN("vk::1 Before SetState(eSTATE_STOPPED) - RMF stop");
 	aamp->SetState(eSTATE_STOPPED);
 }
 

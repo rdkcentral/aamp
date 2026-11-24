@@ -88,6 +88,7 @@ void StreamAbstractionAAMP_OTA::onPlayerStatusHandler(PlayerStatusData data) {
 				aamp->SendTunedEvent(false);
 				/* For consistency, during first tune, first move to
 				 PREPARED state to match normal IPTV flow sequence */
+				AAMPLOG_WARN("vk::1 Before SetState(eSTATE_PREPARED) - OTA first tune");
 				aamp->SetState(eSTATE_PREPARED);
 				tuned = true;
 				aamp->LogFirstFrame();
@@ -113,6 +114,7 @@ void StreamAbstractionAAMP_OTA::onPlayerStatusHandler(PlayerStatusData data) {
 			/* Need not set a new state hence returning */
 			return;
 		}
+		AAMPLOG_WARN("vk::1 Before SetState() - OTA state transition to %d", state);
 		aamp->SetState(state);
 	}
 

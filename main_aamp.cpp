@@ -691,7 +691,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 	{
 		AAMPLOG_INFO("PLAYER[%d] rate=%f.", aamp->mPlayerId, rate);
 		AAMPPlayerState state = GetState();
-
+		AAMPLOG_INFO("PLAYER[%d] Current state = %s", aamp->mPlayerId, AAMPPlayerStateName(state));
 		if (state == eSTATE_ERROR)
 		{
 			AAMPLOG_WARN("operation is not allowed when player in eSTATE_ERROR state !");
@@ -711,6 +711,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 		{
 			if (aamp->mbDetached)
 			{
+				AAMPLOG_WARN("vk::1 SetRateInternal - mbDetached=true, calling enableEventProcessing() (rate=%.2f)", rate);
 				aamp->enableEventProcessing();
 			}
 			if ( AAMP_SLOWMOTION_RATE != rate && !aamp->mIsIframeTrackPresent && rate != AAMP_NORMAL_PLAY_RATE && rate != 0 && aamp->mMediaFormat != eMEDIAFORMAT_PROGRESSIVE)
@@ -908,6 +909,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 					if(aamp->IsLocalAAMPTsb() && !aamp->IsLocalAAMPTsbInjection())
 					{
 						retValue = false; // Skip common notification to prevent premature state change
+						AAMPLOG_WARN("vk::1 Before SetState(eSTATE_SEEKING) - Local TSB seek, rate=%.2f", aamp->rate);
 						aamp->SetState(eSTATE_SEEKING);
 						aamp->seek_pos_seconds = aamp->GetPositionSeconds();
 						aamp->rate = AAMP_NORMAL_PLAY_RATE;
@@ -1011,6 +1013,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 			{
 				//Enable playback if setRate call after detach
 				if(aamp->mbDetached){
+					AAMPLOG_WARN("vk::1 SetRateInternal trickplay branch - mbDetached=true, enabling playback (rate=%.2f)", rate);
 					aamp->mbPlayEnabled = true;
 				}
 
@@ -1039,7 +1042,11 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 				aamp->ResumeDownloads();
 				{
 					PrivateInstanceAAMP::SetRateProtect setRateLock(aamp);
+					int64_t beforeTuneMs = aamp_GetCurrentTimeMS();
+					AAMPLOG_WARN("vk::1 SetRateInternal - Before TuneHelper at %lld ms: mbDetached=%d, rate=%.2f, mPlayerState=%s", beforeTuneMs, aamp->mbDetached, rate, AAMPPlayerStateName(aamp->GetState()));
 					aamp->TuneHelper(eTUNETYPE_SEEK, false);
+					int64_t afterTuneMs = aamp_GetCurrentTimeMS();
+					AAMPLOG_WARN("vk::1 SetRateInternal - After TuneHelper at %lld ms (duration %lld ms): mbDetached=%d, rate=%.2f, mPlayerState=%s", afterTuneMs, (afterTuneMs - beforeTuneMs), aamp->mbDetached, rate, AAMPPlayerStateName(aamp->GetState()));
 				}
 			}
 
@@ -1049,11 +1056,14 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 				// target state will be updated once caching completed.
 				// Likewise leave the state to NotifyFirstVideoFrameDisplayed() if a seek while paused is still prerolling.
 				const float notifyRate = firstFrameDeferral ? deferredNotifyRate : (aamp->pipeline_paused ? 0 : aamp->rate);
+				int64_t beforeNotifyMs = aamp_GetCurrentTimeMS();
+				AAMPLOG_WARN("vk::1 SetRateInternal - Before NotifySpeedChanged at %lld ms: mbDetached=%d, notifyRate=%.2f, mPlayerState=%s", beforeNotifyMs, aamp->mbDetached, notifyRate, AAMPPlayerStateName(aamp->GetState()));
 				if (firstFrameDeferral)
 				{
 					// Only the player state transition is deferred; subtitle pause/resume must still follow the request
 					aamp->ApplySpeedChangeEffects(notifyRate);
 				}
+				AAMPLOG_WARN("vk::1 SetRateInternal - Before NotifySpeedChanged (after ApplySpeedChangeEffects): mbDetached=%d, notifyRate=%.2f, mPlayerState=%s", aamp->mbDetached, notifyRate, AAMPPlayerStateName(aamp->GetState()));
 				aamp->NotifySpeedChanged(notifyRate,
 										 !firstFrameDeferral && (!aamp->IsFragmentCachingRequired() || aamp->pipeline_paused));
 			}
@@ -1182,6 +1192,7 @@ static gboolean SeekAfterPrepared(gpointer ptr)
 		 /* PositionMillisecondLock is intended to ensure both state and seek_pos_seconds (in TuneHelper)
 		 * are updated before GetPositionMilliseconds() can be used*/
 		auto PositionMillisecondLocked = aamp->LockGetPositionMilliseconds();
+		AAMPLOG_WARN("vk::1 Before SetState(eSTATE_SEEKING) - SetRate seeking, tuneType=%d", tuneType);
 		aamp->SetState(eSTATE_SEEKING);
 		/* Clear setting playerrate flag */
 		aamp->mSetPlayerRateAfterFirstframe=false;
@@ -1241,6 +1252,7 @@ void PlayerInstanceAAMP::SeekInternal(double secondsRelativeToTuneTime, bool kee
 
 		if (aamp->mbDetached)
 		{
+			AAMPLOG_WARN("vk::1 Before enableEventProcessing - Detached state");
 			aamp->enableEventProcessing();
 		}
 
@@ -1410,6 +1422,7 @@ void PlayerInstanceAAMP::SeekInternal(double secondsRelativeToTuneTime, bool kee
 
 			if (aamp->mpStreamAbstractionAAMP)
 			{ // for seek while streaming
+				AAMPLOG_WARN("vk::1 Before SetState(eSTATE_SEEKING) - Seek while streaming, tuneType=%d, seekWhilePause=%d", tuneType, seekWhilePause);
 				aamp->SetState(eSTATE_SEEKING);
 				if(PositionMillisecondLocked)
 				{

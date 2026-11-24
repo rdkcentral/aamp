@@ -565,6 +565,7 @@ bool AampLicensePreFetcher::CreateDRMSession(LicensePreFetchObjectPtr fetchObj)
 	mPrivAAMP->profiler.ProfileEnd(PROFILE_BUCKET_LA_TOTAL);
 	if(mPrivAAMP->mIsFakeTune)
 	{
+		AAMPLOG_WARN("vk::1 Before SetState(eSTATE_COMPLETE) - DRM License Prefetch complete");
 		mPrivAAMP->SetState(eSTATE_COMPLETE);
 		mPrivAAMP->SendEvent(std::make_shared<AAMPEventObject>(AAMP_EVENT_EOS, mPrivAAMP->GetSessionId()));
 	}

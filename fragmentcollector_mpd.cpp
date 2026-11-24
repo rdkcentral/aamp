@@ -3918,6 +3918,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 	bool pushEncInitFragment = newTune || (eTUNETYPE_RETUNE == tuneType) || aamp->mbDetached;
 	if(aamp->mbDetached){
 			/* No more needed reset it **/
+			AAMPLOG_WARN("vk::1 mbDetached changed from true to false (stream abstraction init, tuneType=%d, newTune=%d)", tuneType, newTune);
 			aamp->mbDetached = false;
 	}
 
@@ -4583,6 +4584,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 
 			if (newTune )
 			{
+				AAMPLOG_WARN("vk::1 Before SetState(eSTATE_PREPARING) - MPD init complete, newTune=%d", newTune);
 				aamp->SetState(eSTATE_PREPARING);
 
 				// send the http response header values if available

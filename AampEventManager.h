@@ -114,6 +114,8 @@ protected:
 		guint callbackId =	g_source_get_id(g_main_current_source());
 		AampEventManager *evtMgr = (AampEventManager *)This;
 		UsingPlayerId playerId( evtMgr->mPlayerId );
+		int64_t callbackExecuteTimeMs = aamp_GetCurrentTimeMS();
+		AAMPLOG_WARN("vk::1 EventManagerThreadFunction - Callback executing at %lld ms, callbackId=%u, mPlayerState=%s (%d)", callbackExecuteTimeMs, callbackId, AAMPPlayerStateName(evtMgr->mPlayerState), (int)evtMgr->mPlayerState);
 		AAMPLOG_WARN("vk::EventManagerThreadFunction - CALLED by GLib, callbackId=%u", callbackId);
 		evtMgr->SetCallbackAsDispatched(callbackId);
 		AAMPLOG_WARN("vk::EventManagerThreadFunction - calling AsyncEvent() for callbackId=%u", callbackId);

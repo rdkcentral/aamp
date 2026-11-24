@@ -174,10 +174,12 @@ void StreamAbstractionAAMP_VIDEOIN::OnInputStatusChanged(std::string strStatus)
 				aamp->LogFirstFrame();
 				aamp->LogTuneComplete();
 			}
+			AAMPLOG_WARN("vk::1 Before SetState(eSTATE_PLAYING) - Video input playing");
 			aamp->SetState(eSTATE_PLAYING);
 		}
 		else if(0 == strStatus.compare("stopped"))
 		{
+			AAMPLOG_WARN("vk::1 Before SetState(eSTATE_STOPPED) - Video input stopped");
 			aamp->SetState(eSTATE_STOPPED);
 		}
 	}
@@ -209,6 +211,7 @@ void StreamAbstractionAAMP_VIDEOIN::OnSignalChanged (std::string strStatus)
 		{
 			// Only Generate after started event, this can come after temp loss of signal.
 			if(mTuned){
+				AAMPLOG_WARN("vk::1 Before SetState(eSTATE_PLAYING) - Video input signal resumed");
 				aamp->SetState(eSTATE_PLAYING);
 			}
 		}
