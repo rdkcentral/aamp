@@ -1139,7 +1139,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	, createDRMSessionThreadID()
 	, mDRMLicenseManager(NULL)
 {
-	AAMPLOG_WARN("vk::1 PrivateInstanceAAMP::Constructor - mState initialized to eSTATE_RELEASED (%d), mPlayerId=%d", (int)mState, mPlayerId);
+	printf("vk::1 PrivateInstanceAAMP::Constructor - Creating instance=%p, mPlayerId=%d, mState=%d\n", (void*)this, mPlayerId, (int)mState);
 }
 	,  mPreCachePlaylistThreadId(), mPreCacheDnldList()
 	, mPreCacheDnldTimeWindow(0), mParallelPlaylistFetchLock(), mAppName()
@@ -1398,8 +1398,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
  */
 PrivateInstanceAAMP::~PrivateInstanceAAMP()
 {
-	AAMPLOG_WARN("vk::1 PrivateInstanceAAMP::Destructor - Entry, current mState=%s (%d), mPlayerId=%d", AAMPPlayerStateName(mState), (int)mState, mPlayerId);
-	
+	printf("vk::1 PrivateInstanceAAMP::Destructor - Destroying instance=%p, mPlayerId=%d, mState=%s (%d)\n", (void*)this, mPlayerId, AAMPPlayerStateName(mState), (int)mState);	
 	StopPausePositionMonitoring("AAMP destroyed");
 	PlayerCCManager::GetInstance()->Release(mCCId);
 	mCCId = 0;
@@ -1452,7 +1451,6 @@ PrivateInstanceAAMP::~PrivateInstanceAAMP()
 			mpStreamAbstractionAAMP->ResetSubtitle();
 	}
 
-	AAMPLOG_WARN("vk::1 PrivateInstanceAAMP::Destructor - Exit, mPlayerId=%d", mPlayerId);
 }
 
 /**
@@ -8664,8 +8662,8 @@ void PrivateInstanceAAMP::SetState(AAMPPlayerState state)
 {
 	//bool sentSync = true;
 
-	AAMPLOG_WARN("vk::1 SetState() - Entry: state=%s (%d), instance=%p, thread=%p, currentState=%s (%d)", 
-		AAMPPlayerStateName(state), (int)state, (void*)this, (void*)pthread_self(), 
+	AAMPLOG_WARN("vk::1 SetState() - Entry: state=%s (%d), instance=%p, currentState=%s (%d)", 
+		AAMPPlayerStateName(state), (int)state, (void*)this, 
 		AAMPPlayerStateName(mState), (int)mState);
 
 	if (state == eSTATE_PLAYING || state == eSTATE_BUFFERING || state == eSTATE_PAUSED)
@@ -8681,9 +8679,9 @@ void PrivateInstanceAAMP::SetState(AAMPPlayerState state)
 	}
 	
 	AAMPPlayerState currentState = mState;
-	AAMPLOG_WARN("vk::SetState - transitioning from %s (%d) to %s (%d), instance=%p, thread=%p", 
+	AAMPLOG_WARN("vk::SetState - transitioning from %s (%d) to %s (%d), instance=%p", 
 		AAMPPlayerStateName(currentState), (int)currentState, AAMPPlayerStateName(state), (int)state, 
-		(void*)this, (void*)pthread_self());
+		(void*)this);
 	AAMPLOG_MIL("Player state changed: %s -> %s", AAMPPlayerStateName(mState), AAMPPlayerStateName(state));
 
 	// Handle SEEKED event based on the actual previous state
@@ -8696,13 +8694,13 @@ void PrivateInstanceAAMP::SetState(AAMPPlayerState state)
 		mEventManager->SendEvent(event,AAMP_EVENT_SYNC_MODE);
 	}
 	{
-		AAMPLOG_WARN("vk::1 SetState() - Acquiring mLock to update mState, instance=%p, thread=%p", (void*)this, (void*)pthread_self());
+		AAMPLOG_WARN("vk::1 SetState() - Acquiring mLock to update mState, instance=%p", (void*)this);
 		std::lock_guard<std::recursive_mutex> guard(mLock);
 		AAMPLOG_WARN("vk::1 SetState() - mLock acquired, updating mState from %s to %s, instance=%p", 
 			AAMPPlayerStateName(mState), AAMPPlayerStateName(state), (void*)this);
 		mState = state;
-		AAMPLOG_WARN("vk::1 SetState() - mState updated to %s (%d), instance=%p, thread=%p", 
-			AAMPPlayerStateName(mState), (int)mState, (void*)this, (void*)pthread_self());
+		AAMPLOG_WARN("vk::1 SetState() - mState updated to %s (%d), instance=%p", 
+			AAMPPlayerStateName(mState), (int)mState, (void*)this);
 	}
 
 	AAMPLOG_WARN("vk::1 SetState() - Calling mScheduler->SetState(%s)", AAMPPlayerStateName(mState));
@@ -8738,7 +8736,7 @@ AAMPPlayerState PrivateInstanceAAMP::GetState(void)
 {
 	std::lock_guard<std::recursive_mutex> guard(mLock);
 	AAMPPlayerState currentState = mState.load();
-	AAMPLOG_WARN("vk::GetState() - Retrieving state from instance=%p, mState=%s (%d), thread=%p", (void*)this, AAMPPlayerStateName(currentState), (int)currentState, (void*)pthread_self());
+	AAMPLOG_WARN("vk::GetState() - Retrieving state from instance=%p, mState=%s (%d)", (void*)this, AAMPPlayerStateName(currentState), (int)currentState);
 	return currentState;
 }
 
