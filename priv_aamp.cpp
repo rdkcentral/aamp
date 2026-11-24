@@ -5754,14 +5754,7 @@ bool PrivateInstanceAAMP::IsAsyncTuneAbortRequired(const char* manifestUrl, cons
  */
 void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 {
-	AAMPLOG_MIL("TeardownStream: begin newTune=%d disableDownloads=%d", newTune,
-		disableDownloads);
-	auto teardownLockStartTime = NOW_STEADY_TS_MS;
-	AAMPLOG_MIL("TeardownStream: waiting for mLock newTune=%d disableDownloads=%d",
-		newTune, disableDownloads);
 	std::unique_lock<std::recursive_mutex> lock(mLock);
-	AAMPLOG_MIL("TeardownStream: acquired mLock after %lld ms",
-		static_cast<long long>(NOW_STEADY_TS_MS - teardownLockStartTime));
 	//Have to perform this for trick and stop operations but avoid ad insertion related ones
 	AAMPLOG_MIL(" mProgressReportFromProcessDiscontinuity:%d mDiscontinuityTuneOperationId:%d newTune:%d", mProgressReportFromProcessDiscontinuity, mDiscontinuityTuneOperationId, newTune);
 	if ((mDiscontinuityTuneOperationId != 0) && (!newTune || mState == eSTATE_IDLE))
@@ -5818,9 +5811,7 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 	lock.unlock();
 	{
 		// Using StreamLock to make sure this is not interfering with GetFile() from PreCachePlaylistDownloadTask
-		AAMPLOG_MIL("TeardownStream: waiting for mStreamLock");
 		std::lock_guard<std::recursive_mutex> streamLock(mStreamLock);
-		AAMPLOG_MIL("TeardownStream: acquired mStreamLock");
 		if (mpStreamAbstractionAAMP)
 		{
 			AAMPLOG_INFO("TeardownStream: Stopping StreamAbstraction");
@@ -5845,7 +5836,6 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 				}
 			}
 		}
-		AAMPLOG_MIL("TeardownStream: stream abstraction stop complete");
 	}
 	m_lastSubClockSyncTime = std::chrono::system_clock::time_point();
 
@@ -6123,8 +6113,6 @@ static int aampApplyThreadPrioFromEnv(const char *env, int defaultPolicy, int de
  */
 void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 {
-	AAMPLOG_MIL("TuneHelper: begin tuneType=%d seekWhilePaused=%d", tuneType,
-		seekWhilePaused);
 	bool newTune;
 	bool previousCCEnabled = false;
 
@@ -6202,7 +6190,6 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	}
 
 	TeardownStream(newTune|| (eTUNETYPE_RETUNE == tuneType));
-	AAMPLOG_MIL("TuneHelper: after TeardownStream tuneType=%d", tuneType);
 
 	if(SocUtils::ResetNewSegmentEvent())
 	{
@@ -8741,53 +8728,33 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 	}
 	DisableDownloads();
 
-	AAMPLOG_MIL("Stop: before UnblockWaitForDiscontinuityProcessToComplete");
 	UnblockWaitForDiscontinuityProcessToComplete();
-	AAMPLOG_MIL("Stop: after UnblockWaitForDiscontinuityProcessToComplete");
 	if(mTelemetryInterval > 0)
 	{
-		AAMPLOG_MIL("Stop: telemetry cleanup started interval=%d",
-			mTelemetryInterval);
 		double bufferedDuration = 0.0;
 		if (mpStreamAbstractionAAMP)
 		{
-			AAMPLOG_MIL("Stop: before UnblockWaitForCachedFragmentInjected");
 			mpStreamAbstractionAAMP->UnblockWaitForCachedFragmentInjected(); // avoid mutex lock if waiting for cached fragments
-			AAMPLOG_MIL("Stop: after UnblockWaitForCachedFragmentInjected");
-			AAMPLOG_MIL("Stop: before GetBufferedVideoDurationSec");
 			bufferedDuration = mpStreamAbstractionAAMP->GetBufferedVideoDurationSec();
-			AAMPLOG_MIL("Stop: after GetBufferedVideoDurationSec value=%f",
-				bufferedDuration);
 		}
-		AAMPLOG_MIL("Stop: before GetCurrentLatencyMs");
 		double latency = GetCurrentLatencyMs();
-		AAMPLOG_MIL("Stop: after GetCurrentLatencyMs value=%f", latency);
-		AAMPLOG_MIL("Stop: before telemetry profile update");
 		profiler.SetLatencyParam(latency, bufferedDuration, rate, mhAbrManager.GetNetworkBandwidth());
 		profiler.GetTelemetryParam();
 		mTelemetryInterval = 0;
-		AAMPLOG_MIL("Stop: telemetry cleanup complete");
 	}
 
 	// AAMP TSB flags have to be cleared before the stream abstraction object is deleted
 	// so downloads are disabled among other things
-	AAMPLOG_MIL("Stop: before SetLocalAAMPTsb(false)");
 	SetLocalAAMPTsb(false);
-	AAMPLOG_MIL("Stop: after SetLocalAAMPTsb(false)");
-	AAMPLOG_MIL("Stop: before SetLocalAAMPTsbInjection(false)");
 	SetLocalAAMPTsbInjection(false);
-	AAMPLOG_MIL("Stop: after SetLocalAAMPTsbInjection(false)");
 	auto streamLockStartTime = NOW_STEADY_TS_MS;
 	decltype(NOW_STEADY_TS_MS) streamLockStopTime;
 	auto licenseAcquisitionLockStartTime = NOW_STEADY_TS_MS;
 	auto licenseAcquisitionLockStopTime = licenseAcquisitionLockStartTime;
 	// Stopping the playback, release all DRM context
 	{
-		AAMPLOG_MIL("Stop: waiting for mStreamLock");
 		std::lock_guard<std::recursive_mutex> lock(mStreamLock);
 		streamLockStopTime = NOW_STEADY_TS_MS;
-		AAMPLOG_MIL("Stop: acquired mStreamLock after %lld ms",
-			static_cast<long long>(streamLockStopTime - streamLockStartTime));
 		if (mpStreamAbstractionAAMP)
 		{
 			if(DownloadsAreEnabled())
@@ -8806,22 +8773,15 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 				// lead to crash as PreFetchThread can call UpdateFailedDRMStatus
 				// of StreamAbstractionAamp.
 				licenseAcquisitionLockStartTime = NOW_STEADY_TS_MS;
-				AAMPLOG_MIL("Stop: waiting to clear DRM license fetcher");
 				mDRMLicenseManager->SetLicenseFetcher(nullptr);
 				licenseAcquisitionLockStopTime = NOW_STEADY_TS_MS;
-				AAMPLOG_MIL("Stop: cleared DRM license fetcher after %lld ms",
-					static_cast<long long>(licenseAcquisitionLockStopTime - licenseAcquisitionLockStartTime));
 			}
 			if (HasSidecarData())
 			{ // has sidecar data
-				AAMPLOG_MIL("Stop: resetting sidecar subtitle data");
 				mpStreamAbstractionAAMP->ResetSubtitle();
-				AAMPLOG_MIL("Stop: sidecar subtitle data reset complete");
 			}
 		}
 	}
-	AAMPLOG_MIL("Stop: released mStreamLock");
-	AAMPLOG_MIL("Stop: resetting LL-DASH chunk mode");
 	SetLLDashChunkMode(false); //Reset ChunkMode before curl handles are torn down
 
 	// stop the mpd update before Stream abstraction delete
@@ -8831,11 +8791,8 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 	}
 
 	auto tearDownStartTime = NOW_STEADY_TS_MS;
-	AAMPLOG_MIL("Stop: entering TeardownStream");
 	TeardownStream(true,true); //disable download as well
 	auto tearDownEndTime = NOW_STEADY_TS_MS;
-	AAMPLOG_MIL("Stop: TeardownStream completed after %lld ms",
-		static_cast<long long>(tearDownEndTime - tearDownStartTime));
 
 	// Moved the tsb delete request from XRE to AAMP to avoid the HTTP-404 errors
 	// Moved the Fog TSB delete to avoid the delay in MPDDownloaderInstance release which results in HTTP-404
@@ -12921,10 +12878,6 @@ void PrivateInstanceAAMP::ResetDiscontinuityInTracks()
  */
 void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const char *preferredRendition, const char *preferredType, const char *codecList, const char *labelList, const Accessibility *accessibilityItem, const char *preferredName)
 {
-	AAMPLOG_MIL("SetPreferredLanguages: begin language=%s rendition=%s type=%s codec=%s label=%s name=%s",
-		languageList ? languageList : "", preferredRendition ? preferredRendition : "",
-		preferredType ? preferredType : "", codecList ? codecList : "",
-		labelList ? labelList : "", preferredName ? preferredName : "");
 	/**< First argument is Json data then parse it and and assign the variables properly*/
 	AampJsonObject* jsObject = NULL;
 	bool isJson = false;
@@ -13071,9 +13024,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 
 		// Acquire before the first read or write of any preferred* member field.
 		// All JSON parsing above uses only local input* variables.
-		AAMPLOG_MIL("SetPreferredLanguages: waiting for mStreamLock json path");
 		streamLock.lock();
-		AAMPLOG_MIL("SetPreferredLanguages: acquired mStreamLock json path");
 		if (preferredAudioAccessibilityNode != inputAudioAccessibilityNode)
 		{
 			accessibilityPresent = true;
@@ -13114,9 +13065,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 	else
 	{
 		// Acquire before any read or write of preferred* member fields.
-		AAMPLOG_MIL("SetPreferredLanguages: waiting for mStreamLock direct path");
 		streamLock.lock();
-		AAMPLOG_MIL("SetPreferredLanguages: acquired mStreamLock direct path");
 		if((languageList && preferredLanguagesString != languageList) ||
 		   (preferredRendition && preferredRenditionString != preferredRendition) ||
 		   (preferredType && preferredTypeString != preferredType) ||
@@ -13463,9 +13412,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 					mOffsetFromTunetimeForSAPWorkaround = (double)(aamp_GetCurrentTimeMS() / 1000) - mLiveOffset;
 					mLanguageChangeInProgress = true;
 					{
-						AAMPLOG_MIL("SetPreferredLanguages: waiting for nested mStreamLock retune");
 						std::lock_guard<std::recursive_mutex> lock(mStreamLock);
-						AAMPLOG_MIL("SetPreferredLanguages: acquired nested mStreamLock retune");
 						if(ISCONFIGSET_PRIV(eAAMPConfig_SeamlessAudioSwitch) && !mFirstTune && ( mMediaFormat == eMEDIAFORMAT_HLS_MP4 || mMediaFormat == eMEDIAFORMAT_DASH )  && !codecChange)
 						{
 							AAMPLOG_WARN("Seamless audio switch has been enabled");
@@ -13475,14 +13422,12 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 						{
 							seek_pos_seconds = GetPositionSeconds();
 							AAMPLOG_MIL("Retune to change the audio track at pos %fs", seek_pos_seconds);
-							AAMPLOG_MIL("SetPreferredLanguages: before audio TeardownStream");
 							bool wasAtLivePoint = IsAtLivePoint();
 							if (IsLocalAAMPTsb())
 							{
 								mAampTsbLanguageChangeInProgress = true;
 							}
 							TeardownStream(false);
-							AAMPLOG_MIL("SetPreferredLanguages: after audio TeardownStream");
 							if(IsFogTSBSupported() &&
 							   ((languagePresent && !languageAvailabilityInManifest) ||
 								(renditionPresent && !renditionAvailabilityInManifest) ||
@@ -13501,9 +13446,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 									AAMPLOG_INFO("Recreate the TSB Session Manager");
 									CreateTsbSessionManager();
 									SetLocalAAMPTsbInjection(false);
-									AAMPLOG_MIL("SetPreferredLanguages: before TSB TuneHelper");
 									TuneHelper(eTUNETYPE_SEEKTOLIVE);
-									AAMPLOG_MIL("SetPreferredLanguages: after TSB TuneHelper");
 								}
 								else
 								{
@@ -13512,15 +13455,11 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 							}
 							else if(!wasAtLivePoint)
 							{
-								AAMPLOG_MIL("SetPreferredLanguages: before seek TuneHelper");
 								TuneHelper(eTUNETYPE_SEEK);
-								AAMPLOG_MIL("SetPreferredLanguages: after seek TuneHelper");
 							}
 							else
 							{
-								AAMPLOG_MIL("SetPreferredLanguages: before seek-to-live TuneHelper");
 								TuneHelper(eTUNETYPE_SEEKTOLIVE);
-								AAMPLOG_MIL("SetPreferredLanguages: after seek-to-live TuneHelper");
 							}
 						}
 						discardEnteringLiveEvt = false;
@@ -15211,9 +15150,7 @@ void PrivateInstanceAAMP::ReleaseDynamicDRMToUpdateWait()
 
 void PrivateInstanceAAMP::SetLocalAAMPTsbInjection(bool value)
 {
-	AAMPLOG_MIL("SetLocalAAMPTsbInjection: waiting for mLock value=%d", value);
 	std::lock_guard<std::recursive_mutex> guard(mLock);
-	AAMPLOG_MIL("SetLocalAAMPTsbInjection: acquired mLock value=%d", value);
 	mLocalAAMPInjectionEnabled = value;
 	AAMPLOG_INFO("Local AAMP TSB injection %d", mLocalAAMPInjectionEnabled);
 }
