@@ -1652,16 +1652,17 @@ void MediaTrack::FlushFetchedFragments()
 void MediaTrack::FlushFragments(bool isMutexLocked)
 {
 	AAMPLOG_WARN("[%s]", name);
-	if (!isMutexLocked)
-	{
-		lock.lock();
-	}
 	for (size_t i = 0; i < mCachedFragmentSize; i++)
 	{
 		mCachedFragment[i].Clear();
 	}
 	fragmentIdxToInject = 0;
 	fragmentIdxToFetch = 0;
+	std::unique_lock<std::mutex> guard(mutex, std::defer_lock);
+	if (!isMutexLocked)
+	{
+		guard.lock();
+	}
 	numberOfFragmentsCached = 0;
 
 	// All fragment-injected/fetched duration counters live under mTrackParamsMutex.
