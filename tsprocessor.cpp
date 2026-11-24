@@ -1159,6 +1159,7 @@ bool TSProcessor::processBuffer(unsigned char *buffer, int size, bool &insPatPmt
 			adaptation = ((packet[3] & 0x30) >> 4);
 			if (adaptation & 0x01)
 			{
+				const int payloadEnd = m_packetSize - m_ttsSize;
 				payloadOffset = 4;
 
 				if (adaptation & 0x02)
@@ -1167,7 +1168,13 @@ bool TSProcessor::processBuffer(unsigned char *buffer, int size, bool &insPatPmt
 				}
 
 				payloadStart = (packet[1] & 0x40);
-				if (payloadStart)
+				// PUSI packets need pointer_field..version (7 bytes); continuation packets need >= 1 payload byte
+				if (payloadOffset + (payloadStart ? 7 : 1) > payloadEnd)
+				{
+					AAMPLOG_WARN("Warning: RecordContext: ignoring pmt TS packet with invalid adaptation field (payload offset %d)", payloadOffset);
+					m_pmtCollectorOffset = 0;
+				}
+				else if (payloadStart)
 				{
 					int tableid = packet[payloadOffset + 1];
 					if (tableid == 0x02)
@@ -1240,7 +1247,7 @@ bool TSProcessor::processBuffer(unsigned char *buffer, int size, bool &insPatPmt
 				else
 				{
 					// process subsequent parts of multi-packet pmt
-					if (m_pmtCollectorOffset)
+					if ((m_pmtCollectorOffset > 0) && (m_pmtCollectorOffset < m_pmtCollectorSectionLength))
 					{
 						int continuity = (packet[3] & 0xF);
 						if (((continuity + 1) & 0xF) == m_pmtCollectorNextContinuity)

@@ -73,10 +73,18 @@ void StreamAbstractionAAMP::NotifyBufferLevelToLatencyMonitor(AampMediaType medi
 
 void StreamAbstractionAAMP::NotifyPipelinePausedToUnderflowMonitor()
 {
+	if (g_mockStreamAbstractionAAMP != nullptr)
+	{
+		g_mockStreamAbstractionAAMP->NotifyPipelinePausedToUnderflowMonitor();
+	}
 }
 
 void StreamAbstractionAAMP::NotifyPipelineResumedToUnderflowMonitor(float playRate)
 {
+	if (g_mockStreamAbstractionAAMP != nullptr)
+	{
+		g_mockStreamAbstractionAAMP->NotifyPipelineResumedToUnderflowMonitor(playRate);
+	}
 }
 
 void StreamAbstractionAAMP::NotifyRateChangeToUnderflowMonitor(float rate)
@@ -210,6 +218,15 @@ void MediaTrack::OnSinkBufferFull()
 {
 }
 
+bool MediaTrack::CompleteInitialCachingIfTargetMet(int minInitialCacheSeconds)
+{
+	if (g_mockMediaTrack != nullptr)
+	{
+		return g_mockMediaTrack->CompleteInitialCachingIfTargetMet(minInitialCacheSeconds);
+	}
+	return false;
+}
+
 BufferHealthStatus MediaTrack::GetBufferStatus()
 {
 	return BUFFER_STATUS_GREEN;
@@ -288,7 +305,8 @@ bool MediaTrack::isPlaylistDownloaderThreadStarted()
 	return true;
 }
 
-MediaTrack::MediaTrack(TrackType type, PrivateInstanceAAMP* aamp, const char* name) : name(name), aamp(aamp), type(type), abort(false), abortInject(false)
+MediaTrack::MediaTrack(TrackType type, PrivateInstanceAAMP* aamp, const char* name) :
+	name(name), type(type), aamp(aamp)
 {
 }
 

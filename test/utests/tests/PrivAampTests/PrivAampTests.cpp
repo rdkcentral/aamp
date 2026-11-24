@@ -17,7 +17,14 @@
 * limitations under the License.
 */
 
+#include <chrono>
 #include <cstdlib>
+#include <functional>
+#include <future>
+#include <mutex>
+#include <vector>
+#include <thread>
+#include <atomic>
 #include <iostream>
 #include <string>
 #include <string.h>
@@ -57,6 +64,7 @@
 #include "MockAdManager.h"
 #include "MockPlayerCCManager.h"
 #include "MockMediaStreamContext.h"
+#include "MockMediaTrack.h"
 #include "MockIsoBmffBuffer.h"
 #include "MockAampLatencyMonitor.h"
 #include "AampDefine.h"
@@ -98,6 +106,11 @@ public:
 			delete mMPDDownloaderInstance;
 			mMPDDownloaderInstance = nullptr;
 		}
+	}
+
+	void SetFragmentCachingRequiredForTest(bool required)
+	{
+		mFragmentCachingRequired = required;
 	}
 
 	void EnsureMPDDownloaderForTest()
@@ -311,6 +324,41 @@ public:
 		SetState(eSTATE_SEEKING, true);
 		NotifyFirstBufferProcessed(std::string());
 	}
+	bool CallCancelPauseOnFirstVideoFrame(bool firstFrameEnabled, bool pauseOnFirstFrame, bool &pauseOnFirstFrameAfter)
+	{
+		TestablePrivAamp::mFirstVideoFrameDisplayedEnabled = firstFrameEnabled;
+		TestablePrivAamp::mPauseOnFirstVideoFrameDisp = pauseOnFirstFrame;
+		bool pending = CancelPauseOnFirstVideoFrame();
+		pauseOnFirstFrameAfter = TestablePrivAamp::mPauseOnFirstVideoFrameDisp;
+		return pending;
+	}
+	void CallSpeedChangeWithSidecar(float rate, bool changeState, bool effectsOnly, StreamAbstractionAAMP *streamAbstraction)
+	{
+		mData = std::make_unique<char[]>(1); // makes HasSidecarData() true
+		auto *previous = mpStreamAbstractionAAMP;
+		mpStreamAbstractionAAMP = streamAbstraction;
+		if (effectsOnly)
+		{
+			ApplySpeedChangeEffects(rate);
+		}
+		else
+		{
+			NotifySpeedChanged(rate, changeState);
+		}
+		mpStreamAbstractionAAMP = previous;
+		mData.reset();
+	}
+	void SetSeekWhilePausedFramePendingWithInitialCaching()
+	{
+		SetSeekWhilePausedFramePending();
+		TestablePrivAamp::mFragmentCachingRequired = true;
+	}
+	void SetSeekWhilePausedFramePending()
+	{
+		TestablePrivAamp::mFirstVideoFrameDisplayedEnabled = true;
+		TestablePrivAamp::mPauseOnFirstVideoFrameDisp = true;
+		SetState(eSTATE_SEEKING);
+	}
 	void CallNotifyFirstVideoFrameDisplayed()
 	{
 		TestablePrivAamp::mPauseOnFirstVideoFrameDisp = true;
@@ -449,6 +497,10 @@ public:
 	{
 		return mTuneMetricDataPending.load();
 	}
+	void SetFirstProgress(bool value)
+	{
+		mFirstProgress = value;
+	}
 	};
 	TestablePrivAamp *testp_aamp{nullptr};
 };
@@ -527,7 +579,7 @@ TEST_F(PrivAampPrivTests, SetPreferredLanguagesPlayingLiveAampTsbTest)
 	 * called twice, once directly from SetPreferredLanguages() and once from TuneHelper()
 	 */
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_)).Times(2);
-	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_)).Times(1);
+	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_,_)).Times(1);
 	/* TSB Session Manager should be recreated and the TSB store flushed. */
 	EXPECT_CALL(*g_mockTSBSessionManager, Init()).Times(1);
 	EXPECT_CALL(*g_mockTSBStore, Flush()).Times(1);
@@ -846,8 +898,9 @@ TEST_F(PrivAampPrivTests,SendTuneMetricsEventTest2)
 }
 
 /**
- * Verify that AAMP_EVENT_TUNE_TIME_METRICS is dispatched by MonitorProgress
- * strictly after the state-changed-to-PLAYING event.
+ * Verify that MonitorProgress dispatches AAMP_EVENT_PROGRESS strictly after the
+ * state-changed-to-PLAYING event and AAMP_EVENT_TUNE_TIME_METRICS strictly after
+ * AAMP_EVENT_PROGRESS.
  */
 TEST_F(PrivAampPrivTests, MonitorProgressTuneMetricsAfterPlayingStateChange)
 {
@@ -855,6 +908,10 @@ TEST_F(PrivAampPrivTests, MonitorProgressTuneMetricsAfterPlayingStateChange)
 	testp_aamp->SetTuneTimeMetricData("{\"metric\":\"test\"}");
 	testp_aamp->mDownloadsEnabled = true;
 	testp_aamp->mSinkPaused = false;
+	// Must be non-negative, otherwise MonitorProgress() suppresses AAMP_EVENT_PROGRESS.
+	testp_aamp->trickStartUTCMS = 1;
+	// Position is unchanged from mReportProgressPosn (0) on the first tick; as on a real tune, mFirstProgress bypasses that de-dupe.
+	testp_aamp->SetFirstProgress(true);
 
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
 
@@ -862,22 +919,57 @@ TEST_F(PrivAampPrivTests, MonitorProgressTuneMetricsAfterPlayingStateChange)
 	EXPECT_CALL(*g_mockAampEventManager, IsEventListenerAvailable(AAMP_EVENT_STATE_CHANGED))
 		.WillOnce(Return(true));
 
-	// Ordering assertion: STATE_CHANGED(PLAYING) must be observed before TUNE_TIME_METRICS.
-	// Any other SendEvent calls (e.g. AAMP_EVENT_PROGRESS) are absorbed by NiceMock.
+	// Ordering assertion: STATE_CHANGED(PLAYING) -> PROGRESS -> TUNE_TIME_METRICS.
+	// Any other SendEvent calls are absorbed by NiceMock.
 	{
 		testing::InSequence seq;
 		EXPECT_CALL(*g_mockAampEventManager,
 			SendEvent(AnEventOfType(AAMP_EVENT_STATE_CHANGED), AAMP_EVENT_SYNC_MODE)).Times(1);
+		EXPECT_CALL(*g_mockAampEventManager,
+			SendEvent(AnEventOfType(AAMP_EVENT_PROGRESS), _)).Times(1);
 		EXPECT_CALL(*g_mockAampEventManager,
 			SendEvent(AnEventOfType(AAMP_EVENT_TUNE_TIME_METRICS), AAMP_EVENT_ASYNC_MODE)).Times(1);
 	}
 
 	// Step 1: transition to PLAYING — fires AAMP_EVENT_STATE_CHANGED synchronously.
 	testp_aamp->SetState(eSTATE_PLAYING, true);
-	// Step 2: first progress tick — fires AAMP_EVENT_TUNE_TIME_METRICS via SendTuneMetricsEvent.
+	// Step 2: first progress tick — fires AAMP_EVENT_PROGRESS, then AAMP_EVENT_TUNE_TIME_METRICS.
 	testp_aamp->MonitorProgress(true, false);
 
 	// Data is consumed exactly once; subsequent MonitorProgress ticks are no-ops.
+	EXPECT_FALSE(testp_aamp->GetTuneMetricDataPending());
+}
+
+/**
+ * Verify tune metrics stay pending when MonitorProgress cannot emit progress.
+ */
+TEST_F(PrivAampPrivTests, MonitorProgressDefersTuneMetricsUntilProgressEvent)
+{
+	testp_aamp->SetTuneTimeMetricData("{\"metric\":\"test\"}");
+	testp_aamp->SetState(eSTATE_PLAYING, true);
+	testp_aamp->mDownloadsEnabled = true;
+	testp_aamp->SetFirstProgress(true);
+	// Negative trickStartUTCMS suppresses AAMP_EVENT_PROGRESS for this tick.
+	testp_aamp->trickStartUTCMS = -1;
+
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampEventManager,
+		SendEvent(AnEventOfType(AAMP_EVENT_TUNE_TIME_METRICS), AAMP_EVENT_ASYNC_MODE)).Times(0);
+
+	testp_aamp->MonitorProgress(true, false);
+	EXPECT_TRUE(testp_aamp->GetTuneMetricDataPending());
+
+	testing::Mock::VerifyAndClearExpectations(g_mockAampEventManager.get());
+	testp_aamp->trickStartUTCMS = 1;
+	{
+		testing::InSequence seq;
+		EXPECT_CALL(*g_mockAampEventManager,
+			SendEvent(AnEventOfType(AAMP_EVENT_PROGRESS), _)).Times(1);
+		EXPECT_CALL(*g_mockAampEventManager,
+			SendEvent(AnEventOfType(AAMP_EVENT_TUNE_TIME_METRICS), AAMP_EVENT_ASYNC_MODE)).Times(1);
+	}
+	testp_aamp->MonitorProgress(true, false);
+
 	EXPECT_FALSE(testp_aamp->GetTuneMetricDataPending());
 }
 
@@ -1009,6 +1101,7 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackPipelinePausedNoUnderflow)
 	// Set up stream abstraction to return our real MediaStreamContext
 	// which forwards CacheFragmentChunk() to g_mockMediaStreamContext
 	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
+	p_aamp->mMediaFormat = eMEDIAFORMAT_DASH;
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetMediaTrack(eTRACK_VIDEO))
 		.WillRepeatedly(Return(mVideoStreamContext));
 
@@ -1071,6 +1164,7 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackPipelinePausedWithUnderflow)
 	// Set up stream abstraction to return our real MediaStreamContext
 	// which forwards CacheFragmentChunk() to g_mockMediaStreamContext
 	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
+	p_aamp->mMediaFormat = eMEDIAFORMAT_DASH;
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetMediaTrack(eTRACK_VIDEO))
 		.WillRepeatedly(Return(mVideoStreamContext));
 
@@ -1128,6 +1222,7 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithParseBufferFailure)
 	// Set up stream abstraction to return our real MediaStreamContext
 	// which forwards CacheFragmentChunk() to g_mockMediaStreamContext
 	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
+	p_aamp->mMediaFormat = eMEDIAFORMAT_DASH;
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetMediaTrack(eTRACK_VIDEO))
 		.WillRepeatedly(Return(mVideoStreamContext));
 	EXPECT_CALL(*g_mockMediaStreamContext, IsLocalTSBInjection())
@@ -1185,6 +1280,7 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithoutMdat)
 	// Set up stream abstraction to return our real MediaStreamContext
 	// which forwards CacheFragmentChunk() to g_mockMediaStreamContext
 	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
+	p_aamp->mMediaFormat = eMEDIAFORMAT_DASH;
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetMediaTrack(eTRACK_VIDEO))
 		.WillRepeatedly(Return(mVideoStreamContext));
 	EXPECT_CALL(*g_mockMediaStreamContext, IsLocalTSBInjection())
@@ -1245,6 +1341,7 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithPartialMp4Chunk)
 	// Set up stream abstraction to return our real MediaStreamContext
 	// which forwards CacheFragmentChunk() to g_mockMediaStreamContext
 	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
+	p_aamp->mMediaFormat = eMEDIAFORMAT_DASH;
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetMediaTrack(eTRACK_VIDEO))
 		.WillRepeatedly(Return(mVideoStreamContext));
 	EXPECT_CALL(*g_mockMediaStreamContext, IsLocalTSBInjection())
@@ -1341,6 +1438,7 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithMultipleMdatBoxes)
 	// Set up stream abstraction to return our real MediaStreamContext
 	// which forwards CacheFragmentChunk() to g_mockMediaStreamContext
 	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
+	p_aamp->mMediaFormat = eMEDIAFORMAT_DASH;
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetMediaTrack(eTRACK_VIDEO))
 		.WillRepeatedly(Return(mVideoStreamContext));
 	EXPECT_CALL(*g_mockMediaStreamContext, IsLocalTSBInjection())
@@ -1441,6 +1539,7 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithChunkEarlyAbort)
 	// Set up stream abstraction to return our real MediaStreamContext
 	// which forwards CacheFragmentChunk() to g_mockMediaStreamContext
 	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
+	p_aamp->mMediaFormat = eMEDIAFORMAT_DASH;
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetMediaTrack(eTRACK_VIDEO))
 		.WillRepeatedly(Return(mVideoStreamContext));
 	EXPECT_CALL(*g_mockMediaStreamContext, IsLocalTSBInjection())
@@ -1507,6 +1606,7 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackCacheFragmentChunkFailure)
 	// Set up stream abstraction to return our real MediaStreamContext
 	// which forwards CacheFragmentChunk() to g_mockMediaStreamContext
 	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
+	p_aamp->mMediaFormat = eMEDIAFORMAT_DASH;
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetMediaTrack(eTRACK_VIDEO))
 		.WillRepeatedly(Return(mVideoStreamContext));
 	EXPECT_CALL(*g_mockMediaStreamContext, IsLocalTSBInjection())
@@ -1616,6 +1716,7 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithMultipleChunks)
 	// Set up stream abstraction to return our real MediaStreamContext
 	// which forwards CacheFragmentChunk() to g_mockMediaStreamContext
 	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
+	p_aamp->mMediaFormat = eMEDIAFORMAT_DASH;
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetMediaTrack(eTRACK_VIDEO))
 		.WillRepeatedly(Return(mVideoStreamContext));
 	EXPECT_CALL(*g_mockMediaStreamContext, IsLocalTSBInjection())
@@ -2354,24 +2455,55 @@ TEST_F(PrivAampTests, HandleManifestRefreshFailureOnBuffering_NoError_ReturnsFal
 	EXPECT_FALSE(p_aamp->GetBufUnderFlowStatus());
 }
 
-// When manifest refresh reports a content error, the function
-// must return true to signal that an error event was sent and the normal
+// When manifest refresh reports a content error that has persisted for the grace period,
+// the function must return true to signal that an error event was sent and the normal
 // buffering path should be skipped.
 TEST_F(PrivAampTests, HandleManifestRefreshFailureOnBuffering_ContentError_ReturnsTrue)
 {
 	EXPECT_CALL(*g_mockAampMPDDownloader, GetManifestRefreshStatus())
 		.WillOnce(Return(ManifestRefreshStatus(
-			AAMPStatusType::eAAMPSTATUS_MANIFEST_CONTENT_ERROR, 0)));
+			AAMPStatusType::eAAMPSTATUS_MANIFEST_CONTENT_ERROR, 0, MANIFEST_REFRESH_FAILURE_GRACE_MS)));
 	EXPECT_TRUE(p_aamp->HandleManifestRefreshFailureOnBuffering());
 }
 
-// When the error code is a real HTTP/curl transport error (e.g. 408), the function
-// must return true (manifest-req-failed event path).
+// When the error code is a real HTTP/curl transport error (e.g. 408) that has persisted for the
+// grace period, the function must return true (manifest-req-failed event path).
 TEST_F(PrivAampTests, HandleManifestRefreshFailureOnBuffering_TransportError_ReturnsTrue)
 {
 	EXPECT_CALL(*g_mockAampMPDDownloader, GetManifestRefreshStatus())
 		.WillOnce(Return(ManifestRefreshStatus(
-			AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR, 408)));
+			AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR, 408, MANIFEST_REFRESH_FAILURE_GRACE_MS)));
+	EXPECT_TRUE(p_aamp->HandleManifestRefreshFailureOnBuffering());
+}
+
+// A refresh that only just started failing must not end playback: the downloader's retries
+// get the grace period to recover before a fatal error is sent.
+TEST_F(PrivAampTests, HandleManifestRefreshFailureOnBuffering_RecentFailure_WaitsForRecovery)
+{
+	EXPECT_CALL(*g_mockAampMPDDownloader, GetManifestRefreshStatus())
+		.WillOnce(Return(ManifestRefreshStatus(
+			AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR, CURLE_RECV_ERROR, MANIFEST_REFRESH_FAILURE_GRACE_MS - 1)));
+	EXPECT_FALSE(p_aamp->HandleManifestRefreshFailureOnBuffering());
+}
+
+// Content and parse errors get the same grace period as transport errors.
+TEST_F(PrivAampTests, HandleManifestRefreshFailureOnBuffering_RecentContentError_WaitsForRecovery)
+{
+	EXPECT_CALL(*g_mockAampMPDDownloader, GetManifestRefreshStatus())
+		.WillOnce(Return(ManifestRefreshStatus(
+			AAMPStatusType::eAAMPSTATUS_MANIFEST_CONTENT_ERROR, 0, 0)));
+	EXPECT_FALSE(p_aamp->HandleManifestRefreshFailureOnBuffering());
+}
+
+// The same outage becomes fatal once re-checked after the grace period has elapsed.
+TEST_F(PrivAampTests, HandleManifestRefreshFailureOnBuffering_FailureOutlastsGrace_BecomesFatal)
+{
+	EXPECT_CALL(*g_mockAampMPDDownloader, GetManifestRefreshStatus())
+		.WillOnce(Return(ManifestRefreshStatus(
+			AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR, CURLE_RECV_ERROR, MANIFEST_REFRESH_FAILURE_GRACE_MS - 1)))
+		.WillOnce(Return(ManifestRefreshStatus(
+			AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR, CURLE_RECV_ERROR, MANIFEST_REFRESH_FAILURE_GRACE_MS)));
+	EXPECT_FALSE(p_aamp->HandleManifestRefreshFailureOnBuffering());
 	EXPECT_TRUE(p_aamp->HandleManifestRefreshFailureOnBuffering());
 }
 
@@ -2381,27 +2513,41 @@ TEST_F(PrivAampTests, HandleManifestRefreshFailureOnBuffering_AfterRecovery_Retu
 {
 	EXPECT_CALL(*g_mockAampMPDDownloader, GetManifestRefreshStatus())
 		.WillOnce(Return(ManifestRefreshStatus(
-			AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR, 503)))
+			AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR, 503, MANIFEST_REFRESH_FAILURE_GRACE_MS)))
 		.WillOnce(Return(ManifestRefreshStatus()));
 	ASSERT_TRUE(p_aamp->HandleManifestRefreshFailureOnBuffering());
 
 	EXPECT_FALSE(p_aamp->HandleManifestRefreshFailureOnBuffering());
 }
 
-// When a manifest retry error is pending, SendBufferChangeEvent(true) must take
+// When a manifest refresh outage has lasted the grace period, SendBufferChangeEvent(true) must take
 // the early-return path: underflow status must NOT be set (player tears down via
 // the error event; the normal buffering path is skipped entirely).
 TEST_F(PrivAampTests, SendBufferChangeEvent_ManifestRetryPending_SkipsUnderflowStatus)
 {
 	EXPECT_CALL(*g_mockAampMPDDownloader, GetManifestRefreshStatus())
 		.WillOnce(Return(ManifestRefreshStatus(
-			AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR, 408)));
+			AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR, 408, MANIFEST_REFRESH_FAILURE_GRACE_MS)));
 	ASSERT_FALSE(p_aamp->GetBufUnderFlowStatus());
 
 	p_aamp->SendBufferChangeEvent(true);
 
 	// Early return was taken — SetBufUnderFlowStatus(true) must NOT have been called.
 	EXPECT_FALSE(p_aamp->GetBufUnderFlowStatus());
+}
+
+// A refresh failure shorter than the grace period must not skip the normal buffering path:
+// underflow status is set so the failed-refresh re-check can run while buffering.
+TEST_F(PrivAampTests, SendBufferChangeEvent_RecentManifestFailure_SetsUnderflowStatus)
+{
+	EXPECT_CALL(*g_mockAampMPDDownloader, GetManifestRefreshStatus())
+		.WillOnce(Return(ManifestRefreshStatus(
+			AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR, CURLE_RECV_ERROR, 0)));
+	ASSERT_FALSE(p_aamp->GetBufUnderFlowStatus());
+
+	p_aamp->SendBufferChangeEvent(true);
+
+	EXPECT_TRUE(p_aamp->GetBufUnderFlowStatus());
 }
 
 // When no manifest retry error is pending, SendBufferChangeEvent(true) must follow
@@ -3192,6 +3338,57 @@ TEST_F(PrivAampTests,GetFileTest_RetryInitWhilstBufferDepthBeforeSuccessTest)
 
 	EXPECT_TRUE(p_aamp->GetFile("remoteurl", mType, gBuff, effectiveUrl, http_error, &downloadTime, "0-150",
 								eCURLINSTANCE_MANIFEST_MAIN, resetBuffer, &bitrate, &fogError, 0.0));
+}
+
+/**
+ * @brief GetFile() must discard response headers left by a failed attempt before retrying.
+ *
+ * The first attempt fails with CURLE_RECV_ERROR after an X-Reason header was parsed;
+ * the retry succeeds without that header, so it must not be reported.
+ */
+TEST_F(PrivAampTests, GetFileTest_RetryAfterRecvErrorDiscardsStaleResponseHeaders)
+{
+	std::string effectiveUrl;
+	int http_error = 0;
+	std::vector<uint8_t> gBuff{};
+	double downloadTime;
+	BitsPerSecond bitrate;
+	int fogError;
+	using namespace std::string_view_literals;
+	constexpr auto dummyData = "0x0a"sv;
+	constexpr auto curlInstance = eCURLINSTANCE_MANIFEST_MAIN;
+
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
+	p_aamp->EnableDownloads();
+	p_aamp->curl[curlInstance] = mCurlEasyHandle;
+	p_aamp->curlDLTimeout[curlInstance] = 2000;
+
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(Matcher<AAMPConfigSettingInt>(_))).WillRepeatedly(Return(0));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(Matcher<AAMPConfigSettingFloat>(_))).WillRepeatedly(Return(0.0));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(Matcher<AAMPConfigSettingString>(_))).WillRepeatedly(Return(""));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_ptr(mCurlEasyHandle, _, _)).WillRepeatedly(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_str(mCurlEasyHandle, _, _)).WillRepeatedly(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_long(mCurlEasyHandle, _, _)).WillRepeatedly(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockAampCurlStore, GetCurlResponseCode(mCurlEasyHandle)).WillOnce(Return(200));
+
+	EXPECT_CALL(*g_mockCurl, curl_easy_perform(mCurlEasyHandle))
+		.WillOnce([this, curlInstance]() -> CURLcode
+				{
+					// Stands in for HandleSSLHeaderCallback() running before the connection reset
+					p_aamp->httpRespHeaders[curlInstance].type = eHTTPHEADERTYPE_XREASON;
+					p_aamp->httpRespHeaders[curlInstance].data = "stale reason;";
+					return CURLE_RECV_ERROR;
+				})
+		.WillOnce([&gBuff, dummyData]() -> CURLcode
+				{
+					gBuff.assign(dummyData.begin(), dummyData.end());
+					return CURLE_OK;
+				});
+
+	EXPECT_TRUE(p_aamp->GetFile("remoteurl", eMEDIATYPE_MANIFEST, gBuff, effectiveUrl, http_error, &downloadTime, nullptr,
+								curlInstance, true, &bitrate, &fogError, 0.0));
+	EXPECT_EQ(p_aamp->httpRespHeaders[curlInstance].type, eHTTPHEADERTYPE_UNKNOWN);
+	EXPECT_TRUE(p_aamp->httpRespHeaders[curlInstance].data.empty());
 }
 
 TEST_F(PrivAampTests,GetOnVideoEndSessionStatDataTest)
@@ -4465,6 +4662,35 @@ TEST_F(PrivAampTests,StopTrackInjectionTest)
 	p_aamp->StopTrackInjection(eMEDIATYPE_AUDIO);
 }
 
+TEST_F(PrivAampTests,StopTrackInjectionTest_DiscardFalse_DoesNotUnblockInjector)
+{
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer.get()));
+	EXPECT_CALL(*g_mockAampGstPlayer, UnblockTrackInjection(_)).Times(0);
+	p_aamp->StopTrackInjection(eMEDIATYPE_VIDEO);
+}
+
+TEST_F(PrivAampTests,StopTrackInjectionTest_DiscardTrue_UnblocksInjectorEachCall)
+{
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer.get()));
+	// UnblockTrackInjection() is idempotent, so a repeated discard call must still unblock,
+	// regardless of whether the track was already marked blocked.
+	EXPECT_CALL(*g_mockAampGstPlayer, UnblockTrackInjection(eMEDIATYPE_VIDEO)).Times(2);
+	p_aamp->StopTrackInjection(eMEDIATYPE_VIDEO, true);
+	p_aamp->StopTrackInjection(eMEDIATYPE_VIDEO, true);
+}
+
+// Regression test: e.g. StreamAbstractionAAMP_MPD::RefreshTrack() blocks a track with
+// discard=false (no unblock) during a seamless track switch; if Stop()/StopInjection()
+// later calls StopTrackInjection(type, true) for that still-blocked track, the sink
+// must still be unblocked so StopInjectLoop()'s thread join cannot hang.
+TEST_F(PrivAampTests,StopTrackInjectionTest_DiscardTrueAfterNonDiscard_StillUnblocksInjector)
+{
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer.get()));
+	EXPECT_CALL(*g_mockAampGstPlayer, UnblockTrackInjection(eMEDIATYPE_VIDEO)).Times(1);
+	p_aamp->StopTrackInjection(eMEDIATYPE_VIDEO, false);
+	p_aamp->StopTrackInjection(eMEDIATYPE_VIDEO, true);
+}
+
 TEST_F(PrivAampTests,ResumeTrackInjectionTest)
 {
 	p_aamp->ResumeTrackInjection(eMEDIATYPE_VIDEO);
@@ -4532,6 +4758,128 @@ TEST_F(PrivAampTests,PreCachePlaylistDownloadTaskTest)
 	p_aamp->PreCachePlaylistDownloadTask();
 }
 
+/**
+ * @brief Release a PreCachePlaylistDownloadTask() blocked on waitforplaystart so that a
+ *        failing test does not hang when its std::future is destroyed.
+ */
+static void ReleasePreCacheTask(PrivateInstanceAAMP *aamp)
+{
+	{
+		std::lock_guard<std::mutex> guard(aamp->mMutexPlaystart);
+		aamp->mPlayStartSignalled = true;
+	}
+	aamp->waitforplaystart.notify_all();
+}
+
+static PreCacheUrlList MakePreCacheList()
+{
+	PreCacheUrlStruct entry;
+	entry.url = "http://host/precache/video.m3u8";
+	entry.type = eMEDIATYPE_PLAYLIST_VIDEO;
+	return PreCacheUrlList{entry};
+}
+
+/**
+ * @brief Play start signalled before the pre-cache thread reaches its wait.
+ *
+ * The first-frame notification runs on a different thread from the pre-cache thread and
+ * can happen first. The pre-cache thread must still observe it and continue.
+ * State is set to IDLE after play start so the task returns without downloading.
+ */
+TEST_F(PrivAampTests, PreCachePlaylistDownloadTask_PlayStartBeforeWait_DoesNotBlock)
+{
+	PreCacheUrlList list = MakePreCacheList();
+	p_aamp->SetPreCacheDownloadList(list);
+
+	// Play start happens before the pre-cache thread runs
+	p_aamp->NotifyFirstFrameReceived(0);
+	p_aamp->SetState(eSTATE_IDLE, false);
+
+	auto task = std::async(std::launch::async, [this]() { p_aamp->PreCachePlaylistDownloadTask(); });
+	std::future_status status = task.wait_for(std::chrono::seconds(2));
+	if (status != std::future_status::ready)
+	{
+		ReleasePreCacheTask(p_aamp);
+	}
+	task.wait();
+
+	EXPECT_EQ(status, std::future_status::ready)
+		<< "PreCachePlaylistDownloadTask() missed a play start signalled before it waited";
+}
+
+/**
+ * @brief Pre-cache must not start until play start has been signalled for this tune.
+ */
+TEST_F(PrivAampTests, PreCachePlaylistDownloadTask_NoPlayStart_WaitsUntilSignalled)
+{
+	PreCacheUrlList list = MakePreCacheList();
+	p_aamp->SetPreCacheDownloadList(list);
+	p_aamp->SetState(eSTATE_IDLE, false);
+
+	auto task = std::async(std::launch::async, [this]() { p_aamp->PreCachePlaylistDownloadTask(); });
+	std::future_status beforeSignal = task.wait_for(std::chrono::milliseconds(20));
+
+	ReleasePreCacheTask(p_aamp);
+	std::future_status afterSignal = task.wait_for(std::chrono::seconds(2));
+	task.wait();
+
+	EXPECT_EQ(beforeSignal, std::future_status::timeout);
+	EXPECT_EQ(afterSignal, std::future_status::ready);
+}
+
+/**
+ * @brief SetPreCacheDownloadList() starts a new tune's pre-cache: a play start from a
+ *        previous tune must not release the new pre-cache thread.
+ */
+TEST_F(PrivAampTests, SetPreCacheDownloadList_PreviousTunePlayStart_DoesNotReleaseTask)
+{
+	// Play start of the previous tune
+	p_aamp->NotifyFirstFrameReceived(0);
+
+	PreCacheUrlList list = MakePreCacheList();
+	p_aamp->SetPreCacheDownloadList(list);
+	p_aamp->SetState(eSTATE_IDLE, false);
+
+	auto task = std::async(std::launch::async, [this]() { p_aamp->PreCachePlaylistDownloadTask(); });
+	std::future_status beforeSignal = task.wait_for(std::chrono::milliseconds(20));
+
+	ReleasePreCacheTask(p_aamp);
+	std::future_status afterSignal = task.wait_for(std::chrono::seconds(2));
+	task.wait();
+
+	EXPECT_EQ(beforeSignal, std::future_status::timeout)
+		<< "Play start from the previous tune released the new pre-cache task";
+	EXPECT_EQ(afterSignal, std::future_status::ready);
+}
+
+/**
+ * @brief Stop() must release a pre-cache thread still waiting for play start.
+ *
+ * Stop() signals mPlayStartSignalled and then joins mPreCachePlaylistThreadId. Without the
+ * signal the worker stays blocked on the predicate and the join never returns.
+ * Stop() runs on a helper thread so a regression fails on the deadline rather than hanging.
+ */
+TEST_F(PrivAampTests, Stop_PreCacheThreadWaitingForPlayStart_JoinsWithinDeadline)
+{
+	PreCacheUrlList list = MakePreCacheList();
+	p_aamp->SetPreCacheDownloadList(list);
+	p_aamp->mPreCachePlaylistThreadId =
+		std::thread(&PrivateInstanceAAMP::PreCachePlaylistDownloadTask, p_aamp);
+
+	auto stopTask = std::async(std::launch::async, [this]() { p_aamp->Stop(false); });
+	std::future_status status = stopTask.wait_for(std::chrono::seconds(2));
+	if (status != std::future_status::ready)
+	{
+		// Timeout cleanup only, so a regression fails instead of hanging CI
+		ReleasePreCacheTask(p_aamp);
+	}
+	stopTask.wait();
+
+	EXPECT_EQ(status, std::future_status::ready)
+		<< "Stop() did not release and join the pre-cache thread";
+	EXPECT_FALSE(p_aamp->mPreCachePlaylistThreadId.joinable());
+}
+
 TEST_F(PrivAampTests,GetPreferredTextPropertiesTest)
 {
 	std::vector<BitsPerSecond> bitrateList;
@@ -4594,6 +4942,78 @@ TEST_F(PrivAampTests,NotifyFirstVideoFrameDisplayedTest)
 TEST_F(PrivAampTests,SetStateBufferingIfRequiredTest)
 {
 	EXPECT_FALSE(p_aamp->SetStateBufferingIfRequired());
+}
+
+/*
+ * Resume must not enter BUFFERING (which would wait for a download that may
+ * never come) and the requirement must be cleared.
+ */
+TEST_F(PrivAampTests,SetStateBufferingIfRequired_TargetAlreadyMet_DoesNotBuffer)
+{
+	g_mockMediaTrack = std::make_shared<NiceMock<MockMediaTrack>>();
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetMediaTrack(eTRACK_VIDEO))
+		.WillRepeatedly(Return(g_mockMediaTrack.get()));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_InitialBuffer))
+		.WillRepeatedly(Return(6));
+	EXPECT_CALL(*g_mockMediaTrack, CompleteInitialCachingIfTargetMet(6))
+		.WillOnce(Return(true));
+
+	p_aamp->SetState(eSTATE_PAUSED, true);
+	p_aamp->SetFragmentCachingRequiredForTest(true);
+	ASSERT_TRUE(p_aamp->IsFragmentCachingRequired());
+
+	EXPECT_FALSE(p_aamp->SetStateBufferingIfRequired());
+	EXPECT_NE(eSTATE_BUFFERING, p_aamp->GetState());
+	EXPECT_FALSE(p_aamp->IsFragmentCachingRequired());
+
+	p_aamp->mpStreamAbstractionAAMP = nullptr;
+	g_mockMediaTrack.reset();
+}
+
+TEST_F(PrivAampTests,SetStateBufferingIfRequired_TargetNotMet_Buffers)
+{
+	g_mockMediaTrack = std::make_shared<NiceMock<MockMediaTrack>>();
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetMediaTrack(eTRACK_VIDEO))
+		.WillRepeatedly(Return(g_mockMediaTrack.get()));
+	EXPECT_CALL(*g_mockMediaTrack, CompleteInitialCachingIfTargetMet(_))
+		.WillOnce(Return(false));
+
+	p_aamp->SetState(eSTATE_PAUSED, true);
+	p_aamp->SetFragmentCachingRequiredForTest(true);
+
+	EXPECT_TRUE(p_aamp->SetStateBufferingIfRequired());
+	EXPECT_EQ(eSTATE_BUFFERING, p_aamp->GetState());
+	EXPECT_TRUE(p_aamp->IsFragmentCachingRequired());
+
+	p_aamp->mpStreamAbstractionAAMP = nullptr;
+	g_mockMediaTrack.reset();
+}
+
+TEST_F(PrivAampTests,SetStateBufferingIfRequired_NoVideoTrack_Buffers)
+{
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetMediaTrack(eTRACK_VIDEO))
+		.WillRepeatedly(Return(nullptr));
+
+	p_aamp->SetState(eSTATE_PAUSED, true);
+	p_aamp->SetFragmentCachingRequiredForTest(true);
+
+	EXPECT_TRUE(p_aamp->SetStateBufferingIfRequired());
+	EXPECT_EQ(eSTATE_BUFFERING, p_aamp->GetState());
+
+	p_aamp->mpStreamAbstractionAAMP = nullptr;
+}
+
+TEST_F(PrivAampTests,SetStateBufferingIfRequired_NoStreamAbstraction_Buffers)
+{
+	p_aamp->mpStreamAbstractionAAMP = nullptr;
+	p_aamp->SetState(eSTATE_PAUSED, true);
+	p_aamp->SetFragmentCachingRequiredForTest(true);
+
+	EXPECT_TRUE(p_aamp->SetStateBufferingIfRequired());
+	EXPECT_EQ(eSTATE_BUFFERING, p_aamp->GetState());
 }
 
 TEST_F(PrivAampTests,TrackDownloadsAreEnabledTest)
@@ -5167,9 +5587,35 @@ TEST_F(PrivAampTests,SetCurrentLatencyTest)
 	EXPECT_EQ(val,123456);
 }
 
-TEST_F(PrivAampTests,GetMediaStreamContextTest)
+/** @brief GetMediaStreamContext returns the collector's track for DASH. */
+TEST_F(PrivAampTests,GetMediaStreamContext_Dash_ReturnsTrack)
 {
-	MediaStreamContext *mCtx = p_aamp->GetMediaStreamContext(eMEDIATYPE_VIDEO);
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
+	p_aamp->mMediaFormat = eMEDIAFORMAT_DASH;
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetMediaTrack(eTRACK_VIDEO))
+		.WillOnce(Return(mVideoStreamContext));
+
+	EXPECT_EQ(p_aamp->GetMediaStreamContext(eMEDIATYPE_VIDEO), mVideoStreamContext);
+}
+
+/** @brief GetMediaStreamContext returns null for a non-DASH format without querying the collector. */
+TEST_F(PrivAampTests,GetMediaStreamContext_Hls_ReturnsNull)
+{
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
+	p_aamp->mMediaFormat = eMEDIAFORMAT_HLS;
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetMediaTrack(_)).Times(0);
+
+	EXPECT_EQ(p_aamp->GetMediaStreamContext(eMEDIATYPE_VIDEO), nullptr);
+}
+
+/** @brief GetMediaStreamContext returns null for a media type that has no track. */
+TEST_F(PrivAampTests,GetMediaStreamContext_NonTrackType_ReturnsNull)
+{
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
+	p_aamp->mMediaFormat = eMEDIAFORMAT_DASH;
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetMediaTrack(_)).Times(0);
+
+	EXPECT_EQ(p_aamp->GetMediaStreamContext(eMEDIATYPE_MANIFEST), nullptr);
 }
 
 TEST_F(PrivAampTests,GetPeriodDurationTimeValueTest)
@@ -5672,6 +6118,259 @@ TEST_F(PrivAampTests,NotifyFirstVideoFrameDisplayedTest1)
 	p_aamp->SetState(eSTATE_IDLE, true);
 	p_aamp->NotifyFirstVideoFrameDisplayed();
 }
+/**
+ * @brief A seek while paused still waiting for its first frame: the pause is cancelled and the first frame wait is kept.
+ */
+TEST_F(PrivAampPrivTests,CancelPauseOnFirstVideoFrame_SeekWhilePausedPending_CancelsPauseAndKeepsFirstFrameWait)
+{
+	bool pauseFlag = true;
+	EXPECT_TRUE(testp_aamp->CallCancelPauseOnFirstVideoFrame(true, true, pauseFlag));
+	EXPECT_FALSE(pauseFlag);
+	EXPECT_TRUE(testp_aamp->IsFirstVideoFrameDisplayedRequired());
+
+	// Nothing pending: first frame already handled, or not a seek while paused
+	EXPECT_FALSE(testp_aamp->CallCancelPauseOnFirstVideoFrame(false, true, pauseFlag));
+	EXPECT_FALSE(testp_aamp->CallCancelPauseOnFirstVideoFrame(true, false, pauseFlag));
+}
+
+/**
+ * @brief The first frame callback holds the fragment caching lock while it pauses the sink.
+ *
+ * A resume (CancelPauseOnFirstVideoFrame) arriving meanwhile must therefore wait for the pause to complete and then
+ * find nothing pending, so that it performs a normal un-pause instead of being overridden by the pause.
+ * Lock ownership is checked with a non-blocking try-lock, so the test does not depend on timing.
+ */
+TEST_F(PrivAampPrivTests,NotifyFirstVideoFrameDisplayed_PauseInProgress_HoldsCachingLockUntilPauseCompletes)
+{
+	using namespace std::chrono_literals;
+	testp_aamp->SetSeekWhilePausedFramePending();
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer.get()));
+
+	std::promise<void> pauseEntered;
+	std::promise<void> pauseRelease;
+	std::shared_future<void> pauseReleaseFuture = pauseRelease.get_future().share();
+	bool pauseReleased = false;
+	EXPECT_CALL(*g_mockAampGstPlayer, Pause(true, _))
+		.WillOnce(::testing::Invoke([&](bool, bool)
+		{
+			pauseEntered.set_value();
+			// Bounded so that a failing run cannot hang the callback thread forever
+			pauseReleaseFuture.wait_for(10s);
+			return true;
+		}));
+
+	bool pending = true;
+	std::thread callbackThread([this]() { testp_aamp->NotifyFirstVideoFrameDisplayed(); });
+	std::thread resumeThread;
+	// Releases the blocked sink pause and joins the threads on every exit path, including a failed ASSERT
+	struct Cleanup
+	{
+		std::function<void()> action;
+		~Cleanup() { action(); }
+	} cleanup{[&]()
+	{
+		if (!pauseReleased)
+		{
+			pauseRelease.set_value();
+			pauseReleased = true;
+		}
+		if (callbackThread.joinable())
+		{
+			callbackThread.join();
+		}
+		if (resumeThread.joinable())
+		{
+			resumeThread.join();
+		}
+	}};
+
+	ASSERT_EQ(pauseEntered.get_future().wait_for(10s), std::future_status::ready) << "first frame callback never reached the sink pause";
+
+	// The callback is inside the sink pause: it must own the caching lock
+	{
+		auto lock = testp_aamp->TryLockFragmentCaching();
+		EXPECT_FALSE(lock.owns_lock());
+	}
+
+	resumeThread = std::thread([&]() { pending = testp_aamp->CancelPauseOnFirstVideoFrame(); });
+
+	pauseRelease.set_value();
+	pauseReleased = true;
+	callbackThread.join();
+	resumeThread.join();
+
+	EXPECT_FALSE(pending);
+	EXPECT_EQ(testp_aamp->GetState(), eSTATE_PAUSED);
+}
+
+/**
+ * @brief Resume wins the race: the first frame callback must not pause, it moves SEEKING to PLAYING.
+ */
+TEST_F(PrivAampPrivTests,NotifyFirstVideoFrameDisplayed_PauseCancelled_MovesSeekingToPlaying)
+{
+	testp_aamp->SetSeekWhilePausedFramePending();
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer.get()));
+	EXPECT_CALL(*g_mockAampGstPlayer, Pause(_, _)).Times(0);
+
+	EXPECT_TRUE(testp_aamp->CancelPauseOnFirstVideoFrame());
+	testp_aamp->NotifyFirstVideoFrameDisplayed();
+	EXPECT_EQ(testp_aamp->GetState(), eSTATE_PLAYING);
+}
+
+/**
+ * @brief Resume then pause before the first frame: the pause is re-armed and the callback pauses and reports PAUSED.
+ */
+TEST_F(PrivAampPrivTests,NotifyFirstVideoFrameDisplayed_PauseRearmedAfterResume_PausesSinkAndReportsPaused)
+{
+	testp_aamp->SetSeekWhilePausedFramePending();
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer.get()));
+	EXPECT_CALL(*g_mockAampGstPlayer, Pause(true, _)).WillOnce(Return(true));
+
+	EXPECT_TRUE(testp_aamp->CancelPauseOnFirstVideoFrame());
+	EXPECT_TRUE(testp_aamp->RearmPauseOnFirstVideoFrame());
+	EXPECT_EQ(testp_aamp->GetState(), eSTATE_SEEKING);
+
+	testp_aamp->NotifyFirstVideoFrameDisplayed();
+	EXPECT_EQ(testp_aamp->GetState(), eSTATE_PAUSED);
+	EXPECT_FALSE(testp_aamp->IsFirstVideoFrameDisplayedRequired());
+}
+
+/**
+ * @brief If the state is already PAUSED when the callback runs, it must not turn it into PLAYING.
+ */
+TEST_F(PrivAampPrivTests,NotifyFirstVideoFrameDisplayed_PauseRearmedAndAlreadyPaused_DoesNotOverrideState)
+{
+	testp_aamp->SetSeekWhilePausedFramePending();
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer.get()));
+	EXPECT_CALL(*g_mockAampGstPlayer, Pause(_, _)).Times(0);
+
+	EXPECT_TRUE(testp_aamp->CancelPauseOnFirstVideoFrame());
+	EXPECT_TRUE(testp_aamp->RearmPauseOnFirstVideoFrame());
+	testp_aamp->SetState(eSTATE_PAUSED);
+
+	testp_aamp->NotifyFirstVideoFrameDisplayed();
+	EXPECT_EQ(testp_aamp->GetState(), eSTATE_PAUSED);
+}
+
+/**
+ * @brief Nothing was cancelled, or the first frame was already handled: there is nothing to re-arm.
+ */
+TEST_F(PrivAampPrivTests,RearmPauseOnFirstVideoFrame_NothingCancelled_ReturnsFalse)
+{
+	EXPECT_FALSE(testp_aamp->RearmPauseOnFirstVideoFrame());
+
+	testp_aamp->SetSeekWhilePausedFramePending();
+	EXPECT_FALSE(testp_aamp->RearmPauseOnFirstVideoFrame());
+
+	EXPECT_TRUE(testp_aamp->CancelPauseOnFirstVideoFrame());
+	testp_aamp->NotifyFirstVideoFrameDisplayed();
+	EXPECT_FALSE(testp_aamp->RearmPauseOnFirstVideoFrame());
+}
+
+/**
+ * @brief Used when only the player state transition is deferred (seek while paused still pre-rolling).
+ */
+TEST_F(PrivAampPrivTests,ApplySpeedChangeEffects_SidecarData_MutesAndResumesWithoutStateChange)
+{
+	testp_aamp->SetState(eSTATE_SEEKING);
+
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, MuteSubtitleOnPause()).Times(1);
+	testp_aamp->CallSpeedChangeWithSidecar(0, false, true, g_mockStreamAbstractionAAMP.get());
+	EXPECT_EQ(testp_aamp->GetState(), eSTATE_SEEKING);
+
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, ResumeSubtitleOnPlay(_, _)).Times(1);
+	testp_aamp->CallSpeedChangeWithSidecar(AAMP_NORMAL_PLAY_RATE, false, true, g_mockStreamAbstractionAAMP.get());
+	EXPECT_EQ(testp_aamp->GetState(), eSTATE_SEEKING);
+}
+
+/**
+ * @brief NotifySpeedChanged with a state change still applies the sidecar subtitle handling, and without one touches nothing.
+ */
+TEST_F(PrivAampPrivTests,NotifySpeedChanged_SidecarData_ChangesStateAndAppliesEffects)
+{
+	testp_aamp->SetState(eSTATE_SEEKING);
+
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, MuteSubtitleOnPause()).Times(1);
+	testp_aamp->CallSpeedChangeWithSidecar(0, true, false, g_mockStreamAbstractionAAMP.get());
+	EXPECT_EQ(testp_aamp->GetState(), eSTATE_PAUSED);
+
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, ResumeSubtitleOnPlay(_, _)).Times(1);
+	testp_aamp->CallSpeedChangeWithSidecar(AAMP_NORMAL_PLAY_RATE, true, false, g_mockStreamAbstractionAAMP.get());
+	EXPECT_EQ(testp_aamp->GetState(), eSTATE_PLAYING);
+
+	// No state change requested: neither subtitles nor state are touched
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, MuteSubtitleOnPause()).Times(0);
+	testp_aamp->CallSpeedChangeWithSidecar(0, false, false, g_mockStreamAbstractionAAMP.get());
+	EXPECT_EQ(testp_aamp->GetState(), eSTATE_PLAYING);
+}
+
+/**
+ * @brief Cancelling a pending pause skips initial caching so the first-frame callback can resume playback.
+ */
+TEST_F(PrivAampPrivTests,NotifyFirstVideoFrameDisplayed_CancelledPauseWithInitialCaching_MovesToPlaying)
+{
+	testp_aamp->SetSeekWhilePausedFramePendingWithInitialCaching();
+	EXPECT_CALL(*g_mockAampGstPlayer, Pause(_, _)).Times(0);
+
+	EXPECT_TRUE(testp_aamp->CancelPauseOnFirstVideoFrame());
+	EXPECT_FALSE(testp_aamp->IsFragmentCachingRequired());
+	testp_aamp->NotifyFirstVideoFrameDisplayed();
+	EXPECT_EQ(testp_aamp->GetState(), eSTATE_PLAYING);
+}
+
+/**
+ * @brief Pausing on the first frame of a seek while paused follows the paused download policy: downloads are stopped.
+ */
+TEST_F(PrivAampPrivTests,NotifyFirstVideoFrameDisplayed_PauseOnFirstFrame_StopsDownloads)
+{
+	testp_aamp->SetSeekWhilePausedFramePending();
+	testp_aamp->SetLocalAAMPTsb(false);
+	testp_aamp->mPausedBehavior = ePAUSED_BEHAVIOR_AUTOPLAY_IMMEDIATE;
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer.get()));
+	EXPECT_CALL(*g_mockAampGstPlayer, Pause(true, _)).WillOnce(Return(true));
+
+	testp_aamp->NotifyFirstVideoFrameDisplayed();
+	EXPECT_EQ(testp_aamp->GetState(), eSTATE_PAUSED);
+	EXPECT_TRUE(testp_aamp->mbDownloadsBlocked);
+	EXPECT_TRUE(testp_aamp->mDownloadsEnabled);
+	EXPECT_FALSE(testp_aamp->mSeekFromPausedState);
+}
+
+/**
+ * @brief With local TSB downloads keep running while paused, as for a normal pause (the TSB must keep recording).
+ */
+TEST_F(PrivAampPrivTests,NotifyFirstVideoFrameDisplayed_PauseOnFirstFrameWithLocalTsb_KeepsDownloadsRunning)
+{
+	testp_aamp->SetSeekWhilePausedFramePending();
+	testp_aamp->SetLocalAAMPTsb(true);
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer.get()));
+	EXPECT_CALL(*g_mockAampGstPlayer, Pause(true, _)).WillOnce(Return(true));
+
+	testp_aamp->NotifyFirstVideoFrameDisplayed();
+	EXPECT_EQ(testp_aamp->GetState(), eSTATE_PAUSED);
+	EXPECT_FALSE(testp_aamp->mbDownloadsBlocked);
+	EXPECT_TRUE(testp_aamp->mDownloadsEnabled);
+	EXPECT_FALSE(testp_aamp->mSeekFromPausedState);
+}
+
+/**
+ * @brief ePAUSED_BEHAVIOR_LIVE_DEFER: downloads are disabled and the resume is marked to retune from the paused state.
+ */
+TEST_F(PrivAampPrivTests,NotifyFirstVideoFrameDisplayed_PauseOnFirstFrameWithLiveDefer_DisablesDownloadsAndMarksSeekFromPaused)
+{
+	testp_aamp->SetSeekWhilePausedFramePending();
+	testp_aamp->SetLocalAAMPTsb(false);
+	testp_aamp->mPausedBehavior = ePAUSED_BEHAVIOR_LIVE_DEFER;
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer.get()));
+	EXPECT_CALL(*g_mockAampGstPlayer, Pause(true, _)).WillOnce(Return(true));
+
+	testp_aamp->NotifyFirstVideoFrameDisplayed();
+	EXPECT_EQ(testp_aamp->GetState(), eSTATE_PAUSED);
+	EXPECT_TRUE(testp_aamp->mbDownloadsBlocked);
+	EXPECT_FALSE(testp_aamp->mDownloadsEnabled);
+	EXPECT_TRUE(testp_aamp->mSeekFromPausedState);
+}
+
 TEST_F(PrivAampPrivTests,NotifyFirstVideoFrameDisplayedTest2)
 {
 	testp_aamp->CallNotifyFirstVideoFrameDisplayed();
@@ -5849,6 +6548,39 @@ TEST_F(PrivAampTests, Stop_StateTransition_WithoutStateChangeEvent)
 	EXPECT_EQ(finalState, eSTATE_IDLE);
 }
 
+/**
+ * @test Stop_MPDDownloaderReleasedBeforeStreamAbstractionStop
+ * @brief Regression test (crash fix): AampMPDDownloader::Release()
+ *        must be called before StreamAbstractionAAMP::Stop() (triggered by
+ *        TeardownStream) during PrivateInstanceAAMP::Stop().
+ *
+ *        The original bug called Release() after TeardownStream(), allowing the
+ *        downloader thread to access the already-deleted StreamAbstraction object,
+ *        causing a use-after-free crash. This test will fail if that ordering is
+ *        ever regressed.
+ */
+TEST_F(PrivAampTests, Stop_MPDDownloaderReleasedBeforeStreamAbstractionStop)
+{
+	// Create a heap-allocated stream abstraction mock; TeardownStream owns and deletes it
+	// via SAFE_DELETE(mpStreamAbstractionAAMP). Using a raw pointer here is intentional —
+	// wrapping it in a shared_ptr would cause a double-free.
+	auto* streamMock = new NiceMock<MockStreamAbstractionAAMP>(p_aamp);
+	p_aamp->mpStreamAbstractionAAMP = streamMock;
+
+	// Enforce call ordering: Release() must fire before StreamAbstractionAAMP::Stop().
+	// InSequence causes an immediate test failure if Stop() is called first.
+	{
+		testing::InSequence releaseBeforeStop;
+		EXPECT_CALL(*g_mockAampMPDDownloader, Release()).Times(1);
+		EXPECT_CALL(*streamMock, Stop(_)).Times(1);
+	}
+
+	p_aamp->Stop(false);
+
+	// TeardownStream nulled mpStreamAbstractionAAMP via SAFE_DELETE; confirm it is null.
+	EXPECT_EQ(p_aamp->mpStreamAbstractionAAMP, nullptr);
+}
+
 TEST_F(PrivAampTests,GetLastDownloadedManifestTest1)
 {
 	std::string manifest;
@@ -5877,7 +6609,9 @@ TEST_F(PrivAampPrivTests,ReconfigureForElementaryStreamUpdateTest1)
 
 TEST_F(PrivAampTests,isDecryptClearSamplesRequired)
 {
+	// IsUsingRialto() short-circuits: useDirectRialto is only checked when useRialtoSink is false.
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_useRialtoSink)).WillOnce(Return(false));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_useDirectRialto)).WillOnce(Return(false));
 	EXPECT_TRUE(p_aamp->isDecryptClearSamplesRequired());
 
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_useRialtoSink)).WillOnce(Return(true));
@@ -6141,21 +6875,21 @@ TEST_F(PrivAampPrivTests, TuneHelperWithAampTsbConfigureFlushSequence)
 	//Verify the sequence for SeekToLive
 	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer.get()));
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, DoEarlyStreamSinkFlush(false, AAMP_NORMAL_PLAY_RATE)).WillRepeatedly(Return(true));
-	EXPECT_CALL(*g_mockAampGstPlayer, Configure(_,_,_,_,_)).InSequence(s);
-	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_)).InSequence(s);
+	EXPECT_CALL(*g_mockAampGstPlayer, Configure(_,_,_)).InSequence(s);
+	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_,_)).InSequence(s);
 	testp_aamp->TuneHelper(eTUNETYPE_SEEKTOLIVE);
 
 	//Verify the sequence for newTune
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, DoEarlyStreamSinkFlush(true, AAMP_NORMAL_PLAY_RATE)).WillRepeatedly(Return(true));
-	EXPECT_CALL(*g_mockAampGstPlayer, Configure(_,_,_,_,_)).InSequence(s);
-	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_)).InSequence(s);
+	EXPECT_CALL(*g_mockAampGstPlayer, Configure(_,_,_)).InSequence(s);
+	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_,_)).InSequence(s);
 	testp_aamp->TuneHelper(eTUNETYPE_NEW_NORMAL);
 
 	//Verify the sequence for eTUNETYPE_SEEK
 	testp_aamp->SetLocalAAMPTsb(true);
-	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_)).InSequence(s);
-	EXPECT_CALL(*g_mockAampGstPlayer, Configure(_,_,_,_,_)).InSequence(s);
-	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_)).InSequence(s);
+	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_,_)).InSequence(s);
+	EXPECT_CALL(*g_mockAampGstPlayer, Configure(_,_,_)).InSequence(s);
+	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_,_)).InSequence(s);
 	testp_aamp->TuneHelper(eTUNETYPE_SEEK);
 }
 
@@ -6275,6 +7009,116 @@ TEST_F(PrivAampTests,GetFormatPositionOffsetTest)
 		.WillRepeatedly(Return(eABSOLUTE_PROGRESS_WITHOUT_AVAILABILITY_START));
 	offset = p_aamp->GetFormatPositionOffsetInMSecs();
 	EXPECT_EQ(offset, 1.2 * 1000); // Expect offset to be 0 since IsLiveStream() is false
+}
+
+/**
+ * @test PrivAampTests::SetStreamCapsForcesEncryptedWithInjectedHeaders
+ * @brief when MP4 demux is enabled and encrypted headers
+ *        were already cached for the specific media type, clear codec caps are forced to encrypted to avoid
+ *        encrypted->clear pipeline reconfiguration.
+ */
+TEST_F(PrivAampTests, SetStreamCapsForcesEncryptedWithInjectedHeaders)
+{
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseMp4Demux))
+		.WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, IsEncryptedHeadersCached(eMEDIATYPE_VIDEO))
+		.WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_))
+		.WillRepeatedly(Return(g_mockAampGstPlayer.get()));
+
+	MediaCodecInfo codecInfo(GST_FORMAT_VIDEO_ES_H264);
+	codecInfo.mIsEncrypted = false;
+
+	p_aamp->SetStreamCaps(eMEDIATYPE_VIDEO, std::move(codecInfo));
+
+	MediaCodecInfo updated = p_aamp->GetMediaCodecInfo(eMEDIATYPE_VIDEO);
+	EXPECT_TRUE(updated.mIsEncrypted);
+}
+
+/**
+ * @test PrivAampTests::SetStreamCapsKeepsClearWhenHeadersNotInjected
+ * @brief Verify that clear codec caps remain clear when the cached-header guard is false for the specific media type.
+ */
+TEST_F(PrivAampTests, SetStreamCapsKeepsClearWhenHeadersNotInjected)
+{
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseMp4Demux))
+		.WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, IsEncryptedHeadersCached(eMEDIATYPE_VIDEO))
+		.WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_))
+		.WillRepeatedly(Return(g_mockAampGstPlayer.get()));
+
+	MediaCodecInfo codecInfo(GST_FORMAT_VIDEO_ES_H264);
+	codecInfo.mIsEncrypted = false;
+
+	p_aamp->SetStreamCaps(eMEDIATYPE_VIDEO, std::move(codecInfo));
+
+	MediaCodecInfo updated = p_aamp->GetMediaCodecInfo(eMEDIATYPE_VIDEO);
+	EXPECT_FALSE(updated.mIsEncrypted);
+}
+
+/**
+ * @test PrivAampTests::SetStreamCapsPerTrackEncryptedVideoClearAudio
+ * @brief Verify that when only video has encrypted headers cached, video is forced encrypted but audio remains clear.
+ */
+TEST_F(PrivAampTests, SetStreamCapsPerTrackEncryptedVideoClearAudio)
+{
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseMp4Demux))
+		.WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_))
+		.WillRepeatedly(Return(g_mockAampGstPlayer.get()));
+
+	// Video has encrypted headers, audio does not
+	EXPECT_CALL(*g_mockAampStreamSinkManager, IsEncryptedHeadersCached(eMEDIATYPE_VIDEO))
+		.WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, IsEncryptedHeadersCached(eMEDIATYPE_AUDIO))
+		.WillRepeatedly(Return(false));
+
+	// Test video - should be forced encrypted
+	MediaCodecInfo videoCodecInfo(GST_FORMAT_VIDEO_ES_H264);
+	videoCodecInfo.mIsEncrypted = false;
+	p_aamp->SetStreamCaps(eMEDIATYPE_VIDEO, std::move(videoCodecInfo));
+	MediaCodecInfo updatedVideo = p_aamp->GetMediaCodecInfo(eMEDIATYPE_VIDEO);
+	EXPECT_TRUE(updatedVideo.mIsEncrypted);
+
+	// Test audio - should remain clear
+	MediaCodecInfo audioCodecInfo(GST_FORMAT_AUDIO_ES_AAC);
+	audioCodecInfo.mIsEncrypted = false;
+	p_aamp->SetStreamCaps(eMEDIATYPE_AUDIO, std::move(audioCodecInfo));
+	MediaCodecInfo updatedAudio = p_aamp->GetMediaCodecInfo(eMEDIATYPE_AUDIO);
+	EXPECT_FALSE(updatedAudio.mIsEncrypted);
+}
+
+/**
+ * @test PrivAampTests::SetStreamCapsPerTrackEncryptedAudioClearVideo
+ * @brief Verify that when only audio has encrypted headers cached, audio is forced encrypted but video remains clear.
+ */
+TEST_F(PrivAampTests, SetStreamCapsPerTrackEncryptedAudioClearVideo)
+{
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseMp4Demux))
+		.WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_))
+		.WillRepeatedly(Return(g_mockAampGstPlayer.get()));
+
+	// Audio has encrypted headers, video does not
+	EXPECT_CALL(*g_mockAampStreamSinkManager, IsEncryptedHeadersCached(eMEDIATYPE_VIDEO))
+		.WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, IsEncryptedHeadersCached(eMEDIATYPE_AUDIO))
+		.WillRepeatedly(Return(true));
+
+	// Test video - should remain clear
+	MediaCodecInfo videoCodecInfo(GST_FORMAT_VIDEO_ES_H264);
+	videoCodecInfo.mIsEncrypted = false;
+	p_aamp->SetStreamCaps(eMEDIATYPE_VIDEO, std::move(videoCodecInfo));
+	MediaCodecInfo updatedVideo = p_aamp->GetMediaCodecInfo(eMEDIATYPE_VIDEO);
+	EXPECT_FALSE(updatedVideo.mIsEncrypted);
+
+	// Test audio - should be forced encrypted
+	MediaCodecInfo audioCodecInfo(GST_FORMAT_AUDIO_ES_AAC);
+	audioCodecInfo.mIsEncrypted = false;
+	p_aamp->SetStreamCaps(eMEDIATYPE_AUDIO, std::move(audioCodecInfo));
+	MediaCodecInfo updatedAudio = p_aamp->GetMediaCodecInfo(eMEDIATYPE_AUDIO);
+	EXPECT_TRUE(updatedAudio.mIsEncrypted);
 }
 
 TEST_F(PrivAampTests,VerifyPausedBehavior)
@@ -6811,6 +7655,11 @@ TEST_P(GetStreamFormatTests, GetStreamFormatParameterizedTest)
 		));
 
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_useRialtoSink)).WillOnce(Return(params.useRialtoSink));
+	if (!params.useRialtoSink)
+	{
+		// IsUsingRialto() short-circuits: useDirectRialto is only checked when useRialtoSink is false.
+		EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_useDirectRialto)).WillOnce(Return(false));
+	}
 
 	testp_aamp->CallGetStreamFormat(primaryOutputFormat, audioOutputFormat, subtitleOutputFormat);
 
@@ -6985,4 +7834,3 @@ TEST_F(PrivAampPrivTests, StartLatencyMonitor_LiveLatencyCorrectionDisabled_Does
 	testp_aamp->CallStartLatencyMonitor();
 	testp_aamp->mpStreamAbstractionAAMP = nullptr;
 }
-

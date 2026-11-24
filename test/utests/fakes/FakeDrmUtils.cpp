@@ -19,20 +19,20 @@
 
 #include "DrmUtils.h"
 #include "thread"
-std::string safeString;
 
 size_t DrmData::getDataLength()
 {
-	return 0;
+	return data.length();
 }
 
 const std::string &DrmData::getData()
 {
-	return safeString;
+	return data;
 }
 
 void DrmData::setData(const char *dataPtr, size_t dataLength)
 {
+	data.assign(dataPtr, dataLength);
 }
 
 DrmData::DrmData() : data("")
@@ -41,6 +41,7 @@ DrmData::DrmData() : data("")
 
 DrmData::DrmData(const char *dataPtr, size_t dataLength) : data("")
 {
+	setData(dataPtr, dataLength);
 }
 
 DrmData::~DrmData()

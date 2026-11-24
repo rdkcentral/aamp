@@ -37,11 +37,11 @@ AAMPGstPlayer::~AAMPGstPlayer()
 {
 }
 
-void AAMPGstPlayer::Configure(StreamOutputFormat format, StreamOutputFormat audioFormat, StreamOutputFormat subFormat, bool bESChangeStatus, bool setReadyAfterPipelineCreation)
+void AAMPGstPlayer::Configure(StreamCodecInfo&& codecInfo, bool bESChangeStatus, bool setReadyAfterPipelineCreation)
 {
 	if (g_mockAampGstPlayer != nullptr)
 	{
-		g_mockAampGstPlayer->Configure(format, audioFormat, subFormat, bESChangeStatus, setReadyAfterPipelineCreation);
+		g_mockAampGstPlayer->Configure(std::move(codecInfo), bESChangeStatus, setReadyAfterPipelineCreation);
 	}
 }
 
@@ -72,11 +72,11 @@ void AAMPGstPlayer::Stop(bool keepLastFrame)
 {
 }
 
-void AAMPGstPlayer::Flush(double position, int rate, bool shouldTearDown)
+void AAMPGstPlayer::Flush(double position, int rate, bool shouldTearDown, bool positionIsAuthoritative)
 {
 	if (g_mockAampGstPlayer != nullptr)
 	{
-		g_mockAampGstPlayer->Flush(position, rate, shouldTearDown);
+		g_mockAampGstPlayer->Flush(position, rate, shouldTearDown, positionIsAuthoritative);
 	}
 }
 

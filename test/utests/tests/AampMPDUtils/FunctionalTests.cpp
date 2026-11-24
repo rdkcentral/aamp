@@ -20,6 +20,7 @@
 #include <cstdlib>
 #include <cstdint>
 #include <iostream>
+#include <locale>
 #include <string>
 #include <string.h>
 #include <vector>
@@ -593,4 +594,191 @@ TEST(AampMPDUtils, ParseSegmentIndexBox_LastEntry_ReturnsCorrectValues)
 	EXPECT_FLOAT_EQ(refDuration,
 					 static_cast<float>(entries[lastIdx].subsegmentDuration) /
 					 static_cast<float>(TIMESCALE));
+}
+
+// ---------------------------------------------------------------------------
+// replace (numeric SegmentTemplate identifier) tests
+// ---------------------------------------------------------------------------
+
+/**
+ * @brief Identifier without a format tag is replaced with the decimal value.
+ */
+TEST(AampMPDUtils, ReplaceNumber_NoFormatTag_Decimal)
+{
+	std::string url = "seg-$Number$.m4s";
+	EXPECT_EQ(replace(url, "Number", 42), 1);
+	EXPECT_EQ(url, "seg-42.m4s");
+}
+
+/**
+ * @brief Full 64-bit range is preserved.
+ */
+TEST(AampMPDUtils, ReplaceNumber_Uint64Max)
+{
+	std::string url = "$Time$";
+	EXPECT_EQ(replace(url, "Time", UINT64_MAX), 1);
+	EXPECT_EQ(url, "18446744073709551615");
+}
+
+/**
+ * @brief Spec-defined %0[width]d format tag zero-pads the value.
+ */
+TEST(AampMPDUtils, ReplaceNumber_ZeroPaddedWidth)
+{
+	std::string url = "seg-$Number%05d$.m4s";
+	EXPECT_EQ(replace(url, "Number", 42), 1);
+	EXPECT_EQ(url, "seg-00042.m4s");
+}
+
+/**
+ * @brief Width smaller than the value does not truncate it.
+ */
+TEST(AampMPDUtils, ReplaceNumber_WidthSmallerThanValue)
+{
+	std::string url = "$Number%02d$";
+	EXPECT_EQ(replace(url, "Number", 12345), 1);
+	EXPECT_EQ(url, "12345");
+}
+
+/**
+ * @brief Hexadecimal conversions are supported in lower and upper case.
+ */
+TEST(AampMPDUtils, ReplaceNumber_HexConversions)
+{
+	std::string lower = "$Number%08x$";
+	EXPECT_EQ(replace(lower, "Number", 0xABCDu), 1);
+	EXPECT_EQ(lower, "0000abcd");
+
+	std::string upper = "$Number%X$";
+	EXPECT_EQ(replace(upper, "Number", 0xABCDu), 1);
+	EXPECT_EQ(upper, "ABCD");
+}
+
+/**
+ * @brief All occurrences are replaced, including after a formatted occurrence,
+ *        and other identifiers are left untouched.
+ */
+TEST(AampMPDUtils, ReplaceNumber_MultipleOccurrences)
+{
+	std::string url = "$RepresentationID$/$Number%03d$-$Number$-$Time$.m4s";
+	EXPECT_EQ(replace(url, "Number", 7), 2);
+	EXPECT_EQ(url, "$RepresentationID$/007-7-$Time$.m4s");
+}
+
+/**
+ * @brief "$$" escape and identifiers that merely start with the token are not replaced.
+ */
+TEST(AampMPDUtils, ReplaceNumber_NonMatchingIdentifiers)
+{
+	std::string url = "a$$b/$NumberX$/$Num$";
+	EXPECT_EQ(replace(url, "Number", 1), 0);
+	EXPECT_EQ(url, "a$$b/$NumberX$/$Num$");
+}
+
+/**
+ * @brief Unterminated identifier is left unchanged.
+ */
+TEST(AampMPDUtils, ReplaceNumber_Unterminated)
+{
+	std::string url = "seg-$Number.m4s";
+	EXPECT_EQ(replace(url, "Number", 1), 0);
+	EXPECT_EQ(url, "seg-$Number.m4s");
+}
+
+/**
+ * @brief Manifest-supplied printf conversions are never interpreted.
+ *
+ * A format tag taken from the manifest must not reach a printf-family function;
+ * conversions such as %p, %s and %n would otherwise leak memory or write through
+ * the vararg list. Such tags must be rejected and the template left unchanged.
+ */
+TEST(AampMPDUtils, ReplaceNumber_MaliciousFormatTagsRejected)
+{
+	const std::vector<std::string> tags = {
+		"%p_%p_%p_%p_%p_%p_%plu",
+		"%n",
+		"%08n",
+		"%s",
+		"%5$n",
+		"%x%n",
+		"%lld",
+		"%llu",
+		"%*d",
+		"%.5d",
+		"%-5d",
+		"%5d",
+		"%5x",
+		"%12X",
+		"%+d",
+		"%u",
+		"%",
+		"%0",
+		"%05",
+		"%d%",
+		"%dd",
+		"%065d",
+		"%099999999999999999999d",
+	};
+	for (const auto &tag : tags)
+	{
+		const std::string original = "seg-$Number" + tag + "$.m4s";
+		std::string url = original;
+		EXPECT_EQ(replace(url, "Number", 1), 0) << "tag: " << tag;
+		EXPECT_EQ(url, original) << "tag: " << tag;
+	}
+}
+
+/**
+ * @brief Maximum supported width is accepted.
+ */
+TEST(AampMPDUtils, ReplaceNumber_MaxWidthAccepted)
+{
+	std::string url = "$Number%064d$";
+	EXPECT_EQ(replace(url, "Number", 1), 1);
+	EXPECT_EQ(url, std::string(63, '0') + "1");
+}
+
+/**
+ * @brief A rejected tag does not prevent replacing later valid occurrences.
+ */
+TEST(AampMPDUtils, ReplaceNumber_RejectedTagThenValid)
+{
+	std::string url = "$Number%n$/$Number%02d$";
+	EXPECT_EQ(replace(url, "Number", 3), 1);
+	EXPECT_EQ(url, "$Number%n$/03");
+}
+
+namespace
+{
+struct GroupingNumpunct : std::numpunct<char>
+{
+	char do_thousands_sep() const override { return ','; }
+	std::string do_grouping() const override { return "\3"; }
+};
+
+struct GlobalLocaleGuard
+{
+	explicit GlobalLocaleGuard(const std::locale &loc) : saved(std::locale::global(loc)) {}
+	~GlobalLocaleGuard() { std::locale::global(saved); }
+	std::locale saved;
+};
+}
+
+/**
+ * @brief Formatting is independent of the global C++ locale.
+ *
+ * An embedding application may install a global locale with digit grouping;
+ * segment numbers must still be emitted without thousands separators.
+ */
+TEST(AampMPDUtils, ReplaceNumber_IgnoresGlobalGroupingLocale)
+{
+	GlobalLocaleGuard guard(std::locale(std::locale::classic(), new GroupingNumpunct));
+
+	std::string padded = "$Number%05d$";
+	EXPECT_EQ(replace(padded, "Number", 1234), 1);
+	EXPECT_EQ(padded, "01234");
+
+	std::string bare = "$Time$";
+	EXPECT_EQ(replace(bare, "Time", 1234567), 1);
+	EXPECT_EQ(bare, "1234567");
 }

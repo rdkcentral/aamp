@@ -30,6 +30,7 @@ public:
 	MOCK_METHOD(ManifestDownloadResponsePtr, GetManifest, (bool bWait, int iWaitDurationMs,int errorSimulation));
 	MOCK_METHOD(bool, IsMPDLowLatency, (AampLLDashServiceData &LLDashData));
 	MOCK_METHOD(ManifestRefreshStatus, GetManifestRefreshStatus, (), (const));
+	MOCK_METHOD(void, Release, ());
 	MOCK_METHOD(void, Start, ());
 	MOCK_METHOD(void, Initialize, (std::shared_ptr<ManifestDownloadConfig> mpdDnldCfg, std::string appName));
 };

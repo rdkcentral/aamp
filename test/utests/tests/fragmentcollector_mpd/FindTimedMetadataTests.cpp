@@ -26,6 +26,7 @@
 #include "AampLogManager.h"
 #include "admanager_mpd.h"
 #include "fragmentcollector_mpd.h"
+#include "MediaStreamContext.h"
 #include "MockPrivateInstanceAAMP.h"
 #include "MockAampUtils.h"
 #include "MockAampConfig.h"
@@ -70,7 +71,7 @@ protected:
 
         void InvokeFindTimedMetadata(MPD* mpd, Node* root, bool init, bool reportBulkMeta)
         {
-            FindTimedMetadata(mpd, root, init, reportBulkMeta);
+            FindTimedMetadata(mpd, root, mMPDParseHelper, init, reportBulkMeta);
         }
 
         void SetIsLiveManifest(bool isLive)

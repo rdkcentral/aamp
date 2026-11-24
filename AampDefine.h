@@ -110,6 +110,9 @@
 #define MAX_WAIT_TIMEOUT_MS	200				/**< Max Timeout duration for wait until cache is available to inject next*/
 #define MAX_INIT_FRAGMENT_CACHE_PER_TRACK  5       		/**< Max No Of cached Init fragments per track */
 #define MIN_SEG_DURATION_THRESHOLD	(0.25)			/**< Min Segment Duration threshold for pushing to pipeline at period End*/
+#define AAMP_DASH_PERIOD_TAIL_START_TOLERANCE_SEC (0.3)	/**< Segments starting within this of the Period end, or after it, are tail-drop candidates */
+#define AAMP_DASH_PERIOD_TAIL_MIN_OVERHANG_SEC (0.2)	/**< Tail candidates ending no more than this past the Period end are kept as valid tiny final segments */
+#define AAMP_VOD_SPLICE_SNAP_TOLERANCE_SEC (0.1)	/**< VOD ad splice points within this of a segment boundary snap to the nearest such boundary */
 #define MAX_CURL_SOCK_STORE		10			/**< Maximum no of host to be maintained in curl store*/
 #define DEFAULT_AD_FULFILLMENT_TIMEOUT 2000	/**< Default Ad fulfillment timeout in milliseconds */
 #define MAX_AD_FULFILLMENT_TIMEOUT 5000	/**< Max Ad fulfillment timeout in milliseconds */
@@ -133,6 +136,7 @@
 #define MAX_DELAY_BETWEEN_PLAYLIST_UPDATE_MS (6000)
 #define MIN_DELAY_BETWEEN_PLAYLIST_UPDATE_MS (500) // 500mSec
 #define MIN_DELAY_BETWEEN_MANIFEST_UPDATE_FOR_502_MS (1000) // 1000mSec
+#define MANIFEST_REFRESH_FAILURE_GRACE_MS (5000) /**< How long a live manifest refresh may keep failing, with the buffer already dry, before a fatal error is sent */
 #define STEADYSTATE_RAMPDOWN_DELTA 2000000 //2000 kbps
 #define DEFAULT_TELEMETRY_REPORT_INTERVAL (300) 	/**< time interval for the telemetry reporting 300sec*/
 #define MIN_MONITOR_AVSYNC_POSITIVE_DELTA_MS 1 /*< minimum positive delta to trigger AVSync reporting */
@@ -147,6 +151,7 @@
 #define DEFAULT_MAX_DOWNLOAD_BUFFER 10	/**< Default maximum download buffer in seconds, this can be used to limit player download job scheduling for DASH */
 #define DEFAULT_MONITOR_AV_REPORTING_INTERVAL 1000 /**< time interval in ms for MonitorAV reporting */
 #define DEFAULT_UTC_SYNC_MIN_INTERVAL_SEC	60	/**< Minimum interval between sync attempts */
+#define DEFAULT_EVENT_PROFILING_THRESHOLD_MS 500		/**< Default round-trip threshold (ms) for event profiling; logs only when exceeded */
 
 #define DEFAULT_EARLY_ABORT_PROFILE_BANDWIDTH_PERCENT 80 /**< By default, let's abort early if bps is less than 80% of profile bandwidth */
 
@@ -163,7 +168,8 @@
 #define DEFAULT_REBUFFER_LATENCY_STEP_SEC 1.0			/*< Step value for latency increase when rebuffering occurs in seconds */
 #define DEFAULT_REBUFFER_LATENCY_MAX_INCREMENT_SEC 8.0	/*< LiveOffset(15s) - MaxLatency(7s) */
 #define DEFAULT_LATENCY_STABLE_DURATION_SEC 300.0		/*< Duration (s) of consecutive healthy buffer (latencyStableDurationSec) required before one restoration step */
-#define DEFAULT_LATENCY_DANGER_BUFFER_SEC 1.0			/*< Buffer level (s) below which latency thresholds are increased; buffer must stay above this level for latencyStableDurationSec before thresholds are restored */
+#define DEFAULT_LATENCY_DANGER_BUFFER_SEC 1.0			/*< Buffer level (s) below which latency thresholds are increased */
+#define DEFAULT_LATENCY_RESTORATION_BUFFER_SEC 2.0	/*< Buffer level (s) required to sustain the restoration window for reducing latency thresholds */
 
 
 // We can enable the following once we have a thread monitoring video PTS progress and triggering subtec clock fast update when we detect video freeze. Disabled it for now for brute force fast refresh..
@@ -198,12 +204,12 @@
 
 #define DEFAULT_LATENCY_MONITOR_DELAY_MS		5000		/**< Latency Monitor Delay */
 #define DEFAULT_LATENCY_MONITOR_INTERVAL_MS		1000		/**< Latency monitor interval */
-#define DEFAULT_MIN_LOW_LATENCY					5.0			/**< min Default Latency */
-#define DEFAULT_MAX_LOW_LATENCY					7.0			/**< max Default Latency */
-#define DEFAULT_TARGET_LOW_LATENCY				6.0			/**< Target Default Latency */
+#define DEFAULT_MIN_LOW_LATENCY					7.0			/**< Min Default Latency */
+#define DEFAULT_TARGET_LOW_LATENCY				8.0			/**< Target Default Latency */
+#define DEFAULT_MAX_LOW_LATENCY					9.0			/**< Max Default Latency */
 #define DEFAULT_LL_DRM_LATENCY_ESTIMATE_SEC		2.0		/**< Default estimated DRM acquisition latency for LL-DASH (seconds) */
-#define DEFAULT_MIN_RATE_CORRECTION_SPEED		0.97f		/**< min Rate correction speed */
-#define DEFAULT_MAX_RATE_CORRECTION_SPEED		1.03f		/**< max Rate correction speed */
+#define DEFAULT_MIN_RATE_CORRECTION_SPEED		0.97f		/**< Min Rate correction speed */
+#define DEFAULT_MAX_RATE_CORRECTION_SPEED		1.03f		/**< Max Rate correction speed */
 #define DEFAULT_NORMAL_RATE_CORRECTION_SPEED	1.00f		/**< Live Catchup Normal play rate */
 #define AAMP_LLD_MINIMUM_CACHE_SEGMENTS 		(2)     	/**< Number of segments to be cached minimum before rate change*/
 #define AAMP_LLD_LOW_BUFF_CHECK_COUNT           (4)         /**< Count to confirm low buffer state for LLD stream playback; 4 sec to ABR; So Allow ABR first*/

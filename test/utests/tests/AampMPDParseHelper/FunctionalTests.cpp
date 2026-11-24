@@ -1745,3 +1745,169 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	EXPECT_EQ(secondPeriodIdx, 1);  // Index stays at last period
 	EXPECT_DOUBLE_EQ(secondPeriodDurationMs, 0.0);
 }
+
+/*
+ * Period timing for a static manifest that inherits availabilityStartTime from a preceding
+ * dynamic manifest (dynamic -> static transition). The static manifest carries no
+ * availabilityStartTime of its own; the inherited value is applied via SetAvailabilityStartTime().
+ * Period start/end times must be absolute (inherited AST + relative offset) and must match the
+ * values computed from the equivalent dynamic manifest so that the playback timeline is continuous.
+ */
+static const char *INHERITED_AST_ISO = "2025-11-02T10:00:00Z";
+
+/** @brief Inherited availabilityStartTime with explicit Period@start on every period */
+TEST_F(FunctionalTests, InheritedAvailabilityStartTime_ExplicitPeriodStart)
+{
+	static const char *staticManifest =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="static" minBufferTime="PT2S" maxSegmentDuration="PT2S" profiles="urn:mpeg:dash:profile:isoff-live:2011">
+  <Period id="p0" start="PT10S" duration="PT40S">
+    <AdaptationSet contentType="video" segmentAlignment="true" startWithSAP="1">
+      <SegmentTemplate duration="5000" initialization="video_init.mp4" media="video_$Number$.m4s" startNumber="0" timescale="2500" />
+      <Representation id="1" mimeType="video/mp4" codecs="avc1.640028" width="640" height="360" frameRate="25" sar="1:1" bandwidth="1000000" />
+    </AdaptationSet>
+  </Period>
+  <Period id="p1" start="PT50S" duration="PT30S">
+    <AdaptationSet contentType="video" segmentAlignment="true" startWithSAP="1">
+      <SegmentTemplate duration="5000" initialization="video_init.mp4" media="video_$Number$.m4s" startNumber="0" timescale="2500" />
+      <Representation id="1" mimeType="video/mp4" codecs="avc1.640028" width="640" height="360" frameRate="25" sar="1:1" bandwidth="1000000" />
+    </AdaptationSet>
+  </Period>
+</MPD>
+)";
+	static const char *dynamicManifest =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="dynamic" availabilityStartTime="2025-11-02T10:00:00Z" minimumUpdatePeriod="PT2S" timeShiftBufferDepth="PT5M" minBufferTime="PT2S" maxSegmentDuration="PT2S" profiles="urn:mpeg:dash:profile:isoff-live:2011">
+  <Period id="p0" start="PT10S" duration="PT40S">
+    <AdaptationSet contentType="video" segmentAlignment="true" startWithSAP="1">
+      <SegmentTemplate duration="5000" initialization="video_init.mp4" media="video_$Number$.m4s" startNumber="0" timescale="2500" />
+      <Representation id="1" mimeType="video/mp4" codecs="avc1.640028" width="640" height="360" frameRate="25" sar="1:1" bandwidth="1000000" />
+    </AdaptationSet>
+  </Period>
+  <Period id="p1" start="PT50S" duration="PT30S">
+    <AdaptationSet contentType="video" segmentAlignment="true" startWithSAP="1">
+      <SegmentTemplate duration="5000" initialization="video_init.mp4" media="video_$Number$.m4s" startNumber="0" timescale="2500" />
+      <Representation id="1" mimeType="video/mp4" codecs="avc1.640028" width="640" height="360" frameRate="25" sar="1:1" bandwidth="1000000" />
+    </AdaptationSet>
+  </Period>
+</MPD>
+)";
+	const double inheritedAst = (double)ISO8601DateTimeToUTCSeconds(INHERITED_AST_ISO);
+	const uint64_t mpdDownloadTimeMs = (uint64_t)(inheritedAst + 120) * 1000;
+	ASSERT_GT(inheritedAst, 0);
+
+	mManifest = staticManifest;
+	ManifestDownloadResponsePtr staticResp = GetManifestForMPDDownloader();
+	dash::mpd::IMPD *mpd = staticResp->mMPDInstance.get();
+	ASSERT_NE(mpd, nullptr);
+	ASSERT_EQ(mpd->GetPeriods().size(), 2);
+	ParseHelper->Initialize(mpd);
+	EXPECT_FALSE(ParseHelper->IsLiveManifest());
+	EXPECT_DOUBLE_EQ(ParseHelper->GetAvailabilityStartTime(), 0.0);
+
+	ParseHelper->SetAvailabilityStartTime(inheritedAst);
+	EXPECT_DOUBLE_EQ(ParseHelper->GetAvailabilityStartTime(), inheritedAst);
+
+	const double start0 = ParseHelper->GetPeriodStartTime(0, mpdDownloadTimeMs);
+	const double end0 = ParseHelper->GetPeriodEndTime(0, mpdDownloadTimeMs, false, false);
+	const double start1 = ParseHelper->GetPeriodStartTime(1, mpdDownloadTimeMs);
+	const double end1 = ParseHelper->GetPeriodEndTime(1, mpdDownloadTimeMs, false, false);
+
+	EXPECT_DOUBLE_EQ(start0, inheritedAst + 10);
+	EXPECT_DOUBLE_EQ(end0, inheritedAst + 50);
+	EXPECT_DOUBLE_EQ(start1, inheritedAst + 50);
+	EXPECT_DOUBLE_EQ(end1, inheritedAst + 80);
+	EXPECT_DOUBLE_EQ(end0 - start0, 40.0);
+	EXPECT_DOUBLE_EQ(end1 - start1, 30.0);
+
+	// Same periods in the preceding dynamic manifest must map to the same absolute times
+	mManifest = dynamicManifest;
+	ManifestDownloadResponsePtr dynamicResp = GetManifestForMPDDownloader();
+	ASSERT_NE(dynamicResp->mMPDInstance, nullptr);
+	AampMPDParseHelperPtr dynamicHelper = dynamicResp->GetMPDParseHelper();
+	EXPECT_TRUE(dynamicHelper->IsLiveManifest());
+	EXPECT_DOUBLE_EQ(dynamicHelper->GetAvailabilityStartTime(), inheritedAst);
+	EXPECT_DOUBLE_EQ(dynamicHelper->GetPeriodStartTime(0, mpdDownloadTimeMs), start0);
+	EXPECT_DOUBLE_EQ(dynamicHelper->GetPeriodEndTime(0, mpdDownloadTimeMs, false, false), end0);
+	EXPECT_DOUBLE_EQ(dynamicHelper->GetPeriodStartTime(1, mpdDownloadTimeMs), start1);
+	EXPECT_DOUBLE_EQ(dynamicHelper->GetPeriodEndTime(1, mpdDownloadTimeMs, false, false), end1);
+}
+
+/** @brief Inherited availabilityStartTime with Period@start omitted on every period */
+TEST_F(FunctionalTests, InheritedAvailabilityStartTime_OmittedPeriodStart)
+{
+	static const char *staticManifest =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="static" minBufferTime="PT2S" maxSegmentDuration="PT2S" profiles="urn:mpeg:dash:profile:isoff-live:2011">
+  <Period id="p0" duration="PT40S">
+    <AdaptationSet contentType="video" segmentAlignment="true" startWithSAP="1">
+      <SegmentTemplate duration="5000" initialization="video_init.mp4" media="video_$Number$.m4s" startNumber="0" timescale="2500" />
+      <Representation id="1" mimeType="video/mp4" codecs="avc1.640028" width="640" height="360" frameRate="25" sar="1:1" bandwidth="1000000" />
+    </AdaptationSet>
+  </Period>
+  <Period id="p1" duration="PT30S">
+    <AdaptationSet contentType="video" segmentAlignment="true" startWithSAP="1">
+      <SegmentTemplate duration="5000" initialization="video_init.mp4" media="video_$Number$.m4s" startNumber="0" timescale="2500" />
+      <Representation id="1" mimeType="video/mp4" codecs="avc1.640028" width="640" height="360" frameRate="25" sar="1:1" bandwidth="1000000" />
+    </AdaptationSet>
+  </Period>
+</MPD>
+)";
+	static const char *dynamicManifest =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="dynamic" availabilityStartTime="2025-11-02T10:00:00Z" minimumUpdatePeriod="PT2S" timeShiftBufferDepth="PT5M" minBufferTime="PT2S" maxSegmentDuration="PT2S" profiles="urn:mpeg:dash:profile:isoff-live:2011">
+  <Period id="p0" duration="PT40S">
+    <AdaptationSet contentType="video" segmentAlignment="true" startWithSAP="1">
+      <SegmentTemplate duration="5000" initialization="video_init.mp4" media="video_$Number$.m4s" startNumber="0" timescale="2500" />
+      <Representation id="1" mimeType="video/mp4" codecs="avc1.640028" width="640" height="360" frameRate="25" sar="1:1" bandwidth="1000000" />
+    </AdaptationSet>
+  </Period>
+  <Period id="p1" duration="PT30S">
+    <AdaptationSet contentType="video" segmentAlignment="true" startWithSAP="1">
+      <SegmentTemplate duration="5000" initialization="video_init.mp4" media="video_$Number$.m4s" startNumber="0" timescale="2500" />
+      <Representation id="1" mimeType="video/mp4" codecs="avc1.640028" width="640" height="360" frameRate="25" sar="1:1" bandwidth="1000000" />
+    </AdaptationSet>
+  </Period>
+</MPD>
+)";
+	const double inheritedAst = (double)ISO8601DateTimeToUTCSeconds(INHERITED_AST_ISO);
+	const uint64_t mpdDownloadTimeMs = (uint64_t)(inheritedAst + 120) * 1000;
+	ASSERT_GT(inheritedAst, 0);
+
+	mManifest = staticManifest;
+	ManifestDownloadResponsePtr staticResp = GetManifestForMPDDownloader();
+	dash::mpd::IMPD *mpd = staticResp->mMPDInstance.get();
+	ASSERT_NE(mpd, nullptr);
+	ASSERT_EQ(mpd->GetPeriods().size(), 2);
+	ParseHelper->Initialize(mpd);
+	EXPECT_FALSE(ParseHelper->IsLiveManifest());
+	EXPECT_DOUBLE_EQ(ParseHelper->GetAvailabilityStartTime(), 0.0);
+
+	ParseHelper->SetAvailabilityStartTime(inheritedAst);
+
+	// p0: first period without @start -> summed-duration fallback (0) offset by the inherited AST
+	// p1: no @start, previous period has @duration -> previous start + previous duration
+	const double start0 = ParseHelper->GetPeriodStartTime(0, mpdDownloadTimeMs);
+	const double end0 = ParseHelper->GetPeriodEndTime(0, mpdDownloadTimeMs, false, false);
+	const double start1 = ParseHelper->GetPeriodStartTime(1, mpdDownloadTimeMs);
+	const double end1 = ParseHelper->GetPeriodEndTime(1, mpdDownloadTimeMs, false, false);
+
+	EXPECT_DOUBLE_EQ(start0, inheritedAst);
+	EXPECT_DOUBLE_EQ(end0, inheritedAst + 40);
+	EXPECT_DOUBLE_EQ(start1, inheritedAst + 40);
+	EXPECT_DOUBLE_EQ(end1, inheritedAst + 70);
+	EXPECT_DOUBLE_EQ(end0 - start0, 40.0);
+	EXPECT_DOUBLE_EQ(end1 - start1, 30.0);
+
+	// Same periods in the preceding dynamic manifest must map to the same absolute times
+	mManifest = dynamicManifest;
+	ManifestDownloadResponsePtr dynamicResp = GetManifestForMPDDownloader();
+	ASSERT_NE(dynamicResp->mMPDInstance, nullptr);
+	AampMPDParseHelperPtr dynamicHelper = dynamicResp->GetMPDParseHelper();
+	EXPECT_TRUE(dynamicHelper->IsLiveManifest());
+	EXPECT_DOUBLE_EQ(dynamicHelper->GetAvailabilityStartTime(), inheritedAst);
+	EXPECT_DOUBLE_EQ(dynamicHelper->GetPeriodStartTime(0, mpdDownloadTimeMs), start0);
+	EXPECT_DOUBLE_EQ(dynamicHelper->GetPeriodEndTime(0, mpdDownloadTimeMs, false, false), end0);
+	EXPECT_DOUBLE_EQ(dynamicHelper->GetPeriodStartTime(1, mpdDownloadTimeMs), start1);
+	EXPECT_DOUBLE_EQ(dynamicHelper->GetPeriodEndTime(1, mpdDownloadTimeMs, false, false), end1);
+}

@@ -41,6 +41,8 @@ message("build: ${buildinfo}")
 find_package(Threads REQUIRED)
 find_package(PkgConfig REQUIRED)
 
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
+
 # Resolve dependent modules
 message("using gstreamer-1.0")
 pkg_check_modules(GSTREAMER REQUIRED gstreamer-1.0>=1.18.0)
@@ -50,6 +52,19 @@ pkg_check_modules(LIBDASH REQUIRED libdash)
 pkg_check_modules(OPENSSL REQUIRED openssl)
 pkg_check_modules(LIBCJSON REQUIRED libcjson)
 pkg_check_modules(UUID REQUIRED uuid)
+find_package(Rialto)
+
+# When the real Rialto client library is not available (e.g. macOS or builds
+# without the "rialto" option), build and link the Rialto simulator so that AAMP
+# can still compile.  The simulator drives DirectRialto callbacks for L2 tests.
+if(NOT RIALTO_FOUND)
+	message(STATUS "Rialto client library not found — building simulator from test/rialto/")
+	add_subdirectory(test/rialto)
+	set(RIALTO_LIBRARIES RialtoSimulator)
+	if(NOT RIALTO_INCLUDE_DIRS)
+		set(RIALTO_INCLUDE_DIRS "${CMAKE_SOURCE_DIR}/.libs/include/rialto")
+	endif()
+endif()
 
 # External middleware-player-interface dependencies (required)
 # Components are sourced from the external middleware-player-interface repository.
@@ -173,6 +188,7 @@ include_directories(
 	${OPENSSL_INCLUDE_DIRS}
 	${UUID_INCLUDE_DIRS}
 	${LIBCJSON_INCLUDE_DIRS}
+	${RIALTO_INCLUDE_DIRS}
 )
 
 # Internal source directory includes
@@ -191,6 +207,7 @@ include_directories(
 	${CMAKE_CURRENT_SOURCE_DIR}/tsb/api
 	${CMAKE_CURRENT_SOURCE_DIR}/abr
 	${CMAKE_CURRENT_SOURCE_DIR}/mp4demux
+	${CMAKE_CURRENT_SOURCE_DIR}/direct-rialto
 	# Locally built/installed dependencies
 	${CMAKE_CURRENT_SOURCE_DIR}/.libs/include
 )
@@ -205,6 +222,7 @@ set(LIBAAMP_DEPENDS
 	${LIBDASH_LINK_LIBRARIES}
 	${LIBXML2_LIBRARIES}
 	${CMAKE_THREAD_LIBS_INIT}
+	${RIALTO_LIBRARIES}
 	${OPENSSL_LINK_LIBRARIES}
 	${GL_DEPENDS}
 	${AAMP_CLI_LD_FLAGS}
@@ -317,7 +335,6 @@ if(CMAKE_WPEWEBKIT_JSBINDINGS OR APPLE OR CMAKE_PLATFORM_UBUNTU)
         message("Found JavaScriptCore.framework at ${JSCORE_FRAMEWORK}")
 
         set(LIBAAMPJSBINDINGS_DEPENDS "${LIBAAMPJSBINDINGS_DEPENDS}" ${JSCORE_FRAMEWORK})
-		set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DSUPPORT_JS_EVENTS -DAAMP_WPEWEBKIT_JSBINDINGS")
 
         target_link_libraries(aampjsbindings PUBLIC aamp tsb playergstinterface playerfbinterface ${AAMP_CLI_LD_FLAGS} ${LIBAAMPJSBINDINGS_DEPENDS})
         set_target_properties(aampjsbindings PROPERTIES
@@ -351,6 +368,7 @@ if(CMAKE_WPEWEBKIT_JSBINDINGS OR APPLE OR CMAKE_PLATFORM_UBUNTU)
 			${GST_LIBRARIES}
 			${GLIB_LIBRARIES}
 			${JSCORE_FRAMEWORK}
+			${CURL_LINK_LIBRARIES}
 		)
 
 		set_target_properties(uveExecuter PROPERTIES
@@ -374,7 +392,6 @@ if(CMAKE_WPEWEBKIT_JSBINDINGS OR APPLE OR CMAKE_PLATFORM_UBUNTU)
 
         include_directories(${JSC_INCLUDE_DIRS})
         set(LIBAAMPJSBINDINGS_DEPENDS ${LIBAAMPJSBINDINGS_DEPENDS} ${JSC_LINK_LIBRARIES})
-        set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DSUPPORT_JS_EVENTS -DAAMP_WPEWEBKIT_JSBINDINGS")
 
         target_link_libraries(aampjsbindings PUBLIC aamp tsb playergstinterface playerfbinterface ${LIBAAMPJSBINDINGS_DEPENDS})
         set_target_properties(aampjsbindings PROPERTIES COMPILE_FLAGS "${LIBAAMPJSBINDINGS_DEFINES}")
@@ -397,6 +414,7 @@ if(CMAKE_WPEWEBKIT_JSBINDINGS OR APPLE OR CMAKE_PLATFORM_UBUNTU)
             aampjsbindings
             ${GSTREAMER_LINK_LIBRARIES}
             ${JSC_LINK_LIBRARIES}
+            ${CURL_LINK_LIBRARIES}
         )
 
         install(TARGETS uveExecuter DESTINATION bin)
@@ -417,7 +435,6 @@ if(CMAKE_WPEWEBKIT_JSBINDINGS OR APPLE OR CMAKE_PLATFORM_UBUNTU)
 		message("The WPE WebKit library found is ${WPE_WEBKIT_LINK_LIBRARIES}")
 		# Link WPE WebKit package to aampjsbindings
         set(LIBAAMPJSBINDINGS_DEPENDS ${LIBAAMPJSBINDINGS_DEPENDS} ${WPE_WEBKIT_LINK_LIBRARIES})
-		set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DSUPPORT_JS_EVENTS -DAAMP_WPEWEBKIT_JSBINDINGS")
 
         target_link_libraries(aampjsbindings PUBLIC aamp ${LIBAAMPJSBINDINGS_DEPENDS})
         set_target_properties(aampjsbindings PROPERTIES COMPILE_FLAGS "${LIBAAMPJSBINDINGS_DEFINES}")
@@ -453,7 +470,7 @@ set(LIBAAMP_SOURCES
 	rmf_shim.cpp rmf_shim.h
 	fragmentcollector_progressive.cpp fragmentcollector_progressive.h
 	fragmentcollector_hls.cpp fragmentcollector_hls.h
-	fragmentcollector_mpd.cpp fragmentcollector_mpd.h
+	fragmentcollector_mpd.cpp fragmentcollector_mpd.h AampTrackSet.h
 	admanager_mpd.cpp admanager_mpd.h
 	AampUnderflowMonitor.cpp AampUnderflowMonitor.h
 	streamabstraction.cpp
@@ -463,6 +480,23 @@ set(LIBAAMP_SOURCES
 	drm/AampDRMLicManager.cpp drm/AampDRMLicManager.h
 	drm/DrmInterface.cpp drm/DrmInterface.h
 	aampgstplayer.cpp aampgstplayer.h
+	direct-rialto/AampDrmBridge.cpp
+	direct-rialto/RialtoMediaKeySession.cpp
+	direct-rialto/RialtoMediaKeySystem.cpp
+	direct-rialto/RialtoMediaKeySessionAdapter.cpp
+	direct-rialto/RialtoSessionCreator.cpp
+	direct-rialto/AampPlayerStateMachine.cpp
+	direct-rialto/AampRialtoAudioSource.cpp
+	direct-rialto/AampRialtoMediaPipelineClient.cpp
+	direct-rialto/AampRialtoPlayer.cpp
+	direct-rialto/AampRialtoMediaSource.cpp
+	direct-rialto/AampRialtoPlayer.h
+	direct-rialto/AampRialtoControlBackend.cpp
+	direct-rialto/PrivateInstanceAAMPNotifiable.cpp
+	direct-rialto/AampRialtoSourceCreators.cpp
+	direct-rialto/AampRialtoSubtitleSource.cpp
+	direct-rialto/AampRialtoVideoSource.cpp
+	direct-rialto/AampRialtoMonitorAV.cpp
 	AampBufferControl.cpp AampBufferControl.h
 	tsprocessor.cpp tsprocessor.h
 	aamplogging.cpp AampLogManager.h
@@ -475,7 +509,7 @@ set(LIBAAMP_SOURCES
 	isobmff/isobmffbuffer.cpp isobmff/isobmffbuffer.h
 	isobmff/isobmffprocessor.cpp isobmff/isobmffprocessor.h
 	isobmff/isobmffhelper.cpp isobmff/isobmffhelper.h
-	MediaStreamContext.cpp MediaStreamContext.h
+	MediaStreamContext.cpp MediaStreamContext.h SegmentIndex.h
 	downloader/AampCurlStore.cpp downloader/AampCurlStore.h downloader/AampCurlDefine.h
 	AampDRMLicPreFetcher.cpp AampDRMLicPreFetcher.h
 	AampCMCDCollector.cpp AampCMCDCollector.h
@@ -497,6 +531,7 @@ set(LIBAAMP_SOURCES
 	dash/utils/Path.cpp
 	AampMPDDownloader.cpp AampMPDDownloader.h
 	AampMPDParseHelper.cpp AampMPDParseHelper.h
+	AampMPDTailTrim.cpp AampMPDTailTrim.h
 	AampMPDUtils.cpp AampMPDUtils.h
 	AampVodStitcher.cpp AampVodStitcher.h
 	ElementaryProcessor.cpp ElementaryProcessor.h
@@ -674,6 +709,7 @@ install(FILES
 	AampDRMLicPreFetcherInterface.h
 	AampMPDDownloader.h
 	AampMPDParseHelper.h
+	AampMPDTailTrim.h
 	AampMPDPeriodInfo.h
 	AampLLDASHData.h
 	AampTSBSessionManager.h

@@ -30,6 +30,11 @@
 #include "DrmSession.h"
 #include "AampCurlDownloader.h"
 #include "DrmSessionManager.h"
+#include <condition_variable>
+#include <deque>
+#include <functional>
+#include <mutex>
+#include <thread>
 
 enum ProfilerAction
 {
@@ -43,7 +48,8 @@ public:
 	/**
 	 *  @fn AampDRMLicenseManager
 	 */
-	AampDRMLicenseManager(int maxDrmSessions, PrivateInstanceAAMP *aamp);
+	AampDRMLicenseManager(int maxDrmSessions, PrivateInstanceAAMP *aamp,
+	                      DrmSessionCreator creator = nullptr);
 
 	/**
 	 *  @fn ~AampDRMLicenseManager
@@ -352,4 +358,15 @@ public:
 		const unsigned char* contentMetadataPtr = nullptr, bool isPrimarySession = false);
 
 	AAMPTuneFailure MapDrmToAampTuneFailure(DrmTuneFailure drmError);
+
+private:
+	void WatermarkWorkerThread();
+	bool EnqueueWatermarkTask(std::function<void()> task);
+	void StopWatermarkWorker();
+
+	std::mutex mWatermarkTaskMutex;
+	std::condition_variable mWatermarkTaskCondition;
+	std::deque<std::function<void()>> mWatermarkTaskQueue;
+	bool mWatermarkWorkerStopping{false};
+	std::thread mWatermarkWorker;
 };

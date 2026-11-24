@@ -23,6 +23,7 @@
 #include <gmock/gmock.h>
 #include <memory>
 #include "fragmentcollector_mpd.h"
+#include "MediaStreamContext.h"
 
 class MockStreamAbstractionAAMP_MPD : public StreamAbstractionAAMP_MPD
 {
@@ -44,6 +45,7 @@ public:
 	MOCK_METHOD(double, GetFirstPTS, (), (override));
 	MOCK_METHOD(double, GetBufferedDuration, (), (override));
 	MOCK_METHOD(AAMPStatusType, UpdateTrackInfo, (bool modifyDefaultBW, bool resetTimeLineIndex, bool isInit), (override));
+	MOCK_METHOD(bool, IsVODSynthesisActive, (), (const, override));
 
   };
 

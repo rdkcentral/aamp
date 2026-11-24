@@ -469,6 +469,11 @@ void StreamAbstractionAAMP_HLS::InitiateDrmProcess()
 		if ((drmHelperToUse != nullptr) && (aamp->mDRMLicenseManager))
 		{
 			AampDRMLicenseManager *licenseManager = aamp->mDRMLicenseManager;
+			if (ISCONFIGSET(eAAMPConfig_UseMp4Demux))
+			{
+				aamp->SetTrackEncrypted(eMEDIATYPE_VIDEO, true);
+				aamp->SetTrackEncrypted(eMEDIATYPE_AUDIO, true);
+			}
 			/** Queue protection event to the pipeline **/
 			licenseManager->QueueProtectionEvent(drmHelperToUse, "1", 0, eMEDIATYPE_VIDEO);
 			/** Queue content protection in DRM license fetcher **/
@@ -1655,7 +1660,7 @@ void TrackState::FetchFragment()
 			//update videoend info
 			aamp->UpdateVideoEndMetrics((IS_FOR_IFRAME(iCurrentRate, type) ? eMEDIATYPE_IFRAME : (AampMediaType)(type)),
 										lbwd,
-										((iFogErrorCode > 0) ? iFogErrorCode : http_error), this->mEffectiveUrl, fragmentDurationSeconds, downloadTime, bKeyChanged, fragmentEncrypted);
+										((iFogErrorCode > 0) ? iFogErrorCode : http_error), GetEffectivePlaylistUrl(), fragmentDurationSeconds, downloadTime, bKeyChanged, fragmentEncrypted);
 			return;
 		}
 
@@ -1711,7 +1716,7 @@ void TrackState::FetchFragment()
 			// update videoend info
 			aamp->UpdateVideoEndMetrics( (IS_FOR_IFRAME(iCurrentRate,type)? eMEDIATYPE_IFRAME:(AampMediaType)(type) ),
 									lbwd,
-									((iFogErrorCode > 0 ) ? iFogErrorCode : http_error), this->mEffectiveUrl, cachedFragment->duration, downloadTime, bKeyChanged, fragmentEncrypted);
+									((iFogErrorCode > 0 ) ? iFogErrorCode : http_error), GetEffectivePlaylistUrl(), cachedFragment->duration, downloadTime, bKeyChanged, fragmentEncrypted);
 
 			const auto early_processing = aamp->mConfig->IsConfigSet(eAAMPConfig_EarlyID3Processing);
 			if (early_processing && playContext && aamp->IsEventListenerAvailable(AAMP_EVENT_ID3_METADATA))
@@ -3456,9 +3461,9 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 				// Check for text track changes and notify
 				NotifyTextTrackChanges();
 				
-				if(ISCONFIGSET(eAAMPConfig_useRialtoSink) && (currentTextTrackProfileIndex == -1))
+				if(aamp->UsingRialto() && (currentTextTrackProfileIndex == -1))
 				{
-					AAMPLOG_INFO("usingRialtoSink - No default text track is selected,configure default text track for rialto");
+					AAMPLOG_INFO("usingRialto - No default text track is selected,configure default text track for rialto");
 					SelectSubtitleTrack();
 				}
 			}
@@ -4895,7 +4900,7 @@ void TrackState::Stop(bool clearDRM)
 		fragmentCollectorThreadID.join();
 	}
 
-	aamp->StopTrackInjection((AampMediaType) type);
+	aamp->StopTrackInjection((AampMediaType) type, true);
 	StopInjectLoop();
 
 	//To be called after StopInjectLoop to avoid cues to be injected after cleanup
@@ -5074,16 +5079,13 @@ void StreamAbstractionAAMP_HLS::GetStreamFormat(StreamOutputFormat &primaryOutpu
 		// StreamAbstractionAAMP_MPD::GetStreamFormat.
 		primaryOutputFormat = FORMAT_UNKNOWN;
 		audioOutputFormat = FORMAT_UNKNOWN;
-		if (!hasDrm)
+		HlsStreamInfo *streamInfo = (HlsStreamInfo *)GetStreamInfo(currentProfileIndex);
+		if (streamInfo != NULL)
 		{
-			HlsStreamInfo *streamInfo = (HlsStreamInfo *)GetStreamInfo(currentProfileIndex);
-			if (streamInfo != NULL)
-			{
-				// A HLS video profile lists every codec it carries in one attribute, so the video
-				// and audio lookups are given the same string and each picks out its own.
-				primaryOutputFormat = GetMp4DemuxVideoFormatForCodec(streamInfo->codecs.c_str());
-				audioOutputFormat = GetMp4DemuxAudioFormatForCodec(streamInfo->codecs.c_str());
-			}
+			// A HLS video profile lists every codec it carries in one attribute, so the video
+			// and audio lookups are given the same string and each picks out its own.
+			primaryOutputFormat = GetMp4DemuxVideoFormatForCodec(streamInfo->codecs.c_str());
+			audioOutputFormat = GetMp4DemuxAudioFormatForCodec(streamInfo->codecs.c_str());
 		}
 	}
 	else
@@ -6220,6 +6222,7 @@ bool TrackState::FetchInitFragmentHelper(int &http_code, bool forcePushEncrypted
 	}
 	std::string line;
 	std::getline(initFragmentUrlStream, line);
+	std::string effectivePlaylistUrl = mEffectiveUrl;
 	ReleasePlaylistLock();
 	if (!line.empty())
 	{
@@ -6279,9 +6282,11 @@ bool TrackState::FetchInitFragmentHelper(int &http_code, bool forcePushEncrypted
 		}
 		if (!uri.empty())
 		{
+			AcquirePlaylistLock();
 			getNextFetchRequestUri();
+			ReleasePlaylistLock();
 			std::string fragmentUrl;
-			aamp_ResolveURL(fragmentUrl, mEffectiveUrl, uri.c_str(), ISCONFIGSET(eAAMPConfig_PropagateURIParam));
+			aamp_ResolveURL(fragmentUrl, effectivePlaylistUrl, uri.c_str(), ISCONFIGSET(eAAMPConfig_PropagateURIParam));
 			std::string tempEffectiveUrl;
 			CachedFragment* cachedFragment = GetFetchBuffer(true);
 			if (!cachedFragment)
@@ -6335,7 +6340,7 @@ bool TrackState::FetchInitFragmentHelper(int &http_code, bool forcePushEncrypted
 #endif /* CHECK_PERFORMANCE */
 
 				int main_error = context->getOriginalCurlError(http_code);
-				aamp->UpdateVideoEndMetrics(actualType, this->GetCurrentBandWidth(), main_error, mEffectiveUrl, downloadTime.inSeconds());
+				aamp->UpdateVideoEndMetrics(actualType, this->GetCurrentBandWidth(), main_error, effectivePlaylistUrl, downloadTime.inSeconds());
 
 				if (fetched)
 				{
@@ -6389,7 +6394,7 @@ void StreamAbstractionAAMP_HLS::StopInjection(void)
 void TrackState::StopInjection()
 {
 	AbortWaitForCachedFragment();
-	aamp->StopTrackInjection((AampMediaType) type);
+	aamp->StopTrackInjection((AampMediaType) type, true);
 	if (playContext)
 	{
 		playContext->abort();

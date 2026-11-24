@@ -148,6 +148,11 @@ appSrcForProgressivePlayback 	Enables appsrc for playing progressive AV type. De
 seekMidFragment			Enable/Disable Mid-Fragment seek. Default: false
 wifiCurlHeader			Enable/Disable wifi custom curl header inclusion. Default: true
 reportBufferEvent		Enables Buffer event reporting. Default: true.
+enableEventProfiling		Enable event round-trip time profiling. When enabled, logs async and sync
+				event latency when the measured time meets or exceeds eventProfilingThresholdMs.
+				For async events the measured time is queue dwell time + sync delivery time combined.
+				For direct sync events only delivery time is measured. Default: false
+enableNetworkPersonaLogging	Collect network metrics and log a JSON network persona on Stop. Default: false
 info            		Enable/Disable logging of requested urls. Default: false
 gst             		Enable/Disable gstreamer logging including pipeline dump. Default: false
 gstlevel                String to set (final) override of gstreamer debug level, e.g. gstlevel=*:3,westeros*:5
@@ -187,7 +192,8 @@ sendUserAgentInLicense		Enable/disable sending user agent in the DRM license req
 useSinglePipeline		Enable/Disable using single gstreamer pipeline for main and secondary assets
 earlyProcessing			Enable/Disable processing fragments on download to extract ID3 metadata
 useRialtoSink              Enable/Disable player to use Rialto sink based video and audio pipeline
-
+useDirectRialto			Enable/Disable player to call the Rialto client API directly, without a GStreamer pipeline. Read before player creation (device config, environment or operator settings), not changeable dynamically. Forces useMp4Demux on. See docs/direct-rialto/README.md
+disableTTML			Disable TTML subtitle tracks in DASH; in-band closed captions remain available. Default: false
 // Integer inputs
 ptsErrorThreshold		aamp maximum number of back-to-back pts errors to be considered for triggering a retune
 waitTimeBeforeRetryHttp5xx 	Specify the wait time before retry for 5xx http errors. Default: 1s.
@@ -202,6 +208,10 @@ abrCacheOutlier 		Outlier difference which will be ignored from network bandwidt
 abrNwConsistency		Number of checks before profile increment/decrement by 1.This is to avoid frequent profile switching with network change: Default 2
 abrSkipDuration			Minimum duration of fragment to be downloaded before triggering abr. Default: 6s
 progressReportingInterval	Interval (seconds) for progress reporting(in seconds. Default: 1
+eventProfilingThresholdMs	Threshold in milliseconds for event round-trip profiling (requires enableEventProfiling=true).
+				For async events the measured time is queue dwell time + sync delivery time combined.
+				For direct sync events only delivery time is compared. Logs are emitted only when the
+				measured time meets or exceeds this threshold. Default: 500
 licenseRetryWaitTime		License retry wait (ms) interval. Default: 500
 licenseKeyAcquireWaitTime	License key acquire wait time (ms). Default: 5000
 liveOffset    			live offset time in seconds, Live playback this much time before true live edge. Default: 1
@@ -264,7 +274,7 @@ showDiagnosticsOverlay		Configures the diagnostics overlay: 0 (none), 1 (minimal
 
 // String inputs
 licenseServerUrl		URL to be used for license requests for encrypted(PR/WV) assets
-harvestPath			Specify the path where fragments has to be harvested,check folder permissions specifying the path
+harvestPath			Specify the path where fragments has to be harvested,check folder permissions specifying the path. Only honored from device configuration (e.g. aamp.cfg); ignored if set by application (initConfig), stream or tune settings
 networkProxy			proxy address to set for all file downloads. Default: None  
 licenseProxy			proxy address to set for license fetch. Default: None
 AuthToken			SessionToken string to override from Application. Default: None
@@ -297,7 +307,8 @@ bufferLevelToEnableLatencySec 		Buffer level to enable latency correction in sec
 rebufferLatencyStepSec			Step value for latency increase when rebuffering occurs. Default: 1.0s
 rebufferLatencyMaxIncrementSec			Max latency increment allowed due to rebuffering. Default: 6.0s
 latencyDangerBufferSec      Buffer level (seconds) below which latency thresholds are dynamically increased to accommodate the low-buffer condition. Default: 1.0
-latencyStableDurationSec        Duration (seconds) of consecutive healthy buffer (above `latencyDangerBufferSec`) required before one restoration step is applied to the latency thresholds. Default: 300.0
+latencyRestorationBufferSec	Buffer level (seconds) required during the full stable window before one latency-threshold restoration step is applied. Default: 2.0
+latencyStableDurationSec        Duration (seconds) of consecutive buffer at or above `latencyRestorationBufferSec` required before one restoration step is applied to the latency thresholds. Default: 300.0
 lowLatencyTargetBuffer      Target buffer size for low latency mode (seconds). Balances latency and stability by keeping a healthy buffer. Default: 4
 maxLatencyCorrectionPlaybackRate        Upper playback-rate limit used by latency correction when latency rises above the max threshold. Increasing this value makes catch-up more aggressive and can introduce noticeable A/V artifacts (for example accelerated video cadence and audio quality changes such as robotic/timestretch artifacts) on some platforms. default: 1.03
 minLatencyCorrectionPlaybackRate        Lower playback-rate limit used by latency correction when latency drops below the min threshold. Decreasing this value makes slowdown more aggressive and can introduce noticeable A/V artifacts (for example perceived slow-motion effect and audio quality changes such as robotic/timestretch artifacts) on some platforms. Default: 0.97
