@@ -2108,17 +2108,24 @@ AAMPPlayerState PlayerInstanceAAMP::GetState(void)
 	AAMPPlayerState currentState = eSTATE_RELEASED;
 	try
 	{
+		AAMPLOG_WARN("vk::1 GetState() - Acquiring mutex lock");
 		std::lock_guard<std::mutex> lock (mPrvAampMtx);
+		AAMPLOG_WARN("vk::1 GetState() - Mutex lock acquired, checking aamp pointer");
 		if(NULL == aamp)
 		{
+			AAMPLOG_WARN("vk::1 GetState() - aamp pointer is NULL");
 			throw std::invalid_argument("NULL reference");
 		}
+		AAMPLOG_WARN("vk::1 GetState() - aamp pointer valid, calling aamp->GetState()");
 		currentState = aamp->GetState();
+		AAMPLOG_WARN("vk::1 GetState() - Retrieved state=%s (%d)", AAMPPlayerStateName(currentState), (int)currentState);
 	}
 	catch (std::exception &e)
 	{
+		AAMPLOG_WARN("vk::1 GetState() - Exception caught: %s, returning eSTATE_RELEASED", e.what());
 		AAMPLOG_WARN("Invalid access to the instance of PrivateInstanceAAMP (%s), returning %s as current state",  e.what(),"eSTATE_RELEASED");
 	}
+	AAMPLOG_WARN("vk::1 GetState() - Exiting with state=%s (%d)", AAMPPlayerStateName(currentState), (int)currentState);
 	return currentState;
 }
 

@@ -1138,6 +1138,9 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	, fragmentCdmEncrypted(false) ,drmParserMutex(), aesCtrAttrDataList()
 	, createDRMSessionThreadID()
 	, mDRMLicenseManager(NULL)
+{
+	AAMPLOG_WARN("vk::1 PrivateInstanceAAMP::Constructor - mState initialized to eSTATE_RELEASED (%d), mPlayerId=%d", (int)mState, mPlayerId);
+}
 	,  mPreCachePlaylistThreadId(), mPreCacheDnldList()
 	, mPreCacheDnldTimeWindow(0), mParallelPlaylistFetchLock(), mAppName()
 	, mProgressReportFromProcessDiscontinuity(false)
@@ -1395,6 +1398,8 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
  */
 PrivateInstanceAAMP::~PrivateInstanceAAMP()
 {
+	AAMPLOG_WARN("vk::1 PrivateInstanceAAMP::Destructor - Entry, current mState=%s (%d), mPlayerId=%d", AAMPPlayerStateName(mState), (int)mState, mPlayerId);
+	
 	StopPausePositionMonitoring("AAMP destroyed");
 	PlayerCCManager::GetInstance()->Release(mCCId);
 	mCCId = 0;
@@ -1447,6 +1452,7 @@ PrivateInstanceAAMP::~PrivateInstanceAAMP()
 			mpStreamAbstractionAAMP->ResetSubtitle();
 	}
 
+	AAMPLOG_WARN("vk::1 PrivateInstanceAAMP::Destructor - Exit, mPlayerId=%d", mPlayerId);
 }
 
 /**
@@ -6956,9 +6962,12 @@ void PrivateInstanceAAMP::enableEventProcessing()
 void PrivateInstanceAAMP::disableEventProcessing()
 {
 	// Set Event Manager State to RELEASED to avoid further event processing
+	AAMPLOG_WARN("vk::1 disableEventProcessing() - Entry: current mState=%s (%d)", AAMPPlayerStateName(mState), (int)mState);
 	AAMPLOG_WARN("vk::1 disableEventProcessing - before: mPlayerState=%s (%d)", AAMPPlayerStateName(mState), (int)mState);
+	AAMPLOG_WARN("vk::1 disableEventProcessing() - Setting EventManager PlayerState to eSTATE_RELEASED");
 	mEventManager->SetPlayerState(eSTATE_RELEASED);
 	AAMPLOG_WARN("vk::1 disableEventProcessing - after: mPlayerState set to RELEASED, checking current mState=%s (%d)", AAMPPlayerStateName(mState), (int)mState);
+	AAMPLOG_WARN("vk::1 disableEventProcessing() - Exit: EventManager state now RELEASED");
 }
 
 /**
@@ -8653,13 +8662,17 @@ void PrivateInstanceAAMP::SetState(AAMPPlayerState state)
 {
 	//bool sentSync = true;
 
+	AAMPLOG_WARN("vk::1 SetState() - Entry: state=%s (%d)", AAMPPlayerStateName(state), (int)state);
+
 	if (state == eSTATE_PLAYING || state == eSTATE_BUFFERING || state == eSTATE_PAUSED)
 	{
+		AAMPLOG_WARN("vk::1 SetState() - Clearing mSetRateActive flag for state=%s", AAMPPlayerStateName(state));
 		mSetRateActive = false; // make sure MonitorProgress() is not blocked after state change (flush has been done)
 	}
 
 	if (mState == state)
 	{ // noop
+		AAMPLOG_WARN("vk::1 SetState() - State already %s, returning without change", AAMPPlayerStateName(state));
 		return;
 	}
 	
@@ -8678,13 +8691,19 @@ void PrivateInstanceAAMP::SetState(AAMPPlayerState state)
 		mEventManager->SendEvent(event,AAMP_EVENT_SYNC_MODE);
 	}
 	{
+		AAMPLOG_WARN("vk::1 SetState() - Acquiring mLock to update mState");
 		std::lock_guard<std::recursive_mutex> guard(mLock);
+		AAMPLOG_WARN("vk::1 SetState() - mLock acquired, updating mState from %s to %s", AAMPPlayerStateName(mState), AAMPPlayerStateName(state));
 		mState = state;
+		AAMPLOG_WARN("vk::1 SetState() - mState updated to %s (%d)", AAMPPlayerStateName(mState), (int)mState);
 	}
 
+	AAMPLOG_WARN("vk::1 SetState() - Calling mScheduler->SetState(%s)", AAMPPlayerStateName(mState));
 	mScheduler->SetState(mState);
+	
 	if (mEventManager->IsEventListenerAvailable(AAMP_EVENT_STATE_CHANGED))
 	{
+		AAMPLOG_WARN("vk::1 SetState() - Event listener available for AAMP_EVENT_STATE_CHANGED");
 		if (mState == eSTATE_PREPARING)
 		{
 			AAMPLOG_WARN("vk::SetState - sending AAMP_EVENT_STATE_CHANGED (eSTATE_INITIALIZED)");
@@ -8697,6 +8716,12 @@ void PrivateInstanceAAMP::SetState(AAMPPlayerState state)
 		StateChangedEventPtr eventData = std::make_shared<StateChangedEvent>(mState, GetSessionId());
 		mEventManager->SendEvent(eventData,AAMP_EVENT_SYNC_MODE);
 	}
+	else
+	{
+		AAMPLOG_WARN("vk::1 SetState() - No event listener for AAMP_EVENT_STATE_CHANGED");
+	}
+
+	AAMPLOG_WARN("vk::1 SetState() - Exit: state now=%s (%d)", AAMPPlayerStateName(mState), (int)mState);
 }
 
 /**

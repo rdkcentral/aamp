@@ -276,13 +276,25 @@ void AampEventManager::SetAsyncTuneState(bool isAsyncTuneSetting)
 void AampEventManager::SetPlayerState(AAMPPlayerState state)
 {
 	std::lock_guard<std::mutex> guard(mMutexVar);
+	AAMPLOG_WARN("vk::1 SetPlayerState() - Entry: requested state=%s (%d)", AAMPPlayerStateName(state), (int)state);
 	AAMPLOG_WARN("vk::SetPlayerState - EventManager playerState changing to %d (released=%d)", state, (state == eSTATE_RELEASED) ? 1 : 0);
 	if (mPlayerState != state)
 	{
+		AAMPLOG_WARN("vk::1 SetPlayerState() - State transition: %s (%d) → %s (%d)", 
+			AAMPPlayerStateName(mPlayerState), (int)mPlayerState, AAMPPlayerStateName(state), (int)state);
 		AAMPLOG_WARN("vk::SetPlayerState - EventManager playerState=%d → %d, pendingQueue=%zu, pendingCallbacks=%zu", 
 			mPlayerState, state, mEventWorkerDataQue.size(), mPendingAsyncEvents.size());
 	}
+	else
+	{
+		AAMPLOG_WARN("vk::1 SetPlayerState() - State already %s, no change", AAMPPlayerStateName(state));
+	}
 	mPlayerState = state;
+	if (state == eSTATE_RELEASED)
+	{
+		AAMPLOG_WARN("vk::1 SetPlayerState() - PlayerState set to eSTATE_RELEASED (%d)", (int)state);
+	}
+	AAMPLOG_WARN("vk::1 SetPlayerState() - Exit: mPlayerState now=%s (%d)", AAMPPlayerStateName(mPlayerState), (int)mPlayerState);
 }
 
 /**
