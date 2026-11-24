@@ -49,9 +49,9 @@ public:
 	MOCK_METHOD(void, updateLastTextTracks, (const std::vector<CCTrackInfo> &newTextTracks));
 
 	// Non-virtual methods for additional testing flexibility
-	MOCK_METHOD(void, EnsureInitialized, ());
+	MOCK_METHOD(bool, EnsureInitialized, ());
 	MOCK_METHOD(void, EnsureHALInitialized, ());
-	MOCK_METHOD(void, EnsureRendererCommsInitialized, ());
+	MOCK_METHOD(bool, EnsureRendererCommsInitialized, ());
 	MOCK_METHOD(int, Initialize, (void *handle));
 };
 
