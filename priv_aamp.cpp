@@ -3145,7 +3145,7 @@ void PrivateInstanceAAMP::NotifySpeedChanged(float rate, bool changeState)
 	else
 	{
 		int64_t eventQueueTimeMs = aamp_GetCurrentTimeMS();
-		AAMPLOG_WARN("vk::1 NotifySpeedChanged - Queueing AAMP_EVENT_SPEED_CHANGED at %lld ms, rate=%.2f, mPlayerState=%s (%d)", eventQueueTimeMs, rate, AAMPPlayerStateName(GetState()), (int)GetState());
+		AAMPLOG_WARN("vk::1 NotifySpeedChanged - Queueing AAMP_EVENT_SPEED_CHANGED at %ld ms, rate=%.2f, mPlayerState=%s (%d)", eventQueueTimeMs, rate, AAMPPlayerStateName(GetState()), (int)GetState());
 		AAMPLOG_WARN("vk::NotifySpeedChanged - sending SpeedChangedEvent with rate=%f", rate);
 		SendEvent(std::make_shared<SpeedChangedEvent>(rate, GetSessionId()),AAMP_EVENT_ASYNC_MODE);
 	}
