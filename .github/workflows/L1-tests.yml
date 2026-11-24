@@ -9,7 +9,7 @@ on:
 
   push:
     branches:
-      - test/L1
+      - test/L1-test
 
 jobs:
   execute-unit-tests-on-pr:
