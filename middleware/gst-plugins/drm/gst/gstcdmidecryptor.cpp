@@ -64,6 +64,7 @@ enum
  */
 static unsigned char* ReplaceKIDPsshData(const unsigned char *InputData, const size_t InputDataLength,  size_t & OutputDataLength)
 {
+	GST_WARNING("crash debugging: ReplaceKIDPsshData");
 	unsigned char *outputData = NULL;
 	unsigned int WIDEVINE_PSSH_KEYID_OFFSET = 36u;
 	unsigned int CK_PSSH_KEYID_OFFSET = 32u;
@@ -164,6 +165,7 @@ static void gst_cdmidecryptor_class_init(
 		GstCDMIDecryptorClass *klass)
 {
 	DEBUG_FUNC();
+	GST_WARNING("crash debugging: gst_cdmidecryptor_class_init");
 
 	std::shared_ptr<SocInterface> socInterface = SocInterface::CreateSocInterface();
 	GObjectClass *gobject_class = G_OBJECT_CLASS(klass);
@@ -209,6 +211,7 @@ static void gst_cdmidecryptor_init(
 		GstCDMIDecryptor *cdmidecryptor)
 {
 	DEBUG_FUNC();
+	GST_WARNING_OBJECT(cdmidecryptor, "crash debugging: cdmidecryptor init");
 	const char* ocdmgsttransformcaps = "opencdm_gstreamer_transform_caps";
 	GstBaseTransform* base = GST_BASE_TRANSFORM(cdmidecryptor);
 
@@ -256,6 +259,7 @@ void gst_cdmidecryptor_dispose(GObject * object)
 			GST_CDMI_DECRYPTOR(object);
 
 	GST_DEBUG_OBJECT(cdmidecryptor, "dispose");
+	GST_WARNING_OBJECT(cdmidecryptor, "crash debugging: gst_cdmidecryptor_dispose");
 
 	if (cdmidecryptor->protectionEvent)
 	{
@@ -282,6 +286,7 @@ static void gst_cdmicapsappendifnotduplicate(GstCaps* destCaps,
 		GstStructure* cap)
 {
 	DEBUG_FUNC();
+	GST_WARNING("crash debugging: gst_cdmicapsappendifnotduplicate");
 
 	bool duplicate = false;
 	unsigned size = gst_caps_get_size(destCaps);
@@ -310,6 +315,7 @@ gst_cdmidecryptor_transform_caps(GstBaseTransform * trans,
 	unsigned size = gst_caps_get_size(caps);
 	GstCaps* transformedCaps = gst_caps_new_empty();
 
+	GST_WARNING_OBJECT(trans, "crash debugging: transform_caps");
 	GST_DEBUG_OBJECT(trans, "direction: %s, caps: %" GST_PTR_FORMAT " filter:"
 			" %" GST_PTR_FORMAT, (direction == GST_PAD_SRC) ? "src" : "sink", caps, filter);
 
@@ -471,6 +477,7 @@ gst_cdmidecryptor_transform_caps(GstBaseTransform * trans,
         sinkCapsCopy = gst_caps_ref(cdmidecryptor->sinkCaps);  // take an extra ref to keep it alive
         g_cond_signal(&cdmidecryptor->sinkCapsCond);
         g_mutex_unlock(&cdmidecryptor->mutex);
+        GST_WARNING_OBJECT(trans, "crash debugging: setting sinkCaps");
         GST_DEBUG_OBJECT(trans, "Set sinkCaps to %" GST_PTR_FORMAT, sinkCapsCopy);
         gst_caps_unref(sinkCapsCopy);  // release the extra ref
 
@@ -484,6 +491,7 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 		GstBaseTransform * trans, GstBuffer * buffer)
 {
 	DEBUG_FUNC();
+	GST_WARNING_OBJECT(trans, "crash debugging: gst_cdmidecryptor_transform_ip");
 
 	std::shared_ptr<SocInterface> socInterface = SocInterface::CreateSocInterface();
 	GstCDMIDecryptor *cdmidecryptor =
@@ -504,7 +512,6 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 	int errorCode;
 
 	GST_DEBUG_OBJECT(cdmidecryptor, "Processing buffer");
-
 	if (!buffer)
 	{
 		GST_ERROR_OBJECT(cdmidecryptor,"Failed to get writable buffer");
@@ -787,6 +794,7 @@ static gboolean gst_cdmidecryptor_sink_event(GstBaseTransform * trans,
 		GstEvent * event)
 {
 	DEBUG_FUNC();
+	GST_WARNING_OBJECT(trans, "crash debugging: gst_cdmidecryptor_sink_event");
 
 	GstCDMIDecryptor *cdmidecryptor =
 			GST_CDMI_DECRYPTOR(trans);
@@ -1012,6 +1020,7 @@ static GstStateChangeReturn gst_cdmidecryptor_changestate(
 {
 	
 	DEBUG_FUNC();
+	GST_WARNING_OBJECT(element, "crash debugging: gst_cdmidecryptor_changestate");
 
 	std::shared_ptr<SocInterface> socInterface = SocInterface::CreateSocInterface();
 	GstStateChangeReturn ret = GST_STATE_CHANGE_SUCCESS;
@@ -1059,6 +1068,7 @@ static void gst_cdmidecryptor_set_property(GObject * object,
 		guint prop_id, const GValue * value, GParamSpec * pspec)
 {
 	DEBUG_FUNC();
+	GST_WARNING_OBJECT(object, "crash debugging: gst_cdmidecryptor_set_property");
 
 	GstCDMIDecryptor* cdmidecryptor =
 			GST_CDMI_DECRYPTOR(object);
@@ -1091,6 +1101,7 @@ static gboolean gst_cdmidecryptor_accept_caps(GstBaseTransform * trans,
 		GstPadDirection direction, GstCaps * caps)
 {
 	gboolean ret = TRUE;
+	GST_WARNING_OBJECT(trans, "crash debugging: gst_cdmidecryptor_accept_caps");
 	GST_DEBUG_OBJECT (trans, "received accept caps with direction: %s caps: %" GST_PTR_FORMAT, (direction == GST_PAD_SRC) ? "src" : "sink", caps);
 
 	GstCaps *allowedCaps = NULL;
