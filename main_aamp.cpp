@@ -1043,10 +1043,10 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 				{
 					PrivateInstanceAAMP::SetRateProtect setRateLock(aamp);
 					int64_t beforeTuneMs = aamp_GetCurrentTimeMS();
-					AAMPLOG_WARN("vk::1 SetRateInternal - Before TuneHelper at %ld ms: mbDetached=%d, rate=%.2f, mPlayerState=%s", beforeTuneMs, aamp->mbDetached, rate, AAMPPlayerStateName(aamp->GetState()));
+					AAMPLOG_WARN("vk::1 SetRateInternal - Before TuneHelper at %lld ms: mbDetached=%d, rate=%.2f, mPlayerState=%s", (long long)beforeTuneMs, aamp->mbDetached, rate, AAMPPlayerStateName(aamp->GetState()));
 					aamp->TuneHelper(eTUNETYPE_SEEK, false);
 					int64_t afterTuneMs = aamp_GetCurrentTimeMS();
-					AAMPLOG_WARN("vk::1 SetRateInternal - After TuneHelper at %ld ms (duration %ld ms): mbDetached=%d, rate=%.2f, mPlayerState=%s", afterTuneMs, (afterTuneMs - beforeTuneMs), aamp->mbDetached, rate, AAMPPlayerStateName(aamp->GetState()));
+					AAMPLOG_WARN("vk::1 SetRateInternal - After TuneHelper at %lld ms (duration %lld ms): mbDetached=%d, rate=%.2f, mPlayerState=%s", (long long)afterTuneMs, (long long)(afterTuneMs - beforeTuneMs), aamp->mbDetached, rate, AAMPPlayerStateName(aamp->GetState()));
 				}
 			}
 
@@ -1057,7 +1057,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 				// Likewise leave the state to NotifyFirstVideoFrameDisplayed() if a seek while paused is still prerolling.
 				const float notifyRate = firstFrameDeferral ? deferredNotifyRate : (aamp->pipeline_paused ? 0 : aamp->rate);
 				int64_t beforeNotifyMs = aamp_GetCurrentTimeMS();
-				AAMPLOG_WARN("vk::1 SetRateInternal - Before NotifySpeedChanged at %ld ms: mbDetached=%d, notifyRate=%.2f, mPlayerState=%s", beforeNotifyMs, aamp->mbDetached, notifyRate, AAMPPlayerStateName(aamp->GetState()));
+				AAMPLOG_WARN("vk::1 SetRateInternal - Before NotifySpeedChanged at %lld ms: mbDetached=%d, notifyRate=%.2f, mPlayerState=%s", (long long)beforeNotifyMs, aamp->mbDetached, notifyRate, AAMPPlayerStateName(aamp->GetState()));
 				if (firstFrameDeferral)
 				{
 					// Only the player state transition is deferred; subtitle pause/resume must still follow the request
