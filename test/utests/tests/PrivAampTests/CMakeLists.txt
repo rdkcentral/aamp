@@ -30,7 +30,8 @@ include(${CMAKE_CURRENT_LIST_DIR}/../CommonTestIncludes.cmake)
 set(TEST_SOURCES	PrivAampTests.cpp
 					PrivAampAAMPTests.cpp
 					PrivAampTests_TsbInjection.cpp)
-set(AAMP_SOURCES ${AAMP_ROOT}/priv_aamp.cpp ${AAMP_ROOT}/CachedFragment.cpp)
+set(AAMP_SOURCES ${AAMP_ROOT}/priv_aamp.cpp
+${AAMP_ROOT}/CachedFragment.cpp)
 add_executable(	${EXEC_NAME}
 				${TEST_SOURCES}
 				${AAMP_SOURCES})

@@ -234,6 +234,10 @@ bool StreamAbstractionAAMP::SetTextStyle(const std::string &options)
 
 void MediaTrack::AbortWaitForCachedAndFreeFragment(bool immediate)
 {
+	if (g_mockMediaTrack != nullptr)
+	{
+		g_mockMediaTrack->AbortWaitForCachedAndFreeFragment(immediate);
+	}
 }
 
 void MediaTrack::AbortWaitForCachedFragment()

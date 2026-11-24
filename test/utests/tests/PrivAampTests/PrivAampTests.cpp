@@ -18,6 +18,16 @@
 */
 
 #include <cstdlib>
+<<<<<<< HEAD
+=======
+#include <functional>
+#include <future>
+#include <mutex>
+#include <vector>
+#include <thread>
+#include <atomic>
+#include <chrono>
+>>>>>>> 42c5b26b (Validating using L1 test)
 #include <iostream>
 #include <string>
 #include <string.h>
@@ -872,9 +882,15 @@ TEST_F(PrivAampPrivTests, MonitorProgressTuneMetricsAfterPlayingStateChange)
 			SendEvent(AnEventOfType(AAMP_EVENT_TUNE_TIME_METRICS), AAMP_EVENT_ASYNC_MODE)).Times(1);
 	}
 
+<<<<<<< HEAD
 	// Step 1: transition to PLAYING — fires AAMP_EVENT_STATE_CHANGED synchronously.
 	testp_aamp->SetState(eSTATE_PLAYING, true);
 	// Step 2: first progress tick — fires AAMP_EVENT_TUNE_TIME_METRICS via SendTuneMetricsEvent.
+=======
+	// Step 1: transition to PLAYING - fires AAMP_EVENT_STATE_CHANGED synchronously.
+	testp_aamp->SetState(eSTATE_PLAYING);
+	// Step 2: first progress tick - fires AAMP_EVENT_TUNE_TIME_METRICS via SendTuneMetricsEvent.
+>>>>>>> 42c5b26b (Validating using L1 test)
 	testp_aamp->MonitorProgress(true, false);
 
 	// Data is consumed exactly once; subsequent MonitorProgress ticks are no-ops.
@@ -882,8 +898,8 @@ TEST_F(PrivAampPrivTests, MonitorProgressTuneMetricsAfterPlayingStateChange)
 }
 
 /**
- * Verify that TuneFail explicitly calls SendTuneMetricsEvent — dispatching
- * AAMP_EVENT_TUNE_TIME_METRICS — when a listener is registered and the
+ * Verify that TuneFail explicitly calls SendTuneMetricsEvent - dispatching
+ * AAMP_EVENT_TUNE_TIME_METRICS - when a listener is registered and the
  * manifest URL is not the fake-tune sentinel.
  *
  * Contract: TuneFail must synchronously send the tune-metrics event because
@@ -2376,7 +2392,7 @@ TEST_F(PrivAampTests, HandleManifestRefreshFailureOnBuffering_TransportError_Ret
 }
 
 // After clearing the retry state, subsequent calls must
-// return false — confirming the latch is properly cleared on recovery.
+// return false - confirming the latch is properly cleared on recovery.
 TEST_F(PrivAampTests, HandleManifestRefreshFailureOnBuffering_AfterRecovery_ReturnsFalse)
 {
 	EXPECT_CALL(*g_mockAampMPDDownloader, GetManifestRefreshStatus())
@@ -4337,7 +4353,7 @@ TEST_F(PrivAampTests, FoundEventBreak_CdaiEnabled_IsDAIEvent_CallsSetAlternateCo
 	// mCdaiObject ownership transferred to p_aamp; cleaned up in destructor.
 }
  
-// FoundEventBreak with CDAI enabled but isDAIEvent=false must not register an ad break — SetAlternateContents not called.
+// FoundEventBreak with CDAI enabled but isDAIEvent=false must not register an ad break - SetAlternateContents not called.
 TEST_F(PrivAampTests, FoundEventBreak_CdaiEnabled_NotDAIEvent_NoSetAlternateContents)
 {
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableClientDai))
@@ -4359,7 +4375,7 @@ TEST_F(PrivAampTests, FoundEventBreak_CdaiEnabled_NotDAIEvent_NoSetAlternateCont
 	// mCdaiObject ownership transferred to p_aamp; cleaned up in destructor.
 }
  
-// FoundEventBreak with CDAI disabled must take no action — SetAlternateContents must not be called.
+// FoundEventBreak with CDAI disabled must take no action - SetAlternateContents must not be called.
 TEST_F(PrivAampTests, FoundEventBreak_CdaiDisabled_NoSetAlternateContents)
 {
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableClientDai))
@@ -4465,6 +4481,7 @@ TEST_F(PrivAampTests,StopTrackInjectionTest)
 	p_aamp->StopTrackInjection(eMEDIATYPE_AUDIO);
 }
 
+<<<<<<< HEAD
 TEST_F(PrivAampTests,StopTrackInjectionTest_DiscardFalse_DoesNotUnblockInjector)
 {
 	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer.get()));
@@ -4494,6 +4511,34 @@ TEST_F(PrivAampTests,StopTrackInjectionTest_DiscardTrueAfterNonDiscard_StillUnbl
 	p_aamp->StopTrackInjection(eMEDIATYPE_VIDEO, true);
 }
 
+=======
+/**
+ * @brief Stop() must abort cache waits on every media track.
+ *
+ * Without the abort, a producer blocked on a full LLD chunk cache is not released
+ * on Stop() and overflows the cache (UpdateTSAfterChunkFetch assertion).
+ */
+TEST_F(PrivAampTests, StopAbortsWaitForCachedFragmentOnAllTracks)
+{
+	NiceMock<MockMediaTrack> videoTrack(eTRACK_VIDEO, p_aamp, "video");
+	g_mockMediaTrack = &videoTrack;
+
+	// Owned and deleted by p_aamp during Stop()
+	auto *streamAbstraction = new NiceMock<MockStreamAbstractionAAMP>(p_aamp);
+	ON_CALL(*streamAbstraction, GetMediaTrack(_)).WillByDefault(Return(nullptr));
+	ON_CALL(*streamAbstraction, GetMediaTrack(eTRACK_VIDEO)).WillByDefault(Return(&videoTrack));
+	p_aamp->mTelemetryInterval = 1;
+	p_aamp->rate = AAMP_NORMAL_PLAY_RATE;
+	p_aamp->mpStreamAbstractionAAMP = streamAbstraction;
+
+	// Without this, a producer blocked on a full chunk cache is not released on Stop()
+	// and overflows the cache (UpdateTSAfterChunkFetch assertion).
+	EXPECT_CALL(videoTrack, AbortWaitForCachedAndFreeFragment(true)).Times(1);
+
+	p_aamp->Stop();
+	g_mockMediaTrack = nullptr;
+}
+>>>>>>> 42c5b26b (Validating using L1 test)
 TEST_F(PrivAampTests,ResumeTrackInjectionTest)
 {
 	p_aamp->ResumeTrackInjection(eMEDIATYPE_VIDEO);
