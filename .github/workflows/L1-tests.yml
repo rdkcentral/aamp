@@ -7,6 +7,10 @@ on:
       - dev_sprint_25_2
       - 'support/**'
 
+  push:
+    branches:
+      - test/L1
+
 jobs:
   execute-unit-tests-on-pr:
     name: Runs all unit tests
@@ -26,7 +30,7 @@ jobs:
 
       - name: Clone Middleware repo
         run: |
-          git clone -b develop https://github.com/rdkcentral/middleware-player-interface
+          git clone -b topic/RDKEMW-12404_1 https://github.com/rdkcentral/middleware-player-interface
       # Run L1 tests
       - name: Run unit tests
         working-directory: ./test/utests
