@@ -690,7 +690,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 	if( aamp )
 	{
 		AAMPLOG_WARN("vk::1 SetRateInternal() - Entry: rate=%.2f, overshootcorrection=%d, mPlayerId=%d", rate, overshootcorrection, aamp->mPlayerId);
-		AAMPLOG_WARN("vk::1 SetRateInternal() - Instance info: mState=%s (%d), was_initialized_to_eSTATE_RELEASED in constructor", AAMPPlayerStateName(aamp->mState), (int)aamp->mState);
+		AAMPLOG_WARN("vk::1 SetRateInternal() - Instance info: mState=%s (%d), was_initialized_to_eSTATE_RELEASED in constructor", AAMPPlayerStateName(aamp->GetState()), (int)aamp->GetState());
 		
 		AAMPLOG_INFO("PLAYER[%d] rate=%f.", aamp->mPlayerId, rate);
 		AAMPPlayerState state = GetState();
@@ -1085,7 +1085,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 			AAMPLOG_WARN("vk::1 SetRateInternal() - mpStreamAbstractionAAMP is NULL or mbUsingExternalPlayer=true");
 			AAMPLOG_WARN("aamp_SetRate rate[%f] - mpStreamAbstractionAAMP[%p] state[%d]", aamp->rate, aamp->mpStreamAbstractionAAMP, state);
 		}
-		AAMPLOG_WARN("vk::1 SetRateInternal() - Exit: rate now=%.2f, final_mState=%s (%d), mPlayerId=%d", aamp->rate, AAMPPlayerStateName(aamp->mState), (int)aamp->mState, aamp->mPlayerId);
+		AAMPLOG_WARN("vk::1 SetRateInternal() - Exit: rate now=%.2f, final_mState=%s (%d), mPlayerId=%d", aamp->rate, AAMPPlayerStateName(aamp->GetState()), (int)aamp->GetState(), aamp->mPlayerId);
 	}
 }
 

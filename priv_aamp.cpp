@@ -1138,9 +1138,6 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	, fragmentCdmEncrypted(false) ,drmParserMutex(), aesCtrAttrDataList()
 	, createDRMSessionThreadID()
 	, mDRMLicenseManager(NULL)
-{
-	printf("vk::1 PrivateInstanceAAMP::Constructor - Creating instance=%p, mPlayerId=%d, mState=%d\n", (void*)this, mPlayerId, (int)mState);
-}
 	,  mPreCachePlaylistThreadId(), mPreCacheDnldList()
 	, mPreCacheDnldTimeWindow(0), mParallelPlaylistFetchLock(), mAppName()
 	, mProgressReportFromProcessDiscontinuity(false)
