@@ -243,6 +243,8 @@ void AampMPDDownloader::Initialize(ManifestDownloadConfigPtr mpdDnldCfg, std::st
 	std::lock_guard<std::recursive_mutex> lock(mMPDDnldMutex);
 	mMPDDnldCfg = std::move(mpdDnldCfg);
 	mTailDropTracker = std::make_shared<TailDropTracker>();
+	mLastLiveFirstPeriodStart = 0.0;
+	mLastLiveFirstSegmentStart = -1.0;
 
 	if(mpdPreProcessFuncptr)
 	{
@@ -376,6 +378,51 @@ void AampMPDDownloader::Start()
 	{
 		AAMPLOG_ERR("No Tune Url provided for download ");
 	}
+}
+
+/**
+*   @fn keepManifestTimeline
+*   @brief Function to maintain the manifest timeline across live and static transitions
+*/
+bool AampMPDDownloader::keepManifestTimeline(const AampMPDParseHelperPtr& parseHelper, bool isLiveManifest,	uint64_t playlistDownloadTimeMs)
+{
+	if (isLiveManifest)
+	{
+		mLastLiveFirstPeriodStart = 0.0;
+		mLastLiveFirstSegmentStart = -1.0;
+		if (parseHelper && parseHelper->GetNumberOfPeriods() > 0)
+		{
+			mLastLiveFirstSegmentStart = parseHelper->GetFirstPeriodSegmentStart();
+			if (mLastLiveFirstSegmentStart >= 0.0)
+			{
+				mLastLiveFirstPeriodStart =	parseHelper->GetPeriodStartTime(0, playlistDownloadTimeMs);
+			}
+			else
+			{
+				AAMPLOG_ERR("Unable to capture first video segment start from live manifest");
+			}
+		}
+		return false;
+	}
+
+	if (parseHelper && mLastLiveFirstSegmentStart >= 0.0)
+	{
+		const double staticFirstSegmentStart = parseHelper->GetFirstPeriodSegmentStart();
+		if (staticFirstSegmentStart >= 0.0)
+		{
+			const double timelineDelta = staticFirstSegmentStart - mLastLiveFirstSegmentStart;
+			const double adjustedEpochStartTime = mLastLiveFirstPeriodStart + timelineDelta;
+			AAMPLOG_WARN("Dynamic to static: setting adjusted timeline origin to %lf "
+				"(segment start delta %lf)", adjustedEpochStartTime, timelineDelta);
+			parseHelper->SetAvailabilityStartTime(adjustedEpochStartTime);
+		}
+		else
+		{
+			AAMPLOG_WARN("Unable to rebase static manifest without first video segment start");
+		}
+	}
+
+	return true;
 }
 
 /**
@@ -543,6 +590,22 @@ void AampMPDDownloader::downloadMPDThread1()
 			mMPDData->mMPDDownloadResponse->show();
 		}
 		showDownloadMetrics(mMPDData->mMPDDownloadResponse, (int)(tEndTime - tStartTime));
+
+		if(mMPDData->mMPDStatus == AAMPStatusType::eAAMPSTATUS_OK && mMPDData->mMPDInstance)
+		{
+			auto manifest = mCachedMPDData ? mCachedMPDData : mMPDData;
+			auto parseHelper = manifest->GetMPDParseHelper();
+			if(mMPDData->mIsLiveManifest)
+			{
+				// Save the start values from the dynamic manifest
+				keepManifestTimeline(parseHelper, true,	mMPDData->mLastPlaylistDownloadTimeMs);
+			}
+			else if(!firstDownload)
+			{
+				// Recover the timeline for static manifest
+				doPush = keepManifestTimeline(parseHelper, false, 0) || doPush;
+			}
+		}
 
 		if (!firstDownload)
 		{

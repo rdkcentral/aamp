@@ -293,7 +293,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false,"id3",eAAMPConfig_ID3Logging,false},
 	{true,"gstPositionQueryEnable",eAAMPConfig_EnableGstPositionQuery,false},
 	{false,"seekMidFragment",eAAMPConfig_MidFragmentSeek,false},
-	{true,"propagateUriParameters",eAAMPConfig_PropagateURIParam,false},
+	{false,"propagateUriParameters",eAAMPConfig_PropagateURIParam,false},
 	{true, "useWesterosSink",eAAMPConfig_UseWesterosSink,true},					// Toggle it via config based on platforms
 	{true,"useRetuneForUnpairedDiscontinuity",eAAMPConfig_RetuneForUnpairDiscontinuity,false},
 	{true,"useRetuneForGstInternalError",eAAMPConfig_RetuneForGSTError,false},
@@ -1126,7 +1126,14 @@ bool AampConfig::SetConfigValue(ConfigPriority newowner, AAMPConfigSettingString
 	bool ret = false;
 	const char * cfgName = GetConfigName(cfg);
 	ConfigValueString &setting = configValueString[cfg];
-	if(setting.owner <= newowner )
+	// harvestPath selects a directory for arbitrary file writes; it is a developer
+	// debug facility and must not be settable by applications, streams or tune-time overrides
+	if(cfg == eAAMPConfig_HarvestPath &&
+		(newowner == AAMP_STREAM_SETTING || newowner == AAMP_APPLICATION_SETTING || newowner == AAMP_TUNE_SETTING))
+	{
+		AAMPLOG_WARN("Config[%s] cannot be set by owner[%d]: restricted to device configuration", cfgName, newowner);
+	}
+	else if(setting.owner <= newowner )
 	{
 		if(setting.owner != newowner)
 		{

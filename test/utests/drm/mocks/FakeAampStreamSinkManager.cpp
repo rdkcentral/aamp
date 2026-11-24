@@ -107,15 +107,15 @@ void AampStreamSinkManager::UpdateTuningPlayer(PrivateInstanceAAMP *aamp)
 {
 }
 
-void AampStreamSinkManager::AddMediaHeader(PrivateInstanceAAMP *aamp, unsigned track, std::shared_ptr<AampStreamSinkManager::MediaHeader> header)
+void AampStreamSinkManager::AddMediaHeader(unsigned track, std::shared_ptr<AampStreamSinkManager::MediaHeader> header)
 {
 }
 
-void AampStreamSinkManager::RemoveMediaHeader(PrivateInstanceAAMP *aamp, unsigned track)
+void AampStreamSinkManager::RemoveMediaHeader(unsigned track)
 {
 }
 
-std::shared_ptr<AampStreamSinkManager::MediaHeader> AampStreamSinkManager::GetMediaHeader(PrivateInstanceAAMP *aamp, unsigned track)
+std::shared_ptr<AampStreamSinkManager::MediaHeader> AampStreamSinkManager::GetMediaHeader(unsigned track)
 {
 	return {};
 }

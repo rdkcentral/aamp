@@ -134,6 +134,10 @@ void PrivateCDAIObjectMPD::AbortWaitForNextAdResolved()
 {
 }
 
+void PrivateCDAIObjectMPD::WaitForAdFulfilmentIdle()
+{
+}
+
 bool PrivateCDAIObjectMPD::WaitForNextAdResolved(int timeoutMs, std::string periodId)
 {
 	if(g_MockPrivateCDAIObjectMPD != nullptr)

@@ -84,6 +84,18 @@ protected:
 		{
 			return CalculateProducerReferenceTimeOffset();
 		}
+
+		AAMPStatusType CallUpdatePeriodTiming(
+			ManifestDownloadResponsePtr response, bool init)
+		{
+			const auto status = GetMPDFromManifest(response, init);
+			if (status == AAMPStatusType::eAAMPSTATUS_OK)
+			{
+				std::vector<PeriodInfo> periods;
+				UpdateCulledAndDurationFromPeriodInfo(periods);
+			}
+			return status;
+		}
 	};
 
 	PrivateInstanceAAMP *mPrivateInstanceAAMP;
@@ -618,7 +630,7 @@ protected:
 		void CallApplyLiveOffsetWorkaroundForSAP(double seekPositionSeconds)
 		{
 			//TestableStreamAbstractionAAMP_MPD::FetchAndInjectInitFragments(false);
-			StreamAbstractionAAMP_MPD::mNumberOfTracks = 2;
+			mActiveTracks.Store({eMEDIATYPE_VIDEO, eMEDIATYPE_AUDIO});
 			ApplyLiveOffsetWorkaroundForSAP(seekPositionSeconds);
 		}
 
@@ -767,9 +779,9 @@ protected:
 		 * @brief Test-only helpers for FetchAndInjectInitFragments tests.
 		 *
 		 * Creates real MediaStreamContext objects for the requested track
-		 * count, sets mNumberOfTracks and mMaxTracks so the destructor
-		 * cleans them up, and marks every track disabled so that
-		 * FetchAndInjectInitialization does no real work.
+		 * count, makes the same number of leading tracks active and sets
+		 * mMaxTracks so the destructor cleans them up, and marks every track
+		 * disabled so that FetchAndInjectInitialization does no real work.
 		 */
 		void SetupMediaStreamContexts(int numTracks)
 		{
@@ -777,13 +789,17 @@ protected:
 			{
 				if (!mMediaStreamContext[i])
 				{
-					mMediaStreamContext[i] = new MediaStreamContext(
+					mMediaStreamContext[i] = std::make_unique<MediaStreamContext>(
 						(TrackType)i, this, aamp,
 						GetMediaTypeName(AampMediaType(i)));
 					mMediaStreamContext[i]->enabled = false;
 				}
 			}
-			mNumberOfTracks = numTracks;
+			mActiveTracks.Clear();
+			for (int i = 0; i < numTracks; i++)
+			{
+				mActiveTracks.Add(static_cast<AampMediaType>(i));
+			}
 			mMaxTracks = numTracks;
 		}
 
@@ -820,7 +836,7 @@ protected:
 
 		MediaStreamContext* GetMediaStreamContextForTest(int trackIdx)
 		{
-			return mMediaStreamContext[trackIdx];
+			return mMediaStreamContext[trackIdx].get();
 		}
 
 		AAMPStatusType CallResolveAdaptationSetForTrack(MediaStreamContext *pMediaStreamContext, IPeriod *period)
@@ -1040,6 +1056,58 @@ class TrickplayTests1 : public TrickplayTests {};
 
 
 /**
+ * @brief A rebased single-period static MPD uses its normalized first-segment
+ * time, not the previous live window start, to calculate the absolute end.
+ */
+TEST_F(FunctionalTests, DynamicToStatic_RebasedPeriodPreservesAbsoluteEnd)
+{
+	static const char *liveManifest =
+		"<MPD xmlns=\"urn:mpeg:dash:schema:mpd:2011\" type=\"dynamic\" "
+		"availabilityStartTime=\"2024-11-08T00:00:00Z\">"
+		"<Period id=\"p0\" start=\"PT100S\" duration=\"PT40S\">"
+		"<AdaptationSet contentType=\"video\" mimeType=\"video/mp4\">"
+		"<SegmentTemplate timescale=\"1000\" presentationTimeOffset=\"500000\" "
+		"media=\"$Time$.m4s\"><SegmentTimeline>"
+		"<S t=\"510000\" d=\"10000\" r=\"3\"/>"
+		"</SegmentTimeline></SegmentTemplate>"
+		"<Representation id=\"r0\" bandwidth=\"100000\"/>"
+		"</AdaptationSet></Period></MPD>";
+	static const char *staticManifest =
+		"<MPD xmlns=\"urn:mpeg:dash:schema:mpd:2011\" type=\"static\" "
+		"mediaPresentationDuration=\"PT30S\">"
+		"<Period id=\"p0\" start=\"PT0S\" duration=\"PT30S\">"
+		"<AdaptationSet contentType=\"video\" mimeType=\"video/mp4\">"
+		"<SegmentTemplate timescale=\"1000\" presentationTimeOffset=\"520000\" "
+		"media=\"$Time$.m4s\"><SegmentTimeline>"
+		"<S t=\"520000\" d=\"10000\" r=\"2\"/>"
+		"</SegmentTimeline></SegmentTemplate>"
+		"<Representation id=\"r0\" bandwidth=\"100000\"/>"
+		"</AdaptationSet></Period></MPD>";
+
+	mManifest = liveManifest;
+	const auto live = GetManifestForMPDDownloader();
+	const double liveAst = live->GetMPDParseHelper()->GetAvailabilityStartTime();
+	mManifest = staticManifest;
+	const auto cold = GetManifestForMPDDownloader();
+	cold->GetMPDParseHelper()->SetAvailabilityStartTime(liveAst + 120.0);
+	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
+	auto stream = std::make_unique<TestableFunctionalStreamAbstractionAAMP_MPD>(
+		mPrivateInstanceAAMP, 0.0, AAMP_NORMAL_PLAY_RATE);
+
+	ASSERT_EQ(stream->CallUpdatePeriodTiming(live, true),
+		AAMPStatusType::eAAMPSTATUS_OK);
+	EXPECT_DOUBLE_EQ(mPrivateInstanceAAMP->culledSeconds, liveAst + 110.0);
+	EXPECT_DOUBLE_EQ(mPrivateInstanceAAMP->mAbsoluteEndPosition,
+		liveAst + 150.0);
+
+	ASSERT_EQ(stream->CallUpdatePeriodTiming(cold, false),
+		AAMPStatusType::eAAMPSTATUS_OK);
+	EXPECT_DOUBLE_EQ(mPrivateInstanceAAMP->culledSeconds, liveAst + 120.0);
+	EXPECT_DOUBLE_EQ(mPrivateInstanceAAMP->mAbsoluteEndPosition,
+		liveAst + 150.0);
+}
+
+/**
  * @brief Segment time identifier test.
  *
  * The $Time$ identifier is set to the segment time and is used to select the uri of the media
@@ -1095,13 +1163,34 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 }
 
 /**
+ * @brief Functional tests class for Init() with cached encrypted headers.
+ *
+ * Parameterized over eAAMPConfig_UseMp4Demux so that Init() behaviour is
+ * verified with the demuxer both enabled and disabled.
+ */
+class CachedEncryptedHeadersInitTests : public FunctionalTestsBase,
+										public ::testing::TestWithParam<bool>
+{
+protected:
+	void SetUp() override
+	{
+		FunctionalTestsBase::SetUp();
+	}
+
+	void TearDown() override
+	{
+		FunctionalTestsBase::TearDown();
+	}
+};
+
+/**
  * @brief Verify pre-SetStreamCaps fallback with per-track checks.
  *
- * For a clear initial period with no encrypted headers available, if mp4demux is enabled and
- * encrypted headers were already injected earlier in the lifecycle for specific tracks, Init() should force
+ * For a clear initial period with no encrypted headers available, regardless of the mp4demux
+ * setting, if encrypted headers were already injected earlier in the lifecycle for specific tracks, Init() should force
  * track-encrypted state only for those tracks before init fetch so downstream SetStreamCaps keeps encrypted caps.
  */
-TEST_F(FunctionalTests, Init_ClearInitialPeriod_ForcesTrackEncryptedWhenInjectedHeadersAlreadyUsed)
+TEST_P(CachedEncryptedHeadersInitTests, Init_ClearInitialPeriod_ForcesTrackEncryptedWhenInjectedHeadersAlreadyUsed)
 {
 	AAMPStatusType status;
 	static const char *manifest =
@@ -1125,7 +1214,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	</Period>
 </MPD>)";
 
-	mBoolConfigSettings[eAAMPConfig_UseMp4Demux] = true;
+	mBoolConfigSettings[eAAMPConfig_UseMp4Demux] = GetParam();
 
 	// Allow init fragment caching to succeed for both tracks; otherwise Init() keeps
 	// retrying profile-changed init fetches and can spin/fault in test environment.
@@ -1160,7 +1249,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
  * When both video and audio have encrypted headers cached, Init() should force
  * track-encrypted state for both tracks before init fetch.
  */
-TEST_F(FunctionalTests, Init_ClearInitialPeriod_ForcesBothTracksEncryptedWhenBothHeadersInjected)
+TEST_P(CachedEncryptedHeadersInitTests, Init_ClearInitialPeriod_ForcesBothTracksEncryptedWhenBothHeadersInjected)
 {
 	AAMPStatusType status;
 	static const char *manifest =
@@ -1184,7 +1273,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	</Period>
 </MPD>)";
 
-	mBoolConfigSettings[eAAMPConfig_UseMp4Demux] = true;
+	mBoolConfigSettings[eAAMPConfig_UseMp4Demux] = GetParam();
 
 	EXPECT_CALL(*g_mockMediaStreamContext,
 		CacheFragment(_, _, _, _, _, true, _, _, _))
@@ -1210,6 +1299,10 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	status = InitializeMPD(manifest);
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
 }
+
+INSTANTIATE_TEST_SUITE_P(Mp4DemuxEnabledAndDisabled,
+	CachedEncryptedHeadersInitTests,
+	::testing::Bool());
 
 /**
  * @brief Segment time identifier test with presentation time offset.
@@ -4521,7 +4614,7 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _))
 		.WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
-	EXPECT_CALL(*g_mockAampStreamSinkManager, AddMediaHeader(_, 2, _))
+	EXPECT_CALL(*g_mockAampStreamSinkManager, AddMediaHeader(2, _))
 		.Times(2);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, ResumeTrackDownloads(eMEDIATYPE_SUBTITLE))
 		.Times(AnyNumber());
@@ -4546,19 +4639,19 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
 	std::shared_ptr<AampStreamSinkManager::MediaHeader> header = std::make_shared<AampStreamSinkManager::MediaHeader>();
 	header->url = "http://host/asset/sub1_init.mp4";
 	header->mimeType = "application/mp4";
-	EXPECT_CALL(*g_mockAampStreamSinkManager, GetMediaHeader(_, 2))
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetMediaHeader(2))
 		.WillRepeatedly(Return(header));
-	EXPECT_CALL(*g_mockAampStreamSinkManager, GetMediaHeader(_, 0))
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetMediaHeader(0))
 		.WillRepeatedly(Return(nullptr));
-	EXPECT_CALL(*g_mockAampStreamSinkManager, GetMediaHeader(_, 1))
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetMediaHeader(1))
 		.WillRepeatedly(Return(nullptr));
-	EXPECT_CALL(*g_mockAampStreamSinkManager, GetMediaHeader(_, 3))
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetMediaHeader(3))
 		.WillRepeatedly(Return(nullptr));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(_,_,_,_,_,_,_,_,_,_,_,_,_,_,_)).WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(_,_,_,_,_,_,_,_));
 
-	EXPECT_CALL(*g_mockAampStreamSinkManager, RemoveMediaHeader(_, 2));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, RemoveMediaHeader(2));
 
 	//StartInjection will internally call SendMediaHeaders()
 	this->mStreamAbstractionAAMP_MPD->StartInjection();

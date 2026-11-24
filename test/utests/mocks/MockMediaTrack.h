@@ -37,10 +37,11 @@ public:
 	MOCK_METHOD(bool, IsLocalTSBInjection, ());
 	MOCK_METHOD(bool, IsFragmentCacheFull, ());
 	MOCK_METHOD(bool, WaitForFreeFragmentAvailable, (int timeoutMs));
+	MOCK_METHOD(bool, CompleteInitialCachingIfTargetMet, (int minInitialCacheSeconds));
 	MOCK_METHOD(bool, Enabled, ());
 	MOCK_METHOD(void, ProcessPlaylist, (std::vector<uint8_t>& newPlaylist, int http_error), (override));
 	MOCK_METHOD(std::string&, GetPlaylistUrl, (), (override));
-	MOCK_METHOD(std::string&, GetEffectivePlaylistUrl, (), (override));
+	MOCK_METHOD(std::string, GetEffectivePlaylistUrl, (), (override));
 	MOCK_METHOD(void, SetEffectivePlaylistUrl, (std::string url), (override));
 	MOCK_METHOD(long long, GetLastPlaylistDownloadTime, (), (override));
 	MOCK_METHOD(void, SetLastPlaylistDownloadTime, (long long time), (override));

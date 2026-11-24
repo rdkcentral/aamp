@@ -1747,7 +1747,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	, mCurrentDrm(), mDrmInitData(), mMinInitialCacheSeconds(DEFAULT_MINIMUM_INIT_CACHE_SECONDS)
 	//, mLicenseServerUrls()
 	, mFragmentCachingRequired(false), mFragmentCachingLock()
-	, mPauseOnFirstVideoFrameDisp(false)
+	, mPauseOnFirstVideoFrameDisp(false), mPauseOnFirstVideoFrameCancelled(false)
 	, mPreferredTextTrack(), mFirstVideoFrameDisplayedEnabled(false)
 	, mSessionToken()
 	, vDynamicDrmData()
@@ -3600,6 +3600,45 @@ void PrivateInstanceAAMP::NotifyBitRateChangeEvent(BitsPerSecond bitrate, Bitrat
 
 
 /**
+ * @brief Apply the sidecar subtitle and trickplay bookkeeping for a speed change, without changing the player state
+ */
+void PrivateInstanceAAMP::ApplySpeedChangeEffects(float rate)
+{
+	if (rate == 0)
+	{
+		if (HasSidecarData())
+		{ // has sidecar data
+			if (mpStreamAbstractionAAMP)
+				mpStreamAbstractionAAMP->MuteSubtitleOnPause();
+		}
+	}
+	else if (rate == AAMP_NORMAL_PLAY_RATE)
+	{
+		if (mTrickplayInProgress)
+		{
+			mTrickplayInProgress = false;
+		}
+		else
+		{
+			if (HasSidecarData())
+			{ // has sidecar data
+				if (mpStreamAbstractionAAMP)
+					mpStreamAbstractionAAMP->ResumeSubtitleOnPlay(subtitles_muted.load(), mData.get());
+			}
+		}
+	}
+	else
+	{
+		mTrickplayInProgress = true;
+		if (HasSidecarData())
+		{ // has sidecar data
+			if (mpStreamAbstractionAAMP)
+				mpStreamAbstractionAAMP->MuteSidecarSubtitles(true);
+		}
+	}
+}
+
+/**
  * @brief Notify speed change event to listeners
  */
 void PrivateInstanceAAMP::NotifySpeedChanged(float rate, bool changeState)
@@ -3609,36 +3648,11 @@ void PrivateInstanceAAMP::NotifySpeedChanged(float rate, bool changeState)
 		if (rate == 0)
 		{
 			SetState(eSTATE_PAUSED);
-			if (HasSidecarData())
-			{ // has sidecar data
-				if (mpStreamAbstractionAAMP)
-					mpStreamAbstractionAAMP->MuteSubtitleOnPause();
-			}
 		}
-		else if (rate == AAMP_NORMAL_PLAY_RATE)
+		ApplySpeedChangeEffects(rate);
+		if (rate == AAMP_NORMAL_PLAY_RATE)
 		{
-			if (mTrickplayInProgress)
-			{
-				mTrickplayInProgress = false;
-			}
-			else
-			{
-				if (HasSidecarData())
-				{ // has sidecar data
-					if (mpStreamAbstractionAAMP)
-						mpStreamAbstractionAAMP->ResumeSubtitleOnPlay(subtitles_muted.load(), mData.get());
-				}
-			}
 			SetState(eSTATE_PLAYING);
-		}
-		else
-		{
-			mTrickplayInProgress = true;
-			if (HasSidecarData())
-			{ // has sidecar data
-				if (mpStreamAbstractionAAMP)
-					mpStreamAbstractionAAMP->MuteSidecarSubtitles(true);
-			}
 		}
 	}
 
@@ -6113,6 +6127,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		//LazilyLoadConfigIfNeeded();
 		mFragmentCachingRequired = false;
 		mPauseOnFirstVideoFrameDisp = false;
+		mPauseOnFirstVideoFrameCancelled = false;
 		mFirstVideoFrameDisplayedEnabled = false;
 		prevFirstPeriodStartTime = 0;
 	}
@@ -9598,6 +9613,7 @@ void PrivateInstanceAAMP::NotifyFragmentCachingComplete()
 		sink->NotifyFragmentCachingComplete();
 	}
 	AAMPPlayerState state = GetState();
+
 	if (state == eSTATE_BUFFERING)
 	{
 		if(mpStreamAbstractionAAMP)
@@ -9712,7 +9728,7 @@ void PrivateInstanceAAMP::UpdateVideoEndProfileResolution(AampMediaType mediaTyp
 /**
  *  @brief updates download metrics to VideoStat object, this is used for VideoFragment as it takes duration for calculation purpose.
  */
-void PrivateInstanceAAMP::UpdateVideoEndMetrics(AampMediaType mediaType, BitsPerSecond bitrate, int curlOrHTTPCode, std::string& strUrl, double duration, double curlDownloadTime)
+void PrivateInstanceAAMP::UpdateVideoEndMetrics(AampMediaType mediaType, BitsPerSecond bitrate, int curlOrHTTPCode, const std::string& strUrl, double duration, double curlDownloadTime)
 {
 	UpdateVideoEndMetrics(mediaType, bitrate, curlOrHTTPCode, strUrl,duration,curlDownloadTime, false,false);
 }
@@ -9821,7 +9837,7 @@ void PrivateInstanceAAMP::CancelVodAdBreak(const std::string &breakId)
 /**
  * @brief updates download metrics to VideoStat object, this is used for VideoFragment as it takes duration for calculation purpose.
  */
-void PrivateInstanceAAMP::UpdateVideoEndMetrics(AampMediaType mediaType, BitsPerSecond bitrate, int curlOrHTTPCode, std::string& strUrl, double duration, double curlDownloadTime, bool keyChanged, bool isEncrypted, ManifestData * manifestData)
+void PrivateInstanceAAMP::UpdateVideoEndMetrics(AampMediaType mediaType, BitsPerSecond bitrate, int curlOrHTTPCode, const std::string& strUrl, double duration, double curlDownloadTime, bool keyChanged, bool isEncrypted, ManifestData * manifestData)
 {
 	int audioIndex = 1;
 	// ignore for write and aborted errors
@@ -10017,7 +10033,7 @@ void PrivateInstanceAAMP::UpdateVideoEndMetrics(double adjustedRate)
 /**
  * @brief updates download metrics to VideoStat object, this is used for VideoFragment as it takes duration for calculation purpose.
  */
-void PrivateInstanceAAMP::UpdateVideoEndMetrics(AampMediaType mediaType, BitsPerSecond bitrate, int curlOrHTTPCode, std::string& strUrl, double curlDownloadTime, ManifestData * manifestData)
+void PrivateInstanceAAMP::UpdateVideoEndMetrics(AampMediaType mediaType, BitsPerSecond bitrate, int curlOrHTTPCode, const std::string& strUrl, double curlDownloadTime, ManifestData * manifestData)
 {
 	UpdateVideoEndMetrics(mediaType, bitrate, curlOrHTTPCode, strUrl,0,curlDownloadTime, false, false, manifestData);
 }
@@ -11760,16 +11776,76 @@ bool PrivateInstanceAAMP::IsFirstVideoFrameDisplayedRequired()
 }
 
 /**
+ * @brief Cancel pause on first video frame displayed (seek while paused followed by resume)
+ */
+bool PrivateInstanceAAMP::CancelPauseOnFirstVideoFrame()
+{
+	std::lock_guard<std::recursive_mutex> guard(mFragmentCachingLock);
+	bool pending = (mFirstVideoFrameDisplayedEnabled && mPauseOnFirstVideoFrameDisp);
+	if (pending)
+	{
+		AAMPLOG_MIL("Resume requested before first video frame of seek while paused, cancelling pause on first frame");
+		if (mFragmentCachingRequired)
+		{
+			AAMPLOG_MIL("Skipping initial fragment caching for resumed seek");
+			mFragmentCachingRequired = false;
+		}
+		mPauseOnFirstVideoFrameDisp = false;
+		mPauseOnFirstVideoFrameCancelled = true;
+	}
+	return pending;
+}
+
+/**
+ * @brief Restore a pause on first video frame displayed that was cancelled by a resume
+ */
+bool PrivateInstanceAAMP::RearmPauseOnFirstVideoFrame()
+{
+	std::lock_guard<std::recursive_mutex> guard(mFragmentCachingLock);
+	bool rearmed = (mFirstVideoFrameDisplayedEnabled && mPauseOnFirstVideoFrameCancelled);
+	if (rearmed)
+	{
+		AAMPLOG_MIL("Pause requested before first video frame of a resumed seek while paused, re-arming pause on first frame");
+		mPauseOnFirstVideoFrameDisp = true;
+		mPauseOnFirstVideoFrameCancelled = false;
+	}
+	return rearmed;
+}
+
+/**
+ *  @brief Apply download policy when the player is paused
+ */
+void PrivateInstanceAAMP::ApplyPausedDownloadPolicy()
+{
+	if (!IsLocalAAMPTsb())
+	{
+		StopDownloads();
+		if (mPausedBehavior == ePAUSED_BEHAVIOR_LIVE_DEFER)
+		{
+			AAMPLOG_INFO("Downloads disabled on pause");
+			// for this class of playback, disable downloads indefinitely while paused. If we continue manifest downloading in this scenario, can result in playback failure due to period culling.
+			DisableDownloads();
+			mSeekFromPausedState = true;
+		}
+	}
+}
+
+/**
  *   @brief Notify First Video Frame was displayed
  */
 void PrivateInstanceAAMP::NotifyFirstVideoFrameDisplayed()
 {
+	// Serialises with CancelPauseOnFirstVideoFrame()/RearmPauseOnFirstVideoFrame() in SetRate().
+	// Unlock before calling SetState(). This ensures that any state change notifications triggered by SetState()
+	// do not cause a deadlock with mFragmentCachingLock.
+	std::unique_lock<std::recursive_mutex> lock(mFragmentCachingLock);
 	if(!mFirstVideoFrameDisplayedEnabled)
 	{
 		return;
 	}
 
 	mFirstVideoFrameDisplayedEnabled = false;
+	mPauseOnFirstVideoFrameCancelled = false;
 
 	// In the middle of stop processing we can receive state changing callback
 	AAMPPlayerState state = GetState();
@@ -11794,9 +11870,14 @@ void PrivateInstanceAAMP::NotifyFirstVideoFrameDisplayed()
 		{
 			mpStreamAbstractionAAMP->NotifyPlaybackPaused(true);
 		}
-		StopDownloads();
+		ApplyPausedDownloadPolicy();
 		if(PausePipeline(true, false))
 		{
+			if (mpStreamAbstractionAAMP)
+			{
+				mpStreamAbstractionAAMP->NotifyPipelinePausedToUnderflowMonitor();
+			}
+			lock.unlock();
 			SetState(eSTATE_PAUSED);
 		}
 		else
@@ -11808,6 +11889,7 @@ void PrivateInstanceAAMP::NotifyFirstVideoFrameDisplayed()
 	else if(!SetStateBufferingIfRequired())
 	{
 		// If Buffering state was not needed, set PLAYING state
+		lock.unlock();
 		SetState(eSTATE_PLAYING);
 	}
 }
@@ -11819,6 +11901,20 @@ bool PrivateInstanceAAMP::SetStateBufferingIfRequired()
 {
 	bool bufferingSet = false;
 	std::lock_guard<std::recursive_mutex> guard(mFragmentCachingLock);
+
+	// Caching may already be satisfied: the caching-complete check in UpdateTSAfterFetchStats()
+	// is skipped during seek-while-paused. Clear the requirement now so resume does not wait for
+	// a download that may never arrive.
+	if(IsFragmentCachingRequired() && mpStreamAbstractionAAMP)
+	{
+		MediaTrack *video = mpStreamAbstractionAAMP->GetMediaTrack(eTRACK_VIDEO);
+		if(video && video->CompleteInitialCachingIfTargetMet(GetInitialBufferDuration()))
+		{
+			AAMPLOG_MIL("Fragment caching target already met, not entering BUFFERING");
+			mFragmentCachingRequired = false;
+		}
+	}
+
 	if(IsFragmentCachingRequired())
 	{
 		bufferingSet = true;
@@ -14246,7 +14342,8 @@ void PrivateInstanceAAMP::ProcessID3Metadata(const std::vector<uint8_t>& segment
 
 					if(mMediaFormat == eMEDIAFORMAT_DASH)
 					{
-						ReportID3Metadata(type, message, messageLen, schemeIDUri, (char*)(value), presTime, id, eventDuration, timeScale, GetMediaStreamContext(type)->timeStampOffset);
+						const MediaStreamContext *mediaCtx = GetMediaStreamContext(type);
+						ReportID3Metadata(type, message, messageLen, schemeIDUri, (char*)(value), presTime, id, eventDuration, timeScale, mediaCtx ? mediaCtx->timeStampOffset : timeStampOffset);
 					}else
 					{
 						ReportID3Metadata(type, message, messageLen, schemeIDUri, (char*)(value), presTime, id, eventDuration, timeScale, timeStampOffset);
@@ -14423,15 +14520,17 @@ void PrivateInstanceAAMP::SetCurrentLatencyMs(long currentLatencyMs)
  */
 MediaStreamContext* PrivateInstanceAAMP::GetMediaStreamContext(AampMediaType type)
 {
+	// Only the DASH collector's tracks are MediaStreamContext objects; other
+	// formats' tracks share the MediaTrack base but are different types.
 	if(mpStreamAbstractionAAMP &&
+		mMediaFormat == eMEDIAFORMAT_DASH &&
 		(type == eMEDIATYPE_VIDEO ||
 		 type == eMEDIATYPE_AUDIO ||
 		 type == eMEDIATYPE_SUBTITLE))
 	{
-		MediaStreamContext* context = (MediaStreamContext*)mpStreamAbstractionAAMP->GetMediaTrack((TrackType)type);
-		return context;
+		return static_cast<MediaStreamContext*>(mpStreamAbstractionAAMP->GetMediaTrack((TrackType)type));
 	}
-	return NULL;
+	return nullptr;
 }
 
 /**

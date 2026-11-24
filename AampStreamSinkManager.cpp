@@ -33,7 +33,7 @@ AampStreamSinkManager::AampStreamSinkManager() :
 	mActivePlayersMap(),
 	mInactivePlayersMap(),
 	mEncryptedHeaders(),
-	mMediaHeaders(),
+	mMediaHeaders(AAMP_TRACK_COUNT, nullptr),
 	mPipelineMode(ePIPELINEMODE_UNDEFINED),
 	mStreamSinkMutex(),
 	mEncryptedAamp(nullptr),
@@ -80,7 +80,16 @@ void AampStreamSinkManager::Clear(void)
 	mPipelineMode = ePIPELINEMODE_UNDEFINED;
 	mEncryptedHeaders.clear();
 	mEncryptedHeadersInjected = false;
-	mMediaHeaders.clear();
+	ClearMediaHeaders();
+}
+
+void AampStreamSinkManager::ClearMediaHeaders()
+{
+	for (size_t track = 0; track < mMediaHeaders.size(); track++)
+	{
+		AAMPLOG_MIL("clearing mMediaHeaders for track %zu", track);
+		mMediaHeaders[track].reset();
+	}
 }
 
 void AampStreamSinkManager::SetSinglePipelineMode(PrivateInstanceAAMP *aamp)
@@ -222,7 +231,6 @@ void AampStreamSinkManager::DeleteStreamSink(PrivateInstanceAAMP *aamp)
 	
 	//Do not edit or remove this log - it is used in L2 test
 	AAMPLOG_WARN("AampStreamSinkManager(%p) DeleteStreamSink for PLAYER[%d]", this, aamp->mPlayerId);
-	mMediaHeaders.erase(aamp);
 
 	switch(mPipelineMode)
 	{
@@ -266,6 +274,7 @@ void AampStreamSinkManager::DeleteStreamSink(PrivateInstanceAAMP *aamp)
 				mStreamPlayer = nullptr;
 				mPipelineMode = ePIPELINEMODE_UNDEFINED;
 				mEncryptedHeadersInjected = false;
+				ClearMediaHeaders();
 			}
 		}
 		break;
@@ -274,6 +283,7 @@ void AampStreamSinkManager::DeleteStreamSink(PrivateInstanceAAMP *aamp)
 		case ePIPELINEMODE_MULTI:
 		{
 			mEncryptedHeadersInjected = false;
+			ClearMediaHeaders();
 
 			if (mInactivePlayersMap.count(aamp))
 			{
@@ -382,10 +392,6 @@ bool AampStreamSinkManager::IsEncryptedHeadersCached(int mediaType)
 void AampStreamSinkManager::DeactivatePlayer(PrivateInstanceAAMP *aamp, bool stop)
 {
 	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
-	if (stop)
-	{
-		mMediaHeaders.erase(aamp);
-	}
 	
 	switch(mPipelineMode)
 	{
@@ -397,6 +403,7 @@ void AampStreamSinkManager::DeactivatePlayer(PrivateInstanceAAMP *aamp, bool sto
 				AAMPLOG_WARN("AampStreamSinkManager(%p) Multi Pipeline mode, deactivating and stopping active PLAYER[%d]", this, aamp->mPlayerId);
 				mEncryptedHeadersInjected = false;
 				mEncryptedHeaders.clear();
+				ClearMediaHeaders();
 			}
 			else
 			{
@@ -419,6 +426,7 @@ void AampStreamSinkManager::DeactivatePlayer(PrivateInstanceAAMP *aamp, bool sto
 					AAMPLOG_WARN("AampStreamSinkManager(%p) Single Pipeline mode, deactivating and stopping active PLAYER[%d]", this, aamp->mPlayerId);
 					mEncryptedHeadersInjected = false;
 					mEncryptedHeaders.clear();
+					ClearMediaHeaders();
 				}
 				else
 				{
@@ -746,28 +754,22 @@ void AampStreamSinkManager::UpdateTuningPlayer(PrivateInstanceAAMP *aamp)
 	}
 }
 
-void AampStreamSinkManager::AddMediaHeader(PrivateInstanceAAMP *aamp, unsigned track, std::shared_ptr<AampStreamSinkManager::MediaHeader> header)
+void AampStreamSinkManager::AddMediaHeader(unsigned track, std::shared_ptr<AampStreamSinkManager::MediaHeader> header)
 {
 	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
 
 	if(track < AAMP_TRACK_COUNT)
 	{
-		auto playerHeaders = mMediaHeaders.find(aamp);
-		if (playerHeaders == mMediaHeaders.end())
-		{
-			playerHeaders = mMediaHeaders.emplace(aamp, std::vector<std::shared_ptr<MediaHeader>>(AAMP_TRACK_COUNT)).first;
-		}
-		auto& mediaHeaders = playerHeaders->second;
-		if (mediaHeaders[track])
+		if (mMediaHeaders[track])
 		{
 			AAMPLOG_WARN("AampStreamSinkManager(%p) media header for track[%u] have already been set; url[%s] mimeType[%s] injected[%d]",
-				this, track, mediaHeaders[track]->url.c_str(), mediaHeaders[track]->mimeType.c_str(), mediaHeaders[track]->injected);
+				this, track, mMediaHeaders[track]->url.c_str(), mMediaHeaders[track]->mimeType.c_str(), mMediaHeaders[track]->injected);
 		}
 		else
 		{
-			mediaHeaders[track] = std::move(header);
+			mMediaHeaders[track] = std::move(header);
 			AAMPLOG_INFO("AampStreamSinkManager(%p) Added header for track[%u] url[%s] mimeType[%s] injected[%d]",
-				this, track, mediaHeaders[track]->url.c_str(), mediaHeaders[track]->mimeType.c_str(), mediaHeaders[track]->injected);
+				this, track, mMediaHeaders[track]->url.c_str(), mMediaHeaders[track]->mimeType.c_str(), mMediaHeaders[track]->injected);
 		}
 	}
 	else
@@ -776,17 +778,13 @@ void AampStreamSinkManager::AddMediaHeader(PrivateInstanceAAMP *aamp, unsigned t
 	}
 }
 
-void AampStreamSinkManager::RemoveMediaHeader(PrivateInstanceAAMP *aamp, unsigned track)
+void AampStreamSinkManager::RemoveMediaHeader(unsigned track)
 {
 	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
 
 	if(track < AAMP_TRACK_COUNT)
 	{
-		auto playerHeaders = mMediaHeaders.find(aamp);
-		if (playerHeaders != mMediaHeaders.end())
-		{
-			playerHeaders->second[track].reset();
-		}
+		mMediaHeaders[track].reset();
 		AAMPLOG_INFO("AampStreamSinkManager(%p) Removed header for track[%u]", this, track);
 	}
 	else
@@ -795,19 +793,18 @@ void AampStreamSinkManager::RemoveMediaHeader(PrivateInstanceAAMP *aamp, unsigne
 	}
 }
 
-std::shared_ptr<AampStreamSinkManager::MediaHeader> AampStreamSinkManager::GetMediaHeader(PrivateInstanceAAMP *aamp, unsigned track)
+std::shared_ptr<AampStreamSinkManager::MediaHeader> AampStreamSinkManager::GetMediaHeader(unsigned track)
 {
 	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
 	std::shared_ptr<AampStreamSinkManager::MediaHeader> header = {};
 
 	if(track < AAMP_TRACK_COUNT)
 	{
-		auto playerHeaders = mMediaHeaders.find(aamp);
-		if (playerHeaders != mMediaHeaders.end() && playerHeaders->second[track])
+		if (mMediaHeaders[track])
 		{
-			header = playerHeaders->second[track];
+			header = mMediaHeaders[track];
 			AAMPLOG_INFO("AampStreamSinkManager(%p) track[%u] url[%s] mimeType[%s] injected[%d]",
-				this, track, header->url.c_str(), header->mimeType.c_str(), header->injected);
+				this, track, mMediaHeaders[track]->url.c_str(), mMediaHeaders[track]->mimeType.c_str(), mMediaHeaders[track]->injected);
 		}
 		else
 		{
