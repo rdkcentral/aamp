@@ -265,7 +265,11 @@ bool MediaTrack::Enabled()
 	return enabled;
 }
 
-void MediaTrack::FlushFragments(bool isMutexLocked)
+void MediaTrack::FlushFragments()
+{
+}
+
+void MediaTrack::FlushFragmentsLocked()
 {
 }
 

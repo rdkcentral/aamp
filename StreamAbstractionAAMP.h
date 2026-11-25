@@ -588,10 +588,16 @@ public:
 
 	/**
 	 * @fn FlushFragments
-	 * @param[in] isMutexLocked True when the caller already holds the track mutex
 	 * @return void
 	 */
-	void FlushFragments(bool isMutexLocked = false);
+	void FlushFragments();
+
+	/**
+	 * @fn FlushFragmentsLocked
+	 * @brief Same as FlushFragments(), but the caller must already hold the track mutex
+	 * @return void
+	 */
+	void FlushFragmentsLocked();
 
 	/**
 	 * @brief API to wait thread until the fragment cached after audio reconfiguration

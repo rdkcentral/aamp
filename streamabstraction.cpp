@@ -1649,7 +1649,16 @@ void MediaTrack::FlushFetchedFragments()
  * Flushes all media fragments and resets all relevant counters
  * Only intended for use on subtitle streams
  */
-void MediaTrack::FlushFragments(bool isMutexLocked)
+void MediaTrack::FlushFragments()
+{
+	std::lock_guard<std::mutex> guard(mutex);
+	FlushFragmentsLocked();
+}
+
+/**
+ * @brief Flushes all cached fragments with the track mutex already held by the caller
+ */
+void MediaTrack::FlushFragmentsLocked()
 {
 	AAMPLOG_WARN("[%s]", name);
 	for (size_t i = 0; i < mCachedFragmentSize; i++)
@@ -1658,11 +1667,6 @@ void MediaTrack::FlushFragments(bool isMutexLocked)
 	}
 	fragmentIdxToInject = 0;
 	fragmentIdxToFetch = 0;
-	std::unique_lock<std::mutex> guard(mutex, std::defer_lock);
-	if (!isMutexLocked)
-	{
-		guard.lock();
-	}
 	numberOfFragmentsCached = 0;
 
 	// All fragment-injected/fetched duration counters live under mTrackParamsMutex.

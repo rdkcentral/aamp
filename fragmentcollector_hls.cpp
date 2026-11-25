@@ -4582,7 +4582,7 @@ void TrackState::SwitchSubtitleTrack()
 
 		AAMPLOG_INFO("Preparing to flush fragments and switch playlist");
 		// Flush all counters, reset the playlist URL and refresh the playlist
-		FlushFragments(true);
+		FlushFragmentsLocked();
 		aamp_ResolveURL(mPlaylistUrl, aamp->GetManifestUrl(), context->GetPlaylistURI(type).c_str(), ISCONFIGSET(eAAMPConfig_PropagateURIParam));
 		if(aamp->IsLive())
 		{
@@ -7090,7 +7090,7 @@ void TrackState::SwitchAudioTrack()
 		LoadNewAudio(true);
 		seamlessAudioSwitchInProgress = true;
 
-		FlushFragments(true);
+		FlushFragmentsLocked();
 		context->ReassessAndResumeAudioTrack(true);
 		context->ConfigureAudioTrack();
 
