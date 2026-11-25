@@ -11386,7 +11386,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateMPD(bool init)
 				{
 					mCdaiObject->WaitForAdFulfilmentIdle();
 				}
-				// Acquire lock to update current period to sync with ABR changes on the primary track
+				// Acquire the video context lock to synchronize with ABR profile changes while updating the current period.
 				auto lock = LockPrimaryMediaStreamContext();
 				mManifestDnldRespPtr = std::move(tmpManifestDnldRespPtr);
 				ret = GetMPDFromManifest(mManifestDnldRespPtr , false);
