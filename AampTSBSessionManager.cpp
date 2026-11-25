@@ -30,6 +30,7 @@
 #include "AampTsbAdPlacementMetaData.h"
 #include "AampTsbAdReservationMetaData.h"
 #include "AampTime.h"
+#include "AampUtils.h"
 #include <iostream>
 #include <cmath>
 #include <utility>
@@ -538,7 +539,7 @@ void AampTSBSessionManager::Flush()
 	if (mInitialized_)
 	{
 		// Notify the monitor thread in case it's waiting
-		mWriteThreadCV.notify_one();
+		NotifyAllSynchronised(mWriteQueueMutex, mWriteThreadCV);
 		NotifyVideoTsbWaiters();
 		if (mWriteThread.joinable())
 		{

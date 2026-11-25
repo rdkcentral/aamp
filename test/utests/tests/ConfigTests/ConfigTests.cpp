@@ -80,6 +80,18 @@ TEST_F(AampConfigTests, configStringToBool)
 	EXPECT_FALSE(ConfigLookup::ConfigStringValueToBool(nullptr));
 }
 
+TEST_F(AampConfigTests, NetworkPersonaLoggingDefaultsOffAndCanBeEnabled)
+{
+	EXPECT_FALSE(mAampConfig->GetConfigValue(eAAMPConfig_EnableNetworkPersonaLogging));
+
+	ConfigLookup lookup;
+	std::string enabled("true");
+	lookup.Process(mAampConfig.get(), AAMP_DEFAULT_SETTING,
+		"enableNetworkPersonaLogging", enabled);
+
+	EXPECT_TRUE(mAampConfig->GetConfigValue(eAAMPConfig_EnableNetworkPersonaLogging));
+}
+
 TEST_F(AampConfigTests, Process)
 {
 	AampConfig aampConfig;
@@ -1092,29 +1104,69 @@ TEST_F(AampConfigTests, DoCustomSetting)
 }
 
 /*
-   useDirectRialto is only consumed once, in the PrivateInstanceAAMP constructor, so
-   it must not be settable dynamically (stream/app/tune priority) after the player
-   instance already exists. DoCustomSetting should revert such an override.
+	useDirectRialto is consumed before the app can call InitAAMPConfig or
+	before tune-time overrides apply, so overriding it after the player
+	instance exists (stream/app/tune settings) has no effect; DoCustomSetting
+	should revert such an attempt.
 */
 TEST_F(AampConfigTests, DoCustomSettingRevertsDynamicUseDirectRialto)
 {
 	AampConfig aampConfig;
 	aampConfig.Initialize();
 
-	EXPECT_EQ(aampConfig.GetConfigValue(eAAMPConfig_useDirectRialto), false);
+	const bool defaultValue = aampConfig.GetConfigValue(eAAMPConfig_useDirectRialto);
 
-	//Simulate an app attempting to enable it dynamically via InitAAMPConfig
-	EXPECT_TRUE(aampConfig.SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_useDirectRialto, true));
-	EXPECT_EQ(aampConfig.GetConfigValue(eAAMPConfig_useDirectRialto), true);
+	//Simulate an app attempting to flip it dynamically via InitAAMPConfig
+	EXPECT_TRUE(aampConfig.SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_useDirectRialto, !defaultValue));
+	EXPECT_EQ(aampConfig.GetConfigValue(eAAMPConfig_useDirectRialto), !defaultValue);
 
 	aampConfig.DoCustomSetting(AAMP_APPLICATION_SETTING);
 
-	EXPECT_EQ(aampConfig.GetConfigValue(eAAMPConfig_useDirectRialto), false) << "DoCustomSetting failed to revert a dynamic override of useDirectRialto";
+	EXPECT_EQ(aampConfig.GetConfigValue(eAAMPConfig_useDirectRialto), defaultValue) << "DoCustomSetting failed to revert a dynamic override of useDirectRialto";
 }
 
 /*
-   A useDirectRialto value set at device-config time (before the player instance is
-   constructed) must be left untouched by DoCustomSetting.
+	harvestPath is a developer debug facility; applications, streams and tune-time
+	overrides must not be able to choose where harvested files are written.
+*/
+TEST_F(AampConfigTests, HarvestPathRejectedFromAppStreamAndTune)
+{
+	AampConfig aampConfig;
+	aampConfig.Initialize();
+
+	EXPECT_FALSE(aampConfig.SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_HarvestPath, std::string("/nvram")));
+	EXPECT_FALSE(aampConfig.SetConfigValue(AAMP_STREAM_SETTING, eAAMPConfig_HarvestPath, std::string("/nvram")));
+	EXPECT_FALSE(aampConfig.SetConfigValue(AAMP_TUNE_SETTING, eAAMPConfig_HarvestPath, std::string("/nvram")));
+	EXPECT_EQ(aampConfig.GetConfigValue(eAAMPConfig_HarvestPath), "");
+	EXPECT_EQ(aampConfig.GetConfigOwner(eAAMPConfig_HarvestPath), AAMP_DEFAULT_SETTING);
+
+	const std::string json = R"({"harvestPath":"/nvram"})";
+	cJSON *cfgdata = cJSON_Parse(json.c_str());
+	ASSERT_NE(cfgdata, nullptr);
+	aampConfig.ProcessConfigJson(cfgdata, AAMP_APPLICATION_SETTING);
+	cJSON_Delete(cfgdata);
+	EXPECT_EQ(aampConfig.GetConfigValue(eAAMPConfig_HarvestPath), "");
+
+	std::string text = "harvestPath=/nvram";
+	aampConfig.ProcessConfigText(text, AAMP_APPLICATION_SETTING);
+	EXPECT_EQ(aampConfig.GetConfigValue(eAAMPConfig_HarvestPath), "");
+}
+
+TEST_F(AampConfigTests, HarvestPathAcceptedFromDeviceConfig)
+{
+	AampConfig aampConfig;
+	aampConfig.Initialize();
+
+	EXPECT_TRUE(aampConfig.SetConfigValue(AAMP_DEV_CFG_SETTING, eAAMPConfig_HarvestPath, std::string("/tmp/harvest")));
+	EXPECT_EQ(aampConfig.GetConfigValue(eAAMPConfig_HarvestPath), "/tmp/harvest");
+
+	EXPECT_FALSE(aampConfig.SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_HarvestPath, std::string("/nvram")));
+	EXPECT_EQ(aampConfig.GetConfigValue(eAAMPConfig_HarvestPath), "/tmp/harvest");
+}
+
+/*
+	A useDirectRialto value set at device-config time (before the player instance is
+	constructed) must be left untouched by DoCustomSetting.
 */
 TEST_F(AampConfigTests, DoCustomSettingKeepsUseDirectRialtoSetAtDeviceConfigTime)
 {
@@ -1128,14 +1180,16 @@ TEST_F(AampConfigTests, DoCustomSettingKeepsUseDirectRialtoSetAtDeviceConfigTime
 }
 
 /*
-   useDirectRialto requires useMp4Demux (the only combination tested); DoCustomSetting
-   should force useMp4Demux on if it wasn't already set.
+	useDirectRialto requires useMp4Demux (the only combination tested); DoCustomSetting
+	should force useMp4Demux on if it wasn't already set.
 */
 TEST_F(AampConfigTests, DoCustomSettingUseDirectRialtoForcesMp4Demux)
 {
 	AampConfig aampConfig;
 	aampConfig.Initialize();
 
+	// Clear useMp4Demux explicitly so the test doesn't depend on its default
+	EXPECT_TRUE(aampConfig.SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_UseMp4Demux, false));
 	EXPECT_TRUE(aampConfig.SetConfigValue(AAMP_DEV_CFG_SETTING, eAAMPConfig_useDirectRialto, true));
 	EXPECT_EQ(aampConfig.IsConfigSet(eAAMPConfig_UseMp4Demux), false);
 
@@ -1145,14 +1199,16 @@ TEST_F(AampConfigTests, DoCustomSettingUseDirectRialtoForcesMp4Demux)
 }
 
 /*
-   IsUsingRialto() must report true if either the sink-based or direct Rialto
-   config flag is set, and false only when both are unset.
+	IsUsingRialto() must report true if either the sink-based or direct Rialto
+	config flag is set, and false only when both are unset.
 */
 TEST_F(AampConfigTests, IsUsingRialto)
 {
 	AampConfig aampConfig;
 	aampConfig.Initialize();
 
+	// Clear useDirectRialto explicitly so the test doesn't depend on its default
+	EXPECT_TRUE(aampConfig.SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_useDirectRialto, false));
 	EXPECT_EQ(aampConfig.IsConfigSet(eAAMPConfig_useRialtoSink), false);
 	EXPECT_EQ(aampConfig.IsConfigSet(eAAMPConfig_useDirectRialto), false);
 	EXPECT_EQ(aampConfig.IsUsingRialto(), false) << "IsUsingRialto should be false when both flags are unset";

@@ -42,6 +42,7 @@
 #include <curl/curl.h>
 #include <string.h>
 #include <vector>
+#include <array>
 #include <unordered_map>
 #include <map>
 #include <set>
@@ -610,6 +611,65 @@ class PrivateInstanceAAMP : public DrmCallbacks, public std::enable_shared_from_
 	                       const TextTrackInfo& target) const;
 
 public:
+	/**
+	 * @class SetRateProtect
+	 * @brief A helper class to manage mutex protection around SetRate
+	 *        On construction this will acquire the stream mutex and set a
+	 *        (protected) flag to indicate that a SetRate is active and block
+	 *        MonitorProgress() from running concurrently.	
+	 */
+	class SetRateProtect
+	{
+		public:
+			SetRateProtect(PrivateInstanceAAMP *aamp): mAamp(aamp)
+			{
+				mAamp->mSetRateActiveMutex.lock(); // protect the gap between setting the flag and the stream lock
+				mAamp->mSetRateActive = true; // prevent MonitorProgress() running while doing trick mode
+				mAamp->GetStreamLock().lock();
+				mAamp->mSetRateActiveMutex.unlock();
+			}
+			~SetRateProtect()
+			{
+				mAamp->GetStreamLock().unlock();
+				mAamp->mSetRateActive = false; // allow MonitorProgress() to run again
+			}
+		private:
+			PrivateInstanceAAMP *mAamp;
+	};
+	/**
+	 * @class SetRateMonitor
+	 * @brief A helper class to check mutex state of SetRate
+     */
+	class SetRateMonitor
+	{
+		public:
+			SetRateMonitor(PrivateInstanceAAMP *aamp)
+				: mAamp(aamp), locked(false)
+			{
+				locked = mAamp->mSetRateActiveMutex.try_lock();
+			}
+			~SetRateMonitor()
+			{
+				if (locked)
+				{
+					mAamp->mSetRateActiveMutex.unlock();
+				}
+			}
+			bool active()
+			{
+				if  (!locked)
+				{
+					return true; // could not acquire the mutex so a SetRate is starting
+				}
+				return mAamp->mSetRateActive.load();
+			}
+
+		private:
+			PrivateInstanceAAMP *mAamp;
+			bool locked;
+	};
+
+
 	/* @fn RecalculatePTS
 	 * @param[in] mediaType stream type
 	 * @param[in] ptr buffer pointer
@@ -912,6 +972,12 @@ public:
 	bool ReconfigureForElementaryStreamUpdate();
 
 	/**
+	 * @brief Get if an explicit StreamSink Flush() is guaranteed to follow a discontinuity (from stream abstraction)
+	 * @return true if StreamSink::Flush() will be called explicitly for the pending discontinuity
+	 */
+	bool WillFlushOnDiscontinuity();
+
+	/**
 	* @brief Function pointer passed as argument to AampMPDDownloader class. This function is invoked to read the preprocessed manifest provided by application.
 	*  Also it generate error event if preprocessed manifest is not available.
 	*
@@ -963,6 +1029,7 @@ public:
 	std::condition_variable_any mDownloadsDisabled;
 	bool mDownloadsEnabled;
 	std::map<AampMediaType, bool> mMediaDownloadsEnabled; /* Used to enable/Disable individual mediaType downloads */
+	std::array<std::atomic<bool>, AAMP_TRACK_COUNT> mTrackEncrypted{false, false, false};
 	ABRManager mhAbrManager;                 /**< Pointer to Hybrid abr manager*/
 	ProfileEventAAMP profiler;
 	bool licenceFromManifest;
@@ -999,6 +1066,10 @@ public:
 	int mPlaylistTimeoutMs;
 	bool mAsyncTuneEnabled;
 	std::atomic<bool> mAsyncTaskAbortEnabled;
+	/// Set true once this player's downloads are flushed into the network-persona
+	/// fitter during Stop(), so a concurrently stopping sibling does not finalize
+	/// the shared aggregate before this player's records arrive.
+	std::atomic<bool> mNetPersonaFlushComplete{false};
 	std::string mTsbType;
 	int mTsbDepthMs;
 	int mDownloadDelay;
@@ -1156,6 +1227,7 @@ public:
 	bool IsTuneTypeNew; 					/**< Flag for the eTUNETYPE_NEW_NORMAL */
 	std::condition_variable waitforplaystart;    			/**< Signaled after playback starts */
 	std::mutex mMutexPlaystart;			/**< Mutex associated with playstart */
+	bool mPlayStartSignalled{false};		/**< Predicate for waitforplaystart; set on first frame or Stop, reset by SetPreCacheDownloadList. Access only while holding mMutexPlaystart */
 	long long trickStartUTCMS;
 	double durationSeconds;
 	double culledSeconds;
@@ -1279,6 +1351,8 @@ public:
 
 	bool mIsFlushFdsInCurlStore;	/**< Mark to clear curl store instance in case of playback stopped due to download Error */
 	bool mIsFlushOperationInProgress;		/**< Flag to indicate pipeline flush operation is going on */
+	std::atomic<bool> mSetRateActive;
+	std::mutex mSetRateActiveMutex;
 
 	/**
 	 * @fn ProcessID3Metadata
@@ -1636,10 +1710,11 @@ public:
 
 	/**
 	 * @fn HandleManifestRefreshFailureOnBuffering
-	 * @brief When buffering starts, checks whether the buffer drained because manifest
-	 *        refresh was already failing. If so, sends the appropriate error event
-	 *        (manifest request failed or invalid manifest) and returns true so the
-	 *        caller can skip the normal BufferingChanged event.
+	 * @brief Checks whether the buffer ran dry while manifest refresh has been failing for at
+	 *        least MANIFEST_REFRESH_FAILURE_GRACE_MS. If so, sends the appropriate error event
+	 *        (manifest request failed or invalid manifest) and returns true so the caller can
+	 *        skip the normal BufferingChanged event. Shorter outages return false.
+	 *        Called when buffering starts and again on each failed refresh while buffering.
 	 * @return true if a fatal manifest error event was sent; false otherwise.
 	 */
 	bool HandleManifestRefreshFailureOnBuffering();
@@ -1678,6 +1753,16 @@ public:
 	 * @return void
 	 */
 	void NotifySpeedChanged(float rate, bool changeState = true);
+
+	/**
+	 * @fn ApplySpeedChangeEffects
+	 * @brief Sidecar subtitle pause/resume and trickplay bookkeeping done by NotifySpeedChanged() when it changes
+	 *        state. Can be used on its own when only the player state transition has to be deferred.
+	 *
+	 * @param[in] rate - New speed
+	 * @return void
+	 */
+	void ApplySpeedChangeEffects(float rate);
 
 	/**
 	 * @fn NotifyBitRateChangeEvent
@@ -2330,7 +2415,7 @@ public:
 	 *   @param[in] trackType - Video/Audio
 	 *   @return void
 	 */
-	void ScheduleRetune(PlaybackErrorType errorType, AampMediaType trackType, bool bufferFull = false);
+	void ScheduleRetune(PlaybackErrorType errorType, AampMediaType trackType);
 
 	/**
 	 * @brief PrivateInstanceAAMP Constructor
@@ -2999,7 +3084,7 @@ public:
 	 *   @param[in] manifestData : Manifest info to be updated to partner apps
 	 *   @return void
 	 */
-	void UpdateVideoEndMetrics(AampMediaType mediaType, BitsPerSecond bitrate, int curlOrHTTPCode, std::string& strUrl, double curlDownloadTime, ManifestData * manifestData = NULL);
+	void UpdateVideoEndMetrics(AampMediaType mediaType, BitsPerSecond bitrate, int curlOrHTTPCode, const std::string& strUrl, double curlDownloadTime, ManifestData * manifestData = NULL);
 
 	/**
 	 *   @fn UpdateVideoEndProfileResolution
@@ -3038,7 +3123,7 @@ public:
 	 *   @param[in] manifestData : Manifest info to be updated to partner apps
 	 *   @return void
 	 */
-	void UpdateVideoEndMetrics(AampMediaType mediaType, BitsPerSecond bitrate, int curlOrHTTPCode, std::string& strUrl, double duration,double curlDownloadTime, bool keyChanged, bool isEncrypted, ManifestData * manifestData = NULL);
+	void UpdateVideoEndMetrics(AampMediaType mediaType, BitsPerSecond bitrate, int curlOrHTTPCode, const std::string& strUrl, double duration,double curlDownloadTime, bool keyChanged, bool isEncrypted, ManifestData * manifestData = NULL);
 
 	/**
 	 *   @fn UpdateVideoEndMetrics
@@ -3049,7 +3134,7 @@ public:
 	 *   @param[in]  strUrl - URL in case of failures
 	 *   @return void
 	 */
-	void UpdateVideoEndMetrics(AampMediaType mediaType, BitsPerSecond bitrate, int curlOrHTTPCode, std::string& strUrl, double duration, double curlDownloadTime);
+	void UpdateVideoEndMetrics(AampMediaType mediaType, BitsPerSecond bitrate, int curlOrHTTPCode, const std::string& strUrl, double duration, double curlDownloadTime);
 
 
 	/**
@@ -3342,6 +3427,63 @@ public:
 	 *   @return bool - true if required
 	 */
 	bool IsFirstVideoFrameDisplayedRequired();
+
+	/**
+	 *   @fn CancelPauseOnFirstVideoFrame
+	 *   @brief Cancel a pending "pause on first video frame" requested by a seek while paused, so that the
+	 *          first video frame displayed notification moves the player out of SEEKING to PLAYING.
+	 *          Locks mFragmentCachingLock (recursive).
+	 *
+	 *   @return bool - true if a seek while paused was still waiting for its first video frame
+	 */
+	bool CancelPauseOnFirstVideoFrame();
+
+	/**
+	 *   @fn LockFragmentCaching
+	 *   @brief Take the lock that serialises the first video frame callback and the fragment caching state, so that a
+	 *          caller can make several operations (e.g. cancel pause on first frame + resume the sink) atomic with
+	 *          respect to NotifyFirstVideoFrameDisplayed(). The lock is recursive.
+	 *          Do not call anything that needs mStreamLock while holding it: TuneHelper() takes mStreamLock first and
+	 *          then this lock, and NotifyFirstVideoFrameDisplayed() sends state events (sync listeners) with it held.
+	 *
+	 *   @return std::unique_lock<std::recursive_mutex> - owning lock, released when it goes out of scope
+	 */
+	std::unique_lock<std::recursive_mutex> LockFragmentCaching()
+	{
+		return std::unique_lock<std::recursive_mutex>(mFragmentCachingLock);
+	}
+
+	/**
+	 *   @fn TryLockFragmentCaching
+	 *   @brief Non-blocking variant of LockFragmentCaching(). The returned lock owns the mutex (owns_lock()) only if it
+	 *          could be taken immediately, e.g. it is not owned by another thread.
+	 *
+	 *   @return std::unique_lock<std::recursive_mutex> - lock, check owns_lock()
+	 */
+	std::unique_lock<std::recursive_mutex> TryLockFragmentCaching()
+	{
+		return std::unique_lock<std::recursive_mutex>(mFragmentCachingLock, std::try_to_lock);
+	}
+
+	/**
+	 *   @fn ApplyPausedDownloadPolicy
+	 *   @brief Download handling for a paused player. Used by SetRate(0) and when a seek while paused pauses on its
+	 *          first video frame, so both follow the same rules:
+	 *          - local TSB keeps downloading (the TSB must keep recording while paused)
+	 *          - otherwise downloads are stopped and, for ePAUSED_BEHAVIOR_LIVE_DEFER, disabled until play() with
+	 *            mSeekFromPausedState set so that the resume retunes to live
+	 */
+	void ApplyPausedDownloadPolicy();
+
+	/**
+	 *   @fn RearmPauseOnFirstVideoFrame
+	 *   @brief Restore the pause on first video frame that CancelPauseOnFirstVideoFrame() cancelled, when a new
+	 *          pause request arrives before that first frame is displayed, so the latest pause intent is kept.
+	 *          Locks mFragmentCachingLock (recursive).
+	 *
+	 *   @return bool - true if the pause was re-armed
+	 */
+	bool RearmPauseOnFirstVideoFrame();
 
 	/**
 	 *   @fn NotifyFirstVideoFrameDisplayed
@@ -3784,6 +3926,7 @@ public:
 	 * @param[in] reason - Reason why the pause position monitoring is stopped
 	 */
 	void StopPausePositionMonitoring(std::string reason);
+	void StopPausePositionMonitoringLocked(const std::string &reason);
 
 	/**
 	 * @fn WaitForDiscontinuityProcessToComplete
@@ -3936,6 +4079,14 @@ public:
 	 * @brief To update the max DASH DRM sessions supported in AAMP
 	 */
 	void UpdateMaxDRMSessions();
+
+	/**
+	 * @brief EnableEventProfiling - Apply the current event profiling config to AampEventManager.
+	 *        Reads eAAMPConfig_EnableEventProfiling and eAAMPConfig_EventProfilingThresholdMs
+	 *        from the active config and forwards them to the event manager.
+	 *        Called on construction and whenever InitAAMPConfig updates these settings.
+	 */
+	void EnableEventProfiling();
 
 	/**
 	 * @brief To add profile to blacklisted profile list
@@ -4144,6 +4295,29 @@ public:
 	 * @param[in] codecInfo - Codec information
 	 */
 	void SetStreamCaps(AampMediaType type, MediaCodecInfo&& codecInfo);
+	/**
+	 * @brief Set encryption state for the specified media track
+	 * @param[in] type - Media track type
+	 * @param[in] isEncrypted - true if the track is encrypted
+	 */
+	void SetTrackEncrypted(AampMediaType type, bool isEncrypted);
+
+	/**
+	 * @fn GetMediaCodecInfo
+	 * @brief Build codec information for pipeline configuration
+	 *
+	 * @param[in] type - Media track type
+	 * @return Codec information including format and encryption state
+	 */
+	MediaCodecInfo GetMediaCodecInfo(AampMediaType type);
+
+	/**
+	 * @fn GetStreamCodecInfo
+	 * @brief Build codec information for video/audio/subtitle tracks
+	 *
+	 * @return Stream codec information used for sink Configure calls
+	 */
+	StreamCodecInfo GetStreamCodecInfo();
 
 	/**
 	 * @fn QueueProtectionEvent
@@ -4204,6 +4378,7 @@ public:
 	 */
 	bool IsAdPlaying();
 
+
 protected:
 
 	/**
@@ -4227,7 +4402,6 @@ protected:
 	 *   @return void
 	 */
 	void LazilyLoadConfigIfNeeded(void);
-
 	/**
 	 *   @fn ExtractServiceZone
 	 *   @param  url - stream url with vss service zone info as query string
@@ -4362,6 +4536,7 @@ protected:
 	 */
 	void StopLatencyMonitor();
 
+	std::mutex mPausePositionLifecycleMutex;			// Serializes start/stop/join of the PausePositionMonitoring thread
 	std::mutex mPausePositionMonitorMutex;				// Mutex lock for PausePosition condition variable
 	std::condition_variable mPausePositionMonitorCV;	// Condition Variable to signal to stop PausePosition monitoring
     std::thread mPausePositionMonitoringThreadID;			// Thread Id of the PausePositionMonitoring thread
@@ -4378,7 +4553,7 @@ protected:
 	int  mTuneAttempts;			//To distinguish between new tune & retries with redundant over urls.
 	long long mPlayerLoadTime;
 	std::atomic<AAMPPlayerState> mState;  //Changed to atomic as there are cross thread accesses.
-	long long lastUnderFlowTimeMs[AAMP_TRACK_COUNT];
+	long long lastPtsErrorTimeMs[AAMP_TRACK_COUNT];
 	bool mbTrackDownloadsBlocked[AAMP_TRACK_COUNT];
 	DrmHelperPtr mCurrentDrm;
 	int  mPersistedProfileIndex;
@@ -4415,6 +4590,7 @@ protected:
 	bool mFragmentCachingRequired; 		/**< True if fragment caching is required or ongoing */
 	std::recursive_mutex mFragmentCachingLock; 	/**< To sync fragment initial caching operations */
 	bool mPauseOnFirstVideoFrameDisp; 	/**< True if pause AAMP after displaying first video frame */
+	bool mPauseOnFirstVideoFrameCancelled; /**< True if a resume cancelled mPauseOnFirstVideoFrameDisp before the first frame was displayed */
 //	AudioTrackInfo mPreferredAudioTrack; 	/**< Preferred audio track from available tracks in asset */
 	TextTrackInfo mPreferredTextTrack; 	/**< Preferred text track from available tracks in asset */
 	bool mFirstVideoFrameDisplayedEnabled; 	/**< Set True to enable call to NotifyFirstVideoFrameDisplayed() from Sink */
@@ -4492,6 +4668,11 @@ private:
 	void PlayFromTsbStart();
 
 	void SetCMCDTrackData(AampMediaType mediaType);
+	/**
+	 * @brief Get the current video bitrate without waiting for the stream lock.
+	 * @return Current bitrate, or 0 if the lock or stream abstraction is unavailable.
+	 */
+	BitsPerSecond GetVideoBitrateNonBlocking();
 	std::vector<float> getSupportedPlaybackSpeeds(void);
 	bool IsFogUrl(const char *mainManifestUrl);
 

@@ -357,10 +357,6 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 							int retryDelayMs = mDnldCfg ? ((mDownloadResponse->iHttpRetValue == 502) ? mDnldCfg->iDownload502RetryWaitMs : mDnldCfg->iDownloadRetryWaitMs) : 0;
 							std::this_thread::sleep_for(std::chrono::milliseconds(retryDelayMs));
 							loopAgain = true; //retry on manifest download failure
-							// In the unlikely event that we get http failure status and also a http body then the
-							// body will have got downloaded. We are not interested in it so clear the data.
-							this->mDownloadResponse->mDownloadData.clear();
-							mWriteCallbackBufferSize = 0;
 						}
 					}
 				}
@@ -376,6 +372,14 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 							loopAgain = true;
 						}
 					}
+				}
+				if (loopAgain)
+				{
+					// A failed attempt can leave a partial or error body and headers; the write callbacks append.
+					std::lock_guard<std::mutex> lock(mCurlMutex);
+					this->mDownloadResponse->mDownloadData.clear();
+					this->mDownloadResponse->mResponseHeader.clear();
+					mWriteCallbackBufferSize = 0;
 				}
 			}while(loopAgain);
 

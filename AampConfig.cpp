@@ -293,7 +293,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false,"id3",eAAMPConfig_ID3Logging,false},
 	{true,"gstPositionQueryEnable",eAAMPConfig_EnableGstPositionQuery,false},
 	{false,"seekMidFragment",eAAMPConfig_MidFragmentSeek,false},
-	{true,"propagateUriParameters",eAAMPConfig_PropagateURIParam,false},
+	{false,"propagateUriParameters",eAAMPConfig_PropagateURIParam,false},
 	{true, "useWesterosSink",eAAMPConfig_UseWesterosSink,true},					// Toggle it via config based on platforms
 	{true,"useRetuneForUnpairedDiscontinuity",eAAMPConfig_RetuneForUnpairDiscontinuity,false},
 	{true,"useRetuneForGstInternalError",eAAMPConfig_RetuneForGSTError,false},
@@ -380,11 +380,13 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false, "disableWebVTT", eAAMPConfig_DisableWebVTT, false},
 	{false, "enableHTTP3", eAAMPConfig_EnableHTTP3, false},
 	{false, "enablePTSReStampLogging", eAAMPConfig_EnablePTSReStampLogging, false},
-	{false, "netTraceCsvDump", eAAMPConfig_NetTraceCsvDump, false},
 	{false, "logFilename", eAAMPConfig_LogFilename, false},
 	{false, "processLicenseFromEAP", eAAMPConfig_ProcessLicenseFromEAP, false},
 	{false, "enableProducerReferenceDelay", eAAMPConfig_EnableProducerReferenceDelay, false},
 	{false, "synthesizeIframeForVOD", eAAMPConfig_SynthesizeIframeForVOD, false},
+	{false, "enableEventProfiling", eAAMPConfig_EnableEventProfiling, false},
+	{false, "enableNetworkPersonaLogging", eAAMPConfig_EnableNetworkPersonaLogging, false},
+	{false, "disableTTML", eAAMPConfig_DisableTTML, false},
 };
 
 #define CONFIG_INT_ALIAS_COUNT 2
@@ -487,6 +489,7 @@ static const ConfigLookupEntryInt mConfigLookupTableInt[AAMPCONFIG_INT_COUNT+CON
 	{DEFAULT_UNDERFLOW_LOW_BUFFER_POLL_MS, "underflowLowBufferPollMs", eAAMPConfig_UnderflowLowBufferPollMs, true},
 	{DEFAULT_UNDERFLOW_MEDIUM_BUFFER_POLL_MS, "underflowMediumBufferPollMs", eAAMPConfig_UnderflowMediumBufferPollMs, true},
 	{DEFAULT_UNDERFLOW_HIGH_BUFFER_POLL_MS, "underflowHighBufferPollMs", eAAMPConfig_UnderflowHighBufferPollMs, true},
+	{DEFAULT_EVENT_PROFILING_THRESHOLD_MS, "eventProfilingThresholdMs", eAAMPConfig_EventProfilingThresholdMs, false},
 	// Add new integer config entries above this line, before the aliases section.
 	//
 	// Aliases, kept for backwards compatibility
@@ -1123,7 +1126,14 @@ bool AampConfig::SetConfigValue(ConfigPriority newowner, AAMPConfigSettingString
 	bool ret = false;
 	const char * cfgName = GetConfigName(cfg);
 	ConfigValueString &setting = configValueString[cfg];
-	if(setting.owner <= newowner )
+	// harvestPath selects a directory for arbitrary file writes; it is a developer
+	// debug facility and must not be settable by applications, streams or tune-time overrides
+	if(cfg == eAAMPConfig_HarvestPath &&
+		(newowner == AAMP_STREAM_SETTING || newowner == AAMP_APPLICATION_SETTING || newowner == AAMP_TUNE_SETTING))
+	{
+		AAMPLOG_WARN("Config[%s] cannot be set by owner[%d]: restricted to device configuration", cfgName, newowner);
+	}
+	else if(setting.owner <= newowner )
 	{
 		if(setting.owner != newowner)
 		{

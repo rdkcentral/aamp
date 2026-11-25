@@ -243,9 +243,8 @@ TEST_F(fragmentcollector_mpd, UpdatePtsOffsetTest1)
 	PrivateInstanceAAMP *privateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
 	StreamAbstractionAAMP_MPD *streamAbstractionAAMP_MPD = new StreamAbstractionAAMP_MPD(privateInstanceAAMP, 123.45, 12.34);
 
-	MediaStreamContext ms(eTRACK_VIDEO, streamAbstractionAAMP_MPD, privateInstanceAAMP, "SAMPLETEXT");
-	mStreamAbstractionAAMP_MPD->mMediaStreamContext[eMEDIATYPE_AUDIO] = &ms;
-	mStreamAbstractionAAMP_MPD->mMediaStreamContext[eMEDIATYPE_VIDEO] = &ms;
+	mStreamAbstractionAAMP_MPD->mMediaStreamContext[eMEDIATYPE_AUDIO] = std::make_unique<MediaStreamContext>(eTRACK_VIDEO, streamAbstractionAAMP_MPD, privateInstanceAAMP, "SAMPLETEXT");
+	mStreamAbstractionAAMP_MPD->mMediaStreamContext[eMEDIATYPE_VIDEO] = std::make_unique<MediaStreamContext>(eTRACK_VIDEO, streamAbstractionAAMP_MPD, privateInstanceAAMP, "SAMPLETEXT");
 
 	/* Here we have a table which holds the values read from the manifest
 	 * for each period and the PTSOffset that is expected to be calculated.
@@ -333,9 +332,8 @@ TEST_F(fragmentcollector_mpd, UpdatePtsOffsetTest_WithTrickPlayRate)
 	ToBeTestedStub streamAbstractionStub(mPrivateInstanceAAMP, 0.0, trickPlayRate);
 
 	// Setup media stream contexts (needed by UpdatePtsOffset)
-	MediaStreamContext ms(eTRACK_VIDEO, &streamAbstractionStub, mPrivateInstanceAAMP, "TEST");
-	streamAbstractionStub.mMediaStreamContext[eMEDIATYPE_AUDIO] = &ms;
-	streamAbstractionStub.mMediaStreamContext[eMEDIATYPE_VIDEO] = &ms;
+	streamAbstractionStub.mMediaStreamContext[eMEDIATYPE_AUDIO] = std::make_unique<MediaStreamContext>(eTRACK_VIDEO, &streamAbstractionStub, mPrivateInstanceAAMP, "TEST");
+	streamAbstractionStub.mMediaStreamContext[eMEDIATYPE_VIDEO] = std::make_unique<MediaStreamContext>(eTRACK_VIDEO, &streamAbstractionStub, mPrivateInstanceAAMP, "TEST");
 
 	// Test data: simple case with both tracks aligned at start with 10s duration
 	const double start = 0.0;
@@ -382,10 +380,9 @@ TEST_F(fragmentcollector_mpd, UpdatePtsOffsetTest_WithShortAd)
 	ToBeTestedStub streamAbstractionStub(mPrivateInstanceAAMP, 0.0, trickPlayRate);
 
 	// Setup media stream contexts (needed by UpdatePtsOffset)
-	MediaStreamContext ms(eTRACK_VIDEO, &streamAbstractionStub, mPrivateInstanceAAMP, "TEST");
 	// When AAMP TSB is not enabled, audio stream context will be null when using trick modes
 	streamAbstractionStub.mMediaStreamContext[eMEDIATYPE_AUDIO] = nullptr;
-	streamAbstractionStub.mMediaStreamContext[eMEDIATYPE_VIDEO] = &ms;
+	streamAbstractionStub.mMediaStreamContext[eMEDIATYPE_VIDEO] = std::make_unique<MediaStreamContext>(eTRACK_VIDEO, &streamAbstractionStub, mPrivateInstanceAAMP, "TEST");
 
 	// Test data: video track and period with 10s duration
 	const double start = 0.0;

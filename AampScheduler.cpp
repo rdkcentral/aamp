@@ -195,8 +195,11 @@ void AampScheduler::RemoveAllTasks()
 void AampScheduler::StopScheduler()
 {
 	AAMPLOG_WARN("Stopping Async Worker Thread");
-	// Clean up things in queue
-	mSchedulerRunning = false;
+	// Write under mQMutex so ExecuteAsyncTask cannot miss the stop between its check and wait
+	{
+		std::lock_guard<std::mutex> lock{mQMutex};
+		mSchedulerRunning = false;
+	}
 
 	// Acquire the execution lock if it is not already held.  We check mExLock.owns_lock()
 	// rather than !mLockOut because DisableScheduleTask() sets mLockOut=true WITHOUT

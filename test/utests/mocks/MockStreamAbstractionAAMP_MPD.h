@@ -23,6 +23,7 @@
 #include <gmock/gmock.h>
 #include <memory>
 #include "fragmentcollector_mpd.h"
+#include "MediaStreamContext.h"
 
 class MockStreamAbstractionAAMP_MPD : public StreamAbstractionAAMP_MPD
 {

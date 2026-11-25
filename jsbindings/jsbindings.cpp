@@ -4926,8 +4926,13 @@ void __attribute__ ((destructor(101))) _aamp_term()
 		LOG_WARN_EX("stopped aamp");
 		delete _allocated_aamp;
 		_allocated_aamp = NULL;
+		//Clear any active js mediaplayer instances on term.
+		// Guarded here: when aamp_UnloadJSController() has already been called from
+		// main() (the expected path), _allocated_aamp is NULL and we skip this call
+		// entirely.  That matters because destructor(101) fires after C++ static
+		// object destructors, so AAMPMediaPlayer_JS::_jsMediaPlayerInstances may
+		// already be destroyed — accessing it then would be undefined behaviour.
+		ClearAAMPPlayerInstances();
 	}
-	//Clear any active js mediaplayer instances on term
-	ClearAAMPPlayerInstances();
 }
 #endif

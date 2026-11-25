@@ -52,11 +52,13 @@ public:
 
     MOCK_METHOD(void, SetPauseOnStartPlayback, (bool enable), (override));
 
+    MOCK_METHOD(void, NotifyFragmentCachingOngoing, (), (override));
+
     MOCK_METHOD(bool, SetPlayBackRate, (double), (override));
 
     MOCK_METHOD(void, SeekStreamSink, (double , double ), (override));
 
-    MOCK_METHOD(void, Configure, (StreamOutputFormat format, StreamOutputFormat audioFormat, StreamOutputFormat subFormat, bool bESChangeStatus, bool setReadyAfterPipelineCreation), (override));
+    MOCK_METHOD(void, Configure, (StreamCodecInfo&& codecInfo, bool bESChangeStatus, bool setReadyAfterPipelineCreation), (override));
 };
 
 extern std::shared_ptr<MockAAMPGstPlayer> g_mockAampGstPlayer;

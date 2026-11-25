@@ -247,9 +247,10 @@ Network timeout configurations control how long AAMP waits for various network o
 |----------|------|---------|-------------|
 | `fog` | Boolean | true | Enable Fog |
 | `useWesterosSink` | Boolean | false | Use Westeros sink for video decoding |
+| `useDirectRialto` | Boolean | false | Call the Rialto client API directly instead of using a GStreamer pipeline. Read before player creation (device config, environment or operator settings), so it cannot be changed dynamically. Forces `useMp4Demux` on. See [Direct Rialto](docs/direct-rialto/README.md) |
 | `useNewAdBreaker` | Boolean | false | Use new discontinuity processing based on PDT |
 | `useRetuneForUnpairedDiscontinuity` | Boolean | true | Retune on unpaired discontinuity |
-| `netTraceCsvDump` | Boolean | false | Write per-download AAMP network trace CSV files to `/tmp` by default, typically using PID-suffixed filenames such as `/tmp/aamp_net_requests.csv.<pid>` and `/tmp/aamp_net_bursts.csv.<pid>`; environment overrides may change the final paths. |
+| `enableNetworkPersonaLogging` | Boolean | false | Collect network metrics and log a JSON persona when the last active player in the process stops |
 
 ## Best Practices
 

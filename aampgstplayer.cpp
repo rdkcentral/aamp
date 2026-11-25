@@ -561,16 +561,8 @@ static void HandleOnGstBufferUnderflowCb(int mediaType, AAMPGstPlayer * _this)
 	}
 	AampMediaType type = static_cast<AampMediaType>(mediaType);
 
-	bool isBufferFull = _this->privateContext->mBufferControl[type].isBufferFull(type);
 	_this->privateContext->mBufferControl[type].underflow(_this, type);
-	if (_this->aamp->mConfig->IsConfigSet(eAAMPConfig_EnableAampUnderflowMonitor))
-	{
-		AAMPLOG_INFO("Underflow will be handled in AampUnderflowMonitor, skipping retune for media type %d", type);
-	}
-	else
-	{
-		_this->aamp->ScheduleRetune(eGST_ERROR_UNDERFLOW, type, isBufferFull);		/* Schedule a retune */
-	}
+	AAMPLOG_INFO("GStreamer underflow for media type %d; no retune", type);
 }
 
 /**
@@ -870,15 +862,17 @@ void AAMPGstPlayer::Stream()
 /**
  * @brief Configure pipeline based on A/V formats
  */
-void AAMPGstPlayer::Configure(StreamOutputFormat format, StreamOutputFormat audioFormat, StreamOutputFormat subFormat, bool bESChangeStatus, bool setReadyAfterPipelineCreation)
+void AAMPGstPlayer::Configure(StreamCodecInfo&& codecInfo, bool bESChangeStatus, bool setReadyAfterPipelineCreation)
 {
 	bool isSubEnable = aamp->IsGstreamerSubsEnabled();
 	int32_t trackId = aamp->GetCurrentAudioTrackId();
 	int PipelinePriority;
 	gint rate = INVALID_RATE;
 
-	AAMPLOG_MIL("videoFormat %d audioFormat %d subFormat %d",format, audioFormat, subFormat);
-
+	AAMPLOG_MIL("videoFormat %d videoEncrypted %d audioFormat %d audioEncrypted %d subFormat %d subtitleEncrypted %d",
+				codecInfo.video.mCodecFormat, codecInfo.video.mIsEncrypted,
+				codecInfo.audio.mCodecFormat, codecInfo.audio.mIsEncrypted,
+				codecInfo.subtitle.mCodecFormat, codecInfo.subtitle.mIsEncrypted);
 	playerInstance->SetPreferredDRM(GetDrmSystemID(aamp->GetPreferredDRM())); // pass the preferred DRM to Interface
 	InitializePlayerConfigs(this, playerInstance);
 	/*set the run time configs for pipeline configuration*/
@@ -889,8 +883,8 @@ void AAMPGstPlayer::Configure(StreamOutputFormat format, StreamOutputFormat audi
 	bool FirstFrameFlag = aamp->IsFirstVideoFrameDisplayedRequired();
 	bool isLiveRateCorrection = aamp->mConfig->IsConfigSet(eAAMPConfig_EnableLiveLatencyRateCorrection) && aamp->IsLive();
 	/*Configure and create the pipeline*/
-	playerInstance->ConfigurePipeline(static_cast<int>(format),static_cast<int>(audioFormat),static_cast<int>(subFormat),
-									  bESChangeStatus,setReadyAfterPipelineCreation,
+	playerInstance->ConfigurePipeline(std::move(codecInfo),
+									  bESChangeStatus, setReadyAfterPipelineCreation,
 									  isSubEnable, trackId, rate, PIPELINE_NAME, PipelinePriority, FirstFrameFlag, aamp->GetManifestUrl().c_str(), isLiveRateCorrection);
 	AAMPLOG_TRACE("exiting AAMPGstPlayer");
 	StartMonitorAvTimer();

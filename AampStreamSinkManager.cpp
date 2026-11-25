@@ -80,10 +80,15 @@ void AampStreamSinkManager::Clear(void)
 	mPipelineMode = ePIPELINEMODE_UNDEFINED;
 	mEncryptedHeaders.clear();
 	mEncryptedHeadersInjected = false;
-	for (auto& header : mMediaHeaders)
+	ClearMediaHeaders();
+}
+
+void AampStreamSinkManager::ClearMediaHeaders()
+{
+	for (size_t track = 0; track < mMediaHeaders.size(); track++)
 	{
-		header.reset();
-		AAMPLOG_MIL("cleared mMediaHeaders");
+		AAMPLOG_MIL("clearing mMediaHeaders for track %zu", track);
+		mMediaHeaders[track].reset();
 	}
 }
 
@@ -139,15 +144,14 @@ void AampStreamSinkManager::SetSinglePipelineMode(PrivateInstanceAAMP *aamp)
 StreamSink* AampStreamSinkManager::CreateSinkInstance(PrivateInstanceAAMP *aamp, id3_callback_t id3HandlerCallback, std::function<void(const unsigned char *, int, int, int)> exportFrames)
 {
 	StreamSink *sink = nullptr;
-	// DirectRialto is not yet supported, so we will always create the GstPlayer for now.
-	// The config is in place for when DirectRialto support is added.
 	if (ISCONFIGSET(eAAMPConfig_useDirectRialto))
 	{
-		AAMPLOG_ERR("Creating AampRialtoPlayer not yet supported");
+		AAMPLOG_MIL("Creating AampRialtoPlayer");
+		sink = new AampRialtoPlayer(aamp, std::move(id3HandlerCallback), std::move(exportFrames));
 	}
-	//else
+	else
 	{
-		AAMPLOG_MIL("Creating stream player");
+		AAMPLOG_MIL("Creating AAMPGstPlayer");
 		sink = new AAMPGstPlayer(aamp, std::move(id3HandlerCallback), std::move(exportFrames));
 	}
 	return sink;
@@ -270,11 +274,7 @@ void AampStreamSinkManager::DeleteStreamSink(PrivateInstanceAAMP *aamp)
 				mStreamPlayer = nullptr;
 				mPipelineMode = ePIPELINEMODE_UNDEFINED;
 				mEncryptedHeadersInjected = false;
-				for (auto& header : mMediaHeaders)
-				{
-					header.reset();
-					AAMPLOG_MIL("cleared mMediaHeaders");
-				}
+				ClearMediaHeaders();
 			}
 		}
 		break;
@@ -282,6 +282,9 @@ void AampStreamSinkManager::DeleteStreamSink(PrivateInstanceAAMP *aamp)
 		case ePIPELINEMODE_UNDEFINED:
 		case ePIPELINEMODE_MULTI:
 		{
+			mEncryptedHeadersInjected = false;
+			ClearMediaHeaders();
+
 			if (mInactivePlayersMap.count(aamp))
 			{
 				AampStreamSinkInactive* sink = mInactivePlayersMap[aamp];
@@ -374,6 +377,18 @@ void AampStreamSinkManager::GetEncryptedHeaders(std::map<int, std::string>& mapp
 	}
 }
 
+bool AampStreamSinkManager::IsEncryptedHeadersCached()
+{
+	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
+	return !mEncryptedHeaders.empty();
+}
+
+bool AampStreamSinkManager::IsEncryptedHeadersCached(int mediaType)
+{
+	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
+	return mEncryptedHeaders.find(mediaType) != mEncryptedHeaders.end();
+}
+
 void AampStreamSinkManager::DeactivatePlayer(PrivateInstanceAAMP *aamp, bool stop)
 {
 	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
@@ -382,6 +397,19 @@ void AampStreamSinkManager::DeactivatePlayer(PrivateInstanceAAMP *aamp, bool sto
 	{
 		case ePIPELINEMODE_UNDEFINED:
 		case ePIPELINEMODE_MULTI:
+		{
+			if (stop)
+			{
+				AAMPLOG_WARN("AampStreamSinkManager(%p) Multi Pipeline mode, deactivating and stopping active PLAYER[%d]", this, aamp->mPlayerId);
+				mEncryptedHeadersInjected = false;
+				mEncryptedHeaders.clear();
+				ClearMediaHeaders();
+			}
+			else
+			{
+				AAMPLOG_WARN("AampStreamSinkManager(%p) Multi Pipeline mode, deactivating active PLAYER[%d]", this, aamp->mPlayerId);
+			}
+		}
 		break;
 
 		case ePIPELINEMODE_SINGLE:
@@ -398,11 +426,7 @@ void AampStreamSinkManager::DeactivatePlayer(PrivateInstanceAAMP *aamp, bool sto
 					AAMPLOG_WARN("AampStreamSinkManager(%p) Single Pipeline mode, deactivating and stopping active PLAYER[%d]", this, aamp->mPlayerId);
 					mEncryptedHeadersInjected = false;
 					mEncryptedHeaders.clear();
-					for (auto& header : mMediaHeaders)
-					{
-						header.reset();
-						AAMPLOG_MIL("cleared mMediaHeaders");
-					}
+					ClearMediaHeaders();
 				}
 				else
 				{
