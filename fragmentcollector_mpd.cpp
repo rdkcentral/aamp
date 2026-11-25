@@ -3918,8 +3918,9 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 	bool pushEncInitFragment = newTune || (eTUNETYPE_RETUNE == tuneType) || aamp->mbDetached;
 	if(aamp->mbDetached){
 			/* No more needed reset it **/
-			AAMPLOG_WARN("vk::1 mbDetached changed from true to false (stream abstraction init, tuneType=%d, newTune=%d)", tuneType, newTune);
+			AAMPLOG_WARN("vk::1 mbDetached changed from true to false (stream abstraction init, tuneType=%d, newTune=%d): aamp=%p, &mbDetached=%p, mbDetached before=%d", tuneType, newTune, (void*)aamp, (void*)&aamp->mbDetached, (int)aamp->mbDetached);
 			aamp->mbDetached = false;
+			AAMPLOG_WARN("vk::1 mbDetached after reset: aamp=%p, &mbDetached=%p, mbDetached after=%d", (void*)aamp, (void*)&aamp->mbDetached, (int)aamp->mbDetached);
 	}
 
 	for (int i = 0; i < AAMP_TRACK_COUNT; i++)

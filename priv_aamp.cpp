@@ -7004,7 +7004,7 @@ void PrivateInstanceAAMP::detach()
 			sink->Stop(true);
 		}
 		mbPlayEnabled = false;
-		AAMPLOG_WARN("vk::1 mbDetached changed from %d to true (detach scenario)", mbDetached);
+		AAMPLOG_WARN("vk::1 mbDetached changed from %d to true (detach scenario), this=%p, &mbDetached=%p", mbDetached, (void*)this, (void*)&mbDetached);
 		mbDetached=true;
 		mPlayerPreBuffered  = false;
 		mTelemetryInterval = 0;

@@ -715,12 +715,19 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 		AAMPLOG_WARN("vk::1 SetRateInternal() - Calling StopPausePositionMonitoring()");
 		aamp->StopPausePositionMonitoring("SetRate() called");
 
+		AAMPLOG_WARN("vk::1 SetRateInternal - Guard condition check: mpStreamAbstractionAAMP=%p, mbUsingExternalPlayer=%d", aamp->mpStreamAbstractionAAMP, (int)aamp->mbUsingExternalPlayer);
 		if (aamp->mpStreamAbstractionAAMP && !(aamp->mbUsingExternalPlayer))
 		{
+			AAMPLOG_WARN("vk::1 SetRateInternal - Entered outer guard block: mpStreamAbstractionAAMP is valid, mbUsingExternalPlayer=false");
+			AAMPLOG_WARN("vk::1 SetRateInternal - mbDetached value at this point: aamp=%p, &mbDetached=%p, mbDetached=%d (rate=%.2f)", (void*)aamp, (void*)&aamp->mbDetached, (int)aamp->mbDetached, rate);
 			if (aamp->mbDetached)
 			{
-				AAMPLOG_WARN("vk::1 SetRateInternal - mbDetached=true, calling enableEventProcessing() (rate=%.2f)", rate);
+				AAMPLOG_WARN("vk::1 SetRateInternal - mbDetached=true BRANCH TAKEN: aamp=%p, &mbDetached=%p, mbDetached=%d, calling enableEventProcessing() (rate=%.2f)", (void*)aamp, (void*)&aamp->mbDetached, (int)aamp->mbDetached, rate);
 				aamp->enableEventProcessing();
+			}
+			else
+			{
+				AAMPLOG_WARN("vk::1 SetRateInternal - mbDetached=false BRANCH TAKEN: aamp=%p, &mbDetached=%p, mbDetached=%d, NOT calling enableEventProcessing() (rate=%.2f)", (void*)aamp, (void*)&aamp->mbDetached, (int)aamp->mbDetached, rate);
 			}
 			if ( AAMP_SLOWMOTION_RATE != rate && !aamp->mIsIframeTrackPresent && rate != AAMP_NORMAL_PLAY_RATE && rate != 0 && aamp->mMediaFormat != eMEDIAFORMAT_PROGRESSIVE)
 			{
@@ -1055,10 +1062,10 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 				{
 					PrivateInstanceAAMP::SetRateProtect setRateLock(aamp);
 					int64_t beforeTuneMs = aamp_GetCurrentTimeMS();
-					AAMPLOG_WARN("vk::1 SetRateInternal - Before TuneHelper at %lld ms: mbDetached=%d, rate=%.2f, mPlayerState=%s", (long long)beforeTuneMs, aamp->mbDetached, rate, AAMPPlayerStateName(aamp->GetState()));
+					AAMPLOG_WARN("vk::1 SetRateInternal - Before TuneHelper at %lld ms: aamp=%p, &mbDetached=%p, mbDetached=%d, rate=%.2f, mPlayerState=%s", (long long)beforeTuneMs, (void*)aamp, (void*)&aamp->mbDetached, (int)aamp->mbDetached, rate, AAMPPlayerStateName(aamp->GetState()));
 					aamp->TuneHelper(eTUNETYPE_SEEK, false);
 					int64_t afterTuneMs = aamp_GetCurrentTimeMS();
-					AAMPLOG_WARN("vk::1 SetRateInternal - After TuneHelper at %lld ms (duration %lld ms): mbDetached=%d, rate=%.2f, mPlayerState=%s", (long long)afterTuneMs, (long long)(afterTuneMs - beforeTuneMs), aamp->mbDetached, rate, AAMPPlayerStateName(aamp->GetState()));
+					AAMPLOG_WARN("vk::1 SetRateInternal - After TuneHelper at %lld ms (duration %lld ms): aamp=%p, &mbDetached=%p, mbDetached=%d, rate=%.2f, mPlayerState=%s", (long long)afterTuneMs, (long long)(afterTuneMs - beforeTuneMs), (void*)aamp, (void*)&aamp->mbDetached, (int)aamp->mbDetached, rate, AAMPPlayerStateName(aamp->GetState()));
 				}
 			}
 
@@ -1069,13 +1076,13 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 				// Likewise leave the state to NotifyFirstVideoFrameDisplayed() if a seek while paused is still prerolling.
 				const float notifyRate = firstFrameDeferral ? deferredNotifyRate : (aamp->pipeline_paused ? 0 : aamp->rate);
 				int64_t beforeNotifyMs = aamp_GetCurrentTimeMS();
-				AAMPLOG_WARN("vk::1 SetRateInternal - Before NotifySpeedChanged at %lld ms: mbDetached=%d, notifyRate=%.2f, mPlayerState=%s", (long long)beforeNotifyMs, aamp->mbDetached, notifyRate, AAMPPlayerStateName(aamp->GetState()));
+				AAMPLOG_WARN("vk::1 SetRateInternal - Before NotifySpeedChanged at %lld ms: aamp=%p, &mbDetached=%p, mbDetached=%d, notifyRate=%.2f, mPlayerState=%s", (long long)beforeNotifyMs, (void*)aamp, (void*)&aamp->mbDetached, (int)aamp->mbDetached, notifyRate, AAMPPlayerStateName(aamp->GetState()));
 				if (firstFrameDeferral)
 				{
 					// Only the player state transition is deferred; subtitle pause/resume must still follow the request
 					aamp->ApplySpeedChangeEffects(notifyRate);
 				}
-				AAMPLOG_WARN("vk::1 SetRateInternal - Before NotifySpeedChanged (after ApplySpeedChangeEffects): mbDetached=%d, notifyRate=%.2f, mPlayerState=%s", aamp->mbDetached, notifyRate, AAMPPlayerStateName(aamp->GetState()));
+				AAMPLOG_WARN("vk::1 SetRateInternal - Before NotifySpeedChanged (after ApplySpeedChangeEffects): aamp=%p, &mbDetached=%p, mbDetached=%d, notifyRate=%.2f, mPlayerState=%s", (void*)aamp, (void*)&aamp->mbDetached, (int)aamp->mbDetached, notifyRate, AAMPPlayerStateName(aamp->GetState()));
 				aamp->NotifySpeedChanged(notifyRate,
 										 !firstFrameDeferral && (!aamp->IsFragmentCachingRequired() || aamp->pipeline_paused));
 			}
