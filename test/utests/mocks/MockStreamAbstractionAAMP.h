@@ -24,8 +24,6 @@
 #include <memory>
 #include "StreamAbstractionAAMP.h"
 
-<<<<<<< HEAD
-=======
 class MockMediaTrack : public MediaTrack
 {
 public:
@@ -57,7 +55,7 @@ public:
 
 extern MockMediaTrack *g_mockMediaTrack;
 
->>>>>>> 42c5b26b (Validating using L1 test)
+
 class MockStreamAbstractionAAMP : public StreamAbstractionAAMP
 {
 public:

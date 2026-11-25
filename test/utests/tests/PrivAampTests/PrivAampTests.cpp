@@ -18,7 +18,6 @@
 */
 
 #include <cstdlib>
-
 #include <functional>
 #include <future>
 #include <mutex>
@@ -26,7 +25,6 @@
 #include <thread>
 #include <atomic>
 #include <chrono>
-
 #include <iostream>
 #include <string>
 #include <string.h>
@@ -882,7 +880,7 @@ TEST_F(PrivAampPrivTests, MonitorProgressTuneMetricsAfterPlayingStateChange)
 	}
 
 	// Step 1: transition to PLAYING - fires AAMP_EVENT_STATE_CHANGED synchronously.
-	testp_aamp->SetState(eSTATE_PLAYING);
+	testp_aamp->SetState(eSTATE_PLAYING, true);
 	// Step 2: first progress tick - fires AAMP_EVENT_TUNE_TIME_METRICS via SendTuneMetricsEvent.
 	testp_aamp->MonitorProgress(true, false);
 
