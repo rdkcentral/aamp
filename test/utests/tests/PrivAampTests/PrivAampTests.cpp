@@ -18,8 +18,7 @@
 */
 
 #include <cstdlib>
-<<<<<<< HEAD
-=======
+
 #include <functional>
 #include <future>
 #include <mutex>
@@ -27,7 +26,7 @@
 #include <thread>
 #include <atomic>
 #include <chrono>
->>>>>>> 42c5b26b (Validating using L1 test)
+
 #include <iostream>
 #include <string>
 #include <string.h>
@@ -882,15 +881,9 @@ TEST_F(PrivAampPrivTests, MonitorProgressTuneMetricsAfterPlayingStateChange)
 			SendEvent(AnEventOfType(AAMP_EVENT_TUNE_TIME_METRICS), AAMP_EVENT_ASYNC_MODE)).Times(1);
 	}
 
-<<<<<<< HEAD
-	// Step 1: transition to PLAYING — fires AAMP_EVENT_STATE_CHANGED synchronously.
-	testp_aamp->SetState(eSTATE_PLAYING, true);
-	// Step 2: first progress tick — fires AAMP_EVENT_TUNE_TIME_METRICS via SendTuneMetricsEvent.
-=======
 	// Step 1: transition to PLAYING - fires AAMP_EVENT_STATE_CHANGED synchronously.
 	testp_aamp->SetState(eSTATE_PLAYING);
 	// Step 2: first progress tick - fires AAMP_EVENT_TUNE_TIME_METRICS via SendTuneMetricsEvent.
->>>>>>> 42c5b26b (Validating using L1 test)
 	testp_aamp->MonitorProgress(true, false);
 
 	// Data is consumed exactly once; subsequent MonitorProgress ticks are no-ops.
@@ -4481,7 +4474,7 @@ TEST_F(PrivAampTests,StopTrackInjectionTest)
 	p_aamp->StopTrackInjection(eMEDIATYPE_AUDIO);
 }
 
-<<<<<<< HEAD
+
 TEST_F(PrivAampTests,StopTrackInjectionTest_DiscardFalse_DoesNotUnblockInjector)
 {
 	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer.get()));
@@ -4511,7 +4504,7 @@ TEST_F(PrivAampTests,StopTrackInjectionTest_DiscardTrueAfterNonDiscard_StillUnbl
 	p_aamp->StopTrackInjection(eMEDIATYPE_VIDEO, true);
 }
 
-=======
+
 /**
  * @brief Stop() must abort cache waits on every media track.
  *
@@ -4538,7 +4531,7 @@ TEST_F(PrivAampTests, StopAbortsWaitForCachedFragmentOnAllTracks)
 	p_aamp->Stop();
 	g_mockMediaTrack = nullptr;
 }
->>>>>>> 42c5b26b (Validating using L1 test)
+
 TEST_F(PrivAampTests,ResumeTrackInjectionTest)
 {
 	p_aamp->ResumeTrackInjection(eMEDIATYPE_VIDEO);
