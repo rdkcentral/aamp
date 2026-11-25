@@ -20,12 +20,37 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <chrono>
+#include <cstdlib>
+#include <future>
+#include <optional>
+#include <thread>
+
 #include "priv_aamp.h"
 #include "AampConfig.h"
 #include "MockAampEventManager.h"
 
 using ::testing::_;
+using ::testing::AnyNumber;
 using ::testing::NiceMock;
+
+namespace
+{
+// Generous upper bound for an operation that is expected to complete.
+constexpr auto kCompletionTimeout = std::chrono::seconds(5);
+// Window used to observe that an operation is (still) blocked.
+constexpr auto kBlockedWindow = std::chrono::milliseconds(100);
+
+// A hung worker cannot be joined safely, so abort rather than hang CI.
+void AbortIfNotReady(std::future<void> &f, const char *what)
+{
+    if (f.wait_for(kCompletionTimeout) != std::future_status::ready)
+    {
+        ADD_FAILURE() << "Deadlock suspected: " << what;
+        std::abort();
+    }
+}
+}
 
 class TestablePrivateInstanceAAMP : public PrivateInstanceAAMP
 {
@@ -93,4 +118,146 @@ TEST_F(BlockProgressMonitorTests, EarlyClearOfSetRateActiveUnblocksMonitorProgre
 
     EXPECT_CALL(*g_mockAampEventManager, SendEvent(AnEventOfType(AAMP_EVENT_PROGRESS), _)).Times(1);
     mPrivateInstanceAAMP->MonitorProgress();
+}
+
+/*
+ * While SetRate holds the stream lock, MonitorProgress() on another thread
+ * must return immediately (no progress, no wait on the stream lock).
+ */
+TEST_F(BlockProgressMonitorTests, MonitorProgressOnOtherThreadSkippedWithoutBlocking)
+{
+    std::future<void> progress; // declared first so the guard is released before join
+    PrivateInstanceAAMP::SetRateProtect setRateLock(mPrivateInstanceAAMP);
+
+    EXPECT_CALL(*g_mockAampEventManager, SendEvent(_, _)).Times(0);
+    progress = std::async(std::launch::async,
+        [this] { mPrivateInstanceAAMP->MonitorProgress(); });
+
+    EXPECT_EQ(progress.wait_for(kCompletionTimeout), std::future_status::ready)
+        << "MonitorProgress() blocked behind SetRate instead of skipping";
+}
+
+/*
+ * SetState(PLAYING) during SetRate (after flush) clears the block early:
+ * MonitorProgress() on another thread is no longer skipped, serialises on the
+ * stream lock behind SetRate, and reports progress once SetRate completes.
+ */
+TEST_F(BlockProgressMonitorTests, SetStateDuringSetRateEarlyUnblocksMonitorProgressOnOtherThread)
+{
+    std::future<void> progress;
+    std::optional<PrivateInstanceAAMP::SetRateProtect> setRateLock;
+    setRateLock.emplace(mPrivateInstanceAAMP);
+
+    EXPECT_CALL(*g_mockAampEventManager, SendEvent(_, _)).Times(0);
+    progress = std::async(std::launch::async,
+        [this] { mPrivateInstanceAAMP->MonitorProgress(); });
+    AbortIfNotReady(progress, "MonitorProgress() before early unblock");
+    ASSERT_TRUE(::testing::Mock::VerifyAndClearExpectations(
+        g_mockAampEventManager.get()));
+
+    mPrivateInstanceAAMP->SetState(eSTATE_PLAYING);
+    EXPECT_FALSE(mPrivateInstanceAAMP->mSetRateActive.load());
+
+    EXPECT_CALL(*g_mockAampEventManager, SendEvent(AnEventOfType(AAMP_EVENT_PROGRESS), _)).Times(1);
+    progress = std::async(std::launch::async,
+        [this] { mPrivateInstanceAAMP->MonitorProgress(); });
+
+    // Passed the SetRate gate, so it must now be waiting on the stream lock.
+    EXPECT_EQ(progress.wait_for(kBlockedWindow), std::future_status::timeout);
+
+    setRateLock.reset();
+    AbortIfNotReady(progress, "MonitorProgress() after SetRate released");
+}
+
+/*
+ * While SetRate is starting (holding mSetRateActiveMutex before the flag and
+ * stream lock are both in place) MonitorProgress() on another thread must skip.
+ */
+TEST_F(BlockProgressMonitorTests, MonitorProgressSkippedWhileSetRateStarting)
+{
+    std::future<void> progress;
+    EXPECT_CALL(*g_mockAampEventManager, SendEvent(_, _)).Times(0);
+    {
+        std::lock_guard<std::mutex> starting(mPrivateInstanceAAMP->mSetRateActiveMutex);
+        ASSERT_FALSE(mPrivateInstanceAAMP->mSetRateActive.load());
+
+        progress = std::async(std::launch::async,
+            [this] { mPrivateInstanceAAMP->MonitorProgress(); });
+        AbortIfNotReady(progress, "MonitorProgress() while SetRate starting");
+    }
+}
+
+/*
+ * SetRate must not start while MonitorProgress() is gathering progress data
+ * (SetRateMonitor held); once started, subsequent MonitorProgress() calls skip.
+ */
+TEST_F(BlockProgressMonitorTests, SetRateWaitsForInFlightMonitorProgress)
+{
+    std::promise<void> acquired;
+    std::promise<void> release;
+    std::future<void> acquiredFuture = acquired.get_future();
+    std::shared_future<void> releaseFuture = release.get_future().share();
+
+    std::optional<PrivateInstanceAAMP::SetRateMonitor> monitor;
+    monitor.emplace(mPrivateInstanceAAMP);
+    EXPECT_FALSE(monitor->active());
+
+    std::thread setRateThread([this, &acquired, releaseFuture] {
+        PrivateInstanceAAMP::SetRateProtect setRateLock(mPrivateInstanceAAMP);
+        acquired.set_value();
+        releaseFuture.wait();
+    });
+
+    EXPECT_EQ(acquiredFuture.wait_for(kBlockedWindow), std::future_status::timeout)
+        << "SetRate started while MonitorProgress() was in flight";
+
+    monitor.reset();
+    if (acquiredFuture.wait_for(kCompletionTimeout) != std::future_status::ready)
+    {
+        ADD_FAILURE() << "Deadlock suspected: SetRate did not start";
+        std::abort();
+    }
+    EXPECT_TRUE(mPrivateInstanceAAMP->mSetRateActive.load());
+
+    EXPECT_CALL(*g_mockAampEventManager, SendEvent(_, _)).Times(0);
+	auto progress = std::async(std::launch::async,
+		[this] { mPrivateInstanceAAMP->MonitorProgress(); });
+	AbortIfNotReady(progress, "MonitorProgress() while SetRate active");
+
+    release.set_value();
+    setRateThread.join();
+    EXPECT_FALSE(mPrivateInstanceAAMP->mSetRateActive.load());
+}
+
+/*
+ * Repeated concurrent SetRate (with early unblock via SetState) and
+ * MonitorProgress() must not deadlock and must leave progress unblocked.
+ */
+TEST_F(BlockProgressMonitorTests, ConcurrentSetRateAndMonitorProgressDoNotDeadlock)
+{
+    constexpr int kIterations = 500;
+    EXPECT_CALL(*g_mockAampEventManager, SendEvent(_, _)).Times(AnyNumber());
+
+    std::future<void> setRate = std::async(std::launch::async, [this] {
+        for (int i = 0; i < kIterations; ++i)
+        {
+            PrivateInstanceAAMP::SetRateProtect setRateLock(mPrivateInstanceAAMP);
+            if (i % 2)
+            {
+                mPrivateInstanceAAMP->SetState(eSTATE_PLAYING);
+            }
+            std::this_thread::yield();
+        }
+    });
+    std::future<void> progress = std::async(std::launch::async, [this] {
+        for (int i = 0; i < kIterations; ++i)
+        {
+            mPrivateInstanceAAMP->MonitorProgress();
+            std::this_thread::yield();
+        }
+    });
+
+    AbortIfNotReady(setRate, "SetRate loop");
+    AbortIfNotReady(progress, "MonitorProgress loop");
+    EXPECT_FALSE(mPrivateInstanceAAMP->mSetRateActive.load());
 }
