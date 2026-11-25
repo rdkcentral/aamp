@@ -1692,12 +1692,43 @@ bool InterfacePlayerRDK::IsUsingRialtoSink()
 bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, bool isAppSeek)
 {
 	PI_PLAYER_PROFILE_SCOPE("player_flush");
+	const gint64 flushStartUs = g_get_monotonic_time();
 	GstState aud_current;
 	GstState aud_pending;
-	GstState current;
-	GstState pending;
+	GstState current = GST_STATE_VOID_PENDING;
+	GstState pending = GST_STATE_VOID_PENDING;
 
 	gst_media_stream *stream = &interfacePlayerPriv->gstPrivateContext->stream[eGST_MEDIATYPE_VIDEO];
+	bool pipelineSeekRan = false;
+	gboolean seekSucceeded = FALSE;
+	bool bAsyncModify = false;
+	double playRate = 1.0;
+	auto logFlushExit = [&](const char *outcome, bool result)
+	{
+		GstElement *pipeline = interfacePlayerPriv->gstPrivateContext->pipeline;
+		const char *currentState = pipeline ? gst_element_state_get_name(GST_STATE(pipeline)) : "NULL";
+		const char *pendingState = pipeline ? gst_element_state_get_name(GST_STATE_PENDING(pipeline)) : "NULL";
+		const char *seekResult = !pipelineSeekRan ? "not-run" : (seekSucceeded ? "success" : "failure");
+		MW_LOG_MIL("InterfacePlayerRDK: Flush exit elapsed_ms=%" G_GINT64_FORMAT
+				   " outcome=%s result=%d current=%s pending=%s pipelineSeek=%s"
+				   " position=%f rate=%d playRate=%f shouldTearDown=%d isAppSeek=%d"
+				   " usingRialtoSink=%d bAsyncModify=%d videoPendingSeek=%d audioPendingSeek=%d",
+				   (g_get_monotonic_time() - flushStartUs) / G_TIME_SPAN_MILLISECOND,
+				   outcome, result, currentState, pendingState, seekResult, position, rate,
+				   playRate, shouldTearDown, isAppSeek, interfacePlayerPriv->gstPrivateContext->usingRialtoSink,
+				   bAsyncModify, interfacePlayerPriv->gstPrivateContext->stream[eGST_MEDIATYPE_VIDEO].pendingSeek,
+				   interfacePlayerPriv->gstPrivateContext->stream[eGST_MEDIATYPE_AUDIO].pendingSeek);
+		return result;
+	};
+	GstElement *pipelineAtEntry = interfacePlayerPriv->gstPrivateContext->pipeline;
+	MW_LOG_MIL("InterfacePlayerRDK: Flush entry elapsed_ms=0 current=%s pending=%s position=%f rate=%d"
+			   " shouldTearDown=%d isAppSeek=%d usingRialtoSink=%d seekFlags=GST_SEEK_FLAG_FLUSH"
+			   " videoPendingSeek=%d audioPendingSeek=%d",
+			   pipelineAtEntry ? gst_element_state_get_name(GST_STATE(pipelineAtEntry)) : "NULL",
+			   pipelineAtEntry ? gst_element_state_get_name(GST_STATE_PENDING(pipelineAtEntry)) : "NULL",
+			   position, rate, shouldTearDown, isAppSeek, interfacePlayerPriv->gstPrivateContext->usingRialtoSink,
+			   interfacePlayerPriv->gstPrivateContext->stream[eGST_MEDIATYPE_VIDEO].pendingSeek,
+			   interfacePlayerPriv->gstPrivateContext->stream[eGST_MEDIATYPE_AUDIO].pendingSeek);
 	interfacePlayerPriv->gstPrivateContext->rate = rate;
 	interfacePlayerPriv->gstPrivateContext->stream[eGST_MEDIATYPE_VIDEO].bufferUnderrun = false;
 	interfacePlayerPriv->gstPrivateContext->stream[eGST_MEDIATYPE_AUDIO].bufferUnderrun = false;
@@ -1730,9 +1761,8 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 	if (interfacePlayerPriv->gstPrivateContext->pipeline == NULL)
 	{
 		MW_LOG_WARN("InterfacePlayerRDK: Pipeline is NULL");
-		return false;
+		return logFlushExit("pipeline-null", false);
 	}
-	bool bAsyncModify = false;
 	if (!interfacePlayerPriv->gstPrivateContext->usingRialtoSink)
 	{
 		bAsyncModify = interfacePlayerPriv->socInterface->DisableAsyncAudio(interfacePlayerPriv->gstPrivateContext->audio_sink, rate, isAppSeek);
@@ -1762,7 +1792,7 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 			// Set the rate back to the original value if it was an recovery Stop() call
 			interfacePlayerPriv->gstPrivateContext->rate = rate;
 		}
-		return false;
+		return logFlushExit("pipeline-state-invalid", false);
 	}
 
 	else
@@ -1783,7 +1813,7 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 					stopCallback(true);
 					// Set the rate back to the original value if it was an recovery Stop() call
 					interfacePlayerPriv->gstPrivateContext->rate = rate;
-					return false;
+					return logFlushExit("audio-decoder-state-invalid", false);
 				}
 			}
 		}
@@ -1794,8 +1824,7 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 	/* from SendGstEvents() API.
 	 */
 	ResetGstEvents();
-	MW_LOG_INFO("InterfacePlayerRDK: Pipeline flush seek - start = %f rate = %d", position, rate);
-	double playRate = 1.0;
+	MW_LOG_MIL("InterfacePlayerRDK: Pipeline flush seek - start = %f rate = %d", position, rate);
 	if (eGST_MEDIAFORMAT_PROGRESSIVE == static_cast<GstMediaFormat>(m_gstConfigParam->media))
 	{
 		playRate = rate;
@@ -1809,9 +1838,9 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 			position = 0;
 		}
 	}
-	gboolean seekSucceeded;
 	{
 		PI_PLAYER_PROFILE_SCOPE("gst_element_seek_for_flush");
+		pipelineSeekRan = true;
 		seekSucceeded = gst_element_seek(interfacePlayerPriv->gstPrivateContext->pipeline, playRate, GST_FORMAT_TIME, GST_SEEK_FLAG_FLUSH, GST_SEEK_TYPE_SET,
 										 position * GST_SECOND, GST_SEEK_TYPE_NONE, GST_CLOCK_TIME_NONE);
 	}
@@ -1841,7 +1870,7 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 	}
 	interfacePlayerPriv->gstPrivateContext->eosSignalled = false;
 	interfacePlayerPriv->gstPrivateContext->numberOfVideoBuffersSent = 0;
-	return true;
+	return logFlushExit("complete", true);
 }
 void InterfacePlayerPriv::SignalConnect(gpointer instance, const gchar *detailed_signal, GCallback c_handler, gpointer data)
 {
@@ -2739,16 +2768,26 @@ void InterfacePlayerPriv::SendGstEvents(int mediaType, GstClockTime pts, int ena
 
 	if(stream->pendingSeek)
 	{
+		bool pendingSeekRan = false;
+		gboolean pendingSeekSucceeded = FALSE;
 		if(gstPrivateContext->seekPosition >= 0)
 		{
 			MW_LOG_MIL("gst_element_seek_simple! mediaType:%d pts:%" GST_TIME_FORMAT " seekPosition:%" GST_TIME_FORMAT,
 				mediaType, GST_TIME_ARGS(pts), GST_TIME_ARGS(gstPrivateContext->seekPosition * GST_SECOND));
-			if(!gst_element_seek_simple(GST_ELEMENT(stream->source), GST_FORMAT_TIME, GST_SEEK_FLAG_FLUSH, (gstPrivateContext->seekPosition * GST_SECOND)))
+			pendingSeekRan = true;
+			pendingSeekSucceeded = gst_element_seek_simple(GST_ELEMENT(stream->source), GST_FORMAT_TIME, GST_SEEK_FLAG_FLUSH,
+														   (gstPrivateContext->seekPosition * GST_SECOND));
+			if(!pendingSeekSucceeded)
 			{
 				MW_LOG_ERR("Seek failed");
 			}
 
 		}
+		MW_LOG_MIL("InterfacePlayerRDK: Flush pending seek mediaType=%d ran=%d result=%s position=%f"
+				   " seekFlags=GST_SEEK_FLAG_FLUSH",
+				   mediaType, pendingSeekRan,
+				   !pendingSeekRan ? "not-run" : (pendingSeekSucceeded ? "success" : "failure"),
+				   gstPrivateContext->seekPosition);
 		stream->pendingSeek = false;
 	}
 
