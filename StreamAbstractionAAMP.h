@@ -1003,6 +1003,16 @@ public:
 	}
 
 	/**
+	 *   @brief Track whose timeline is the reference for position, first PTS and manifest updates
+	 *
+	 *   @return Track type; video unless a derived class reports otherwise
+	 */
+	virtual TrackType GetPrimaryTrackType() const
+	{
+		return eTRACK_VIDEO;
+	}
+
+	/**
 	*   @brief  Get PTS offset for MidFragment Seek
 	*
 	*   @return seek PTS offset for midfragment seek
