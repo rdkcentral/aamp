@@ -12025,7 +12025,7 @@ MediaStreamContext *StreamAbstractionAAMP_MPD::PrimaryMediaStreamContext() const
 std::unique_lock<std::recursive_mutex> StreamAbstractionAAMP_MPD::LockAbrMediaStreamContext()
 {
 	std::unique_lock<std::recursive_mutex> lock;
-	MediaStreamContext *abrContext = mMediaStreamContext[static_cast<AampMediaType>(GetAbrTrackType())].get();
+	MediaStreamContext *abrContext = PrimaryMediaStreamContext();
 	if (abrContext)
 	{
 		lock = std::unique_lock<std::recursive_mutex>(abrContext->mMediaStreamContextMutex);

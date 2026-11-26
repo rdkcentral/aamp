@@ -1869,7 +1869,7 @@ int StreamAbstractionAAMP::GetDesiredProfile(bool getMidProfile)
 			desiredProfileIndex = aamp->mhAbrManager.getInitialProfileIndex(getMidProfile);
 		}
 		profileIdxForBandwidthNotification = desiredProfileIndex;
-		MediaTrack *abrTrack = GetMediaTrack(GetAbrTrackType());
+		MediaTrack *abrTrack = GetMediaTrack(GetPrimaryTrackType());
 		if(abrTrack)
 		{
 			StreamInfo* streamInfo = GetStreamInfo(profileIdxForBandwidthNotification);
@@ -1926,7 +1926,7 @@ void StreamAbstractionAAMP::NotifyBitRateUpdate(int profileIndex, const StreamIn
 			bool lGetBWIndex = false;
 			if(aamp->IsTuneTypeNew && ((cacheFragStreamInfo.bandwidthBitsPerSecond == streamInfo->bandwidthBitsPerSecond) || !aamp->CheckABREnabled()))
 			{
-				MediaTrack *abrTrack = GetMediaTrack(GetAbrTrackType());
+				MediaTrack *abrTrack = GetMediaTrack(GetPrimaryTrackType());
 				AAMPLOG_MIL("NotifyBitRateUpdate: Max BitRate: %" BITSPERSECOND_FORMAT ", timetotop: %f", cacheFragStreamInfo.bandwidthBitsPerSecond, abrTrack->GetTotalInjectedDuration());
 				aamp->IsTuneTypeNew = false;
 				lGetBWIndex = true;
@@ -1997,7 +1997,7 @@ void StreamAbstractionAAMP::UpdateProfileBasedOnFragmentDownloaded(void)
 		// a) Check if network bandwidth changed from starting bw
 		// b) Check if netwwork bandwidth is different from persisted bandwidth( needed for first time reporting)
 		// find the profile for the newbandwidth
-		desiredProfileIndex = GetMediaTrack(GetAbrTrackType())->GetProfileIndexForBW(mTsbBandwidth);
+		desiredProfileIndex = GetMediaTrack(GetPrimaryTrackType())->GetProfileIndexForBW(mTsbBandwidth);
 		mCurrentBandwidth = mTsbBandwidth;
 		StreamInfo* streamInfo = GetStreamInfo(profileIdxForBandwidthNotification);
 		if (profileIdxForBandwidthNotification != desiredProfileIndex)
@@ -2005,7 +2005,7 @@ void StreamAbstractionAAMP::UpdateProfileBasedOnFragmentDownloaded(void)
 			if(streamInfo != NULL)
 			{
 				profileIdxForBandwidthNotification = desiredProfileIndex;
-				GetMediaTrack(GetAbrTrackType())->SetCurrentBandWidth( streamInfo->bandwidthBitsPerSecond );
+				GetMediaTrack(GetPrimaryTrackType())->SetCurrentBandWidth( streamInfo->bandwidthBitsPerSecond );
 				mBitrateReason = eAAMP_BITRATE_CHANGE_BY_FOG_ABR;
 			}
 			else
@@ -2034,7 +2034,7 @@ void StreamAbstractionAAMP::UpdateRampUpOrDownProfileReason(void)
  */
 void StreamAbstractionAAMP::GetDesiredProfileOnBuffer(int currProfileIndex, int &newProfileIndex)
 {
-	MediaTrack *abrTrack = GetMediaTrack(GetAbrTrackType());
+	MediaTrack *abrTrack = GetMediaTrack(GetPrimaryTrackType());
 
 	double bufferValue = GetBufferValue(abrTrack);
 	double minBufferNeeded ;
@@ -2063,7 +2063,7 @@ void StreamAbstractionAAMP::GetDesiredProfileOnBuffer(int currProfileIndex, int 
  */
 void StreamAbstractionAAMP::GetDesiredProfileOnSteadyState(int currProfileIndex, int &newProfileIndex, long nwBandwidth)
 {
-	MediaTrack *abrTrack = GetMediaTrack(GetAbrTrackType());
+	MediaTrack *abrTrack = GetMediaTrack(GetPrimaryTrackType());
 	double bufferValue = GetBufferValue(abrTrack);
 	//long currBandwidth = GetStreamInfo(currProfileIndex)->bandwidthBitsPerSecond;
 	if(bufferValue > 0 && currProfileIndex == newProfileIndex)
@@ -2216,7 +2216,7 @@ double StreamAbstractionAAMP::GetBufferValue(MediaTrack *track)
 int StreamAbstractionAAMP::GetDesiredProfileBasedOnCache(void)
 {
 	int desiredProfileIndex = currentProfileIndex;
-	MediaTrack *abrTrack = GetMediaTrack(GetAbrTrackType());
+	MediaTrack *abrTrack = GetMediaTrack(GetPrimaryTrackType());
 	if(abrTrack != NULL)
 	{
 		double bufferValue = GetBufferValue(abrTrack);
@@ -2310,7 +2310,7 @@ bool StreamAbstractionAAMP::RampDownProfile(int http_error)
 {
 	bool ret = false;
 	int desiredProfileIndex = currentProfileIndex;
-	MediaTrack *abrTrack = GetMediaTrack(GetAbrTrackType());
+	MediaTrack *abrTrack = GetMediaTrack(GetPrimaryTrackType());
 	if (this->UseIframeTrack())
 	{
 		//We use only second last and lowest profiles for iframes
@@ -2506,7 +2506,7 @@ void StreamAbstractionAAMP::CheckForProfileChange(void)
 
 		case ABRMode::ABR_MANAGER:
 		{
-			MediaTrack *abrTrack = GetMediaTrack(GetAbrTrackType());
+			MediaTrack *abrTrack = GetMediaTrack(GetPrimaryTrackType());
 			if(abrTrack != NULL)
 			{
 				UpdateProfileBasedOnFragmentCache();
@@ -2600,7 +2600,7 @@ bool StreamAbstractionAAMP::CheckIfPlayerRunningDry()
 bool StreamAbstractionAAMP::UpdateProfileBasedOnFragmentCache()
 {
 	bool retVal = false;
-	MediaTrack *abrTrack = GetMediaTrack(GetAbrTrackType());
+	MediaTrack *abrTrack = GetMediaTrack(GetPrimaryTrackType());
 	int desiredProfileIndex = currentProfileIndex;
 	double totalFetchedDuration = abrTrack->GetTotalFetchedDuration();
 	const BitsPerSecond availBW = aamp->mhAbrManager.GetCurrentlyAvailableBandwidth();

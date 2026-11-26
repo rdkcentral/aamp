@@ -544,7 +544,6 @@ TEST_P(PrimaryTrackTests, PrimaryMediaStreamContext_ReturnsContextOfPrimaryTrack
  */
 TEST_P(PrimaryTrackTests, LockAbrMediaStreamContext_Held_BlocksOtherThreadsOnPrimaryMutexOnly)
 {
-	EXPECT_EQ(mCollector->GetAbrTrackType(), GetParam());
 	{
 		auto lock = mCollector->PublicLockAbrMediaStreamContext();
 

@@ -212,7 +212,7 @@ public:
 	/**
 	 * @fn GetPrimaryTrackType
 	 * @brief Track whose timeline is the reference for position, first PTS and manifest updates.
-	 *        Video, because audio-only content is carried in the video slot. Fixed for the session.
+	 *        Video, because audio-only content is carried in the video slot.
 	 */
 	TrackType GetPrimaryTrackType() const override;
 	/**
@@ -1386,8 +1386,8 @@ protected:
 
 	/**
 	 * @fn LockAbrMediaStreamContext
-	 * @brief Locks the mMediaStreamContextMutex (recursive) of the GetAbrTrackType() context, which
-	 *        MediaStreamContext::ABRProfileChanged() takes. UpdateMPD() holds it to exclude ABR switches.
+	 * @brief Locks the primary context's mMediaStreamContextMutex (recursive), which ABR takes in
+	 *        MediaStreamContext::ABRProfileChanged(). UpdateMPD() holds it to exclude ABR switches.
 	 * @retval Held lock; not owning if the context is not allocated, as ABR then has nothing to switch
 	 */
 	std::unique_lock<std::recursive_mutex> LockAbrMediaStreamContext();
