@@ -1967,7 +1967,7 @@ bool StreamAbstractionAAMP_MPD::HandleSeekEOSAndPeriodTransition(double remainin
 	}
 
 	int nextPeriodIdx = mCurrentPeriodIdx + 1;
-	while ((nextPeriodIdx < mMPDParseHelper->GetNumberOfPeriods()) && mMPDParseHelper->IsEmptyPeriod(nextPeriodIdx, (mPlayRate != AAMP_NORMAL_PLAY_RATE)))
+	while ((nextPeriodIdx < mMPDParseHelper->GetNumberOfPeriods()) && IsEmptyPeriod(nextPeriodIdx))
 	{
 		nextPeriodIdx++;
 	}
@@ -2053,8 +2053,8 @@ bool StreamAbstractionAAMP_MPD::HandleSeekEOSAndPeriodTransition(double remainin
 	mBasePeriodId = mCurrentPeriod->GetId();
 	AAMPLOG_INFO("SeekInPeriod: Switching to next period %d with id %s for seek remainder %lf", mCurrentPeriodIdx, mBasePeriodId.c_str(), remainingSeek);
 	mPeriodStartTime = mMPDParseHelper->GetPeriodStartTime(mCurrentPeriodIdx, mLastPlaylistDownloadTimeMs);
-	mPeriodDuration = mMPDParseHelper->GetPeriodDuration(mCurrentPeriodIdx, mLastPlaylistDownloadTimeMs, (mPlayRate != AAMP_NORMAL_PLAY_RATE), aamp->IsUninterruptedTSB());
-	mPeriodEndTime = mMPDParseHelper->GetPeriodEndTime(mCurrentPeriodIdx, mLastPlaylistDownloadTimeMs, (mPlayRate != AAMP_NORMAL_PLAY_RATE), aamp->IsUninterruptedTSB());
+	mPeriodDuration = mMPDParseHelper->GetPeriodDuration(mCurrentPeriodIdx, mLastPlaylistDownloadTimeMs, ShouldCheckOnlyIframeAdaptation(), aamp->IsUninterruptedTSB());
+	mPeriodEndTime = mMPDParseHelper->GetPeriodEndTime(mCurrentPeriodIdx, mLastPlaylistDownloadTimeMs, ShouldCheckOnlyIframeAdaptation(), aamp->IsUninterruptedTSB());
 	StreamSelection(true);
 	mUpdateStreamInfo = true;
 	AAMPStatusType ret = UpdateTrackInfo(true, true);
@@ -5343,9 +5343,9 @@ void StreamAbstractionAAMP_MPD::FindTimedMetadata(MPD* mpd, Node* root, AampMPDP
 						periodStartMS = valueMS;
 				}
 				// Calculate startTime for Early Available Period (EAP) with no explicit start attribute.
-				else if ((periodCnt > 1) && mpd && (periodCnt == (int)mpd->GetPeriods().size()) && mpdParseHelper && mpdParseHelper->IsEmptyPeriod(periodCnt-1, (mPlayRate != AAMP_NORMAL_PLAY_RATE)))
+				else if ((periodCnt > 1) && mpd && (periodCnt == (int)mpd->GetPeriods().size()) && mpdParseHelper && mpdParseHelper->IsEmptyPeriod(periodCnt-1, ShouldCheckOnlyIframeAdaptation()))
 				{
-					periodStartMS += mpdParseHelper->GetPeriodDuration(periodCnt-2, mLastPlaylistDownloadTimeMs, (mPlayRate != AAMP_NORMAL_PLAY_RATE), aamp->IsUninterruptedTSB());
+					periodStartMS += mpdParseHelper->GetPeriodDuration(periodCnt-2, mLastPlaylistDownloadTimeMs, ShouldCheckOnlyIframeAdaptation(), aamp->IsUninterruptedTSB());
 					AAMPLOG_WARN("Early Available Period found, id=%s periodStartMS adjusted to %" PRIu64 " ms", node->GetAttributeValue("id").c_str(), periodStartMS);
 				}
 				periodDurationMS = 0;

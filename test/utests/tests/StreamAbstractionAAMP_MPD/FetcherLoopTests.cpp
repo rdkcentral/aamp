@@ -2999,6 +2999,88 @@ TEST_F(FetcherLoopTests, HandleSeekEOS_DisabledTrack_NoPeriodTransition)
 }
 
 /**
+ * @brief Two-period VOD manifest without any iframe adaptation set.
+ */
+static const char *kTwoPeriodNoIframeManifest = R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" maxSegmentDuration="PT2S" minBufferTime="PT4S"
+     profiles="urn:dvb:dash:profile:dvb-dash:2014" type="static">
+  <Period id="p0" start="PT0S">
+    <AdaptationSet id="0" contentType="video">
+      <Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000">
+        <SegmentTemplate timescale="2500" initialization="video_p0_init.mp4"
+                         media="video_p0_$Number$.m4s" startNumber="1">
+          <SegmentTimeline><S t="0" d="5000" r="14"/></SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+    </AdaptationSet>
+  </Period>
+  <Period id="p1" start="PT30S">
+    <AdaptationSet id="0" contentType="video">
+      <Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000">
+        <SegmentTemplate timescale="2500" initialization="video_p1_init.mp4"
+                         media="video_p1_$Number$.m4s" startNumber="16">
+          <SegmentTimeline><S t="75000" d="5000" r="14"/></SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+    </AdaptationSet>
+  </Period>
+</MPD>)";
+
+/**
+ * @brief HandleSeekEOSAndPeriodTransition must use the current PrivateInstanceAAMP rate to decide
+ * whether to look for iframe-only adaptations.
+ *
+ * The collector is created at normal rate but the player then switches to a trick play rate.
+ * Without AAMP TSB, only iframe adaptations are considered, and the next period has none,
+ * so there is no playable period to move to.
+ */
+TEST_F(FetcherLoopTests, HandleSeekEOS_TrickPlayNoIframe_NoPeriodTransition)
+{
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _))
+		.WillRepeatedly(Return(true));
+
+	EXPECT_EQ(InitializeMPD(kTwoPeriodNoIframeManifest), eAAMPSTATUS_OK);
+
+	MediaStreamContext *videoCtx = mTestableStreamAbstractionAAMP_MPD->GetMediaStreamContextAt(eMEDIATYPE_VIDEO);
+	ASSERT_NE(videoCtx, nullptr);
+	videoCtx->eos = true;
+	videoCtx->enabled = true;
+
+	mPrivateInstanceAAMP->rate = 4.0f;
+	int periodBefore = mTestableStreamAbstractionAAMP_MPD->GetCurrentPeriodIdx();
+	bool transitioned = mTestableStreamAbstractionAAMP_MPD->InvokeHandleSeekEOSAndPeriodTransition(0.0, false);
+
+	EXPECT_FALSE(transitioned);
+	EXPECT_EQ(mTestableStreamAbstractionAAMP_MPD->GetCurrentPeriodIdx(), periodBefore);
+}
+
+/**
+ * @brief With AAMP TSB, iframe adaptations are not used for trick play, so
+ * HandleSeekEOSAndPeriodTransition must move to the next period even at a trick play rate.
+ */
+TEST_F(FetcherLoopTests, HandleSeekEOS_TrickPlayWithAampTsb_PeriodTransition)
+{
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _))
+		.WillRepeatedly(Return(true));
+
+	EXPECT_EQ(InitializeMPD(kTwoPeriodNoIframeManifest), eAAMPSTATUS_OK);
+
+	MediaStreamContext *videoCtx = mTestableStreamAbstractionAAMP_MPD->GetMediaStreamContextAt(eMEDIATYPE_VIDEO);
+	ASSERT_NE(videoCtx, nullptr);
+	videoCtx->eos = true;
+	videoCtx->enabled = true;
+
+	mPrivateInstanceAAMP->SetLocalAAMPTsb(true);
+	mPrivateInstanceAAMP->rate = 4.0f;
+	// mPlayRate stays at the rate used at construction under AAMP TSB; only aamp->rate follows trick play
+	mTestableStreamAbstractionAAMP_MPD->SetPlayRate(AAMP_NORMAL_PLAY_RATE);
+	bool transitioned = mTestableStreamAbstractionAAMP_MPD->InvokeHandleSeekEOSAndPeriodTransition(0.0, false);
+
+	EXPECT_TRUE(transitioned);
+	EXPECT_EQ(mTestableStreamAbstractionAAMP_MPD->GetCurrentPeriodIdx(), 1);
+}
+
+/**
  * @brief SeekInPeriod must not let the subtitle track's SkipFragments
  * return value overwrite the A/V remaining-seek that drives period transition.
  *

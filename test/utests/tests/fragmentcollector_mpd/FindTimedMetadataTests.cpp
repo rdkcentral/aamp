@@ -189,6 +189,7 @@ public:
         mManifest = manifest;
 
         /* Create MPD instance. */
+        mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
         mStreamAbstractionAAMP_MPD = new TestableStreamAbstractionAAMP_MPD(mPrivateInstanceAAMP);
         EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Return(true));
         ResetCDAIAdObject();
@@ -487,6 +488,8 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
     InitializeMPD(manifest);
     mStreamAbstractionAAMP_MPD->SetIsLiveManifest(true);
     EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableSCTE35PresentationTime)).WillRepeatedly(Return(false));
+    // ShouldCheckOnlyIframeAdaptation() checks whether VOD iframe synthesis is enabled
+    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_SynthesizeIframeForVOD)).WillRepeatedly(Return(false));
 
     auto mpdHelper = std::make_shared<AampMPDParseHelper>();
     mStreamAbstractionAAMP_MPD->SetMPDParseHelper(mpdHelper);
