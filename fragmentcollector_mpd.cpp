@@ -9793,10 +9793,13 @@ void StreamAbstractionAAMP_MPD::UpdatePtsOffset(bool isNewPeriod)
 
 	IPeriod *period = mCurrentPeriod;
 	GetStartAndDurationForPtsRestamping(timelineStart, duration);
+	// avlog: the duration came from GetPeriodDuration(), not from the two timelines
+	const bool avlogFallback = (mAvlogAudioDuration == 0.0) || (mAvlogVideoDuration == 0.0);
 
 	if (isNewPeriod)
 	{
 		const AampTime avlogPrevOffset = mPTSOffset;
+		AampTime avlogShortAdAdjust {0};
 
 		if (mShortAdOffsetCalc && mMediaStreamContext[eMEDIATYPE_VIDEO])
 		{
@@ -9818,6 +9821,7 @@ void StreamAbstractionAAMP_MPD::UpdatePtsOffset(bool isNewPeriod)
 			AampTime newStart = std::max(audioStart, videoStart);
 
 			mNextPts += timelineStart - newStart;
+			avlogShortAdAdjust = timelineStart - newStart;
 			AAMPLOG_INFO("newStart %f timelineStart %f", newStart.inSeconds(), timelineStart.inSeconds());
 		}
 		mPTSOffset += mNextPts - timelineStart;
@@ -9832,9 +9836,20 @@ void StreamAbstractionAAMP_MPD::UpdatePtsOffset(bool isNewPeriod)
 						AvlogInAdBreak(),
 						mCdaiObject && mCdaiObject->mAdState == AdState::IN_ADBREAK_AD_PLAYING,
 						AvlogUnmarkedAd());
+		// avlog: what the step was calculated from
+		AampAvlogRestampIn(mCurrentPeriodIdx, mAvlogRestampInFlags, mNextPts.inSeconds(),
+						mAvlogPrevAudioStart.inSeconds(), mAvlogPrevVideoStart.inSeconds(),
+						mAvlogPrevAudioDuration.inSeconds(), mAvlogPrevVideoDuration.inSeconds(),
+						avlogShortAdAdjust.inSeconds());
 	}
 
 	mNextPts = duration + timelineStart;
+	// avlog: remember what mNextPts was built from, for AAMP_RESTAMP_IN at the next period
+	mAvlogPrevAudioStart = mAvlogAudioStart;
+	mAvlogPrevVideoStart = mAvlogVideoStart;
+	mAvlogPrevAudioDuration = mAvlogAudioDuration;
+	mAvlogPrevVideoDuration = mAvlogVideoDuration;
+	mAvlogRestampInFlags = avlogFallback ? AAMP_AVLOG_RIN_FALLBACK : 0u;
 }
 
 /**
@@ -9898,6 +9913,7 @@ void StreamAbstractionAAMP_MPD::RestorePtsOffsetCalculation(void)
 	AAMPLOG_INFO("Idx %d Id %s restoring mNextPts from %f to %f",
 				mCurrentPeriodIdx, period->GetId().c_str(), mNextPts.inSeconds(), (mNextPts.inSeconds() - duration.inSeconds()));
 	mNextPts -= duration;
+	mAvlogRestampInFlags |= AAMP_AVLOG_RIN_RESTORED;	// avlog
 }
 
 /*
@@ -9921,6 +9937,7 @@ void StreamAbstractionAAMP_MPD::AdjustPtsOffsetAfterAdCancellation(void)
 	AAMPLOG_INFO("Idx %d Id %s Adjusting mNextPts from %f to %f",
 				 mCurrentPeriodIdx, mCurrentPeriod->GetId().c_str(), mNextPts.inSeconds(), (mNextPts.inSeconds() + duration.inSeconds()));
 	mNextPts += duration;
+	mAvlogRestampInFlags |= AAMP_AVLOG_RIN_AD_CANCELLED;	// avlog
 }
 
 /**

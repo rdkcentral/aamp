@@ -1353,6 +1353,11 @@ protected:
 	AampTime mAvlogVideoStart;
 	AampTime mAvlogAudioDuration;
 	AampTime mAvlogVideoDuration;
+	AampTime mAvlogPrevAudioStart;	/**< avlog: per-track start/duration mNextPts was last built from (previous period, last refresh) */
+	AampTime mAvlogPrevVideoStart;
+	AampTime mAvlogPrevAudioDuration;
+	AampTime mAvlogPrevVideoDuration;
+	uint32_t mAvlogRestampInFlags = 0;	/**< avlog: AAMP_AVLOG_RIN_* corrections applied to mNextPts since the last period */
 	std::vector<std::unique_ptr<aamp::AampTrackWorker>> mTrackWorkers;	/**< Track workers for fetching fragments*/
 	bool mIsFinalFirstPTS; /**< Flag to indicate if the first PTS is final or not */
 };

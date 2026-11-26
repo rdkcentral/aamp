@@ -34,7 +34,10 @@
  *   AAMP_TUNE     PrivateInstanceAAMP::TuneHelper: every tune, retune and seek, before the
  *                 pipeline is torn down. User id 6, layout below. Never arms (the restamps
  *                 of the new stream do).
- * AAMP_PERIOD, AAMP_AD, AAMP_BITRATE and AAMP_TUNE use the HAL's generic avlog_hal_write(); with an older HAL
+ *   AAMP_RESTAMP_IN  StreamAbstractionAAMP_MPD::UpdatePtsOffset at every new DASH period, right
+ *                 after AAMP_PERIOD: what the offset step was calculated from. User id 7, layout
+ *                 below. Never arms.
+ * AAMP_PERIOD, AAMP_AD, AAMP_BITRATE, AAMP_TUNE and AAMP_RESTAMP_IN use the HAL's generic avlog_hal_write(); with an older HAL
  * without it they are skipped and JUMP/RESTAMP still work.
  * A failed write is reported once per process on stderr (AAMP log).
  * adPlaying / the PERIOD AD_PLAYING bit = "in an ad break": the period carries a timed SCTE35
@@ -67,6 +70,7 @@
 #define AAMP_AVLOG_USER_AD       4u
 #define AAMP_AVLOG_USER_BITRATE  5u
 #define AAMP_AVLOG_USER_TUNE     6u
+#define AAMP_AVLOG_USER_RESTAMP_IN 7u
 #define AAMP_AVLOG_MEDIA_ANY     0u
 #define AAMP_AVLOG_MEDIA_VIDEO   1u
 #define AAMP_AVLOG_MEDIA_AUDIO   2u
@@ -76,6 +80,10 @@
 #define AAMP_AVLOG_PERIOD_DAI_AD     (1u << 16)   /* replaced ad (CDAI IN_ADBREAK_AD_PLAYING) */
 #define AAMP_AVLOG_PERIOD_AD_PLAYING (1u << 17)   /* in an ad break (own or replaced ads) */
 #define AAMP_AVLOG_PERIOD_INFERRED   (1u << 18)   /* ad_playing inferred from the announced break time (no own event) */
+/* AAMP_RESTAMP_IN word 4, above the period index (bits 0-15) */
+#define AAMP_AVLOG_RIN_FALLBACK      (1u << 16)   /* previous period: no timeline duration, GetPeriodDuration() used */
+#define AAMP_AVLOG_RIN_RESTORED      (1u << 17)   /* mNextPts stepped back by RestorePtsOffsetCalculation (ad failed) */
+#define AAMP_AVLOG_RIN_AD_CANCELLED  (1u << 18)   /* mNextPts re-aligned by AdjustPtsOffsetAfterAdCancellation */
 /* a period starting this close to the announced end of the break (or later) is the programme */
 #define AAMP_AVLOG_BREAK_END_MS  3000LL
 #define AAMP_AVLOG_AD_BREAK      1u
@@ -173,6 +181,13 @@ static inline uint32_t AampAvlogU32(long long v)
     return v < 0 ? 0u : v > 0xFFFFFFFFLL ? 0xFFFFFFFFu : static_cast<uint32_t>(v);
 }
 
+static inline uint32_t AampAvlogS32(long long v)
+{
+    if (v > INT32_MAX) v = INT32_MAX;
+    if (v < INT32_MIN) v = INT32_MIN;
+    return static_cast<uint32_t>(static_cast<int32_t>(v));
+}
+
 /* HandleFragmentPositionJump: called for every fragment; records a real non-zero delta */
 static inline void AampAvlogPositionJump(int trackType, double positionDelta,
                                          double lastInjectedDuration, double absPosition,
@@ -256,6 +271,42 @@ static inline void AampAvlogPeriod(int periodIdx, const std::string &periodId,
     if (stepUs < INT32_MIN) stepUs = INT32_MIN;
     w[12] = static_cast<uint32_t>(static_cast<int32_t>(stepUs));
     AampAvlogCheck(hal->write(w), "AAMP_PERIOD");
+}
+
+/* UpdatePtsOffset at a new period, after AAMP_PERIOD: the inputs of the offset step.
+ * AAMP uses one offset for all tracks:
+ *     step     = mNextPts - min(audio start, video start) of the new period
+ *     mNextPts = min(audio start, video start) + max(audio duration, video duration) of the
+ *                previous period at its last manifest refresh, plus the corrections below
+ * payload words: 0 type, 1 user (7), 2 media (any), 3 flags (0),
+ * 4 period index (bits 0-15) | AAMP_AVLOG_RIN_* (bits 16-18),
+ * 5 previous period video start - audio start, us (signed),
+ * 6/7 mNextPts used for this period, us (0 at a tune),
+ * 8/9 previous period audio start, us,
+ * 10 previous period audio duration, us, 11 previous period video duration, us,
+ * 12 short-ad correction added to mNextPts, us (signed; 0 = none) */
+static inline void AampAvlogRestampIn(int periodIdx, uint32_t rinFlags, double nextPts,
+                                      double prevAudioStart, double prevVideoStart,
+                                      double prevAudioDuration, double prevVideoDuration,
+                                      double shortAdAdjust)
+{
+    AampAvlogHal *hal = AampAvlogGet();
+    if (!hal || !hal->write)
+        return;
+    uint32_t w[AAMP_AVLOG_PAYLOAD_WORDS] = {};
+    w[0] = AAMP_AVLOG_TYPE_USER;
+    w[1] = AAMP_AVLOG_USER_RESTAMP_IN;
+    w[2] = AAMP_AVLOG_MEDIA_ANY;
+    w[3] = 0;                                   /* never arms */
+    w[4] = (static_cast<uint32_t>(periodIdx) & AAMP_AVLOG_PERIOD_IDX_MASK) |
+           (rinFlags & ~AAMP_AVLOG_PERIOD_IDX_MASK);
+    w[5] = AampAvlogS32(AampAvlogUs(prevVideoStart) - AampAvlogUs(prevAudioStart));
+    AampAvlogPut64(&w[6], AampAvlogUs(nextPts));
+    AampAvlogPut64(&w[8], AampAvlogUs(prevAudioStart));
+    w[10] = AampAvlogU32(AampAvlogUs(prevAudioDuration));
+    w[11] = AampAvlogU32(AampAvlogUs(prevVideoDuration));
+    w[12] = AampAvlogS32(AampAvlogUs(shortAdAdjust));
+    AampAvlogCheck(hal->write(w), "AAMP_RESTAMP_IN");
 }
 
 /* FoundEventBreak: struct avlog_aamp_ad */
