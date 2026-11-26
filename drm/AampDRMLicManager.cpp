@@ -116,7 +116,7 @@ AampDRMLicenseManager::AampDRMLicenseManager(int maxDrmSessions, PrivateInstance
 {
     aampInstance = aamp; 
 	std::function<void(const std::string&,uint32_t,const std::string&)> waterMarkSessionUpdateCB = std::bind(&PrivateInstanceAAMP::SendWatermarkSessionUpdateEvent, aampInstance, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
-    mDrmSessionManager = new DrmSessionManager(maxDrmSessions, aampInstance, std::move(waterMarkSessionUpdateCB), std::move(creator));
+    mDrmSessionManager = new DrmSessionManager(maxDrmSessions, aampInstance, std::move(waterMarkSessionUpdateCB));
 	AAMPLOG_DEBUG("[SessionIdString] AAMP registered MPI watermark callback with string sessionHandle");
     registerCb(this, mDrmSessionManager);
     getConfigs(mDrmSessionManager, aampInstance);

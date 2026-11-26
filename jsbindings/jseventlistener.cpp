@@ -1528,7 +1528,7 @@ public:
 		AAMPLOG_DEBUG("[SessionIdString] AAMP JS watermark event sessionHandle='%s' type=string status=%u",
 			evt->getSessionHandle().c_str(), evt->getStatus());
 		prop = JSStringCreateWithUTF8CString("sessionHandle");
-                JSObjectSetProperty(mContext, jsEventObj, prop, aamp_CStringToJSValue(mContext, evt->getSessionHandle().c_str()), kJSPropertyAttributeReadOnly, NULL);
+                JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, aamp_CStringToJSValue(p_obj->_ctx, evt->getSessionHandle().c_str()), kJSPropertyAttributeReadOnly, NULL);
                 JSStringRelease(prop);
 
 		prop = JSStringCreateWithUTF8CString("status");
