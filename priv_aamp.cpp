@@ -2354,8 +2354,8 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 		{
 			// Check the rate so that PlayFromTsbStart() is not called more than once
 //add a debug log here 
-			AAMPLOG_WARN("PrivateInstanceAAMP:vk::1 reachedStart=%d, rate=%f, state=%d", reachedStart, rate, GetState());
-			if (rate < AAMP_RATE_PAUSE && GetState() != eSTATE_RELEASED)
+			AAMPLOG_WARN("PrivateInstanceAAMP:vk::1 reachedStart=%d, rate=%f, state=%d", reachedStart, rate, (int)mEventManager->GetPlayerState());
+			if (rate < AAMP_RATE_PAUSE && mEventManager->GetPlayerState() != eSTATE_RELEASED)
 			{
 				PlayFromTsbStart();
 			}
