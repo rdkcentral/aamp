@@ -592,7 +592,7 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 		case AAMP_EVENT_WATERMARK_SESSION_UPDATE:
 			{
 				WatermarkSessionUpdateEventPtr ev = std::dynamic_pointer_cast<WatermarkSessionUpdateEvent>(e);
-				AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_WATERMARK_SESSION_UPDATE SessionHandle:%d Status:%d System:%s\n" ,ev->getSessionHandle(), ev->getStatus(), ev->getSystem().c_str());
+				AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_WATERMARK_SESSION_UPDATE SessionHandle:%s Status:%d System:%s\n" ,ev->getSessionHandle().c_str(), ev->getStatus(), ev->getSystem().c_str());
 				break;
 			}
 		case AAMP_EVENT_BUFFERING_CHANGED:

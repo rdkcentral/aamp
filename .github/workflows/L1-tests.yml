@@ -26,7 +26,9 @@ jobs:
 
       - name: Clone Middleware repo
         run: |
-          git clone -b develop https://github.com/rdkcentral/middleware-player-interface
+          # Use the matching UUID session API until it is available on develop.
+          git clone -b session_str_mpi_1 https://github.com/rdkcentral/middleware-player-interface
+          git -C middleware-player-interface checkout 2d4f1dc02785e1d4f1d2ab0851eca4e7d69bd5af
       # Run L1 tests
       - name: Run unit tests
         working-directory: ./test/utests
