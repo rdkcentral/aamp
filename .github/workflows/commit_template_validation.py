@@ -10,7 +10,7 @@ COMMIT_MESSAGE_FORMAT = '''
 RDKDEV-1234 : Fixes code download failure to set-top via IP download
 
 Reason for change: Enable capabilities for IPV6 connections .
-Test Procedure: https://ccp.sys.comcast.net/browse/STBT-36327?focusedId=18273566
+Test Procedure:Refer ticket
 --------------------------------------------------------------------------------
 '''
 
@@ -61,8 +61,7 @@ def validate_commits(newrev, message):
 # Validate the commit message has a JIRA ticket reference and is not a revert.
 #  In addition, the commit message should have :
 #  1] Synopsis with a Jira ticket reference in first line 
-#  2] Title should not exceed 80 characters
-#  3] Commit message should not contain new line character
+#  2] Commit message should not contain new line character
 #
 # Args:
 #     message (str): The commit message.

@@ -8,7 +8,7 @@ on:
 jobs:
   validate-commit-message:
     name: commit-template-validation
-    runs-on: comcast-ubuntu-latest
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
