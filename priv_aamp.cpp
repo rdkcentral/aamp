@@ -8735,7 +8735,7 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 		if (mpStreamAbstractionAAMP)
 		{
 			//Aborting wait for cached and freeing fragments for all media tracks
-			for (int type = eTRACK_VIDEO; type <= eTRACK_AUX_AUDIO; ++type)
+			for (int type = eTRACK_VIDEO; type <= eTRACK_SUBTITLE; ++type)
 			{
 				MediaTrack* track = mpStreamAbstractionAAMP->GetMediaTrack(static_cast<TrackType>(type));
 				if (track)
