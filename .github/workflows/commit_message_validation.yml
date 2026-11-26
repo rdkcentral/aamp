@@ -17,6 +17,9 @@ jobs:
             ref: ${{ github.event.pull_request.head.sha }}
             
       - name: Executing Validation Script
+        env:
+          NEWREV: ${{ github.event.pull_request.head.sha }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
         run: |
           cd code
-          python3 .github/workflows/commit_template_validation.py --newrev "${{ github.event.pull_request.head.sha }}" --message "${{ github.event.pull_request.title }}"
+          python3 .github/workflows/commit_template_validation.py --newrev "$NEWREV" --message "$PR_TITLE"
