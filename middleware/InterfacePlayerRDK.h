@@ -705,10 +705,11 @@ class InterfacePlayerRDK
         	 * @param[in] position The position to flush to, in seconds.
         	 * @param[in] rate The playback rate.
         	 * @param[in] shouldTearDown Whether to tear down the pipeline.
+	 * @param[in] isEarlyNewTune Whether this is an early flush for a new tune.
         	 * @param[in] GstState The desired GStreamer pipeline state.
         	 * @param[in] gstMediaFormat The media format for the pipeline.
         	 */
-        	bool Flush(double position, int rate, bool shouldTearDown, bool isAppSeek);
+	bool Flush(double position, int rate, bool shouldTearDown, bool isAppSeek, bool isEarlyNewTune);
         	/**
         	 * @fn TimerAdd
         	 * @param[in] funcPtr function to execute on timer expiry

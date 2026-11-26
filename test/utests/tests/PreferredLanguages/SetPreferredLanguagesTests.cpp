@@ -117,7 +117,7 @@ TEST_F(SetPreferredLanguagesTests, LanguageListTest1)
 	 */
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.Times(0);
-	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_))
+	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_,_))
 		.Times(0);
 	
 	mPrivateInstanceAAMP->SetPreferredLanguages("lang0", NULL, NULL, NULL, NULL);
@@ -150,7 +150,7 @@ TEST_F(SetPreferredLanguagesTests, LanguageListTest2)
 		.WillOnce(ReturnRef(tracks));
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredLanguagesTests::Stop));
-	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_))
+	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_,_))
 		.Times(1);
 	
 	mPrivateInstanceAAMP->SetPreferredLanguages("lang1", NULL, NULL, NULL, NULL);
@@ -184,7 +184,7 @@ TEST_F(SetPreferredLanguagesTests, LanguageListTest3)
 		.WillOnce(ReturnRef(tracks));
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredLanguagesTests::Stop));
-	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_))
+	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_,_))
 		.Times(1);
 	
 	mPrivateInstanceAAMP->SetPreferredLanguages("lang0,lang2", NULL, NULL, NULL, NULL);
@@ -218,7 +218,7 @@ TEST_F(SetPreferredLanguagesTests, LanguageListTest4)
 		.WillOnce(ReturnRef(tracks));
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.Times(0);
-	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_))
+	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_,_))
 		.Times(0);
 
 	mPrivateInstanceAAMP->SetPreferredLanguages("lang2", NULL, NULL, NULL, NULL);
@@ -251,7 +251,7 @@ TEST_F(SetPreferredLanguagesTests, LanguageListTest5)
 		.WillOnce(ReturnRef(tracks));
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredLanguagesTests::Stop));
-	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_))
+	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_,_))
 		.Times(1);
 	
 	mPrivateInstanceAAMP->SetPreferredLanguages("{\"languages\":\"lang1\"}", NULL, NULL, NULL, NULL);
@@ -280,7 +280,7 @@ TEST_F(SetPreferredLanguagesTests, LanguageListTest6)
 		.Times(0);
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.Times(0);
-	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_))
+	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_,_))
 		.Times(0);
 
 	mPrivateInstanceAAMP->SetPreferredLanguages("{\"languages\":[\"lang0\",\"lang1\"]}", NULL, NULL, NULL, NULL);
@@ -316,7 +316,7 @@ TEST_F(SetPreferredLanguagesTests, LanguageListTest7)
 		.WillOnce(ReturnRef(tracks));
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredLanguagesTests::Stop));
-	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_))
+	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_,_))
 		.Times(1);
 	
 	mPrivateInstanceAAMP->SetPreferredLanguages("lang1", NULL, NULL, NULL, NULL);
@@ -356,7 +356,7 @@ TEST_F(SetPreferredLanguagesTests, LanguageListTest8)
 		.WillOnce(ReturnRef(tracks));
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredLanguagesTests::Stop));
-	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_))
+	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_,_))
 		.Times(1);
 	
 	mPrivateInstanceAAMP->SetPreferredLanguages("lang1", NULL, NULL, NULL, NULL);

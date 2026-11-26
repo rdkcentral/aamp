@@ -1689,7 +1689,7 @@ bool InterfacePlayerRDK::IsUsingRialtoSink()
 /**
  *  @brief Flush cached GstBuffers and set seek position & rate
  */
-bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, bool isAppSeek)
+bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, bool isAppSeek, bool isEarlyNewTune)
 {
 	PI_PLAYER_PROFILE_SCOPE("player_flush");
 	const gint64 flushStartUs = g_get_monotonic_time();
@@ -1711,22 +1711,22 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 		const char *seekResult = !pipelineSeekRan ? "not-run" : (seekSucceeded ? "success" : "failure");
 		MW_LOG_MIL("InterfacePlayerRDK: Flush exit elapsed_ms=%" G_GINT64_FORMAT
 				   " outcome=%s result=%d current=%s pending=%s pipelineSeek=%s"
-				   " position=%f rate=%d playRate=%f shouldTearDown=%d isAppSeek=%d"
+				   " position=%f rate=%d playRate=%f shouldTearDown=%d isAppSeek=%d isEarlyNewTune=%d"
 				   " usingRialtoSink=%d bAsyncModify=%d videoPendingSeek=%d audioPendingSeek=%d",
 				   (g_get_monotonic_time() - flushStartUs) / G_TIME_SPAN_MILLISECOND,
 				   outcome, result, currentState, pendingState, seekResult, position, rate,
-				   playRate, shouldTearDown, isAppSeek, interfacePlayerPriv->gstPrivateContext->usingRialtoSink,
+				   playRate, shouldTearDown, isAppSeek, isEarlyNewTune, interfacePlayerPriv->gstPrivateContext->usingRialtoSink,
 				   bAsyncModify, interfacePlayerPriv->gstPrivateContext->stream[eGST_MEDIATYPE_VIDEO].pendingSeek,
 				   interfacePlayerPriv->gstPrivateContext->stream[eGST_MEDIATYPE_AUDIO].pendingSeek);
 		return result;
 	};
 	GstElement *pipelineAtEntry = interfacePlayerPriv->gstPrivateContext->pipeline;
 	MW_LOG_MIL("InterfacePlayerRDK: Flush entry elapsed_ms=0 current=%s pending=%s position=%f rate=%d"
-			   " shouldTearDown=%d isAppSeek=%d usingRialtoSink=%d seekFlags=GST_SEEK_FLAG_FLUSH"
+			   " shouldTearDown=%d isAppSeek=%d isEarlyNewTune=%d usingRialtoSink=%d seekFlags=GST_SEEK_FLAG_FLUSH"
 			   " videoPendingSeek=%d audioPendingSeek=%d",
 			   pipelineAtEntry ? gst_element_state_get_name(GST_STATE(pipelineAtEntry)) : "NULL",
 			   pipelineAtEntry ? gst_element_state_get_name(GST_STATE_PENDING(pipelineAtEntry)) : "NULL",
-			   position, rate, shouldTearDown, isAppSeek, interfacePlayerPriv->gstPrivateContext->usingRialtoSink,
+			   position, rate, shouldTearDown, isAppSeek, isEarlyNewTune, interfacePlayerPriv->gstPrivateContext->usingRialtoSink,
 			   interfacePlayerPriv->gstPrivateContext->stream[eGST_MEDIATYPE_VIDEO].pendingSeek,
 			   interfacePlayerPriv->gstPrivateContext->stream[eGST_MEDIATYPE_AUDIO].pendingSeek);
 	interfacePlayerPriv->gstPrivateContext->rate = rate;
@@ -1762,6 +1762,11 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 	{
 		MW_LOG_WARN("InterfacePlayerRDK: Pipeline is NULL");
 		return logFlushExit("pipeline-null", false);
+	}
+	if (isEarlyNewTune && interfacePlayerPriv->gstPrivateContext->usingRialtoSink)
+	{
+		MW_LOG_MIL("InterfacePlayerRDK: Deferring Rialto early-new-tune flush to per-stream source seeks");
+		return logFlushExit("early-new-tune-deferred", true);
 	}
 	if (!interfacePlayerPriv->gstPrivateContext->usingRialtoSink)
 	{

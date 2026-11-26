@@ -166,8 +166,9 @@ public:
 		 * @param[in] position playback seek position
 		 * @param[in] rate playback rate
 		 * @param[in] shouldTearDown flag indicates if pipeline should be destroyed if in invalid state
+		 * @param[in] isEarlyNewTune flag indicates an early flush for a new tune
 		 */
-	void Flush(double position, int rate, bool shouldTearDown) override;
+	void Flush(double position, int rate, bool shouldTearDown, bool isEarlyNewTune) override;
 	/**
 		 * @fn Pause
 		 * @param[in] pause flag to pause/play the pipeline

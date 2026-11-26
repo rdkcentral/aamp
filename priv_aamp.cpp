@@ -3294,7 +3294,7 @@ bool PrivateInstanceAAMP::ProcessPendingDiscontinuity()
 					{
 						profiler.ProfileBegin(PROFILE_BUCKET_DISCO_FLUSH);
 					}
-					sink->Flush(mpStreamAbstractionAAMP->GetFirstPTS(), rate, false);
+					sink->Flush(mpStreamAbstractionAAMP->GetFirstPTS(), rate, false, false);
 					if(mDiscontinuityFound)
 					{
 						profiler.ProfileEnd(PROFILE_BUCKET_DISCO_FLUSH);
@@ -5062,7 +5062,7 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 				StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 				if (sink)
 				{
-					sink->Flush(0, rate);
+					sink->Flush(0, rate, true, false);
 				}
 			}
 		}
@@ -5812,7 +5812,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 				// shouldTearDown is set to false, because in case of a new tune pipeline
 				// might not be in a playing/paused state which causes Flush() to destroy
 				// pipeline. This has to be avoided.
-				sink->Flush(flushPosition, rate, false);
+				sink->Flush(flushPosition, rate, false, newTune);
 			}
 		}
 
