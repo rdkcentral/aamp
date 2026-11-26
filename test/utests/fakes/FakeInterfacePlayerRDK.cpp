@@ -42,7 +42,6 @@ InterfacePlayerRDK::InterfacePlayerRDK(bool /*isRialto*/)
 	, mPauseInjector(false)
 	, mResumeInjector(false)
 	, PipelineSetToReady(false)
-	, mSchedulerStarted(false)
 	, interfacePlayerPriv(nullptr)
 {
 }
