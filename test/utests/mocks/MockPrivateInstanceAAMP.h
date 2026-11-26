@@ -81,6 +81,8 @@ public:
 	MOCK_METHOD(void, DisableDownloads, ());
 	MOCK_METHOD(void, ApplyPausedDownloadPolicy, ());
 	MOCK_METHOD(void, TuneHelper, (TuneType tuneType, bool seekWhilePaused));
+	MOCK_METHOD(void, enableEventProcessing, ());
+	MOCK_METHOD(void, disableEventProcessing, ());
 	MOCK_METHOD(AampTSBSessionManager*, GetTSBSessionManager, ());
 	MOCK_METHOD(void, NotifyOnEnteringLive, ());
 	MOCK_METHOD(void, SendAdPlacementEvent, (AAMPEventType, const std::string &, uint32_t, uint64_t, uint32_t, uint32_t, bool, long));

@@ -115,6 +115,20 @@ void AampEventManager::FlushPendingEvents()
 }
 
 /**
+ * @brief CountEventListeners - Count listeners registered for a given event type.
+ *        Caller must hold mMutexVar before calling this.
+ */
+int AampEventManager::CountEventListeners(AAMPEventType eventType)
+{
+	int count = 0;
+	for (ListenerData* p = mEventListeners[eventType]; p != NULL; p = p->pNext)
+	{
+		count++;
+	}
+	return count;
+}
+
+/**
  * @brief AddListenerForAllEvents - Register one listener for all events
  */ 
 void AampEventManager::AddListenerForAllEvents(EventListener* eventListener)
@@ -155,16 +169,18 @@ void AampEventManager::RemoveListenerForAllEvents(EventListener* eventListener)
  */
 void AampEventManager::AddEventListener(AAMPEventType eventType, std::shared_ptr<EventListener>& eventListener)
 {
+	UsingPlayerId playerId(mPlayerId);
 	if ((eventListener != NULL) && (eventType >= AAMP_EVENT_ALL_EVENTS) && (eventType < AAMP_MAX_NUM_EVENTS))
 	{
 		ListenerData* pListener = new ListenerData;
 		if (pListener)
 		{
-			AAMPLOG_INFO("EventType:%d, Listener %p new %p", eventType, eventListener.get(), pListener);
 			std::lock_guard<std::mutex> guard(mMutexVar);
 			pListener->eventListener = eventListener;
 			pListener->pNext = mEventListeners[eventType];
 			mEventListeners[eventType] = pListener;
+			AAMPLOG_MIL("EventType:%d, Listener %p new %p registered, listeners for this type now=%d (playerState=%d)",
+				eventType, eventListener.get(), pListener, CountEventListeners(eventType), (int)mPlayerState);
 		}
 	}
 	else
@@ -178,6 +194,7 @@ void AampEventManager::AddEventListener(AAMPEventType eventType, std::shared_ptr
  */
 void AampEventManager::RemoveEventListener(AAMPEventType eventType, std::shared_ptr<EventListener>& eventListener)
 {
+	UsingPlayerId playerId(mPlayerId);
 	// listener instance is cleared here , but created outside
 	if ((eventListener != NULL) && (eventType >= AAMP_EVENT_ALL_EVENTS) && (eventType < AAMP_MAX_NUM_EVENTS))
 	{
@@ -189,7 +206,9 @@ void AampEventManager::RemoveEventListener(AAMPEventType eventType, std::shared_
 			if (pListener->eventListener == eventListener)
 			{
 				*ppLast = pListener->pNext;
-				AAMPLOG_INFO("Eventtype:%d %p delete %p use_count = %d", eventType, eventListener.get(), pListener, (int)eventListener.use_count());
+				AAMPLOG_MIL("Eventtype:%d %p delete %p use_count = %d, listeners remaining for this type=%d (playerState=%d)",
+					eventType, eventListener.get(), pListener, (int)eventListener.use_count(),
+					CountEventListeners(eventType), (int)mPlayerState);
 				SAFE_DELETE(pListener);
 				return;
 			}

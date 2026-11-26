@@ -709,10 +709,6 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 
 		if (aamp->mpStreamAbstractionAAMP && !(aamp->mbUsingExternalPlayer))
 		{
-			if (aamp->mbDetached)
-			{
-				aamp->enableEventProcessing();
-			}
 			if ( AAMP_SLOWMOTION_RATE != rate && !aamp->mIsIframeTrackPresent && rate != AAMP_NORMAL_PLAY_RATE && rate != 0 && aamp->mMediaFormat != eMEDIAFORMAT_PROGRESSIVE)
 			{
 				AAMPLOG_WARN("Ignoring trickplay. No iframe tracks in stream");
@@ -734,6 +730,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 			if(!(aamp->mbPlayEnabled) && aamp->pipeline_paused && (AAMP_RATE_PAUSE != rate) && (aamp->mbSeeked || !aamp->mbDetached))
 			{
 				AAMPLOG_WARN("PLAYER[%d] Player %s=>%s.", aamp->mPlayerId, STRBGPLAYER, STRFGPLAYER );
+				aamp->enableEventProcessing();
 				aamp->mbPlayEnabled = true;
 				if (AAMP_NORMAL_PLAY_RATE == rate)
 				{
@@ -1009,6 +1006,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 			{
 				//Enable playback if setRate call after detach
 				if(aamp->mbDetached){
+					aamp->enableEventProcessing();
 					aamp->mbPlayEnabled = true;
 				}
 

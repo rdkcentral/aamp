@@ -260,10 +260,18 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 
 void PrivateInstanceAAMP::enableEventProcessing()
 {
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		g_mockPrivateInstanceAAMP->enableEventProcessing();
+	}
 }
 
 void PrivateInstanceAAMP::disableEventProcessing()
 {
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		g_mockPrivateInstanceAAMP->disableEventProcessing();
+	}
 }
 
 void PrivateInstanceAAMP::detach()

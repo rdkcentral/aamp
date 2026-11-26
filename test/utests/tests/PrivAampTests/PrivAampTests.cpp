@@ -1363,6 +1363,59 @@ TEST_F(PrivAampTests, MonitorProgressBeginningOfTSBDetected)
 }
 
 /**
+ * @brief Regression test: MonitorProgress() must not call PlayFromTsbStart()
+ * while the instance is detached.
+ *
+ * Previously, reaching the beginning of the TSB on a just-detached instance
+ * (mbDetached=true) would still invoke PlayFromTsbStart() -> TuneHelper(),
+ * which prematurely reset mbDetached to false before the real reattach
+ * Seek() ever ran. That left the event manager stuck in a released state,
+ * so events (e.g. Progress) were dropped forever after the instance was
+ * later brought back to foreground. Guarding the call with !mbDetached
+ * fixes this; this test verifies PlayFromTsbStart()'s effects (rate reset,
+ * SpeedChanged event) do not happen while detached.
+ */
+TEST_F(PrivAampTests, MonitorProgressRewindToBeginningOfTSB_SkipsPlayFromTsbStart_WhenDetached)
+{
+	constexpr double REWIND_RATE = -4.0;
+	constexpr double CULLED_SECONDS = 10.0;
+	constexpr double DURATION_SECONDS = 100.0;
+
+	// Setup: Configure player for rewind scenario reaching BOS, but detached
+	p_aamp->rate = REWIND_RATE;
+	p_aamp->seek_pos_seconds = 0.0;
+	p_aamp->culledSeconds = CULLED_SECONDS;
+	p_aamp->durationSeconds = DURATION_SECONDS;
+	p_aamp->mDownloadsEnabled = true;
+	p_aamp->pipeline_paused = false;
+	p_aamp->mbDetached = true;
+	p_aamp->SetState(eSTATE_PLAYING);
+	p_aamp->SetLocalAAMPTsb(true);
+	p_aamp->mMediaFormat = eMEDIAFORMAT_DASH;
+
+	// Mock StreamAbstraction - Set it up before calling MonitorProgress
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP_MPD;
+
+	// Setup mocks for the flow
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp)).WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
+
+	// PlayFromTsbStart() must NOT run while detached, so no SpeedChanged event
+	EXPECT_CALL(*g_mockAampEventManager, SendEvent(SpeedChanged(AAMP_NORMAL_PLAY_RATE), _)).Times(0);
+
+	// Call MonitorProgress - position will be less than start (culledSeconds * 1000),
+	// which would normally trigger PlayFromTsbStart(), but mbDetached blocks it.
+	p_aamp->MonitorProgress(true, false);
+
+	// Verify rate was NOT reset to normal play rate - PlayFromTsbStart() was skipped
+	EXPECT_FLOAT_EQ(p_aamp->rate, REWIND_RATE);
+
+	// mbDetached must remain true - TuneHelper()/stream Init() never ran to clear it
+	EXPECT_TRUE(p_aamp->mbDetached);
+}
+
+/**
  * @brief Regression test for VPLAY-13206 / PR #1345.
  *
  * When rewinding reaches BoS during VoD ad playback, JSPP relies on the order
