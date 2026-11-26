@@ -32,17 +32,11 @@ static Configs sDefaultConfigs{};
 static GstPlaybackQualityStruct sPlaybackQuality{};
 
 InterfacePlayerRDK::InterfacePlayerRDK(bool /*isRialto*/)
-	: trickTeardown(false)
-	, m_gstConfigParam(&sDefaultConfigs)
-	, mDrmSystem(nullptr)
-	, mEncrypt(nullptr)
-	, mDRMSessionManager(nullptr)
-	, mProtectionLock()
-	, mFirstFrameRequired(false)
-	, mPauseInjector(false)
-	, mResumeInjector(false)
-	, PipelineSetToReady(false)
-	, interfacePlayerPriv(nullptr)
+	// Only members read by the fake or by AAMP are initialised, so that a
+	// middleware change to other members cannot break the fake.
+	: trickTeardown(false) // Returned by GetTrickTeardown()
+	, m_gstConfigParam(&sDefaultConfigs) // Dereferenced by aampgstplayer.cpp
+	, interfacePlayerPriv(nullptr) // Returned by GetPrivatePlayer()
 {
 }
 
@@ -57,9 +51,11 @@ InterfacePlayerPriv* InterfacePlayerRDK::GetPrivatePlayer()
 
 void InterfacePlayerRDK::SetPlayerName(std::string /*name*/) {}
 void InterfacePlayerRDK::SetPreferredDRM(const char* /*drmID*/) {}
+std::string InterfacePlayerRDK::GetPreferredDRM() const { return {}; }
 void InterfacePlayerRDK::setEncryption(void* /*mEncrypt*/, void* /*mDRMSessionManager*/) {}
 void InterfacePlayerRDK::EnableGstDebugLogging(std::string /*debugLevel*/) {}
 
+void InterfacePlayerRDK::ConfigurePipeline(StreamCodecInfo&&, bool, bool, bool, int32_t, gint, const char*, int, bool, std::string, bool) {}
 void InterfacePlayerRDK::ConfigurePipeline(int, int, int, bool, bool, bool, int32_t, gint, const char*, int, bool, std::string, bool) {}
 bool InterfacePlayerRDK::CreatePipeline(const char* /*pipelineName*/, int /*PipelinePriority*/) { return false; }
 void InterfacePlayerRDK::DestroyPipeline() {}
