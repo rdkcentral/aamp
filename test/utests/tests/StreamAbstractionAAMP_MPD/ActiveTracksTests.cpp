@@ -16,6 +16,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <future>
+#include <optional>
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 #include "priv_aamp.h"
@@ -60,8 +62,16 @@ namespace
 	class TrackSelectionMPD : public StreamAbstractionAAMP_MPD
 	{
 	public:
-		TrackSelectionMPD(PrivateInstanceAAMP *aamp, double seekPos, float rate)
-			: StreamAbstractionAAMP_MPD(aamp, seekPos, rate) {}
+		/**
+		 * @param[in] primaryOverride Primary track to report instead of the collector's own choice
+		 */
+		TrackSelectionMPD(PrivateInstanceAAMP *aamp, double seekPos, float rate, std::optional<TrackType> primaryOverride)
+			: StreamAbstractionAAMP_MPD(aamp, seekPos, rate), mPrimaryOverride(primaryOverride) {}
+
+		TrackType GetPrimaryTrackType() const override
+		{
+			return mPrimaryOverride.value_or(StreamAbstractionAAMP_MPD::GetPrimaryTrackType());
+		}
 
 		/** @return the tracks the collector selected for the current period */
 		AampTrackSet PublicActiveTracks() const
@@ -85,9 +95,15 @@ namespace
 		}
 
 		/** @return a held lock on the mutex that UpdateMPD() holds */
-		std::unique_lock<std::recursive_mutex> PublicLockPrimaryMediaStreamContext()
+		std::unique_lock<std::recursive_mutex> PublicLockAbrMediaStreamContext()
 		{
-			return LockPrimaryMediaStreamContext();
+			return LockAbrMediaStreamContext();
+		}
+
+		/** @return the stream context of the primary track */
+		MediaStreamContext *PublicPrimaryMediaStreamContext() const
+		{
+			return PrimaryMediaStreamContext();
 		}
 
 		/** @return the mutex of the stream context for a media type */
@@ -95,6 +111,9 @@ namespace
 		{
 			return mMediaStreamContext[mediaType]->mMediaStreamContextMutex;
 		}
+
+	private:
+		std::optional<TrackType> mPrimaryOverride;
 	};
 
 	/**
@@ -220,7 +239,7 @@ namespace
 			}
 
 			mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
-			mCollector = new TrackSelectionMPD(mPrivateInstanceAAMP, 0.0, AAMP_NORMAL_PLAY_RATE);
+			mCollector = new TrackSelectionMPD(mPrivateInstanceAAMP, 0.0, AAMP_NORMAL_PLAY_RATE, mPrimaryOverride);
 			mCdaiObj = new CDAIObjectMPD(mPrivateInstanceAAMP);
 			mCollector->SetCDAIObject(mCdaiObj);
 			mPrivateInstanceAAMP->SetManifestUrl(TEST_MANIFEST_URL);
@@ -246,6 +265,7 @@ namespace
 		TrackSelectionMPD *mCollector = nullptr;
 		CDAIObject *mCdaiObj = nullptr;
 		const char *mManifest = nullptr;
+		std::optional<TrackType> mPrimaryOverride; ///< Primary track the collector reports; its own choice if empty
 	};
 
 	/** Manifest fragments that ActiveTracksTests combine into one period. */
@@ -338,9 +358,6 @@ namespace
  * Video plus subtitle and audio plus subtitle (no video) are the regression cases: the subtitle
  * slot is not adjacent to the occupied slots, so a count of active tracks cannot express it. Audio
  * plus subtitle is not audio-only, so no swap happens and the video slot stays unused.
- *
- * The primary track is video for every mix, including audio-only, because the audio is carried in
- * the video slot.
  */
 TEST_P(ActiveTracksTests, StreamSelection_TrackMix_ActivatesExpectedTracks)
 {
@@ -384,8 +401,6 @@ TEST_P(ActiveTracksTests, StreamSelection_TrackMix_ActivatesExpectedTracks)
 	EXPECT_EQ(mCollector->PublicGetCurrentMimeType(eMEDIATYPE_VIDEO),
 		std::string{params.expectedVideoSlotMime});
 	EXPECT_EQ(mPrivateInstanceAAMP->mAudioOnlyPb, params.expectAudioOnlyPb);
-	// Audio-only content is carried in the video slot, so video is the primary track for every mix
-	EXPECT_EQ(mCollector->GetPrimaryTrackType(), eTRACK_VIDEO);
 }
 
 INSTANTIATE_TEST_SUITE_P(TrackMixes, ActiveTracksTests,
@@ -473,27 +488,109 @@ namespace
 	}
 }
 
-/**
- * @brief The lock UpdateMPD() takes is the primary context's mutex, held until the returned lock is released.
- *
- * Oracle: while the lock is held no other thread can take the primary context's mutex, and no other
- * context's mutex is affected; once released the mutex is free again. The primary track is video.
- */
-TEST_F(TrackSelectionTests, LockPrimaryMediaStreamContext_Held_BlocksOtherThreadsOnPrimaryMutexOnly)
+namespace
 {
-	const std::string manifest = ManifestFor({"VideoAndAudio", true, true, false, AampTrackSet{}, "", false});
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, _, _, _, _))
-		.WillRepeatedly(Return(true));
-	ASSERT_EQ(InitializeMPD(manifest.c_str()), eAAMPSTATUS_OK);
-	ASSERT_EQ(mCollector->GetPrimaryTrackType(), eTRACK_VIDEO);
-
+	/**
+	 * @brief Initialises the collector on video plus audio with the given track reported as primary.
+	 */
+	class PrimaryTrackTests : public TrackSelectionTests, public ::testing::WithParamInterface<TrackType>
 	{
-		auto lock = mCollector->PublicLockPrimaryMediaStreamContext();
+	public:
+		void SetUp() override
+		{
+			TrackSelectionTests::SetUp();
+			mPrimaryOverride = GetParam();
+			mManifestText = ManifestFor({"VideoAndAudio", true, true, false, AampTrackSet{}, "", false});
+			EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, _, _, _, _))
+				.WillRepeatedly(Return(true));
+			ASSERT_EQ(InitializeMPD(mManifestText.c_str()), eAAMPSTATUS_OK);
+		}
+
+		/** @return the media type of the track that is not primary */
+		static AampMediaType OtherMediaType()
+		{
+			return (GetParam() == eTRACK_VIDEO) ? eMEDIATYPE_AUDIO : eMEDIATYPE_VIDEO;
+		}
+
+		/** @return the media type of the primary track */
+		static AampMediaType PrimaryMediaType()
+		{
+			return static_cast<AampMediaType>(GetParam());
+		}
+
+	private:
+		std::string mManifestText;
+	};
+}
+
+/**
+ * @brief The primary stream context is the one for the reported primary track.
+ *
+ * Oracle: reference reads go through this context, so it must be the context the collector
+ * exposes for the primary track type and not the video slot by default.
+ */
+TEST_P(PrimaryTrackTests, PrimaryMediaStreamContext_ReturnsContextOfPrimaryTrack)
+{
+	EXPECT_EQ(static_cast<MediaTrack *>(mCollector->PublicPrimaryMediaStreamContext()),
+		mCollector->GetMediaTrack(GetParam()));
+}
+
+/**
+ * @brief The lock UpdateMPD() takes is the mutex of the track ABR switches, held until the returned lock is released.
+ *
+ * Oracle: ABR runs on the primary track, so while the lock is held no other thread can take the
+ * primary context's mutex, and the other context's mutex is unaffected; once released the mutex is
+ * free again.
+ */
+TEST_P(PrimaryTrackTests, LockAbrMediaStreamContext_Held_BlocksOtherThreadsOnPrimaryMutexOnly)
+{
+	EXPECT_EQ(mCollector->GetAbrTrackType(), GetParam());
+	{
+		auto lock = mCollector->PublicLockAbrMediaStreamContext();
 
 		EXPECT_TRUE(lock.owns_lock());
-		EXPECT_FALSE(CanLockFromOtherThread(mCollector->PublicContextMutex(eMEDIATYPE_VIDEO)));
-		EXPECT_TRUE(CanLockFromOtherThread(mCollector->PublicContextMutex(eMEDIATYPE_AUDIO)));
+		EXPECT_FALSE(CanLockFromOtherThread(mCollector->PublicContextMutex(PrimaryMediaType())));
+		EXPECT_TRUE(CanLockFromOtherThread(mCollector->PublicContextMutex(OtherMediaType())));
 	}
 
-	EXPECT_TRUE(CanLockFromOtherThread(mCollector->PublicContextMutex(eMEDIATYPE_VIDEO)));
+	EXPECT_TRUE(CanLockFromOtherThread(mCollector->PublicContextMutex(PrimaryMediaType())));
 }
+
+/**
+ * @brief Reading a track's MIME type waits for the lock UpdateMPD() holds.
+ *
+ * Oracle: the read must not overlap a manifest update, so while another thread holds the primary
+ * context's mutex, reading the other track's MIME type does not complete; it completes with that
+ * track's MIME type once the mutex is released.
+ */
+TEST_P(PrimaryTrackTests, GetCurrentMimeType_PrimaryMutexHeldElsewhere_WaitsForRelease)
+{
+	std::recursive_mutex &primaryMutex = mCollector->PublicContextMutex(PrimaryMediaType());
+	std::promise<void> locked;
+	std::promise<void> release;
+	std::thread holder([&primaryMutex, &locked, &release]()
+	{
+		std::lock_guard<std::recursive_mutex> hold(primaryMutex);
+		locked.set_value();
+		release.get_future().wait();
+	});
+	locked.get_future().wait();
+
+	auto mime = std::async(std::launch::async, [this]()
+	{
+		return mCollector->PublicGetCurrentMimeType(OtherMediaType());
+	});
+	// Negative assertion: a read that skips the lock returns at once; scheduler delay can only cause a false pass
+	EXPECT_EQ(mime.wait_for(std::chrono::milliseconds(20)), std::future_status::timeout);
+
+	release.set_value();
+	holder.join();
+	EXPECT_EQ(mime.get(), (OtherMediaType() == eMEDIATYPE_AUDIO) ? "audio/mp4" : "video/mp4");
+}
+
+INSTANTIATE_TEST_SUITE_P(PrimaryTracks, PrimaryTrackTests,
+	::testing::Values(eTRACK_VIDEO, eTRACK_AUDIO),
+	[](const ::testing::TestParamInfo<TrackType> &info)
+	{
+		return std::string{(info.param == eTRACK_VIDEO) ? "Video" : "Audio"};
+	});

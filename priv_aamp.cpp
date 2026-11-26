@@ -11907,6 +11907,7 @@ bool PrivateInstanceAAMP::SetStateBufferingIfRequired()
 	// a download that may never arrive.
 	if(IsFragmentCachingRequired() && mpStreamAbstractionAAMP)
 	{
+		// Initial caching is tracked on the video track (MediaTrack::UpdateTSAfterFetchStats)
 		MediaTrack *video = mpStreamAbstractionAAMP->GetMediaTrack(eTRACK_VIDEO);
 		if(video && video->CompleteInitialCachingIfTargetMet(GetInitialBufferDuration()))
 		{

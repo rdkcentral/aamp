@@ -998,11 +998,27 @@ public:
 	/**
 	 *   @brief Track whose timeline is the reference for position, first PTS and manifest updates
 	 *
+	 *   Fixed for the session. Only the DASH collector overrides it; the other collectors keep video.
+	 *   Code that pairs audio against video (A/V alignment, EOS, muxed checks) reads the video slot directly.
+	 *
 	 *   @return Track type; video unless a derived class reports otherwise
 	 */
 	virtual TrackType GetPrimaryTrackType() const
 	{
 		return eTRACK_VIDEO;
+	}
+
+	/**
+	 *   @brief Track whose profiles ABR selects and whose ABRProfileChanged() is notified
+	 *
+	 *   Always the primary track, so a collector that serialises manifest updates against ABR
+	 *   locks the same context.
+	 *
+	 *   @return Track type
+	 */
+	TrackType GetAbrTrackType() const
+	{
+		return GetPrimaryTrackType();
 	}
 
 	/**

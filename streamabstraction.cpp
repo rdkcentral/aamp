@@ -1869,13 +1869,13 @@ int StreamAbstractionAAMP::GetDesiredProfile(bool getMidProfile)
 			desiredProfileIndex = aamp->mhAbrManager.getInitialProfileIndex(getMidProfile);
 		}
 		profileIdxForBandwidthNotification = desiredProfileIndex;
-		MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
-		if(video)
+		MediaTrack *abrTrack = GetMediaTrack(GetAbrTrackType());
+		if(abrTrack)
 		{
 			StreamInfo* streamInfo = GetStreamInfo(profileIdxForBandwidthNotification);
 			if(streamInfo != NULL)
 			{
-				video->SetCurrentBandWidth( streamInfo->bandwidthBitsPerSecond);
+				abrTrack->SetCurrentBandWidth( streamInfo->bandwidthBitsPerSecond);
 			}
 			else
 			{
@@ -1926,8 +1926,8 @@ void StreamAbstractionAAMP::NotifyBitRateUpdate(int profileIndex, const StreamIn
 			bool lGetBWIndex = false;
 			if(aamp->IsTuneTypeNew && ((cacheFragStreamInfo.bandwidthBitsPerSecond == streamInfo->bandwidthBitsPerSecond) || !aamp->CheckABREnabled()))
 			{
-				MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
-				AAMPLOG_MIL("NotifyBitRateUpdate: Max BitRate: %" BITSPERSECOND_FORMAT ", timetotop: %f", cacheFragStreamInfo.bandwidthBitsPerSecond, video->GetTotalInjectedDuration());
+				MediaTrack *abrTrack = GetMediaTrack(GetAbrTrackType());
+				AAMPLOG_MIL("NotifyBitRateUpdate: Max BitRate: %" BITSPERSECOND_FORMAT ", timetotop: %f", cacheFragStreamInfo.bandwidthBitsPerSecond, abrTrack->GetTotalInjectedDuration());
 				aamp->IsTuneTypeNew = false;
 				lGetBWIndex = true;
 			}
@@ -1997,7 +1997,7 @@ void StreamAbstractionAAMP::UpdateProfileBasedOnFragmentDownloaded(void)
 		// a) Check if network bandwidth changed from starting bw
 		// b) Check if netwwork bandwidth is different from persisted bandwidth( needed for first time reporting)
 		// find the profile for the newbandwidth
-		desiredProfileIndex = GetMediaTrack(eTRACK_VIDEO)->GetProfileIndexForBW(mTsbBandwidth);
+		desiredProfileIndex = GetMediaTrack(GetAbrTrackType())->GetProfileIndexForBW(mTsbBandwidth);
 		mCurrentBandwidth = mTsbBandwidth;
 		StreamInfo* streamInfo = GetStreamInfo(profileIdxForBandwidthNotification);
 		if (profileIdxForBandwidthNotification != desiredProfileIndex)
@@ -2005,7 +2005,7 @@ void StreamAbstractionAAMP::UpdateProfileBasedOnFragmentDownloaded(void)
 			if(streamInfo != NULL)
 			{
 				profileIdxForBandwidthNotification = desiredProfileIndex;
-				GetMediaTrack(eTRACK_VIDEO)->SetCurrentBandWidth( streamInfo->bandwidthBitsPerSecond );
+				GetMediaTrack(GetAbrTrackType())->SetCurrentBandWidth( streamInfo->bandwidthBitsPerSecond );
 				mBitrateReason = eAAMP_BITRATE_CHANGE_BY_FOG_ABR;
 			}
 			else
@@ -2034,9 +2034,9 @@ void StreamAbstractionAAMP::UpdateRampUpOrDownProfileReason(void)
  */
 void StreamAbstractionAAMP::GetDesiredProfileOnBuffer(int currProfileIndex, int &newProfileIndex)
 {
-	MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
+	MediaTrack *abrTrack = GetMediaTrack(GetAbrTrackType());
 
-	double bufferValue = GetBufferValue(video);
+	double bufferValue = GetBufferValue(abrTrack);
 	double minBufferNeeded ;
 	if(bufferValue > 0)
 	{
@@ -2046,7 +2046,7 @@ void StreamAbstractionAAMP::GetDesiredProfileOnBuffer(int currProfileIndex, int 
 		}
 		else
 		{
-			minBufferNeeded = video->fragmentDurationSeconds + aamp->mNetworkTimeoutMs/1000;
+			minBufferNeeded = abrTrack->fragmentDurationSeconds + aamp->mNetworkTimeoutMs/1000;
 		}
 		aamp->mhAbrManager.GetDesiredProfileOnBuffer(currProfileIndex,newProfileIndex,bufferValue,minBufferNeeded);
 	}
@@ -2063,8 +2063,8 @@ void StreamAbstractionAAMP::GetDesiredProfileOnBuffer(int currProfileIndex, int 
  */
 void StreamAbstractionAAMP::GetDesiredProfileOnSteadyState(int currProfileIndex, int &newProfileIndex, long nwBandwidth)
 {
-	MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
-	double bufferValue = GetBufferValue(video);
+	MediaTrack *abrTrack = GetMediaTrack(GetAbrTrackType());
+	double bufferValue = GetBufferValue(abrTrack);
 	//long currBandwidth = GetStreamInfo(currProfileIndex)->bandwidthBitsPerSecond;
 	if(bufferValue > 0 && currProfileIndex == newProfileIndex)
 	{
@@ -2087,7 +2087,7 @@ void StreamAbstractionAAMP::GetDesiredProfileOnSteadyState(int currProfileIndex,
 		// steady state ,with no ABR cache available to determine actual bandwidth
 		// this state can happen due to timeouts
 		// Adding delta check: When bandwidth is higher than currentprofile bandwidth but insufficient to download both audio and video simultaneously, a delta less than 2000 kbps indicates a need for steady state rampdown.
-		if(bufferValue < mABRMinBuffer && !video->IsInjectionAborted())
+		if(bufferValue < mABRMinBuffer && !abrTrack->IsInjectionAborted())
 		{
 			if(aamp->GetLLDashServiceData()->lowLatencyMode || nwBandwidth == -1)
 			{
@@ -2216,11 +2216,11 @@ double StreamAbstractionAAMP::GetBufferValue(MediaTrack *track)
 int StreamAbstractionAAMP::GetDesiredProfileBasedOnCache(void)
 {
 	int desiredProfileIndex = currentProfileIndex;
-	MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
-	if(video != NULL)
+	MediaTrack *abrTrack = GetMediaTrack(GetAbrTrackType());
+	if(abrTrack != NULL)
 	{
-		double bufferValue = GetBufferValue(video);
-		if(aamp->GetLLDashServiceData()->lowLatencyMode && bufferValue < AAMP_LLDABR_MIN_BUFFER_VALUE && !video->IsLocalTSBInjection())
+		double bufferValue = GetBufferValue(abrTrack);
+		if(aamp->GetLLDashServiceData()->lowLatencyMode && bufferValue < AAMP_LLDABR_MIN_BUFFER_VALUE && !abrTrack->IsLocalTSBInjection())
 		{
 			//InsufficientBufferRule: Buffer is empty
 			AAMPLOG_WARN("Switch to index 0; buffer is about to drain :Buffer %lf !!",bufferValue);
@@ -2298,7 +2298,7 @@ int StreamAbstractionAAMP::GetDesiredProfileBasedOnCache(void)
 	}
 	else
 	{
-		AAMPLOG_WARN("video is null");  //CID:84160 - Null Returns
+		AAMPLOG_WARN("ABR track is null");  //CID:84160 - Null Returns
 	}
 	return desiredProfileIndex;
 }
@@ -2310,7 +2310,7 @@ bool StreamAbstractionAAMP::RampDownProfile(int http_error)
 {
 	bool ret = false;
 	int desiredProfileIndex = currentProfileIndex;
-	MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
+	MediaTrack *abrTrack = GetMediaTrack(GetAbrTrackType());
 	if (this->UseIframeTrack())
 	{
 		//We use only second last and lowest profiles for iframes
@@ -2324,9 +2324,9 @@ bool StreamAbstractionAAMP::RampDownProfile(int http_error)
 			AAMPLOG_WARN("lowestIframeProfile Invalid - Stream does not has an iframe track!! ");
 		}
 	}
-	else if (video)
+	else if (abrTrack)
 	{
-		double bufferValue = GetBufferValue(video);
+		double bufferValue = GetBufferValue(abrTrack);
 		if (bufferValue <= 2.0 )
 		{ // panic mode - jump directly to lowest profile
 			AAMPLOG_WARN("rampdown to lowest profile as buffer near zero");
@@ -2383,20 +2383,20 @@ bool StreamAbstractionAAMP::RampDownProfile(int http_error)
 			AAMPLOG_DEBUG(" profileIdxForBandwidthNotification updated to %d ",  profileIdxForBandwidthNotification);
 			ret = true;
 			long newBW = GetStreamInfo(profileIdxForBandwidthNotification)->bandwidthBitsPerSecond;
-			if(video)
+			if(abrTrack)
 			{
-				video->SetCurrentBandWidth( newBW );
+				abrTrack->SetCurrentBandWidth( newBW );
 				aamp->mhAbrManager.ResetCurrentlyAvailableBandwidth();
 				mBitrateReason = eAAMP_BITRATE_CHANGE_BY_RAMPDOWN;
 
 				// Send abr notification
-				video->ABRProfileChanged();
+				abrTrack->ABRProfileChanged();
 				mABRLowBufferCounter = 0 ;
 				mABRHighBufferCounter = 0;
 			}
 			else
 			{
-				AAMPLOG_WARN("Video is null");
+				AAMPLOG_WARN("ABR track is null");
 			}
 		}
 		else
@@ -2506,14 +2506,14 @@ void StreamAbstractionAAMP::CheckForProfileChange(void)
 
 		case ABRMode::ABR_MANAGER:
 		{
-			MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
-			if(video != NULL)
+			MediaTrack *abrTrack = GetMediaTrack(GetAbrTrackType());
+			if(abrTrack != NULL)
 			{
 				UpdateProfileBasedOnFragmentCache();
 			}
 			else
 			{
-				AAMPLOG_WARN("Video is null");  //CID:82070 - Null Returns
+				AAMPLOG_WARN("ABR track is null");  //CID:82070 - Null Returns
 			}
 			break;
 		}
@@ -2600,9 +2600,9 @@ bool StreamAbstractionAAMP::CheckIfPlayerRunningDry()
 bool StreamAbstractionAAMP::UpdateProfileBasedOnFragmentCache()
 {
 	bool retVal = false;
-	MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
+	MediaTrack *abrTrack = GetMediaTrack(GetAbrTrackType());
 	int desiredProfileIndex = currentProfileIndex;
-	double totalFetchedDuration = video->GetTotalFetchedDuration();
+	double totalFetchedDuration = abrTrack->GetTotalFetchedDuration();
 	const BitsPerSecond availBW = aamp->mhAbrManager.GetCurrentlyAvailableBandwidth();
 	aamp->UpdatePersistBandwidth(availBW);
 	bool checkProfileChange = aamp->mhAbrManager.CheckProfileChange(totalFetchedDuration,currentProfileIndex,availBW);
@@ -2645,9 +2645,9 @@ bool StreamAbstractionAAMP::UpdateProfileBasedOnFragmentCache()
 		this->currentProfileIndex = desiredProfileIndex;
 		profileIdxForBandwidthNotification = desiredProfileIndex;
 		AAMPLOG_DEBUG(" profileIdxForBandwidthNotification updated to %d ",  profileIdxForBandwidthNotification);
-		video->ABRProfileChanged();
+		abrTrack->ABRProfileChanged();
 		long newBW = GetStreamInfo(profileIdxForBandwidthNotification)->bandwidthBitsPerSecond;
-		video->SetCurrentBandWidth(newBW);
+		abrTrack->SetCurrentBandWidth(newBW);
 		aamp->mhAbrManager.ResetCurrentlyAvailableBandwidth();
 		mABRLowBufferCounter = 0 ;
 		mABRHighBufferCounter = 0;
@@ -3052,12 +3052,11 @@ bool StreamAbstractionAAMP::IsEOSReached()
  */
 double StreamAbstractionAAMP::GetLastInjectedFragmentPosition()
 {
-	// We get the position of video, we use video position for most of our position related things
-	MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
+	MediaTrack *primary = GetMediaTrack(GetPrimaryTrackType());
 	double pos = 0;
-	if (video)
+	if (primary)
 	{
-		pos = video->GetTotalInjectedDuration();
+		pos = primary->GetTotalInjectedDuration();
 	}
 	AAMPLOG_INFO("Last Injected fragment Position : %f", pos);
 	return pos;

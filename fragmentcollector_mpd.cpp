@@ -7923,9 +7923,9 @@ std::string StreamAbstractionAAMP_MPD::GetCurrentMimeType(AampMediaType mediaTyp
 		auto pMediaStreamContext = mMediaStreamContext[mediaType].get();
 		if( pMediaStreamContext )
 		{
-			// UpdateMPD() holds the primary context's mMediaStreamContextMutex and we do
-			// not want to access representation at the same time as it is being updated by UpdateMPD()
-			auto lock = LockPrimaryMediaStreamContext();
+			// UpdateMPD() holds this lock and we do not want to access representation
+			// at the same time as it is being updated by UpdateMPD()
+			auto lock = LockAbrMediaStreamContext();
 			if( pMediaStreamContext->representation )
 			{
 				mimeType = pMediaStreamContext->representation->GetMimeType();
@@ -7964,9 +7964,9 @@ std::string StreamAbstractionAAMP_MPD::GetCurrentCodec(AampMediaType mediaType)
 		auto pMediaStreamContext = mMediaStreamContext[mediaType].get();
 		if( pMediaStreamContext )
 		{
-			// UpdateMPD() holds the primary context's mMediaStreamContextMutex and we do
-			// not want to access representation at the same time as it is being updated by UpdateMPD()
-			auto lock = LockPrimaryMediaStreamContext();
+			// UpdateMPD() holds this lock and we do not want to access representation
+			// at the same time as it is being updated by UpdateMPD()
+			auto lock = LockAbrMediaStreamContext();
 			if( pMediaStreamContext->representation )
 			{
 				const auto& repCodecs = pMediaStreamContext->representation->GetCodecs();
@@ -11386,8 +11386,8 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateMPD(bool init)
 				{
 					mCdaiObject->WaitForAdFulfilmentIdle();
 				}
-				// Acquire the video context lock to synchronize with ABR profile changes while updating the current period.
-				auto lock = LockPrimaryMediaStreamContext();
+				// Exclude ABR profile changes while updating the current period.
+				auto lock = LockAbrMediaStreamContext();
 				mManifestDnldRespPtr = std::move(tmpManifestDnldRespPtr);
 				ret = GetMPDFromManifest(mManifestDnldRespPtr , false);
 				// if no parse error
@@ -11907,23 +11907,24 @@ void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutpu
 		videoFormat = GetMp4DemuxVideoFormatForCodec(videoCodec.c_str());
 		audioFormat = GetMp4DemuxAudioFormatForCodec(audioCodec.c_str());
 
-		// Audio-only manifests can expose the selected stream on the primary slot.
-		// If audio codec is absent on AUDIO slot, derive it from primary codec.
+		// Audio-only content is carried in the video slot.
+		// If audio codec is absent on AUDIO slot, derive it from the video slot codec.
 		if (audioCodec.empty() && !videoCodec.empty() && audioFormat == FORMAT_UNKNOWN)
 		{
-			const StreamOutputFormat primaryAsAudioFormat = GetMp4DemuxAudioFormatForCodec(videoCodec.c_str());
-			if (primaryAsAudioFormat != FORMAT_UNKNOWN)
+			const StreamOutputFormat videoSlotAsAudioFormat = GetMp4DemuxAudioFormatForCodec(videoCodec.c_str());
+			if (videoSlotAsAudioFormat != FORMAT_UNKNOWN)
 			{
-				audioFormat = primaryAsAudioFormat;
-				AAMPLOG_INFO("Audio-only fallback: derived audioFormat %d from primary codec '%s'", audioFormat, videoCodec.c_str());
+				audioFormat = videoSlotAsAudioFormat;
+				AAMPLOG_INFO("Audio-only fallback: derived audioFormat %d from video slot codec '%s'", audioFormat, videoCodec.c_str());
 				if (videoFormat == FORMAT_UNKNOWN)
 				{
-					videoFormat = primaryAsAudioFormat;
-					AAMPLOG_INFO("Audio-only MPD: remapped primary output format to audio format %d", videoFormat);
+					videoFormat = videoSlotAsAudioFormat;
+					AAMPLOG_INFO("Audio-only MPD: remapped video slot output format to audio format %d", videoFormat);
 				}
 			}
 		}
 	}
+	// primaryOutputFormat configures the video sink, so it follows the video slot
 	if(mMediaStreamContext[eMEDIATYPE_VIDEO] && mMediaStreamContext[eMEDIATYPE_VIDEO]->enabled )
 	{
 		primaryOutputFormat = videoFormat;
@@ -12021,9 +12022,15 @@ MediaStreamContext *StreamAbstractionAAMP_MPD::PrimaryMediaStreamContext() const
 	return mMediaStreamContext[PrimaryMediaType()].get();
 }
 
-std::unique_lock<std::recursive_mutex> StreamAbstractionAAMP_MPD::LockPrimaryMediaStreamContext()
+std::unique_lock<std::recursive_mutex> StreamAbstractionAAMP_MPD::LockAbrMediaStreamContext()
 {
-	return std::unique_lock<std::recursive_mutex>(PrimaryMediaStreamContext()->mMediaStreamContextMutex);
+	std::unique_lock<std::recursive_mutex> lock;
+	MediaStreamContext *abrContext = mMediaStreamContext[static_cast<AampMediaType>(GetAbrTrackType())].get();
+	if (abrContext)
+	{
+		lock = std::unique_lock<std::recursive_mutex>(abrContext->mMediaStreamContextMutex);
+	}
+	return lock;
 }
 
 double StreamAbstractionAAMP_MPD::GetBufferedDuration()
