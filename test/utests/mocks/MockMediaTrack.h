@@ -39,6 +39,7 @@ public:
 	MOCK_METHOD(bool, WaitForFreeFragmentAvailable, (int timeoutMs));
 	MOCK_METHOD(bool, CompleteInitialCachingIfTargetMet, (int minInitialCacheSeconds));
 	MOCK_METHOD(bool, Enabled, ());
+	MOCK_METHOD(void, AbortWaitForCachedAndFreeFragment, (bool immediate));
 	MOCK_METHOD(void, ProcessPlaylist, (std::vector<uint8_t>& newPlaylist, int http_error), (override));
 	MOCK_METHOD(std::string&, GetPlaylistUrl, (), (override));
 	MOCK_METHOD(std::string, GetEffectivePlaylistUrl, (), (override));

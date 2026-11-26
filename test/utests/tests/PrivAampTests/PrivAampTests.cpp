@@ -47,6 +47,7 @@
 #include "MockAampConfig.h"
 #include "MockAampGstPlayer.h"
 #include "MockStreamAbstractionAAMP.h"
+#include "MockMediaTrack.h"
 #include "MockStreamAbstractionAAMP_MPD.h"
 #include "MockAampStreamSinkManager.h"
 #include "MockAampEventManager.h"
@@ -4702,8 +4703,8 @@ TEST_F(PrivAampTests,StopTrackInjectionTest_DiscardTrueAfterNonDiscard_StillUnbl
  */
 TEST_F(PrivAampTests, StopAbortsWaitForCachedFragmentOnAllTracks)
 {
-	NiceMock<MockMediaTrack> videoTrack(eTRACK_VIDEO, p_aamp, "video");
-	g_mockMediaTrack = &videoTrack;
+	g_mockMediaTrack = std::make_shared<NiceMock<MockMediaTrack>>(eTRACK_VIDEO, p_aamp, "video");
+	MockMediaTrack &videoTrack = *g_mockMediaTrack;
 
 	// Owned and deleted by p_aamp during Stop()
 	auto *streamAbstraction = new NiceMock<MockStreamAbstractionAAMP>(p_aamp);
@@ -4718,7 +4719,7 @@ TEST_F(PrivAampTests, StopAbortsWaitForCachedFragmentOnAllTracks)
 	EXPECT_CALL(videoTrack, AbortWaitForCachedAndFreeFragment(true)).Times(1);
 
 	p_aamp->Stop();
-	g_mockMediaTrack = nullptr;
+	g_mockMediaTrack.reset();
 }
 
 TEST_F(PrivAampTests,ResumeTrackInjectionTest)
