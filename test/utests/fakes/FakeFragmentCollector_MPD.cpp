@@ -101,6 +101,8 @@ double StreamAbstractionAAMP_MPD::GetStartTimeOfFirstPTS() { return 0; }
 
 MediaTrack* StreamAbstractionAAMP_MPD::GetMediaTrack(TrackType type) { return mMediaStreamContext[type].get(); }
 
+TrackType StreamAbstractionAAMP_MPD::GetPrimaryTrackType() const { return eTRACK_VIDEO; }
+
 double StreamAbstractionAAMP_MPD::GetBufferedDuration (void)
 {
 	if (g_mockStreamAbstractionAAMP_MPD)
