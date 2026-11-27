@@ -163,6 +163,13 @@ public:
 	 * @return void
 	 */
 	void SetPlayerState(AAMPPlayerState state);
+
+		/**
+	 * @fn GetPlayerState
+	 * @return AAMPPlayerState - Current player state from event manager
+	 */
+	AAMPPlayerState GetPlayerState() const { return mPlayerState; }
+	
 	/**
 	 * @fn SetEventProfilingConfig
 	 * @brief Configure runtime event round-trip time profiling.
