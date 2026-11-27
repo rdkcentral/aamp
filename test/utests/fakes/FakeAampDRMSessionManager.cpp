@@ -85,6 +85,29 @@ DrmSession::~DrmSession()
 {
 }
 
+#ifdef DRMSESSION_HAS_LIFECYCLE_GUARD
+bool DrmSession::AcquireForUse()
+{
+	std::lock_guard<std::mutex> lock(mLifecycleMutex);
+	if (mMarkedForDestruction)
+	{
+		return false;
+	}
+	mActiveOperations++;
+	return true;
+}
+
+void DrmSession::ReleaseAfterUse()
+{
+	std::lock_guard<std::mutex> lock(mLifecycleMutex);
+	if (mActiveOperations > 0)
+	{
+		mActiveOperations--;
+	}
+	mLifecycleCV.notify_all();
+}
+#endif
+
 string DrmSession::getKeySystem(void)
 {
 	return m_keySystem;

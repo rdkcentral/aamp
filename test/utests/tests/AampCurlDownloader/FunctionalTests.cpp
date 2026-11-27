@@ -976,3 +976,51 @@ TEST_F(FunctionalTests, AampCurlDownloader_InitializeWithHTTP3Disabled)
 	mAampCurlDownloader->Initialize(inpData);
 }
 #endif // CURL_HTTP_VERSION_3ONLY || AAMP_HTTP3_SUPPORTED
+
+/**
+ * @brief RDKEMW-29034: Release() from another thread while a transfer is in progress (as
+ *        AampDRMLicenseManager::setLicenseRequestAbort(true) does on Stop) makes the curl
+ *        progress callback abort the transfer.
+ */
+TEST_F(FunctionalTests, AampCurlDownloader_ReleaseDuringDownload_AbortsTransfer)
+{
+	DownloadResponsePtr respData = std::make_shared<DownloadResponse>();
+	DownloadConfigPtr inpData = std::make_shared<DownloadConfig>();
+
+	EXPECT_CALL(*g_mockCurl, curl_easy_init()).WillOnce(Return(mCurlEasyHandle));
+	EXPECT_CALL(*g_mockCurl, curl_easy_cleanup(mCurlEasyHandle));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_ptr(mCurlEasyHandle, CURLOPT_PROGRESSDATA, mAampCurlDownloader))
+		.WillOnce(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_func_xferinfo(mCurlEasyHandle, CURLOPT_XFERINFOFUNCTION, NotNull()))
+		.WillOnce(DoAll(SaveArgPointee<2>(&mCurlProgressCallback), Return(CURLE_OK)));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_ptr(mCurlEasyHandle, CURLOPT_WRITEDATA, mAampCurlDownloader))
+		.WillOnce(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_func_write(mCurlEasyHandle, CURLOPT_WRITEFUNCTION, NotNull()))
+		.WillOnce(DoAll(SaveArgPointee<2>(&mCurlWriteFunc), Return(CURLE_OK)));
+	mAampCurlDownloader->Initialize(inpData);
+	ASSERT_NE(mCurlProgressCallback, nullptr);
+
+	int progressBeforeRelease = -1;
+	int progressAfterRelease = -1;
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_str(mCurlEasyHandle, CURLOPT_URL, mUrl.c_str()))
+		.WillOnce(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_perform(mCurlEasyHandle))
+		.WillOnce(DoAll(
+			InvokeWithoutArgs([&]()
+			{
+				progressBeforeRelease = mCurlProgressCallback(mAampCurlDownloader, 0, 0, 0, 0);
+				std::thread stopThread([&]() { mAampCurlDownloader->Release(); });
+				stopThread.join();
+				progressAfterRelease = mCurlProgressCallback(mAampCurlDownloader, 0, 0, 0, 0);
+			}),
+			Return(CURLE_ABORTED_BY_CALLBACK)));
+	EXPECT_CALL(*g_mockCurl, curl_easy_getinfo_int(mCurlEasyHandle, CURLINFO_RESPONSE_CODE, NotNull()))
+		.Times(0);
+	mAampCurlDownloader->Download(mUrl, respData);
+
+	EXPECT_EQ(progressBeforeRelease, 0);
+	EXPECT_EQ(progressAfterRelease, 1);
+	EXPECT_EQ(CURLE_ABORTED_BY_CALLBACK, respData->iHttpRetValue);
+	EXPECT_EQ(eCURL_ABORT_REASON_NONE, respData->mAbortReason);
+	EXPECT_FALSE(mAampCurlDownloader->IsDownloadActive());
+}

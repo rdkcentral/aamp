@@ -25,6 +25,7 @@
 #include "AampCurlDownloader.h"
 #include "AampUtils.h"
 #include <vector>
+#include <atomic>
 #include "AampLogManager.h"
 
 
@@ -94,8 +95,12 @@ void AampCurlDownloader::Initialize(std::shared_ptr<DownloadConfig> dnldCfg)
 }
 
 
+/** Counts Release() calls so tests can verify that in-flight downloads are aborted. */
+std::atomic<int> g_fakeAampCurlDownloaderReleaseCalls{0};
+
 void AampCurlDownloader::Release()
 {
+	g_fakeAampCurlDownloaderReleaseCalls++;
 }
 
 void AampCurlDownloader::CleanupCurlHeaderResources()
