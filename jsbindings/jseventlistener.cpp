@@ -1529,7 +1529,7 @@ public:
                 JSStringRef prop;
 
 		prop = JSStringCreateWithUTF8CString("sessionHandle");
-                JSObjectSetProperty(mContext, jsEventObj, prop, JSValueMakeNumber(mContext, evt->getSessionHandle()), kJSPropertyAttributeReadOnly, NULL);
+                JSObjectSetProperty(mContext, jsEventObj, prop, aamp_CStringToJSValue(mContext, evt->getSessionHandle().c_str()), kJSPropertyAttributeReadOnly, NULL);
                 JSStringRelease(prop);
 
 		prop = JSStringCreateWithUTF8CString("status");
