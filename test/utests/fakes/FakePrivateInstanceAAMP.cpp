@@ -39,6 +39,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) :
 	mLiveOffset(AAMP_LIVE_OFFSET),
 	seek_pos_seconds(-1),
 	rate(0),
+	mSinkPaused(false),
 	subtitles_muted(true),
 	subscribedTags(),
 	httpHeaderResponses(),

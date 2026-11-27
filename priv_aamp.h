@@ -1731,6 +1731,13 @@ public:
 	bool GetBufUnderFlowStatus() { return mBufUnderFlowStatus.load(); }
 	void SetBufUnderFlowStatus(bool statusFlag) { mBufUnderFlowStatus.store(statusFlag); }
 	void ResetBufUnderFlowStatus() { mBufUnderFlowStatus.store(false);}
+	/**
+	 * @brief Is the pipeline paused, other than for underflow? With AAMP TSB,
+	 *        fragments downloaded in this state are written to the TSB only
+	 *        and are not injected.
+	 */
+	bool IsSinkPausedWithoutUnderflow() { return mSinkPaused.load() && !mBufUnderFlowStatus.load(); }
+	bool IsLocalAAMPTsbPausedWithoutUnderflow() { return IsLocalAAMPTsb() && IsSinkPausedWithoutUnderflow(); }
 	/** Returns the steady-clock timestamp (ms) at which the current buffering episode began,
 	 *  or -1 if no episode is in progress. Exposed for unit testing. */
 	long long GetBufferingStartTimeMS() const { return mBufferingStartTimeMS.load(); }

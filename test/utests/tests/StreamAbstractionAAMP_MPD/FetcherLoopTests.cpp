@@ -3530,6 +3530,126 @@ TEST_F(FetcherLoopTests, SegmentBase_MediaFragment_ExecutesSynchronously)
 		   "during ABR switches, producing a stale byte-range and a bogus box-size error.";
 
 }
+
+/**
+ * @brief Init segment fetch when the injection cache is full.
+ *
+ * FetchAndInjectInitialization() skips the SegmentBase / SegmentList init
+ * fetch when WaitForFreeFragmentAvailable(0) reports no free slot, and then
+ * clears profileChanged. With AAMP TSB paused (not for underflow) the init segment
+ * is written to the TSB only, so it must be fetched regardless of the cache.
+ */
+class FullCacheInitSegmentTests : public FetcherLoopTests
+{
+protected:
+	void SetUp() override
+	{
+		FetcherLoopTests::SetUp();
+		// MediaTrack::SetCachedFragmentSize() rejects 0, so the cache size stays at its
+		// default of 0 and, with nothing cached, IsFragmentCacheFull() is true and the
+		// real WaitForFreeFragmentAvailable(0) reports no free slot. The NotPaused and
+		// Underflow tests rely on this: they fail if the cache stops being full.
+		mIntConfigSettings[eAAMPConfig_MaxFragmentCached] = 0;
+		EXPECT_CALL(*g_mockPrivateInstanceAAMP, LoadIDX(_, _, _, _, _, _, _, _, _, _))
+			.WillRepeatedly(WithArg<3>(Invoke([](std::vector<uint8_t> &idxBuffer)
+			{
+				idxBuffer.insert(idxBuffer.end(), std::cbegin(sidxBox), std::cend(sidxBox));
+			})));
+	}
+
+	void SetTsbPaused(bool underflow)
+	{
+		mPrivateInstanceAAMP->SetLocalAAMPTsb(true);
+		mPrivateInstanceAAMP->mSinkPaused.store(true);
+		mPrivateInstanceAAMP->SetBufUnderFlowStatus(underflow);
+	}
+
+	/**
+	 * @brief Init the MPD and check how often the init segment was cached.
+	 */
+	void InitAndExpectInitFetches(const char *manifest, int expectedInitFetches)
+	{
+		auto &expectation = EXPECT_CALL(*g_mockMediaStreamContext,
+			CacheFragment(kSegBaseVideoUrl, _, _, _, _, true, _, _, _))
+			.Times(expectedInitFetches);
+		if (expectedInitFetches > 0)
+		{
+			expectation.WillRepeatedly(Return(true));
+		}
+
+		ASSERT_EQ(InitializeMPD(manifest), eAAMPSTATUS_OK);
+	}
+};
+
+// Same stream as kSegmentBaseVodManifest, delivered via SegmentList.
+// The first segment starts at byte 1000, so the derived init range is "0-999".
+static constexpr const char *kSegmentListVodManifest = R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" minBufferTime="PT2S" type="static"
+     mediaPresentationDuration="PT4S"
+     profiles="urn:mpeg:dash:profile:isoff-on-demand:2011">
+    <Period id="p0" start="PT0S" duration="PT4S">
+        <AdaptationSet id="0" contentType="video">
+            <Representation id="0" mimeType="video/mp4" codecs="avc1.640028"
+                            bandwidth="800000" width="640" height="360">
+                <BaseURL>http://host/asset/video.m4s</BaseURL>
+                <SegmentList timescale="1000" duration="2000">
+                    <Initialization range="0-999"/>
+                    <SegmentURL mediaRange="1000-17383"/>
+                    <SegmentURL mediaRange="17384-29671"/>
+                </SegmentList>
+            </Representation>
+        </AdaptationSet>
+    </Period>
+</MPD>)";
+
+/**
+ * @brief SegmentBase init is fetched while paused with AAMP TSB,
+ *        even though the injection cache is full.
+ */
+TEST_F(FullCacheInitSegmentTests, SegmentBase_TsbPaused_InitFetchedWithFullCache)
+{
+	SetTsbPaused(false);
+	InitAndExpectInitFetches(kSegmentBaseVodManifest, 1);
+}
+
+/**
+ * @brief Without a pause a full cache still skips the SegmentBase init.
+ */
+TEST_F(FullCacheInitSegmentTests, SegmentBase_NotPaused_InitSkippedWithFullCache)
+{
+	mPrivateInstanceAAMP->SetLocalAAMPTsb(true);
+	InitAndExpectInitFetches(kSegmentBaseVodManifest, 0);
+}
+
+/**
+ * @brief A pause due to underflow does not count: the init segment is
+ *        injected, so a full cache still skips it.
+ */
+TEST_F(FullCacheInitSegmentTests, SegmentBase_TsbPausedByUnderflow_InitSkippedWithFullCache)
+{
+	SetTsbPaused(true);
+	InitAndExpectInitFetches(kSegmentBaseVodManifest, 0);
+}
+
+/**
+ * @brief SegmentList init is fetched while paused with AAMP TSB,
+ *        even though the injection cache is full.
+ */
+TEST_F(FullCacheInitSegmentTests, SegmentList_TsbPaused_InitFetchedWithFullCache)
+{
+	SetTsbPaused(false);
+	InitAndExpectInitFetches(kSegmentListVodManifest, 1);
+}
+
+/**
+ * @brief Without a pause a full cache still skips the SegmentList init.
+ */
+TEST_F(FullCacheInitSegmentTests, SegmentList_NotPaused_InitSkippedWithFullCache)
+{
+	mPrivateInstanceAAMP->SetLocalAAMPTsb(true);
+	InitAndExpectInitFetches(kSegmentListVodManifest, 0);
+}
+
 // Verify that FetcherLoop calls WaitForCompletionWithTimeout() before breaking
 // out of the inner loop on a CDAI ad-period completion (live manifest).
 
