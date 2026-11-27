@@ -81,8 +81,18 @@ function install_build_libdash_fn()
             SANITIZER_FLAGS="-fsanitize=address"
         fi
 
+        # Xcode Debug builds of libaamp default to libc++ debug hardening
+        # (CLANG_CXX_STANDARD_LIBRARY_HARDENING) and disable ASAN container
+        # overflow annotations (CLANG_ADDRESS_SANITIZER_CONTAINER_OVERFLOW).
+        # libdash shares inline std::vector code with libaamp, so it must use
+        # the same settings or ASAN reports false container-overflow errors.
+        local LIBCXX_FLAGS=""
+        if [[ "${PLATFORM}" == "darwin" ]]; then
+            LIBCXX_FLAGS="-D_LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_DEBUG -D__SANITIZER_DISABLE_CONTAINER_OVERFLOW__"
+        fi
+
         local EXTRA_C_FLAGS="${SANITIZER_FLAGS}"
-        local EXTRA_CXX_FLAGS="${SANITIZER_FLAGS}"
+        local EXTRA_CXX_FLAGS="${SANITIZER_FLAGS} ${LIBCXX_FLAGS}"
         local EXTRA_LINK_FLAGS="${SANITIZER_FLAGS}"
 
         cmake .. \

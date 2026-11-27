@@ -57,6 +57,8 @@ function subtec_install_fn() {
     echo "Cloning websocket-ipplayer2-utils..."
     do_clone_fn https://code.rdkcentral.com/r/components/generic/websocket-ipplayer2-utils subtec-app/websocket-ipplayer2-utils || {
         echo "ERROR: Failed to clone websocket-ipplayer2-utils repository"
+        # Remove the partial checkout so the next run retries instead of skipping subtec
+        rm -rf subtec-app
         return 1
     }
     
@@ -232,7 +234,8 @@ function subtec_install_build_fn() {
         if [ "$(uname)" = "Darwin" ] ; then
             BOOST_ROOT="$(brew --prefix boost@1.85)" \
             CMAKE_PREFIX_PATH="$(brew --prefix tinyxml2);$(brew --prefix websocketpp);$(brew --prefix boost@1.85)" \
-            PKG_CONFIG_PATH=/usr/local/opt/libffi/lib/pkgconfig:/usr/local/ssl/lib/pkgconfig:/opt/homebrew/lib/pkgconfig:$PKG_CONFIG_PATH \
+            CMAKE_INCLUDE_PATH="${LOCAL_DEPS_BUILD_DIR}/asio-1.18.2/include" \
+            PKG_CONFIG_PATH="$(brew --prefix libxml2)/lib/pkgconfig:/usr/local/opt/libffi/lib/pkgconfig:/usr/local/ssl/lib/pkgconfig:/opt/homebrew/lib/pkgconfig:${PKG_CONFIG_PATH}:" \
             ./build.sh fast
         else
             ./build.sh fast
