@@ -203,18 +203,32 @@ void MediaTrack::MonitorBufferHealth()
 	bool keepRunning = false;
 	AAMPLOG_INFO("[%s] Start MonitorBufferHealth, downloads %d abort %d delay %ds interval %ds discontinuityTimeout %dms",
 				 name, aamp->DownloadsAreEnabled(), abort, bufferHealthMonitorDelay, bufferHealthMonitorInterval, discontinuityTimeoutValue);
-	if(aamp->DownloadsAreEnabled() && !abort)
+
+	// Sleep until timeout, downloads are disabled or a stop is requested.
+	// The stop flag is checked under the same lock used by StopBufferMonitor()
+	// so a stop request cannot be missed.
+	auto monitorSleep = [this](int timeInMs)
 	{
-		aamp->interruptibleMsSleep(bufferMonitorScheduleTime *1000);
+		if (timeInMs > 0)
+		{
+			std::unique_lock<std::recursive_mutex> aampLock(aamp->mLock);
+			(void)aamp->mDownloadsDisabled.wait_for(aampLock, std::chrono::milliseconds(timeInMs),
+				[this]() { return bufferMonitorStop.load() || !aamp->DownloadsAreEnabled(); });
+		}
+	};
+
+	if(aamp->DownloadsAreEnabled() && !abort && !bufferMonitorStop)
+	{
+		monitorSleep(bufferMonitorScheduleTime *1000);
 		keepRunning = true;
 	}
 	int monitorInterval = bufferHealthMonitorInterval  * 1000;
 	std::unique_lock<std::mutex> lock(mutex, std::defer_lock);
-	while(keepRunning && !abort)
+	while(keepRunning && !abort && !bufferMonitorStop)
 	{
-		aamp->interruptibleMsSleep(monitorInterval);
+		monitorSleep(monitorInterval);
 		lock.lock();
-		if (aamp->DownloadsAreEnabled() && !abort)
+		if (aamp->DownloadsAreEnabled() && !abort && !bufferMonitorStop)
 		{
 			bufferStatus = GetBufferStatus();
 			if (bufferStatus != prevBufferStatus)
@@ -1337,6 +1351,7 @@ void MediaTrack::StartInjectLoop()
 			abort = false;
 			abortInject = false;
 			discontinuityProcessed = false;
+			bufferMonitorStop = false;
 
 			fragmentInjectorThreadID = std::thread(&MediaTrack::RunInjectLoop, this);
 			AAMPLOG_INFO("Thread created for RunInjectLoop [%zx]", GetPrintableThreadID(fragmentInjectorThreadID));
@@ -1528,6 +1543,8 @@ void MediaTrack::StopInjectLoop()
 		fragmentInjectorThreadID.join();
 		AAMPLOG_INFO("Fragment injector thread joined");
 	}
+    //Monitor started in the injector, stop it here
+	StopBufferMonitor();
 }
 
 /**
@@ -1712,17 +1729,28 @@ MediaTrack::MediaTrack(TrackType type, PrivateInstanceAAMP* aamp, const char* na
 
 
 /**
+ * @brief Stop and join the buffer monitor thread
+ */
+void MediaTrack::StopBufferMonitor()
+{
+	if (bufferMonitorThreadID.joinable())
+	{
+		{
+			// Set under the lock the monitor waits on so the request cannot be missed
+			std::lock_guard<std::recursive_mutex> guard(aamp->mLock);
+			bufferMonitorStop = true;
+			aamp->mDownloadsDisabled.notify_all();
+		}
+		bufferMonitorThreadID.join();
+		AAMPLOG_TRACE("joined bufferMonitorThreadID");
+	}
+}
+
+/**
  *  @brief MediaTrack Destructor
  */
 MediaTrack::~MediaTrack()
 {
-	if (bufferMonitorThreadID.joinable())
-	{
-		bufferMonitorThreadID.join();
-		{
-			AAMPLOG_TRACE("joined bufferMonitorThreadID");
-		}
-	}
 	if ((UpdateSubtitleClockTaskStarted) && (type == eTRACK_SUBTITLE))
 	{
 		AAMPLOG_TRACE("joining subtitleClockThreadID for UpdateSubtitleClockTask");

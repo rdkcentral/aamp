@@ -20,6 +20,7 @@
 #include <gtest/gtest.h>
 #include <algorithm>
 #include <atomic>
+#include <chrono>
 #include <memory>
 #include <mutex>
 #include <future>
@@ -601,7 +602,7 @@ TEST_P(MediaTrackDashPlaybackPtsRestampTests, PlaybackTest)
 	ASSERT_TRUE(videoTrack.InjectFragment());
 	ASSERT_DOUBLE_EQ(videoTrack.GetTotalInjectedDuration(), FRAGMENT_DURATION.inSeconds());
 
-	// Media segment (UseMp4Demux enabled: RestampPts should NOT be called)	
+	// Media segment (UseMp4Demux enabled: RestampPts should NOT be called)
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseMp4Demux)).WillRepeatedly(Return(true));
 	testFragment = CachedFragment{};
 	testFragment.initFragment = false;
@@ -1303,7 +1304,7 @@ TEST_F(MediaTrackTests, MPDCallback_Teardown_RaceConditionTest)
 	ON_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxLLDFragmentCached)).WillByDefault(Return(1));
 	ON_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxDownloadBuffer)).WillByDefault(Return(10));
 
-	
+
 	auto* testMPD = new TestableStreamAbstractionAAMP_MPD(mPrivateInstanceAAMP, 0, 0);
 
 	auto* videoCtx = new MediaStreamContext(eTRACK_VIDEO, testMPD, mPrivateInstanceAAMP, "video");
@@ -1347,7 +1348,7 @@ TEST_F(MediaTrackTests, MPDCallback_Teardown_RaceConditionTest)
 		std::lock_guard<std::mutex> lock(notifierMtx);
 		registered.store(false, std::memory_order_release); //mManifestUpdateHandleFlag = false
 	}
-	notifierThread.join(); 
+	notifierThread.join();
 
 	const int countAfterUnregistering = callbackCount.load(std::memory_order_acquire);
 
@@ -1369,4 +1370,120 @@ TEST_F(MediaTrackTests, MPDCallback_Teardown_RaceConditionTest)
 	ASSERT_EQ(callbackCount.load(), countAfterUnregistering);
 
 	delete testMPD;
+}
+
+/**
+ * @brief Tests for MediaTrack::StopBufferMonitor()
+ *
+ * The buffer monitor thread is created by RunInjectLoop() and calls the pure
+ * virtual MediaTrack::GetContext(). It must therefore be stopped and joined
+ * while the derived track object is still alive. The monitor sleeps for
+ * (delay - interval) seconds before its first check, so an elapsed time well
+ * below that value shows the sleep was interrupted by the stop request.
+ */
+class MediaTrackBufferMonitorTests : public MediaTrackTests
+{
+protected:
+	static constexpr int MONITOR_DELAY_SEC{10};
+	static constexpr int MONITOR_INTERVAL_SEC{5};
+	// The monitor's first sleep is MONITOR_DELAY_SEC - MONITOR_INTERVAL_SEC (5s)
+	static constexpr std::chrono::seconds MAX_STOP_DURATION{2};
+
+	std::promise<void> mMonitorConfigRead;
+	std::atomic_bool mMonitorConfigReadSet{false};
+
+	void SetUp() override
+	{
+		MediaTrackTests::SetUp();
+		EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Return(true));
+		ON_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentCached)).WillByDefault(Return(1));
+		ON_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxLLDFragmentCached)).WillByDefault(Return(1));
+		ON_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxDownloadBuffer)).WillByDefault(Return(10));
+		ON_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_BufferHealthMonitorInterval))
+			.WillByDefault(Return(MONITOR_INTERVAL_SEC));
+		// Only the monitor thread reads this setting, so use it to know it has started
+		ON_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_BufferHealthMonitorDelay))
+			.WillByDefault(Invoke([this](AAMPConfigSettingInt)
+			{
+				if (!mMonitorConfigReadSet.exchange(true))
+				{
+					mMonitorConfigRead.set_value();
+				}
+				return MONITOR_DELAY_SEC;
+			}));
+		mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
+	}
+
+	// Starts the injector (and so the monitor) and waits until the monitor
+	// thread is running its initial sleep.
+	void StartMonitorAndWaitForSleep(MediaTrack& track)
+	{
+		track.StartInjectLoop();
+		ASSERT_EQ(mMonitorConfigRead.get_future().wait_for(std::chrono::seconds(5)),
+				  std::future_status::ready);
+		// Allow the monitor to move from reading config into its sleep
+		std::this_thread::sleep_for(std::chrono::milliseconds(100));
+	}
+
+	// Stops the injector and the monitor started by its inject loop
+	void StopInjectorAndMonitor(MediaTrack& track)
+	{
+		track.AbortWaitForCachedAndFreeFragment(true);
+		track.StopInjectLoop();
+	}
+
+	template <typename Fn>
+	static std::chrono::milliseconds TimeIt(Fn&& fn)
+	{
+		const auto start = std::chrono::steady_clock::now();
+		fn();
+		return std::chrono::duration_cast<std::chrono::milliseconds>(
+			std::chrono::steady_clock::now() - start);
+	}
+};
+
+/**
+ * @brief StopInjectLoop() wakes and joins the monitor started by the injector
+ *
+ * Downloads stay enabled while the injector is aborted; StopInjectLoop()
+ * then requests the monitor to stop and interrupts its initial sleep.
+ */
+TEST_F(MediaTrackBufferMonitorTests, StopInjectLoop_InterruptsSleepingMonitor)
+{
+	TestableMediaTrack track(eTRACK_VIDEO, mPrivateInstanceAAMP, "video", mStreamAbstractionAAMP_MPD);
+	StartMonitorAndWaitForSleep(track);
+	track.AbortWaitForCachedFragment();
+
+	const auto elapsed = TimeIt([&]() { track.StopInjectLoop(); });
+
+	EXPECT_LT(elapsed, MAX_STOP_DURATION);
+}
+
+/**
+ * @brief StopBufferMonitor() is a no-op for a track whose monitor never started
+ */
+TEST_F(MediaTrackBufferMonitorTests, StopBufferMonitor_NoMonitorStarted_ReturnsImmediately)
+{
+	TestableMediaTrack track(eTRACK_VIDEO, mPrivateInstanceAAMP, "video", mStreamAbstractionAAMP_MPD);
+
+	const auto elapsed = TimeIt([&]() { track.StopBufferMonitor(); });
+
+	EXPECT_LT(elapsed, MAX_STOP_DURATION);
+}
+
+/**
+ * @brief Destroying a MediaStreamContext after stopping its monitor does not block
+ *
+ * The inject loop owns shutdown of the monitor it starts. The context can then
+ * be destroyed without leaving a joinable monitor thread behind.
+ */
+TEST_F(MediaTrackBufferMonitorTests, DestroyMediaStreamContext_AfterInjectLoopStopsMonitor_DoesNotBlock)
+{
+	auto* videoCtx = new MediaStreamContext(eTRACK_VIDEO, mStreamAbstractionAAMP_MPD, mPrivateInstanceAAMP, "video");
+	StartMonitorAndWaitForSleep(*videoCtx);
+	StopInjectorAndMonitor(*videoCtx);
+
+	const auto elapsed = TimeIt([&]() { delete videoCtx; });
+
+	EXPECT_LT(elapsed, MAX_STOP_DURATION);
 }
