@@ -768,7 +768,7 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 	// That call may invoke SetBufferingState(false), which clears mBufUnderFlowStatus and
 	// resumes the GStreamer pipeline.  Shortly afterwards GStreamer may fire a buffering(0)
 	// event on another thread, re-setting mSinkPaused=true.  The TSB discard check below
-	// (isPipelinePaused && !GetBufUnderFlowStatus()) would then incorrectly throw away this
+	// (IsSinkPausedWithoutUnderflow()) would then incorrectly throw away this
 	// fragment — the one that just ended the underflow — leaving the inject loop starved and
 	// the player in a permanent stall.  Carrying the pre-notify flag forward ensures we
 	// always inject the fragment that triggered underflow recovery.
@@ -860,13 +860,13 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 	// cleared mBufUnderFlowStatus — which would otherwise cause this recovery fragment to be discarded.
 	// Likewise when live injection has stalled: the fragment is already in the AAMP TSB and the scheduled
 	// retune resumes from there, so caching it for injection would only block this download thread.
-	bool isPipelinePaused = aamp->mSinkPaused.load();
+	const bool sinkPausedWithoutUnderflow = aamp->IsSinkPausedWithoutUnderflow();
 	if (tsbSessionManager &&
 		(IsLocalTSBInjection() || mLiveInjectionStalled.load() ||
-		 (isPipelinePaused && !aamp->GetBufUnderFlowStatus() && !wasUnderFlowActive)))
+		 (sinkPausedWithoutUnderflow && !wasUnderFlowActive)))
 	{
-		AAMPLOG_TRACE("[%s] cachedFragment %p ptr %p not injecting IsLocalTSBInjection %d, liveInjectionStalled %d, aamp->mSinkPaused %d, aamp->GetBufUnderFlowStatus() %d",
-			name, cachedFragment, cachedFragment->fragment.data(), IsLocalTSBInjection(), mLiveInjectionStalled.load(), isPipelinePaused, aamp->GetBufUnderFlowStatus());
+		AAMPLOG_TRACE("[%s] cachedFragment %p ptr %p not injecting IsLocalTSBInjection %d, sinkPausedWithoutUnderflow %d, wasUnderFlowActive %d",
+			name, cachedFragment, cachedFragment->fragment.data(), IsLocalTSBInjection(), sinkPausedWithoutUnderflow, wasUnderFlowActive);
 		aamp_utils::ClearAndRelease(cachedFragment->fragment);
 		auto timeBasedBufferManager = GetTimeBasedBufferManager();
 		if(timeBasedBufferManager)
@@ -1196,11 +1196,13 @@ bool MediaStreamContext::DownloadFragment(DownloadInfoPtr dlInfo)
 		};
 		// In low-latency mode, wait for needData/enoughData signals before
 		// downloading the next fragment. Skip this wait when injecting from
-		// the local AAMP TSB.
+		// the local AAMP TSB, or when paused with AAMP TSB (fragments go to
+		// the TSB only).
 		auto WaitForLowLatencyDashDownloads = [this, DownloadsEnabled]()
 		{
 			return DownloadsEnabled() &&
 				   !aamp->IsLocalAAMPTsbInjection() &&
+				   !aamp->IsLocalAAMPTsbPausedWithoutUnderflow() &&
 				   aamp->GetLLDashServiceData()->lowLatencyMode &&
 				   !aamp->TrackDownloadsAreEnabled(mediaType);
 		};
@@ -1212,7 +1214,8 @@ bool MediaStreamContext::DownloadFragment(DownloadInfoPtr dlInfo)
 		{
 			ResumeLiveInjectionIfDrained();
 		}
-		else if (!aamp->IsLocalAAMPTsbInjection())
+		else if (!aamp->IsLocalAAMPTsbInjection() &&
+				 !aamp->IsLocalAAMPTsbPausedWithoutUnderflow())
 		{
 			if (aamp->IsLocalAAMPTsb())
 			{

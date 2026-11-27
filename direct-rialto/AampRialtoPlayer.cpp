@@ -502,8 +502,11 @@ void AampRialtoPlayer::Configure(
 	const StreamOutputFormat audioFormat =
 		audioInVideoSlot ? reportedVideoFormat : reportedAudioFormat;
 
-	AAMPLOG_INFO("ENTRY videoFormat=%d audioFormat=%d subFormat=%d bESChangeStatus=%d setReadyAfterPipelineCreation=%d audioInVideoSlot=%d", static_cast<int>(videoFormat), static_cast<int>(audioFormat),
-		static_cast<int>(subFormat), bESChangeStatus, setReadyAfterPipelineCreation, audioInVideoSlot);
+	AAMPLOG_INFO("videoFormat=%d videoEncrypted=%d audioFormat=%d audioEncrypted=%d subFormat=%d subtitleEncrypted=%d bESChangeStatus=%d setReadyAfterPipelineCreation=%d audioInVideoSlot=%d",
+		static_cast<int>(reportedVideoFormat), static_cast<int>(codecInfo.video.mIsEncrypted),
+		static_cast<int>(reportedAudioFormat), static_cast<int>(codecInfo.audio.mIsEncrypted),
+		static_cast<int>(subFormat), static_cast<int>(codecInfo.subtitle.mIsEncrypted),
+		bESChangeStatus, setReadyAfterPipelineCreation, audioInVideoSlot);
 
 	// If a flush cycle is in progress, block until all sources finish
 	// flushing so m_rate is committed before ShouldRecreatePipeline reads it.
@@ -2740,6 +2743,9 @@ void AampRialtoPlayer::OnPlaybackState(firebolt::rialto::PlaybackState state)
 				m_stateMachine.onError();
 			}
 			m_flushCv.notify_all();
+			// Rialto ignores all further NeedMediaData in FAILURE, so playback
+			// stays frozen unless AAMP recreates the pipeline.
+			m_notifiable->NotifyPipelineFailure();
 			break;
 		case firebolt::rialto::PlaybackState::SEEKING:
 			AAMPLOG_INFO("SEEKING notification received (state=%s)",

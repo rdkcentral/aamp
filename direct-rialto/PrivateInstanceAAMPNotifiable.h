@@ -87,6 +87,7 @@ public:
 		const std::string &description,
 		bool isRetryEnabled) override;
 	void NotifyOutputProtectionRecovered() override;
+	void NotifyPipelineFailure() override;
 	void CompleteDiscontinuityDataDeliverForPTSRestamp(
 		AampMediaType type) override;
 	void NotifyPipelinePausedToUnderflowMonitor() override;

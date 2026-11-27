@@ -38,6 +38,7 @@
 #include "libdash/xml/DOMParser.h"
 #include <libxml/xmlreader.h>
 #include <thread>
+#include <mutex>
 #include <array>
 #include <memory>
 #include "admanager_mpd.h"
@@ -47,6 +48,7 @@
 #include "AampTrackWorker.hpp"
 #include "AampTrackWorkerManager.hpp"
 #include "AampDownloadInfo.hpp"
+#include "AampTrackSet.h"
 
 // Sentinel for invalid base period offset in ad nodes
 constexpr int32_t INVALID_BASE_PERIOD_OFFSET = -1;
@@ -207,6 +209,12 @@ public:
 	 * @param[in]  type - track type
 	 */
 	MediaTrack* GetMediaTrack(TrackType type) override;
+	/**
+	 * @fn GetPrimaryTrackType
+	 * @brief Track whose timeline is the reference for position, first PTS and manifest updates.
+	 *        Video, because audio-only content is carried in the video slot.
+	 */
+	TrackType GetPrimaryTrackType() const override;
 	/**
 	 * @fn GetFirstPTS
 	 */
@@ -1195,7 +1203,7 @@ protected:
 	dash::mpd::IMPD *mpd;
 	// MediaStreamContext is incomplete here; any class destroying this array needs MediaStreamContext.h.
 	std::array<std::unique_ptr<MediaStreamContext>, AAMP_TRACK_COUNT> mMediaStreamContext;
-	int mNumberOfTracks;
+	AampAtomicTrackSet mActiveTracks; ///< Tracks selected for the current period; rebuilt by StreamSelection()
 	int mCurrentPeriodIdx;
 	int mNumberOfPeriods;	// Number of periods in the updated manifest
 	int mIterPeriodIndex;	// FetcherLoop period iterator index
@@ -1361,6 +1369,29 @@ protected:
 	 * @retval Return true on empty Period
 	 */
 	bool IsEmptyPeriod(int iPeriodIndex) const;
+
+	/**
+	 * @fn PrimaryMediaType
+	 * @brief Media type, and mMediaStreamContext index, of the primary track
+	 * @retval Media type of GetPrimaryTrackType()
+	 */
+	AampMediaType PrimaryMediaType() const;
+
+	/**
+	 * @fn PrimaryMediaStreamContext
+	 * @brief Stream context of the primary track
+	 * @retval Context pointer; null before the contexts are allocated
+	 */
+	MediaStreamContext *PrimaryMediaStreamContext() const;
+
+	/**
+	 * @fn LockPrimaryMediaStreamContext
+	 * @brief Locks the primary context's mMediaStreamContextMutex (recursive), the mutex UpdateMPD() holds.
+	 *        The lock is held until the returned object is released.
+	 * @note The primary context must be allocated.
+	 * @retval Held lock on the primary context's mutex
+	 */
+	std::unique_lock<std::recursive_mutex> LockPrimaryMediaStreamContext();
 
 	/**
 	 * @fn GetManifestUpdateCounter
