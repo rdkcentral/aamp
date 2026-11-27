@@ -1024,7 +1024,7 @@ public:
 	bool mInitSuccess;				/**< TODO: Need to replace with player state */
 	StreamOutputFormat mVideoFormat;
 	StreamOutputFormat mAudioFormat;
-	StreamOutputFormat mPreviousAudioType; 		/**< Used to maintain previous audio type of HLS playback */
+	StreamOutputFormat mLastConfiguredAudioFormat; /**< Audio format used by the most recent pipeline Configure() */
 	StreamOutputFormat mSubtitleFormat{FORMAT_UNKNOWN};
 	std::condition_variable_any mDownloadsDisabled;
 	bool mDownloadsEnabled;
@@ -1033,7 +1033,6 @@ public:
 	ABRManager mhAbrManager;                 /**< Pointer to Hybrid abr manager*/
 	ProfileEventAAMP profiler;
 	bool licenceFromManifest;
-	AudioType previousAudioType; 			/**< Used to maintain previous audio type */
 
 	CURL *curl[eCURLINSTANCE_MAX];
 	eCurlHostMapStruct *curlhost[eCURLINSTANCE_MAX];
