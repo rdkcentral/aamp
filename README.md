@@ -194,6 +194,7 @@ earlyProcessing			Enable/Disable processing fragments on download to extract ID3
 useRialtoSink              Enable/Disable player to use Rialto sink based video and audio pipeline
 useDirectRialto			Enable/Disable player to call the Rialto client API directly, without a GStreamer pipeline. Read before player creation (device config, environment or operator settings), not changeable dynamically. Forces useMp4Demux on. See docs/direct-rialto/README.md
 disableTTML			Disable TTML subtitle tracks in DASH; in-band closed captions remain available. Default: false
+asyncStreamStop			Run the stream abstraction stop in parallel with the sink stop during Stop() to reduce stop time. Always synchronous with direct Rialto. Default: false
 // Integer inputs
 ptsErrorThreshold		aamp maximum number of back-to-back pts errors to be considered for triggering a retune
 waitTimeBeforeRetryHttp5xx 	Specify the wait time before retry for 5xx http errors. Default: 1s.

@@ -3419,6 +3419,176 @@ TEST_F(PrivAampTests,TeardownStreamTest_1)
 	EXPECT_EQ(0,p_aamp->mDiscontinuityTuneOperationId);
 }
 
+// Helpers for the TeardownStream stream-stop tests.
+// Records which thread ran the mock stream's Stop() and that it completed.
+struct StreamStopRecorder
+{
+	std::thread::id threadId;
+	std::atomic<bool> finished{false};
+};
+
+// Uses the shared mock stream; local AAMP TSB is enabled so that StopStream() does not delete it.
+static void UseSharedMockStream(TestablePrivateInstanceAAMP *aamp)
+{
+	aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
+	aamp->SetLocalAAMPTsb(true);
+}
+
+static void SetTeardownConfig(bool asyncStreamStop, bool directRialto = false)
+{
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AsyncStreamStop)).WillRepeatedly(Return(asyncStreamStop));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_useDirectRialto)).WillRepeatedly(Return(directRialto));
+}
+
+static void ExpectStreamStop(bool disableDownloads, StreamStopRecorder &recorder)
+{
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(disableDownloads))
+		.WillOnce(Invoke([&recorder](bool)
+		{
+			recorder.threadId = std::this_thread::get_id();
+			recorder.finished = true;
+		}));
+}
+
+// Default teardown (e.g. retune/seek) stops the stream on the calling thread and does not call StopInjection
+TEST_F(PrivAampTests, TeardownStream_SyncByDefault)
+{
+	StreamStopRecorder stop;
+	UseSharedMockStream(p_aamp);
+	SetTeardownConfig(false);
+	ExpectStreamStop(false, stop);
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, StopInjection()).Times(0);
+
+	p_aamp->TeardownStream(false);
+
+	EXPECT_TRUE(stop.finished);
+	EXPECT_EQ(stop.threadId, std::this_thread::get_id());
+}
+
+// Full stop with asyncStreamStop off stays synchronous
+TEST_F(PrivAampTests, TeardownStream_FullStopConfigOff_Sync)
+{
+	StreamStopRecorder stop;
+	UseSharedMockStream(p_aamp);
+	SetTeardownConfig(false);
+	ExpectStreamStop(true, stop);
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, StopInjection()).Times(0);
+
+	p_aamp->TeardownStream(true, true);
+
+	EXPECT_TRUE(stop.finished);
+	EXPECT_EQ(stop.threadId, std::this_thread::get_id());
+}
+
+// Full stop with asyncStreamStop on stops the stream on a worker thread, which is joined before returning
+TEST_F(PrivAampTests, TeardownStream_FullStopConfigOn_AsyncAndJoined)
+{
+	StreamStopRecorder stop;
+	UseSharedMockStream(p_aamp);
+	SetTeardownConfig(true);
+	ExpectStreamStop(true, stop);
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, StopInjection()).Times(1);
+
+	p_aamp->TeardownStream(true, true);
+
+	EXPECT_TRUE(stop.finished);
+	EXPECT_NE(stop.threadId, std::this_thread::get_id());
+}
+
+// asyncStreamStop only applies to a full stop; retunes and seeks stay synchronous
+TEST_F(PrivAampTests, TeardownStream_ConfigOnWithoutDisableDownloads_Sync)
+{
+	StreamStopRecorder stop;
+	UseSharedMockStream(p_aamp);
+	SetTeardownConfig(true);
+	ExpectStreamStop(false, stop);
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, StopInjection()).Times(0);
+
+	p_aamp->TeardownStream(false);
+
+	EXPECT_TRUE(stop.finished);
+	EXPECT_EQ(stop.threadId, std::this_thread::get_id());
+}
+
+// Direct Rialto forces a synchronous stream stop even when the config is on
+TEST_F(PrivAampTests, TeardownStream_ConfigOnWithRialto_Sync)
+{
+	StreamStopRecorder stop;
+	UseSharedMockStream(p_aamp);
+	SetTeardownConfig(true, true);
+	ExpectStreamStop(true, stop);
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, StopInjection()).Times(0);
+
+	p_aamp->TeardownStream(true, true);
+
+	EXPECT_TRUE(stop.finished);
+	EXPECT_EQ(stop.threadId, std::this_thread::get_id());
+}
+
+// TeardownStream does not return until a slow worker-thread stream stop has finished
+TEST_F(PrivAampTests, TeardownStream_AsyncStreamStopCompletesBeforeReturn)
+{
+	std::atomic<bool> finished{false};
+	UseSharedMockStream(p_aamp);
+	SetTeardownConfig(true);
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(true))
+		.WillOnce(Invoke([&finished](bool)
+		{
+			std::this_thread::sleep_for(std::chrono::milliseconds(100));
+			finished = true;
+		}));
+
+	p_aamp->TeardownStream(true, true);
+
+	EXPECT_TRUE(finished);
+}
+
+// A stream that is deleted by teardown is detached, and a second teardown does nothing
+TEST_F(PrivAampTests, TeardownStream_DeletedStreamDetachedAndNotStoppedTwice)
+{
+	// StopStream() deletes the stream when local AAMP TSB is not in use, so it cannot be the shared mock
+	auto *stream = new NiceMock<MockStreamAbstractionAAMP>(p_aamp);
+	p_aamp->mpStreamAbstractionAAMP = stream;
+	p_aamp->SetLocalAAMPTsb(false);
+	SetTeardownConfig(false);
+	EXPECT_CALL(*stream, Stop(false)).Times(1);
+
+	p_aamp->TeardownStream(false);
+	EXPECT_EQ(nullptr, p_aamp->mpStreamAbstractionAAMP);
+
+	// No stream left: must not touch the deleted one
+	p_aamp->TeardownStream(false);
+	EXPECT_EQ(nullptr, p_aamp->mpStreamAbstractionAAMP);
+}
+
+// The same detach and delete happen when the stop runs on the worker thread
+TEST_F(PrivAampTests, TeardownStream_AsyncDeletedStreamDetached)
+{
+	auto *stream = new NiceMock<MockStreamAbstractionAAMP>(p_aamp);
+	p_aamp->mpStreamAbstractionAAMP = stream;
+	p_aamp->SetLocalAAMPTsb(false);
+	SetTeardownConfig(true);
+	EXPECT_CALL(*stream, StopInjection()).Times(1);
+	EXPECT_CALL(*stream, Stop(true)).Times(1);
+
+	p_aamp->TeardownStream(true, true);
+
+	EXPECT_EQ(nullptr, p_aamp->mpStreamAbstractionAAMP);
+}
+
+// Teardown with no stream must not stop anything or hang in either mode
+TEST_F(PrivAampTests, TeardownStream_NoStream)
+{
+	p_aamp->mpStreamAbstractionAAMP = nullptr;
+	SetTeardownConfig(true);
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_)).Times(0);
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, StopInjection()).Times(0);
+
+	p_aamp->TeardownStream(true, true);
+	p_aamp->TeardownStream(false);
+}
+
 // Verify notifyCleanup is called on full teardown (newTune=true) with SecManager enabled
 TEST_F(PrivAampTests, TeardownStream_DRMCleanup_CalledOnNewTune)
 {
