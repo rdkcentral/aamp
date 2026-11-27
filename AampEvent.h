@@ -2358,7 +2358,7 @@ public:
  */
 class WatermarkSessionUpdateEvent: public AAMPEventObject
 {
-	uint32_t mSessionHandle; /**< Playback session handle used to track and manage sessions  */
+	std::string mSessionHandle; /**< Playback session handle used to track and manage sessions  */
 	uint32_t mStatus; 	 /**< Provides the status of the watermark session.  */
 	std::string mSystem; 	 /**< Describes content watermarking protection provider  */
 public:
@@ -2372,7 +2372,7 @@ public:
 	 * @param[in]  status - Status of the watermark session
 	 * @param[in]  system - Watermarking protection provider
 	 */
-	WatermarkSessionUpdateEvent(uint32_t sessionHandle, uint32_t status, const std::string &system, std::string sid) : AAMPEventObject(AAMP_EVENT_WATERMARK_SESSION_UPDATE, std::move(sid = {})) , mSessionHandle(sessionHandle), mStatus(status), mSystem(system)
+	WatermarkSessionUpdateEvent(const std::string& sessionHandle, uint32_t status, const std::string &system, std::string sid) : AAMPEventObject(AAMP_EVENT_WATERMARK_SESSION_UPDATE, std::move(sid = {})) , mSessionHandle(sessionHandle), mStatus(status), mSystem(system)
 	{}
 
 	/**
@@ -2385,7 +2385,7 @@ public:
 	 *
 	 * @return session handle
 	 */
-	uint32_t getSessionHandle() const { return mSessionHandle; }
+	const std::string& getSessionHandle() const { return mSessionHandle; }
 
 	/**
 	 * @brief Get session status 
