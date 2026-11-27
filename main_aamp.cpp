@@ -135,7 +135,7 @@ static cJSON* TryParseAsJson(const char* input)
 }
 
 /**
- * @brief Rejects a trick rate the content does not support, resetting the reported speed to normal play
+ * @brief Rejects a trick rate the content does not support, reporting the unchanged current speed
  *
  * Normal play, pause and slow motion are not trick play, and progressive content changes rate in the
  * pipeline. Whether trick play is supported is decided by the stream abstraction (mIsIframeTrackPresent).
@@ -152,8 +152,10 @@ static bool RejectUnsupportedTrickplayRate(PrivateInstanceAAMP &aamp, float rate
 	if (reject)
 	{
 		AAMPLOG_WARN("Ignoring trickplay. Not supported for this stream (no iframe source or no video)");
-		// Reset the application's speed to normal play, since the rate was not applied
-		aamp.NotifySpeedChanged(AAMP_NORMAL_PLAY_RATE);
+		// Report the speed the player is still at, so the application resets its requested speed.
+		// The player state does not change.
+		const float currentRate = aamp.mSinkPaused.load() ? static_cast<float>(AAMP_RATE_PAUSE) : aamp.rate;
+		aamp.NotifySpeedChanged(currentRate, false);
 	}
 	return reject;
 }

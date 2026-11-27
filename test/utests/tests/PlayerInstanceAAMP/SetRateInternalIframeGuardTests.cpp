@@ -58,9 +58,10 @@ using ::testing::Return;
  *  - Primary   : aamp->rate after the call.
  *    Guard fires → returns early → rate stays at AAMP_NORMAL_PLAY_RATE (1.0).
  *    Guard bypassed → trickplay path runs → rate updated to 4.0.
- *  - Secondary : NotifySpeedChanged(AAMP_NORMAL_PLAY_RATE, _) call count.
- *    The guard calls NotifySpeedChanged(1.0) before returning; the trickplay
- *    path calls it with the new rate (4.0), never with 1.0.
+ *  - Secondary : NotifySpeedChanged(rate, changeState) calls.
+ *    The guard reports the unchanged current speed (1.0 while playing, 0 while
+ *    paused) with changeState=false before returning; the trickplay path
+ *    reports the new rate (4.0).
  */
 class SetRateInternalIframeGuardTests : public ::testing::Test
 {
@@ -148,9 +149,9 @@ protected:
 /**
  * @test SetRateInternal_NoIframeTrack_SynthesisDisabled_GuardBlocksTrickplay
  * @brief When no iframe AdaptationSet is present AND synthesizeIframeForVOD is
- *        disabled, the guard must reject trickplay by calling
- *        NotifySpeedChanged(AAMP_NORMAL_PLAY_RATE) and returning early without
- *        updating aamp->rate.
+ *        disabled, the guard must reject trickplay by reporting the unchanged
+ *        speed without a state change and returning early without updating
+ *        aamp->rate.
  *
  * This is the pre-existing behaviour that must be preserved for streams that
  * genuinely have no trickplay support.
@@ -159,9 +160,9 @@ TEST_F(SetRateInternalIframeGuardTests,
     SetRateInternal_NoIframeTrack_SynthesisDisabled_GuardBlocksTrickplay)
 {
     // Synthesis disabled (default ON_CALL already returns false for all flags).
-    // Verify the guard fires: NotifySpeedChanged(1.0) called exactly once.
+    // Verify the guard fires: the unchanged 1.0 is reported once, without a state change.
     EXPECT_CALL(*g_mockPrivateInstanceAAMP,
-                NotifySpeedChanged(AAMP_NORMAL_PLAY_RATE, _))
+                NotifySpeedChanged(AAMP_NORMAL_PLAY_RATE, false))
         .Times(1);
 
     mPlayer->SetRate_Internal(4.0f, 0);
@@ -182,7 +183,7 @@ TEST_F(SetRateInternalIframeGuardTests,
             IsConfigSet(eAAMPConfig_SynthesizeIframeForVOD))
         .WillByDefault(Return(true));
     EXPECT_CALL(*g_mockPrivateInstanceAAMP,
-                NotifySpeedChanged(AAMP_NORMAL_PLAY_RATE, _))
+                NotifySpeedChanged(AAMP_NORMAL_PLAY_RATE, false))
         .Times(1);
 
     mPlayer->SetRate_Internal(4.0f, 0);
@@ -217,7 +218,7 @@ TEST_F(SetRateInternalIframeGuardTests,
             IsConfigSet(eAAMPConfig_SynthesizeIframeForVOD))
         .WillByDefault(Return(true));
     EXPECT_CALL(*g_mockPrivateInstanceAAMP,
-                NotifySpeedChanged(AAMP_NORMAL_PLAY_RATE, _))
+                NotifySpeedChanged(AAMP_NORMAL_PLAY_RATE, false))
         .Times(1);
 
     mPlayer->SetRateAndSeek(4, 10.0);
@@ -235,10 +236,33 @@ TEST_F(SetRateInternalIframeGuardTests,
 {
     mPriv->mMediaFormat = eMEDIAFORMAT_PROGRESSIVE;
     EXPECT_CALL(*g_mockPrivateInstanceAAMP,
-                NotifySpeedChanged(AAMP_NORMAL_PLAY_RATE, _))
+                NotifySpeedChanged(AAMP_NORMAL_PLAY_RATE, false))
         .Times(0);
 
     mPlayer->SetRateAndSeek(4, 10.0);
 
     EXPECT_FLOAT_EQ(mPriv->rate, 4.0f);
+}
+
+/**
+ * @test SetRateInternal_PausedNoTrickplaySupport_ReportsPausedSpeedWithoutStateChange
+ * @brief Rejecting a trick rate while paused reports speed 0 and leaves the player state alone.
+ *
+ * Reporting 1x with a state change would mark the player as playing and resume subtitles
+ * while the sink stays paused.
+ */
+TEST_F(SetRateInternalIframeGuardTests,
+    SetRateInternal_PausedNoTrickplaySupport_ReportsPausedSpeedWithoutStateChange)
+{
+    mPriv->mSinkPaused = true;
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+                NotifySpeedChanged(static_cast<float>(AAMP_RATE_PAUSE), false))
+        .Times(1);
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifySpeedChanged(_, true))
+        .Times(0);
+
+    mPlayer->SetRate_Internal(4.0f, 0);
+
+    EXPECT_TRUE(mPriv->mSinkPaused.load());
+    EXPECT_FLOAT_EQ(mPriv->rate, AAMP_NORMAL_PLAY_RATE);
 }
