@@ -243,7 +243,7 @@ StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(class PrivateInstanceAAMP *
 		AAMPLOG_INFO("{ %s, %d }", pair.first.c_str(), pair.second);
 	}
 
-	trickplayMode = (mPlayRate != AAMP_NORMAL_PLAY_RATE);
+	trickplayMode = (aamp->rate != AAMP_NORMAL_PLAY_RATE);
 }
 
 /**
@@ -9820,9 +9820,9 @@ void StreamAbstractionAAMP_MPD::AdvanceTrack(int trackIdx, bool trickPlay, doubl
 					skipTime = 0;
 					aamp->playerStartedWithTrickPlay = false;
 				}
-				else if ((mPlayRate > AAMP_RATE_PAUSE && skipTime <= 0) || (mPlayRate < AAMP_RATE_PAUSE && skipTime >= 0))
+				else if ((aamp->rate > AAMP_RATE_PAUSE && skipTime <= 0) || (aamp->rate < AAMP_RATE_PAUSE && skipTime >= 0))
 				{
-					skipTime = mPlayRate / vodTrickplayFPS;
+					skipTime = aamp->rate / vodTrickplayFPS;
 				}
 				double currFragTime = pMediaStreamContext->fragmentTime;
 				skipTime = SkipFragments(pMediaStreamContext, skipTime);

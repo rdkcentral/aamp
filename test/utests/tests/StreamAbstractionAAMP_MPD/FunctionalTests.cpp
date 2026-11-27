@@ -457,6 +457,7 @@ protected:
 			gpGlobalConfig = new AampConfig();
 		}
 		mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
+		mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
 		_instanceStreamAbstractionAAMP_MPD = new StreamAbstractionAAMP_MPD(mPrivateInstanceAAMP, 0, AAMP_NORMAL_PLAY_RATE);
 		g_mockAampConfig = std::make_shared<NiceMock<MockAampConfig>>();
 	}
