@@ -7905,9 +7905,9 @@ bool StreamAbstractionAAMP_MPD::IsTrickplaySupported(IPeriod *period, bool ifram
 	bool supported = iframeAdaptationAvailable;
 	if (!supported)
 	{
-		// Local TSB extraction and VOD synthesis both derive iframes from the video track
-		const bool derivesIframes = (aamp->IsLocalAAMPTsbFromConfig() && aamp->IsIframeExtractionEnabled()) ||
-			aamp->IsVODIframeSynthesisEnabled();
+		// Local TSB extraction (enabled only while a TSB session is active) and VOD synthesis
+		// both derive iframes from the video track
+		const bool derivesIframes = aamp->IsIframeExtractionEnabled() || aamp->IsVODIframeSynthesisEnabled();
 		supported = derivesIframes && HasVideoAdaptationSet(period);
 	}
 	return supported;

@@ -41,19 +41,6 @@ using ::testing::WithoutArgs;
 
 namespace
 {
-	/** Lets a test enable local TSB in the configuration, which the player normally derives from it at tune. */
-	class TsbConfigurablePrivateInstanceAAMP : public PrivateInstanceAAMP
-	{
-	public:
-		explicit TsbConfigurablePrivateInstanceAAMP(AampConfig *config) : PrivateInstanceAAMP(config) {}
-
-		/** @param[in] enabled Whether local TSB is enabled in the configuration */
-		void SetLocalAAMPTsbFromConfig(bool enabled)
-		{
-			mLocalAAMPTsbFromConfig = enabled;
-		}
-	};
-
 	constexpr const char *MPD_PREFIX = R"(<?xml version="1.0" encoding="utf-8"?>
 <MPD xmlns="urn:mpeg:dash:schema:mpd:2011" profiles="urn:mpeg:dash:profile:isoff-live:2011" type="static" mediaPresentationDuration="PT2M0.0S" minBufferTime="PT4.0S">
 	<Period id="0" start="PT0.0S">)";
@@ -104,7 +91,7 @@ namespace
 		bool hasVideo;
 		bool hasIframeSet;
 		bool synthesisEnabled; ///< VOD iframe synthesis configured
-		bool localTsbExtraction; ///< Local TSB and iframe extraction configured
+		bool localTsbExtraction; ///< Iframe extraction enabled, as it is while a local TSB session is active
 		bool expectTrickplay;
 	};
 
@@ -121,7 +108,7 @@ namespace
 			{
 				gpGlobalConfig = new AampConfig();
 			}
-			mPrivateInstanceAAMP = new TsbConfigurablePrivateInstanceAAMP(gpGlobalConfig);
+			mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
 			g_mockAampConfig = std::make_shared<NiceMock<MockAampConfig>>();
 			mPrivateInstanceAAMP->mIsDefaultOffset = true;
 			g_mockPrivateInstanceAAMP = std::make_shared<NiceMock<MockPrivateInstanceAAMP>>();
@@ -232,7 +219,6 @@ namespace
 					.Times(AnyNumber())
 					.WillRepeatedly(Return(setting.second));
 			}
-			mPrivateInstanceAAMP->SetLocalAAMPTsbFromConfig(params.localTsbExtraction);
 
 			mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
 			mCollector = new StreamAbstractionAAMP_MPD(mPrivateInstanceAAMP, 0.0, AAMP_NORMAL_PLAY_RATE);
@@ -257,7 +243,7 @@ namespace
 		}
 
 		static constexpr const char *TEST_MANIFEST_URL = "http://host/asset/manifest.mpd";
-		TsbConfigurablePrivateInstanceAAMP *mPrivateInstanceAAMP = nullptr;
+		PrivateInstanceAAMP *mPrivateInstanceAAMP = nullptr;
 		StreamAbstractionAAMP_MPD *mCollector = nullptr;
 		CDAIObject *mCdaiObj = nullptr;
 		std::string mManifest;
