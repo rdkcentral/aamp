@@ -43,6 +43,7 @@ set(TEST_SOURCES FunctionalTests.cpp
                  AudioTrackSwitchTests.cpp
                  subtitleTests.cpp
                  ActiveTracksTests.cpp
+                 TrickplayEligibilityTests.cpp
                  StreamSelectionTest.cpp)
 
 	 set(AAMP_SOURCES ${AAMP_ROOT}/streamabstraction.cpp ${AAMP_ROOT}/CachedFragment.cpp ${AAMP_ROOT}/fragmentcollector_mpd.cpp ${AAMP_ROOT}/AampMPDParseHelper.cpp ${AAMP_ROOT}/AampMPDUtils.cpp ${AAMP_ROOT}/AampFragmentDescriptor.cpp ${AAMP_ROOT}/downloader/AampCurlDownloader.cpp ${AAMP_ROOT}/AampVodStitcher.cpp ${DASH_PARSER_SOURCES})

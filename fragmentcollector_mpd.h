@@ -879,6 +879,23 @@ protected:
 	 */
 	void StreamSelection(bool newTune = false, bool forceSpeedsChangedEvent = false);
 	/**
+	 * @fn HasVideoAdaptationSet
+	 * @brief Whether the period offers a playable, non-iframe video adaptation set that playback may select.
+	 *        Audio-only content has none, even though it is carried in the video slot.
+	 * @param period Period to inspect
+	 * @retval false if there is none or audio-only playback is configured
+	 */
+	bool HasVideoAdaptationSet(IPeriod *period) const;
+	/**
+	 * @fn IsTrickplaySupported
+	 * @brief Whether trick play is supported for the period: it has an iframe adaptation set, or it has a
+	 *        video adaptation set from which local TSB extraction or VOD synthesis derives iframes.
+	 *        Trick play is video-only, so content without video never supports it.
+	 * @param period Period to inspect
+	 * @param iframeAdaptationAvailable true if the period has an iframe adaptation set
+	 */
+	bool IsTrickplaySupported(IPeriod *period, bool iframeAdaptationAvailable) const;
+	/**
 	 * @fn CheckForInitalClearPeriod
 	 */
 	bool CheckForInitalClearPeriod();

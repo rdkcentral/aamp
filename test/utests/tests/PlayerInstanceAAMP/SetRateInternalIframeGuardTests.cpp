@@ -19,13 +19,12 @@
 
 /**
  * @file SetRateInternalIframeGuardTests.cpp
- * @brief Regression tests for the no-iframe-track guard in SetRateInternal().
+ * @brief Tests for the trickplay guard in SetRateInternal() and SetRateAndSeek().
  *
- * VPAAMP-1139: SetRateInternal() was blocking trickplay on VOD DASH streams
- * that have no dedicated iframe AdaptationSet even when
- * synthesizeIframeForVOD=true in aamp.cfg.  The guard must allow trickplay
- * through whenever IsVODIframeSynthesisEnabled() returns true (config flag
- * set AND stream is VOD i.e. !live AND !localTSB).
+ * The guard rejects a trick rate unless the stream abstraction reports trickplay
+ * support (mIsIframeTrackPresent). Iframe synthesis and extraction are folded into
+ * that flag by the collector, which also requires a video track, so the synthesis
+ * config alone must not let a trick rate through.
  */
 
 #include <gtest/gtest.h>
@@ -49,11 +48,11 @@ using ::testing::Return;
 
 /**
  * @class SetRateInternalIframeGuardTests
- * @brief Tests for the no-iframe-track early-return guard in SetRateInternal().
+ * @brief Tests for the trickplay guard in SetRateInternal() and SetRateAndSeek().
  *
- * All tests exercise a VOD (non-live, non-TSB) stream with no iframe
- * AdaptationSet (mIsIframeTrackPresent = false) and a trickplay rate of 4x.
- * The only variable is whether synthesizeIframeForVOD is enabled.
+ * All tests exercise a VOD (non-live, non-TSB) stream and a trickplay rate of
+ * 4x. By default the stream reports no trickplay support
+ * (mIsIframeTrackPresent = false).
  *
  * Oracles:
  *  - Primary   : aamp->rate after the call.
@@ -172,32 +171,74 @@ TEST_F(SetRateInternalIframeGuardTests,
 }
 
 /**
- * @test SetRateInternal_NoIframeTrack_SynthesisEnabled_GuardAllowsTrickplay
- * @brief When no iframe AdaptationSet is present BUT synthesizeIframeForVOD is
- *        enabled on a VOD stream, the guard must NOT reject trickplay.
- *
- * Regression test for VPAAMP-1139: before the fix the early-return guard
- * checked only mIsIframeTrackPresent and always blocked trickplay on streams
- * without a dedicated iframe track, ignoring IsVODIframeSynthesisEnabled().
+ * @test SetRateInternal_NoTrickplaySupport_SynthesisConfigEnabled_GuardBlocksTrickplay
+ * @brief The synthesis config alone does not let a trick rate through: the collector
+ *        reports trickplay support only when there is a video track to synthesise from.
  */
 TEST_F(SetRateInternalIframeGuardTests,
-    SetRateInternal_NoIframeTrack_SynthesisEnabled_GuardAllowsTrickplay)
+    SetRateInternal_NoTrickplaySupport_SynthesisConfigEnabled_GuardBlocksTrickplay)
 {
-    // Synthesis enabled: config flag set, stream is VOD (mIsLive=false,
-    // mLocalAAMPTsb=false) → IsVODIframeSynthesisEnabled() returns true.
     ON_CALL(*g_mockAampConfig,
             IsConfigSet(eAAMPConfig_SynthesizeIframeForVOD))
         .WillByDefault(Return(true));
-
-    // No EXPECT_CALL on NotifySpeedChanged here.  Adding one would cause
-    // NiceMock to report a failure when the trickplay path calls
-    // NotifySpeedChanged(4.0, ...) and the matcher for 1.0 does not match.
-    // The aamp->rate oracle below is sufficient to prove the guard was
-    // bypassed without any EXPECT_CALL noise.
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+                NotifySpeedChanged(AAMP_NORMAL_PLAY_RATE, _))
+        .Times(1);
 
     mPlayer->SetRate_Internal(4.0f, 0);
 
-    // Primary oracle: guard bypassed → trickplay path ran → aamp->rate=4.0.
-    // If the guard had fired instead, aamp->rate would still be 1.0.
+    EXPECT_FLOAT_EQ(mPriv->rate, AAMP_NORMAL_PLAY_RATE);
+}
+
+/**
+ * @test SetRateInternal_TrickplaySupported_GuardAllowsTrickplay
+ * @brief When the collector reports trickplay support (iframe track, or a video track with
+ *        synthesis or local TSB extraction), the guard lets the trick rate through.
+ */
+TEST_F(SetRateInternalIframeGuardTests,
+    SetRateInternal_TrickplaySupported_GuardAllowsTrickplay)
+{
+    mPriv->mIsIframeTrackPresent = true;
+
+    mPlayer->SetRate_Internal(4.0f, 0);
+
+    // Guard bypassed: the trickplay path updated the rate (it would stay 1.0 otherwise)
+    EXPECT_FLOAT_EQ(mPriv->rate, 4.0f);
+}
+
+/**
+ * @test SetRateAndSeek_NoTrickplaySupport_SynthesisConfigEnabled_GuardBlocksTrickplay
+ * @brief SetRateAndSeek() applies the same guard as SetRateInternal().
+ */
+TEST_F(SetRateInternalIframeGuardTests,
+    SetRateAndSeek_NoTrickplaySupport_SynthesisConfigEnabled_GuardBlocksTrickplay)
+{
+    ON_CALL(*g_mockAampConfig,
+            IsConfigSet(eAAMPConfig_SynthesizeIframeForVOD))
+        .WillByDefault(Return(true));
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+                NotifySpeedChanged(AAMP_NORMAL_PLAY_RATE, _))
+        .Times(1);
+
+    mPlayer->SetRateAndSeek(4, 10.0);
+
+    EXPECT_FLOAT_EQ(mPriv->rate, AAMP_NORMAL_PLAY_RATE);
+}
+
+/**
+ * @test SetRateAndSeek_ProgressiveWithoutIframes_GuardAllowsTrickplay
+ * @brief Progressive content changes rate in the pipeline and has no iframe track, so
+ *        SetRateAndSeek(), like SetRateInternal(), does not reject its trick rates.
+ */
+TEST_F(SetRateInternalIframeGuardTests,
+    SetRateAndSeek_ProgressiveWithoutIframes_GuardAllowsTrickplay)
+{
+    mPriv->mMediaFormat = eMEDIAFORMAT_PROGRESSIVE;
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+                NotifySpeedChanged(AAMP_NORMAL_PLAY_RATE, _))
+        .Times(0);
+
+    mPlayer->SetRateAndSeek(4, 10.0);
+
     EXPECT_FLOAT_EQ(mPriv->rate, 4.0f);
 }

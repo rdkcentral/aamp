@@ -141,6 +141,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) :
 	mPreviousAudioType(),
 	mCurlShared(),
 	mIsChunkMode(false),
+	mLocalAAMPTsbFromConfig(false),
 	mLatencyMonitor(std::make_unique<AampLatencyMonitor>(this))
 {
 	mbPlayEnabled = true;
