@@ -986,7 +986,7 @@ TEST_F(HTTPResponseHeaderEventTest, HTTPResponseHeaderEventMethodsTest) {
 class WatermarkSessionUpdateEventTest : public ::testing::Test {
 protected:
     void SetUp() override {
-        sessionHandle = 123;
+        sessionHandle = "4d1cb20e-48f0-4b81-9dd9-7d82ab9ba12f";
         status = 456;
         system = "WatermarkSession";
     }
@@ -995,7 +995,7 @@ protected:
         
     }
 
-    uint32_t sessionHandle;
+    std::string sessionHandle;
     uint32_t status;
     std::string system;
 };

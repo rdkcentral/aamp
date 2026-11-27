@@ -2358,7 +2358,7 @@ public:
  */
 class WatermarkSessionUpdateEvent: public AAMPEventObject
 {
-	uint32_t mSessionHandle; /**< Playback session handle used to track and manage sessions  */
+	std::string mSessionHandle; /**< Content protection session ID used to track and manage sessions  */
 	uint32_t mStatus; 	 /**< Provides the status of the watermark session.  */
 	std::string mSystem; 	 /**< Describes content watermarking protection provider  */
 public:
@@ -2368,11 +2368,11 @@ public:
 
 	/**
 	 * @brief WatermarkSessionUpdateEvent Constructor
-	 * @param[in]  sessionHandle - Handle used to track and manage session
+	 * @param[in]  sessionHandle - Content protection session ID
 	 * @param[in]  status - Status of the watermark session
 	 * @param[in]  system - Watermarking protection provider
 	 */
-	WatermarkSessionUpdateEvent(uint32_t sessionHandle, uint32_t status, const std::string &system, std::string sid) : AAMPEventObject(AAMP_EVENT_WATERMARK_SESSION_UPDATE, std::move(sid = {})) , mSessionHandle(sessionHandle), mStatus(status), mSystem(system)
+	WatermarkSessionUpdateEvent(std::string sessionHandle, uint32_t status, const std::string &system, std::string sid) : AAMPEventObject(AAMP_EVENT_WATERMARK_SESSION_UPDATE, std::move(sid = {})) , mSessionHandle(std::move(sessionHandle)), mStatus(status), mSystem(system)
 	{}
 
 	/**
@@ -2383,9 +2383,9 @@ public:
 	/**
 	 * @brief Get session handle
 	 *
-	 * @return session handle
+	 * @return content protection session ID
 	 */
-	uint32_t getSessionHandle() const { return mSessionHandle; }
+	const std::string& getSessionHandle() const { return mSessionHandle; }
 
 	/**
 	 * @brief Get session status 
@@ -2671,4 +2671,3 @@ public:
 using VodAdBreakOpportunityEventPtr = std::shared_ptr<VodAdBreakOpportunityEvent>;
 
 #endif /* __AAMP_EVENTS_H__ */
-
