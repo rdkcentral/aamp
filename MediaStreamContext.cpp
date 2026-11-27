@@ -29,6 +29,8 @@
 #include "AampCacheHandler.h"
 #include "AampTSBSessionManager.h"
 #include "AampMPDUtils.h"
+#include <algorithm>
+#include <memory>
 
 /**
  *  @brief Receives cached fragment and injects to sink.
@@ -248,6 +250,13 @@ bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, const uint
 		return false;
 	}
 	bool ret = true;
+	if (mLiveInjectionStalled.load())
+	{
+		// Live injection stalled with AAMP TSB enabled: the full fragment is still
+		// written to the TSB on completion, so skip the (blocking) injection cache.
+		AAMPLOG_TRACE("[%s] live injection stalled, not caching chunk", name);
+		return ret;
+	}
 	if (WaitForCachedFragmentInjected())
 	{
 		CachedFragment *cachedFragment = NULL;
@@ -816,7 +825,7 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 			// If all of the active media contexts are no longer injecting from TSB, update the AAMP flag
 			aamp->UpdateLocalAAMPTsbInjection();
 		}
-		else if (fragmentToTsbSessionMgr->initFragment && !IsLocalTSBInjection() && !aamp->mSinkPaused.load())
+		else if (fragmentToTsbSessionMgr->initFragment && !IsLocalTSBInjection() && !mLiveInjectionStalled.load() && !aamp->mSinkPaused.load())
 		{
 			// In chunk mode, media segments are added to the chunk cache in the SSL callback, but init segments are added here
 			if (aamp->GetLLDashChunkMode())
@@ -849,9 +858,12 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 	// Use wasUnderFlowActive (captured before the underflow-monitor notify above) to guard against a race where
 	// GStreamer's buffering(0) message re-sets mSinkPaused=true after SetBufferingState(false) has already
 	// cleared mBufUnderFlowStatus — which would otherwise cause this recovery fragment to be discarded.
+	// Likewise when live injection has stalled: the fragment is already in the AAMP TSB and the scheduled
+	// retune resumes from there, so caching it for injection would only block this download thread.
 	const bool sinkPausedWithoutUnderflow = aamp->IsSinkPausedWithoutUnderflow();
 	if (tsbSessionManager &&
-		(IsLocalTSBInjection() || (sinkPausedWithoutUnderflow && !wasUnderFlowActive)))
+		(IsLocalTSBInjection() || mLiveInjectionStalled.load() ||
+		 (sinkPausedWithoutUnderflow && !wasUnderFlowActive)))
 	{
 		AAMPLOG_TRACE("[%s] cachedFragment %p ptr %p not injecting IsLocalTSBInjection %d, sinkPausedWithoutUnderflow %d, wasUnderFlowActive %d",
 			name, cachedFragment, cachedFragment->fragment.data(), IsLocalTSBInjection(), sinkPausedWithoutUnderflow, wasUnderFlowActive);
@@ -1197,13 +1209,24 @@ bool MediaStreamContext::DownloadFragment(DownloadInfoPtr dlInfo)
 		// Wait for a free cache slot before starting the download.
 		// IsFragmentCacheFull() checks the unified fragment chunk cache usage, so
 		// this wait throttles downloads until shared cache capacity is available.
-		// Skip the wait when playing from local TSB, or when paused with AAMP TSB
-		// (fragments go to the TSB only, so need no cache slot).
-		if (IsFragmentCacheFull() && !aamp->IsLocalAAMPTsbInjection())
+		// Skip the wait when playing from local TSB
+		if (!IsFragmentCacheFull())
 		{
-			while (DownloadsEnabled() && !aamp->IsLocalAAMPTsbPausedWithoutUnderflow() && !WaitForFreeFragmentAvailable(MAX_WAIT_TIMEOUT_MS))
+			ResumeLiveInjectionIfDrained();
+		}
+		else if (!aamp->IsLocalAAMPTsbInjection() &&
+				 !aamp->IsLocalAAMPTsbPausedWithoutUnderflow())
+		{
+			if (aamp->IsLocalAAMPTsb())
 			{
-				AAMPLOG_TRACE("Waiting for free fragment");
+				WaitForInjectionCacheWithTsb(DownloadsEnabled);
+			}
+			else
+			{
+				while (DownloadsEnabled() && !WaitForFreeFragmentAvailable(MAX_WAIT_TIMEOUT_MS))
+				{
+					AAMPLOG_TRACE("Waiting for free fragment");
+				}
 			}
 		}
 		while (WaitForLowLatencyDashDownloads())
@@ -1219,4 +1242,98 @@ bool MediaStreamContext::DownloadFragment(DownloadInfoPtr dlInfo)
 	}
 
 	return retval;
+}
+
+/**
+ * @fn WaitForInjectionCacheWithTsb
+ * @param[in] downloadsEnabled - predicate: downloads still enabled
+ */
+void MediaStreamContext::WaitForInjectionCacheWithTsb(const std::function<bool()> &downloadsEnabled)
+{
+	if (mLiveInjectionStalled.load())
+	{
+		return;
+	}
+
+	// A healthy injector frees a slot at least once per fragment duration.
+	const double stallTimeoutMs = std::max(
+		static_cast<double>(GETCONFIGVALUE(eAAMPConfig_StallTimeoutMS)),
+		2.0 * fragmentDurationSeconds * 1000.0);
+	long long waitStartMs = aamp_GetCurrentTimeMS();
+	while (downloadsEnabled())
+	{
+		if (aamp->mSinkPaused.load() && !aamp->GetBufUnderFlowStatus())
+		{
+			// Paused: OnFragmentDownloadSuccess() writes to the TSB only.
+			AAMPLOG_TRACE("[%s] paused, not waiting for injection cache", name);
+			return;
+		}
+		if (WaitForFreeFragmentAvailable(MAX_WAIT_TIMEOUT_MS))
+		{
+			return;
+		}
+		const long long nowMs = aamp_GetCurrentTimeMS();
+		if ((aamp->GetState() != eSTATE_PLAYING) || (aamp->rate != AAMP_NORMAL_PLAY_RATE))
+		{
+			// Injection is not expected to progress (preparing, seeking...).
+			waitStartMs = nowMs;
+		}
+		else if ((nowMs - waitStartMs) >= stallTimeoutMs)
+		{
+			AAMPLOG_WARN("[%s] injection cache full for %lld ms while playing",
+				name, nowMs - waitStartMs);
+			DeclareLiveInjectionStalled();
+			return;
+		}
+		AAMPLOG_TRACE("Waiting for free fragment");
+	}
+}
+
+/**
+ * @fn ResumeLiveInjectionIfDrained
+ */
+void MediaStreamContext::ResumeLiveInjectionIfDrained()
+{
+	// Nothing is cached while stalled, so a non-full cache means the injector is
+	// consuming again. Only reached if the scheduled retune did not happen (e.g. it
+	// was declined); resume live injection rather than starve it, accepting a
+	// forward jump over the fragments that were written to the TSB only.
+	if (mLiveInjectionStalled.exchange(false))
+	{
+		AAMPLOG_WARN("[%s] injection cache draining again, resuming live injection", name);
+	}
+}
+
+/**
+ * @fn DeclareLiveInjectionStalled
+ */
+void MediaStreamContext::DeclareLiveInjectionStalled()
+{
+	if (mLiveInjectionStalled.exchange(true))
+	{
+		return;
+	}
+	AAMPLOG_WARN("[%s] live injection stalled - continuing downloads to AAMP TSB only and "
+		"scheduling retune to resume from AAMP TSB", name);
+
+	struct RetuneArgs
+	{
+		PrivateInstanceAAMP *aamp;
+		AampMediaType mediaType;
+	};
+	auto args = std::make_unique<RetuneArgs>(RetuneArgs{aamp, mediaType});
+	// Asynchronous: ScheduleRetune() takes locks a tune may hold while it joins
+	// this download thread.
+	if (aamp->ScheduleAsyncTask([](void *arg) -> int {
+			std::unique_ptr<RetuneArgs> a(static_cast<RetuneArgs *>(arg));
+			a->aamp->ScheduleRetune(eSTALL_LIVE_INJECTION_WITH_TSB, a->mediaType);
+			return 0;
+		}, args.get(), "LiveInjectionStalledRetune") != AAMP_TASK_ID_INVALID)
+	{
+		(void)args.release();
+	}
+	else
+	{
+		AAMPLOG_ERR("[%s] failed to schedule retune for stalled live injection", name);
+	}
 }

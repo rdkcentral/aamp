@@ -28,6 +28,8 @@
 #include "StreamAbstractionAAMP.h"
 #include "fragmentcollector_mpd.h"
 #include "SegmentIndex.h"
+#include <atomic>
+#include <functional>
 
 /**
  * @class MediaStreamContext
@@ -304,6 +306,15 @@ public:
 	 */
 	bool DownloadFragment(DownloadInfoPtr downloadInfo);
 
+	/**
+	 * @fn IsLiveInjectionStalled
+	 * @brief Whether live-edge injection was declared stalled while AAMP TSB
+	 *        is enabled. Once set, downloaded fragments are written to the
+	 *        AAMP TSB only (not cached for injection) until the retune that
+	 *        was scheduled at detection time resumes playback from the TSB.
+	 */
+	bool IsLiveInjectionStalled() const { return mLiveInjectionStalled.load(); }
+
 	AampMediaType mediaType;
 	struct FragmentDescriptor fragmentDescriptor;
 	const IAdaptationSet *adaptationSet{nullptr};
@@ -355,6 +366,38 @@ private:
 	 *        thread (non-LLD DASH path only).
 	 */
 	void CacheStagingFragmentForInjection();
+
+	/**
+	 * @fn WaitForInjectionCacheWithTsb
+	 * @brief AAMP TSB variant of the "wait for a free injection cache slot"
+	 *        throttle in DownloadFragment().
+	 *
+	 * With AAMP TSB enabled the TSB, not the injector, is the consumer that
+	 * must keep up with the live edge, so the downloader must not be held
+	 * hostage by a stalled injector. Waits for a free slot as usual, but
+	 * returns without one if the pipeline is paused (the fragment will not
+	 * be cached for injection anyway) or if no slot is freed within
+	 * eAAMPConfig_StallTimeoutMS, in which case live injection is declared
+	 * stalled and a retune (which resumes from the AAMP TSB) is scheduled.
+	 *
+	 * @param[in] downloadsEnabled - predicate: downloads still enabled
+	 */
+	void WaitForInjectionCacheWithTsb(const std::function<bool()> &downloadsEnabled);
+
+	/**
+	 * @fn DeclareLiveInjectionStalled
+	 * @brief Latch mLiveInjectionStalled and schedule an asynchronous retune.
+	 */
+	void DeclareLiveInjectionStalled();
+
+	/**
+	 * @fn ResumeLiveInjectionIfDrained
+	 * @brief Clear mLiveInjectionStalled once the injection cache is no
+	 *        longer full (fallback when the scheduled retune did not occur).
+	 */
+	void ResumeLiveInjectionIfDrained();
+
+	std::atomic_bool mLiveInjectionStalled{false};	/**< Live injection stalled with AAMP TSB enabled; see IsLiveInjectionStalled() */
 }; // MediaStreamContext
 
 #endif /* MEDIASTREAMCONTEXT_H */
