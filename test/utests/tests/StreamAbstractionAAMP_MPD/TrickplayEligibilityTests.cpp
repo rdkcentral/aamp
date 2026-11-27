@@ -269,9 +269,8 @@ namespace
  *
  * Oracle: trick play is video-only, so the iframe source is an iframe adaptation set, or a video
  * adaptation set that VOD synthesis or local TSB extraction derives iframes from. Audio-only content
- * is carried in the video slot, but has no video adaptation set, so it never supports trick play,
- * whatever is configured. The reported support decides which speeds are advertised and whether
- * SetRate accepts a trick rate.
+ * never supports trick play, whatever is configured. The reported support decides which speeds are
+ * advertised and whether SetRate accepts a trick rate.
  */
 TEST_P(TrickplayEligibilityTests, StreamSelection_ContentAndIframeSource_ReportsTrickplaySupport)
 {

@@ -881,7 +881,6 @@ protected:
 	/**
 	 * @fn HasVideoAdaptationSet
 	 * @brief Whether the period offers a playable, non-iframe video adaptation set that playback may select.
-	 *        Audio-only content has none, even though it is carried in the video slot.
 	 * @param period Period to inspect
 	 * @retval false if there is none or audio-only playback is configured
 	 */
