@@ -43,7 +43,10 @@ When linked against the simulator:
    reporting thread that advances at wall-clock speed from the first
    known PTS
 4. `addSegment()` captures the first segment PTS as the playback base
-5. `haveData()` schedules further `notifyNeedMediaData` calls
+5. `haveData()` schedules further `notifyNeedMediaData` calls; after a
+   response that delivered nothing (e.g. `NO_AVAILABLE_SAMPLES`), it
+   re-requests after 15 ms, as real Rialto does, so data can flow while
+   `PAUSED` (pre-roll)
 6. `stop()` fires `notifyPlaybackState(STOPPED)` and stops threads
 
 All actions are logged to stderr with a `[RialtoSim]` prefix so that L2

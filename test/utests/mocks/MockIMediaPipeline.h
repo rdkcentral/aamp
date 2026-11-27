@@ -80,6 +80,14 @@ public:
 		(int32_t sourceId, bool &immediateOutput),
 		(override));
 
+	MOCK_METHOD(bool, setReportDecodeErrors,
+		(int32_t sourceId, bool reportDecodeErrors),
+		(override));
+
+	MOCK_METHOD(bool, getQueuedFrames,
+		(int32_t sourceId, uint32_t &queuedFrames),
+		(override));
+
 	MOCK_METHOD(bool, setVideoWindow,
 		(uint32_t x, uint32_t y, uint32_t width, uint32_t height),
 		(override));
