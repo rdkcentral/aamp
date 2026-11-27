@@ -269,6 +269,10 @@ void MediaTrack::FlushFragments()
 {
 }
 
+void MediaTrack::FlushFragmentsLocked()
+{
+}
+
 BitsPerSecond MediaTrack::GetCurrentBandWidth()
 {
 	return 0;

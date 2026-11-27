@@ -593,6 +593,13 @@ public:
 	void FlushFragments();
 
 	/**
+	 * @fn FlushFragmentsLocked
+	 * @brief Same as FlushFragments(), but the caller must already hold the track mutex
+	 * @return void
+	 */
+	void FlushFragmentsLocked();
+
+	/**
 	 * @brief API to wait thread until the fragment cached after audio reconfiguration
 	 */
 	void WaitForCachedAudioFragmentAvailable(void);

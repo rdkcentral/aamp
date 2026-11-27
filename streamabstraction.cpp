@@ -1651,6 +1651,15 @@ void MediaTrack::FlushFetchedFragments()
  */
 void MediaTrack::FlushFragments()
 {
+	std::lock_guard<std::mutex> guard(mutex);
+	FlushFragmentsLocked();
+}
+
+/**
+ * @brief Flushes all cached fragments with the track mutex already held by the caller
+ */
+void MediaTrack::FlushFragmentsLocked()
+{
 	AAMPLOG_WARN("[%s]", name);
 	for (size_t i = 0; i < mCachedFragmentSize; i++)
 	{
@@ -1658,7 +1667,6 @@ void MediaTrack::FlushFragments()
 	}
 	fragmentIdxToInject = 0;
 	fragmentIdxToFetch = 0;
-	std::lock_guard<std::mutex> guard(mutex);
 	numberOfFragmentsCached = 0;
 
 	// All fragment-injected/fetched duration counters live under mTrackParamsMutex.
@@ -4605,5 +4613,5 @@ void StreamAbstractionAAMP::ReinitializeInjection(double rate)
 			track->playContext->setRate(rate, PlayMode_normal);
 		}
 	}
-}
 
+}
