@@ -7163,7 +7163,7 @@ TEST_F(PrivAampTests, GetFileTest_EnableLowBWTimeoutOnNotLowestProfile)
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, IsCurrentProfileLowest()).WillOnce(Return(false));
 	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_ptr( mCurlEasyHandle, CURLOPT_PROGRESSDATA, _))
 		.WillOnce(Invoke([lowBWTimeoutValue](void* handle, CURLoption option, const void* param) -> CURLcode {
-			const CurlProgressCbContext* ctx = static_cast<const CurlProgressCbContext*>(param);
+			const CurlCallbackContext* ctx = static_cast<const CurlCallbackContext*>(param);
 			EXPECT_EQ(ctx->lowBWTimeout, lowBWTimeoutValue);
 			return CURLE_OK;
 		}));
@@ -7199,13 +7199,287 @@ TEST_F(PrivAampTests, GetFileTest_DisableLowBWTimeoutOnLowestProfile)
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, IsCurrentProfileLowest()).WillOnce(Return(true));
 	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_ptr( mCurlEasyHandle, CURLOPT_PROGRESSDATA, _))
 		.WillOnce(Invoke([](void* handle, CURLoption option, const void* param) -> CURLcode {
-			const CurlProgressCbContext* ctx = static_cast<const CurlProgressCbContext*>(param);
+			const CurlCallbackContext* ctx = static_cast<const CurlCallbackContext*>(param);
 			EXPECT_EQ(ctx->lowBWTimeout, 0);
 			return CURLE_OK;
 		}));
 
 	int http_error{-1};
 	p_aamp->GetFile("remoteurl", mType, gBuff, effectiveUrl, http_error);
+}
+
+/**
+ * @brief Capture the shared callback data pointer configured by GetFile.
+ */
+struct GetFileCallbackDataCapture
+{
+	const void *sharedData = nullptr;
+	bool sawWriteData = false;
+	bool sawHeaderData = false;
+	bool sawProgressData = false;
+	bool allCallbackDataMatches = true;
+
+	void Capture(CURLoption option, const void *data)
+	{
+		switch (option)
+		{
+			case CURLOPT_WRITEDATA:
+				sawWriteData = true;
+				break;
+			case CURLOPT_HEADERDATA:
+				sawHeaderData = true;
+				break;
+			case CURLOPT_PROGRESSDATA:
+				sawProgressData = true;
+				break;
+			default:
+				return;
+		}
+
+		if (!data)
+		{
+			allCallbackDataMatches = false;
+		}
+		if (!sharedData)
+		{
+			sharedData = data;
+		}
+		else if (sharedData != data)
+		{
+			allCallbackDataMatches = false;
+		}
+	}
+
+	CurlCallbackContext *GetContext() const
+	{
+		return const_cast<CurlCallbackContext *>(
+			static_cast<const CurlCallbackContext *>(sharedData));
+	}
+};
+
+static void SetUpGetFileAudioTest(PrivateInstanceAAMP *aamp, CURL *curlHandle)
+{
+	// These GetFile tests deliberately do not assert the http_error output. In L1 the fakes report a
+	// connect time of 0 and IsCurlTimeoutFailure() is always true, so GetFile ends up mapping the final
+	// code to OPERATION_TIMEOUT_CONNECTIVITY_AAMP whatever the attempt returned. They assert the return
+	// value, the number of curl_easy_perform calls and the shared context state instead.
+	aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
+	aamp->EnableDownloads();
+	aamp->curl[eCURLINSTANCE_AUDIO] = curlHandle;
+	aamp->curlDLTimeout[eCURLINSTANCE_AUDIO] = 2000;
+
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(Matcher<AAMPConfigSettingInt>(_)))
+		.WillRepeatedly(Return(0));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(Matcher<AAMPConfigSettingFloat>(_)))
+		.WillRepeatedly(Return(0.0));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(Matcher<AAMPConfigSettingString>(_)))
+		.WillRepeatedly(Return(""));
+
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_str(curlHandle, _, _))
+		.WillRepeatedly(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_long(curlHandle, _, _))
+		.WillRepeatedly(Return(CURLE_OK));
+}
+
+/**
+ * @brief Verify GetFile registers one non-null context for all curl callbacks.
+ */
+TEST_F(PrivAampTests, GetFileTest_UsesSharedContextForCurlCallbacks)
+{
+	SetUpGetFileAudioTest(p_aamp, mCurlEasyHandle);
+
+	std::vector<uint8_t> buffer;
+	GetFileCallbackDataCapture callbackData;
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_ptr(mCurlEasyHandle, _, _))
+		.WillRepeatedly(Invoke([&callbackData](CURL *, CURLoption option, const void *data) {
+			callbackData.Capture(option, data);
+			return CURLE_OK;
+		}));
+	EXPECT_CALL(*g_mockCurl, curl_easy_perform(mCurlEasyHandle))
+		.WillOnce(Invoke([&buffer](CURL *) {
+			buffer.push_back(0x41);
+			return CURLE_OK;
+		}));
+	EXPECT_CALL(*g_mockAampCurlStore, GetCurlResponseCode(mCurlEasyHandle))
+		.WillOnce(Return(200));
+
+	std::string effectiveUrl;
+	int http_error{-1};
+	const bool result = p_aamp->GetFile("https://example.com/audio", eMEDIATYPE_AUDIO,
+		buffer, effectiveUrl, http_error, nullptr, nullptr, eCURLINSTANCE_AUDIO);
+
+	EXPECT_TRUE(result);
+	EXPECT_TRUE(callbackData.sawWriteData);
+	EXPECT_TRUE(callbackData.sawHeaderData);
+	EXPECT_TRUE(callbackData.sawProgressData);
+	EXPECT_TRUE(callbackData.allCallbackDataMatches);
+}
+
+/**
+ * @brief Verify a stalled audio attempt retries with clean shared progress state.
+ */
+TEST_F(PrivAampTests, GetFileTest_StallRetryResetsSharedProgressContext)
+{
+	SetUpGetFileAudioTest(p_aamp, mCurlEasyHandle);
+
+	GetFileCallbackDataCapture callbackData;
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_ptr(mCurlEasyHandle, _, _))
+		.WillRepeatedly(Invoke([&callbackData](CURL *, CURLoption option, const void *data) {
+			callbackData.Capture(option, data);
+			return CURLE_OK;
+		}));
+	EXPECT_CALL(*g_mockAampCurlStore, GetCurlResponseCode(mCurlEasyHandle))
+		.WillOnce(Return(200));
+
+	std::vector<uint8_t> buffer;
+	int performCalls = 0;
+	int firstProgressResult = 0;
+	bool retryStateWasClean = false;
+	EXPECT_CALL(*g_mockCurl, curl_easy_perform(mCurlEasyHandle))
+		.Times(2)
+		.WillOnce(Invoke([&](CURL *) {
+			++performCalls;
+			CurlCallbackContext *context = callbackData.GetContext();
+			EXPECT_NE(context, nullptr);
+			if (!context)
+			{
+				return CURLE_ABORTED_BY_CALLBACK;
+			}
+
+			context->stallTimeout = 1;
+			context->downloadSize = 16.0;
+			context->downloadUpdatedTime = NOW_STEADY_TS_MS - 2000;
+			firstProgressResult = p_aamp->HandleSSLProgressCallback(
+				context, 16.0, 16.0, 0.0, 0.0);
+			EXPECT_EQ(firstProgressResult, 1);
+			EXPECT_EQ(context->abortReason, eCURL_ABORT_REASON_STALL_TIMEDOUT);
+
+			context->downloadNow = 123.0;
+			context->downloadNowUpdatedTime = NOW_STEADY_TS_MS - 1000;
+			context->dlStarted = false;
+			return CURLE_ABORTED_BY_CALLBACK;
+		}))
+		.WillOnce(Invoke([&](CURL *) {
+			++performCalls;
+			CurlCallbackContext *context = callbackData.GetContext();
+			EXPECT_NE(context, nullptr);
+			if (!context)
+			{
+				return CURLE_WRITE_ERROR;
+			}
+
+			retryStateWasClean =
+				context->abortReason == eCURL_ABORT_REASON_NONE &&
+				context->downloadSize == -1.0 &&
+				context->downloadUpdatedTime == -1 &&
+				context->downloadNow == -1.0 &&
+				context->downloadNowUpdatedTime == -1 &&
+				context->dlStarted;
+			buffer.push_back(0x41);
+			return CURLE_OK;
+		}));
+
+	std::string effectiveUrl;
+	int http_error{-1};
+	const bool result = p_aamp->GetFile("https://example.com/audio", eMEDIATYPE_AUDIO,
+		buffer, effectiveUrl, http_error, nullptr, nullptr, eCURLINSTANCE_AUDIO);
+
+	EXPECT_TRUE(result);
+	EXPECT_EQ(performCalls, 2);
+	EXPECT_EQ(firstProgressResult, 1);
+	EXPECT_TRUE(retryStateWasClean);
+}
+
+/**
+ * @brief Preserve a write-callback error instead of retrying it as a progress timeout.
+ */
+TEST_F(PrivAampTests, GetFileTest_PreservesWriteCallbackFailureWithoutRetry)
+{
+	SetUpGetFileAudioTest(p_aamp, mCurlEasyHandle);
+
+	GetFileCallbackDataCapture callbackData;
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_ptr(mCurlEasyHandle, _, _))
+		.WillRepeatedly(Invoke([&callbackData](CURL *, CURLoption option, const void *data) {
+			callbackData.Capture(option, data);
+			return CURLE_OK;
+		}));
+
+	int performCalls = 0;
+	EXPECT_CALL(*g_mockCurl, curl_easy_perform(mCurlEasyHandle))
+		.Times(1)
+		.WillOnce(Invoke([&](CURL *) {
+			++performCalls;
+			CurlCallbackContext *context = callbackData.GetContext();
+			EXPECT_NE(context, nullptr);
+			if (context)
+			{
+				context->abortReason = eCURL_ABORT_REASON_CHUNKED_PARSER_ERROR;
+			}
+			return CURLE_WRITE_ERROR;
+		}));
+
+	std::vector<uint8_t> buffer;
+	std::string effectiveUrl;
+	int http_error{-1};
+	const bool result = p_aamp->GetFile("https://example.com/audio", eMEDIATYPE_AUDIO,
+		buffer, effectiveUrl, http_error, nullptr, nullptr, eCURLINSTANCE_AUDIO);
+
+	// Not retried: with the fakes every code is a "timeout", so a retry would show up as extra perform calls
+	EXPECT_FALSE(result);
+	EXPECT_EQ(performCalls, 1);
+}
+
+/**
+ * @brief Treat a stall after chunk injection as partial success without replaying chunks.
+ */
+TEST_F(PrivAampTests, GetFileTest_StallAfterChunkInjectionReturnsPartialSuccess)
+{
+	SetUpGetFileAudioTest(p_aamp, mCurlEasyHandle);
+
+	GetFileCallbackDataCapture callbackData;
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_ptr(mCurlEasyHandle, _, _))
+		.WillRepeatedly(Invoke([&callbackData](CURL *, CURLoption option, const void *data) {
+			callbackData.Capture(option, data);
+			return CURLE_OK;
+		}));
+
+	int performCalls = 0;
+	int progressResult = 0;
+	EXPECT_CALL(*g_mockCurl, curl_easy_perform(mCurlEasyHandle))
+		.Times(1)
+		.WillOnce(Invoke([&](CURL *) {
+			++performCalls;
+			CurlCallbackContext *context = callbackData.GetContext();
+			EXPECT_NE(context, nullptr);
+			if (!context)
+			{
+				return CURLE_ABORTED_BY_CALLBACK;
+			}
+
+			context->stallTimeout = 1;
+			context->downloadSize = 8.0;
+			context->downloadUpdatedTime = NOW_STEADY_TS_MS - 2000;
+			progressResult = p_aamp->HandleSSLProgressCallback(
+				context, 8.0, 8.0, 0.0, 0.0);
+			EXPECT_EQ(progressResult, 1);
+			EXPECT_EQ(context->abortReason, eCURL_ABORT_REASON_STALL_TIMEDOUT);
+
+			context->chunkInjectionUsed = true;
+			context->bufferOffset = 1;
+			context->buffer.push_back(0x42);
+			return CURLE_ABORTED_BY_CALLBACK;
+		}));
+
+	std::vector<uint8_t> buffer;
+	std::string effectiveUrl;
+	int http_error{-1};
+	const bool result = p_aamp->GetFile("https://example.com/audio", eMEDIATYPE_AUDIO,
+		buffer, effectiveUrl, http_error, nullptr, nullptr, eCURLINSTANCE_AUDIO);
+
+	EXPECT_TRUE(result);
+	EXPECT_EQ(performCalls, 1);
+	EXPECT_EQ(progressResult, 1);
+	EXPECT_EQ(buffer.size(), 1u);
 }
 
 #if defined(CURL_HTTP_VERSION_3ONLY) || defined(AAMP_HTTP3_SUPPORTED)

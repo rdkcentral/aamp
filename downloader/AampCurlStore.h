@@ -317,6 +317,16 @@ struct CurlCallbackContext
 	size_t synthesizeIframeByteCap = 0;    /**< Computed cap (moofSize+8+firstSampleSize); 0 until MOOF fully buffered */
 	BitsPerSecond profileBps = 0; /**< Current video profile bits per second used for early abort calculation*/
 	uint64_t chunkDurationInTicks = 0; /**< Duration of the current chunk in ticks, used while caching chunks */
+	// Progress callback (XFERINFOFUNCTION) state, shared with the write/header callbacks through this single context
+	long long downloadUpdatedTime = -1; /**< Time (ms) downloadSize last changed; stall detection compares it with stallTimeout */
+	int startTimeout = -1; /**< Seconds to wait for the first byte before aborting with START_TIMEDOUT; 0 disables (manifests/playlists) */
+	int stallTimeout = -1; /**< Seconds without new bytes before aborting with STALL_TIMEDOUT; <= 0 disables */
+	int lowBWTimeout = -1; /**< Seconds after request start before low bandwidth checks apply (video only); <= 0 disables */
+	double downloadSize = -1; /**< Bytes downloaded at the last observed change (-1 until first bytes arrive); stall detection baseline */
+	double downloadNow = -1; /**< Bytes downloaded at the last LL-DASH ABR progress report; avoids reporting the same value twice */
+	long long downloadNowUpdatedTime = -1; /**< Time (ms) of the last LL-DASH ABR progress report; recorded but not currently read */
+	bool dlStarted = false; /**< True until the first LL-DASH speed sample; tells getCurrentContentDownloadSpeed to restart its byte counter */
+	int fragmentDurationMs = -1; /**< Fragment duration (ms) of the request; recorded but not currently read */
 
 	/**
 	 * @brief Constructor to initialize CurlCallbackContext
@@ -350,37 +360,14 @@ struct CurlCallbackContext
 		downloadIsEncoded = false;
 		contentLength = 0;
 		bitrate = 0;
+		// Progress state must not leak from a previous attempt: a stale downloadNow can suppress the first
+		// ABR progress report, and dlStarted must be true again so the speed cache restarts its byte counter
+		downloadUpdatedTime = -1;
+		downloadSize = -1;
+		downloadNow = -1;
+		downloadNowUpdatedTime = -1;
+		dlStarted = true;
 	}
-};
-
-/**
- * @struct CurlProgressCbContext
- * @brief context during curl progress callbacks
- */
-struct CurlProgressCbContext
-{
-	PrivateInstanceAAMP *aamp;
-	AampMediaType mediaType;
-	CurlProgressCbContext() : aamp(NULL), mediaType(eMEDIATYPE_DEFAULT), downloadStartTime(-1), abortReason(eCURL_ABORT_REASON_NONE), downloadUpdatedTime(-1), startTimeout(-1), stallTimeout(-1), downloadSize(-1), downloadNow(-1), downloadNowUpdatedTime(-1), dlStarted(false), fragmentDurationMs(-1), remoteUrl(""), lowBWTimeout(-1) {}
-	CurlProgressCbContext(PrivateInstanceAAMP *_aamp, long long _downloadStartTime) : aamp(_aamp), mediaType(eMEDIATYPE_DEFAULT),downloadStartTime(_downloadStartTime), abortReason(eCURL_ABORT_REASON_NONE), downloadUpdatedTime(-1), startTimeout(-1), stallTimeout(-1), downloadSize(-1), downloadNow(-1), downloadNowUpdatedTime(-1), dlStarted(false), fragmentDurationMs(-1), remoteUrl(""), lowBWTimeout(-1) {}
-
-	~CurlProgressCbContext() {}
-
-	CurlProgressCbContext(const CurlProgressCbContext &other) = delete;
-	CurlProgressCbContext& operator=(const CurlProgressCbContext& other) = delete;
-
-	long long downloadStartTime;
-	long long downloadUpdatedTime;
-	int startTimeout;
-	int stallTimeout;
-	int lowBWTimeout;
-	double downloadSize;
-	CurlAbortReason abortReason;
-	double downloadNow;
-	long long downloadNowUpdatedTime;
-	bool dlStarted;
-	int fragmentDurationMs;
-	std::string remoteUrl;
 };
 
 int GetCurlResponseCode( CURL *curlhandle );

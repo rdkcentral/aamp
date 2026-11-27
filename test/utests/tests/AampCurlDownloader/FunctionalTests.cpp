@@ -65,6 +65,13 @@ protected:
 		EXPECT_CALL(*g_mockCurl, curl_easy_setopt_long(::testing::_, ::testing::_, ::testing::_))
 			.Times(::testing::AnyNumber())
 			.WillRepeatedly(Return(CURLE_OK));
+
+		// FakeCurl forwards CURLOPT_HEADERDATA to the mock, and Initialize() sets it unless
+		// bIgnoreResponseHeader is set. Allow it by default for tests that don't check the
+		// header data pointer; a stricter EXPECT_CALL in a test is matched first.
+		EXPECT_CALL(*g_mockCurl, curl_easy_setopt_ptr(::testing::_, CURLOPT_HEADERDATA, ::testing::_))
+			.Times(::testing::AnyNumber())
+			.WillRepeatedly(Return(CURLE_OK));
 	}
 
 	void TearDown() override
