@@ -76,6 +76,7 @@ static constexpr double kNetTraceBurstGapThresholdS = 0.005;  // 5 milliseconds
 #include "mp4demux/MP4Demux.h"
 
 #include <iomanip>
+#include <cctype>
 #include <unordered_set>
 #include <mutex>
 
@@ -1772,6 +1773,10 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	, preferredAudioAccessibilityNode()
 	, preferredTextLanguagesString("")
 	, preferredTextLanguagesList()
+	, preferredTextFormatsString("")
+	, preferredTextFormatsList()
+	, preferredTextCodecsString("")
+	, preferredTextCodecsList()
 	, preferredTextRenditionString("")
 	, preferredTextTypeString("")
 	, preferredTextLabelString("")
@@ -12298,6 +12303,8 @@ void PrivateInstanceAAMP::SetTextTrack(int trackId, char *data)
 			std::vector<TextTrackInfo> tracks = mpStreamAbstractionAAMP->GetAvailableTextTracks();
 			if (!tracks.empty() && (trackId >= 0 && trackId < tracks.size()))
 			{
+				mTextTrackSelectionDisabled = false;
+				mTextTrackExplicitlySelected = true;
 				TextTrackInfo track = tracks[trackId];
 				// Check if CC / Subtitle track
 				if (track.isCC)
@@ -12356,6 +12363,7 @@ void PrivateInstanceAAMP::SetTextTrack(int trackId, char *data)
 		else
 		{
 			AAMPLOG_WARN("webvtt data received from application");
+			mTextTrackSelectionDisabled = false;
 			mData.reset(data);
 			SetCCStatus(true);
 
@@ -12497,7 +12505,9 @@ void PrivateInstanceAAMP::SetCCStatusInternal(void)
 	if (mpStreamAbstractionAAMP)
 	{
 		// Mute subtitles if either video is muted or subtitles are muted
-		bool mute_subtitles_applied = video_muted.load() || subtitles_muted.load();
+		bool mute_subtitles_applied = video_muted.load() ||
+			subtitles_muted.load() ||
+			(mMediaFormat == eMEDIAFORMAT_DASH && mTextTrackSelectionDisabled);
 		bool isGstSubtecEnabled = ISCONFIGSET_PRIV(eAAMPConfig_GstSubtecEnabled);
 		AAMPLOG_INFO("mIsInbandCC %d GstSubtecEnabled %d mute_subtitles_applied %d video_muted %d subtitles_muted %d",
 					  mIsInbandCC, isGstSubtecEnabled, mute_subtitles_applied, video_muted.load(), subtitles_muted.load());
@@ -13520,18 +13530,27 @@ void PrivateInstanceAAMP::SanitizeLanguageList(std::vector<std::string>& languag
  */
 void PrivateInstanceAAMP::SavePreferredTextLanguages(const char *param, bool &isSelectionChange )
 {
-	/**< First argument is Json data then parse it and and assign the variables properly*/
-	AampJsonObject* jsObject = nullptr;
-
+	if (!param)
+	{
+		AAMPLOG_ERR("Missing preferred text language parameter");
+		return;
+	}
+	std::unique_ptr<AampJsonObject> jsObject;
 	std::vector<std::string> inputTextLanguagesList;
+	bool hasLanguagePreference = false;
 
 	try
 	{
-		jsObject = new AampJsonObject(param);
+		jsObject = std::make_unique<AampJsonObject>(param);
 	}
-	catch(const std::exception& e)
+	catch (const AampJsonParseException&)
 	{
-		/**<Nothing to do exclude it*/
+		const auto first = std::string(param).find_first_not_of(" \t\r\n");
+		if (first != std::string::npos && param[first] == '{')
+		{
+			AAMPLOG_ERR("Invalid preferred text JSON");
+			return;
+		}
 	}
 
 	if (jsObject)
@@ -13543,25 +13562,31 @@ void PrivateInstanceAAMP::SavePreferredTextLanguages(const char *param, bool &is
 		/** Get language Properties*/
 		if(jsObject->isArray("languages"))
 		{
+			hasLanguagePreference = true;
 			jsObject->get("languages", inputTextLanguagesList);
 		}
 		else if (jsObject->isString("languages"))
 		{ // if starting with string, create simple array
-			if (jsObject->get("languages", inputTextLanguagesString))
+			hasLanguagePreference = true;
+			if (jsObject->get("languages", inputTextLanguagesString) &&
+				!inputTextLanguagesString.empty())
 			{
 				inputTextLanguagesList.push_back(std::move(inputTextLanguagesString));
 			}
 		}
 		else if (jsObject->isString("language"))
 		{
-			if (jsObject->get("language", inputTextLanguagesString))
+			hasLanguagePreference = true;
+			if (jsObject->get("language", inputTextLanguagesString) &&
+				!inputTextLanguagesString.empty())
 			{
 				inputTextLanguagesList.push_back(std::move(inputTextLanguagesString));
 			}
 		}
 		else
 		{
-			AAMPLOG_ERR("Preferred Text Language Field Only support String or String Array");
+			AAMPLOG_INFO("No text language field: retaining language preference");
+			inputTextLanguagesList = preferredTextLanguagesList;
 		}
 
 		std::string inputTextRenditionString;
@@ -13571,6 +13596,47 @@ void PrivateInstanceAAMP::SavePreferredTextLanguages(const char *param, bool &is
 			if (jsObject->get("rendition", inputTextRenditionString))
 			{
 				AAMPLOG_INFO("Preferred text rendition string: %s", inputTextRenditionString.c_str());
+			}
+		}
+		else if (jsObject->isString("role"))
+		{
+			jsObject->get("role", inputTextRenditionString);
+		}
+
+		std::string inputTextTrackType;
+		if (jsObject->isString("type"))
+		{
+			jsObject->get("type", inputTextTrackType);
+			std::transform(inputTextTrackType.begin(), inputTextTrackType.end(),
+				inputTextTrackType.begin(), [](unsigned char ch)
+				{
+					return static_cast<char>(std::toupper(ch));
+				});
+			if (inputTextTrackType == "SUBTITLES NATIVE")
+			{
+				inputTextTrackType = "SUBTITLES-NATIVE";
+			}
+			else if (inputTextTrackType == "CLOSED-CAPTIONS")
+			{
+				inputTextTrackType = "CAPTIONS";
+			}
+			else if (inputTextTrackType == "SUBTITLE_NATIVE")
+			{
+				inputTextTrackType = "SUBTITLES-NATIVE";
+			}
+			else if (inputTextTrackType == "SUBTITLE" ||
+				inputTextTrackType.find("SUBTITLE_") == 0)
+			{
+				inputTextTrackType = "SUBTITLES";
+			}
+			if (!inputTextTrackType.empty() &&
+				inputTextTrackType != "SUBTITLES" &&
+				inputTextTrackType != "SUBTITLES-NATIVE" &&
+				inputTextTrackType != "CAPTIONS")
+			{
+				AAMPLOG_ERR("Unsupported preferred text type: %s",
+					inputTextTrackType.c_str());
+				return;
 			}
 		}
 
@@ -13622,6 +13688,45 @@ void PrivateInstanceAAMP::SavePreferredTextLanguages(const char *param, bool &is
 			}
 		}
 
+		std::vector<std::string> inputTextFormatsList;
+		/** Get format Properties*/
+		if(jsObject->isArray("formats"))
+		{
+			jsObject->get("formats", inputTextFormatsList);
+		}
+		else if (jsObject->isString("formats"))
+		{
+			std::string inputTextFormatsString;
+			if (jsObject->get("formats", inputTextFormatsString))
+			{
+				inputTextFormatsList.push_back(std::move(inputTextFormatsString));
+			}
+		}
+
+		std::vector<std::string> inputTextCodecsList;
+		/** Get codec Properties*/
+		if(jsObject->isArray("codecs"))
+		{
+			jsObject->get("codecs", inputTextCodecsList);
+		}
+		else if (jsObject->isString("codecs"))
+		{
+			std::string inputTextCodecsString;
+			if (jsObject->get("codecs", inputTextCodecsString))
+			{
+				inputTextCodecsList.push_back(std::move(inputTextCodecsString));
+			}
+		}
+		else if (jsObject->isString("codec"))
+		{
+			std::string codec;
+			jsObject->get("codec", codec);
+			if (!codec.empty())
+			{
+				inputTextCodecsList.push_back(std::move(codec));
+			}
+		}
+
 		Accessibility  inputTextAccessibilityNode;
 		/** Get accessibility Properties*/
 		if (jsObject->isObject("accessibility"))
@@ -13642,9 +13747,10 @@ void PrivateInstanceAAMP::SavePreferredTextLanguages(const char *param, bool &is
 			}
 		}
 
-		/**< Release json object **/
-		SAFE_DELETE(jsObject);
-
+		isSelectionChange = isSelectionChange ||
+			preferredTextTrackType != inputTextTrackType ||
+			preferredTextCodecsList != inputTextCodecsList;
+		preferredTextTrackType = std::move(inputTextTrackType);
 		preferredTextRenditionString = std::move(inputTextRenditionString);
 		preferredTextAccessibilityNode = std::move(inputTextAccessibilityNode);
 		preferredTextLabelString = std::move(inputTextLabelString);
@@ -13652,13 +13758,37 @@ void PrivateInstanceAAMP::SavePreferredTextLanguages(const char *param, bool &is
 		preferredInstreamIdString = std::move(inputInstreamIdString);
 		preferredTextNameString = std::move(inputTextNameString);
 		preferredTextSubTypeString = std::move(inputTextSubTypeString);
+		preferredTextFormatsList = std::move(inputTextFormatsList);
+		preferredTextCodecsList = std::move(inputTextCodecsList);
+
+		// Rebuild format and codec strings
+		preferredTextFormatsString.clear();
+		for (const auto& fmt : preferredTextFormatsList)
+		{
+			if (!preferredTextFormatsString.empty())
+			{
+				preferredTextFormatsString += ",";
+			}
+			preferredTextFormatsString += fmt;
+		}
+
+		preferredTextCodecsString.clear();
+		for (const auto& codec : preferredTextCodecsList)
+		{
+			if (!preferredTextCodecsString.empty())
+			{
+				preferredTextCodecsString += ",";
+			}
+			preferredTextCodecsString += codec;
+		}
 
 		SETCONFIGVALUE_PRIV(AAMP_APPLICATION_SETTING,eAAMPConfig_PreferredTextRendition,preferredTextRenditionString);
 		SETCONFIGVALUE_PRIV(AAMP_APPLICATION_SETTING,eAAMPConfig_PreferredTextLabel,preferredTextLabelString);
 		SETCONFIGVALUE_PRIV(AAMP_APPLICATION_SETTING,eAAMPConfig_PreferredTextType,preferredTextTypeString);
 	}
-	else if (param)
+	else
 	{
+		hasLanguagePreference = true;
 		AAMPLOG_INFO("Preferred Text Languages received as comma-delimited string : %s", param);
 
 		std::istringstream ss(param);
@@ -13668,13 +13798,32 @@ void PrivateInstanceAAMP::SavePreferredTextLanguages(const char *param, bool &is
 			inputTextLanguagesList.push_back(lng);
 		}
 	}
-	else
+	std::vector<std::string> languages;
+	for (const auto &entry : inputTextLanguagesList)
 	{
-		AAMPLOG_INFO("No valid Parameter received");
-		return;
+		// An explicit empty entry matches a track without language metadata.
+		if (entry.empty())
+		{
+			languages.emplace_back();
+			continue;
+		}
+		std::istringstream entries(entry);
+		std::string language;
+		while (std::getline(entries, language, ','))
+		{
+			const auto first = language.find_first_not_of(" \t\r\n");
+			if (first != std::string::npos)
+			{
+				const auto last = language.find_last_not_of(" \t\r\n");
+				languages.push_back(language.substr(first, last - first + 1));
+			}
+		}
 	}
-
-	SanitizeLanguageList(inputTextLanguagesList);
+	SanitizeLanguageList(languages);
+	mTextLanguagePreferenceSet =
+		mTextLanguagePreferenceSet || hasLanguagePreference;
+	mTextTrackExplicitlySelected = false;
+	inputTextLanguagesList = std::move(languages);
 	preferredTextLanguagesList = std::move(inputTextLanguagesList);
 
 	// Write the preferred languages back to the string
@@ -13690,6 +13839,10 @@ void PrivateInstanceAAMP::SavePreferredTextLanguages(const char *param, bool &is
 
 	AAMPLOG_INFO("Number of preferred Text languages: %zu", preferredTextLanguagesList.size());
 	AAMPLOG_INFO("Preferred Text languages string: %s", preferredTextLanguagesString.c_str());
+	AAMPLOG_INFO("Number of preferred Text formats: %zu", preferredTextFormatsList.size());
+	AAMPLOG_INFO("Preferred Text formats string: %s", preferredTextFormatsString.c_str());
+	AAMPLOG_INFO("Number of preferred Text codecs: %zu", preferredTextCodecsList.size());
+	AAMPLOG_INFO("Preferred Text codecs string: %s", preferredTextCodecsString.c_str());
 
 	SETCONFIGVALUE_PRIV(AAMP_APPLICATION_SETTING,eAAMPConfig_PreferredTextLanguage,preferredTextLanguagesString);
 }

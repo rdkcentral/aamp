@@ -24,6 +24,7 @@
 #include <mutex>
 #include <condition_variable>
 #include <atomic>
+#include <string>
 
 #include "priv_aamp.h"
 #include "AampConfig.h"
@@ -145,6 +146,127 @@ protected:
 		g_mockAampUtils.reset();
 	}
 };
+
+class PreTuneTextCategoryTests : public SetPreferredTextLanguagesTests,
+	public testing::WithParamInterface<std::string>
+{
+};
+
+/**
+ * @brief Save all supported JSPP categories and ordered language preferences
+ * before a stream is active, including role and codec aliases.
+ */
+TEST_P(PreTuneTextCategoryTests, SavesJsppPreferencesBeforeTune)
+{
+	mPrivateInstanceAAMP->SetState(eSTATE_IDLE, true);
+	const std::string preferences =
+		std::string{R"({"languages":"ger, eng,ger","type":")"} +
+		GetParam() + R"(","role":"alternate","codec":"stpp"})";
+
+	mPrivateInstanceAAMP->SetPreferredTextLanguages(preferences.c_str());
+
+	EXPECT_THAT(mPrivateInstanceAAMP->preferredTextLanguagesList,
+		testing::ElementsAre("ger", "eng"));
+	EXPECT_EQ(mPrivateInstanceAAMP->preferredTextTrackType, GetParam());
+	EXPECT_EQ(mPrivateInstanceAAMP->preferredTextRenditionString, "alternate");
+	EXPECT_THAT(mPrivateInstanceAAMP->preferredTextCodecsList,
+		testing::ElementsAre("stpp"));
+	EXPECT_TRUE(mPrivateInstanceAAMP->mTextLanguagePreferenceSet);
+}
+
+INSTANTIATE_TEST_SUITE_P(SupportedCategories, PreTuneTextCategoryTests,
+	testing::Values("SUBTITLES", "SUBTITLES-NATIVE", "CAPTIONS"));
+
+/**
+ * @brief An invalid category must not replace a previously valid preference
+ */
+TEST_F(SetPreferredTextLanguagesTests, RejectsUnsupportedTextCategory)
+{
+	mPrivateInstanceAAMP->SetState(eSTATE_IDLE, true);
+	mPrivateInstanceAAMP->SetPreferredTextLanguages(
+		R"({"language":"eng","type":"CAPTIONS","codec":"stpp"})");
+
+	mPrivateInstanceAAMP->SetPreferredTextLanguages(
+		R"({"language":"ger","type":"UNKNOWN","codec":"wvtt"})");
+
+	EXPECT_THAT(mPrivateInstanceAAMP->preferredTextLanguagesList,
+		testing::ElementsAre("eng"));
+	EXPECT_EQ(mPrivateInstanceAAMP->preferredTextTrackType, "CAPTIONS");
+	EXPECT_THAT(mPrivateInstanceAAMP->preferredTextCodecsList,
+		testing::ElementsAre("stpp"));
+}
+
+/**
+ * @brief Internal track JSON remains usable by index-based text selection.
+ */
+TEST_F(SetPreferredTextLanguagesTests, AcceptsLegacyTextCategories)
+{
+	mPrivateInstanceAAMP->SetState(eSTATE_IDLE, true);
+	mPrivateInstanceAAMP->SetPreferredTextLanguages(
+		R"({"language":"mul","type":"subtitle_native"})");
+	EXPECT_EQ(mPrivateInstanceAAMP->preferredTextTrackType, "SUBTITLES-NATIVE");
+
+	mPrivateInstanceAAMP->SetPreferredTextLanguages(
+		R"({"language":"eng","type":"subtitle"})");
+	EXPECT_EQ(mPrivateInstanceAAMP->preferredTextTrackType, "SUBTITLES");
+
+	mPrivateInstanceAAMP->SetPreferredTextLanguages(
+		R"({"language":"eng","type":"captions"})");
+	EXPECT_EQ(mPrivateInstanceAAMP->preferredTextTrackType, "CAPTIONS");
+}
+
+/**
+ * @brief An enable request cannot present captions without an eligible DASH
+ * track; retain the requested visibility for a later matching period.
+ */
+TEST_F(SetPreferredTextLanguagesTests, UnmatchedDASHTextRemainsHidden)
+{
+	mPrivateInstanceAAMP->mMediaFormat = eMEDIAFORMAT_DASH;
+	mPrivateInstanceAAMP->mTextTrackSelectionDisabled = true;
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(false)).Times(1);
+
+	mPrivateInstanceAAMP->SetCCStatus(true);
+
+	EXPECT_FALSE(mPrivateInstanceAAMP->subtitles_muted.load());
+}
+
+class EmptyPreferredTextLanguagesTests :
+	public SetPreferredTextLanguagesTests,
+	public testing::WithParamInterface<const char*>
+{
+};
+
+/** @brief Empty language inputs explicitly disable automatic DASH text. */
+TEST_P(EmptyPreferredTextLanguagesTests, SavesExplicitDisabledPreference)
+{
+	mPrivateInstanceAAMP->SetState(eSTATE_IDLE, true);
+	mPrivateInstanceAAMP->preferredTextLanguagesList = {"eng"};
+
+	mPrivateInstanceAAMP->SetPreferredTextLanguages(GetParam());
+
+	EXPECT_TRUE(mPrivateInstanceAAMP->mTextLanguagePreferenceSet);
+	EXPECT_TRUE(mPrivateInstanceAAMP->preferredTextLanguagesList.empty());
+	EXPECT_TRUE(mPrivateInstanceAAMP->preferredTextLanguagesString.empty());
+}
+
+INSTANTIATE_TEST_SUITE_P(EmptyInputs, EmptyPreferredTextLanguagesTests,
+	testing::Values("", R"({"languages":[]})", R"({"languages":""})",
+		R"({"language":""})", R"({"language":" , "})"));
+
+/**
+ * @brief Preserve an explicit fallback for tracks without language metadata.
+ */
+TEST_F(SetPreferredTextLanguagesTests, PreservesEmptyLanguageArrayEntry)
+{
+	mPrivateInstanceAAMP->SetState(eSTATE_IDLE, true);
+
+	mPrivateInstanceAAMP->SetPreferredTextLanguages(
+		R"({"languages":["swe",""]})");
+
+	EXPECT_THAT(mPrivateInstanceAAMP->preferredTextLanguagesList,
+		testing::ElementsAre("swe", ""));
+	EXPECT_TRUE(mPrivateInstanceAAMP->mTextLanguagePreferenceSet);
+}
 
 class SetPreferredTextLanguagesTsbSessionManager : public PrivateInstanceAAMP
 	{
@@ -1011,8 +1133,8 @@ TEST_F(SetPreferredTextLanguagesTests, CrashWhenTeardownRacesWithSetPreferredTex
 }
 
 /**
- * @brief Reproduce crash when PopulateAudioAndTextTracks races with
- *        SetPreferredTextLanguages on separate threads.
+ * @brief Verify an empty text-track snapshot does not cause an out-of-bounds
+ *        access while changing preferred text languages.
  */
 TEST_F(SetPreferredTextLanguagesTests, CrashWhenPopulateTracksRacesWithSetPreferredText)
 {
@@ -1041,6 +1163,7 @@ TEST_F(SetPreferredTextLanguagesTests, CrashWhenPopulateTracksRacesWithSetPrefer
 
 	mPrivateInstanceAAMP->SetPreferredTextLanguages("{\"languages\":[\"eng\",\"\"],\"sub-type\":\"SUBTITLES\"}");
 
-	/* If we reach here, the bounds check prevented the crash */
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextLanguagesString.c_str(), "eng,");
+	/* The explicit empty entry matches tracks without language metadata. */
+	EXPECT_THAT(mPrivateInstanceAAMP->preferredTextLanguagesList,
+		::testing::ElementsAre("eng", ""));
 }

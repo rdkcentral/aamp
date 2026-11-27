@@ -46,6 +46,7 @@
 #include <cmath> // For double abs(double)
 #include <algorithm>
 #include <cctype>
+#include <tuple>
 #include <regex>
 #include "AampCacheHandler.h"
 #include "AampUtils.h"
@@ -110,6 +111,10 @@ public:
 };
 
 static bool IsIframeTrack(IAdaptationSet *adaptationSet);
+static std::string NormalizeDASHTextFormat(std::string value);
+static bool AddPreferredTextFormatScore(const std::string &format,
+	const std::vector<std::string> &preferredFormats,
+	unsigned long long &score);
 
 /**
  * @brief Get the reason for ad reservation end.
@@ -413,43 +418,62 @@ bool StreamAbstractionAAMP_MPD::GetPreferredCodecIndex(IAdaptationSet *adaptatio
  * @brief Get representation index from preferred codec list
  * @retval whether track selected or not
  */
-void StreamAbstractionAAMP_MPD::GetPreferredTextRepresentation(IAdaptationSet *adaptationSet, int &selectedRepIdx, uint32_t &selectedRepBandwidth, unsigned long long &score, std::string &name, std::string &codec)
+void StreamAbstractionAAMP_MPD::GetPreferredTextRepresentation(IAdaptationSet *adaptationSet, int &selectedRepIdx, uint32_t &selectedRepBandwidth, unsigned long long &score, std::string &name, std::string &codec, std::string &mimeType)
 {
 	if(adaptationSet != NULL)
 	{
 		selectedRepBandwidth = 0;
-		selectedRepIdx = 0;
-		/* check for codec defined in Adaptation Set */
+		selectedRepIdx = -1;
+		name.clear();
+		codec.clear();
+		mimeType.clear();
+
 		const std::vector<string> adapCodecs = adaptationSet->GetCodecs();
 		const std::vector<IRepresentation *>& representation = adaptationSet->GetRepresentation();
+		unsigned long long bestScore = 0;
 		for (int representationIndex = 0; representationIndex < representation.size(); representationIndex++)
 		{
 			const dash::mpd::IRepresentation *rep = representation.at(representationIndex);
 			uint32_t bandwidth = rep->GetBandwidth();
-			if (bandwidth > selectedRepBandwidth) /**< Get Best Rep based on bandwidth **/
+			const auto repCodecs = rep->GetCodecs();
+			const std::string repCodec = !repCodecs.empty() ?
+				repCodecs.front() :
+				(!adapCodecs.empty() ? adapCodecs.front() : "");
+			PeriodElement periodElement(adaptationSet, rep);
+			const std::string repMimeType = periodElement.GetMimeType();
+			if (!IsCompatibleMimeType(repMimeType, eMEDIATYPE_SUBTITLE))
 			{
+				continue;
+			}
+			const std::string selectionCodec =
+				repCodec.empty() ? repMimeType : repCodec;
+			unsigned long long repScore = 0;
+			auto codecIter = std::find(aamp->preferredTextCodecsList.cbegin(),
+				aamp->preferredTextCodecsList.cend(), selectionCodec);
+			if (codecIter != aamp->preferredTextCodecsList.cend())
+			{
+				repScore += std::distance(codecIter,
+					aamp->preferredTextCodecsList.cend()) * AAMP_CODEC_SCORE;
+			}
+			std::string format = NormalizeDASHTextFormat(repCodec);
+			if (format.empty())
+			{
+				format = NormalizeDASHTextFormat(repMimeType);
+			}
+			AddPreferredTextFormatScore(format,
+				aamp->preferredTextFormatsList, repScore);
+			if (selectedRepIdx == -1 || repScore > bestScore ||
+				(repScore == bestScore && bandwidth > selectedRepBandwidth))
+			{
+				bestScore = repScore;
 				selectedRepIdx  = representationIndex;
 				selectedRepBandwidth = bandwidth;
-				score += 2; /**< Increase score by 2 if multiple track present*/
-			}
-			name = rep->GetId();
-			const std::vector<std::string> repCodecs = rep->GetCodecs();
-			// check if Representation includes codec
-			if (repCodecs.size())
-			{
-				codec = repCodecs.at(0);
-			}
-			else if (adapCodecs.size()) // else check if Adaptation has codec
-			{
-				codec = adapCodecs.at(0);
-			}
-			else
-			{
-				// For subtitle, it might be vtt/ttml format
-				PeriodElement periodElement(adaptationSet, rep);
-				codec = periodElement.GetMimeType();
+				name = rep->GetId();
+				codec = selectionCodec;
+				mimeType = repMimeType;
 			}
 		}
+		score += bestScore;
 	}
 	AAMPLOG_INFO("StreamAbstractionAAMP_MPD: SelectedRepIndex : %d selectedRepBandwidth: %d", selectedRepIdx, selectedRepBandwidth);
 }
@@ -6273,37 +6297,144 @@ std::vector<AudioTrackInfo> &ac4Tracks, std::string &audioTrackIndex)
 }
 
 
+static std::string NormalizeDASHTextFormat(std::string value)
+{
+	std::transform(value.begin(), value.end(), value.begin(),
+		[](unsigned char ch)
+		{
+			return static_cast<char>(std::tolower(ch));
+		});
+
+	if (value.find("cea-608") != std::string::npos ||
+		value.find("cea608") != std::string::npos ||
+		value.find("eia608") != std::string::npos)
+	{
+		return "cea-608";
+	}
+	if (value.find("cea-708") != std::string::npos ||
+		value.find("cea708") != std::string::npos ||
+		value.find("eia708") != std::string::npos)
+	{
+		return "cea-708";
+	}
+	if (value.find("webvtt") != std::string::npos ||
+		value.find("wvtt") != std::string::npos ||
+		value.find("text/vtt") != std::string::npos)
+	{
+		return "webvtt";
+	}
+	if (value.find("ttml") != std::string::npos ||
+		value.find("stpp") != std::string::npos)
+	{
+		return "ttml";
+	}
+
+	return {};
+}
+
+static bool AddPreferredTextFormatScore(
+	const std::string &format,
+	const std::vector<std::string> &preferredFormats,
+	unsigned long long &score)
+{
+	const std::string normalizedFormat = NormalizeDASHTextFormat(format);
+	if (normalizedFormat.empty())
+	{
+		return false;
+	}
+
+	auto iter = std::find_if(
+		preferredFormats.cbegin(), preferredFormats.cend(),
+		[&normalizedFormat](const std::string &preferredFormat)
+		{
+			return NormalizeDASHTextFormat(preferredFormat) == normalizedFormat;
+		});
+	if (iter == preferredFormats.cend())
+	{
+		return false;
+	}
+
+	const auto position = std::distance(preferredFormats.cbegin(), iter);
+	score += (preferredFormats.size() - position) * AAMP_FORMAT_SCORE;
+	return true;
+}
+
+static bool IsDASHCaption(IAdaptationSet *adaptationSet)
+{
+	const auto isCaption = [](const auto &descriptors)
+	{
+		return std::any_of(descriptors.cbegin(), descriptors.cend(),
+			[](const IDescriptor *descriptor)
+			{
+				return descriptor->GetSchemeIdUri() ==
+					"urn:mpeg:dash:role:2011" &&
+					descriptor->GetValue() == "caption";
+			});
+	};
+	return isCaption(adaptationSet->GetAccessibility()) ||
+		isCaption(adaptationSet->GetRole());
+}
+
 /**
  * @fn GetBestTextTrackByLanguage
  *
  * @brief Get the best Text track by Language, role, and schemeId
  * @return int selected representation index
  */
-bool StreamAbstractionAAMP_MPD::GetBestTextTrackByLanguage( TextTrackInfo &selectedTextTrack)
+bool StreamAbstractionAAMP_MPD::GetBestTextTrackByLanguage(
+	TextTrackInfo &selectedTextTrack,
+	const std::vector<TextTrackInfo> &textTracks)
 {
 	bool bestTrack = false;
 	unsigned long long bestScore = 0;
+	selectedTextTrack = TextTrackInfo{};
+	if (aamp->mTextLanguagePreferenceSet &&
+		aamp->preferredTextLanguagesList.empty())
+	{
+		AAMPLOG_INFO("Empty preferred text languages: text disabled");
+		return false;
+	}
+	const bool hasTextPreference = aamp->mTextLanguagePreferenceSet ||
+		!aamp->preferredTextLanguagesList.empty() ||
+		!aamp->preferredTextTrackType.empty();
+	const bool preferClean = hasTextPreference &&
+		aamp->preferredTextTrackType != "CAPTIONS" &&
+		aamp->preferredTextRenditionString != "caption" &&
+		aamp->preferredTextTypeString != "caption" &&
+		!(aamp->preferredTextAccessibilityNode.getSchemeId() ==
+			"urn:mpeg:dash:role:2011" &&
+		  aamp->preferredTextAccessibilityNode.getStrValue() == "caption");
+	std::tuple<size_t, bool, unsigned long long> bestRank{};
 	IPeriod *period = mCurrentPeriod;
 	if(!period)
 	{
 		AAMPLOG_WARN("period is null");
 		return bestTrack;
 	}
-	std::string trackLanguage = "";
-	std::string trackRendition = "";
-	std::string trackLabel = "";
-	std::string trackType = "";
-	Accessibility accessibilityNode;
-
 	size_t numAdaptationSets = period->GetAdaptationSets().size();
 	for( int iAdaptationSet = 0; iAdaptationSet < numAdaptationSets; iAdaptationSet++)
 	{
 		bool labelFound = false;
-		bool accessibilityFound = false;
 		IAdaptationSet *adaptationSet = period->GetAdaptationSets().at(iAdaptationSet);
 		if(mMPDParseHelper->IsContentType(adaptationSet, eMEDIATYPE_SUBTITLE) )
 		{
+			std::string trackLanguage;
+			std::string trackRendition;
+			std::string trackLabel;
+			std::string trackType;
+			Accessibility accessibilityNode;
+			const bool isCaption = IsDASHCaption(adaptationSet);
+			const auto &requestedType = aamp->preferredTextTrackType;
+			if ((requestedType == "CAPTIONS" && !isCaption) ||
+				(requestedType == "SUBTITLES" &&
+				 (isCaption || adaptationSet->GetLabel() == "native")) ||
+				(requestedType == "SUBTITLES-NATIVE" &&
+				 (isCaption || adaptationSet->GetLabel() != "native")))
+			{
+				continue;
+			}
 			unsigned long long score = 1; /** Select first track by default **/
+			size_t languagePriority = 0;
 			trackLabel = adaptationSet->GetLabel();
 			if (!trackLabel.empty())
 			{
@@ -6322,6 +6453,11 @@ bool StreamAbstractionAAMP_MPD::GetBestTextTrackByLanguage( TextTrackInfo &selec
 				{ // track is in preferred language list
 					int dist = (int)std::distance(aamp->preferredTextLanguagesList.begin(),iter);
 					score += (aamp->preferredTextLanguagesList.size()-dist) * AAMP_LANGUAGE_SCORE; // big bonus for language match
+					languagePriority = aamp->preferredTextLanguagesList.size() - dist;
+				}
+				else
+				{
+					continue;
 				}
 			}
 
@@ -6334,7 +6470,7 @@ bool StreamAbstractionAAMP_MPD::GetBestTextTrackByLanguage( TextTrackInfo &selec
 					{
 						if (!trackRendition.empty())
 						{
-							trackRendition =+ ",";
+							trackRendition += ",";
 						}
 						/**< Save for future use **/
 						trackRendition += rendition.at(iRendition)->GetValue();
@@ -6370,12 +6506,9 @@ bool StreamAbstractionAAMP_MPD::GetBestTextTrackByLanguage( TextTrackInfo &selec
 			}
 
 			accessibilityNode = StreamAbstractionAAMP_MPD::getAccessibilityNode((void *)adaptationSet);
-			if (accessibilityNode == aamp->preferredTextAccessibilityNode)
+			if (!aamp->preferredTextAccessibilityNode.getSchemeId().empty() &&
+				accessibilityNode == aamp->preferredTextAccessibilityNode)
 			{
-				if (!accessibilityNode.getSchemeId().empty())
-				{
-					accessibilityFound = true;
-				}
 				score += AAMP_SCHEME_ID_SCORE;
 			}
 
@@ -6383,9 +6516,10 @@ bool StreamAbstractionAAMP_MPD::GetBestTextTrackByLanguage( TextTrackInfo &selec
 			int textRepresentationIndex = -1;
 			std::string name;
 			std::string codec;
+			std::string mimeType;
 			std::string empty;
 			std::string type;
-			if (accessibilityFound)
+			if (isCaption)
 			{
 				type = "captions";
 			}
@@ -6398,18 +6532,109 @@ bool StreamAbstractionAAMP_MPD::GetBestTextTrackByLanguage( TextTrackInfo &selec
 				type = "subtitle";
 			}
 
-			GetPreferredTextRepresentation(adaptationSet, textRepresentationIndex, selRepBandwidth, score, name, codec);
+			GetPreferredTextRepresentation(adaptationSet, textRepresentationIndex,
+				selRepBandwidth, score, name, codec, mimeType);
+			if (textRepresentationIndex < 0)
+			{
+				continue;
+			}
+			if (codec.empty())
+			{
+				codec = mimeType;
+			}
+
 			AAMPLOG_INFO( "track#%d::%d - trackLanguage = %s bandwidth = %d score = %llu currentBestScore = %llu ", iAdaptationSet, textRepresentationIndex, trackLanguage.c_str(),
 			selRepBandwidth, score, bestScore);
-			if( score > bestScore )
+			const auto rank = std::make_tuple(languagePriority,
+				preferClean && !isCaption, score);
+			if (!bestTrack || rank > bestRank)
 			{
 				bestTrack = true;
+				bestRank = rank;
 				bestScore = score;
 				std::string index =  std::to_string(iAdaptationSet) + "-" + std::to_string(textRepresentationIndex); //KC
 				selectedTextTrack.set(std::move(index), trackLanguage, false, trackRendition, std::move(name), std::move(codec), std::move(empty), trackType, trackLabel, std::move(type), accessibilityNode);
 			}
 		} // IsContentType(adaptationSet, eMEDIATYPE_SUBTITLE)
 	} // next iAdaptationSet
+
+	for (const auto &track : textTracks)
+	{
+		if (!track.isCC || track.instreamId.empty() ||
+			(!aamp->preferredTextTrackType.empty() &&
+			 aamp->preferredTextTrackType != "CAPTIONS"))
+		{
+			continue;
+		}
+
+		unsigned long long score = 1;
+		size_t languagePriority = 0;
+		if (!aamp->preferredTextLanguagesList.empty())
+		{
+			const std::string trackLanguage =
+				Getiso639map_NormalizeLanguageCode(
+					track.language, aamp->GetLangCodePreference());
+			auto languageIter = std::find(
+				aamp->preferredTextLanguagesList.cbegin(),
+				aamp->preferredTextLanguagesList.cend(), trackLanguage);
+			if (languageIter != aamp->preferredTextLanguagesList.cend())
+			{
+				const auto position = std::distance(
+					aamp->preferredTextLanguagesList.cbegin(), languageIter);
+				score += (aamp->preferredTextLanguagesList.size() - position) *
+					AAMP_LANGUAGE_SCORE;
+				languagePriority =
+					aamp->preferredTextLanguagesList.size() - position;
+			}
+			else
+			{
+				continue;
+			}
+		}
+
+		const bool formatMatch = AddPreferredTextFormatScore(
+			track.rendition, aamp->preferredTextFormatsList, score);
+		if (!formatMatch && aamp->preferredTextTrackType != "CAPTIONS" &&
+			aamp->preferredInstreamIdString.empty() &&
+			!aamp->mTextLanguagePreferenceSet)
+		{
+			continue;
+		}
+
+		if (!aamp->preferredInstreamIdString.empty())
+		{
+			if (track.instreamId != aamp->preferredInstreamIdString)
+			{
+				continue;
+			}
+			score += AAMP_SCHEME_ID_SCORE;
+		}
+		if (track.accessibilityItem == aamp->preferredTextAccessibilityNode &&
+			!aamp->preferredTextAccessibilityNode.getSchemeId().empty())
+		{
+			score += AAMP_SCHEME_ID_SCORE;
+		}
+		if (track.rendition == aamp->preferredTextRenditionString)
+		{
+			score += AAMP_ROLE_SCORE;
+		}
+		auto codecIter = std::find(aamp->preferredTextCodecsList.cbegin(),
+			aamp->preferredTextCodecsList.cend(), track.codec);
+		if (codecIter != aamp->preferredTextCodecsList.cend())
+		{
+			score += std::distance(codecIter,
+				aamp->preferredTextCodecsList.cend()) * AAMP_CODEC_SCORE;
+		}
+		const auto rank = std::make_tuple(languagePriority, false, score);
+		if (!bestTrack || rank > bestRank)
+		{
+			bestTrack = true;
+			bestRank = rank;
+			bestScore = score;
+			selectedTextTrack = track;
+		}
+	}
+
 	return bestTrack;
 }
 
@@ -6470,7 +6695,8 @@ Accessibility StreamAbstractionAAMP_MPD::getAccessibilityNode(AampJsonObject &ac
 	Accessibility accessibilityNode;
 	if (accessNode.get(std::string("scheme"), strSchemeId))
 	{
-		if (accessNode.get(std::string("string_value"), strValue))
+		if (accessNode.get(std::string("string_value"), strValue) ||
+			accessNode.get(std::string("value"), strValue))
 		{
 			accessibilityNode.setAccessibilityData(std::move(strSchemeId), strValue);
 		}
@@ -6493,10 +6719,15 @@ Accessibility StreamAbstractionAAMP_MPD::getAccessibilityNode(void* adaptationSe
 		{
 			std::string schemeId  = iter->GetSchemeIdUri();
 			std::string strValue = iter->GetValue();
-			accessibilityNode.setAccessibilityData(std::move(schemeId), strValue);
-			if (!accessibilityNode.getSchemeId().empty())
+			if (schemeId == "urn:mpeg:dash:role:2011" &&
+				strValue == "caption")
 			{
-				break; /**< Only one valid accessibility node is processing, so break here */
+				accessibilityNode.setAccessibilityData(std::move(schemeId), strValue);
+				break;
+			}
+			if (accessibilityNode.getSchemeId().empty())
+			{
+				accessibilityNode.setAccessibilityData(std::move(schemeId), strValue);
 			}
 		}
 	}
@@ -6570,7 +6801,7 @@ void StreamAbstractionAAMP_MPD::ParseTrackInformation(IAdaptationSet *adaptation
 			}
 			else if (eMEDIATYPE_SUBTITLE == media)
 			{
-				if (schemeIdFound)
+				if (IsDASHCaption(adaptationSet))
 				{
 					type = "captions";
 				}
@@ -6666,6 +6897,7 @@ void StreamAbstractionAAMP_MPD::ParseTrackInformation(IAdaptationSet *adaptation
 				{
 					std::string lang, id;
 					std::string value = adapAccessibility.at(index)->GetValue();
+					Accessibility serviceAccessibility(schemeId, value);
 					if (!value.empty())
 					{
 						// Expected formats : 	eng;deu
@@ -6676,11 +6908,15 @@ void StreamAbstractionAAMP_MPD::ParseTrackInformation(IAdaptationSet *adaptation
 						while (delim != std::string::npos)
 						{
 							ParseCCStreamIDAndLang(value.substr(0, delim), id, lang);
+							lang = Getiso639map_NormalizeLanguageCode(
+								lang, aamp->GetLangCodePreference());
 
 							TextTrackInfo textTrack = TextTrackInfo(true, schemeId);
 							textTrack.setInstreamId(id);
 							textTrack.setLanguage(lang);
 							textTrack.setType("captions");
+							textTrack.setCodec(id);
+							textTrack.setAccessibilityItem(serviceAccessibility);
 							if (AddIfUnique(tTracks, textTrack))
 							{
 								AAMPLOG_INFO("StreamAbstractionAAMP_MPD: CC Track - lang:%s, isCC:1, group:%s, id:%s",
@@ -6696,6 +6932,8 @@ void StreamAbstractionAAMP_MPD::ParseTrackInformation(IAdaptationSet *adaptation
 						textTrack.setInstreamId(id);
 						textTrack.setLanguage(lang);
 						textTrack.setType("captions");
+						textTrack.setCodec(id);
+						textTrack.setAccessibilityItem(serviceAccessibility);
 						if (AddIfUnique(tTracks, textTrack))
 						{
 							AAMPLOG_INFO("StreamAbstractionAAMP_MPD: CC Track - lang:%s, isCC:1, group:%s, id:%s",
@@ -6842,13 +7080,16 @@ void StreamAbstractionAAMP_MPD::SelectSubtitleTrack(bool newTune, std::vector<Te
 	IPeriod *period = mCurrentPeriod;
 	int  selAdaptationSetIndex = -1;
 	int selRepresentationIndex = -1;
-	TextTrackInfo selectedTextTrack;
 	TextTrackInfo preferredTextTrack;
 	std::vector<AudioTrackInfo> aTracks;//aTracks is only used for calling ParseTrackInformation
-	bool isFrstAvailableTxtTrackSelected = false;
 
 	class MediaStreamContext *pMediaStreamContext = mMediaStreamContext[eMEDIATYPE_SUBTITLE].get();
-	mMediaStreamContext[eMEDIATYPE_SUBTITLE]->enabled = false;
+	if (!pMediaStreamContext)
+	{
+		AAMPLOG_ERR("Missing subtitle media context");
+		return;
+	}
+	pMediaStreamContext->enabled = false;
 
 	if(!period)
 	{
@@ -6859,7 +7100,10 @@ void StreamAbstractionAAMP_MPD::SelectSubtitleTrack(bool newTune, std::vector<Te
 	// Skip OOB subtitle scoring on seek/trickplay resume when the app
 	// explicitly selected a CC track. Preserve the current text-track list
 	// and selection so callers don't accidentally clear it.
-	if (aamp->GetPreferredTextTrack().isCC)
+	if (aamp->GetPreferredTextTrack().isCC &&
+		(aamp->mTextTrackExplicitlySelected ||
+		 (!aamp->mTextLanguagePreferenceSet &&
+		  aamp->preferredTextTrackType.empty())))
 	{
 		tTracks = mTextTracks;
 		tTrackIdx = mTextTrackIndex;
@@ -6868,92 +7112,86 @@ void StreamAbstractionAAMP_MPD::SelectSubtitleTrack(bool newTune, std::vector<Te
 	}
 
 	size_t numAdaptationSets = period->GetAdaptationSets().size();
+	std::vector<TextTrackInfo> parsedTracks;
+	for (unsigned iAdaptationSet = 0;
+		iAdaptationSet < numAdaptationSets; ++iAdaptationSet)
+	{
+		auto *adaptationSet = period->GetAdaptationSets().at(iAdaptationSet);
+		if (mMPDParseHelper->IsContentType(adaptationSet, eMEDIATYPE_SUBTITLE))
+		{
+			ParseTrackInformation(adaptationSet, iAdaptationSet,
+				eMEDIATYPE_SUBTITLE, aTracks, parsedTracks);
+		}
+		else if (mMPDParseHelper->IsContentType(adaptationSet, eMEDIATYPE_VIDEO))
+		{
+			ParseTrackInformation(adaptationSet, iAdaptationSet,
+				eMEDIATYPE_VIDEO, aTracks, parsedTracks);
+		}
+	}
+	for (auto &track : parsedTracks)
+	{
+		AddIfUnique(tTracks, std::move(track));
+	}
+	tTrackIdx.clear();
 	if (AAMP_NORMAL_PLAY_RATE == mPlayRate)
 	{
-		GetBestTextTrackByLanguage(preferredTextTrack);
-	}
-	for (unsigned iAdaptationSet = 0; iAdaptationSet < numAdaptationSets; iAdaptationSet++)
-	{
-		IAdaptationSet *adaptationSet = period->GetAdaptationSets().at(iAdaptationSet);
-		AAMPLOG_DEBUG("StreamAbstractionAAMP_MPD: Content type [%s] AdapSet [%d] ",
-					  adaptationSet->GetContentType().c_str(), iAdaptationSet);
-		if (mMPDParseHelper->IsContentType(adaptationSet,eMEDIATYPE_SUBTITLE))
+		if (!GetBestTextTrackByLanguage(preferredTextTrack, tTracks))
 		{
-			ParseTrackInformation(adaptationSet, iAdaptationSet,eMEDIATYPE_SUBTITLE , aTracks, tTracks);
-			if (AAMP_NORMAL_PLAY_RATE == mPlayRate)
+			aamp->mTextTrackSelectionDisabled =
+				aamp->mTextLanguagePreferenceSet ||
+				!aamp->preferredTextLanguagesList.empty() ||
+				!aamp->preferredTextTrackType.empty();
+			if (aamp->mTextTrackSelectionDisabled)
 			{
-				if (selAdaptationSetIndex == -1 || isFrstAvailableTxtTrackSelected)
+				aamp->SetPreferredTextTrack(TextTrackInfo{});
+				PlayerCCManager::GetInstance()->SetStatus(false);
+				aamp->mIsInbandCC = false;
+				if (pMediaStreamContext->mSubtitleParser)
 				{
-					AAMPLOG_INFO("Checking subs - mime %s lang %s selAdaptationSetIndex %d",
-								 adaptationSet->GetMimeType().c_str(), GetLanguageForAdaptationSet(adaptationSet).c_str(), selAdaptationSetIndex);
-
-					TextTrackInfo *firstAvailTextTrack = nullptr;
-					if (aamp->GetPreferredTextTrack().index.empty() && !isFrstAvailableTxtTrackSelected)
-					{
-						// If no subtitles are selected, opt for the first subtitle as default, and
-						for (int j = 0; j < tTracks.size(); j++)
-						{
-							if (!tTracks[j].isCC)
-							{
-								if (nullptr == firstAvailTextTrack)
-								{
-									firstAvailTextTrack = &tTracks[j];
-								}
-							}
-						}
-					}
-					if (nullptr != firstAvailTextTrack)
-					{
-						isFrstAvailableTxtTrackSelected = true;
-						AAMPLOG_INFO("Selected first subtitle track, lang:%s, index:%s",
-									 firstAvailTextTrack->language.c_str(), firstAvailTextTrack->index.c_str());
-					}
-					if (!preferredTextTrack.index.empty())
-					{
-						/**< Available preferred**/
-						selectedTextTrack = preferredTextTrack;
-					}
-					else
-					{
-						// TTML selection as follows:
-						// 1. Text track as set from SetTextTrack API (this is confusingly named preferredTextTrack, even though it's explicitly set)
-						// 2. The *actual* preferred text track, as set through the SetPreferredSubtitleLanguage API
-						// 3. First text track and keep it
-						// 3. Not set
-						selectedTextTrack = (nullptr != firstAvailTextTrack) ? *firstAvailTextTrack : aamp->GetPreferredTextTrack();
-					}
-
-					if (!selectedTextTrack.index.empty())
-					{
-						if (IsMatchingLanguageAndMimeType(eMEDIATYPE_SUBTITLE, selectedTextTrack.language, adaptationSet, selRepresentationIndex))
-						{
-							const auto& adapSetName = (adaptationSet->GetRepresentation().at(selRepresentationIndex))->GetId();
-							AAMPLOG_INFO("adapSet Id %s selName %s", adapSetName.c_str(), selectedTextTrack.name.c_str());
-							if (adapSetName.empty() || adapSetName == selectedTextTrack.name)
-							{
-								selAdaptationSetIndex = iAdaptationSet;
-							}
-						}
-					}
-					else
-					{
-						for (const auto& LangStr : aamp->preferredSubtitleLanguageVctr)
-						{
-							if(IsMatchingLanguageAndMimeType(eMEDIATYPE_SUBTITLE, LangStr, adaptationSet, selRepresentationIndex))
-							{
-								AAMPLOG_INFO("matched default sub language %s [%d]", LangStr.c_str(), iAdaptationSet);
-								selAdaptationSetIndex = iAdaptationSet;
-								break;
-							}
-						}
-					}
+					pMediaStreamContext->mSubtitleParser->mute(true);
 				}
+				aamp->SetCCStatus(aamp->GetCCStatus());
+				AAMPLOG_INFO("No preferred text match: text presentation disabled");
 			}
+			return;
+		}
+		aamp->mTextTrackSelectionDisabled = false;
+		if (preferredTextTrack.isCC &&
+			!preferredTextTrack.instreamId.empty())
+		{
+			aamp->mIsInbandCC = true;
+			aamp->SetPreferredTextTrack(preferredTextTrack);
+			aamp->SetCCStatus(aamp->GetCCStatus());
+			aamp->SetClosedCaptionsFromTextTrack(preferredTextTrack);
+			tTrackIdx = preferredTextTrack.index;
+			AAMPLOG_INFO(
+				"Selected preferred in-band caption service: format=%s id=%s",
+				NormalizeDASHTextFormat(
+					preferredTextTrack.rendition).c_str(),
+				preferredTextTrack.instreamId.c_str());
+			return;
+		}
+		if (sscanf(preferredTextTrack.index.c_str(), "%d-%d",
+				&selAdaptationSetIndex, &selRepresentationIndex) != 2 ||
+			selAdaptationSetIndex < 0 ||
+			static_cast<size_t>(selAdaptationSetIndex) >= numAdaptationSets ||
+			selRepresentationIndex < 0 ||
+			static_cast<size_t>(selRepresentationIndex) >=
+				period->GetAdaptationSets().at(selAdaptationSetIndex)->
+					GetRepresentation().size())
+		{
+			AAMPLOG_ERR("Invalid selected DASH text index: %s",
+				preferredTextTrack.index.c_str());
+			return;
 		}
 	}
 
 	if (selAdaptationSetIndex != -1)
 	{
+		if (aamp->mIsInbandCC)
+		{
+			PlayerCCManager::GetInstance()->SetStatus(false);
+		}
 		aamp->mIsInbandCC = false;
 		AAMPLOG_WARN("SDW config set %d", ISCONFIGSET(eAAMPConfig_GstSubtecEnabled));
 		if (!ISCONFIGSET(eAAMPConfig_GstSubtecEnabled))
@@ -7036,6 +7274,10 @@ void StreamAbstractionAAMP_MPD::SelectSubtitleTrack(bool newTune, std::vector<Te
 	if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && pMediaStreamContext->playContext)
 	{
 		pMediaStreamContext->playContext->enable(pMediaStreamContext->enabled);
+	}
+	if (pMediaStreamContext->enabled)
+	{
+		aamp->SetCCStatus(aamp->GetCCStatus());
 	}
 }
 /**

@@ -372,18 +372,22 @@ public:
 	IPeriod *GetPeriod( void );
 	/**
 	 * @fn GetPreferredTextRepresentation
+	 * @brief Prefer requested codecs/formats, then representation bandwidth.
 	 * @param[in] adaptationSet Adaptation set object
 	 * @param[out] selectedRepIdx - Selected representation index
-	 * @param[out] selectedRepBandwidth - selected audio track bandwidth
+	 * @param[out] selectedRepBandwidth - selected text track bandwidth
 	  */
-	void GetPreferredTextRepresentation(IAdaptationSet *adaptationSet, int &selectedRepIdx,	uint32_t &selectedRepBandwidth, unsigned long long &score, std::string &name, std::string &codec);
+	void GetPreferredTextRepresentation(IAdaptationSet *adaptationSet, int &selectedRepIdx,	uint32_t &selectedRepBandwidth, unsigned long long &score, std::string &name, std::string &codec, std::string &mimeType);
 	static Accessibility getAccessibilityNode(void *adaptationSet);
 	static Accessibility getAccessibilityNode(AampJsonObject &accessNode);
 	/**
 	 * @fn GetBestTextTrackByLanguage
+	 * @brief Select by language order, clean/HOH preference, and track criteria.
+	 * Explicit empty or unmatched languages do not fall back to another track.
 	 * @param[out] selectedTextTrack selected representation Index
 	 */
-	bool GetBestTextTrackByLanguage( TextTrackInfo &selectedTextTrack);
+	bool GetBestTextTrackByLanguage(TextTrackInfo &selectedTextTrack,
+		const std::vector<TextTrackInfo> &textTracks);
 	/**
 	 * @fn ParseTrackInformation
 	 * @param adaptationSet Adaptation Node

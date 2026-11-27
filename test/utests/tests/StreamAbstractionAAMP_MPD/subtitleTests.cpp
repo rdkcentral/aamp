@@ -621,6 +621,50 @@ TEST_F(SubtitleTrackTests, SkipSubtitleFetchTests)
 	CallSwitchSubtitleTrack(true);
 
 }
+/**
+ * @brief Apply the preferred clean adaptation and exact codec representation,
+ * even when a caption adaptation uses the same representation name.
+ */
+TEST_F(SubtitleTrackTests, AppliesCleanTrackAndPreferredCodecBeforePlayback)
+{
+	static const char *manifest =
+R"(<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="static"
+	mediaPresentationDuration="PT1M" minBufferTime="PT4S">
+	<Period id="0" start="PT0S">
+		<AdaptationSet id="10" contentType="text" lang="ger"
+			mimeType="application/mp4">
+			<Accessibility schemeIdUri="urn:mpeg:dash:role:2011"
+				value="caption"/>
+			<SegmentTemplate timescale="1" media="hoh-$Number$.m4s">
+				<SegmentTimeline><S t="0" d="2" r="29"/></SegmentTimeline>
+			</SegmentTemplate>
+			<Representation id="same" codecs="stpp" bandwidth="900"/>
+		</AdaptationSet>
+		<AdaptationSet id="11" contentType="text" lang="ger"
+			mimeType="application/mp4">
+			<Role schemeIdUri="urn:mpeg:dash:role:2011" value="subtitle"/>
+			<SegmentTemplate timescale="1" media="clean-$Number$.m4s">
+				<SegmentTimeline><S t="0" d="2" r="29"/></SegmentTimeline>
+			</SegmentTemplate>
+			<Representation id="other" codecs="wvtt" bandwidth="800"/>
+			<Representation id="same" codecs="stpp" bandwidth="100"/>
+		</AdaptationSet>
+	</Period>
+</MPD>)";
+	mPrivateInstanceAAMP->mTextLanguagePreferenceSet = true;
+	mPrivateInstanceAAMP->preferredTextLanguagesList = {"ger"};
+	mPrivateInstanceAAMP->preferredTextCodecsList = {"stpp"};
+
+	ASSERT_EQ(InitializeMPD(manifest), eAAMPSTATUS_OK);
+
+	auto *track = mStreamAbstractionAAMP_MPD->GetMediaTrack(eTRACK_SUBTITLE);
+	ASSERT_NE(track, nullptr);
+	const auto *subtitleContext = static_cast<MediaStreamContext*>(track);
+	EXPECT_TRUE(subtitleContext->enabled);
+	EXPECT_EQ(subtitleContext->adaptationSetIdx, 1);
+	EXPECT_EQ(subtitleContext->representationIndex, 1);
+}
+
 // When an app has explicitly selected a CC track, SelectSubtitleTrack must not
 // overwrite it with an OOB subtitle track on seek/retune.  The guard fires when
 // mPreferredTextTrack.isCC is true, preserving mTextTracks and mTextTrackIndex
