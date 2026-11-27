@@ -29,7 +29,8 @@ include(${CMAKE_CURRENT_LIST_DIR}/../CommonTestIncludes.cmake)
 set(TEST_SOURCES InitAAMPConfigTests.cpp InitAAMPConfigTestCases.cpp)
 
 set(AAMP_SOURCES ${AAMP_ROOT}/main_aamp.cpp
-                 ${AAMP_ROOT}/AampConfig.cpp)
+                 ${AAMP_ROOT}/AampConfig.cpp
+                 ${AAMP_ROOT}/AampFlightDataRecorder.cpp)
 
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}

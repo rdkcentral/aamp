@@ -57,6 +57,7 @@ if(SEC_CLIENT_HEADERS)
 
 set(AAMP_SOURCES ${AAMP_ROOT}/drm/AampDRMLicManager.cpp
 					${AAMP_ROOT}/AampConfig.cpp
+					${AAMP_ROOT}/AampFlightDataRecorder.cpp
 					 ${AAMP_ROOT}/downloader/AampCurlStore.cpp
 					 ${AAMP_ROOT}/downloader/AampCurlDownloader.cpp
 					 ${AAMP_ROOT}/AampDRMLicPreFetcher.cpp
