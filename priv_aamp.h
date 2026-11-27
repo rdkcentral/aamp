@@ -1022,8 +1022,8 @@ public:
 	std::queue<AAMPEventPtr> mAdEventsQ;   		/**< A Queue of Ad events */
 	std::mutex mAdEventQMtx;            		/**< Add events' queue protector */
 	bool mInitSuccess;				/**< TODO: Need to replace with player state */
-	StreamOutputFormat mVideoFormat;
-	StreamOutputFormat mAudioFormat;
+	std::atomic<StreamOutputFormat> mVideoFormat;
+	std::atomic<StreamOutputFormat> mAudioFormat;
 	StreamOutputFormat mPreviousAudioType; 		/**< Used to maintain previous audio type of HLS playback */
 	StreamOutputFormat mSubtitleFormat{FORMAT_UNKNOWN};
 	std::condition_variable_any mDownloadsDisabled;
@@ -4564,7 +4564,7 @@ protected:
 	bool mbTrackDownloadsBlocked[AAMP_TRACK_COUNT];
 	DrmHelperPtr mCurrentDrm;
 	int  mPersistedProfileIndex;
-	bool mProcessingDiscontinuity[AAMP_TRACK_COUNT];
+	std::atomic<bool> mProcessingDiscontinuity[AAMP_TRACK_COUNT];
 	bool mIsDiscontinuityIgnored[AAMP_TRACK_COUNT];
 	bool mDiscontinuityTuneOperationInProgress;
 	ContentType mContentType;

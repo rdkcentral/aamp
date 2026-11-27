@@ -24,6 +24,7 @@
 
 #include <atomic>
 #include <chrono>
+#include <future>
 #include <memory>
 #include <thread>
 
@@ -113,4 +114,97 @@ TEST_F(AampUnderflowMonitorTest, ProlongedBuffering_InvokesStalledErrorEvent)
     }
 
     EXPECT_TRUE(stalledEvent.load());
+}
+
+/**
+ * @class AampUnderflowMonitorDeadlineTest
+ * @brief Fixture for the deadline-expiry decision in AampUnderflowMonitor::Run().
+ *
+ * A single video fragment is reported with a small amount of buffer so that the
+ * drain deadline expires almost immediately. IsDiscontinuityProcessPending() is
+ * queried exactly once per expiry, before the underflow decision is made, so it
+ * is used as the synchronisation point for the suppression cases. Stop() joins
+ * the monitor thread, after which the SetBufferingState expectations are final.
+ */
+class AampUnderflowMonitorDeadlineTest : public AampUnderflowMonitorTest
+{
+protected:
+    static constexpr double kEndPositionSec = 0.05;
+    static constexpr auto kWaitTimeout = std::chrono::seconds(2);
+
+    std::promise<void> mDecisionPoint;
+    std::atomic<bool> mDecisionSignalled{false};
+
+    void ExpectDecision(AAMPPlayerState state, bool discontinuityPending)
+    {
+        EXPECT_CALL(*mMockAamp, GetPositionMs()).WillRepeatedly(Return(0));
+        EXPECT_CALL(*mMockAamp, GetState()).WillRepeatedly(Return(state));
+        EXPECT_CALL(*mMockAamp, IsDiscontinuityProcessPending())
+            .WillRepeatedly([this, discontinuityPending]() {
+                if (!mDecisionSignalled.exchange(true))
+                {
+                    mDecisionPoint.set_value();
+                }
+                return discontinuityPending;
+            });
+    }
+
+    void ExpireDeadline(float playRate)
+    {
+        std::future<void> decision = mDecisionPoint.get_future();
+        mMonitor->Start();
+        mMonitor->NotifyVideoFragment(kEndPositionSec, playRate);
+        ASSERT_EQ(decision.wait_for(kWaitTimeout), std::future_status::ready);
+        mMonitor->Stop();
+    }
+};
+
+/**
+ * @test DeadlineExpired_NormalPlayback_DeclaresUnderflow
+ * @brief Positive control: an expired deadline at normal rate, in a playing state,
+ *        with no pending discontinuity, must enter buffering.
+ */
+TEST_F(AampUnderflowMonitorDeadlineTest, DeadlineExpired_NormalPlayback_DeclaresUnderflow)
+{
+    ExpectDecision(eSTATE_PLAYING, false);
+    EXPECT_CALL(*mMockAamp, SetBufferingState(true)).Times(1);
+
+    ExpireDeadline(AAMP_NORMAL_PLAY_RATE);
+}
+
+/**
+ * @test DeadlineExpired_DiscontinuityPending_SuppressesUnderflow
+ * @brief An expired deadline while a discontinuity is being processed must not
+ *        enter buffering.
+ */
+TEST_F(AampUnderflowMonitorDeadlineTest, DeadlineExpired_DiscontinuityPending_SuppressesUnderflow)
+{
+    ExpectDecision(eSTATE_PLAYING, true);
+    EXPECT_CALL(*mMockAamp, SetBufferingState(true)).Times(0);
+
+    ExpireDeadline(AAMP_NORMAL_PLAY_RATE);
+}
+
+/**
+ * @test DeadlineExpired_Trickplay_SuppressesUnderflow
+ * @brief An expired deadline during trickplay must not enter buffering.
+ */
+TEST_F(AampUnderflowMonitorDeadlineTest, DeadlineExpired_Trickplay_SuppressesUnderflow)
+{
+    ExpectDecision(eSTATE_PLAYING, false);
+    EXPECT_CALL(*mMockAamp, SetBufferingState(true)).Times(0);
+
+    ExpireDeadline(4.0f);
+}
+
+/**
+ * @test DeadlineExpired_Seeking_SuppressesUnderflow
+ * @brief An expired deadline while seeking must not enter buffering.
+ */
+TEST_F(AampUnderflowMonitorDeadlineTest, DeadlineExpired_Seeking_SuppressesUnderflow)
+{
+    ExpectDecision(eSTATE_SEEKING, false);
+    EXPECT_CALL(*mMockAamp, SetBufferingState(true)).Times(0);
+
+    ExpireDeadline(AAMP_NORMAL_PLAY_RATE);
 }
