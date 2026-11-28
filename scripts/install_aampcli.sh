@@ -158,7 +158,7 @@ function aampcli_install_build_darwin_fn()
         ${OPTION_BUILD_ARGS} \
         -G Xcode ../
 
-    # the cmake Xcode generator can not set this scheme property (Debug -> Options -> Console -> Use Terminal
+    # the cmake Xcode generator can not set this scheme property (Run -> Options -> Console -> Xcode (with Standard Input))
     patch ./AAMP.xcodeproj/xcshareddata/xcschemes/aamp-cli.xcscheme < ../OSX/patches/aamp-cli.xscheme.patch
 
 

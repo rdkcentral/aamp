@@ -24,6 +24,7 @@
 #include "Aampcli.h"
 #include "scte35/AampSCTE35.h"
 #include <unistd.h>
+#include <termios.h>
 
 Aampcli mAampcli;
 const char *gApplicationPath = NULL;
@@ -145,6 +146,58 @@ void Aampcli::doAutomation( int startChannel, int stopChannel, int maxTuneTimeS,
 	}
 }
 
+/**
+ * @brief Read a command line, bypassing readline when the console is not a real terminal
+ *        (e.g. Xcode's debug console displays typed input itself, so any echo from readline
+ *        or the pty would show every character twice)
+ * @param[in] prompt prompt to display
+ * @return malloc'd line (caller frees) or NULL on EOF
+ */
+static struct termios gSavedTermios;
+
+static void RestoreTerminalEcho( void )
+{
+	tcsetattr(STDIN_FILENO, TCSANOW, &gSavedTermios);
+}
+
+static char *ReadCommandLine( const char *prompt )
+{
+	static const bool useReadline = []{
+		bool interactive = isatty(STDIN_FILENO);
+#ifdef __APPLE__
+		bool xcodeConsole = getenv("__XCODE_BUILT_PRODUCTS_DIR_PATHS") != NULL;
+#else
+		bool xcodeConsole = false;
+#endif
+		const char *term = getenv("TERM");
+		bool dumbTerminal = term && strcmp(term,"dumb")==0;
+		if( xcodeConsole && interactive && tcgetattr(STDIN_FILENO, &gSavedTermios) == 0 )
+		{
+			struct termios tio = gSavedTermios;
+			tio.c_lflag &= ~(ECHO | ECHONL);
+			if( tcsetattr(STDIN_FILENO, TCSANOW, &tio) == 0 )
+			{
+				atexit( RestoreTerminalEcho );
+			}
+		}
+		return interactive && !xcodeConsole && !dumbTerminal;
+	}();
+	if( useReadline )
+	{
+		return readline(prompt);
+	}
+	fputs( prompt, stdout );
+	fflush( stdout );
+	char *line = NULL;
+	size_t cap = 0;
+	if( getline(&line, &cap, stdin) < 0 )
+	{
+		free( line );
+		return NULL;
+	}
+	return line;
+}
+
 void Aampcli::runCommand( std::string args )
 {
 	std::vector<std::string> cmdVec;
@@ -159,7 +212,7 @@ void Aampcli::runCommand( std::string args )
 	for(;;)
 	{
 		rl_attempted_completion_function = lCommandHandler.commandCompletion;
-		char *buffer = readline("[AAMPCLI] Enter cmd: ");
+		char *buffer = ReadCommandLine("[AAMPCLI] Enter cmd: ");
 		if(buffer == NULL)
 		{
 			break;
