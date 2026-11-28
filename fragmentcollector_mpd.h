@@ -1385,13 +1385,12 @@ protected:
 	MediaStreamContext *PrimaryMediaStreamContext() const;
 
 	/**
-	 * @fn LockPrimaryMediaStreamContext
-	 * @brief Locks the primary context's mMediaStreamContextMutex (recursive), the mutex UpdateMPD() holds.
-	 *        The lock is held until the returned object is released.
-	 * @note The primary context must be allocated.
-	 * @retval Held lock on the primary context's mutex
+	 * @fn LockAbrMediaStreamContext
+	 * @brief Locks the primary context's mMediaStreamContextMutex (recursive), which ABR takes in
+	 *        MediaStreamContext::ABRProfileChanged(). UpdateMPD() holds it to exclude ABR switches.
+	 * @retval Held lock; not owning if the context is not allocated, as ABR then has nothing to switch
 	 */
-	std::unique_lock<std::recursive_mutex> LockPrimaryMediaStreamContext();
+	std::unique_lock<std::recursive_mutex> LockAbrMediaStreamContext();
 
 	/**
 	 * @fn GetManifestUpdateCounter

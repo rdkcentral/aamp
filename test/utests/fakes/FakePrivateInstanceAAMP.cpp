@@ -118,6 +118,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) :
 	mIsInbandCC(true),
 	bitrateList(),
 	userProfileStatus(false),
+	mAudioOnlyPb(false),
 	mCurrentAudioTrackIndex(-1),
 	mCurrentTextTrackIndex(-1),
 	mEncryptedPeriodFound(false),
