@@ -1,0 +1,25 @@
+name: Validate Commit Message
+on:
+  pull_request:
+    branches:
+      - dev_sprint_25_2
+    types: [ opened, reopened, edited, synchronize, unlocked ] 
+
+jobs:
+  validate-commit-message:
+    name: commit-template-validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+            path: 'code'
+            ref: ${{ github.event.pull_request.head.sha }}
+            
+      - name: Executing Validation Script
+        env:
+          NEWREV: ${{ github.event.pull_request.head.sha }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          cd code
+          python3 .github/workflows/commit_template_validation.py --newrev "$NEWREV" --message "$PR_TITLE"
