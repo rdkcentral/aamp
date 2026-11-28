@@ -660,6 +660,7 @@ void AampRialtoPlayer::Configure(
 	// from issuing play() after the new pipeline attaches its sources.
 	// m_playRequested is reset by Stop(), which marks the end of a session.
 	m_allSourcesAttachedFlag.store(false, std::memory_order_relaxed);
+	m_seekDoneWithNoDataSince.store(false, std::memory_order_relaxed);
 	for (auto &pa : m_pendingAttach)
 	{
 		pa.reset();
@@ -1632,6 +1633,7 @@ void AampRialtoPlayer::StopInternal(bool keepLastFrame, bool preservePendingPosi
 		m_lastKnownPts = 0;
 		m_ptsUpdatedTimeMs = 0;
 	}
+	m_seekDoneWithNoDataSince.store(false, std::memory_order_relaxed);
 	m_stateMachine.onStop();
 	AAMPLOG_INFO("EXIT");
 }
@@ -1740,6 +1742,14 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown, boo
 		return;
 	}
 
+	if (CanRepositionWithoutSeek(rate))
+	{
+		RepositionSegmentWithoutSeek(posNs, rate);
+		AAMPLOG_INFO("EXIT - segment repositioned without a seek");
+		return;
+	}
+	m_seekDoneWithNoDataSince.store(false, std::memory_order_relaxed);
+
 	// Step 3: Claim FLUSHING atomically while holding m_flushMutex so that
 	// any concurrent WaitForFlushToComplete() caller (e.g. Configure()) sees
 	// FLUSHING and blocks until onFlushComplete() signals completion.
@@ -1806,6 +1816,69 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown, boo
 	}
 
 	AAMPLOG_INFO("EXIT");
+}
+
+bool AampRialtoPlayer::CanRepositionWithoutSeek(int rate) const
+{
+	if (!m_pipeline ||
+	    !m_seekDoneWithNoDataSince.load(std::memory_order_relaxed) ||
+	    rate != m_rate.load(std::memory_order_relaxed))
+	{
+		return false;
+	}
+	for (const auto &source : m_sources)
+	{
+		if (source && source->firstPtsMs() != AampRialtoMediaSource::kFirstPtsNotSet)
+		{
+			return false;
+		}
+	}
+	return true;
+}
+
+void AampRialtoPlayer::RepositionSegmentWithoutSeek(int64_t posNs, int rate)
+{
+	AAMPLOG_MIL("no data injected since the last SEEK_DONE - repositioning "
+		"segment to posNs=%" PRId64 " rate=%d without a seek", posNs, rate);
+
+	for (auto &source : m_sources)
+	{
+		if (source)
+		{
+			const bool newEos = rate != AAMP_NORMAL_PLAY_RATE &&
+			          isEosDuringTrickplay(source.get());
+			source->unblockInjection(m_pipeline.get(), "Flush(reposition)", newEos);
+			source->gateInjection(m_pipeline.get(), true, "Flush(reposition)");
+		}
+	}
+
+	{
+		std::lock_guard<std::mutex> lock(m_attachMutex);
+		for (const auto &source : m_sources)
+		{
+			if (source && source->isAttached() &&
+			    !m_pipeline->setSourcePosition(source->sourceId(), posNs,
+			        /*resetTime=*/true,
+			        computeAppliedRate(rate, source->mediaType())))
+			{
+				AAMPLOG_WARN("setSourcePosition(%" PRId64 ") failed for "
+					"sourceId=%d", posNs, source->sourceId());
+			}
+		}
+	}
+	m_segmentStartPositionNs.store(posNs, std::memory_order_relaxed);
+
+	if (m_playRequested.load(std::memory_order_seq_cst) &&
+	    !m_positionPending.load(std::memory_order_relaxed))
+	{
+		m_playRequested.store(false, std::memory_order_relaxed);
+		UngateAllSources("Flush(reposition)");
+		bool async = false;
+		if (!m_pipeline->play(async))
+		{
+			AAMPLOG_ERR("play() failed after reposition");
+		}
+	}
 }
 
 void AampRialtoPlayer::FlushTrack(AampMediaType mediaType, double position)
@@ -2828,6 +2901,7 @@ void AampRialtoPlayer::OnPlaybackState(firebolt::rialto::PlaybackState state)
 			// for GetPositionMilliseconds() - the seek may have landed
 			// mid-fragment, so the first sample's own PTS is not reliable.
 			m_segmentStartPositionNs.store(posNs, std::memory_order_relaxed);
+			m_seekDoneWithNoDataSince.store(true, std::memory_order_relaxed);
 
 			// m_positionPending was already cleared synchronously when
 			// Flush() entered this cycle (not deferred to here) - clearing

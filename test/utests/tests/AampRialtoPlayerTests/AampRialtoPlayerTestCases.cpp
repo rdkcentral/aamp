@@ -6640,6 +6640,114 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 }
 
 /**
+ * @test HLS TS trick-play entry: TeardownStream()'s Flush(0, rate) seeks,
+ *       then TuneHelper()'s Flush(GetFirstPTS()) and the position resolved
+ *       from the first re-timestamped iframe (after TSProcessor's
+ *       SetStreamFormat() Configure() re-arms) follow before any data has
+ *       been injected. Only the first may cost a SEEKING/SEEK_DONE round
+ *       trip; the later ones must reposition every source's segment with
+ *       setSourcePosition() so the iframe timestamp is what takes effect.
+ */
+TEST_F(AampRialtoPlayerTest,
+	Flush_AfterSeekDoneWithNoDataInjected_RepositionsSegmentWithoutSeeking)
+{
+	Configure(FORMAT_VIDEO_ES_H264, FORMAT_AUDIO_ES_AAC);
+	m_player->SetStreamCaps(eMEDIATYPE_VIDEO, MakeVideoH264CodecInfo());
+	m_player->SetStreamCaps(eMEDIATYPE_AUDIO, MakeAudioAacCodecInfo());
+	m_player->Stream();
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::PLAYING);
+	const int32_t videoId = m_mockSources[eMEDIATYPE_VIDEO]->sourceId();
+
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(0)).WillOnce(Return(true));
+	m_player->Flush(/*position=*/0.0, /*rate=*/2, /*shouldTearDown=*/true);
+	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHED);
+	testing::Mock::VerifyAndClearExpectations(m_mockPipelinePtr);
+
+	const auto trickCodecs = [] {
+		return MakeCodecInfo(FORMAT_VIDEO_ES_H264, FORMAT_INVALID, FORMAT_INVALID);
+	};
+	ON_CALL(*m_mockSources[eMEDIATYPE_VIDEO], processDataFragment(_, _, _, _, _, _))
+		.WillByDefault(Return(true));
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(_)).Times(0);
+	EXPECT_CALL(*m_mockPipelinePtr, setSourcePosition(Ne(videoId), _, _, _, _))
+		.WillRepeatedly(Return(true));
+	{
+		testing::InSequence seq;
+		EXPECT_CALL(*m_mockPipelinePtr,
+			setSourcePosition(videoId, 3'773'000'000LL, true, _, _))
+			.WillOnce(Return(true));
+		EXPECT_CALL(*m_mockPipelinePtr,
+			setSourcePosition(videoId, 0, true, _, _))
+			.WillOnce(Return(true));
+		EXPECT_CALL(*m_mockSources[eMEDIATYPE_VIDEO],
+			processDataFragment(_, _, /*fpts=*/0.0, _, _, _))
+			.WillOnce(Return(true));
+	}
+
+	m_player->Configure(trickCodecs(), false, false);
+	m_player->Flush(/*position=*/3.773, /*rate=*/2, /*shouldTearDown=*/false);
+	m_player->Stream();
+
+	m_player->Configure(trickCodecs(), false, false);
+	std::vector<uint8_t> iframe = {0x01, 0x02, 0x03, 0x04};
+	EXPECT_TRUE(m_player->SendCopy(eMEDIATYPE_VIDEO, std::move(iframe),
+		/*fpts=*/0.0, /*fdts=*/0.0, /*fDuration=*/0.0));
+	EXPECT_NE(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
+}
+
+/**
+ * @test Once data has been injected after a seek, a further Flush() must
+ *       still perform a real flushing seek - the pipeline holds data that
+ *       has to be discarded.
+ */
+TEST_F(AampRialtoPlayerTest,
+	Flush_AfterDataInjectedSinceSeekDone_IssuesFlushingSeek)
+{
+	Configure(FORMAT_VIDEO_ES_H264, FORMAT_INVALID);
+	m_player->SetStreamCaps(eMEDIATYPE_VIDEO, MakeVideoH264CodecInfo());
+	m_player->Stream();
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(0)).WillOnce(Return(true));
+	m_player->Flush(0.0, 1, true);
+	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHED);
+	testing::Mock::VerifyAndClearExpectations(m_mockPipelinePtr);
+
+	ON_CALL(*m_mockSources[eMEDIATYPE_VIDEO], firstPtsMs())
+		.WillByDefault(Return(0));
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(5'000'000'000LL))
+		.WillOnce(Return(true));
+	m_player->Flush(5.0, 1, false);
+	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
+}
+
+/**
+ * @test A Flush() that changes the rate must still seek even when no data
+ *       was injected since the previous SEEK_DONE - the rate is applied by
+ *       the seek.
+ */
+TEST_F(AampRialtoPlayerTest,
+	Flush_RateChangeAfterSeekDoneWithNoData_IssuesFlushingSeek)
+{
+	Configure(FORMAT_VIDEO_ES_H264, FORMAT_INVALID);
+	m_player->SetStreamCaps(eMEDIATYPE_VIDEO, MakeVideoH264CodecInfo());
+	m_player->Stream();
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(0)).WillOnce(Return(true));
+	m_player->Flush(0.0, 2, true);
+	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
+	testing::Mock::VerifyAndClearExpectations(m_mockPipelinePtr);
+
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(0)).WillOnce(Return(true));
+	m_player->Flush(0.0, 4, false);
+	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
+}
+
+/**
  * @test Configure() now arms m_positionPending unconditionally, but
  *       AttachSource() already establishes a definitive baseline for an
  *       ordinary fresh tune - the first ordinary sample must not trigger a

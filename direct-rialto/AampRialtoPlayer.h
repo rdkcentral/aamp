@@ -565,6 +565,12 @@ private:
 	/// it.  Reset whenever m_positionPending is (re)armed.
 	std::atomic<bool> m_pendingPositionFlushClaimed{false};
 
+	std::atomic<bool> m_seekDoneWithNoDataSince{false};
+
+	bool CanRepositionWithoutSeek(int rate) const;
+
+	void RepositionSegmentWithoutSeek(int64_t posNs, int rate);
+
 	/// Arms the deferred-flush window: resets the claim so the next elected
 	/// sample may drive MaybeFlushForPendingPosition(), then sets
 	/// m_positionPending.  Shared by every call site that needs to mark a
