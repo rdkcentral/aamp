@@ -24,6 +24,7 @@
 #include "Aampcli.h"
 #include "scte35/AampSCTE35.h"
 #include <unistd.h>
+#include <termios.h>
 
 Aampcli mAampcli;
 const char *gApplicationPath = NULL;
@@ -145,6 +146,45 @@ void Aampcli::doAutomation( int startChannel, int stopChannel, int maxTuneTimeS,
 	}
 }
 
+/**
+ * @brief Read a command line, bypassing readline when the console is not a real terminal
+ *        (e.g. Xcode's debug console displays typed input itself, so any echo from readline
+ *        or the pty would show every character twice)
+ * @param[in] prompt prompt to display
+ * @return malloc'd line (caller frees) or NULL on EOF
+ */
+static char *ReadCommandLine( const char *prompt )
+{
+	static const bool useReadline = []{
+		const char *term = getenv("TERM");
+		bool xcodeConsole = getenv("__XCODE_BUILT_PRODUCTS_DIR_PATHS") || (term && strcmp(term,"dumb")==0);
+		if( xcodeConsole && isatty(STDIN_FILENO) )
+		{
+			struct termios tio;
+			if( tcgetattr(STDIN_FILENO, &tio) == 0 )
+			{
+				tio.c_lflag &= ~(ECHO | ECHONL);
+				tcsetattr(STDIN_FILENO, TCSANOW, &tio);
+			}
+		}
+		return !xcodeConsole && isatty(STDIN_FILENO);
+	}();
+	if( useReadline )
+	{
+		return readline(prompt);
+	}
+	fputs( prompt, stdout );
+	fflush( stdout );
+	char *line = NULL;
+	size_t cap = 0;
+	if( getline(&line, &cap, stdin) < 0 )
+	{
+		free( line );
+		return NULL;
+	}
+	return line;
+}
+
 void Aampcli::runCommand( std::string args )
 {
 	std::vector<std::string> cmdVec;
@@ -159,7 +199,7 @@ void Aampcli::runCommand( std::string args )
 	for(;;)
 	{
 		rl_attempted_completion_function = lCommandHandler.commandCompletion;
-		char *buffer = readline("[AAMPCLI] Enter cmd: ");
+		char *buffer = ReadCommandLine("[AAMPCLI] Enter cmd: ");
 		if(buffer == NULL)
 		{
 			break;
