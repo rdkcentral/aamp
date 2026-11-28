@@ -153,25 +153,34 @@ void Aampcli::doAutomation( int startChannel, int stopChannel, int maxTuneTimeS,
  * @param[in] prompt prompt to display
  * @return malloc'd line (caller frees) or NULL on EOF
  */
+static struct termios gSavedTermios;
+
+static void RestoreTerminalEcho( void )
+{
+	tcsetattr(STDIN_FILENO, TCSANOW, &gSavedTermios);
+}
+
 static char *ReadCommandLine( const char *prompt )
 {
 	static const bool useReadline = []{
+		bool interactive = isatty(STDIN_FILENO);
 #ifdef __APPLE__
-		const char *term = getenv("TERM");
-		bool xcodeConsole = getenv("__XCODE_BUILT_PRODUCTS_DIR_PATHS") || (term && strcmp(term,"dumb")==0);
+		bool xcodeConsole = getenv("__XCODE_BUILT_PRODUCTS_DIR_PATHS") != NULL;
 #else
 		bool xcodeConsole = false;
 #endif
-		if( xcodeConsole && isatty(STDIN_FILENO) )
+		const char *term = getenv("TERM");
+		bool dumbTerminal = term && strcmp(term,"dumb")==0;
+		if( xcodeConsole && interactive && tcgetattr(STDIN_FILENO, &gSavedTermios) == 0 )
 		{
-			struct termios tio;
-			if( tcgetattr(STDIN_FILENO, &tio) == 0 )
+			struct termios tio = gSavedTermios;
+			tio.c_lflag &= ~(ECHO | ECHONL);
+			if( tcsetattr(STDIN_FILENO, TCSANOW, &tio) == 0 )
 			{
-				tio.c_lflag &= ~(ECHO | ECHONL);
-				tcsetattr(STDIN_FILENO, TCSANOW, &tio);
+				atexit( RestoreTerminalEcho );
 			}
 		}
-		return !xcodeConsole && isatty(STDIN_FILENO);
+		return interactive && !xcodeConsole && !dumbTerminal;
 	}();
 	if( useReadline )
 	{
