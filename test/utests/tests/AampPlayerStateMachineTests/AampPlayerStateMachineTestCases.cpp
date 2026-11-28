@@ -540,8 +540,50 @@ TEST_F(AampPlayerStateMachineTest, OnPlaybackStarted_WhilePlaying_IsIgnored)
 TEST_F(AampPlayerStateMachineTest, OnPipelineLoaded_WhilePipelineCreated_IsIgnored)
 {
 	m_sm.onPipelineLoaded();
+	testing::internal::CaptureStdout();
 	m_sm.onPipelineLoaded(); // unexpected — no transition defined
+	const std::string log = testing::internal::GetCapturedStdout();
 	EXPECT_EQ(m_sm.currentState(), PlayerStateId::PIPELINE_CREATED);
+	EXPECT_NE(log.find("has no transition"), std::string::npos);
+}
+
+/**
+ * @test Each further source attaching while already SOURCES_ATTACHING is an
+ *       expected no-op: the state is unchanged and no "has no transition"
+ *       warning is logged.
+ */
+TEST_F(AampPlayerStateMachineTest, OnSourceAttaching_WhileSourcesAttaching_IsNoOpWithoutWarning)
+{
+	m_sm.onPipelineLoaded();
+	m_sm.onSourceAttaching();
+	testing::internal::CaptureStdout();
+	m_sm.onSourceAttaching();
+	m_sm.onSourceAttaching();
+	const std::string log = testing::internal::GetCapturedStdout();
+	EXPECT_EQ(m_sm.currentState(), PlayerStateId::SOURCES_ATTACHING);
+	EXPECT_EQ(log.find("has no transition"), std::string::npos);
+	EXPECT_EQ(log.find("->"), std::string::npos);
+}
+
+/**
+ * @test PAUSED reported during preroll, before PLAYING, is an expected
+ *       no-op in SOURCES_ATTACHED: the state is unchanged, no warning is
+ *       logged, and the following PLAYING still transitions normally.
+ */
+TEST_F(AampPlayerStateMachineTest, OnPlaybackPaused_WhileSourcesAttached_IsNoOpWithoutWarning)
+{
+	m_sm.onPipelineLoaded();
+	m_sm.onSourceAttaching();
+	m_sm.onAllSourcesAttached();
+	testing::internal::CaptureStdout();
+	m_sm.onPlaybackPaused();
+	const std::string log = testing::internal::GetCapturedStdout();
+	EXPECT_EQ(m_sm.currentState(), PlayerStateId::SOURCES_ATTACHED);
+	EXPECT_EQ(log.find("has no transition"), std::string::npos);
+	EXPECT_EQ(log.find("->"), std::string::npos);
+
+	m_sm.onPlaybackStarted();
+	EXPECT_EQ(m_sm.currentState(), PlayerStateId::PLAYING);
 }
 
 // ===========================================================================

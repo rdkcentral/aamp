@@ -78,6 +78,7 @@ public:
 	PlayerStateId id()   const override { return PlayerStateId::SOURCES_ATTACHING; }
 	const char   *name() const override { return "SOURCES_ATTACHING"; }
 
+	std::unique_ptr<IPlayerState> onSourceAttaching()    override;
 	std::unique_ptr<IPlayerState> onAllSourcesAttached() override;
 	std::unique_ptr<IPlayerState> onStop()               override;
 	std::unique_ptr<IPlayerState> onError()              override;
@@ -91,6 +92,7 @@ public:
 	const char   *name() const override { return "SOURCES_ATTACHED"; }
 
 	std::unique_ptr<IPlayerState> onPlaybackStarted() override;
+	std::unique_ptr<IPlayerState> onPlaybackPaused()  override;
 	std::unique_ptr<IPlayerState> onFlush()           override;
 	std::unique_ptr<IPlayerState> onStop()            override;
 	std::unique_ptr<IPlayerState> onError()           override;
@@ -225,6 +227,11 @@ std::unique_ptr<IPlayerState> PipelineCreatedState::onSourceAttaching()
 	return std::make_unique<SourcesAttachingState>();
 }
 
+std::unique_ptr<IPlayerState> SourcesAttachingState::onSourceAttaching()
+{
+	return std::make_unique<SourcesAttachingState>();
+}
+
 std::unique_ptr<IPlayerState> SourcesAttachingState::onAllSourcesAttached()
 {
 	return std::make_unique<SourcesAttachedState>();
@@ -233,6 +240,11 @@ std::unique_ptr<IPlayerState> SourcesAttachingState::onAllSourcesAttached()
 std::unique_ptr<IPlayerState> SourcesAttachedState::onPlaybackStarted()
 {
 	return std::make_unique<PlayingState>();
+}
+
+std::unique_ptr<IPlayerState> SourcesAttachedState::onPlaybackPaused()
+{
+	return std::make_unique<SourcesAttachedState>();
 }
 
 std::unique_ptr<IPlayerState> SourcesAttachedState::onFlush()
@@ -343,7 +355,12 @@ void PlayerStateMachine::dispatch(
 {
 	std::lock_guard<std::mutex> lock(m_mutex);
 	auto next = (m_state.get()->*handler)();
-	if (next)
+	if (next && next->id() == m_state->id())
+	{
+		AAMPLOG_INFO("PlayerState: '%s' in state '%s' - no-op",
+			eventName, m_state->name());
+	}
+	else if (next)
 	{
 		AAMPLOG_MIL("PlayerState: %s -> %s",
 			m_state->name(), next->name());

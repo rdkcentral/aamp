@@ -551,6 +551,44 @@ TEST_F(AampRialtoAudioSourceTest, AampRialtoAudioSource_AttachEmptyCodecData_Sti
 	EXPECT_TRUE(m_source.isAttached());
 }
 
+/**
+ * @test AampRialtoAudioSource_AttachRawAacEmptyCodecData_WarnsAboutEmptyCaps
+ * @brief Raw AAC needs out-of-band codec data, so its absence is reported.
+ */
+TEST_F(AampRialtoAudioSourceTest,
+	AampRialtoAudioSource_AttachRawAacEmptyCodecData_WarnsAboutEmptyCaps)
+{
+	MediaCodecInfo ci{};
+	ci.mCodecFormat              = GST_FORMAT_AUDIO_ES_AAC_RAW;
+	ci.mInfo.audio.mChannelCount = 2;
+	ci.mInfo.audio.mSampleRate   = 48000;
+
+	testing::internal::CaptureStdout();
+	m_source.attachOrUpdate(*m_pipelinePtr, ci, nullptr, -1);
+	const std::string log = testing::internal::GetCapturedStdout();
+
+	EXPECT_NE(log.find("audio codecData is empty"), std::string::npos);
+}
+
+/**
+ * @test AampRialtoAudioSource_AttachAdtsWithoutCodecData_DoesNotWarn
+ * @brief ADTS AAC (HLS-TS) carries its configuration in-band, so empty
+ *        codec data is expected and must not be reported.
+ */
+TEST_F(AampRialtoAudioSourceTest,
+	AampRialtoAudioSource_AttachAdtsWithoutCodecData_DoesNotWarn)
+{
+	auto ci = MakeAdtsAacCodecInfo();
+	testing::internal::CaptureStdout();
+	const auto result = m_source.attachOrUpdate(*m_pipelinePtr, ci, nullptr, -1);
+	const std::string log = testing::internal::GetCapturedStdout();
+
+	EXPECT_EQ(result, AampRialtoMediaSource::AttachResult::NEWLY_ATTACHED);
+	EXPECT_EQ(log.find("audio codecData is empty"), std::string::npos);
+	EXPECT_EQ(m_source.sampleRate(), 48000);
+	EXPECT_EQ(m_source.channels(), 2);
+}
+
 // ---------------------------------------------------------------------------
 // EOS signaling
 // ---------------------------------------------------------------------------

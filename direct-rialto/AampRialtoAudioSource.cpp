@@ -117,7 +117,8 @@ void AampRialtoAudioSource::updateCachedMetadata(
 	m_sampleRate = static_cast<int32_t>(codecInfo.mInfo.audio.mSampleRate);
 	m_channels   = static_cast<int32_t>(codecInfo.mInfo.audio.mChannelCount);
 
-	if (codecInfo.mCodecData.empty())
+	if (codecInfo.mCodecData.empty() &&
+	    codecInfo.mCodecFormat != GST_FORMAT_AUDIO_ES_AAC)
 	{
 		AAMPLOG_WARN("audio codecData is empty — Rialto may produce "
 			"empty caps");
