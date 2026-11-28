@@ -144,6 +144,8 @@ function subtec_install_fn() {
         return 1
     }
 
+    # Mark the checkout as complete so an interrupted install is not reused
+    touch .aamp_source_prepared
     echo "subtec-app source prepared"
     popd
 }
@@ -217,6 +219,12 @@ function subtec_install_build_fn() {
         rm -rf subtec-app
     fi
 
+    # A checkout that was never fully prepared and never built was left by an
+    # interrupted or failed install, so remove it and start again
+    if [ -d "subtec-app" ] && [ ! -f "subtec-app/.aamp_source_prepared" ] && [ ! -d "subtec-app/subttxrend-app/x86_builder/build/install" ]; then
+        echo "subtec-app checkout is incomplete, re-cloning"
+        rm -rf subtec-app
+    fi
 
     # Install
     if [ -d "subtec-app" ]; then
