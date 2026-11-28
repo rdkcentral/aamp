@@ -224,7 +224,7 @@ struct Stream
 	GstElement *balance{nullptr};
 	GstElement *sink{nullptr};
 
-	GstCaps *caps{nullptr}; // current appsrc caps, owned
+	GstCaps *caps{nullptr}; // caps committed to appsrc, owned
 
 	// Written by appsrc callbacks on streaming threads.
 	std::atomic<bool> needData{false};
@@ -260,6 +260,18 @@ struct Stream
 			}
 		}
 		staged.clear();
+	}
+
+	const GstCaps *latestCaps() const
+	{
+		for (auto it = staged.rbegin(); it != staged.rend(); ++it)
+		{
+			if (it->caps)
+			{
+				return it->caps;
+			}
+		}
+		return caps;
 	}
 };
 
@@ -431,6 +443,7 @@ public:
 		}
 		if (rate == m_rate)
 		{
+			m_pendingRate = 0.0;
 			return true;
 		}
 		if (!m_pipeline || GST_STATE(m_pipeline) < GST_STATE_PLAYING)
@@ -590,10 +603,9 @@ public:
 			stream->encryptedWarned = true;
 		}
 
-		StagedSample sample{nullptr, updateCapsForSegment(stream->caps, *mediaSegment)};
+		StagedSample sample{nullptr, updateCapsForSegment(stream->latestCaps(), *mediaSegment)};
 		if (sample.caps)
 		{
-			gst_caps_replace(&stream->caps, sample.caps);
 			gchar *capsText = gst_caps_to_string(sample.caps);
 			RREF_LOG("sourceId=%d caps changed: %s", stream->id, capsText);
 			g_free(capsText);
@@ -871,6 +883,9 @@ private:
 		}
 		// Queue limits as the server sets them (GstSrc::setupAndAddAppSrc), which
 		// determine how far ahead of playback the client is asked for data.
+		gst_app_src_set_max_bytes(GST_APP_SRC(appsrc), isVideo   ? kVideoAppSrcMaxBytes
+		                                                : isAudio ? kAudioAppSrcMaxBytes
+		                                                          : kSubtitleAppSrcMaxBytes);
 		if ((isVideo || isAudio) && g_object_class_find_property(appsrcClass, "max-time"))
 		{
 			g_object_set(appsrc, "max-time", kAppSrcMaxTime, nullptr);
@@ -878,12 +893,6 @@ private:
 		else if ((isVideo || isAudio) && g_object_class_find_property(appsrcClass, "max-buffers"))
 		{
 			g_object_set(appsrc, "max-buffers", kAppSrcMaxBuffers, nullptr);
-		}
-		else
-		{
-			gst_app_src_set_max_bytes(GST_APP_SRC(appsrc), isVideo   ? kVideoAppSrcMaxBytes
-			                                                : isAudio ? kAudioAppSrcMaxBytes
-			                                                          : kSubtitleAppSrcMaxBytes);
 		}
 		GstAppSrcCallbacks callbacks{};
 		callbacks.need_data = &GstReferencePipeline::onNeedData;
@@ -917,6 +926,20 @@ private:
 		if (!linked)
 		{
 			RREF_LOG("attachSource: failed to link %s branch", toString(stream.type));
+			for (GstElement *element : chain)
+			{
+				gst_bin_remove(GST_BIN(m_pipeline), element);
+			}
+			if (decoder)
+			{
+				gst_bin_remove(GST_BIN(m_pipeline), decoder);
+			}
+			gst_bin_remove(GST_BIN(m_pipeline), appsrc);
+			stream.appsrc = nullptr;
+			stream.tailHead = nullptr;
+			stream.volume = nullptr;
+			stream.balance = nullptr;
+			stream.sink = nullptr;
 			return false;
 		}
 
@@ -1063,7 +1086,7 @@ private:
 			if (sample.caps)
 			{
 				gst_app_src_set_caps(GST_APP_SRC(stream.appsrc), sample.caps);
-				gst_caps_unref(sample.caps);
+				gst_caps_take(&stream.caps, sample.caps);
 			}
 			gst_app_src_push_buffer(GST_APP_SRC(stream.appsrc), sample.buffer);
 		}
@@ -1201,7 +1224,7 @@ private:
 	static GstBusSyncReply onBusSync(GstBus *, GstMessage *message, gpointer user)
 	{
 		auto *self = static_cast<GstReferencePipeline *>(user);
-		std::shared_ptr<GstMessage> held(gst_message_ref(message), [](GstMessage *m) { gst_message_unref(m); });
+		std::shared_ptr<GstMessage> held(message, [](GstMessage *m) { gst_message_unref(m); });
 		self->m_worker.post([self, held]() { self->handleMessage(held.get()); });
 		return GST_BUS_DROP;
 	}

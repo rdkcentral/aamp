@@ -100,6 +100,12 @@ library and picks a backend for each pipeline it creates:
 With `useDirectRialto=true`, the AAMP config `rialtoSimBackend=gst` sets the
 environment variable for you. The real Rialto client ignores it.
 
+The variable is process-wide: AAMP sets it when a player's sink is created,
+and the simulator reads it when that player creates its pipeline. Players in
+one process with different `rialtoSimBackend` values can therefore pick up
+each other's choice. This is accepted for a simulator-only debug setting;
+use the same backend for every player in a process.
+
 The CMake option `RIALTO_SIM_GST_REFERENCE` (default `ON`) builds the library
 into the simulator.
 
