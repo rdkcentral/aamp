@@ -3,11 +3,12 @@ Upstream-Status: Pending
 Notice: Code in patch files takes the license of the source which is being patched.
 --- ./AAMP.xcodeproj/xcshareddata/xcschemes/aamp-cli.xcscheme	2023-03-27 11:07:44
 +++ ./AAMP.xcodeproj/xcshareddata/xcschemes/aamp-cli.xcscheme.new	2023-03-27 11:25:40
-@@ -42,6 +42,7 @@
+@@ -42,6 +42,8 @@
        <AdditionalOptions/>
     </TestAction>
     <LaunchAction
-+      consoleMode = "1"
++      consoleMode = "0"
++      structuredConsoleMode = "2"
        buildConfiguration="Debug"
        selectedDebuggerIdentifier="Xcode.DebuggerFoundation.Debugger.LLDB"
        selectedLauncherIdentifier="Xcode.DebuggerFoundation.Launcher.LLDB"
