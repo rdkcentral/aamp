@@ -20,14 +20,50 @@ function install_build_libdash_fn()
 {
     cd "$LOCAL_DEPS_BUILD_DIR" || { echo "Failed to change to LOCAL_DEPS_BUILD_DIR: ${LOCAL_DEPS_BUILD_DIR}"; return 1; }
 
+    # Propagate sanitizer flags to libdash so it matches the ASAN
+    # instrumentation level of libaamp. ASAN is enabled by the build
+    # configuration (for example, on macOS builds or on Ubuntu via the
+    # -u flag).
+    local SANITIZER_FLAGS=""
+    if [[ "${PLATFORM}" == "darwin" || "${OPTION_UBUNTU_SANITIZER}" == "true" ]]; then
+        SANITIZER_FLAGS="-fsanitize=address"
+    fi
+
+    # Xcode Debug builds of libaamp default to libc++ debug hardening
+    # (CLANG_CXX_STANDARD_LIBRARY_HARDENING) and disable ASAN container
+    # overflow annotations (CLANG_ADDRESS_SANITIZER_CONTAINER_OVERFLOW).
+    # libdash shares inline std::vector code with libaamp, so it must use
+    # the same settings or ASAN reports false container-overflow errors.
+    local LIBCXX_FLAGS=""
+    if [[ "${PLATFORM}" == "darwin" ]]; then
+        LIBCXX_FLAGS="-D_LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_DEBUG -D__SANITIZER_DISABLE_CONTAINER_OVERFLOW__"
+    fi
+
+    local EXTRA_C_FLAGS="${SANITIZER_FLAGS}"
+    local EXTRA_CXX_FLAGS="${SANITIZER_FLAGS} ${LIBCXX_FLAGS}"
+    local EXTRA_LINK_FLAGS="${SANITIZER_FLAGS}"
+
+    # Record the flags libdash was built with so an existing install built
+    # with different flags is rebuilt instead of being reused.
+    local BUILD_FLAGS_STAMP="libdash/.aamp_build_flags"
+    local BUILD_FLAGS="C_FLAGS=${EXTRA_C_FLAGS}
+CXX_FLAGS=${EXTRA_CXX_FLAGS}
+LINK_FLAGS=${EXTRA_LINK_FLAGS}"
+
+    local REBUILD=false
     # $OPTION_CLEAN == true
     if [ "${1}" = true ] ; then
         echo "libdash clean"
-        if [ -d libdash ] ; then
-            rm -rf libdash
-            # uninstall?
-            rm -rf $LOCAL_DEPS_BUILD_DIR/include/libdash
-        fi
+        REBUILD=true
+    elif [ -d libdash ] && [ "$(cat "${BUILD_FLAGS_STAMP}" 2>/dev/null)" != "${BUILD_FLAGS}" ] ; then
+        echo "libdash build flags changed, rebuilding"
+        REBUILD=true
+    fi
+
+    if [ "${REBUILD}" = true ] && [ -d libdash ] ; then
+        rm -rf libdash
+        # uninstall?
+        rm -rf $LOCAL_DEPS_BUILD_DIR/include/libdash
     fi
 
     if [ -d "libdash" ]; then
@@ -72,29 +108,6 @@ function install_build_libdash_fn()
         mkdir -p build
         cd build || { echo "ERROR: Failed to change to build directory"; return 1; }
         
-        # Propagate sanitizer flags to libdash so it matches the ASAN
-        # instrumentation level of libaamp. ASAN is enabled by the build
-        # configuration (for example, on macOS builds or on Ubuntu via the
-        # -u flag).
-        local SANITIZER_FLAGS=""
-        if [[ "${PLATFORM}" == "darwin" || "${OPTION_UBUNTU_SANITIZER}" == "true" ]]; then
-            SANITIZER_FLAGS="-fsanitize=address"
-        fi
-
-        # Xcode Debug builds of libaamp default to libc++ debug hardening
-        # (CLANG_CXX_STANDARD_LIBRARY_HARDENING) and disable ASAN container
-        # overflow annotations (CLANG_ADDRESS_SANITIZER_CONTAINER_OVERFLOW).
-        # libdash shares inline std::vector code with libaamp, so it must use
-        # the same settings or ASAN reports false container-overflow errors.
-        local LIBCXX_FLAGS=""
-        if [[ "${PLATFORM}" == "darwin" ]]; then
-            LIBCXX_FLAGS="-D_LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_DEBUG -D__SANITIZER_DISABLE_CONTAINER_OVERFLOW__"
-        fi
-
-        local EXTRA_C_FLAGS="${SANITIZER_FLAGS}"
-        local EXTRA_CXX_FLAGS="${SANITIZER_FLAGS} ${LIBCXX_FLAGS}"
-        local EXTRA_LINK_FLAGS="${SANITIZER_FLAGS}"
-
         cmake .. \
             -DCMAKE_INSTALL_PREFIX="${LOCAL_DEPS_BUILD_DIR}" \
             -DCMAKE_MACOSX_RPATH=TRUE \
@@ -133,6 +146,8 @@ function install_build_libdash_fn()
         cp -p libdash/source/helpers/*.h "${LOCAL_DEPS_BUILD_DIR}/include/libdash/helpers"
         cp -p libdash/source/metrics/*.h "${LOCAL_DEPS_BUILD_DIR}/include/libdash/metrics"
         echo -e "prefix=${LOCAL_DEPS_BUILD_DIR}/lib \nexec_prefix=${LOCAL_DEPS_BUILD_DIR} \nlibdir=${LOCAL_DEPS_BUILD_DIR}/lib \nincludedir=${LOCAL_DEPS_BUILD_DIR}/include/libdash \n \nName: libdash \nDescription: ISO/IEC MPEG-DASH library \nVersion: 3.0 \nRequires: libxml-2.0 \nLibs: -L\${libdir} -ldash \nLibs.private: -lxml2 \nCflags: -I\${includedir}" > "${LOCAL_DEPS_BUILD_DIR}/lib/pkgconfig/libdash.pc"
+
+        echo "${BUILD_FLAGS}" > "${LOCAL_DEPS_BUILD_DIR}/${BUILD_FLAGS_STAMP}"
 
         INSTALL_STATUS_ARR+=("libdash was successfully installed.")
     fi
