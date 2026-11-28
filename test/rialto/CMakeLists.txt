@@ -45,6 +45,14 @@ target_link_libraries(RialtoSimulator PRIVATE
     Threads::Threads
 )
 
+# GStreamer reference pipeline (rialto-reference/), selected at runtime with
+# RIALTO_SIM_BACKEND=gst. Absent when GStreamer is unavailable or the
+# RIALTO_SIM_GST_REFERENCE option is off.
+if(TARGET RialtoReferencePipeline)
+    target_link_libraries(RialtoSimulator PRIVATE RialtoReferencePipeline)
+    target_compile_definitions(RialtoSimulator PRIVATE RIALTO_SIM_GST_REFERENCE=1)
+endif()
+
 set_target_properties(RialtoSimulator PROPERTIES
     OUTPUT_NAME "RialtoClient"
     VERSION 0.1.0

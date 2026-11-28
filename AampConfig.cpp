@@ -234,6 +234,7 @@ static const ConfigLookupEntryString mConfigLookupTableString[AAMPCONFIG_STRING_
 	{"","tsbType", eAAMPConfig_TsbType, false},
 	{DEFAULT_TSB_LOCATION,"tsbLocation",eAAMPConfig_TsbLocation, true},
 	{"","networkPersonaFile", eAAMPConfig_NetworkPersonaFile, false},
+	{"","rialtoSimBackend", eAAMPConfig_RialtoSimBackend, false},
 };
 
 /**
