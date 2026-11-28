@@ -1690,6 +1690,91 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	SendVideoInitFragment();
 }
 
+/**
+ * @test HLS TS fresh tune: DoEarlyStreamSinkFlush() is false for a new tune,
+ *       so no Flush() stages a position before the sources attach. The
+ *       first demuxed sample's PTS must become every source's segment start
+ *       (as tsdemux does in the legacy GStreamer path) before any data is
+ *       processed, using setSourcePosition() rather than a flushing seek,
+ *       whichever track delivers first. Reported progress must start at 0
+ *       rather than at the first PTS, and later samples must not re-anchor.
+ */
+TEST_F(AampRialtoPlayerTest,
+	SendCopy_FreshTuneWithoutStagedPosition_AnchorsSourcesAtFirstPts)
+{
+	constexpr int64_t kFirstPtsNs = 420'000'000LL;
+
+	Configure(FORMAT_VIDEO_ES_H264, FORMAT_AUDIO_ES_AAC);
+	m_player->SetStreamCaps(eMEDIATYPE_VIDEO, MakeVideoH264CodecInfo());
+	m_player->SetStreamCaps(eMEDIATYPE_AUDIO, MakeAudioAacCodecInfo());
+	ASSERT_TRUE(m_player->PipelineConfiguredForMedia(eMEDIATYPE_VIDEO));
+	ASSERT_TRUE(m_player->PipelineConfiguredForMedia(eMEDIATYPE_AUDIO));
+	ASSERT_NE(m_mockSources[eMEDIATYPE_SUBTITLE], nullptr);
+	m_player->Stream();
+
+	for (auto type : {eMEDIATYPE_VIDEO, eMEDIATYPE_AUDIO})
+	{
+		ON_CALL(*m_mockSources[type], processDataFragment(_, _, _, _, _, _))
+			.WillByDefault(Return(true));
+	}
+
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(_)).Times(0);
+	{
+		testing::InSequence seq;
+		EXPECT_CALL(*m_mockPipelinePtr, setSourcePosition(
+			m_mockSources[eMEDIATYPE_VIDEO]->sourceId(), kFirstPtsNs, true, _, _))
+			.WillOnce(Return(true));
+		EXPECT_CALL(*m_mockPipelinePtr, setSourcePosition(
+			m_mockSources[eMEDIATYPE_AUDIO]->sourceId(), kFirstPtsNs, true, _, _))
+			.WillOnce(Return(true));
+		EXPECT_CALL(*m_mockPipelinePtr, setSourcePosition(
+			m_mockSources[eMEDIATYPE_SUBTITLE]->sourceId(), kFirstPtsNs, true, _, _))
+			.WillOnce(Return(true));
+		EXPECT_CALL(*m_mockSources[eMEDIATYPE_AUDIO],
+			processDataFragment(_, _, /*fpts=*/0.42, _, _, _))
+			.WillOnce(Return(true));
+		EXPECT_CALL(*m_mockSources[eMEDIATYPE_VIDEO],
+			processDataFragment(_, _, /*fpts=*/0.5, _, _, _))
+			.WillOnce(Return(true));
+	}
+
+	std::vector<uint8_t> audio = {0x01, 0x02, 0x03, 0x04};
+	EXPECT_TRUE(m_player->SendCopy(eMEDIATYPE_AUDIO, std::move(audio),
+		/*fpts=*/0.42, /*fdts=*/0.42, /*fDuration=*/0.17));
+	std::vector<uint8_t> video = {0x05, 0x06, 0x07, 0x08};
+	EXPECT_TRUE(m_player->SendCopy(eMEDIATYPE_VIDEO, std::move(video),
+		/*fpts=*/0.5, /*fdts=*/0.42, /*fDuration=*/0.04));
+
+	EXPECT_CALL(*m_mockPipelinePtr, getPosition(_))
+		.WillOnce(DoAll(SetArgReferee<0>(kFirstPtsNs), Return(true)));
+	EXPECT_EQ(m_player->GetPositionMilliseconds(), 0LL);
+}
+
+/**
+ * @test DASH fresh tune: DoEarlyStreamSinkFlush() stages the position via
+ *       Flush() before the sources attach, so AttachSource() already sets
+ *       the segment start. Stream() must play immediately and the first
+ *       sample must not re-anchor or seek.
+ */
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	SendSample_FreshTuneWithStagedPosition_DoesNotReAnchorOnFirstSample)
+{
+	m_player->Flush(10.0, 1, false);
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).WillOnce(Return(true));
+	m_player->Stream();
+	testing::Mock::VerifyAndClearExpectations(m_mockPipelinePtr);
+
+	EXPECT_CALL(*m_mockPipelinePtr, setSourcePosition(_, _, _, _, _)).Times(0);
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(_)).Times(0);
+	EXPECT_CALL(*m_mockSources[eMEDIATYPE_VIDEO], injectSingleSample(_, _, _))
+		.WillOnce(Return(true));
+	EXPECT_TRUE(m_player->SendSample(eMEDIATYPE_VIDEO, MakeSample(10.0, 0.04)));
+}
+
 // Stop() ends the session outright (as opposed to Flush()'s internal
 // teardown-recovery call, which pre-stages a position for the very next
 // Configure()/AttachSource()).  A stale m_pendingPositionNs left over from

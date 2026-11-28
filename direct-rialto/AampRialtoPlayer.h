@@ -565,6 +565,10 @@ private:
 	/// it.  Reset whenever m_positionPending is (re)armed.
 	std::atomic<bool> m_pendingPositionFlushClaimed{false};
 
+	std::atomic<bool> m_anchorAtFirstSample{false};
+
+	void AnchorSourcesAtFirstSample(double position);
+
 	/// Arms the deferred-flush window: resets the claim so the next elected
 	/// sample may drive MaybeFlushForPendingPosition(), then sets
 	/// m_positionPending.  Shared by every call site that needs to mark a

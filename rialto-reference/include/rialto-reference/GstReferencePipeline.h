@@ -52,6 +52,8 @@ namespace rialto_reference
  *  - RIALTO_REF_VIDEO_SINK / RIALTO_REF_AUDIO_SINK: a gst-launch style
  *    description of the sink, e.g. "fakesink sync=true" for headless runs.
  *  - RIALTO_REF_VERBOSE=1: per-request logging.
+ *  - RIALTO_REF_STRICT_POSITION=1: do not anchor sources that never got a
+ *    position at the first PTS; their segment starts at 0, as on the server.
  *
  * @retval the pipeline, or nullptr if GStreamer could not be initialised.
  */

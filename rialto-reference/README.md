@@ -67,7 +67,8 @@ Where it intentionally differs from the server:
 
 - A source attached after a pipeline-level `setPosition()` starts at that
   position.
-- If no position was ever set, every source is anchored at the first PTS seen.
+- If no position was ever set, every source is anchored at the first PTS seen,
+  unless `RIALTO_REF_STRICT_POSITION=1`.
 - The flush on seek also applies while the pipeline is still prerolling.
 - `audio/x-ac3` and `audio/x-ac4` are in the MIME table.
 
@@ -84,6 +85,7 @@ plugin for it is installed. To add a codec, add a row to `mimeTable()` in
 | `RIALTO_REF_VIDEO_SINK` | Video sink as a gst-launch description, e.g. `fakesink sync=true` for headless runs. Default `autovideosink` |
 | `RIALTO_REF_AUDIO_SINK` | Audio sink, likewise. Default `autoaudiosink` |
 | `RIALTO_REF_VERBOSE=1` | Log every data request and `haveData()` |
+| `RIALTO_REF_STRICT_POSITION=1` | Don't anchor at the first PTS: a source that gets data before any position starts its segment at 0, as on the server, so a missing `setSourcePosition()`/`setPosition()` shows up as a startup delay of the first PTS (logged per source) |
 
 `GST_DEBUG` works as usual.
 

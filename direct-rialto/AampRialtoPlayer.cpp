@@ -1222,11 +1222,24 @@ void AampRialtoPlayer::AttachSource(
 	const int64_t attachPositionNs =
 		m_pendingPositionNs.load(std::memory_order_relaxed);
 
+	const bool anchorVideoAtFirstSample =
+		type == eMEDIATYPE_VIDEO && !source.isAttached() && attachPositionNs < 0;
+	if (anchorVideoAtFirstSample)
+	{
+		m_anchorAtFirstSample.store(true, std::memory_order_release);
+	}
+
 	auto result = source.attachOrUpdate(
 		*m_pipeline, codecInfo, m_drmBridge.get(),
 		attachPositionNs,
 		protectionCopy,
 		appliedRate);
+
+	if (anchorVideoAtFirstSample &&
+	    result != AampRialtoMediaSource::AttachResult::NEWLY_ATTACHED)
+	{
+		m_anchorAtFirstSample.store(false, std::memory_order_relaxed);
+	}
 
 	if (result == AampRialtoMediaSource::AttachResult::NEWLY_ATTACHED ||
 	    result == AampRialtoMediaSource::AttachResult::UPDATED)
@@ -1407,6 +1420,7 @@ bool AampRialtoPlayer::SendSample(AampMediaType mediaType, AampMediaSample &&sam
 
 void AampRialtoPlayer::ArmPositionPending(const char *reason)
 {
+	m_anchorAtFirstSample.store(false, std::memory_order_relaxed);
 	m_pendingPositionFlushClaimed.store(false, std::memory_order_relaxed);
 	m_positionPending.store(true, std::memory_order_relaxed);
 	AAMPLOG_INFO("armed position-pending: %s", reason);
@@ -1415,6 +1429,14 @@ void AampRialtoPlayer::ArmPositionPending(const char *reason)
 void AampRialtoPlayer::MaybeFlushForPendingPosition(
 	AampMediaType mediaType, double position)
 {
+	const AampMediaType slot = toSourceSlot(mediaType);
+	if (m_anchorAtFirstSample.load(std::memory_order_acquire) &&
+	    (slot == eMEDIATYPE_VIDEO || slot == eMEDIATYPE_AUDIO))
+	{
+		AnchorSourcesAtFirstSample(position);
+		return;
+	}
+
 	if (!m_positionPending.load(std::memory_order_relaxed))
 	{
 		return;
@@ -1436,7 +1458,7 @@ void AampRialtoPlayer::MaybeFlushForPendingPosition(
 	const AampMediaType electedType =
 		(videoSource && videoSource->isAttached()) ? eMEDIATYPE_VIDEO
 		                                           : eMEDIATYPE_AUDIO;
-	if (toSourceSlot(mediaType) != electedType)
+	if (slot != electedType)
 	{
 		return;
 	}
@@ -1458,6 +1480,34 @@ void AampRialtoPlayer::MaybeFlushForPendingPosition(
 	// SEEK_DONE handler ungates every source and issues play().  Without it
 	// the sources gated by Configure()/Flush() would never be released.
 	Stream();
+}
+
+void AampRialtoPlayer::AnchorSourcesAtFirstSample(double position)
+{
+	std::lock_guard<std::mutex> lock(m_attachMutex);
+	if (!m_anchorAtFirstSample.load(std::memory_order_relaxed) || !m_pipeline)
+	{
+		return;
+	}
+
+	const int64_t posNs = static_cast<int64_t>(position * kNsPerSecond);
+	const int rate = m_pendingFlushRate.load(std::memory_order_relaxed);
+	AAMPLOG_MIL("no position staged before first sample - anchoring sources "
+		"at first PTS position=%f", position);
+	m_pendingPositionNs.store(posNs, std::memory_order_relaxed);
+	m_segmentStartPositionNs.store(posNs, std::memory_order_relaxed);
+	for (auto &source : m_sources)
+	{
+		if (source && source->isAttached() &&
+		    !m_pipeline->setSourcePosition(source->sourceId(), posNs,
+		        /*resetTime=*/true,
+		        computeAppliedRate(rate, source->mediaType())))
+		{
+			AAMPLOG_WARN("setSourcePosition(%" PRId64 ") failed for "
+				"sourceId=%d", posNs, source->sourceId());
+		}
+	}
+	m_anchorAtFirstSample.store(false, std::memory_order_release);
 }
 
 bool AampRialtoPlayer::PipelineConfiguredForMedia(AampMediaType type)
@@ -1627,6 +1677,7 @@ void AampRialtoPlayer::StopInternal(bool keepLastFrame, bool preservePendingPosi
 		m_pendingPositionNs.store(-1, std::memory_order_relaxed);
 		m_segmentStartPositionNs.store(0, std::memory_order_relaxed);
 	}
+	m_anchorAtFirstSample.store(false, std::memory_order_relaxed);
 	{
 		std::lock_guard<std::mutex> lock(m_ptsCheckMutex);
 		m_lastKnownPts = 0;
@@ -1659,6 +1710,7 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown, boo
 	// even happen (teardown / non-flushable paths), so a sample injected
 	// concurrently does not try to resolve an already-resolved position.
 	m_positionPending.store(false, std::memory_order_relaxed);
+	m_anchorAtFirstSample.store(false, std::memory_order_relaxed);
 
 	// Caller-supplied signal for Configure() below, unconditionally mirrored
 	// (not just set-if-true) so a later non-authoritative Flush() cannot

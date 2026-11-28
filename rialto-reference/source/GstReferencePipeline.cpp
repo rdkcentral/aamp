@@ -56,6 +56,7 @@
 #include <atomic>
 #include <cinttypes>
 #include <cstdlib>
+#include <cstring>
 #include <map>
 #include <memory>
 #include <string>
@@ -1045,7 +1046,17 @@ private:
 		// A source that never got a position would start its segment at 0 and
 		// wait until its first PTS before presenting; anchor at the first PTS
 		// seen instead, shared by all sources.
-		if (!stream.segmentPushed && stream.initialPositions.empty() && !stream.staged.empty())
+		static const bool strictPosition = [] {
+			const char *value = std::getenv("RIALTO_REF_STRICT_POSITION");
+			return value && std::strcmp(value, "1") == 0;
+		}();
+		if (!stream.segmentPushed && stream.initialPositions.empty() && !stream.staged.empty() && strictPosition)
+		{
+			RREF_LOG("sourceId=%d (%s): no position set before data (strict); segment starts at 0, first PTS %" PRId64,
+			         stream.id, toString(stream.type), static_cast<int64_t>(GST_BUFFER_PTS(stream.staged.front().buffer)));
+			stream.segmentPushed = true;
+		}
+		else if (!stream.segmentPushed && stream.initialPositions.empty() && !stream.staged.empty())
 		{
 			if (m_autoAnchorNs < 0)
 			{
