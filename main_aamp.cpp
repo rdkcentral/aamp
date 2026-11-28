@@ -135,6 +135,32 @@ static cJSON* TryParseAsJson(const char* input)
 }
 
 /**
+ * @brief Rejects a trick rate the content does not support, reporting the unchanged current speed
+ *
+ * Normal play, pause and slow motion are not trick play, and progressive content changes rate in the
+ * pipeline. Whether trick play is supported is decided by the stream abstraction (mIsIframeTrackPresent).
+ *
+ * @param[in] aamp - Player instance
+ * @param[in] rate - Requested rate
+ * @return true if the rate was rejected and the caller must not apply it
+ */
+static bool RejectUnsupportedTrickplayRate(PrivateInstanceAAMP &aamp, float rate)
+{
+	const bool isTrickRate = (rate != AAMP_NORMAL_PLAY_RATE) && (rate != AAMP_RATE_PAUSE) &&
+		(rate != AAMP_SLOWMOTION_RATE) && (aamp.mMediaFormat != eMEDIAFORMAT_PROGRESSIVE);
+	const bool reject = isTrickRate && !aamp.mIsIframeTrackPresent;
+	if (reject)
+	{
+		AAMPLOG_WARN("Ignoring trickplay. Not supported for this stream (no iframe source or no video)");
+		// Report the speed the player is still at, so the application resets its requested speed.
+		// The player state does not change.
+		const float currentRate = aamp.mSinkPaused.load() ? static_cast<float>(AAMP_RATE_PAUSE) : aamp.rate;
+		aamp.NotifySpeedChanged(currentRate, false);
+	}
+	return reject;
+}
+
+/**
  *  @brief PlayerInstanceAAMP Constructor.
  */
 PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
@@ -797,10 +823,8 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 
 		if (aamp->mpStreamAbstractionAAMP && !(aamp->mbUsingExternalPlayer))
 		{
-			if ( AAMP_SLOWMOTION_RATE != rate && !aamp->mIsIframeTrackPresent && !aamp->IsVODIframeSynthesisEnabled() && rate != AAMP_NORMAL_PLAY_RATE && rate != 0 && aamp->mMediaFormat != eMEDIAFORMAT_PROGRESSIVE)
+			if (RejectUnsupportedTrickplayRate(*aamp, rate))
 			{
-				AAMPLOG_WARN("Ignoring trickplay. No iframe tracks in stream");
-				aamp->NotifySpeedChanged(AAMP_NORMAL_PLAY_RATE); // Send speed change event to XRE to reset the speed to normal play since the trickplay ignored at player level.
 				return;
 			}
 			// Special case where playback has not started due to autoplay being false and
@@ -1634,10 +1658,8 @@ void PlayerInstanceAAMP::SetRateAndSeek(int rate, double secondsRelativeToTuneTi
 
 		if (aamp->mpStreamAbstractionAAMP)
 		{
-			if ((!aamp->mIsIframeTrackPresent && !aamp->IsVODIframeSynthesisEnabled() && rate != AAMP_NORMAL_PLAY_RATE && rate != 0))
+			if (RejectUnsupportedTrickplayRate(*aamp, static_cast<float>(rate)))
 			{
-				AAMPLOG_WARN("Ignoring trickplay. No iframe tracks in stream");
-				aamp->NotifySpeedChanged(AAMP_NORMAL_PLAY_RATE); // Send speed change event to XRE to reset the speed to normal play since the trickplay ignored at player level.
 				return;
 			}
 			/* Clear setting playerrate flag */

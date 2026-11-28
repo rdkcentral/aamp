@@ -7799,27 +7799,18 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 			AAMPLOG_MIL("StreamAbstractionAAMP_MPD: Media[%s] %s",
 				GetMediaTypeName(AampMediaType(i)), pMediaStreamContext->enabled?"enabled":"disabled");
 
-			if( aamp->IsLocalAAMPTsbFromConfig() && aamp->IsIframeExtractionEnabled())
+			//Store the trickplay support of the current period if there is any change
+			if (i == eMEDIATYPE_VIDEO)
 			{
-				/** Fake the iframe track if AAMP TSB and i-frame extraction are enabled */
-				isIframeAdaptationAvailable = true;
-			}
-			else if (trickplayMode && aamp->IsVODIframeSynthesisEnabled() && pMediaStreamContext->enabled)
-			{
-				/** Fake iframe track availability when VOD synthesis is active.
-				    This sets mIsIframeTrackPresent = true and fires
-				    SendSupportedSpeedsChangedEvent so the player advertises trickplay speeds. */
-				isIframeAdaptationAvailable = true;
-			}
-
-			//Store the iframe track status in current period if there is any change
-			if (!ISCONFIGSET(eAAMPConfig_AudioOnlyPlayback) && (i == eMEDIATYPE_VIDEO) && (aamp->mIsIframeTrackPresent != isIframeAdaptationAvailable))
-			{
-				aamp->mIsIframeTrackPresent = isIframeAdaptationAvailable;
-				//Iframe tracks changed mid-stream, sent a playbackspeed changed event
-				if (!newTune || forceSpeedsChangedEvent)
+				const bool trickplaySupported = IsTrickplaySupported(period, isIframeAdaptationAvailable);
+				if (aamp->mIsIframeTrackPresent != trickplaySupported)
 				{
-					aamp->SendSupportedSpeedsChangedEvent(aamp->mIsIframeTrackPresent);
+					aamp->mIsIframeTrackPresent = trickplaySupported;
+					//Trickplay support changed mid-stream, sent a playbackspeed changed event
+					if (!newTune || forceSpeedsChangedEvent)
+					{
+						aamp->SendSupportedSpeedsChangedEvent(aamp->mIsIframeTrackPresent);
+					}
 				}
 			}
 		}
@@ -7888,6 +7879,38 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 		bitratelist.push_back(audioTrack.bandwidth);
 	}
 	aamp->mCMCDCollector->SetBitrates(eMEDIATYPE_AUDIO, std::move(bitratelist));
+}
+
+bool StreamAbstractionAAMP_MPD::HasVideoAdaptationSet(IPeriod *period) const
+{
+	bool found = false;
+	if (period && !ISCONFIGSET(eAAMPConfig_AudioOnlyPlayback))
+	{
+		for (IAdaptationSet *adaptationSet : period->GetAdaptationSets())
+		{
+			if (mMPDParseHelper->IsContentType(adaptationSet, eMEDIATYPE_VIDEO) &&
+				!IsIframeTrack(adaptationSet) &&
+				(GetDesiredVideoCodecIndex(adaptationSet) != -1))
+			{
+				found = true;
+				break;
+			}
+		}
+	}
+	return found;
+}
+
+bool StreamAbstractionAAMP_MPD::IsTrickplaySupported(IPeriod *period, bool iframeAdaptationAvailable) const
+{
+	bool supported = iframeAdaptationAvailable;
+	if (!supported)
+	{
+		// Local TSB extraction (enabled only while a TSB session is active) and VOD synthesis
+		// both derive iframes from the video track
+		const bool derivesIframes = aamp->IsIframeExtractionEnabled() || aamp->IsVODIframeSynthesisEnabled();
+		supported = derivesIframes && HasVideoAdaptationSet(period);
+	}
+	return supported;
 }
 
 
