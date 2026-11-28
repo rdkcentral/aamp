@@ -156,8 +156,12 @@ void Aampcli::doAutomation( int startChannel, int stopChannel, int maxTuneTimeS,
 static char *ReadCommandLine( const char *prompt )
 {
 	static const bool useReadline = []{
+#ifdef __APPLE__
 		const char *term = getenv("TERM");
 		bool xcodeConsole = getenv("__XCODE_BUILT_PRODUCTS_DIR_PATHS") || (term && strcmp(term,"dumb")==0);
+#else
+		bool xcodeConsole = false;
+#endif
 		if( xcodeConsole && isatty(STDIN_FILENO) )
 		{
 			struct termios tio;
